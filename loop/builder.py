@@ -392,7 +392,8 @@ def _window_ask(ask):
                         r"(?:actual|native) (?:drag|zoom)|modifier clicks?", re.I)
     if not native.search(ask):
         return ask
-    clauses = re.split(r'(?<=[.?!;])\s+|\n+|\s+(?:and|but|also)\s+(?=(?:should|does|whether|which)\b)',
+    clauses = re.split(r'(?<=[.?!;])\s+|\n+|\s+(?:and|but|also)\s+'
+                       r'(?=(?:should|does|whether|which|check|verify|observe|native|real|logged[- ]in)\b)',
                        ask.removeprefix('Stopped:').strip(), flags=re.I)
     kept = []
     for clause in clauses:
