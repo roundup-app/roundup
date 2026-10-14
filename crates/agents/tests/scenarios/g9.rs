@@ -434,3 +434,49 @@ fn g9_registration_restore_never_writes_through_an_external_symlink() {
             .is_empty()
     );
 }
+
+#[test]
+fn g9_preparation_timeout_restores_earlier_moves() {
+    let (dir, git, first) = repository();
+    let plan = git.plan(dir.path(), "second", "1").unwrap();
+    let second = git.provision(dir.path(), &plan).unwrap();
+    let before = identity(&first.path.join("ignored"));
+    let wrappers = tempfile::tempdir().unwrap();
+    let actual = Command::new("sh")
+        .args(["-c", "command -v git"])
+        .output()
+        .unwrap();
+    let actual = String::from_utf8(actual.stdout).unwrap();
+    let wrapper = wrappers.path().join("git");
+    std::fs::write(&wrapper, format!("#!/bin/sh\nif [ \"$1\" = status ] && [ . -ef '{}' ]; then sleep 100; fi\nexec '{}' \"$@\"\n", second.path.display(), actual.trim())).unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let bounded = Git::with_path(format!(
+        "{}:{}",
+        wrappers.path().display(),
+        std::env::var("PATH").unwrap()
+    ))
+    .bounded();
+    let err = match bounded.prepare_removal(dir.path(), &[first.clone(), second.clone()]) {
+        Ok(_) => panic!("the second Worktree's status must time out"),
+        Err(err) => err,
+    };
+    assert!(err.message.contains("deadline"));
+    assert_eq!(identity(&first.path.join("ignored")), before);
+    assert!(
+        git.run(&first.path, &["status", "--porcelain"])
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        git.run(&second.path, &["status", "--porcelain"])
+            .unwrap()
+            .is_empty()
+    );
+    let mut retry = git
+        .prepare_removal(dir.path(), &[first.clone(), second.clone()])
+        .unwrap();
+    retry.remove(&git, dir.path()).unwrap();
+    drop(retry);
+    assert!(!first.path.exists());
+    assert!(!second.path.exists());
+}
