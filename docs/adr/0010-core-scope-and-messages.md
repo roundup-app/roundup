@@ -8,7 +8,7 @@ The [first journey](../../.agents/data/journey.md) has J14 real-Daemon/fake-Clau
 
 ### What the laws buy
 
-The laws check a one-receiver Bend model, not Rust, SQLite, the Terminal or all Daemon interleavings. V4 public-seam invariant replays connect model and implementation; V7 mutation checks demonstrate that specified bad transitions are rejected. “Caught” below separates an observed defect from an intentionally injected mutant. There is no evidence that every law independently discovered a production bug.
+The laws check a one-receiver Bend model, not Rust, SQLite, the Terminal or all Daemon interleavings. V4 public-seam invariant replays connect model and implementation; Historical V3/V5 mutation checks demonstrate rejection of specified bad transitions; V7 constrains law changes and model agreement. Current mutation coverage has the maintenance failures recorded below. “Caught” below separates an observed defect from an intentionally injected mutant. There is no evidence that every law independently discovered a production bug.
 
 | Law | User protection | Recorded evidence | What a status-only FIFO would lose without additional rules |
 |---|---|---|---|
@@ -24,6 +24,19 @@ The laws check a one-receiver Bend model, not Rust, SQLite, the Terminal or all 
 | M10: progress under fairness | Accepted pending work reaches an eligible idle Agent instead of silently waiting forever. | #634's mutant retains an item after typing. **Real delivery defect:** [#425](https://github.com/saadshahd/roundup/pull/425) regresses already-idle send, hold release and idle ancestor delivery repaired in #422. Integration tests caught it, not the fuel proof. | An idle-send/release wakeup and eventual scheduling after Takeover/input end; status storage alone schedules nothing. |
 
 Read the exact statements in [LAWS.bend](../../proofs/messages/LAWS.bend), coverage limits in [proof scenarios](../../scenarios/proofs.md), and receiver/transaction rules in [Messages](../messages.md). The older prose in V3 still mentions the former user-send exemption: B32 and current LAWS.bend govern the stronger input rule. This assessment does not silently amend either artefact.
+
+### Current mutation evidence
+
+The ordinary `just proofs` passes, but it does not run the mutation suite. On main `5e53cf409e4dba8377d7a4d1e7ec3b5c0b268b03` (the Message/proof files are unchanged from the inventory reference), run `just proofs-setup`, then `BEND="$PWD/proofs/.tools/bend/bin/bend" proofs/messages/mutants/run.sh <law>` separately for the lowercase arguments `m1` through `m10`. M1, M2, M5, M6, M7 and M9 exit 0 after the intended rejection. The four other runs fail as follows:
+
+| Failure | Exit | Observed result |
+|---|---:|---|
+| M3 | 2 | `cannot apply m3.patch`: it still targets the pre-B32 Takeover guard. |
+| M4 | 2 | `cannot apply m4.patch`. |
+| M8 | 1 | Extracted **unmutated** proof fails: expected a defined name, observed `m1_main`, location `a35_m1`. The section selector omits a required helper. |
+| M10 | 2 | `cannot apply m10.patch`. |
+
+These are observer defects, **not disproofs of the laws**. Keep the stronger model and repair the mutation artefacts/harness under [#1685](https://github.com/saadshahd/roundup/issues/1685), including propagation through the standard proof observer. This is a concrete maintenance cost of parallel model/proof/implementation artefacts; a green ordinary proof run alone cannot establish current mutation coverage. The assessment changes none of them.
 
 ### Options and decision
 
@@ -136,6 +149,7 @@ Every non-keep recommendation has one Work Issue, reused when already owned. New
 | Recommendation | Work Issue | Native prerequisites / overlapping owners |
 |---|---|---|
 | Simplify existing SQLite orchestration; retain proofs | [#1665](https://github.com/saadshahd/roundup/issues/1665) | #1621, #1617 migrations, #1642 shared database, #1366 input latency, #1581 Door-action holds, #808 rewind. Their stores/lifecycle settle first; this new specification does not change their scope. |
+| Repair current mutation evidence without weakening laws | [#1685](https://github.com/saadshahd/roundup/issues/1685) | Native #1621. Owns proof check/harness/patches only; no open Issue owns those exact files. Current delivery/model changes remain intact. |
 | Remove superseded Thread, view-only Orders/Digests/Checkpoint cards | [#1497](https://github.com/saadshahd/roundup/issues/1497) | Existing terminal-migration owner: native blockers #1522, #1622 Thread primitives, #1625 Shelf/composer, #1606 Digest/small directories, #1627 copy catalogue and #1652 tests. Do not file a competing removal Issue. Overlapping owners reconcile their acceptance against the accepted removal before any rewrite. |
 | Defer additional visual/Sketch authoring | [#1666](https://github.com/saadshahd/roundup/issues/1666) | Native #1621 and #1497. Owns a new policy scenario only, no shared Pad files. #1639's existing Pad primitive migration/repairs continue. New authoring needs new user-selected work after U467/U468 share merged real-Daemon/rendered evidence. |
 | Defer topology expansion and local evaluators | [#1667](https://github.com/saadshahd/roundup/issues/1667) | Native #1621, #1497 and #808. Owns a new policy scenario only. Keep current Home/Todo graph; release requires terminal-journey evidence and owner-requested A35 Door rewind, then separately selected expansion work. |
@@ -183,6 +197,7 @@ Assessment acceptance is policy/manual review, not an invented text-matching tes
 | `python3 loop/orders.py check <body-file>` for each new Work Issue | Nonzero means do not publish that body. |
 | `git diff origin/main --name-only` | Any path other than this ADR violates #1621's ownership; command exit 0 alone is not acceptance. |
 | `just check` | Nonzero remains a reported check failure, not evidence to waive a gate. |
+| Per-law mutation commands above | M3/M4/M10 exit 2; M8 exits 1 on the unmutated baseline. #1685 owns repair; this assessment reports failures rather than claiming full mutation coverage. |
 | Independent PR review, then required checks/auto-merge | Only a merged ADR completes #1621; ready is not done. |
 
 Implementation work remains in the linked Issues. No App, crates or proofs file is changed to make this assessment pass.
