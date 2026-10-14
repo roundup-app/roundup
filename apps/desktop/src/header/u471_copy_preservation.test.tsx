@@ -37,11 +37,11 @@ it("u471_previous_copy_assertions_are_preserved_header_rename_label_keeps_the_gl
   expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" }).value).toBe("lowercase");
 });
 
-it("u471_previous_copy_assertions_are_preserved_header_close_dialog_uses_sentence_case_and_preserves_agent_names", () => {
+it("u471_previous_copy_assertions_are_preserved_header_close_dialog_uses_sentence_case_and_preserves_agent_names", async () => {
   mount();
   fireEvent.click(screen.getByLabelText("Close lowercase"));
 
-  expect(screen.getByRole("alertdialog", { name: "Close lowercase?" }).textContent).toContain("1 Agent runs: agent name.");
+  expect((await screen.findByRole("alertdialog", { name: "Close lowercase?" })).textContent).toContain("1 Agent runs: agent name.");
   expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Stop and close" })).toBeTruthy();
 });
