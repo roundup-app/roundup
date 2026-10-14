@@ -379,19 +379,34 @@ def collect(github, end):
                                    'branch': pr['head']['ref'], 'kind': classify(paths, pr['body']),
                                    'paths': paths, 'body': pr['body']})
         elif not pr.get('merged_at') and inside(pr.get('closed_at')):
-            closed = [e for e in github.read(f'issues/{pr["number"]}/events?per_page=100')
-                      if e['event'] == 'closed' and inside(e['created_at'])]
+            events = github.read(f'issues/{pr["number"]}/events?per_page=100')
+            closed = [e for e in events if e['event'] == 'closed' and inside(e['created_at'])]
+            reopened = max((timestamp(e['created_at']) for e in events
+                            if e['event'] == 'reopened' and
+                            timestamp(e['created_at']) <= timestamp(pr['closed_at'])),
+                           default=timestamp(pr['created_at']))
+            # Ordinary prose must accompany this closure, not a prior review or closed attempt.
+            # Retain the complete comment so its author, text and time remain independently inspectable.
             causes = [c for c in comments_by_number[pr['number']] if
-                      c['body'].startswith(('<!-- fix-exhausted', '<!-- closed', '<!-- superseded'))]
+                      c['user']['login'] in orders.AUTHORS and
+                      timestamp(c['created_at']) >= reopened and (
+                      (c['body'] or '').startswith(('<!-- fix-exhausted', '<!-- closed', '<!-- superseded')) or
+                      (re.match(r"^Closed by [^:\n]+: \S", c['body'] or '') and
+                       any(abs((timestamp(c['created_at']) - timestamp(e['created_at'])).total_seconds()) <= 60
+                           for e in closed if abs((timestamp(e['created_at']) -
+                               timestamp(pr['closed_at'])).total_seconds()) <= 60)))]
             linked = orders.linked_issue(pr['body'])
             if linked:
                 evidence = comments_by_number.get(linked)
                 if evidence is None:
                     evidence = github.read(f'issues/{linked}/comments?per_page=100')
                 causes += [c for c in evidence if before(c['created_at']) and
-                           c['body'].startswith(f'<!-- fix-exhausted #{pr["number"]} -->')]
+                           c['user']['login'] in orders.AUTHORS and
+                           timestamp(c['created_at']) >= reopened and
+                           (c['body'] or '').startswith(f'<!-- fix-exhausted #{pr["number"]} -->')]
             data['unmerged'].append({**source(pr, pr['closed_at']), 'number': pr['number'],
-                                     'closing_events': closed, 'cause': causes or 'unknown'})
+                                     'closing_events': closed,
+                                     'cause': list({c['id']: c for c in causes}.values()) or 'unknown'})
     runs = workflow_runs(github, start, end)
     known_ids = {r['id'] for r in runs}
     for run_id in sorted(set().union(*model_ids_by_pr.values()) if model_ids_by_pr else set()):

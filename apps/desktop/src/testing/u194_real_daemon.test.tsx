@@ -36,7 +36,7 @@ describe("u194 a long command's Decision is answered by pointer on the real Daem
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
 
     fireEvent.click(await within(rail).findByRole("button", { name: /Start Door/i }));
 
