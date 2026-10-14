@@ -76,7 +76,15 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       // Linux Crashpad ignores --user-data-dir and locks settings in the
       // default Chrome config. A different browser holding that lock stops
       // startup before DevTools exists (chrome/common/chrome_paths.cc).
-      env: { ...process.env, CHROME_CONFIG_HOME: profile, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
+      env: {
+        ...process.env,
+        CHROME_CONFIG_HOME: profile,
+        DBUS_SESSION_BUS_ADDRESS: "disabled:",
+        // Fontconfig opens this inherited file on a startup worker; a held
+        // read leaves the browser waiting before its DevTools pipe answers.
+        // The observer renders with the installed fonts and system config.
+        FONTCONFIG_FILE: undefined,
+      },
     },
   );
 
