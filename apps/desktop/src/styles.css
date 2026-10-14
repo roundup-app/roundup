@@ -331,6 +331,17 @@ p {
   bottom: 0;
   left: var(--rail-width);
   background-color: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.window[data-shelf-shown="true"] .shelf-scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.window[data-shelf-animated="true"] .shelf-scrim {
+  transition: opacity var(--duration-drawer) ease-out;
 }
 
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */

@@ -49,7 +49,7 @@ afterAll(async () => {
 // hidden Shelf before showing it, and Pane refits on the next frame after settling.
 const settle = () => evaluate(`(async () => {
   await new Promise(resolve => requestAnimationFrame(resolve));
-  await Promise.all(document.getAnimations().filter(a => a.effect?.target?.matches?.('.shelf, .columns, .drawer')).map(a => a.finished.catch(() => {})));
+  await Promise.all(document.getAnimations().filter(a => a.effect?.target?.matches?.('.shelf, .shelf-scrim, .columns, .drawer')).map(a => a.finished.catch(() => {})));
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   return true;
 })()`);
@@ -394,23 +394,23 @@ it("u371_checks_hold_with_failure_text_visible", async () => {
   await capture("U371", "1280x800-tree-40-failure");
 }, 90_000);
 
-it("u371_reduced_motion_and_restore_are_instant", async () => {
-  await openShelf();
+for (const overlay of [false, true]) it(`u371_reduced_motion_and_restore_are_instant_${overlay}`, async () => {
+  await openShelf("tree-40", overlay ? 480 : 288, overlay ? 560 : 320);
   await browser("set", "media", "light", "reduced-motion");
   await settle();
   await toggle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
-  expect((await boxes())[1]![4]).toBe(992);
-  expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.columns')).length")).toBe(0);
+  expect((await boxes())[1]![4]).toBe(overlay ? 800 : 992);
+  expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.shelf-scrim,.columns')).length")).toBe(0);
   await toggle();
-  expect((await boxes())[1]![4]).toBe(672);
+  expect((await boxes())[1]![4]).toBe(overlay ? 800 : 672);
   await browser("set", "media", "light");
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
   await browser("wait", ".shelf-tabs");
   await settle();
   expect(await evaluate("document.querySelector('.shelf').dataset.animated")).toBe("false");
-  expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.columns')).length")).toBe(0);
-  expect((await boxes())[1]![4]).toBe(672);
+  expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.shelf-scrim,.columns')).length")).toBe(0);
+  expect((await boxes())[1]![4]).toBe(overlay ? 800 : 672);
 }, 90_000);
 
 it("u371_resizing_a_reserved_shelf_refits_the_terminal_after_the_drag", async () => {
@@ -472,6 +472,11 @@ it("u371_overlay_scrim_fades_with_the_interruptible_slide", async () => {
     };
     return [await run(false), await run(false), await run(true)];
   })()`);
+  const timing = await evaluate<string[]>(`(() => {
+    const style = getComputedStyle(document.querySelector('.shelf-scrim'));
+    return [style.transitionProperty, style.transitionDuration, style.transitionTimingFunction];
+  })()`);
+  expect(timing).toEqual(["opacity", "0.18s", "ease-out"]);
   const [close, open, reversal] = phases;
   expect(close![0]![1]).toBe(1);
   expect(close!.some(row => row[1]! > 0 && row[1]! < 1)).toBe(true);
