@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { connect } from "node:net";
 import * as v from "valibot";
-import { mkdtempSync, readdirSync, existsSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
@@ -15,8 +14,6 @@ import { showEverythingInApp } from "../testing/showEverything";
 import { showShelfTab } from "../testing/shelfTabs";
 
 let real: StartedDaemon;
-
-let data: string;
 
 const replySchema = v.object({ id: v.number(), result: v.optional(v.unknown()), error: v.optional(v.object({ code: v.number(), message: v.string() })) });
 
@@ -48,13 +45,10 @@ const ownerCall = (owner: string, method: "pad.create" | "pad.write" | "pad.appe
 });
 
 beforeAll(async () => {
-  data = mkdtempSync(join(tmpdir(), "u460-data-"));
-  real = await startRealDaemon({ ROUNDUP_DATA_DIR: data });
+  real = await startRealDaemon({});
 }, 120_000);
 
-afterAll(async () => { await real?.stop();
-
- if (data) rmSync(data, { recursive: true, force: true }); });
+afterAll(async () => { await real?.stop(); });
 
 afterEach(cleanup);
 
@@ -99,9 +93,7 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   expect((await ownerCall(owner.id, "pad.write", name, "after")).error?.code).toBe(-32001);
   expect((await ownerCall(owner.id, "pad.append", name, "after")).error?.code).toBe(-32001);
   await expect(app.rpc("pad.read", { name })).rejects.toMatchObject({ code: -32001 });
-  // N5 ignores caller overrides; older fixtures require caller-owned data.
-  const dataDir = "dataDir" in real ? v.parse(v.string(), real.dataDir) : data;
-  const projects = join(dataDir, "projects");
+  const projects = join(real.dataDir, "projects");
 
   const keys = readdirSync(projects);
 
