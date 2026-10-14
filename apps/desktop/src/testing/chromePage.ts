@@ -73,7 +73,10 @@ export const openPage = async (found: string): Promise<ChromePage> => {
       // A host session bus can accept a connection without completing its
       // authentication, blocking Chromium startup before DevTools answers.
       // The isolated headless observer needs no desktop session services.
-      env: { ...process.env, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
+      // Linux Crashpad ignores --user-data-dir and locks settings in the
+      // default Chrome config. A different browser holding that lock stops
+      // startup before DevTools exists (chrome/common/chrome_paths.cc).
+      env: { ...process.env, CHROME_CONFIG_HOME: profile, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
     },
   );
 
