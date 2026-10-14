@@ -1,9 +1,11 @@
 import pathlib, subprocess, shutil, json, hashlib, os
-root=pathlib.Path('/home/runner/work/roundup/roundup')
+root=pathlib.Path(__file__).resolve().parents[7]
 history=pathlib.Path('/tmp/rpc-1374-history')
 original=pathlib.Path('/tmp/rpc-1476-original')
 bins=pathlib.Path('/tmp/r16-1476-binaries')
-out=root/'crates/rpc/r16/staging/continuation-7763'
+out=pathlib.Path(os.environ['ROUNDUP_OBSERVER_OUTPUT']).resolve()
+out.mkdir(parents=True, exist_ok=True)
+os.environ['ROUNDUP_OBSERVER_OUTPUT']=str(out)
 def run(name,args,cwd=root,env=None):
     print(name,flush=True)
     with (out/(name+'.log')).open('w') as log:
@@ -20,17 +22,17 @@ freeze(root/'target/release/rupd','rupd-current')
 freeze(root/'target/release/rup','rup-current')
 freeze(root/'target/release/examples/r16_client','client-repaired')
 freeze(root/'target/release/examples/r16_reply','reply-current')
-run('owned-probe-patch',['git','apply',str(root/'crates/rpc/r16/probe-client.patch')],history)
+run('owned-probe-patch',['git','apply',str(root/'crates/rpc/tests/observers/r16/probe-client.patch')],history)
 run('owned-probe-build',['cargo','build','--release','-p','perf'],history)
 freeze(history/'target/release/perf','probe-owned')
-run('undo-owned-patch',['git','apply','-R',str(root/'crates/rpc/r16/probe-client.patch')],history)
-run('staging-probe-patch',['git','apply',str(root/'crates/rpc/r16/staging/probe-repair.patch')],history)
+run('undo-owned-patch',['git','apply','-R',str(root/'crates/rpc/tests/observers/r16/probe-client.patch')],history)
+run('staging-probe-patch',['git','apply',str(root/'crates/rpc/tests/observers/r16/staging/probe-repair.patch')],history)
 run('staging-probe-build',['cargo','build','--release','-p','perf'],history)
 freeze(history/'target/release/perf','probe-repaired')
 run('original-client-build',['cargo','build','--release','-p','rpc','--example','r16_client','--target-dir',str(root/'target')],original)
 freeze(root/'target/release/examples/r16_client','client-original')
 (history/'crates/rpc/examples').mkdir(exist_ok=True)
-shutil.copy2(root/'crates/rpc/r16/historical-reply.rs',history/'crates/rpc/examples/r16_reply.rs')
+shutil.copy2(root/'crates/rpc/tests/observers/r16/historical-reply.rs',history/'crates/rpc/examples/r16_reply.rs')
 run('historical-reply-build',['cargo','build','--release','-p','rpc','--example','r16_reply'],history)
 freeze(history/'target/release/examples/r16_reply','reply-historical')
 run('rpc-tests',['cargo','test','-p','rpc'])
@@ -44,6 +46,6 @@ files=list(bins.iterdir())+[root/'Cargo.lock',history/'Cargo.lock',history/'crat
 (out/'hashes.json').write_text(json.dumps({str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},indent=2)+'\n')
 for mode,args in [('profiles',['client-original','client-repaired','reply-current','reply-historical']),('isolation',['probe-owned','probe-repaired',str(history),'rupd-current']),('pairs',['probe-repaired',str(history),'rupd-historical','rupd-current'])]:
     paths=[str(bins/a) if (bins/a).exists() else a for a in args]
-    run(mode,['python3',str(root/'crates/rpc/r16/observe.py'),mode,str(out),*paths])
-shutil.copy2(root/'crates/rpc/r16/staging/compare.py',out/'compare.py')
+    run(mode,['python3',str(root/'crates/rpc/tests/observers/r16/observe.py'),mode,str(out),*paths])
+shutil.copy2(root/'crates/rpc/tests/observers/r16/staging/compare.py',out/'compare.py')
 run('compare',['python3',str(out/'compare.py')])
