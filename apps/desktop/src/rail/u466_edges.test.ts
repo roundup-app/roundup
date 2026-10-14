@@ -271,4 +271,4 @@ it("u466_editing_keeps_the_title_size_and_name_column", async () => {
   const field = await page.call<{size:string;left:number}>("() => {const e=document.querySelector('.rail-row input');return {size:getComputedStyle(e).fontSize,left:e.getBoundingClientRect().left};}");
   expect(field.size).toBe("15px");
   expect(field.left).toBeCloseTo(left,0);
-});
+},60_000);

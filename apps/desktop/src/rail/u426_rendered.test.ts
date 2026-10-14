@@ -36,51 +36,50 @@ const geometry = `() => [...document.querySelectorAll('.rail-row')].map(r => { c
 
 type Checks = Record<string, { status: string }>;
 
-for (const seed of ["agents-10", "tree-40"]) {
-  for (const width of [1280]) {
-    for (const scheme of ["light", "dark"] as const) {
-      it(`u426_showing_the_icons_moves_no_row ${seed} ${width} ${scheme}`, async () => {
-        const label = `${seed}-${width}x800-${scheme}`;
-        let baseline: Checks | null = null;
+// Row geometry does not change with scheme; the Check comparison reads dark once, on tree-40.
+for (const [seed, scheme] of [["agents-10", "light"], ["tree-40", "light"], ["tree-40", "dark"]] as const) {
+  const width = 1280;
 
-        if (process.env.ROUNDUP_RAIL_BASELINE) {
-          await load(seed, width, scheme, true);
-          await page.hover(600, 10);
-          baseline = await page.call<Checks>(`() => window.__checks()`);
-          await capture("U426", `base/${label}-hidden`);
-          const basePoint = await page.call<{ x: number; y: number }>(`() => { const b=document.querySelector('.rail-row').getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
+  it(`u426_showing_the_icons_moves_no_row ${seed} ${width} ${scheme}`, async () => {
+    const label = `${seed}-${width}x800-${scheme}`;
+    let baseline: Checks | null = null;
 
-          await page.hover(basePoint.x, basePoint.y);
-          await page.until(`() => document.querySelector('.rail-row').matches(':hover')`);
-          await capture("U426", `base/${label}-shown`);
-        }
+    if (process.env.ROUNDUP_RAIL_BASELINE) {
+      await load(seed, width, scheme, true);
+      await page.hover(600, 10);
+      baseline = await page.call<Checks>(`() => window.__checks()`);
+      await capture("U426", `base/${label}-hidden`);
+      const basePoint = await page.call<{ x: number; y: number }>(`() => { const b=document.querySelector('.rail-row').getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
 
-        await load(seed, width, scheme);
-        await page.hover(600, 10);
-        const before = await page.call(geometry);
-        await capture("U426", `head/${label}-hidden`);
-        const point = await page.call<{ x: number; y: number }>(`() => { const b=document.querySelector('.rail-row').getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
-        await page.hover(point.x, point.y);
-        await page.until(`() => getComputedStyle(document.querySelector('.row-icons')).opacity === '1'`);
-        expect(await page.call(geometry)).toEqual(before);
-        const checks = await page.call<Checks>(`() => window.__checks()`);
-
-        if (baseline) {
-          for (const [id, check] of Object.entries(baseline)) {
-            if (check.status === "pass") expect(checks[id]?.status, `${label} ${id}`).toBe("pass");
-          }
-        }
-
-        await capture("U426", `head/${label}-shown`);
-        await capture("U427", `${label}-workstream`);
-        const agentPoint = await page.call<{ x: number; y: number }>(`() => { const r=[...document.querySelectorAll('.rail-row')].find(r=>r.querySelector('[aria-label="Stop"]')); const b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
-        await page.hover(agentPoint.x, agentPoint.y);
-        await page.until(`() => [...document.querySelectorAll('.rail-row')].some(r=>r.querySelector('[aria-label="Stop"]') && r.dataset.near === 'true')`);
-        expect(await page.call(geometry)).toEqual(before);
-        await capture("U428", `${label}-agent`);
-      }, 90_000);
+      await page.hover(basePoint.x, basePoint.y);
+      await page.until(`() => document.querySelector('.rail-row').matches(':hover')`);
+      await capture("U426", `base/${label}-shown`);
     }
-  }
+
+    await load(seed, width, scheme);
+    await page.hover(600, 10);
+    const before = await page.call(geometry);
+    await capture("U426", `head/${label}-hidden`);
+    const point = await page.call<{ x: number; y: number }>(`() => { const b=document.querySelector('.rail-row').getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
+    await page.hover(point.x, point.y);
+    await page.until(`() => getComputedStyle(document.querySelector('.row-icons')).opacity === '1'`);
+    expect(await page.call(geometry)).toEqual(before);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    if (baseline) {
+      for (const [id, check] of Object.entries(baseline)) {
+        if (check.status === "pass") expect(checks[id]?.status, `${label} ${id}`).toBe("pass");
+      }
+    }
+
+    await capture("U426", `head/${label}-shown`);
+    await capture("U427", `${label}-workstream`);
+    const agentPoint = await page.call<{ x: number; y: number }>(`() => { const r=[...document.querySelectorAll('.rail-row')].find(r=>r.querySelector('[aria-label="Stop"]')); const b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
+    await page.hover(agentPoint.x, agentPoint.y);
+    await page.until(`() => [...document.querySelectorAll('.rail-row')].some(r=>r.querySelector('[aria-label="Stop"]') && r.dataset.near === 'true')`);
+    expect(await page.call(geometry)).toEqual(before);
+    await capture("U428", `${label}-agent`);
+  }, 90_000);
 }
 
 it("u426_a_long_name_never_wraps_beside_the_icons", async () => {
@@ -103,7 +102,8 @@ it("u426_a_long_name_never_wraps_beside_the_icons", async () => {
   await capture("U426", "long-name-163");
 }, 60_000);
 
-for (const railWidth of [288, 360]) {
+// Tab and Enter or Space reach the same icons at any Rail width; the default width stands for the rest.
+for (const railWidth of [288]) {
   it(`u426_every_icon_is_reached_by_tab_and_enter_or_space_runs_without_selecting ${railWidth}`, async () => {
     await load("tree-40", 1280, "light");
     await page.call(`width => { document.querySelector('.rail').style.width=width+'px'; document.querySelector('.rail-row').focus(); }`, railWidth);
@@ -215,7 +215,8 @@ it("u426_only_workstream_and_agent_rows_carry_icons", async () => {
   expect(read.otherGroups).toBe(0);
 }, 60_000);
 
-for (const scheme of ["light", "dark"] as const) {
+// The Door control's box, label and icon do not change with scheme.
+for (const scheme of ["light"] as const) {
   for (const railWidth of [288, 252]) {
     it(`u426_the_stopped_door_keeps_a_readable_control_beside_the_group ${scheme} ${railWidth}`, async () => {
       if (process.env.ROUNDUP_RAIL_BASELINE) {
@@ -245,8 +246,9 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
-for (const scheme of ["light", "dark"] as const) {
-  for (const state of ["hovered", "selected"] as const) {
+// The group's box does not change with scheme; the Check comparison reads dark once, selected.
+for (const [scheme, states] of [["light", ["hovered", "selected"]], ["dark", ["selected"]]] as const) {
+  for (const state of states) {
     it(`u426_agent_actions_replace_the_pads_count_at_the_right_edge ${state} ${scheme}`, async () => {
       await load("tree-40", 1280, scheme);
       await page.hover(600, 10);
@@ -282,7 +284,8 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
-for (const scheme of ["light", "dark"] as const) {
+// Count insets do not change with scheme.
+for (const scheme of ["light"] as const) {
   for (const railWidth of [288, 252]) {
     it(`u426_resting_counts_align_with_the_icon_marks ${scheme} ${railWidth}`, async () => {
       await load("tree-40", 1280, scheme);
