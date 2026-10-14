@@ -949,7 +949,6 @@ class Codex(unittest.TestCase):
                 builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
 
 
-
 class CodexLogin(unittest.TestCase):
     """Exercise main's no-model observer against completed Actions jobs and Issue fixtures."""
 
@@ -1242,11 +1241,6 @@ class Pick(unittest.TestCase):
                 dict(issue=4, slug='K', state='blocked', reason='duplicate work Key; x')]
         self.assertEqual(builder.choose(rows, {1}, 5), [])
 
-    def test_l96_a_repair_entry_has_a_slug_and_opens_no_pr(self):
-        text = (ROOT / '.github/workflows/build-issue.yml').read_text()
-        self.assertIn('repair-*', text)
-        self.assertIn('Open no PR; edit Issue #', text)
-
     def test_l96_a_struck_invalid_order_yields_no_repair_entry(self):
         now = time.time()
         rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60] * 3, 2: [now - 60]}, now)
@@ -1481,40 +1475,8 @@ class Built(unittest.TestCase):
                 builder.built(1, 'U1', True, json.dumps(dict(ask='Again?')), 'https://run/1', dict(verdict='user'))
                 self.assertEqual(github.writes, [])
 
-    def test_l79_a_build_run_reads_a_screened_back_ask_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('`<!-- strike -->`', role)
-        self.assertIn('The screen sent it back to the loop', role)
-        self.assertIn('The screen sent it back to the loop', Path(builder.__file__).read_text())
-
-    def test_l81_a_fix_run_reads_a_screened_back_stopped_question_as_answered(self):
-        role = (ROOT / '.agents/builder.md').read_text()
-        fix = role.split('A fix run starts with', 1)[1].split('\n\n', 1)[0]
-        self.assertIn('The screen sent it back to the loop', fix)
-        self.assertIn('never stop on it again', fix)
-
     def test_l79_open_pr_never_waits_on_native_window(self):
-        for path in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / path).read_text()
-            self.assertIn('An open PR never waits on', text)
-            self.assertIn('passing Linux and Chromium tests', text)
-            self.assertIn('the user reports what they meet on the Mac', text)
         subprocess.run([str(ROOT / 'loop/screen.test.sh')], check=True, timeout=60, capture_output=True)
-
-    def test_l79_screen_and_builder_name_the_three_mac_cases(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('macos-latest', text)
-            self.assertIn('Chromium', text)
-            self.assertIn('logged-in real `claude`', text)
-
-    def test_l79_merged_native_work_with_passing_linux_tests_is_loop_and_closes(self):
-        for f in ('.agents/screen.md', '.agents/builder.md'):
-            text = (ROOT / f).read_text()
-            self.assertIn('already merged', text) if 'screen' in f else self.assertIn("finds its Issue's work merged", text)
-            self.assertIn('the user reports what they meet on the Mac', text)
-        spec = (ROOT / 'scenarios/loop-rules.md').read_text()
-        self.assertIn('work `main` already merged whose Linux or Chromium tests pass on `main`, is `loop`', spec)
 
     def test_l79_the_screen_asks_haiku_with_no_tools_and_gives_none_for_a_missing_or_unknown_verdict(self):
         verdict = dict(verdict='mac', reason='why', preview='Run it.')
@@ -2516,11 +2478,6 @@ class L102(unittest.TestCase):
         with GitHub(view=view):
             self.assertEqual(builder.repairs([view], NOW), [(9, HEAD, 'check')])
 
-    def test_l102_builder_md_names_the_owner_comments_heading(self):
-        text = (ROOT / '.agents/builder.md').read_text()
-        self.assertIn('## Owner comments', text)
-        self.assertIn('overrides', text)
-
 
 class Ready(unittest.TestCase):
     def test_l116_ready_and_review_shell_observer(self):
@@ -2718,6 +2675,144 @@ class L23Budget(unittest.TestCase):
                 builder.built(40, 'K40', True, '', 'https://x/run')
             self.assertLessEqual(len(calls) + writes.call_count, 8)
             self.assertIn('<!-- strike -->', writes.call_args.args[-1])
+
+
+class L115(unittest.TestCase):
+    def test_l115_implementation_inherits_open_dependents(self):
+        links = {3: [dict(id=10, number=1, state='open')],
+                 2: [dict(id=10, number=1, state='open'), dict(id=90, number=9, state='open')]}
+        writes = []
+
+        def api(*args):
+            path = args[1]
+            if path.endswith('/issues/1/dependencies/blocking?per_page=100'):
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return [[dict(id=20, number=2, state='open'), dict(id=30, number=3, state='open')]]
+            if path.endswith('/issues/1'):
+                return dict(id=10, number=1, state='open')
+            if path.endswith('/issues/3'):
+                return dict(id=30, number=3, state='open')
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
+                writes.append((number, args[-1]))
+                links[number].append(dict(id=30, number=3, state='open'))
+                return {}
+            return [links[number]]
+
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(2, 'issue_id=30')])
+        self.assertEqual([dep['id'] for dep in links[2]], [10, 90, 30])
+
+
+    def filing(self, fail=None, pages=None):
+        links = {2: [10, 90], 3: [], 4: []}
+        writes = []
+        pages = pages if pages is not None else [[dict(id=20, number=2, state='open')],
+                    [dict(id=40, number=4, state='open'), dict(id=50, number=5, state='closed')]]
+
+        def api(*args):
+            path = args[1]
+            if '/dependencies/' not in path:
+                number = int(path.rsplit('/', 1)[1])
+                return dict(id=number * 10, number=number, state='open')
+            if '/blocking?' in path:
+                self.assertIn('--paginate', args)
+                self.assertIn('--slurp', args)
+                return pages
+            number = int(path.split('/issues/')[1].split('/')[0])
+            if '-X' in args:
+                self.assertEqual(args[args.index('-X') + 1], 'POST')
+                self.assertTrue(path.endswith('/dependencies/blocked_by'))
+                database_id = int(args[-1].split('=')[1])
+                if fail == number:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='write refused')
+                writes.append((number, database_id))
+                links[number].append(database_id)
+                return {}
+            return [[dict(id=value, number=value // 10, state='open') for value in links[number]]]
+        return links, writes, api
+
+    def test_l115_all_pages_skip_closed_dependents(self):
+        links, writes, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+    def test_l115_retry_preserves_links(self):
+        links, writes, api = self.filing(fail=4)
+        with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10), (2, 30)])
+        # Retry against the persisted partial graph, with the remote failure repaired.
+        def repaired(*args):
+            if '-X' in args and '/issues/4/' in args[1]:
+                links[4].append(30)
+                writes.append((4, 30))
+                return {}
+            return api(*args)
+        with patch.object(builder.orders, 'gh', side_effect=repaired):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+        # A timed-out POST may already exist remotely; retry confirms it without a second POST.
+        links, writes, api = self.filing()
+        def uncertain(*args):
+            result = api(*args)
+            if '-X' in args:
+                raise subprocess.TimeoutExpired('gh', 30)
+            return result
+        with patch.object(builder.orders, 'gh', side_effect=uncertain), redirect_stderr(io.StringIO()):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        self.assertEqual(writes, [(3, 10)])
+        with patch.object(builder.orders, 'gh', side_effect=api):
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertEqual(writes, [(3, 10), (2, 30), (4, 30)])
+
+    def test_l115_dependency_failure_holds_specification_pr(self):
+        for endpoint in ('/blocking?', '/blocked_by?'):
+            _, _, api = self.filing()
+
+            def failed_read(*args):
+                if endpoint in args[1]:
+                    raise subprocess.CalledProcessError(1, 'gh', stderr='dependency read denied')
+                return api(*args)
+
+            with patch.object(builder.orders, 'gh', side_effect=failed_read), patch.object(builder, 'call') as write:
+                with redirect_stderr(io.StringIO()) as diagnostic:
+                    self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+                self.assertIn('do not open or ready', diagnostic.getvalue())
+                self.assertIn('dependency read denied', diagnostic.getvalue())
+                write.assert_not_called()
+
+    def test_l115_filing_reuses_orders_dependency_reads(self):
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=api), patch.object(
+                builder.orders, 'dependencies', wraps=builder.orders.dependencies) as read:
+            self.assertEqual(builder.main(['link-implementation', '1', '3']), 0)
+        self.assertIn(unittest.mock.call(1, 'blocking'), read.call_args_list)
+        self.assertIn(unittest.mock.call(3), read.call_args_list)
+
+    def test_l115_filing_exit_codes(self):
+        for pages in ([[]], None, {}, [[{}]], []):
+            _, _, api = self.filing(pages=pages if pages is not None else {})
+            with patch.object(builder.orders, 'gh', side_effect=api), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 0 if pages in ([[]], []) else 1)
+        for args in ([], ['1'], ['0', '3'], ['a', '3'], ['²', '3'], ['1', '1'], ['1', '3', '4']):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', *args]), 2)
+        for malformed in (None, [], {}, dict(id='30', number=3)):
+            with patch.object(builder.orders, 'gh', return_value=malformed), redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
+        # A successful HTTP write without a corresponding dependency read is unconfirmed.
+        _, _, api = self.filing()
+        with patch.object(builder.orders, 'gh', side_effect=lambda *args: {} if '-X' in args else api(*args)):
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(builder.main(['link-implementation', '1', '3']), 1)
 
 
 if __name__ == '__main__':

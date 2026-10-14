@@ -75,6 +75,7 @@ it("u453_shelf_span_has_no_window_cap", () => {
   expect(css).toMatch(/--shelf-span:\s*var\(--shelf-width\);/);
 });
 
+// Reads every committed capture's PNG header and Checks: about 1 s on an idle runner, 6 s beside a vite build and Chromium tests.
 it("u453_no_retired_narrow_capture", () => {
   const checks = v.object({ D10: v.object({ value: v.object({ viewport: v.string() }) }) });
 
@@ -103,7 +104,7 @@ it("u453_no_retired_narrow_capture", () => {
   });
 
   expect(violations).toEqual([]);
-});
+}, 30_000);
 
 it("u453_capture_width_reads_only_the_png_header", () => {
   const dir = mkdtempSync(join(tmpdir(), "u453-"));

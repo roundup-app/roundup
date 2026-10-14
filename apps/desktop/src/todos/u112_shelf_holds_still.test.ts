@@ -1,31 +1,14 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { chromePath, headlessChromeArgs } from "../testing/chromePage";
 
 /** U112 in a real Chromium: Vite serves the U26 harness and Chrome is driven over its DevTools pipe, so no package beyond a Chrome binary is needed. */
-
-const chromePath = (): string | undefined => {
-  const root = process.env["PLAYWRIGHT_BROWSERS_PATH"] ?? "/opt/pw-browsers";
-
-  const bundled = existsSync(root)
-    ? readdirSync(root)
-        .filter((name) => /^chromium-\d+$/.test(name))
-        .flatMap((name) => ["chrome-linux/chrome", "chrome-linux64/chrome", "chrome-mac/Chromium.app/Contents/MacOS/Chromium"].map((sub) => join(root, name, sub)))
-    : [];
-
-  return [
-    process.env["CHROME_PATH"],
-    ...bundled,
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-  ].find((path) => path !== undefined && existsSync(path));
-};
 
 type Json = string | number | boolean | null | readonly Json[] | { readonly [name: string]: Json };
 
@@ -106,7 +89,7 @@ beforeAll(async () => {
   profile = mkdtempSync(join(tmpdir(), "u112-"));
   child = spawn(
     found,
-    ["--headless=new", "--no-sandbox", "--disable-gpu", "--remote-debugging-pipe", `--user-data-dir=${profile}`, "--no-first-run", "about:blank"],
+    [...headlessChromeArgs, `--user-data-dir=${profile}`, "about:blank"],
     { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
   );
   // SAFETY: the child is spawned with a pipe at fd 4.
@@ -135,11 +118,15 @@ afterAll(async () => {
     const exited = new Promise((resolve) => child.once("exit", resolve));
 
     // Browser.close lets Chrome stop its helper processes, which still write to the profile after a SIGKILL of the parent; the kill is the fallback.
-    const fallback = setTimeout(() => child.kill("SIGKILL"), 5_000);
+    const late = Promise.withResolvers<never>();
+
+    const guard = setTimeout(() => {
+      child.kill("SIGKILL");
+      late.reject(new Error("Chrome exit after Browser.close timed out"));
+    }, 5_000);
 
     await send("Browser.close").catch(() => child.kill("SIGKILL"));
-    await exited;
-    clearTimeout(fallback);
+    await Promise.race([exited, late.promise]).finally(() => clearTimeout(guard));
   }
 
   await server?.close();

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { event, terminal } from "../testing/nodes";
@@ -38,7 +38,7 @@ const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
 
 const shelf = () => document.querySelector<HTMLElement>(".shelf")!;
 
-const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
+const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
@@ -46,6 +46,30 @@ const chord = (init: KeyboardEventInit = {}, target: Element | Document = docume
   fireEvent.keyDown(target, { code: "Backslash", key: "\\", metaKey: true, ...init });
 
 const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
+
+const observeShelf = (observe: () => void) => {
+  // Force unrelated controls to compete with Shelf role queries, as the Rail does
+  // on tree-40. Their style must not be observed to locate Shelf controls.
+  const unrelated = document.body.appendChild(document.createElement("aside"));
+
+  unrelated.innerHTML = '<button>Unrelated action</button>'.repeat(256);
+  const original = window.getComputedStyle;
+  let unrelatedReads = 0;
+
+  const styles = vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
+    if (unrelated.contains(element)) unrelatedReads++;
+
+    return original(element, pseudo);
+  });
+
+  try {
+    observe();
+    expect(unrelatedReads, "Shelf observation must not compute unrelated controls' styles").toBe(0);
+  } finally {
+    styles.mockRestore();
+    unrelated.remove();
+  }
+};
 
 describe("u373 the Shelf has two tabs", () => {
   it("u373_two_tabs_one_panel", async () => {
@@ -138,14 +162,16 @@ describe("u470 the shared scope toggle", () => {
     await mountApp();
     const toggle = await selectWorkstream();
 
-    for (const name of ["Todos", "Pads"]) {
-      fireEvent.click(tabNamed(name));
-      expect(toggle.parentElement).toBe(screen.getByRole("tablist", { name: "Work items" }).parentElement);
-      expect(toggle.nextElementSibling).toBe(screen.getByRole("button", { name: "Hide work items" }));
-      expect(toggle.getAttribute("data-button")).toBe("icon");
-      expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
-      expect(toggle.textContent).toBe("");
-    }
+    observeShelf(() => {
+      for (const name of ["Todos", "Pads"]) {
+        fireEvent.click(tabNamed(name));
+        expect(toggle.parentElement).toBe(within(shelf()).getByRole("tablist", { name: "Work items" }).parentElement);
+        expect(toggle.nextElementSibling).toBe(within(shelf()).getByRole("button", { name: "Hide work items" }));
+        expect(toggle.getAttribute("data-button")).toBe("icon");
+        expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
+        expect(toggle.textContent).toBe("");
+      }
+    });
   });
 
   it("u470_no_segmented_control_in_either_panel", async () => {
@@ -230,10 +256,13 @@ describe("u470 the shared scope toggle", () => {
   it("u470_hide_and_reopen_keep_scope", async () => {
     await mountApp();
     fireEvent.click(await selectWorkstream());
-    fireEvent.click(screen.getByRole("button", { name: "Hide work items" }));
-    expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show work items" }));
-    expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
+
+    observeShelf(() => {
+      fireEvent.click(within(shelf()).getByRole("button", { name: "Hide work items" }));
+      expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
+      fireEvent.click(within(document.querySelector("header")!).getByRole("button", { name: "Show work items" }));
+      expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
+    });
   });
 
   it("u470_scope_arrows_do_not_select_tabs", async () => {
