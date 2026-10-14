@@ -24,7 +24,7 @@ VERDICTS = ('user', 'mac', 'loop')
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 # L23: where claude-code-action trades the job's OIDC token for a Claude App token (its `src/github/token.ts`), and the
-# rights `keep` asks for: a push, workflow files and L97's renumbering included, and a draft PR.
+# rights `keep` asks for: a push, workflow files included, and a draft PR.
 EXCHANGE = 'https://api.anthropic.com/api/github/github-app-token-exchange'
 AUDIENCE = 'claude-code-github-action'
 RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
@@ -238,14 +238,12 @@ def keep(branch, issue, run_url):
     if rev(f'refs/heads/{branch}') == rev(f'refs/remotes/origin/{branch}') and not draft:
         print(f'{branch} is on GitHub; nothing to keep')
         return
-    # From here on `gh`, and L97's pre-push hook under `git push`, act with the fresh token.
+    # From here on `gh` acts with the fresh token.
     token = os.environ['GH_TOKEN'] = app_token()
     try:
         remote = f"https://x-access-token:{token}@github.com/{os.environ['GITHUB_REPOSITORY']}.git"
         push = ['git', 'push', remote, f'refs/heads/{branch}:refs/heads/{branch}']
-        # L97's hook may renumber a scenario id in a new commit and fail the push; the second push carries that commit.
-        if subprocess.run(push, timeout=300).returncode:
-            subprocess.run(push, timeout=300, check=True)
+        subprocess.run(push, timeout=300, check=True)
         if not draft:
             return
         order = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
@@ -507,10 +505,11 @@ def exhaust(current, attempts, verdicts, cause):
     """A Builder PR out of fix runs: tell its work Issue what failed, close the PR unmerged, delete its branch and strike
     the Issue, once per PR. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
-    issue = orders.linked_issue(current['body'])
-    if not issue:
+    match = re.search(r'^(?:Refs|Closes|Fixes) #(\d+)', current['body'] or '', re.M)
+    if not match:
         flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
+    issue = int(match[1])
     if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
         return
     commits = orders.gh('pr', 'view', str(pr), '--json', 'commits')['commits']
