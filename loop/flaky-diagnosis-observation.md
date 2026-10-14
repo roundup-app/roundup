@@ -23,7 +23,8 @@ names, the recorded failure paragraphs, the complete body and its Issue source.
 
 ## Deterministic diagnosis representation
 
-Inspection also covered #1516 (implementation request), #1523 (browser failure
+Inspection also covered #1525 (a report quoting failures), #1516 (implementation
+request), #1523 (browser failure
 investigation), #1524 (named test whose pass depends on runner load) and #1526
 (named test reading its prompt log before the last prompt lands). These bodies
 distinguish a recorded failure cause from a request to handle flaky tests.
@@ -36,7 +37,8 @@ It requires a named test declaration or named failure assertion, an observed
 failure, and the diagnosis's explicit flaky condition: flaky/intermittent/random
 failure, race, a test reading before its producer writes, or pass depending on
 runner load. Paragraphs attributing a diagnosis to another Issue are references.
-Requested command names are not test declarations. Unknown failure-run text
+Marked Retro reports are not repair owners. Requested command and job names
+are not test declarations. Found is read after any preceding work metadata. Unknown failure-run text
 stays unknown; the classifier invents no run or failure link.
 
 The four complete bodies and real creation timestamps are frozen in
