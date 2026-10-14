@@ -591,7 +591,6 @@ async fn failed_worktree_removal(failure: &str) {
         .trim()
         .to_owned()
     });
-    let first_list = wrapper_dir.path().join("first-list");
     let changed = wrapper_dir.path().join("changed");
     let change_script = wrapper_dir.path().join("change.py");
     if failure == "tree" {
@@ -607,9 +606,10 @@ async fn failed_worktree_removal(failure: &str) {
         }
     }
     let condition = match failure {
+        // Inject before the first retention move so the early tree recheck restores
+        // ignored and external files together, rather than encountering a new path.
         "tree" => format!(
-            "[ \"$1\" = worktree ] && [ \"$2\" = list ] && [ -e '{}' ] && [ ! -e '{}' ]",
-            first_list.display(),
+            "[ \"$1\" = worktree ] && [ \"$2\" = list ] && [ ! -e '{}' ]",
             changed.display()
         ),
         "directory" => format!(
@@ -651,18 +651,10 @@ async fn failed_worktree_removal(failure: &str) {
     } else {
         "echo 'A34 injected git failure' >&2; exit 1".to_owned()
     };
-    let record = if failure == "tree" {
-        format!(
-            "if [ \"$1\" = worktree ] && [ \"$2\" = list ]; then touch '{}'; fi\n",
-            first_list.display()
-        )
-    } else {
-        String::new()
-    };
     std::fs::write(
         &wrapper,
         format!(
-            "#!/bin/sh\nif {condition}; then {reject}; fi\n{record}exec '{}' \"$@\"\n",
+            "#!/bin/sh\nif {condition}; then {reject}; fi\nexec '{}' \"$@\"\n",
             real_git.trim()
         ),
     )
