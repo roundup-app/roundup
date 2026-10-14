@@ -512,9 +512,10 @@ def trailer_gate(records, base):
         else:
             require(author or clean_merge(commit, base), f'trailers: merge {commit} needs Author-Agent or must be a clean merge of main')
 
-# L118: loop machinery is frozen; only the user changes it. `check.yml` and the `loop/` helpers it and the justfile run
-# stay open, as Builders keep them current with the product.
-FROZEN = ['.github/workflows/', ':!.github/workflows/check.yml', '.agents/', 'AGENTS.md', ':(glob)scenarios/loop-*.md',
+# L118: loop machinery is frozen; only the user changes it. `check.yml`, the `loop/` helpers it and the justfile run,
+# and the journey and harness facts stay open, as Builders keep them current with the product.
+FROZEN = ['.github/workflows/', ':!.github/workflows/check.yml', '.agents/', ':!.agents/data/journey.md',
+          ':!.agents/data/harness.md', 'AGENTS.md', ':(glob)scenarios/loop-*.md',
           'loop/', *(':!loop/' + name for name in ('affected.py', 'app-data.py', 'app-data.test.py', 'ci-ping.sh',
                                                     'keep-going.sh', 'launch-sites.json', 'launch-sites.test.py'))]
 
