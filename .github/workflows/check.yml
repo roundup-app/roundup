@@ -34,6 +34,12 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
+      # L89: nextest runs tests in parallel, and each holds pseudo-terminals; the raise fails loud if it does not take.
+      - name: Pseudo-terminal ceiling
+        run: |
+          echo "before: $(sysctl -n kern.tty.ptmx_max)"
+          sudo sysctl -w kern.tty.ptmx_max=999
+          test "$(sysctl -n kern.tty.ptmx_max)" -ge 999
       - run: just check-rust
       - name: hello-world round trip (rup ping through rupd)
         run: |
