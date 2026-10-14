@@ -283,3 +283,19 @@ fn q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median(
             .any(|line| line.contains("cold_plugin_materialization_ms"))
     );
 }
+
+#[test]
+fn q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_limit() {
+    let budgets = committed();
+    let mut budgets = budgets;
+    budgets.retain(|name, _| name == "cold_plugin_materialization_ms");
+    let outcome = judge_all(
+        &report("linux", &[("cold_plugin_materialization_ms", 13.5)]),
+        &budgets,
+    )
+    .unwrap();
+    assert!(outcome.skipped.is_empty());
+    assert!(
+        matches!(outcome.misses.as_slice(), [(name, Miss::Regressed { .. })] if name == "cold_plugin_materialization_ms")
+    );
+}
