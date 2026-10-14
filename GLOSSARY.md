@@ -20,7 +20,7 @@ _Avoid_: session, bot, worker
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble.
 _Avoid_: process, console
 
-**Terminal owner** (`TerminalOwner`, `with_terminal_owner`, internal `terminal_owner`):
+**Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
 **Bubble**:
@@ -338,6 +338,12 @@ The text format an Agent writes; `renderMarkdown` draws it as elements on every 
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 
+**Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
+The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
+
+**Prompt effect**:
+An answer or Terminal write applied to its captured Prompt identity. The check and effect exclude a concurrent answer, replacement or Attempt change; refusal writes no bytes, and a successful effect consumes the identity. It does not store a held action or acquire a Takeover.
+
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
@@ -423,7 +429,7 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 `loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
 **Capture**:
-A PNG or checks JSON under `artifacts/ux/<id>/` that a web test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` names the ids on the PR's `Scenarios:` line, `just check` writes none, and the `rules` job fails a PR that changes another id's (L105).
+A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: `artifacts/ux/journey/<id>/`) that a test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` selects only the PR's `Scenarios:` ids and `just check` writes none. Required captures belong to that PR head, published with a download link, observer command, exit code and conditions with explicit 14-day Actions retention; publication failure leaves draft, and `rules` rejects uncited publication and tracked evidence additions or edits while permitting deletion-only retirement (L112; `.agents/data/captures.md`).
 
 ### Todo history
 

@@ -84,7 +84,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   return {
     rail: {
-      label: "resize Rail",
+      label: "Resize Rail",
       direction: 1,
       min: RAIL.min,
       fallback: RAIL.fallback,
@@ -101,7 +101,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       },
     },
     shelf: {
-      label: "resize Shelf",
+      label: "Resize Shelf",
       direction: -1,
       min: SHELF.min,
       fallback: SHELF.fallback,

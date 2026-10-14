@@ -480,3 +480,43 @@ async fn status_terminal(w: &World, agent: &str) -> String {
         .and_then(|n| n.terminal_id.clone())
         .unwrap()
 }
+
+#[tokio::test]
+async fn b6_prompt_identity_keeps_reach_proof_and_takeover_authority() {
+    let w = World::new().await;
+    let (hook, id) = w.asks(&w.child).await;
+    w.taken.lock().unwrap().push(w.child.clone());
+    let identity = w
+        .call(agent(&w.door), "decision.capture", json!({"id":id}))
+        .await
+        .unwrap();
+    for caller in [&w.child, &w.sibling, &w.other] {
+        assert_eq!(
+            w.call(agent(caller), "decision.capture", json!({"id":id}))
+                .await
+                .unwrap_err()
+                .code,
+            code::FORBIDDEN
+        );
+    }
+    let guarded = json!({"id":id,"identity":identity,"answer":"allow","proof":"wrong"});
+    assert_eq!(
+        w.call(agent(&w.door), "decision.answer", guarded.clone())
+            .await
+            .unwrap_err()
+            .code,
+        code::CONFLICT
+    );
+    assert_eq!(
+        w.call(Actor::user(), "decision.answer", guarded.clone())
+            .await
+            .unwrap_err()
+            .code,
+        code::FORBIDDEN
+    );
+    w.taken.lock().unwrap().clear();
+    w.call(agent(&w.door), "decision.answer", guarded)
+        .await
+        .unwrap();
+    assert_eq!(hook.await.unwrap().unwrap(), json!({"output":ALLOW}));
+}
