@@ -531,8 +531,11 @@ def codex(prompt, model, schema, output):
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
     # GitHub masks the whole secret, not each token inside it.
+    tokens = sorted({value for value in auth['tokens'].values() if isinstance(value, str) and value},
+                    key=len, reverse=True)
     for value in auth['tokens'].values():
-        print(f'::add-mask::{value}')
+        if isinstance(value, str) and value:
+            print(f'::add-mask::{value}')
     # Outside the checkout, so no commit takes the login.
     home = Path(os.environ['RUNNER_TEMP']) / 'codex'
     home.mkdir(mode=0o700)
@@ -549,11 +552,13 @@ def codex(prompt, model, schema, output):
     name, email = CODEX_ACCOUNT
     env = {**os.environ, 'CODEX_HOME': str(home), 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name,
            'GIT_AUTHOR_EMAIL': email, 'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
+    facts = dict(error=False, messages=[], worked=False, exit=None)
     try:
         subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
-        # The public step log shows each event's kind; only the event file keeps commands, their output and messages.
-        with open(events, 'w') as log, subprocess.Popen([*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                        text=True, env=env) as run:
+        # Public logs keep event kinds and masked failures; commands, outputs and agent text stay private.
+        with open(events, 'w') as log, (home / 'stderr.log').open('w') as errors, subprocess.Popen(
+                [*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                text=True, env=env, stderr=errors) as run:
             run.stdin.write(prompt)
             run.stdin.close()
             for line in run.stdout:
@@ -563,7 +568,29 @@ def codex(prompt, model, schema, output):
                     event = json.loads(line)
                 except ValueError:
                     event = {}
-                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), flush=True)
+                if not isinstance(event, dict):
+                    event = {}
+                kind = event.get('type') if isinstance(event.get('type'), str) else 'not an event'
+                error = event.get('error')
+                item = event.get('item')
+                item_kind = item.get('type', '') if isinstance(item, dict) else ''
+                if not isinstance(item_kind, str):
+                    item_kind = ''
+                message = event.get('message') if kind == 'error' else (
+                    error.get('message') if kind == 'turn.failed' and isinstance(error, dict) else None)
+                facts['error'] |= kind == 'error'
+                facts['worked'] |= item_kind in CODEX_TOOLS
+                if isinstance(message, str):
+                    for token in tokens:
+                        message = message.replace(token, '***')
+                    facts['messages'].append(message)
+                # JSON escapes keep an error's newlines from becoming Actions commands or forged evidence rows.
+                print(kind, json.dumps(message, ensure_ascii=False)[1:-1] if isinstance(message, str) else
+                      item_kind, flush=True)
+                # A timeout may prevent the final row; tool-use facts still prove recovery.
+                print('CODEX_COMPLETION ' + json.dumps(facts), flush=True)
+        facts['exit'] = run.returncode
+        print('CODEX_COMPLETION ' + json.dumps(facts), flush=True)
     finally:
         subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
     if schema is not None and answer.is_file():
@@ -571,6 +598,140 @@ def codex(prompt, model, schema, output):
         with open(output, 'a') as out:
             out.write(f'structured_output<<{delimiter}\n{answer.read_text().strip()}\n{delimiter}\n')
     return run.returncode
+
+
+def codex_login():
+    """Main's serial L23 completion observer. Read only masked facts from model-job logs, never the private events."""
+    issues = [issue for page in orders.gh('api', '--paginate', '--slurp',
+                                         'repos/{owner}/{repo}/issues?state=open&per_page=100')
+              for issue in page if not issue.get('pull_request') and issue['user']['login'] == orders.BOT and
+              re.search(r'^Key: codex-login$', issue.get('body') or '', re.M)]
+    opened = [issue for issue in issues if issue['state'] == 'open']
+    for issue in opened:
+        order = re.search(r'<!-- codex-order (\S+) (\d+) (\d+) -->', issue.get('body') or '')
+        issue['order'] = (order[1], int(order[2]), int(order[3])) if order else (issue['created_at'], 0, 0)
+    runs = []
+    for workflow in ('build', 'fix'):
+        pages = orders.gh('api', '--paginate', '--slurp',
+                          f'repos/{{owner}}/{{repo}}/actions/workflows/{workflow}.yml/runs?per_page=100')
+        found = list({run['id']: run for page in pages for run in page['workflow_runs']}.values())
+        if pages and len(found) < pages[0]['total_count']:
+            raise ValueError('Codex completion history was truncated')
+        runs.extend(found)
+    runs = list({run['id']: run for run in runs}.values())
+    # A completed run's update is an upper bound on its jobs' completion times. Live runs have no such bound.
+    runs.sort(key=lambda run: (run['status'] != 'completed', run['updated_at']), reverse=True)
+    jobs = []
+    for run in runs:
+        if run['status'] == 'queued':
+            continue
+        cutoff = min([jobs[-2]['completed_at']] + [issue['order'][0] for issue in opened]) if len(jobs) >= 2 else ''
+        if run['status'] == 'completed' and cutoff and run['updated_at'] < cutoff:
+            break
+        pages = orders.gh('api', '--paginate', '--slurp',
+                          f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?filter=all&per_page=100")
+        for page in pages:
+            for job in page['jobs']:
+                if job['status'] == 'completed' and (
+                        re.fullmatch(r'build #\d+ / build', job['name']) or
+                        job['name'].startswith('fix / fix #')):
+                    jobs.append(dict(job, run_id=run['id']))
+        jobs = sorted({job['id']: job for job in jobs}.values(),
+                      key=lambda job: (job['completed_at'], job['run_id'], job['id']))
+    if not jobs:
+        return
+    jobs = [job for job in jobs if job in jobs[-2:] or
+            any(job['completed_at'] >= issue['order'][0] for issue in opened)]
+    for job in jobs:
+        # A cancelled or skipped job breaks the pair, including jobs whose model never started.
+        job['facts'] = dict(error=False, messages=[], worked=False, exit=None)
+        if job['conclusion'] == 'skipped':
+            continue
+        for attempt in range(1, orders.READ_TRIES + 1):
+            try:
+                log = call('api', f"repos/{{owner}}/{{repo}}/actions/jobs/{job['id']}/logs")
+                break
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+                detail = (error.stderr or '') if isinstance(error, subprocess.CalledProcessError) else 'timed out'
+                delay = orders.backoff(detail, attempt)
+                if attempt == orders.READ_TRIES or delay is None:
+                    raise
+                print(f"Codex job {job['id']} log read failed; retry in {delay}s", file=sys.stderr)
+                time.sleep(delay)
+        rows = re.findall(r'^\S+ CODEX_COMPLETION (.*)$', log, re.M)
+        if not rows:
+            # In-flight runs can still use main's previous kind-only logger when this observer first lands.
+            job['facts']['error'] = bool(re.search(r'^\S+ error(?:[ \t]|$)', log, re.M))
+            tools = '|'.join(sorted(CODEX_TOOLS))
+            job['facts']['worked'] = bool(re.search(rf'^\S+ item\.\S+ ({tools})(?:[ \t]|$)', log, re.M))
+        else:
+            facts = json.loads(rows[-1])
+            if (set(facts) != {'error', 'messages', 'worked', 'exit'} or
+                    type(facts['error']) is not bool or type(facts['worked']) is not bool or
+                    (facts['exit'] is not None and type(facts['exit']) is not int) or not isinstance(facts['messages'], list) or
+                    any(not isinstance(message, str) for message in facts['messages'])):
+                raise ValueError('invalid masked Codex completion facts')
+            job['facts'] = facts
+    latest = jobs[-1]
+    # GitHub's since filter is exclusive; include alerts updated in the job's completion second.
+    since = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(orders.created(latest['completed_at']) - 1))
+    # Recently closed alerts retain replay identity without scanning the repository's closed Issue history.
+    issues.extend(issue for page in orders.gh('api', '--paginate', '--slurp',
+                  f"repos/{{owner}}/{{repo}}/issues?state=closed&since={since}&per_page=100")
+                  for issue in page if not issue.get('pull_request') and issue['user']['login'] == orders.BOT and
+                  re.search(r'^Key: codex-login$', issue.get('body') or '', re.M))
+    # A tool-using job proves recovery even when a later engineering step fails.
+    recovered = []
+    for issue in opened:
+        recovery = next((job for job in jobs if job['facts']['worked'] and
+                         (job['completed_at'], job['run_id'], job['id']) > issue['order']), None)
+        if recovery is None:
+            continue
+        marker = f"<!-- codex-recovery {recovery['id']} -->"
+        notes = orders.marked(issue['number'], '<!--')
+        if not any(marker in note['body'] for note in notes):
+            comment(issue['number'], f"{marker}\nCodex used a tool again: {recovery['html_url']}")
+        if NEEDS_USER in {label['name'] for label in issue['labels']}:
+            call('api', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}/labels/{NEEDS_USER}", '-X', 'DELETE')
+        call('issue', 'close', str(issue['number']), '--reason', 'completed')
+        recovered.append(issue['number'])
+    opened = [issue for issue in opened if issue['number'] not in recovered]
+    qualifies = lambda job: (job['conclusion'] not in ('success', 'cancelled', 'skipped') and
+                             job['facts']['error'] and not job['facts']['worked'])
+    jobs = jobs[-2:]
+    if len(jobs) != 2 or not all(qualifies(job) for job in jobs):
+        return
+    marker = f"<!-- codex-failure {latest['id']} -->"
+    if any(issue['state'] == 'closed' and marker in (issue.get('body') or '') for issue in issues):
+        return
+    messages = [message for job in jobs for message in job['facts']['messages']]
+    quote = '\n'.join('> ' + line for message in messages for line in message.splitlines()) or '> No masked error message was published.'
+    usage = any(re.search(r'usage.?limit|rate.?limit|quota|limit.*reached', message, re.I)
+                for job in jobs for message in job['facts']['messages'])
+    if usage:
+        reset = any(re.search(r'\d{1,2}:\d{2}|\d{4}-\d{2}-\d{2}|'
+                              r'(?:try again|resets?|retry)\s+(?:at|in|after|on)\s+\S+', message, re.I)
+                    for message in messages)
+        instruction = ('Wait until the reset time supplied in the error before retrying.' if reset else
+                       'The error supplied no reset time. Wait for usage to reset before retrying.')
+    else:
+        instruction = ('Run `codex login` in a separate `CODEX_HOME` with '
+                       '`cli_auth_credentials_store = "file"`, then replace the repository’s '
+                       '`CODEX_AUTH_JSON` secret with that home’s `auth.json`.')
+    body = (f"{marker}\n<!-- codex-order {latest['completed_at']} {latest['run_id']} {latest['id']} -->\n"
+            "Key: codex-login\n\nTwo consecutive Codex jobs failed before using a tool.\n\n"
+            f"{quote}\n\n{jobs[0]['html_url']}\n{latest['html_url']}\n\n{instruction}")
+    if opened:
+        # Repair a partially published alert without asking a second time.
+        issue = opened[0]
+    else:
+        issue = _fix_api('repos/{owner}/{repo}/issues',
+                         dict(title='Codex login needs the owner', body=body, labels=[NEEDS_USER]))
+    notes = orders.marked(issue['number'], '<!--')
+    if not any('<!-- needs-user -->' in note['body'] for note in notes):
+        comment(issue['number'], '<!-- needs-user -->\n' + body)
+    if NEEDS_USER not in {label['name'] for label in issue.get('labels', [])}:
+        call('api', f"repos/{{owner}}/{{repo}}/issues/{issue['number']}/labels", '-f', f'labels[]={NEEDS_USER}')
 
 
 def keep(branch, issue, run_url):
@@ -1703,6 +1864,8 @@ def main(args):
     match args:
         case ['prompt', *name] if len(name) < 2:
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
+        case ['codex-login']:
+            codex_login()
         case ['worked', path]:
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
@@ -1780,7 +1943,7 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)
