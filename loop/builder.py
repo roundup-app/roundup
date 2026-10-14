@@ -70,8 +70,14 @@ NOPUSH = '<!-- fix-nopush'
 CONFLICTS = 3
 # L82: the causes `fix.yml` runs on directly, when `check` or `loop` ends; a fix run for any other cause is dispatched.
 DIRECT = {'check', 'rules'}
+# Seconds between fix-run listings while GitHub has not yet listed a run it accepted; a dispatch answered 204 can be
+# unlisted for several seconds (critic run 38484139687 was listed after its poster gave up one second in).
+LISTED = (3, 6, 12, 24)
 # L82: the clock skew allowed between a commit's committer date and GitHub's run times.
 SKEW = 3600
+# Seconds GitHub's run clock may read behind this runner's: a run it stamps in the second before `requested` is still
+# the one requested.
+BEHIND = 5
 # In the order a fix task names them (L82): a conflict first, since its merge changes what the others see.
 CAUSES = {
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
@@ -187,7 +193,7 @@ def _fix_matches(pr, head, cause, since=None):
         orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}')['commit']['committer']['date']) - SKEW
     runs = _fix_listing(int(start), int(time.time()) + SKEW, None if cause in DIRECT else 'workflow_dispatch')
     return [run for run in runs if run['display_title'] == title and
-            (since is None or orders.created(run['created_at']) >= since)]
+            (since is None or orders.created(run['created_at']) >= since - BEHIND)]
 
 
 def _fix_run(ref, sha, state, pr, head, cause):
@@ -197,6 +203,10 @@ def _fix_run(ref, sha, state, pr, head, cause):
             raise ValueError(f"owned run {state['run']} does not match {ref}; engineering repair required")
         return sha, state, run
     matches = _fix_matches(pr, head, cause, state['requested'])
+    for wait in LISTED if not matches else ():
+        time.sleep(wait)
+        if matches := _fix_matches(pr, head, cause, state['requested']):
+            break
     if len(matches) != 1:
         raise ValueError(f"fix delivery {'ambiguous' if matches else 'unknown'} for {ref}; "
                          f"owner {state['owner']}; matching runs {[run['id'] for run in matches]}; no redispatch")
@@ -381,19 +391,64 @@ def question(answer, branch):
     return stopped(prs[0]) if prs[0]['isDraft'] else ''
 
 
-def screen(ask):
+def _window_ask(ask):
+    """Remove native window observations from an open PR's ask; keep unknown questions for the user.
+
+    L79 forbids a waiting label even when Haiku fails or misclassifies. Split independent clauses before matching so
+    a product or real-Claude question beside a window observation survives that guard.
+    """
+    native = re.compile(r"just app|native (?:Mac |App )?(?:window|observer|behavio[ur]+|title[- ]?bar)|traffic[- ]lights?|"
+                        r"(?:Mac|App) (?:window|title[- ]?bar)|Window menu|Mission Control|"
+                        r"(?:actual|native) (?:drag|zoom)|modifier clicks?", re.I)
+    if not native.search(ask):
+        return ask
+    clauses = re.split(r'(?<=[.?!;])\s+|\n+|\s+(?:and|but|also)\s+'
+                       r'(?=(?:should|does|whether|which|check|verify|observe|native|real|logged[- ]in)\b)',
+                       ask.removeprefix('Stopped:').strip(), flags=re.I)
+    kept = []
+    for clause in clauses:
+        if re.search(r'logged[- ]in.*\bclaude|real\s+`?claude', clause, re.I):
+            kept.append(clause)
+        elif native.search(clause):
+            choice = re.search(r'should\b.*\b(?:show|hide|include|offer|support)|'
+                               r'which\b.*\b(?:choose|prefer)|unresolved product', clause, re.I)
+            observation = re.search(r'\b(?:correct(?:ly)?|right|pass|current|work(?:ing)?|expected|matches)\b',
+                                    clause, re.I)
+            if choice and not observation:
+                kept.append(clause)
+        elif re.search(r'^(?:Recommend.*(?:observer|that commit)|all passes allow readiness|'
+                       r'any failure names the repair|recording each pass)', clause, re.I):
+            continue
+        else:
+            kept.append(clause)
+    return ' '.join(kept).strip()
+
+
+def screen(ask, open_pr=False):
     """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    `reason` and `preview`. A native-only open-PR ask stays `loop` on failure; other failures return None."""
+    context = '\nThis ask belongs to an open PR.\n' if open_pr else ''
+    failure = ''
     try:
         out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
                               '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                             input=f'{role("screen")}{context}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
                              timeout=300, check=True)
         verdict = json.loads(out.stdout).get('structured_output')
     except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
         print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
-        return None
-    return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+        failure, verdict = str(error), None
+    if not (isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS and
+            all(isinstance(verdict.get(field), str) and verdict[field].strip() for field in ('reason', 'preview'))):
+        failure = failure or 'missing or malformed structured output'
+        verdict = None
+    if open_pr and not _window_ask(ask):
+        reason = 'An open PR never waits on a native window check (L79).'
+        if failure:
+            reason += f' The screen gave no valid verdict: {failure}; repair screening in the loop.'
+        return dict(verdict='loop', reason=reason,
+                    preview='Finish Linux and Chromium checks and make the PR ready with auto-merge armed.')
+    return verdict
 
 
 def put(number, ask, verdict, run_url, back):
@@ -807,7 +862,18 @@ def ended(pr, verdict, run_url):
     if not pr['isDraft']:
         return
     if ask := stopped(pr):
-        put(pr['number'], ask, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
+        remaining = _window_ask(ask)
+        if not remaining:
+            reason = 'An open PR never waits on a native window check (L79).'
+            if verdict is not None and verdict.get('verdict') == 'loop':
+                reason = verdict['reason']
+            if verdict is None:
+                reason += ' The screen gave no valid verdict; repair screening in the loop.'
+            resume(pr, ask, reason, run_url)
+        else:
+            if remaining != ask and verdict is not None:
+                verdict = dict(verdict, preview=remaining)
+            put(pr['number'], remaining, verdict, run_url, lambda reason: resume(pr, ask, reason, run_url))
     else:
         dispatch_fix(pr['number'], pr['headRefOid'], 'unfinished')
 
@@ -1368,6 +1434,10 @@ def run_role(run, pr, issue, jobs=None):
     return None
 
 
+class Partial(ValueError):
+    """An activity snapshot that may miss a running run; publishing it could show a working PR idle (L104)."""
+
+
 def activity_of(pr, snapshot=None):
     """L104: the (state, description, target) the PR head's `activity` status holds."""
     issue = orders.linked_issue(pr['body'])
@@ -1486,7 +1556,7 @@ def activity_refresh(branch=None, live=()):
         # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
         if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
                 orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
-            raise ValueError(f'activity {role} arrivals exceed snapshot')
+            raise Partial(f'activity {role} arrivals exceed snapshot')
         for run in page['nodes']:
             if not run or run['databaseId'] in seen:
                 continue
@@ -1581,7 +1651,9 @@ def activity_runs():
                 pages[role] = page['pageInfo']['endCursor']
         if not pages:
             return live
-    raise ValueError('activity live window exceeds six seed queries')
+    # Skipped fix runs can fill the window; samples still hold every run the newest twenty of a role list (L104).
+    print('::warning::activity live window exceeds six seed queries', file=sys.stderr)
+    return live
 
 
 def activity_event(event, live=()):
@@ -1594,12 +1666,27 @@ def activity_event(event, live=()):
 def activity_watch(event):
     """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
     started = time.monotonic()
-    live = activity_runs()
+    try:
+        live = activity_runs()
+    except subprocess.CalledProcessError as error:
+        if not orders.exhausted(error.stderr or ''):
+            raise
+        print('::warning::activity seed waits for the rate limit reset', file=sys.stderr)
+        live = []
     for sample in range(13):
         deadline = started + sample * 300
         while (remaining := deadline - time.monotonic()) > 0:
             time.sleep(min(remaining, 60))
-        live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
+        try:
+            live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
+        except Partial as error:
+            # Every check or loop run also starts a fix run that skips at once; a burst of them overflows one sample.
+            print(f'::warning::activity sample {sample} skipped: {error}', file=sys.stderr)
+        except subprocess.CalledProcessError as error:
+            if not orders.exhausted(error.stderr or ''):
+                raise
+            # Activity gates nothing (L46); a sample after the reset sets what this one could not.
+            print(f'::warning::activity sample {sample} waits for the rate limit reset', file=sys.stderr)
 
 
 def task_or_nothing(task):
@@ -1647,12 +1734,21 @@ def main(args):
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write(f'token={token}\n')
         case ['pick', most] if most.isdigit():
-            pick(int(most))
+            try:
+                pick(int(most))
+            except subprocess.CalledProcessError as error:
+                if not orders.exhausted(error.stderr or ''):
+                    raise
+                # Only the hourly reset clears it; the next merge, run end or hourly pick builds then (L23).
+                print(f'::warning::pick waits for the rate limit reset: {" ".join(error.stderr.split())[:300]}',
+                      file=sys.stderr)
+                print('[]')
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
-                print(json.dumps(screen(ask)))
+                open_pr = bool(orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number'))
+                print(json.dumps(screen(ask, open_pr=open_pr)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
         case ['fix-admit', pr, head, cause] if pr.isdigit() and cause in CAUSES:

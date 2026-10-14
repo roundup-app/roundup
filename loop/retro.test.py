@@ -431,6 +431,18 @@ class EvidenceRegression(unittest.TestCase):
         sleep.assert_called_once_with(60)
         run.assert_called_once()
 
+    def test_l106_collector_leaves_half_the_hourly_budget_to_the_loop(self):
+        github = retro.GitHub('o/r')
+        response = '[HTTP/2.0 200 OK\nX-Ratelimit-Limit: 5000\nX-Ratelimit-Remaining: 2499\nX-Ratelimit-Reset: 60\n\n[]]'
+        with patch.object(retro.time, 'time', side_effect=[0, 0, 61]), patch.object(retro.time, 'sleep') as sleep, \
+             patch.object(retro.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, response)) as run:
+            github.read('issues?per_page=100')
+            sleep.assert_not_called()
+            github.read('pulls?per_page=100')
+        self.assertEqual((github.limit, github.reserve()), (5000, 2500))
+        sleep.assert_called_once_with(60)
+        self.assertEqual(run.call_count, 2)
+
     def test_l106_filtered_run_limit_splits_the_window(self):
         class Dense(FakeGitHub):
             def read(self, path, key=None):
