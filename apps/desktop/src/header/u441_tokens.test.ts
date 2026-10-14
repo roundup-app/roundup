@@ -593,8 +593,12 @@ it("u441_tab_marks_use_root_ink", async () => {
     expect(cap.amber).toEqual(root.amber);
 
     for (const tone of ['red', 'amber'] as const) {
-      await page.call("tone => document.querySelector('.strip-edge .tab-mark').dataset.tone = tone", tone);
-      expect((await paint('.strip-edge .tab-mark')).ink).toEqual(root[tone]);
+      // Strip's scroll measurement can restore its tone between browser calls; sample the fixture in one turn.
+      const mark = await page.call<Paint>(`tone => {
+        document.querySelector('.strip-edge .tab-mark').dataset.tone = tone;
+        return (${PAINT})('.strip-edge .tab-mark');
+      }`, tone);
+      expect(mark.ink).toEqual(root[tone]);
     }
   }
 }, 60_000);
