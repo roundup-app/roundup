@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     # Four API reads may each wait 70 minutes for the shared hourly budget (L82).
     timeout-minutes: 300
+    # L89: a failed step leaves the later ones running, so one run reports every failure.
     steps:
       - name: Start API measurement before checkout
         env:
@@ -42,22 +43,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh ci-trailers "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh keeps-main "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: loop/rules.sh overturned "$PR"
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
-      - if: github.event_name == 'pull_request'
+      - if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: |
           capture_gate=$(mktemp loop/.capture-rules.XXXXXX)
           trap 'rm -f "$capture_gate"' EXIT
@@ -67,18 +68,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
       - run: loop/rules.sh vocab
+        if: ${{ !cancelled() }}
       - run: loop/rules.sh architect-words
+        if: ${{ !cancelled() }}
       - run: loop/rules.sh tokens
+        if: ${{ !cancelled() }}
       - run: python3 loop/orders.py lint
+        if: ${{ !cancelled() }}
       - run: python3 loop/orders.test.py
+        if: ${{ !cancelled() }}
       - uses: taiki-e/install-action@just
+        if: ${{ !cancelled() }}
       - run: python3 loop/builder.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/stall.test.py
+        if: ${{ !cancelled() }}
       - run: python3 loop/scenario_ids.test.py
+        if: ${{ !cancelled() }}
       - run: python3 -m pip install -r loop/care-requirements.txt
+        if: ${{ !cancelled() }}
       - run: python3 loop/workflows.test.py
+        if: ${{ !cancelled() }}
       - run: loop/rules.test.sh
+        if: ${{ !cancelled() }}
       - id: capture-observer
+        if: ${{ !cancelled() }}
         name: L112 publication fixtures and reference audit
         env:
           CAPTURE_BODY: ${{ github.event.pull_request.body }}
@@ -111,6 +125,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - run: loop/qa-sweep.test.sh
+        if: ${{ !cancelled() }}
       - name: Finish API measurement
         if: always()
         run: |

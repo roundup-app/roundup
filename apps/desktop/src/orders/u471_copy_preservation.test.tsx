@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { mountApp, select } from "../decisions/decisionsFixture";
 import { agent, clarifying } from "../testing/nodes";
 
-it("u416_order_labels_use_sentence_case_and_preserve_agent_text", async () => {
+it("u471_previous_copy_assertions_are_preserved_order_labels_use_sentence_case_and_preserve_agent_text", async () => {
   await mountApp([], (app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", {

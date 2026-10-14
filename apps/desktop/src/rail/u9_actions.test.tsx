@@ -134,18 +134,18 @@ describe("u9 actions", () => {
     mounted.app.handlers["rail.startDoor"] = () => door("g", "idle", "i");
 
     fireEvent.mouseEnter(rowOf("g"));
-    fireEvent.click(screen.getByText(/^start Door$/i));
+    fireEvent.click(screen.getByText(/^start supervisor$/i));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
 
   it("u9_promote_is_hidden_until_hover_and_never_on_an_agent", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
-    const before = screen.queryByText(/^start Door$/i);
+    const before = screen.queryByText(/^start supervisor$/i);
 
     fireEvent.mouseEnter(rowOf("a"));
 
-    expect([before, screen.queryByText(/^start Door$/i)]).toEqual([null, null]);
+    expect([before, screen.queryByText(/^start supervisor$/i)]).toEqual([null, null]);
   });
 
   it("u9_a_failed_call_shows_one_ink_line_until_the_next_click", async () => {
@@ -199,7 +199,7 @@ describe("u9 actions", () => {
     await screen.findByText("boom");
     fireEvent.mouseEnter(rowOf("g"));
 
-    fireEvent.click(screen.getByText(/^start Door$/i));
+    fireEvent.click(screen.getByText(/^start supervisor$/i));
 
     expect(screen.queryByText("boom")).toBeNull();
   });
@@ -223,7 +223,7 @@ describe("u9 actions", () => {
 
     fireEvent.mouseEnter(rowOf("lead"));
 
-    expect(screen.queryByText(/^start Door$/i)).toBeNull();
+    expect(screen.queryByText(/^start supervisor$/i)).toBeNull();
   });
 
   it("u9_a_collapsed_group_can_still_be_promoted", async () => {
@@ -232,7 +232,7 @@ describe("u9 actions", () => {
     fireEvent.click(glyphOf("g"));
 
     fireEvent.mouseEnter(rowOf("g"));
-    fireEvent.click(screen.getByText(/^start Door$/i));
+    fireEvent.click(screen.getByText(/^start supervisor$/i));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{ id: "g" }]));
   });
@@ -290,7 +290,7 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   expect(tree).toHaveLength(1);
   let finish: ((node: RailNode) => void) | undefined;
   mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>((resolve) => { finish = resolve; });
-  const retry = screen.getAllByRole("button", { name: "Retry Door" })[0]!;
+  const retry = screen.getAllByRole("button", { name: "Retry supervisor" })[0]!;
   fireEvent.click(retry);
   fireEvent.click(retry);
   await waitFor(() => expect(railCallsTo(mounted.app, "rail.startDoor")).toHaveLength(2));
@@ -306,9 +306,9 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
 });
 
 it("u9_selecting_a_reopened_workstream_offers_start_without_launching", async () => {
-  const mounted = await mountRail([workstream("reopened", {attempt:"4"})]);
-  mounted.rail.select("reopened");
-  expect(screen.getByText(/^start Door$/i)).toBeDefined();
+  const mounted = await mountRail([workstream("Reopened", {attempt:"4"})]);
+  mounted.rail.select("Reopened");
+  expect(screen.getByText(/^start supervisor$/i)).toBeDefined();
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([]);
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toEqual([]);
 });
@@ -320,7 +320,7 @@ it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () 
   const pane = document.querySelector<HTMLElement>(".pane");
   const before = pane?.getAttribute("style") ?? null;
 
-  fireEvent.click(screen.getByText(/^start Door$/i));
+  fireEvent.click(screen.getByText(/^start supervisor$/i));
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
   fireEvent.click(screen.getByText("other"));
 
@@ -334,10 +334,10 @@ it("a24_a_late_failure_shows_the_error_and_retry_door", async () => {
 
   mounted.rail.select("closed");
 
-  fireEvent.click(screen.getByText(/^start Door$/i));
+  fireEvent.click(screen.getByText(/^start supervisor$/i));
 
   await waitFor(() => expect(mounted.rail.doorFailure("closed")).toBe("closed: no acknowledgement within 8s"));
-  expect(screen.getAllByText(/^retry Door$/i).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/^retry supervisor$/i).length).toBeGreaterThan(0);
   expect(mounted.rail.doorPending("closed")).toBe(false);
 });
 
@@ -349,7 +349,7 @@ it("a24_a_start_the_daemon_never_answers_fails_within_the_bound", async () => {
     mounted.app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
     mounted.rail.select("closed");
 
-    fireEvent.click(screen.getByText(/^start Door$/i));
+    fireEvent.click(screen.getByText(/^start supervisor$/i));
     await vi.advanceTimersByTimeAsync(10_000);
 
     await waitFor(() => expect(mounted.rail.doorFailure("closed")).not.toBeNull());
@@ -371,7 +371,7 @@ it("a24_a_start_that_succeeds_shows_the_doors_terminal", async () => {
 
   mounted.rail.select("closed");
 
-  fireEvent.click(screen.getAllByText(/^start Door$/i)[0]!);
+  fireEvent.click(screen.getAllByText(/^start supervisor$/i)[0]!);
 
   await waitFor(() => expect(document.querySelector('[data-terminal="t-closed"]')).not.toBeNull());
   expect(mounted.rail.doorFailure("closed")).toBeNull();

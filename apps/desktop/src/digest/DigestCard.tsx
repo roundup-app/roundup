@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { For, Show } from "solid-js";
 import type { DigestEntry } from "@contracts/agent/DigestEntry";
 import { Markdown } from "../plain/Markdown";
@@ -72,12 +73,12 @@ export const digestOf = (body: string): PushedDigest | null => {
 
 /** The Digest a Door was pushed about one child (B22): its name and Kind, its last line, its open Todos and its Pads. */
 const EntryCard = (props: { entry: DigestEntry }) => (
-  <section class="digest-card" aria-label={`Digest of ${props.entry.name}`}>
+  <section class="digest-card" aria-label={copy.digestOf(props.entry.name)}>
     <p class="digest-title">
       <span>{props.entry.name}</span> <span class="light">{props.entry.kind[0]!.toUpperCase() + props.entry.kind.slice(1)}</span>
     </p>
     <Markdown class="digest-last" body={props.entry.last} />
-    <p class="light">{props.entry.todos === 1 ? "1 open Todo" : `${props.entry.todos} open Todos`}</p>
+    <p class="light">{props.entry.todos === 1 ? copy.openTodo : copy.openTodoCount(props.entry.todos)}</p>
     <Show when={props.entry.pads.length > 0}>
       <ul class="digest-pads">
         <For each={props.entry.pads}>{(pad) => <li>{pad}</li>}</For>
