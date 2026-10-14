@@ -128,6 +128,9 @@ it("u471_source_observer_covers_jsx_attributes_and_helper_prose", () => {
   expect(candidates(source).map((each) => each.text)).toEqual(["failed", "retry now", "Try again", "Retry"]);
   expect(candidates('const label = "retry"; const view = <Show fallback={<span>Oops</span>}><button aria-label={label} /></Show>;').map((each) => each.text)).toEqual(["retry", "Oops"]);
   expect(candidates('const view = <button class="button quiet" aria-label={name} />; rpc("rail.startDoor", {id});')).toEqual([]);
+  expect(candidates('button.setAttribute("aria-label", "retry");').map((each) => each.text)).toEqual(["retry"]);
+  expect(candidates('const label = "retry"; button.setAttribute("aria-label", label);').map((each) => each.text)).toEqual(["retry"]);
+  expect(candidates('button.setAttribute("data-kind", "working"); button.setAttribute("aria-pressed", "true");')).toEqual([]);
 });
 
 const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagents", "Usage", "Iteration", "Project", "App", "Editor", "Skill"]);
