@@ -31,6 +31,7 @@ Builder and QA runs are one-shot GitHub Actions jobs, and an event ends every wa
 6. **Vocabulary**: no `GLOSSARY.md` _Avoid_ word in a public name outside `crates/agents/src/claude_code/`.
 7. **Perf**: cold start < 300 ms, keystroke-to-render < 16 ms p95, 10 idle agents < 150 MB extra RSS; `just perf` fails a regression above 10% (`docs/perf.md`).
 8. **Visual change** under `apps/desktop/src` names the Checks it moves, uses only Tokens, and breaks no Check passing on `main`.
+9. **Reuse first**: before adding a module, UI pattern (dialog, menu, tooltip, tabs, tree, drag, toast, focus handling, keyboard shortcuts), parser, protocol, store or clock helper, research existing libraries. A PR adding a file under `crates/*/src/`, `apps/desktop/src/` or `loop/` carries a `Reuse:` section naming at least two maintained libraries considered (UI: `@ark-ui/solid`; otherwise search crates.io/npm), with source links and release/maintenance evidence. Name the selected library or state that every candidate failed; for each rejected candidate, cite a specific missing capability, licence restriction, size cost, rule 7 measurement or lack of recent releases. "We can write it quickly" is no reason. Custom code is allowed only when every candidate fails. A PR that only edits existing files needs no `Reuse:` section; research and reuse still apply.
 
 ## Conventions
 

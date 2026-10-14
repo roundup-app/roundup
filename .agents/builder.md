@@ -14,7 +14,7 @@ A UI Issue, or a Brief, Door or Decision Issue in the first user journey, also r
 
 - **Spec**, for an Issue requesting a specification. Each id gets a `**<id> <name>.**` heading; every then-clause names the test that will assert it, or is marked policy; every check is a number citing its file and line on `main`; every cited id, file and PR exists on `origin/main`; a script has one row per failure with its exit code; the text states the result, never the incident; native Issue dependencies identify prerequisites; `loop/rules.sh vocab` passes.
 - **Contract**, for a row needing `contracts/`, a new RPC method, an App seam command, `GLOSSARY.md` or `docs/adr/`. Every caller changes in the same PR and every new name is in `GLOSSARY.md`; a Message, Route, Held or Takeover change names the laws M1 to M10 it touches (`scenarios/proofs.md`) and keeps `proofs/messages` and `docs/messages.md` agreeing.
-- **Code.** Tests are named after their scenario; `just check` passes; a scenario whose Observer needs committed captures gets them with `just capture <ids>` for the ids on `Scenarios:` and no others (L105); after any merge of `main`, `git diff origin/main --stat` lists only your files. A visible change meets D2, D5 and D6 at the scenario's viewport (`.agents/data/harness.md`), with failure text visible on the densest seed.
+- **Code.** Interactive UI elements use `apps/desktop/src/ui/` primitives wrapping Ark UI. A new primitive wraps a library component, never a hand-written state machine. Apply rule 9 before adding machinery. Tests are named after their scenario; `just check` passes; a scenario whose Observer needs committed captures gets them with `just capture <ids>` for the ids on `Scenarios:` and no others (L105); after any merge of `main`, `git diff origin/main --stat` lists only your files. A visible change meets D2, D5 and D6 at the scenario's viewport (`.agents/data/harness.md`), with failure text visible on the densest seed.
 
 - **Filing** (L96, L102), for any run that files or edits a work Issue: write the new body to a file, run `python3 loop/orders.py check <file>` and write it only on exit 0. To rewrite a body you read earlier, save that read to a file and write with `python3 loop/orders.py edit <issue> <read-at> <read-file> <new-file>`, which merges your change into any edit made since instead of erasing it. A repair run (task: "Repair run") edits the Issue the same way and opens no PR.
 
@@ -42,6 +42,7 @@ Your input is the task, the checkout of its head, `gh pr diff`, the scenarios it
 
 1. `git rev-parse HEAD` equals the task's head, or reject with that finding.
 2. Judge the diff against the recipes, the scenario and `AGENTS.md`, naming the rule per defect.
+   - Reuse (rule 9): read only the `Reuse:` section of the body as library evidence; verify it against the diff and the cited sources. Reject custom code when a maintained library covers the need and the section gives no specific reason for rejecting it. Reject a missing required section.
    - A visible change: the Checks it moves hold.
    - A change to `crates/messages`, `docs/messages.md` or `proofs/`: `just proofs` (until it exists, `bend proofs/messages/PROOF.bend`) prints `ALL PROOFS CHECK`, and `proofs/messages/LAWS.bend` weakens no law.
    - A contract change: probe each new type and method in the checkout, never only its text.
