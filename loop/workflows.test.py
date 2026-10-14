@@ -787,9 +787,9 @@ class ApiMeasurement(unittest.TestCase):
                 with self.subTest(workflow=name, job=job):
                     body = re.split(r'\n  [a-z][a-z-]*:\n', text.split(f'\n  {job}:\n', 1)[1])[0]
                     self.assertIn('steps:\n      - name: Start API measurement before checkout', body)
-                    self.assertLess(body.index('measurement-start'), body.index('uses: actions/checkout@v4'))
-                    self.assertIn('builder.py" measurement-start', body)
-                    self.assertIn('builder.py" measurement-finish', body)
+                    self.assertLess(body.index('start-measurement'), body.index('uses: actions/checkout@v4'))
+                    self.assertIn('builder.py" start-measurement', body)
+                    self.assertIn('builder.py" finish-measurement', body)
                     finish = body.split('- name: Finish API measurement', 1)[1]
                     self.assertIn('if: always()', finish)
                     self.assertIn('actions/upload-artifact@v4', finish)
@@ -816,7 +816,7 @@ class ApiMeasurement(unittest.TestCase):
             summary = json.loads(Path(directory, 'loop-api-measurement/summary.json').read_text())
             self.assertEqual(summary['missing'][0]['boundary'], 'both')
             self.assertEqual(summary['intervals'], [])
-            self.assertNotIn('used', summary['missing'][0])
+            self.assertIsNone(summary['missing'][0]['used'])
             self.assertIn('/actions/runs/123', summary['missing'][0]['run_url'])
 
     def test_l114_token_routing_preserves_role_permissions(self):

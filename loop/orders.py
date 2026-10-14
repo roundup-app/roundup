@@ -56,7 +56,8 @@ def measurement_summary(rows):
         for resource in sorted(expected):
             for boundary in ('before', 'after'):
                 if (token, resource, boundary) not in boundaries:
-                    missing.append(dict(token_id=token, resource=resource, boundary=boundary, reason='absent sample'))
+                    missing.append(dict(token_id=token, resource=resource, boundary=boundary, used=None, remaining=None,
+                                        reset=None, reason='absent sample'))
     return dict(requests=[dict(token_source=source, protocol=protocol, measurement=measurement, attempts=attempts)
                           for (source, protocol, measurement), attempts in sorted(counts.items())],
                 intervals=[dict(token_id=token, resource=resource, reset=reset, samples=samples)
