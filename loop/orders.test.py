@@ -381,7 +381,7 @@ class ApiMeasurement(unittest.TestCase):
         summary = orders.measurement_summary(rows)
         self.assertEqual([row['boundary'] for row in summary['missing']], ['before', 'after'])
         self.assertEqual(summary['intervals'], [])
-        self.assertTrue(all('used' not in row for row in summary['missing']))
+        self.assertTrue(all(row['used'] is None for row in summary['missing']))
 
     def test_l114_missing_graphql_samples_are_not_zero(self):
         rows = [dict(kind='request', token_source='installation', token_id='fresh', protocol='GraphQL', measurement=False),

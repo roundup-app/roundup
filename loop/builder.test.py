@@ -3021,7 +3021,7 @@ class ApiMeasurement(unittest.TestCase):
             sample = lambda token: {'core': {'used': 10, 'remaining': 4990, 'reset': 100},
                                     'graphql': {'used': 2, 'remaining': 4998, 'reset': 100}}
             measurement = builder.ApiMeasurement(Path(directory) / 'records.jsonl', sample)
-            measurement.request('one', 'workflow', 'token', 'REST')
+            measurement.request('one', 'workflow', 'private-boundary-credential', 'REST')
             measurement.response('one', 500, {})
             measurement.finish()
             rows = [json.loads(line) for line in measurement.path.read_text().splitlines()]
@@ -3029,7 +3029,7 @@ class ApiMeasurement(unittest.TestCase):
                              ['before', 'before', 'after', 'after'])
             self.assertEqual([(r['protocol'], r['measurement']) for r in rows if r['kind'] == 'request'],
                              [('REST', True), ('REST', False), ('REST', True)])
-            self.assertNotIn('token', measurement.path.read_text().replace('token_source', '').replace('token_id', ''))
+            self.assertNotIn('private-boundary-credential', measurement.path.read_text())
 
     def test_l114_success_and_failed_api_attempts_are_own_requests(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -3230,6 +3230,18 @@ class ApiMeasurement(unittest.TestCase):
                 github.shutdown()
                 github.server_close()
                 thread.join(timeout=15)
+
+
+    def test_l114_a_failed_github_connection_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, LOOP_API_DIRECTORY=directory,
+                        LOOP_API_UPSTREAM='127.0.0.1', LOOP_API_CONTROL='private', GH_TOKEN='private'):
+            proxy = builder.ApiMeasurementProxy()
+            proxy.server_connect_error(None)
+            rows = [json.loads(line) for line in proxy.measurement.path.read_text().splitlines()]
+            self.assertEqual(rows[0]['kind'], 'missing')
+            self.assertIsNone(rows[0]['used'])
+            self.assertTrue(builder.orders.measurement_summary(rows)['missing'])
+            self.assertNotIn('private', proxy.measurement.path.read_text())
 
 
 if __name__ == '__main__':

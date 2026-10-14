@@ -102,28 +102,31 @@ class ApiMeasurement:
         self.pending = {}
         self.identity = {key: os.environ.get(value, '') for key, value in
                          [('workflow', 'GITHUB_WORKFLOW'), ('run', 'GITHUB_RUN_ID'), ('job', 'GITHUB_JOB'),
-                          ('run_attempt', 'GITHUB_RUN_ATTEMPT')]}
+                          ('run_attempt', 'GITHUB_RUN_ATTEMPT'), ('revision', 'GITHUB_SHA')]}
         self.identity['run_url'] = (f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
                                     f"{self.identity['run']}/attempts/{self.identity['run_attempt'] or '1'}")
 
     def record(self, kind, **fields):
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if kind == 'missing':
+            fields = {'token_source': 'unknown', 'resource': 'all', 'used': None, 'remaining': None, 'reset': None, **fields}
         row = dict(self.identity, kind=kind, timestamp=datetime.now(timezone.utc).isoformat(), **fields)
         with self.path.open('a') as output:
             output.write(json.dumps(row, separators=(',', ':')) + '\n')
         return row
 
     def boundary(self, boundary, source, token_id, token):
-        self.record('request', token_source=source, token_id=token_id, protocol='REST', measurement=True)
+        request_id = 'sample-' + secrets.token_hex(16)
+        self.record('request', request_id=request_id, token_source=source, token_id=token_id, protocol='REST', measurement=True)
         try:
             resources = self.sample(token)
         except (OSError, ValueError, KeyError, http.client.HTTPException) as error:
             # Diagnostic bodies can hold credentials. Only the failure's type is public evidence.
-            self.record('sample', boundary=boundary, token_source=source, token_id=token_id,
+            self.record('sample', request_id=request_id, boundary=boundary, token_source=source, token_id=token_id,
                         resource='all', used=None, remaining=None, reset=None, missing=type(error).__name__)
             return
         for resource, rate in resources.items():
-            self.record('sample', boundary=boundary, token_source=source, token_id=token_id,
+            self.record('sample', request_id=request_id, boundary=boundary, token_source=source, token_id=token_id,
                         resource=resource, **{key: rate[key] for key in ('used', 'remaining', 'reset')})
 
     def token(self, source, token):
@@ -192,6 +195,12 @@ class ApiMeasurementProxy:
     def server_connect(self, data):
         data.server.sni = 'api.github.com'
 
+    def _transport_error(self, data):
+        self.measurement.record('missing', reason='GitHub connection failed before HTTP response headers')
+
+    server_connect_error = _transport_error
+    tls_failed_server = _transport_error
+
     def requestheaders(self, flow):
         from mitmproxy import http
         if flow.request.headers.get('x-loop-api-control') == self.control:
@@ -238,7 +247,7 @@ def measurement_start():
                                   '--mode', f'reverse:https://{upstream}:443@443', '--set', 'keep_host_header=true',
                                   '--set', f'confdir={directory / "ca"}', '-s', str(addon)],
                                  env=env, stdout=log, stderr=log)
-    deadline = time.monotonic() + 30
+    deadline = time.monotonic() + 60
     while not (directory / 'ready').exists():
         if proxy.poll() is not None or time.monotonic() > deadline:
             raise ValueError('API measurement proxy did not become ready; private diagnostics stay on runner')
@@ -248,7 +257,7 @@ def measurement_start():
                    check=True, timeout=30)
     subprocess.run(['sudo', 'update-ca-certificates'], check=True, capture_output=True, timeout=60)
     # Only api.github.com is redirected. Anthropic, OIDC, artifacts, caches and git traffic are untouched.
-    with tempfile.NamedTemporaryFile(mode='w') as hosts:
+    with tempfile.NamedTemporaryFile(mode='w+') as hosts:
         hosts.write('127.0.0.1 api.github.com\n')
         hosts.flush()
         hosts.seek(0)
@@ -2109,9 +2118,9 @@ def main(args):
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
             return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
-        case ['measurement-start']:
+        case ['start-measurement']:
             measurement_start()
-        case ['measurement-finish']:
+        case ['finish-measurement']:
             measurement_finish()
         case ['read-token']:
             token = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read', 'actions': 'read', 'checks': 'read'})
@@ -2191,7 +2200,7 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py start-measurement | finish-measurement | read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)

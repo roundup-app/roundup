@@ -40,12 +40,12 @@ jobs:
           directory="$RUNNER_TEMP/loop-api-source"
           git init --quiet "$directory"
           git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
-          timeout 120s git -C "$directory" fetch --quiet --depth=1 origin "$MEASUREMENT_REF"
+          timeout 120s git -C "$directory" fetch --quiet --filter=blob:none --no-tags --depth=1 origin "$MEASUREMENT_REF"
           for source in builder orders; do
-            git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+            timeout 60s git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
           done
           touch "$directory/complete"
-          python3 "$directory/builder.py" measurement-start
+          python3 "$directory/builder.py" start-measurement
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -83,7 +83,7 @@ jobs:
         if: always()
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
-            python3 "$RUNNER_TEMP/loop-api-source/builder.py" measurement-finish
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
           else
             python3 - <<'PYCODE'
           import json, os
@@ -92,6 +92,7 @@ jobs:
           directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
           directory.mkdir(exist_ok=True)
           row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     token_source='unknown', resource='all', used=None, remaining=None, reset=None,
                      workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
                      run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
                      timestamp=datetime.now(timezone.utc).isoformat())
@@ -124,12 +125,12 @@ jobs:
           directory="$RUNNER_TEMP/loop-api-source"
           git init --quiet "$directory"
           git -C "$directory" remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
-          timeout 120s git -C "$directory" fetch --quiet --depth=1 origin "$MEASUREMENT_REF"
+          timeout 120s git -C "$directory" fetch --quiet --filter=blob:none --no-tags --depth=1 origin "$MEASUREMENT_REF"
           for source in builder orders; do
-            git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
+            timeout 60s git -C "$directory" show "FETCH_HEAD:loop/$source.py" > "$directory/$source.py"
           done
           touch "$directory/complete"
-          python3 "$directory/builder.py" measurement-start
+          python3 "$directory/builder.py" start-measurement
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.collect.outputs.head }}
@@ -178,7 +179,7 @@ jobs:
         if: always()
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
-            python3 "$RUNNER_TEMP/loop-api-source/builder.py" measurement-finish
+            python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
           else
             python3 - <<'PYCODE'
           import json, os
@@ -187,6 +188,7 @@ jobs:
           directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
           directory.mkdir(exist_ok=True)
           row = dict(kind='missing', boundary='both', reason='measurement bootstrap failed',
+                     token_source='unknown', resource='all', used=None, remaining=None, reset=None,
                      workflow=os.environ['GITHUB_WORKFLOW'], run=os.environ['GITHUB_RUN_ID'], job=os.environ['GITHUB_JOB'],
                      run_url=f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
                      timestamp=datetime.now(timezone.utc).isoformat())
