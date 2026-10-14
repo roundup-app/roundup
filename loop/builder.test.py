@@ -309,8 +309,47 @@ class Pick(unittest.TestCase):
 
     def test_l23_pick_fills_free_slots_with_ready_issues_no_build_job_holds(self):
         rows = [dict(issue=n, slug=f'U{n}', state=s) for n, s in [(1, 'ready'), (2, 'waiting'), (3, 'ready'), (4, 'ready'), (5, 'ready')]]
-        self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 3)], [1, 4])
-        self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 4), [])
+        self.assertEqual([r['issue'] for r in builder.choose(rows, {3}, 2)], [1, 4])
+        self.assertEqual(builder.choose(rows, {6, 7, 8, 9}, 0), [])
+
+    def test_l23_build_jobs_and_fix_runs_share_the_codex_slots(self):
+        with patch.object(builder, 'busy', return_value={5}), \
+                patch.object(builder, 'live_fixes', return_value=[dict(id=7), dict(id=8)]):
+            self.assertEqual(builder.codex_slots(4), ({5}, 1))
+            self.assertEqual(builder.codex_slots(4, run_id=8), ({5}, 2))
+            self.assertEqual(builder.codex_slots(2), ({5}, -1))
+
+    def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
+        prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
+        rows = [dict(issue=n, slug=f'U{n}', state='ready') for n in (31, 32, 33)]
+        for most, free, dispatched, built in ((5, 4, [2, 3, 1], [31]), (2, 2, [2, 3], []), (2, 0, [], [])):
+            output, errors = io.StringIO(), io.StringIO()
+            sent = []
+            with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
+                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'repairs', side_effect=lambda prs, now: [(p['number'], HEAD, 'check') for p in prs]), \
+                    patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
+                    patch.object(builder, 'unreviewed', return_value=[]), \
+                    patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
+                builder.pick(most)
+            self.assertEqual(sent, dispatched)
+            self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], built)
+            if not free:
+                self.assertIn('Fix for PR #2 (check) waits: build jobs and fix runs hold all 2 Codex slots.', errors.getvalue())
+
+    def test_l23_a_fix_run_refuses_when_other_runs_hold_every_codex_slot(self):
+        with patch.object(builder, 'codex_slots', return_value=(set(), 0)) as slots, \
+                patch.object(builder, 'fix_task') as task, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(builder.main(['fix-task', '9', HEAD, 'check']), 3)
+        slots.assert_called_once_with(2, 8)
+        task.assert_not_called()
+        self.assertIn('every Codex slot', errors.getvalue())
+        with patch.object(builder, 'codex_slots', return_value=(set(), 1)), \
+                patch.object(builder, 'fix_task', return_value='Fix it.') as task, \
+                patch.dict(os.environ, GITHUB_RUN_ID='8', CODEX_RUNS='2'), redirect_stdout(io.StringIO()):
+            self.assertEqual(builder.main(['fix-task', '9', HEAD, 'check']), 0)
+        task.assert_called_once()
 
     def test_l23_a_queued_or_running_build_job_holds_its_issue(self):
         runs = {11: ('in_progress', [dict(name='pick', status='completed'), dict(name='build #5', status='in_progress'),
@@ -728,14 +767,15 @@ class Fix(unittest.TestCase):
 
     def test_l82_a_failure_main_caused_holds_until_main_passes_then_only_merges_main(self):
         # PR #847: #827 and #832 broke `web` on `main`; its fix runs answered `main`'s failure, then an older base's.
-        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web', 'FAILURE', 60),
-                                                                           ran('rust', 'SUCCESS', 60)])
+        failing = pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=[ran('check', 'FAILURE', 60), ran('web 1', 'FAILURE', 60),
+                                                                           ran('mac', 'SUCCESS', 60)])
         attempts = [note('<!-- fix-attempt -->\nFix run r answered `check`.') for _ in range(builder.ATTEMPTS)]
         # m1 is the head's merge base; the head's run started 360 seconds ago, after m2 and before m3.
-        before = push('m0', 900, web='failure')
+        before = push('m0', 900, **{'web 1': 'failure'})
 
-        def pushes(m2, m3, rust='success'):
-            return [push('m3', 100, web=m3), push('m2', 500, web=m2, rust=rust), push('m1', 600, web='success'), before]
+        def pushes(m2, m3, mac='success'):
+            return [push('m3', 100, **{'web 1': m3}), push('m2', 500, **{'web 1': m2}, mac=mac),
+                    push('m1', 600, **{'web 1': 'success'}), before]
 
         for main in (pushes('failure', 'failure'), pushes('pending', 'success'), pushes('failure', 'pending')):
             with GitHub(view=failing, notes=attempts, main=main, base='m1') as github:
@@ -759,7 +799,7 @@ class Fix(unittest.TestCase):
         for view, notes, main in ((failing, refreshed, pushes('failure', 'success')),
                                   (dict(failing, mergeable='CONFLICTING'), [], pushes('failure', 'success')),
                                   (failing, [], pushes('success', 'failure')),
-                                  (failing, [], pushes('success', 'success', rust='cancelled'))):
+                                  (failing, [], pushes('success', 'success', mac='cancelled'))):
             with GitHub(view=view, notes=notes, main=main, base='m1') as github:
                 self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check', 'https://run/2'))
             self.assertEqual(github.bodies(), [])

@@ -72,6 +72,7 @@ jobs:
           PR: ${{ inputs.pr || github.event.workflow_run.pull_requests[0].number }}
           HEAD: ${{ inputs.head || github.event.workflow_run.head_sha }}
           CAUSE: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}
+          CODEX_RUNS: ${{ vars.CODEX_RUNS }}
         run: |
           code=0
           python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" || code=$?
