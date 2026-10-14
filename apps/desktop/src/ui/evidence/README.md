@@ -13,7 +13,7 @@ Implementation source: `5b02565152a3741d72ebc9d80789ff0e45b2e046`. Merge `965d2d
 | U184 regression | Existing header tests; the outside-click test now uses the real browser instead of a jsdom click that omitted Ark's pointer sequence |
 | Old trap deletion | `rg -n "Window capture runs before" src/header/CloseDialog.tsx` exits 1; the implementation contains no trap, capture listener or focus-restoration loop |
 
-`just capture U475` writes before/question/failure PNGs and Check readings to `artifacts/ux/U475/`. These are webview observations on a fake App seam, not a real Daemon stop or native rendering result. No Mac observation is claimed.
+`just capture U475` writes before/question/failure PNGs and Check readings to `artifacts/ux/U475/`. The original `*-readings.json` envelopes are retained; paired before/question Check files contain their unchanged per-state maps. These are webview observations on a fake App seam, not a real Daemon stop or native rendering result. No Mac observation is claimed.
 
 ## Daemon budget
 
