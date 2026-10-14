@@ -6,7 +6,7 @@ use std::path::Path;
 
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
 use contracts::project::{ProjectModels, RoleModels, Worktrees};
-use rpc::{OpenError, RpcError, adopt_renamed_column};
+use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
@@ -18,73 +18,7 @@ impl Rail {
     pub fn open(path: &Path) -> Result<Self, OpenError> {
         let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        db.execute_batch(
-            "CREATE TABLE IF NOT EXISTS nodes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                kind TEXT NOT NULL,
-                name TEXT NOT NULL,
-                parent INTEGER REFERENCES nodes(id),
-                ord INTEGER NOT NULL,
-                meta INTEGER NOT NULL DEFAULT 0,
-                terminal_id TEXT
-            );
-            CREATE TABLE IF NOT EXISTS settings (
-                id INTEGER PRIMARY KEY CHECK (id = 0),
-                worktrees_on INTEGER NOT NULL DEFAULT 0,
-                worktrees_check TEXT
-            );
-            CREATE TABLE IF NOT EXISTS role_models (
-                role TEXT PRIMARY KEY,
-                model TEXT,
-                effort TEXT
-            );
-            CREATE TABLE IF NOT EXISTS allowed_models (
-                ord INTEGER PRIMARY KEY,
-                model TEXT NOT NULL UNIQUE
-            );",
-        )?;
-        // SQLite's `ALTER TABLE` has no `ADD COLUMN IF NOT EXISTS`, so a column a Project's
-        // `agents.db` already has (from before G2) is skipped by hand.
-        adopt_renamed_column(
-            &db,
-            "nodes",
-            "incarnation",
-            "attempt",
-            "INTEGER NOT NULL DEFAULT 0 CHECK (attempt >= 0)",
-        )?;
-        for (column, decl) in [
-            ("worktree_owner", "TEXT"),
-            ("worktree_commit", "TEXT"),
-            ("worktree_path", "TEXT"),
-            ("worktree_branch", "TEXT"),
-            ("worktree_base", "TEXT"),
-            // 'provisioning' from before `git worktree add` runs until the Terminal is about to
-            // start, then 'ready'; no RPC returns it (G2, G6).
-            ("worktree_state", "TEXT"),
-            // A21: the vendor conversation id and the effective cwd it was launched in, from the
-            // latest Signal of the current Attempt that named one. Never read outside this module
-            // and `agent.resume`; no vendor id reaches a public name or the webview.
-            ("conversation_id", "TEXT"),
-            ("conversation_cwd", "TEXT"),
-            // O1: the node's order as JSON; NULL (a node from before O1) reads as the default
-            // Clarification order of its kind.
-            ("work", "TEXT"),
-            // O8: the prompt an Agent's spawn gave beside its order, exactly as written; NULL when
-            // none. Never on `RailNode`.
-            ("spawn_prompt", "TEXT"),
-            // M7: the Agent that created a Workstream; NULL (the user, or a node from before M7).
-            ("creator", "TEXT"),
-            // O13: the Agent whose `agent.spawn` started this Agent; NULL (the user, or a node from
-            // before O13). Never on `RailNode`.
-            ("spawner", "TEXT"),
-            // A36: the Model and Effort the Agent runs on; NULL passes none.
-            ("model", "TEXT"),
-            ("effort", "TEXT"),
-            // A32: the Iteration of a Workstream's Door.
-            ("iteration", "INTEGER NOT NULL DEFAULT 1"),
-        ] {
-            add_column_if_missing(&db, "nodes", column, decl)?;
-        }
+        crate::schema::open(&mut db, path)?;
         // Terminal ids restart at 1 with the Daemon, so a stored id could name an unrelated Terminal.
         db.execute("UPDATE nodes SET terminal_id = NULL", [])?;
         // A25: a Rail stored by an earlier Daemon holds `room` where this one writes `workstream`.
@@ -94,7 +28,6 @@ impl Rail {
         )?;
         drop_terminal_nodes(&db)?;
         flatten_workstreams(&mut db)?;
-        db.execute_batch("CREATE INDEX IF NOT EXISTS nodes_terminal ON nodes(terminal_id)")?;
         Ok(Self { db })
     }
 
@@ -727,28 +660,6 @@ fn sql_ordinal(err: std::num::ParseIntError) -> RpcError {
 
 fn sql(err: rusqlite::Error) -> RpcError {
     RpcError::internal(err)
-}
-
-/// Add `column` to `table` unless it is already there (a migration run against a Project's
-/// existing `agents.db`).
-fn add_column_if_missing(
-    db: &Connection,
-    table: &str,
-    column: &str,
-    decl: &str,
-) -> rusqlite::Result<()> {
-    let has_column = db
-        .prepare("SELECT 1 FROM pragma_table_info(?) WHERE name = ?")?
-        .query_row(params![table, column], |_| Ok(()))
-        .optional()?
-        .is_some();
-    if !has_column {
-        db.execute(
-            &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
-            [],
-        )?;
-    }
-    Ok(())
 }
 
 /// X11: a Rail stored by an earlier Daemon may hold nodes of kind `terminal`; their programs are

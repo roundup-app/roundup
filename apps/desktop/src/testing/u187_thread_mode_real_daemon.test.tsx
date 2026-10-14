@@ -30,7 +30,7 @@ describe("u187 a Workstream's Door is talked to through its Thread on the real D
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const messages = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => message.body);
     const screenOf = () => document.querySelector<HTMLElement>(".pane-screen")!;
 
