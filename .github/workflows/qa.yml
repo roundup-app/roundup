@@ -38,7 +38,7 @@ jobs:
       - run: |
           npm install -g agent-browser@0.27.0
           agent-browser install --with-deps
-      - run: loop/qa-sweep.sh
+      - run: python3 loop/app-data.py bash loop/qa-sweep.sh
       - name: a complete sweep record
         if: always()
         run: jq -se 'length > 0 and all(.complete)' loop/out/qa/sweep-*.json
