@@ -32,7 +32,7 @@ describe("u26 the harness seeds", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect((await rail()).textContent).toBe("Agents and terminalsAppear here, one per row,Nested by indent");
+    expect((await rail()).textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
   });
 
   it("u143_the_empty_project_seed_exposes_the_first_workstream_action", async () => {
