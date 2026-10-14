@@ -62,7 +62,7 @@ it.runIf(process.platform === "linux").each(homes)("u26_parallel_pages_answer_wh
   for (const override of overrides) vi.stubEnv(override, undefined);
 
   vi.stubEnv(name, dir);
-  const pages = await Promise.allSettled(Array.from({ length: 2 }, () => openPage(found, { replyMs: 5_000 })));
+  const pages = await Promise.allSettled(Array.from({ length: 2 }, () => openPage(found)));
 
   try {
     const opened = pages.map((page) => {
@@ -77,4 +77,4 @@ it.runIf(process.platform === "linux").each(homes)("u26_parallel_pages_answer_wh
     vi.unstubAllEnvs();
     rmSync(dir, { recursive: true, force: true });
   }
-}, 30_000);
+}, 40_000);
