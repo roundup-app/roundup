@@ -46,7 +46,7 @@ run("U476 Terminal regression", () => {
       const measured: Metrics[] = [];
       for (const page of [pair.baseline, pair.head]) {
         await page.scheme(scheme);
-        await page.load('/harness.html?seed=agents-10', 1280, 800, 1791936000000);
+        await page.load('/harness.html?seed=agents-10', 1280, 800);
         await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
         measured.push(await page.call<Metrics>(MEASURE, dom));
       }
