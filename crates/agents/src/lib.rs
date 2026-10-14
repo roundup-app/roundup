@@ -3395,7 +3395,20 @@ impl Module for Agents {
                 reply(&shared.capture(&ctx.actor, &id)?)
             }
             "decision.answer" => {
-                shared.answer(ctx, params::<AnswerParams>(value)?)?;
+                let answer: AnswerParams = params(value)?;
+                let shared = Arc::clone(shared);
+                let ctx = Ctx {
+                    actor: ctx.actor.clone(),
+                    bus: ctx.bus.clone(),
+                    touches: Arc::clone(&ctx.touches),
+                };
+                // An answer may wait for a guarded physical write. Keep that wait off
+                // the reactor so the user's competing call can reach its own effect.
+                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
+                    .await
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
+                    })??;
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),

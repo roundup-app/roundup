@@ -286,7 +286,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
         true,
         |command| {
             command
-                .env("TOKIO_WORKER_THREADS", "4")
+                .env("TOKIO_WORKER_THREADS", "16")
                 .env("RUPD_PROMPT_EFFECT_GATE", project.join("effect-gate"))
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
@@ -421,7 +421,7 @@ async fn b6_terminal_input_invalidates_identity_before_the_next_signal() {
 }
 
 #[tokio::test]
-async fn b6_attempt_change_and_restart_refuse_old_prompt_effects_even_with_d1_reused() {
+async fn b6_an_attempt_change_refuses_the_original_prompt_effect() {
     for kind in ["permission", "ask_user", "native"] {
         let mut run = Run::start().await;
         let (original, waiting) = run.open(kind).await;
@@ -455,12 +455,24 @@ async fn b6_attempt_change_and_restart_refuse_old_prompt_effects_even_with_d1_re
         }
         run.clear().await;
         let _ = waiting.await.unwrap();
-        run.user
-            .request("agent.stop", json!({"id":run.child}))
-            .await
-            .unwrap();
+        assert!(!run.recorded_input().await.contains("BYTE:"));
+        run.finish().await;
+    }
+}
+
+#[tokio::test]
+async fn b6_a_daemon_crash_refuses_a_live_original_even_with_d1_reused() {
+    for kind in ["permission", "ask_user", "native"] {
+        let mut run = Run::start().await;
+        let (original, original_waiting) = run.open(kind).await;
+        assert_eq!(original["id"], "d1");
+        let identity = run.capture(&original).await;
         run.daemon.child.kill().unwrap();
         run.daemon.child.wait().unwrap();
+        let old_reply = original_waiting.await.unwrap();
+        if kind != "native" {
+            assert!(old_reply.is_err());
+        }
         run.daemon = launch(run.dir.path(), run.data.path());
         run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
         run.resumed().await;
@@ -612,19 +624,17 @@ async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
             .unwrap();
             // An observation window: a folded replacement would answer this socket.
             // The router's racing acknowledgement bounds its arrival, not a scheduler guess.
+            let mut user = tokio::io::BufReader::new(user);
+            let mut response = String::new();
             assert!(
-                tokio::time::timeout(Duration::from_millis(50), user.readable())
+                tokio::time::timeout(Duration::from_millis(50), user.read_line(&mut response))
                     .await
                     .is_err(),
-                "replacement completed while the original effect was paused"
+                "{kind} answer_effect={answer_effect}: replacement completed while the original effect was paused: {response}"
             );
             run.release();
             effect.await.unwrap().unwrap();
-            let mut response = String::new();
-            tokio::io::BufReader::new(user)
-                .read_line(&mut response)
-                .await
-                .unwrap();
+            user.read_line(&mut response).await.unwrap();
             assert!(
                 serde_json::from_str::<Value>(&response)
                     .unwrap()
