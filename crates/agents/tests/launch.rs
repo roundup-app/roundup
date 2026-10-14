@@ -1376,3 +1376,13 @@ fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
     assert!(agent.contains("`rail_createWorkstream`"));
     assert!(!agent.contains("coordinating Door"));
 }
+
+#[test]
+fn q11_every_role_gets_plain_for_every_reply() {
+    let s = setup();
+    for role in [Role::Door, Role::Agent] {
+        let text = brief(&s, "7", role);
+        assert!(text.contains("Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool."));
+        assert!(text.contains(&asset("hold-plain.md")));
+    }
+}
