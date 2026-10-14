@@ -1,3 +1,7 @@
+# L89: a failing test stops no other; a check run reports every failure at once.
+[profile.default]
+fail-fast = false
+
 # Tests that assert a product's upper bound on real elapsed time each run alone: no other test shares the
 # runner's CPUs while one is timed. They start first, so the wait for a free runner is paid before the rest.
 # A test belongs here when it asserts that a real (not paused) clock stayed under a bound the product promises;
