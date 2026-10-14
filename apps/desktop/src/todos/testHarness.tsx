@@ -1,3 +1,6 @@
+import { Show } from "solid-js";
+import { ScopeControl } from "../shelf/ScopeControl";
+import { useShelfScope } from "./shelfScope";
 import { expect } from "vitest";
 import { within, render } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -40,13 +43,15 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
 
   await showEverything(connected);
 
+  const scope = useShelfScope(connected);
+
   const { unmount } = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Layout
         header="roundup"
         rail={renderRail ? <Rail /> : null}
         centre={null}
-        shelf={<Todos />}
+        shelf={<><Show when={scope.workstream()}><ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} /></Show><Todos /></>}
         overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => reducedMotion} />}
       />
     </ConnectedProjectContext.Provider>

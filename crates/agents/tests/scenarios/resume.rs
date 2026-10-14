@@ -393,10 +393,12 @@ async fn a22_can_resume_survives_a_reopen() {
     assert_eq!(reopened.terminal_id, None);
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
+    // Plugin compatibility probes use a real process; pause only the resume deadline.
+    tokio::time::pause();
     let f = Arc::new(f);
     let old_attempt = node.attempt.clone().unwrap();
     let id = node.id.clone();
@@ -425,6 +427,8 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
 async fn held_as_not_the_ack(session_id: &str, source: &str) {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
+    // Plugin compatibility probes use a real process; pause only the resume deadline.
+    tokio::time::pause();
     let f = Arc::new(f);
     let old_attempt = node.attempt.clone().unwrap();
     let id = node.id.clone();
@@ -442,12 +446,12 @@ async fn held_as_not_the_ack(session_id: &str, source: &str) {
     assert_eq!(err.code, code::CONFLICT);
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn a22_an_ack_with_the_wrong_source_is_held_not_promoted() {
     held_as_not_the_ack(CONVERSATION, "startup").await;
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn a22_an_ack_naming_a_different_conversation_is_held_not_promoted() {
     held_as_not_the_ack(OTHER_CONVERSATION, "resume").await;
 }
@@ -680,10 +684,12 @@ async fn a23_a_saved_conversation_that_cannot_resume_never_starts_fresh() {
     assert_eq!(now, launches, "no fresh program ran");
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn a23_a_restart_without_acknowledgement_fails_with_a22s_error() {
     let f = Fixture::running("sleep 30");
     let door = exited_door(&f).await;
+    // Plugin compatibility probes use a real process; pause only the resume deadline.
+    tokio::time::pause();
     let f = Arc::new(f);
     let old_attempt = door.attempt.clone().unwrap();
     let starting = {
@@ -763,6 +769,16 @@ async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
 
 /// The same Agent RPC module used by the Daemon's Message receiver lookup.
 struct Receiver(Arc<Fixture>, tokio::sync::mpsc::UnboundedSender<Value>);
+
+impl messages::TerminalOwners for Receiver {
+    fn with_terminal_owner(
+        &self,
+        terminal: &str,
+        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), rpc::RpcError>,
+    ) -> Result<(), rpc::RpcError> {
+        self.0.agents.with_terminal_owner(terminal, record)
+    }
+}
 
 #[async_trait::async_trait]
 impl rpc::Module for Receiver {
@@ -1069,4 +1085,61 @@ async fn r16_reopened_rail_keeps_resume_data_without_live_presentation() {
     assert_eq!(reopened.model, node.model);
     assert_eq!(reopened.effort, node.effort);
     assert_eq!(reopened.iteration, node.iteration);
+}
+
+#[tokio::test]
+async fn b32_r16_messages_use_the_authoritative_agents_dependency_for_agent_and_door() {
+    for door in [false, true] {
+        let f = Fixture::running("sleep 30");
+        let node: RailNode = if door {
+            let id = f.workstream("team", None).await;
+            serde_json::from_value(f.call("rail.startDoor", json!({"id":id})).await.unwrap())
+                .unwrap()
+        } else {
+            f.spawn(None, None).await.unwrap()
+        };
+        let terminal = node.terminal_id.clone().unwrap();
+        let ctx = f.ctx();
+        let Fixture {
+            dir,
+            bus,
+            agents,
+            terminals,
+            ..
+        } = f;
+        let agents = Arc::new(agents);
+        let messages = messages::Messages::open(
+            dir.path(),
+            bus,
+            agents.clone(),
+            Arc::new(|_, _| Box::pin(async { Ok(()) })),
+        )
+        .unwrap();
+        messages.user_wrote(&terminal, b"unsent").await;
+        let sent = messages
+            .call(
+                &ctx,
+                "message.send",
+                json!({"to":node.id,"kind":"note","body":"wait"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(sent["status"], "held");
+        messages.user_wrote(&terminal, b"\rtail").await;
+        let get = || json!({"id":sent["id"]});
+        assert_eq!(
+            messages.call(&ctx, "message.get", get()).await.unwrap()["status"],
+            "held"
+        );
+        messages.user_wrote(&terminal, b"\x15").await;
+        assert_eq!(
+            messages.call(&ctx, "message.get", get()).await.unwrap()["status"],
+            "pending"
+        );
+        agents
+            .call(&ctx, "agent.stop", json!({"id":node.id}))
+            .await
+            .unwrap();
+        drop(terminals);
+    }
 }

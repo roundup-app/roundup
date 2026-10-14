@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+agents = { path = "../agents" }
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 provenance = { path = "../provenance" }
