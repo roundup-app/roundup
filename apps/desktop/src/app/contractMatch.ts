@@ -52,4 +52,4 @@ export const checkContract = async (app: AppSeam): Promise<string | null> => {
 
 /** S11: what the user reads for a `METHOD_NOT_FOUND` on `method`. */
 export const methodNotFoundMessage = (method: string): string =>
-  `${method}: the App and the Daemon differ. ${REMEDY}`;
+  `${method}: The App and the Daemon differ. ${REMEDY}`;
