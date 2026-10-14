@@ -29,7 +29,7 @@ describe("u160 a Workstream's Thread holds only its own Messages on the real Dae
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
-    const rail = await screen.findByRole("region", { name: "rail" });
+    const rail = await screen.findByRole("region", { name: "Rail" });
     const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
     const ready = async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
 

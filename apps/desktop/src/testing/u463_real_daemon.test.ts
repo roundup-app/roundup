@@ -86,7 +86,7 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
     try {
       await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
-      await wait(`document.body.textContent.includes('open a folder to start')`);
+      await wait(`document.body.textContent.includes('Open a folder to start')`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
       await observe("first-run");
       await browser("eval", `(() => {
@@ -99,7 +99,7 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
         };
       })()`);
 
-      await activate('[aria-label="centre"] button');
+      await activate('[aria-label="Centre"] button');
       await wait(`document.body.textContent.includes('New Workstream')`);
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
@@ -156,19 +156,19 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
     try {
       await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
-      await wait(`document.body.textContent.includes('open a folder to start')`);
+      await wait(`document.body.textContent.includes('Open a folder to start')`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
       await observe("first-run");
 
       await browser("eval", "window.__firstRun.cancelNextChoice()");
-      await activate('[aria-label="centre"] button');
+      await activate('[aria-label="Centre"] button');
       // The chooser's null result creates no asynchronous RPC work (state/projects.ts choose).
       expect((await browser("eval", "document.querySelectorAll('[role=tab]').length")).result).toBe(0);
       expect(await app.rpc("rail.tree", null)).toEqual([]);
       expect(await app.rpc("terminal.list", null)).toEqual([]);
-      await wait(`document.body.textContent.includes('open a folder to start')`);
+      await wait(`document.body.textContent.includes('Open a folder to start')`);
       await observe("cancelled");
-      await activate('[aria-label="centre"] button');
+      await activate('[aria-label="Centre"] button');
       await wait(`!!document.querySelector('.pane-action')`);
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
       expect(await app.rpc("rail.tree", null)).toEqual([]);
