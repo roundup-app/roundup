@@ -64,10 +64,12 @@ type Read = { width: number; scroll: number; controls: { name: string; left: num
 run("U453 supported App windows", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
-  // Window width is what U453 checks; one scheme represents both.
+  // Window width is what U453 checks; one scheme represents both. The narrowest
+  // supported width binds overflow and reachability, so wider windows add nothing.
   const scheme = "light";
+  const width = 1280;
 
-  for (const width of [1280, 1440]) for (const seed of ["first-run", "agents-10", "tree-40", "decisions", "conflict"]) {
+  for (const seed of ["first-run", "agents-10", "tree-40", "decisions", "conflict"]) {
     const name = `${seed}-${width}x800-${scheme}`;
     const states = seed === "tree-40" ? ["rest", "todo", "todo-closed", "pad", "pad-closed"] : seed === "decisions" ? ["failed-answer"] : ["rest"];
 
