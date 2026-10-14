@@ -375,6 +375,7 @@ export const copy = {
   exitedMark: "○",
   previousProjectsMark: "◂ ",
   nextProjectsMark: " ▸",
+  roundup: "roundup",
   left: "left",
   right: "right",
   noSkills: "No Skills",

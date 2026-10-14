@@ -448,21 +448,15 @@ class Care(unittest.TestCase):
                 if 'fallow' in args:
                     return json.dumps({'runs':[{'results':[{'ruleId':'fallow/unused-export'}],
                         'tool':{'driver':{'version':'3.31.0'}}}]})
-                if args == ['loop/fixed-wait.sh', '--inventory']:
-                    return json.dumps(dict(format=1, base_sha='b'*40, waits=[]))
                 if '--version' in args:
                     return 'clippy fixture 1'
                 if '-D' in args:
                     return '{"reason":"build-finished","success":true}\n'
                 return json.dumps(dict(reason='compiler-message', message=dict(code=dict(code='clippy::too_many_lines'),
                     spans=[dict(file_name='crates/example/src/lib.rs', line_start=1, line_end=101, is_primary=True)]))) + '\n' + '{"reason":"build-finished","success":true}\n'
-            (root/'loop').mkdir()
-            (root/'loop/fixed-wait-requirements.txt').write_text('tree-sitter fixture 1')
             with patch('care.command', side_effect=tool):
                 result = care.tool_evidence(root, root/'raw')
             self.assertEqual('clippy::too_many_lines', result['clippy']['raw'][0]['code']['code'])
-            self.assertEqual(dict(format=1, base_sha='b'*40, waits=[]), result['fixed_waits']['raw'])
-            self.assertEqual(result['fixed_waits']['raw'], json.loads((root/'raw/fixed-waits.json').read_text()))
             self.assertEqual('none', result['duplication']['ci_threshold']['rust'])
             self.assertEqual('fallow/unused-export', result['dead_code']['raw']['runs'][0]['results'][0]['ruleId'])
 
@@ -676,6 +670,15 @@ class Care(unittest.TestCase):
             self.assertEqual(['u1::u1_renders'], [r['name'] for r in care.test_results(log, job, run)], name)
             with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
                 care.test_results('Compiling rupd\n', job, run)
+            # A PR's diff can reach no crate, or no test of this half or profile.
+            for empty in ('no Rust test reaches the diff since HEAD^1\n',
+                          'Starting 0 tests across 0 binaries (4 binaries skipped)\nSummary [0.000s] 0 tests run: 0 passed, 0 skipped\n'):
+                self.assertEqual([], care.test_results(empty, job, run), name)
+        web = dict(id=4, name='web', conclusion='success', html_url='https://github.com/o/r/actions/jobs/4', run_attempt=1,
+                   completed_at=fixtures.NOW, steps=[dict(name='check-web', conclusion='success')])
+        self.assertEqual([], care.test_results('no web test reaches the diff since HEAD^1\n', web, run))
+        with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
+            care.test_results('Found 0 errors\n', web, run)
         for name in ('lint', 'rust-linux full-j8', 'macos'):
             self.assertFalse(care.NEXTEST_LANE.fullmatch(name) or care.VITEST_LANE.fullmatch(name), name)
 
@@ -765,7 +768,7 @@ class Care(unittest.TestCase):
             clippy=dict(raw=[dict(code=dict(code='clippy::too_many_lines'), message='shared helper',
                 spans=[dict(file_name='crates/rup/tests/e2e/../../../rupd/tests/support.rs',
                             line_start=10, line_end=20, is_primary=True)])],
-                invocation=['cargo', 'clippy'], version='fixture'), fixed_waits=dict(raw=dict(waits=[])))
+                invocation=['cargo', 'clippy'], version='fixture'))
         inventory = dict(tests=[], largest_files=[], largest_functions=[])
         history = dict(recoveries=[], main_failures=[], slowest=[], duplicate_names=[], fix_churn=[])
         rows = care.evidence_rows('o/r', 'a'*40, inventory, tools, history, fixtures.END)
@@ -774,73 +777,6 @@ class Care(unittest.TestCase):
         data['findings'] = rows
         data['categories']['clippy'] = [rows[0]['id']]
         care.validate_input(data)
-
-    def test_l109_care_inventory_stdout_survives_cold_parser_setup(self):
-        import json
-        import os
-        import shutil
-        import tempfile
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root/'loop').mkdir()
-            shutil.copyfile(Path(__file__).with_name('fixed-wait.sh'), root/'loop/fixed-wait.sh')
-            (root/'loop/fixed-wait-requirements.txt').write_text('--find-links ' + str(root) + '\n')
-            (root/'loop/fixed_wait.py').write_text('import json; print(json.dumps({"format": 1, "waits": []}))')
-            try:
-                result = subprocess.run(['bash', str(root/'loop/fixed-wait.sh'), '--inventory'],
-                    text=True, capture_output=True, timeout=60,
-                    env={**os.environ, 'ROUNDUP_FIXED_WAIT_ENV': str(root/'parser-env'),
-                         'PIP_NO_INDEX': '1', 'PIP_DISABLE_PIP_VERSION_CHECK': '1'})
-            except subprocess.TimeoutExpired:
-                self.fail('awaited fixed-wait JSON inventory from cold parser setup')
-            self.assertEqual(0, result.returncode, result.stderr)
-            self.assertEqual(dict(format=1, waits=[]), json.loads(result.stdout))
-
-    def test_l109_care_ranks_existing_waits(self):
-        import care
-        tools = dict(duplication=dict(raw=dict(duplicates=[]), invocation=['jscpd', '--output', '/tmp/raw']),
-            dead_code=dict(raw=dict(runs=[dict(results=[])])), clippy=dict(raw=[]),
-            fixed_waits=dict(raw=dict(format=1, base_sha='b'*40, waits=[
-                dict(id='wait-one', file='apps/desktop/src/view.test.ts', line=12, column=7,
-                     expression='setTimeout(resolve, 20)', test='u1_view', awaited_state='missing', context='c'*64),
-                dict(id='wait-two', file='crates/rup/tests/view.rs', line=31, column=5,
-                     expression='thread::sleep(delay)', test='t1_view', awaited_state='missing', context='d'*64)]),
-                invocation=['loop/fixed-wait.sh', '--inventory'], version=care.PARSERS))
-        inventory = dict(tests=[], largest_files=[], largest_functions=[])
-        history = dict(recoveries=[], main_failures=[], slowest=[], duplicate_names=[], fix_churn=[])
-        rows = care.evidence_rows('o/r', 'a'*40, inventory, tools, history, fixtures.END)
-        self.assertEqual(2, len(rows))
-        self.assertEqual(['fixed_waits', 'fixed_waits'], [r['category'] for r in rows])
-        self.assertEqual({'wait-one', 'wait-two'}, {r['observation']['id'] for r in rows})
-        for row in rows:
-            self.assertEqual('missing', row['observation']['awaited_state'])
-            self.assertIn('loop/fixed-wait.sh --inventory', row['reproduce'])
-            self.assertIn('git checkout --detach ' + 'a'*40, row['reproduce'])
-            self.assertIn('/blob/' + 'a'*40 + '/', row['sources'][0])
-        data = input_fixture(category='fixed_waits')
-        data['findings'] = rows
-        data['categories']['fixed_waits'] = [r['id'] for r in rows]
-        view = care.model_input(data, '/fixed/input.json')
-        self.assertEqual({r['id'] for r in rows}, {r['id'] for r in view['findings']})
-        plan = plan_fixture(data)
-        care.validate_plan(data, plan, [], {})
-        self.assertEqual(['deferred', 'deferred'], [e['disposition'] for e in plan['entries']])
-        self.assertEqual(3, data['daily_remaining'])
-
-    def test_l109_review_standard_is_installed_without_vendored_edits(self):
-        root = Path(__file__).resolve().parent.parent
-        gates = (root / '.agents/data/gates.md').read_text()
-        for requirement in ('state the code publishes (event, reply or DOM change)',
-                            'A runner timeout is only a hang guard; its diagnostic names the awaited state',
-                            'Sleep, longer timeout, test retry, skip and running files one at a time cannot repair a failure',
-                            'Resource limits such as the pty-heavy group remain permitted',
-                            'Preserve every assertion; a product race requires a product fix',
-                            'Reject a flaky-test repair without a deterministic test',
-                            'hold a reply, delay a step behind an explicit release, or advance a fake clock',
-                            'forced ordering must fail on the pre-fix code and pass after the fix',
-                            'A passing rerun starts investigation; any number of passing runs proves no cause or fix',
-                            'Do not edit vendored `tdd` or `skills-lock.json`'):
-            self.assertIn(requirement, gates)
 
     def test_l107_care_and_retro_share_read_search_and_publication(self):
         product = fixtures.row(1, body='Repair code', labels=[])

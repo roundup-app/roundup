@@ -149,7 +149,7 @@ const ACRONYMS = new Set(["B", "KB", "MB", "GB", "TB", "CPU", "RSS"]);
 
 const SHORTCUTS = new Set(["⌘Enter", "⌫ / Esc", "↑ / ↓", "⇧↑ / ⇧↓", "⌘N", "⌘C", "⌘V", "Alt+Up", "Alt+Down"]);
 
-const CODE_NAMES = new Set(["Claude Code", "Excalidraw", "Mermaid"]);
+const CODE_NAMES = new Set(["Claude Code", "Excalidraw", "Mermaid", "roundup"]);
 
 const MARKS = new Set(["+", " · ", "?", "? ", ": ", " → ", "#", ", ", "–", "●", "○", "◂ ", " ▸"]);
 
