@@ -7,6 +7,9 @@ inputs:
   browser:
     description: Install the browser used to inspect the rendered App.
     default: 'false'
+  save-cache:
+    description: On a push to main, save the Rust cache this job built; only a job that builds every target sets it (L84).
+    default: 'false'
   builder:
     description: Install Codex, which runs a Builder (L23), and Claude Code, which screens its ask and runs its real-`claude` observers.
     default: 'false'
@@ -20,11 +23,12 @@ runs:
         components: clippy, rustfmt
     # One key per OS for every job that builds the workspace. `check-<OS>` is the check job's own key, so Builders
     # restore the entries main's check saved on their OS (L84). Only a push to main saves: a PR or a Builder branch would store its own 726 MB copy.
+    # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
     - if: inputs.rust == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: check-${{ runner.os }}
-        save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        save-if: ${{ inputs.save-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     - if: inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
     - if: inputs.rust == 'true'

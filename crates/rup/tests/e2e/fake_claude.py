@@ -120,7 +120,7 @@ def play_hooks():
                 time.sleep(0.02)
             continue
         for command in commands:
-            ran = subprocess.run(command, shell=True, input=json.dumps(payload), text=True, check=True, stdout=subprocess.PIPE)
+            ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
             if " context " in command and "FAKE_CLAUDE_CONTEXT_REPORT" in os.environ:
                 with open(os.environ["FAKE_CLAUDE_CONTEXT_REPORT"], "w") as out:
                     out.write(ran.stdout)
@@ -131,7 +131,7 @@ def play_loop():
     count = int(os.environ["FAKE_CLAUDE_LOOP"])
     ran = []
     start = settings["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
-    subprocess.run(start, shell=True, input=json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": "loop"}), text=True, check=True)
+    run_hook(start, json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": "loop"}))
     for _ in range(count):
         for event in ("PreToolUse", "PostToolUse"):
             hooks = settings["hooks"].get(event)
@@ -139,10 +139,10 @@ def play_loop():
                 continue
             payload = json.dumps({"hook_event_name": event, "tool_name": "Bash"})
             command = hooks[0]["hooks"][0]["command"]
-            subprocess.run(command, shell=True, input=payload, text=True, check=True)
+            run_hook(command, payload)
             ran.append(event)
     stop = settings["hooks"]["Stop"][0]["hooks"][0]["command"]
-    subprocess.run(stop, shell=True, input=json.dumps({"hook_event_name": "Stop"}), text=True, check=True)
+    run_hook(stop, json.dumps({"hook_event_name": "Stop"}))
     if "FAKE_CLAUDE_LOOP_REPORT" in os.environ:
         with open(os.environ["FAKE_CLAUDE_LOOP_REPORT"], "w") as report:
             json.dump(ran, report)
@@ -174,10 +174,21 @@ def play_mcp_stray(script):
     return server
 
 
+def run_hook(command, payload, **options):
+    """Run one hook command as Claude Code does: any failure but exit 2 goes to stderr and the session goes on,
+    as after a `rup signal` that timed out on a busy Daemon. Exit 2 would block, which `rup` never asks for, so it raises."""
+    ran = subprocess.run(command, shell=True, input=payload, text=True, **options)
+    if ran.returncode == 2:
+        ran.check_returncode()
+    if ran.returncode:
+        sys.stderr.write(f"hook exited {ran.returncode}: {command}\n")
+    return ran
+
+
 def hook(event, extra=None):
     command = json.load(open(flag("--settings")))["hooks"][event][0]["hooks"][0]["command"]
     payload = {"hook_event_name": event, **(extra or {})}
-    subprocess.run(command, shell=True, input=json.dumps(payload), text=True, check=True, stdout=subprocess.PIPE)
+    run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
 
 
 def split_line(pending):
@@ -218,7 +229,7 @@ def ask_permission(ask, prompt):
     command = json.load(open(flag("--settings")))["hooks"]["PermissionRequest"][0]["hooks"][0]["command"]
     tool_input = {key: value.replace("$prompt", prompt) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
     payload = {"hook_event_name": "PermissionRequest", "tool_name": ask["tool_name"], "tool_input": tool_input}
-    ran = subprocess.run(command, shell=True, input=json.dumps(payload), text=True, check=True, stdout=subprocess.PIPE)
+    ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
     return json.loads(ran.stdout or "{}").get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
 
 

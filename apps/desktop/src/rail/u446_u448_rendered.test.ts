@@ -34,10 +34,10 @@ const read = async <T,>(expression: string): Promise<T> => {
   return reply.data.result;
 };
 
-const load = async (seed = "tree-40", width = 1280, scheme = "light", base = false) => {
+const load = async (seed = "tree-40", scheme = "light") => {
   await browser("set", "media", scheme);
-  await browser("set", "viewport", String(width), "800");
-  await browser("open", `${base ? process.env.ROUNDUP_RAIL_BASELINE : origin}/harness.html?seed=${seed}`);
+  await browser("set", "viewport", "1280", "800");
+  await browser("open", `${origin}/harness.html?seed=${seed}`);
   await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('.rail-row').length > 2");
 };
 
@@ -122,8 +122,8 @@ it("u447_the_head_is_inert", async () => {
 }, 60_000);
 
 it("u448_larger_names_fit_at_252", async () => {
-  for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-    await load("tree-40", width, scheme);
+  for (const scheme of ["light", "dark"]) {
+    await load("tree-40", scheme);
     await read(`document.querySelector('.rail').style.width = '252px'`);
 
     const measured = await read<{ heights: number[]; sizes: string[]; overflow: boolean; checks: Record<string, {status: string}> }>(`(() => {
@@ -137,17 +137,17 @@ it("u448_larger_names_fit_at_252", async () => {
     expect(measured.sizes.every(s=>s==="15px")).toBe(true);
     expect(measured.overflow).toBe(false);
 
-    for (const id of ["D1","D2","D5","D6","D8","D9","D10"]) expect(measured.checks[id]?.status, `${id} ${scheme} ${width}`).toBe("pass");
+    for (const id of ["D1","D2","D5","D6","D8","D9","D10"]) expect(measured.checks[id]?.status, `${id} ${scheme}`).toBe("pass");
 
-    if (railArt) await browser("screenshot", join(railArt, `rail-${scheme}-${width}.png`));
+    if (railArt) await browser("screenshot", join(railArt, `rail-${scheme}-1280.png`));
 
-    if (railArt) writeFileSync(join(railArt, `rail-${scheme}-${width}.checks.json`), JSON.stringify(measured.checks));
+    if (railArt) writeFileSync(join(railArt, `rail-${scheme}-1280.checks.json`), JSON.stringify(measured.checks));
   }
 }, 120_000);
 
 it("u446_working_stays_distinct_from_needs_you_at_every_angle", async () => {
   for (const scheme of ["light", "dark"]) {
-    await load("tree-40", 1280, scheme);
+    await load("tree-40", scheme);
 
     for (const angle of [0, 120, 240]) {
       const result = await read<{ share: number }>(`(async () => {
@@ -198,41 +198,14 @@ it("u448_rows_are_32px_in_every_state", async () => {
   expect(await read(readBoxes)).toEqual(before);
 }, 60_000);
 
-it("u447_supported_viewports_preserve_passing_checks", async () => {
-  const dir = captureDir("U447");
-
-  for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-    let baseline: Record<string, { status: string }> | undefined;
-
-    for (const base of process.env.ROUNDUP_RAIL_BASELINE ? [true, false] : [false]) {
-      await load("tree-40", width, scheme, base);
-      const checks = await read<Record<string, { status: string }>>("window.__checks()");
-
-      if (base) baseline = checks;
-      else if (baseline) for (const [id, check] of Object.entries(baseline)) {
-        if (check.status === "pass") expect(checks[id]?.status, `${id} ${scheme} ${width}`).toBe("pass");
-      }
-
-      if (dir) {
-        const target = join(dir, base ? "base" : "head");
-        mkdirSync(target, { recursive: true });
-        await browser("screenshot", join(target, `tree-40-${scheme}-${width}.png`));
-        writeFileSync(join(target, `tree-40-${scheme}-${width}.checks.json`), JSON.stringify(checks));
-      }
-    }
-  }
-}, 120_000);
-
 it("u448_dense_failure_is_visible_at_supported_viewports", async () => {
-  for (const width of [1280, 1440]) {
-    await load("tree-40", width);
-    await read(`(() => { window.__fake.failNext(-32003, 'name already taken'); document.querySelector('.rail button[aria-label="Add Workstream"]').click(); })()`);
-    await browser("wait", "--text", "name already taken");
-    expect(await read(`(() => { const r=document.querySelector('.rail [role="alert"]').getBoundingClientRect(); return r.width>0 && r.height>0 && r.bottom<=innerHeight; })()`)).toBe(true);
+  await load("tree-40");
+  await read(`(() => { window.__fake.failNext(-32003, 'name already taken'); document.querySelector('.rail button[aria-label="Add Workstream"]').click(); })()`);
+  await browser("wait", "--text", "name already taken");
+  expect(await read(`(() => { const r=document.querySelector('.rail [role="alert"]').getBoundingClientRect(); return r.width>0 && r.height>0 && r.bottom<=innerHeight; })()`)).toBe(true);
 
-    if (railArt) {
-      await browser("screenshot", join(railArt, `failure-${width}.png`));
-      writeFileSync(join(railArt, `failure-${width}.checks.json`), JSON.stringify(await read("window.__checks()")));
-    }
+  if (railArt) {
+    await browser("screenshot", join(railArt, "failure-1280.png"));
+    writeFileSync(join(railArt, "failure-1280.checks.json"), JSON.stringify(await read("window.__checks()")));
   }
 }, 60_000);

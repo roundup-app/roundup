@@ -27,6 +27,43 @@ AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 READ_TRIES = 5
 
 
+def measurement_summary(rows):
+    """L114 own attempts come only from request rows; shared counters remain distinct reset intervals."""
+    counts, intervals, missing = {}, {}, []
+    for row in rows:
+        if row['kind'] == 'request':
+            key = (row['token_source'], row['protocol'], row['measurement'])
+            counts[key] = counts.get(key, 0) + 1
+        elif row['kind'] == 'sample':
+            if row.get('missing'):
+                missing.append(row)
+            else:
+                key = (row['token_id'], row['resource'], row['reset'])
+                intervals.setdefault(key, []).append(row)
+        elif row['kind'] == 'missing':
+            missing.append(row)
+    boundaries = {(row['token_id'], row['resource'], row['boundary']) for row in rows
+                  if row['kind'] == 'sample' and not row.get('missing')}
+    resources = {}
+    for row in rows:
+        if row['kind'] == 'request':
+            resources.setdefault(row['token_id'], set()).add('graphql' if row['protocol'] == 'GraphQL' else 'core')
+        elif row['kind'] == 'sample' and not row.get('missing'):
+            resources.setdefault(row['token_id'], set()).add(row['resource'])
+        elif row['kind'] == 'complete' and row['pending']:
+            missing.append(dict(request_ids=row['pending'], reason='requests still in flight'))
+    for token, expected in resources.items():
+        for resource in sorted(expected):
+            for boundary in ('before', 'after'):
+                if (token, resource, boundary) not in boundaries:
+                    missing.append(dict(token_id=token, resource=resource, boundary=boundary, used=None, remaining=None,
+                                        reset=None, reason='absent sample'))
+    return dict(requests=[dict(token_source=source, protocol=protocol, measurement=measurement, attempts=attempts)
+                          for (source, protocol, measurement), attempts in sorted(counts.items())],
+                intervals=[dict(token_id=token, resource=resource, reset=reset, samples=samples)
+                           for (token, resource, reset), samples in sorted(intervals.items())], missing=missing)
+
+
 def reads(args):
     """Whether a `gh` call only reads: a write keeps the caller's token and gets one try."""
     read = tuple(args[:2]) in (('pr', 'list'), ('pr', 'view'), ('pr', 'diff'), ('pr', 'checks'),
@@ -200,10 +237,27 @@ def waits(item):
     return [label for label in WAITS if label in names]
 
 
+def dependencies(number, direction='blocked_by'):
+    """Read every native dependency page; unusable data must never release work."""
+    if direction not in ('blocked_by', 'blocking'):
+        raise ValueError('unknown dependency direction')
+    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/{direction}?per_page=100',
+               '--paginate', '--slurp')
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise ValueError(f'Issue #{number}: unusable dependency pages')
+    found = [dep for page in pages for dep in page]
+    for dep in found:
+        if (not isinstance(dep, dict) or type(dep.get('number')) is not int or dep['number'] <= 0
+                or dep.get('state') not in ('open', 'closed')
+                or ('id' in dep and (type(dep['id']) is not int or dep['id'] <= 0))):
+            raise ValueError(f'Issue #{number}: unusable dependency')
+    return found
+
+
 def blockers(number):
     """L102: the open or uncompleted Issues that natively block Issue `number`."""
-    pages = gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/blocked_by?per_page=100', '--paginate', '--slurp')
-    return [dep for page in pages for dep in page if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
+    return [dep for dep in dependencies(number)
+            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
 
 
 def classify(issues, dependencies, prs):

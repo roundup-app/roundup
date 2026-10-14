@@ -486,12 +486,12 @@ fn git_at(path: &std::path::Path, args: &[&str]) -> String {
 }
 
 async fn failed_worktree_removal(failure: &str) {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let dir = tempfile::tempdir().unwrap();
     git_at(dir.path(), &["init", "-q", "-b", "main"]);
     git_at(dir.path(), &["config", "user.email", "a34@example.com"]);
     git_at(dir.path(), &["config", "user.name", "A34"]);
-    std::fs::write(dir.path().join(".gitignore"), "ignored\n").unwrap();
+    std::fs::write(dir.path().join(".gitignore"), "ignored*\n").unwrap();
     std::fs::write(dir.path().join("original"), "preserve\n").unwrap();
     git_at(dir.path(), &["add", "."]);
     git_at(dir.path(), &["commit", "-qm", "A34"]);
@@ -535,8 +535,25 @@ async fn failed_worktree_removal(failure: &str) {
         let ignored = std::path::Path::new(&worktree.path).join("ignored");
         std::fs::write(&ignored, "ignored work\n").unwrap();
         std::fs::set_permissions(&ignored, std::fs::Permissions::from_mode(0o640)).unwrap();
+        std::os::unix::fs::symlink(
+            "original",
+            std::path::Path::new(&worktree.path).join("ignored-link"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            "missing",
+            std::path::Path::new(&worktree.path).join("ignored-dangling"),
+        )
+        .unwrap();
         agents.push((id, worktree));
     }
+    let identities: Vec<_> = agents
+        .iter()
+        .map(|(_, w)| {
+            let m = std::fs::metadata(std::path::Path::new(&w.path).join("ignored")).unwrap();
+            (m.dev(), m.ino())
+        })
+        .collect();
     todo_in(&client, "done", Some(&ws), true).await;
     todo_in(&client, "open", Some(&ws), false).await;
     pad_in(&client, "pad", &ws, None).await;
@@ -544,7 +561,7 @@ async fn failed_worktree_removal(failure: &str) {
         .request("pad.setStorage", json!({ "files": true }))
         .await
         .unwrap();
-    let before = client.request("rail.tree", Value::Null).await.unwrap();
+    let mut before = client.request("rail.tree", Value::Null).await.unwrap();
     let todos_before = client.request("todo.list", Value::Null).await.unwrap();
     let pads_before = client.request("pad.list", Value::Null).await.unwrap();
     let branches = git_at(project.dir.path(), &["branch", "--list"]);
@@ -574,7 +591,27 @@ async fn failed_worktree_removal(failure: &str) {
         .trim()
         .to_owned()
     });
+    let changed = wrapper_dir.path().join("changed");
+    let change_script = wrapper_dir.path().join("change.py");
+    if failure == "tree" {
+        std::fs::write(&change_script, format!(
+            "import sqlite3\nconn=sqlite3.connect({})\nconn.execute(\"UPDATE nodes SET parent=NULL WHERE id=?\", ({},))\nconn.commit()\n",
+            serde_json::to_string(&project.data_dir().join("agents.db").to_string_lossy()).unwrap(),
+            serde_json::to_string(&agents[0].0).unwrap(),
+        )).unwrap();
+        for node in before.as_array_mut().unwrap() {
+            if node["id"] == agents[0].0 {
+                node["parent"] = Value::Null;
+            }
+        }
+    }
     let condition = match failure {
+        // Inject before the first retention move so the early tree recheck restores
+        // ignored and external files together, rather than encountering a new path.
+        "tree" => format!(
+            "[ \"$1\" = worktree ] && [ \"$2\" = list ] && [ ! -e '{}' ]",
+            changed.display()
+        ),
         "directory" => format!(
             "[ \"$1\" = worktree ] && [ \"$2\" = remove ] && [ \"$3\" = '{}' ]",
             second.path
@@ -602,6 +639,15 @@ async fn failed_worktree_removal(failure: &str) {
             commit,
             real_git.trim()
         )
+    } else if failure == "tree" {
+        format!(
+            "mkdir -p '{}'; printf 'external files\\n' > '{}/external'; python3 '{}'; touch '{}'; exec '{}' \"$@\"",
+            agents[0].1.path,
+            agents[0].1.path,
+            change_script.display(),
+            changed.display(),
+            real_git.trim()
+        )
     } else {
         "echo 'A34 injected git failure' >&2; exit 1".to_owned()
     };
@@ -620,10 +666,32 @@ async fn failed_worktree_removal(failure: &str) {
             .await
             .is_err()
     );
-    assert_eq!(
-        client.request("rail.tree", Value::Null).await.unwrap(),
+    if failure == "tree" {
+        let path = std::path::Path::new(&agents[0].1.path);
+        assert_eq!(
+            std::fs::read_to_string(path.join("ignored")).unwrap(),
+            "ignored work\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path.join("external")).unwrap(),
+            "external files\n"
+        );
         before
-    );
+            .as_array_mut()
+            .unwrap()
+            .sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        let mut actual = client.request("rail.tree", Value::Null).await.unwrap();
+        actual
+            .as_array_mut()
+            .unwrap()
+            .sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+        assert_eq!(actual, before);
+    } else {
+        assert_eq!(
+            client.request("rail.tree", Value::Null).await.unwrap(),
+            before
+        );
+    }
     assert_eq!(
         client.request("todo.list", Value::Null).await.unwrap(),
         todos_before
@@ -661,8 +729,18 @@ async fn failed_worktree_removal(failure: &str) {
     } else {
         assert_eq!(actual_worktrees, worktrees);
     }
-    for (_, w) in &agents {
+    for ((_, w), identity) in agents.iter().zip(&identities) {
         let path = std::path::Path::new(&w.path);
+        assert_eq!(
+            std::fs::read_link(path.join("ignored-link")).unwrap(),
+            std::path::Path::new("original")
+        );
+        assert_eq!(
+            std::fs::read_link(path.join("ignored-dangling")).unwrap(),
+            std::path::Path::new("missing")
+        );
+        let m = std::fs::metadata(path.join("ignored")).unwrap();
+        assert_eq!((m.dev(), m.ino()), *identity);
         assert_eq!(
             std::fs::read_to_string(path.join("original")).unwrap(),
             "preserve\n"
@@ -679,7 +757,9 @@ async fn failed_worktree_removal(failure: &str) {
                 & 0o777,
             0o640
         );
-        assert!(git_at(path, &["status", "--porcelain"]).is_empty());
+        if failure != "tree" || w.path != agents[0].1.path {
+            assert!(git_at(path, &["status", "--porcelain"]).is_empty());
+        }
     }
     assert_eq!(
         client
@@ -719,6 +799,12 @@ async fn failed_worktree_removal(failure: &str) {
             commit
         );
         assert!(!std::path::Path::new(&agents[0].1.path).exists());
+    } else if failure == "tree" {
+        assert_eq!(left.as_array().unwrap().len(), 1);
+        assert_eq!(left[0]["id"], agents[0].0);
+        assert!(left[0]["parent"].is_null());
+        assert!(std::path::Path::new(&agents[0].1.path).exists());
+        assert!(!std::path::Path::new(&second.path).exists());
     } else {
         assert!(left.as_array().unwrap().is_empty());
         for (_, w) in &agents {
@@ -868,4 +954,214 @@ async fn t15_workstream_removal_records_deleted_blockers() {
     assert_eq!(changes.len(), 3);
     assert_eq!(changes[2]["before"]["blockers"], json!([blocker]));
     assert_eq!(changes[2]["after"]["blockers"], json!([]));
+}
+
+#[tokio::test]
+async fn g9_removal_failure_renames_back_ignored_files() {
+    failed_worktree_removal("branch").await;
+}
+
+#[tokio::test]
+async fn g9_storage_failure_restores_all_moves() {
+    failed_worktree_removal("rail").await;
+}
+
+#[tokio::test]
+async fn g9_judgement_failure_preserves_original_files() {
+    failed_worktree_removal("judgement").await;
+}
+
+#[tokio::test]
+async fn g9_workstream_removal_with_one_gb_ignored_file_finishes_under_one_second() {
+    use std::io::Write;
+    use std::os::unix::fs::MetadataExt;
+    let dir = tempfile::tempdir().unwrap();
+    git_at(dir.path(), &["init", "-q", "-b", "main"]);
+    git_at(dir.path(), &["config", "user.email", "g9@example.com"]);
+    git_at(dir.path(), &["config", "user.name", "G9"]);
+    std::fs::write(dir.path().join(".gitignore"), "target/\n").unwrap();
+    git_at(dir.path(), &["add", "."]);
+    git_at(dir.path(), &["commit", "-qm", "G9"]);
+    let project = daemon::start_in(dir, tempfile::tempdir().unwrap(), &[]);
+    let client = project.client().await;
+    client
+        .request("project.setWorktrees", json!({"on":true,"check":null}))
+        .await
+        .unwrap();
+    let ws = workstream(&client, "G9").await;
+    let id = agent_in(&project, &client, &ws).await;
+    client
+        .request("agent.stop", json!({"id":id}))
+        .await
+        .unwrap();
+    let tree: Vec<RailNode> =
+        serde_json::from_value(client.request("rail.tree", Value::Null).await.unwrap()).unwrap();
+    let w = tree
+        .iter()
+        .find(|n| n.id == id)
+        .unwrap()
+        .worktree
+        .as_ref()
+        .unwrap();
+    let path = std::path::Path::new(&w.path);
+    std::fs::create_dir(path.join("target")).unwrap();
+    let mut file = std::fs::File::create(path.join("target/allocated")).unwrap();
+    let block = vec![0x39; 1_000_000];
+    for _ in 0..1000 {
+        file.write_all(&block).unwrap();
+    }
+    file.sync_all().unwrap();
+    let metadata = file.metadata().unwrap();
+    assert_eq!(metadata.len(), 1_000_000_000);
+    assert!(metadata.blocks() * 512 >= metadata.len());
+    drop(file);
+    assert!(git_at(path, &["status", "--porcelain"]).is_empty());
+    let start = std::time::Instant::now();
+    client
+        .request("rail.remove", json!({"id":ws}))
+        .await
+        .unwrap();
+    let elapsed = start.elapsed();
+    println!("G9 removal elapsed={elapsed:?}, device={}", metadata.dev());
+    assert!(
+        elapsed < std::time::Duration::from_millis(1000),
+        "elapsed={elapsed:?}, device={}",
+        metadata.dev()
+    );
+    assert!(
+        client
+            .request("rail.tree", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!path.exists());
+    assert!(!git_at(project.dir.path(), &["branch", "--list"]).contains(&w.branch));
+    assert_eq!(
+        std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn g9_early_validation_failure_keeps_original_files_and_external_writes() {
+    failed_worktree_removal("tree").await;
+}
+
+#[tokio::test]
+async fn d9_workstream_removal_keeps_finite_shutdown_waits_within_the_app_bound() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
+
+    let fixture = tempfile::tempdir().unwrap();
+    let socket = fixture.path().join("shutdown.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let program = fixture.path().join("claude");
+    // A descendant keeps the PTY open after its Agent is reaped, exercising
+    // agents::KILL_WAIT_BOUND. Entry and release travel outside the PTY.
+    std::fs::write(
+        &program,
+        r#"#!/usr/bin/env python3
+import os, signal, socket, sys
+# Model the capability probe, as e2e/fake_claude.py does, before
+# creating descendants that deliberately hold the Agent's PTY open.
+if sys.argv[1:3] == ["plugin", "test"]:
+    print("Q11 runtime hook closure: 1 pass")
+    sys.exit(0)
+read, write = os.pipe()
+if os.fork() == 0:
+    os.close(write)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    ready = socket.socket(socket.AF_UNIX)
+    ready.connect(os.environ["D9_SHUTDOWN_SOCKET"])
+    ready.sendall(b"R")
+    ready.close()
+    os.read(read, 1)
+    entered = socket.socket(socket.AF_UNIX)
+    entered.settimeout(45)
+    entered.connect(os.environ["D9_SHUTDOWN_SOCKET"])
+    entered.sendall(b"S")
+    entered.recv(1)
+    entered.sendall(b"X")
+    os._exit(0)
+os.close(read)
+while True:
+    signal.pause()
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = start(&[
+        ("ROUNDUP_CLAUDE_BIN", program.to_str().unwrap()),
+        ("D9_SHUTDOWN_SOCKET", socket.to_str().unwrap()),
+    ]);
+    let client = project.client().await;
+    let ws = workstream(&client, "bounded removal").await;
+    let mut ids = Vec::new();
+    for _ in 0..16 {
+        let id = agent_in(&project, &client, &ws).await;
+        let (mut ready, _) = tokio::time::timeout(Duration::from_secs(5), listener.accept())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(ready.read_u8().await.unwrap(), b'R');
+        daemon::signal(
+            &client,
+            &id,
+            json!({"hook_event_name": "SessionEnd", "reason": "done"}),
+        )
+        .await;
+        ids.push(id);
+    }
+    let began = tokio::time::Instant::now();
+    // crates/desktop/src/config.rs: CALL_BOUND is the unchanged App policy.
+    let deadline = began + Duration::from_secs(30);
+    let removal = client.request("rail.remove", json!({"id": ws}));
+    tokio::pin!(removal);
+    let entered = async {
+        let mut held = Vec::new();
+        for _ in 0..16 {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            assert_eq!(stream.read_u8().await.unwrap(), b'S');
+            held.push(stream);
+        }
+        held
+    };
+    tokio::pin!(entered);
+    let mut held = tokio::select! {
+        held = tokio::time::timeout_at(deadline, &mut entered) => held.expect("all sixteen stops entered within CALL_BOUND"),
+        result = &mut removal => panic!("removal replied before every shutdown entered: {result:?}"),
+    };
+    let result = tokio::time::timeout_at(deadline, &mut removal)
+        .await
+        .expect("finite shutdown waits fit CALL_BOUND")
+        .unwrap();
+    // Linux keeps reading a slave held by descendants; macOS may hang up when
+    // the session leader exits. The signal-driven Agents test proves overlap on both.
+    #[cfg(target_os = "linux")]
+    assert!(began.elapsed() >= agents::KILL_WAIT_BOUND);
+    for id in ids {
+        assert!(
+            result["removed"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["id"] == id)
+        );
+    }
+    assert!(daemon::rail_tree(&client).await.is_empty());
+    for stream in &mut held {
+        stream.write_all(b"release").await.unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(5), stream.read_u8())
+                .await
+                .unwrap()
+                .unwrap(),
+            b'X'
+        );
+    }
 }

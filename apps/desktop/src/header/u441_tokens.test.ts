@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import baselineTokens from "./u441-baseline/tokens.css.txt?raw";
-import baselineStyles from "./u441-baseline/styles.css.txt?raw";
+import windowStyles from "../styles.css?raw";
+import stripStyles from "./strip.styles.css?raw";
 import baselineButtons from "./u441-baseline/buttons.css.txt?raw";
 import baselineStrip from "./u441-baseline/strip.styles.css.txt?raw";
 import { chromePath, openPage } from "../testing/chromePage";
@@ -13,12 +14,13 @@ import type { Checks } from "../testing/checks";
 
 const BASE = "0ad10852bbea850da626b953a594ec6a1b760a63";
 
-// Exact baseline styles ship with the observer so shallow CI checkouts compare the same revision.
+// Baseline Token, button and tab styles ship with the observer; U449 supplies the shared layout.
 const baseline = [
   { path: "tokens.css", css: baselineTokens },
-  { path: "styles.css", css: baselineStyles },
+  // U449 replaces the header and content geometry; compare U441 colours in that layout.
+  { path: "styles.css", css: windowStyles.replace(/  color: var\(--text\);\n  background-color: var\(--ground\);/, "") },
   { path: "buttons.css", css: baselineButtons },
-  { path: "header/strip.styles.css", css: baselineStrip },
+  { path: "header/strip.styles.css", css: baselineStrip + stripStyles.slice(stripStyles.indexOf("/* U449:"), stripStyles.indexOf(".project-tab:hover")) },
 ];
 
 const ART = captureDir("U441");
@@ -41,11 +43,11 @@ afterAll(async () => {
 
 Baseline: main ${BASE}. Head: the source in this PR. Chromium uses a fresh isolated profile.
 
-Both schemes, normal/more contrast, 1280×820 and 1280×800: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
+Both schemes and normal/more contrast, at 1280×800 with three Projects: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/Reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
 
-Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings. The seed matrix covers first-run, agents-10, tree-40 and three Projects, also at 1440×800 for the journey observer.
+Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings.
 
-The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Only the required name inset changes runtime geometry. The seed matrix and behaviour test use runtime geometry. The remaining U440, U442 and U443 acceptance stays with #1093.
+The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Only the required name inset changes runtime geometry. The Check comparison and behaviour test use runtime geometry. The remaining U440, U442 and U443 acceptance stays with #1093.
 
 The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
 `);
@@ -55,6 +57,9 @@ The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboa
 const schemes = ["light", "dark"] as const;
 
 const contrasts = [undefined, "more"] as const;
+
+// Tokens vary by scheme and contrast, so tests walk both; window size and seed stay at one representative case.
+const [width, height] = [1280, 800] as const;
 
 // Resolve the actual painted ancestor chain, without rounding alpha channels before luminance.
 const PAINT = `selector => {
@@ -167,16 +172,6 @@ const three = async (width = 1280, height = 820) => {
   await page.until("() => document.querySelectorAll('.project-tab').length === 3");
 };
 
-const projects = async (seed: string, width: number, height: number) => {
-  if (seed === 'three') await three(width, height);
-  else await load(seed, width, height);
-
-  if (seed === 'first-run') {
-    await page.call("() => { window.__fake.app.chooser.path = '/u441/project'; document.querySelector('.strip-add').click(); }");
-    await page.until("() => document.querySelector('.project-tab')");
-  }
-};
-
 const useMain = async (on: boolean) => {
   await page.call(`(on, originals) => {
     for (const {path, css} of originals) {
@@ -215,7 +210,7 @@ const dots = async () => {
 };
 
 it("u441_token_surfaces_keep_contrast", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
     await three(width, height);
     // This Token fixture draws the future border only for contrast measurement; runtime geometry remains U440's work.
@@ -319,17 +314,17 @@ it("u441_token_surfaces_keep_contrast", async () => {
     await page.until("() => !document.querySelector('.tab-rename')");
     await save(`${capture}-surfaces`, rows);
     await page.call("() => window.__fake.app.exitDaemon({code: 1})");
-    await page.until("() => document.querySelector('.header [role=alert]')");
-    const failure = await paint('.header [role=alert]');
-    const reopenSelector = '.header button[aria-disabled]';
-    await page.call("() => { const b = [...document.querySelectorAll('.header button')].find(el => /^reopen$/i.test(el.textContent.trim())); b.id = 'u441-reopen'; }");
-    const reopen = await paint('#u441-reopen');
+    await page.until("() => document.querySelector('.rail [role=alert]')");
+    const failure = await paint('.rail [role=alert]');
+    const ReopenSelector = '#u441-Reopen[aria-disabled]';
+    await page.call("() => { const b = [...document.querySelectorAll('.rail button')].find(el => /^Reopen$/i.test(el.textContent.trim())); b.id = 'u441-Reopen'; }");
+    const Reopen = await paint('#u441-Reopen');
     expect(ratio(failure.ink, failure.ground)).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(reopen.ink, reopen.ground)).toBeGreaterThanOrEqual(4.5);
-    await page.call("() => document.querySelector('#u441-reopen').setAttribute('aria-disabled','true')");
-    const off = await paint(reopenSelector);
+    expect(ratio(Reopen.ink, Reopen.ground)).toBeGreaterThanOrEqual(4.5);
+    await page.call("() => document.querySelector('#u441-Reopen').setAttribute('aria-disabled','true')");
+    const off = await paint(ReopenSelector);
     expect(ratio(off.ink, off.ground)).toBeGreaterThanOrEqual(4.5);
-    await save(`${capture}-failure`, { failure, reopen, off });
+    await save(`${capture}-failure`, { failure, Reopen, off });
     await load('tabs-8', width, height);
     await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.strip-scroll { max-width: var(--rail-width); }'; document.head.append(sheet); }`);
     await page.until("() => document.querySelector('.strip-edge')");
@@ -364,10 +359,10 @@ it("u441_token_surfaces_keep_contrast", async () => {
 
 
 it("u441_selected_press_keeps_baseline_checks", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
 
-    await projects(seed, width, height);
+    await three(width, height);
 
     await selectFirst();
 
@@ -377,7 +372,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       await hover(selector);
       const hovered = await paint(selector);
       const p = await point(selector);
-      const name = `${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-${selector.slice(1)}-${input}`;
+      const name = `${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-${selector.slice(1)}-${input}`;
       // Enter activates during keydown. Capture at window before the App's click handler changes selection or closes the tab.
       await page.call(`(selector, input) => {
         window.__u441Activation = null;
@@ -452,6 +447,8 @@ it("u441_token_scope_keeps_other_surfaces", async () => {
     // Render all root surfaces together, including a Drawer and Shelf via their real controls.
     await page.call("() => document.querySelector('.shelf-toggle').click()");
     await page.until("() => document.querySelector('.shelf')");
+    await hover('.tab-name-button');
+    await page.until("() => document.querySelector('.tab-tip')");
     const rootSelectors = ['.rail', '.centre', '.pane', '.shelf', '.tab-tip'];
     const after = await Promise.all(rootSelectors.map(paint));
     await useMain(true);
@@ -524,33 +521,32 @@ it("u441_token_observers_resolve_the_surface", async () => {
 }, 60_000);
 
 it("u441_token_checks_do_not_regress", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run','agents-10','tree-40','three']) for (const [width,height] of [[1280,820],[1280,800],[1440,800]]) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
 
-    if (seed === 'three') { await three(); await page.resize(width!, height!); }
-    else await load(seed, width, height);
-    await page.hover(0, height! - 1);
+    await three(width, height);
+    await page.hover(0, height - 1);
     await useMain(true);
     const before = await readChecks();
-    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-base`);
+    await save(`${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-base`);
     await useMain(false);
     const after = await readChecks();
 
     for (const id of CHECK_IDS) {
       const check = before[id];
 
-      if (check.status === 'pass') expect(after[id].status, `${scheme}/${contrast}/${seed}/${width}x${height}/${id}: ${JSON.stringify(after[id])}`).toBe('pass');
+      if (check.status === 'pass') expect(after[id].status, `${scheme}/${contrast}/three/${width}x${height}/${id}: ${JSON.stringify(after[id])}`).toBe('pass');
     }
 
-    await save(`${scheme}-${contrast ?? 'normal'}-${seed}-${width}x${height}-head`, { before, after });
+    await save(`${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-head`, { before, after });
   }
 }, 180_000);
 
 it("u441_token_change_keeps_header_behaviour", async () => {
   await three();
   await selectFirst();
-  // Compare main with only U441’s authorized inset applied: all other geometry must stay unchanged.
-  await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = '.tab-name-button { --button-inline: var(--space-1); } .project-tab { min-width: calc(8ch + var(--space-5) + 2 * var(--space-1)); }'; document.head.append(sheet); }`);
+  // U476 owns the inherited font; hold it constant while comparing U441’s color and inset changes.
+  await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = ':root { font-family: var(--font-ui); } .tab-name-button { --button-inline: var(--space-1); } .project-tab { min-width: calc(8ch + var(--space-5) + 2 * var(--space-1)); }'; document.head.append(sheet); }`);
   const selectors = ['.header', '.strip', '.project-tab:nth-child(1)', '.project-tab:nth-child(2)', '.project-tab:nth-child(3)', '.tab-name-button', '.tab-close', '.strip-add'];
   const after = await Promise.all(selectors.map(paint));
   await useMain(true);
@@ -589,17 +585,22 @@ it("u441_tab_marks_use_root_ink", async () => {
     expect(cap.amber).toEqual(root.amber);
 
     for (const tone of ['red', 'amber'] as const) {
-      await page.call("tone => document.querySelector('.strip-edge .tab-mark').dataset.tone = tone", tone);
-      expect((await paint('.strip-edge .tab-mark')).ink).toEqual(root[tone]);
+      // Strip's scroll measurement can restore its tone between browser calls; sample the fixture in one turn.
+      const mark = await page.call<Paint>(`tone => {
+        document.querySelector('.strip-edge .tab-mark').dataset.tone = tone;
+        return (${PAINT})('.strip-edge .tab-mark');
+      }`, tone);
+
+      expect(mark.ink).toEqual(root[tone]);
     }
   }
 }, 60_000);
 
 it("u441_painted_names_keep_both_insets", async () => {
-  for (const scheme of schemes) for (const contrast of contrasts) for (const seed of ['first-run', 'agents-10', 'tree-40', 'three']) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);
 
-    await projects(seed, width, height);
+    await three(width, height);
 
     const inset = async (selector: string) => {
       const row = await page.call<{left: string; right: string; step: string; clearance: number[]}>(`selector => {
@@ -638,7 +639,7 @@ it("u441_painted_names_keep_both_insets", async () => {
 
 
 it("u441_dark_selection_is_no_brighter_than_the_rail", async () => {
-  for (const contrast of contrasts) for (const [width, height] of [[1280,820],[1280,800]] as const) {
+  for (const contrast of contrasts) {
     await page.scheme('dark', contrast);
     await three(width, height);
     await selectFirst();

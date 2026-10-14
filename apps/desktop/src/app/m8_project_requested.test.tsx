@@ -34,7 +34,7 @@ describe("m8 an Agent opens and renames Projects", () => {
 
     request(app, { kind: "open", path: SECOND });
 
-    await screen.findByText("ledger");
+    await screen.findByRole("tab", { name: "ledger" });
   });
 
   it("m8_a_failed_open_shows_the_error_line", async () => {
@@ -51,6 +51,6 @@ describe("m8 an Agent opens and renames Projects", () => {
 
     request(app, { kind: "rename", path: FIRST.path, name: "billing" });
 
-    await screen.findByText("billing");
+    await screen.findByRole("tab", { name: "billing" });
   });
 });

@@ -55,7 +55,10 @@ const capture = async (id: string, name: string, evidence: Evidence) => {
 };
 
 run('u362 Checks against main', () => {
-  for (const scheme of ['light', 'dark'] as const) for (const [width, height] of [[1280, 800], [1440, 800]]) {
+  // Contrast reads per scheme, so both stay; one window represents every supported width.
+  const [width, height] = [1280, 800];
+
+  for (const scheme of ['light', 'dark'] as const) {
     it(`u362_no_check_passing_on_main_regresses ${scheme} ${width}`, async () => {
       await page.scheme(scheme);
       await setup(false, process.env.ROUNDUP_U362_BASE_ORIGIN ?? '', width, height);

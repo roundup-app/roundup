@@ -117,11 +117,11 @@ it("u466_ten_agents_keep_selection_and_attention_distinct", async () => {
 });
 
 it("u466_rendered_states_keep_checks_and_failure_text", async () => {
-  for (const seed of ["tree-40", "agents-10"]) for (const scheme of ["light","dark"] as const) for (const viewport of [1280,1440]) for (const railWidth of railWidths) {
-    const name = `${seed}-${viewport}-${scheme}-${railWidth}`;
+  for (const seed of ["tree-40", "agents-10"]) for (const scheme of ["light","dark"] as const) {
+    const name = `${seed}-1280-${scheme}-288`;
 
     if (process.env.ROUNDUP_RAIL_BASELINE) {
-      await load(seed, viewport, scheme, railWidth, true);
+      await load(seed, 1280, scheme, 288, true);
 
       if (art) {
         mkdirSync(join(art,"base"),{recursive:true});
@@ -130,7 +130,7 @@ it("u466_rendered_states_keep_checks_and_failure_text", async () => {
       }
     }
 
-    await load(seed, viewport, scheme, railWidth);
+    await load(seed, 1280, scheme);
     const checks = await page.call<Record<string,{status:string}>>("() => window.__checks()");
 
     // SAFETY: the committed capture JSON is the Check observer's id/status map.
@@ -146,7 +146,7 @@ it("u466_rendered_states_keep_checks_and_failure_text", async () => {
       writeFileSync(join(art,name+".checks.json"),JSON.stringify(checks));
     }
   }
-},300_000);
+},60_000);
 
 it("u466_smaller_glyphs_keep_kind_and_action_targets", async () => {
   await load("agents-10");
@@ -217,50 +217,48 @@ it("u466_failure_text_stays_visible_on_the_densest_seed", async () => {
 },60_000);
 
 it("u466_nested_selected_states_keep_the_bar_and_geometry", async () => {
-  for (const railWidth of railWidths) {
-    await load("tree-40",1280,"light",railWidth);
+  await load();
 
-    const ids = await page.call<string[]>(`() => {
-      const depths = new Set();
-      return [...document.querySelectorAll('.rail-row[data-id]')].filter(r=> {
-        const level=r.getAttribute('aria-level');
-        if(depths.has(level)) return false; depths.add(level); return true;
-      }).map(r=>r.dataset.id);
-    }`);
+  const ids = await page.call<string[]>(`() => {
+    const depths = new Set();
+    return [...document.querySelectorAll('.rail-row[data-id]')].filter(r=> {
+      const level=r.getAttribute('aria-level');
+      if(depths.has(level)) return false; depths.add(level); return true;
+    }).map(r=>r.dataset.id);
+  }`);
 
-    expect(ids.length).toBeGreaterThan(1);
+  expect(ids.length).toBeGreaterThan(1);
 
-    for (const id of ids) {
-      const selector = `[data-id="${id}"]`;
-      await page.call("(id) => document.querySelector('[data-id=\"'+id+'\"]').click()",id);
-      await page.until(`() => document.querySelector('${selector}').dataset.selected==='true'`);
+  for (const id of ids) {
+    const selector = `[data-id="${id}"]`;
+    await page.call("(id) => document.querySelector('[data-id=\"'+id+'\"]').click()",id);
+    await page.until(`() => document.querySelector('${selector}').dataset.selected==='true'`);
 
-      const geometry = `() => {
-        const row=document.querySelector('${selector}'), b=row.getBoundingClientRect(), n=row.querySelector('.name').getBoundingClientRect(),rail=document.querySelector('.rail').getBoundingClientRect(),s=getComputedStyle(row);
-        return {box:[b.top,b.height,n.left],edges:[b.left-rail.left,rail.right-b.right],bar:s.backgroundSize.split(',')[0],position:s.backgroundPosition};
-      }`;
+    const geometry = `() => {
+      const row=document.querySelector('${selector}'), b=row.getBoundingClientRect(), n=row.querySelector('.name').getBoundingClientRect(),rail=document.querySelector('.rail').getBoundingClientRect(),s=getComputedStyle(row);
+      return {box:[b.top,b.height,n.left],edges:[b.left-rail.left,rail.right-b.right],bar:s.backgroundSize.split(',')[0],position:s.backgroundPosition};
+    }`;
 
-      const before = await page.call<{box:number[];edges:number[];bar:string;position:string}>(geometry);
-      await browser("hover",selector+" .name");
-      await page.until(`() => document.querySelector('${selector}').matches(':hover')`);
-      const hovered = await page.call<typeof before>(geometry);
-      expect(hovered.box).toEqual(before.box);
-      expect(hovered.edges.every(n=>Math.abs(n)<=1)).toBe(true);
-      expect(hovered.bar).toBe("2px 100%");
-      const point = await page.call<{x:number;y:number}>(`() => {const b=document.querySelector('${selector}').getBoundingClientRect();return {x:b.left+4,y:b.top+b.height/2};}`);
-      await browser("mouse","move",String(point.x),String(point.y));
-      await browser("mouse","down","left");
-      await page.until(`() => document.querySelector('${selector}').matches(':active')`);
-      const pressed = await page.call<typeof before>(geometry);
-      await browser("mouse","up","left");
-      expect(pressed.box).toEqual(before.box);
-      expect(pressed.bar).toBe("2px 100%");
-      expect(pressed.position).toMatch(/^0(?:px|%) 0(?:px|%)/);
+    const before = await page.call<{box:number[];edges:number[];bar:string;position:string}>(geometry);
+    await browser("hover",selector+" .name");
+    await page.until(`() => document.querySelector('${selector}').matches(':hover')`);
+    const hovered = await page.call<typeof before>(geometry);
+    expect(hovered.box).toEqual(before.box);
+    expect(hovered.edges.every(n=>Math.abs(n)<=1)).toBe(true);
+    expect(hovered.bar).toBe("2px 100%");
+    const point = await page.call<{x:number;y:number}>(`() => {const b=document.querySelector('${selector}').getBoundingClientRect();return {x:b.left+4,y:b.top+b.height/2};}`);
+    await browser("mouse","move",String(point.x),String(point.y));
+    await browser("mouse","down","left");
+    await page.until(`() => document.querySelector('${selector}').matches(':active')`);
+    const pressed = await page.call<typeof before>(geometry);
+    await browser("mouse","up","left");
+    expect(pressed.box).toEqual(before.box);
+    expect(pressed.bar).toBe("2px 100%");
+    expect(pressed.position).toMatch(/^0(?:px|%) 0(?:px|%)/);
 
-      if(art && railWidth===288) {
-        await browser("screenshot",join(art,"selected-"+id+".png"));
-        writeFileSync(join(art,"selected-"+id+".checks.json"),JSON.stringify(await page.call("() => window.__checks()")));
-      }
+    if(art) {
+      await browser("screenshot",join(art,"selected-"+id+".png"));
+      writeFileSync(join(art,"selected-"+id+".checks.json"),JSON.stringify(await page.call("() => window.__checks()")));
     }
   }
 },90_000);

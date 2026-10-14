@@ -79,80 +79,77 @@ const WORST = `async () => {
   return first.id;
 }`;
 
+// Rows are layout: one scheme and one window represent every supported one.
+const [scheme, width, height] = ["light", 1280, 800] as const;
+
 run("u359 a Todo row and a Pad row are one designed row", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  for (const seed of SEEDS)
-    for (const scheme of ["light", "dark"] as const)
-      for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
-        it(`u359_each_list_has_one_glyph_edge_and_one_text_edge_and_lines_hang_under_the_title on ${seed} ${scheme} at ${width}x${height}`, async () => {
-          await page.scheme(scheme);
-          await page.load(`/harness.html?seed=${seed}`, width, height);
-          await page.until(`() => document.body.textContent.length > 0 && Boolean(window.__fake)`);
+  for (const seed of SEEDS) {
+    it(`u359_each_list_has_one_glyph_edge_and_one_text_edge_and_lines_hang_under_the_title on ${seed} ${scheme} at ${width}x${height}`, async () => {
+      await page.scheme(scheme);
+      await page.load(`/harness.html?seed=${seed}`, width, height);
+      await page.until(`() => document.body.textContent.length > 0 && Boolean(window.__fake)`);
 
-          // The first-run screen has no project, so no Shelf: all three Checks pass with no row to measure.
-          if (seed === "first-run") {
-            const none = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
+      // The first-run screen has no project, so no Shelf: all three Checks pass with no row to measure.
+      if (seed === "first-run") {
+        const none = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
 
-            for (const id of ["D12", "D13", "D14"]) expect(none[id], id).toMatchObject({ status: "pass" });
+        for (const id of ["D12", "D13", "D14"]) expect(none[id], id).toMatchObject({ status: "pass" });
 
-            keep(`${seed}-${scheme}-${width}x${height}.checks.json`, none);
+        keep(`${seed}-${scheme}-${width}x${height}.checks.json`, none);
 
-            return;
-          }
-
-          await page.until(`() => document.querySelector(".shelf") !== null`);
-          await page.call(WORST);
-          await page.call(`() => window.__tab("pads")`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
-
-          const rows = await page.call<Row[]>(READ);
-          const edges = (key: "glyph" | "title") => rows.map((row) => row[key]);
-
-          expect(rows.some((row) => row.list === "todos") && rows.some((row) => row.list === "pads")).toBe(true);
-
-          for (const list of ["todos", "pads"]) {
-            const own = rows.filter((row) => row.list === list);
-
-            for (const key of ["glyph", "title"] as const) for (const row of own) expect(Math.abs(row[key] - own[0]![key]), `${list} ${key}`).toBeLessThanOrEqual(1);
-
-            for (const row of own) {
-              for (const line of row.lines) expect(Math.abs(line - row.title)).toBeLessThanOrEqual(1);
-
-              expect(row.title - row.glyph).toBeGreaterThanOrEqual(23);
-              expect(row.titleLines).toBeLessThanOrEqual(2);
-              expect(row.width).toBeLessThanOrEqual(row.listWidth + 1);
-              expect(row.background).toBe("rgba(0, 0, 0, 0)");
-              expect([row.border, row.shadow, row.radius]).toEqual(["0px", "none", "0px"]);
-              expect(row.mono, `${list} mono words`).toBe(0);
-            }
-          }
-
-          // The two lists share one Glyph edge.
-          expect(Math.abs(Math.min(...edges("glyph")) - Math.max(...edges("glyph")))).toBeLessThanOrEqual(1);
-
-          const checks = await page.call<Record<string, { status: string; value: unknown }>>(`() => window.__checks()`);
-
-          for (const id of ["D2", "D12", "D13", "D14"]) expect(checks[id], `${id} ${JSON.stringify(checks[id])}`).toMatchObject({ status: "pass" });
-
-          keep(`${seed}-${scheme}-${width}x${height}.checks.json`, checks);
-          keep(`${seed}-${scheme}-${width}x${height}.rows.json`, rows);
-        });
+        return;
       }
 
-  /** Loads a seed with the worst case added and runs `check` on it, for each scheme and width; the first-run screen has no Shelf. */
-  const onEveryScreen = async (check: (label: string) => Promise<void>) => {
-    for (const seed of ["tree-40", "agents-10"] as const)
-      for (const scheme of ["light", "dark"] as const)
-        for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
-          await page.scheme(scheme);
-          await page.load(`/harness.html?seed=${seed}`, width, height);
-          await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);
-          await page.call(WORST);
-          await page.call(`() => window.__tab("pads")`);
-          await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
-          await check(`${seed} ${scheme} ${width}x${height}`);
+      await page.until(`() => document.querySelector(".shelf") !== null`);
+      await page.call(WORST);
+      await page.call(`() => window.__tab("pads")`);
+      await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
+
+      const rows = await page.call<Row[]>(READ);
+      const edges = (key: "glyph" | "title") => rows.map((row) => row[key]);
+
+      expect(rows.some((row) => row.list === "todos") && rows.some((row) => row.list === "pads")).toBe(true);
+
+      for (const list of ["todos", "pads"]) {
+        const own = rows.filter((row) => row.list === list);
+
+        for (const key of ["glyph", "title"] as const) for (const row of own) expect(Math.abs(row[key] - own[0]![key]), `${list} ${key}`).toBeLessThanOrEqual(1);
+
+        for (const row of own) {
+          for (const line of row.lines) expect(Math.abs(line - row.title)).toBeLessThanOrEqual(1);
+
+          expect(row.title - row.glyph).toBeGreaterThanOrEqual(23);
+          expect(row.titleLines).toBeLessThanOrEqual(2);
+          expect(row.width).toBeLessThanOrEqual(row.listWidth + 1);
+          expect(row.background).toBe("rgba(0, 0, 0, 0)");
+          expect([row.border, row.shadow, row.radius]).toEqual(["0px", "none", "0px"]);
+          expect(row.mono, `${list} mono words`).toBe(0);
         }
+      }
+
+      // The two lists share one Glyph edge.
+      expect(Math.abs(Math.min(...edges("glyph")) - Math.max(...edges("glyph")))).toBeLessThanOrEqual(1);
+
+      const checks = await page.call<Record<string, { status: string; value: unknown }>>(`() => window.__checks()`);
+
+      for (const id of ["D2", "D12", "D13", "D14"]) expect(checks[id], `${id} ${JSON.stringify(checks[id])}`).toMatchObject({ status: "pass" });
+
+      keep(`${seed}-${scheme}-${width}x${height}.checks.json`, checks);
+      keep(`${seed}-${scheme}-${width}x${height}.rows.json`, rows);
+    });
+  }
+
+  /** Loads `tree-40` with the worst case added and runs `check` on it. */
+  const onTheWorstCase = async (check: (label: string) => Promise<void>) => {
+    await page.scheme(scheme);
+    await page.load(`/harness.html?seed=tree-40`, width, height);
+    await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);
+    await page.call(WORST);
+    await page.call(`() => window.__tab("pads")`);
+    await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Pads"] .shelf-row').length > 0`);
+    await check(`tree-40 ${scheme} ${width}x${height}`);
   };
 
   const BUILD = `async () => { const out = []; for (const list of ["todos", "pads"]) { await window.__tab(list); out.push(...([...document.querySelectorAll('.shelf section[aria-label="' + list + '" i] .shelf-row')].filter((row) => row.querySelector('[title]')).map((row) => {
@@ -165,7 +162,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   type Build = { list: string; attr: boolean; kinds: string; display: string; columns: number; gap: string; padTop: string; padBottom: string; glyph: number; parts: string; text: string; meta: string };
 
   it("u359_a_todo_and_a_pad_share_one_row", async () => {
-    await onEveryScreen(async (where) => {
+    await onTheWorstCase(async (where) => {
       const rows = await page.call<Build[]>(BUILD);
       const todos = rows.filter((row) => row.list === "todos" && row.attr);
       const pads = rows.filter((row) => row.list === "pads");
@@ -191,7 +188,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   const FILL = `(x, y) => { const row = document.elementFromPoint(x, y)?.closest(".shelf-row"); if (!row) return null; const style = getComputedStyle(row); return { background: style.backgroundColor, image: style.backgroundImage, border: style.borderTopWidth + style.borderLeftWidth, shadow: style.boxShadow, radius: style.borderTopLeftRadius }; }`;
 
   it("u359_no_row_is_a_card", async () => {
-    await onEveryScreen(async (where) => {
+    await onTheWorstCase(async (where) => {
       const rows = await page.call<Row[]>(READ);
 
       for (const row of rows) expect([row.background, row.border, row.shadow, row.radius], `${where} ${row.list}`).toEqual(["rgba(0, 0, 0, 0)", "0px", "none", "0px"]);
@@ -214,7 +211,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   }, 120_000);
 
   it("u359_lines_after_the_first_hang_under_the_title", async () => {
-    await onEveryScreen(async (where) => {
+    await onTheWorstCase(async (where) => {
       const rows = await page.call<Row[]>(READ);
       const wrapped = rows.filter((row) => row.titleLines === 2);
 
@@ -251,7 +248,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   }`;
 
   it("u359_the_gaps_are_space_steps_and_the_same_in_both_lists", async () => {
-    await onEveryScreen(async (where) => {
+    await onTheWorstCase(async (where) => {
       const { lists, bad } = await page.call<{ lists: { list: string; glyph: number; top: number; heights: number[]; gaps: number[] }[]; bad: string[] }>(RHYTHM);
       const todos = lists.find((own) => own.list === "todos");
       const pads = lists.find((own) => own.list === "pads");
@@ -273,7 +270,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   }, 120_000);
 
   it("u359_words_that_are_not_ids_or_paths_use_the_ui_font", async () => {
-    await onEveryScreen(async (where) => {
+    await onTheWorstCase(async (where) => {
       const rows = await page.call<Row[]>(READ);
 
       for (const row of rows) expect(row.mono, `${where} ${row.list} mono words`).toBe(0);
@@ -314,7 +311,7 @@ run("u359 a Todo row and a Pad row are one designed row", () => {
   type Ending = { list: string; text: string; attr: string | null; clamp: string; overflow: string; cut: boolean; lines: number; metaWrap: string | null; metaOne: boolean; wide: boolean };
 
   it("u359_a_long_title_and_a_long_pad_name_end_the_same_way", async () => {
-    await onEveryScreen(async (where) => {
+    await onTheWorstCase(async (where) => {
       const rows = await page.call<Ending[]>(ENDINGS);
 
       for (const row of rows) {

@@ -43,7 +43,7 @@ describe("u422 the Workstream view opens on its goal, with one menu", () => {
 
     const items = screen.getAllByRole("menuitem");
 
-    expect(items.map((item) => item.textContent)).toEqual(["Whole order", "Take over", "Clear…", "All Messages"]);
+    expect(items.map((item) => item.textContent)).toEqual(["Whole order", "Take control", "Clear…", "All Messages"]);
 
     for (const item of items) expect(item.querySelector("svg")).not.toBeNull();
   });

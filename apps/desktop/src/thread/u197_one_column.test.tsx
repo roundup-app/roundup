@@ -60,7 +60,7 @@ describe("u197 the Thread is one page in one column", () => {
     expect(header.textContent).not.toContain("must not");
     expect(header.textContent).not.toMatch(/limit/);
     expect(header.contains(screen.getByRole("button", { name: "More" }))).toBe(true);
-    expect(screen.queryByRole("button", { name: "Take over" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Take control" })).toBeNull();
     expect(document.querySelectorAll(".thread-take-over")).toHaveLength(0);
 
     fireEvent.click(order);
@@ -74,13 +74,13 @@ describe("u197 the Thread is one page in one column", () => {
 
   it("u197_during_a_takeover_the_menu_holds_the_one_end_takeover", async () => {
     await mountReport(1280);
-    await chooseFromMenu("Take over");
+    await chooseFromMenu("Take control");
 
     await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
-    expect(screen.getAllByRole("menuitem", { name: "End Takeover" })).toHaveLength(1);
-    expect(screen.queryByRole("menuitem", { name: "Take over" })).toBeNull();
+    expect(screen.getAllByRole("menuitem", { name: "Give control back" })).toHaveLength(1);
+    expect(screen.queryByRole("menuitem", { name: "Take control" })).toBeNull();
     expect(document.querySelectorAll("[aria-label='Order of workstream-1']")).toHaveLength(1);
   });
 

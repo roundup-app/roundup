@@ -32,7 +32,7 @@ const mount = async (dark = false) => {
 
   render(() => <App app={controls.app} reducedMotion={() => false} clock={Date.now} />);
   fireEvent.click(await screen.findByText("first workstream"));
-  await screen.findByText("Door stopped, exited 0");
+  await screen.findByText("Supervisor stopped, exited 0");
 };
 
 const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);

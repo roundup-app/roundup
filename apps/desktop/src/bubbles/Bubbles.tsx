@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -172,9 +173,9 @@ export const Bubbles = (props: { screens: Screens }) => {
   const stateText = (terminal: TerminalInfo): string => {
     const exit = rail.terminalExit(terminal.id);
 
-    if (running(terminal)) return "Running";
+    if (running(terminal)) return copy.running;
 
-    return exit?.kind === "code" ? `Exit ${exit.code}` : exit?.kind === "signal" ? "Exit signal" : `Exit ${terminal.exit_code ?? "?"}`;
+    return exit?.kind === "code" ? copy.exit(exit.code) : exit?.kind === "signal" ? copy.exitSignal : copy.exit(terminal.exit_code ?? copy.questionMark);
   };
 
   const close = async (id: string): Promise<void> => {
@@ -632,18 +633,18 @@ export const Bubbles = (props: { screens: Screens }) => {
           <span class="bubble-state">{stateText(terminal()!)}</span>
           <input
             type="range"
-            aria-label="Transparency"
+            aria-label={copy.transparency}
             min="0"
             max={MAX_TRANSPARENCY}
             step={TRANSPARENCY_STEP}
             value={transparency()}
-            aria-valuetext={`${transparency()}%`}
+            aria-valuetext={copy.percent(transparency())}
             onInput={(event) => setLevel(Number(event.currentTarget.value))}
           />
-          <button type="button" class="word" aria-label="Minimise" onClick={() => toggleMinimised(id)}>
+          <button type="button" class="word" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
             <Icon name="down" />
           </button>
-          <button type="button" class="word" aria-label="Close" onClick={() => void close(id)}>
+          <button type="button" class="word" aria-label={copy.close} onClick={() => void close(id)}>
             <Icon name="x" />
           </button>
         </header>
@@ -657,7 +658,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-tabs-host")}>
-        <div class="terminal-tabs" role="group" aria-label="Terminals" onFocusIn={(event) => {
+        <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
           <For each={shownIds()}>{(id) => {
@@ -668,15 +669,15 @@ export const Bubbles = (props: { screens: Screens }) => {
                 aria-label={nameOf(terminal())} aria-describedby={`terminal-state-${id}`} title={nameOf(terminal())} aria-pressed={!placeOf(id).min}
                 onClick={() => toggleMinimised(id)}>
                 <span class="terminal-tab-name">{nameOf(terminal())}</span>
-                <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? "●" : "○"}</span>
+                <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
               </button>
-              <button type="button" data-button="icon" aria-label={`Close ${nameOf(terminal())}`} onClick={() => void close(id)}><Icon name="x" /></button>
+              <button type="button" data-button="icon" aria-label={copy.closeTerminal(nameOf(terminal()))} onClick={() => void close(id)}><Icon name="x" /></button>
             </span>;
           }}</For>
-          <button type="button" data-button="add" class="terminal-new" aria-label="New Terminal" onClick={() => void open()}>+ Terminal</button>
+          <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
       </Portal>}</Show>
-      <Show when={selectionMessage()}><div class="bubble-failure" role="status">Select a Workstream first</div></Show>
+      <Show when={selectionMessage()}><div class="bubble-failure" role="status">{copy.selectAWorkstreamFirst}</div></Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );

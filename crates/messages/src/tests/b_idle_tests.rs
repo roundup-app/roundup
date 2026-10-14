@@ -139,7 +139,9 @@ async fn b2_initial_acknowledgement_waits_for_idle_reconciliation() {
             completed.try_recv().is_err(),
             "a blocked Rail read is not reconciled"
         );
-        release.add_permits(2); // Initial reconciliation and the first clock pass both read Rail.
+        // From here the Rail answers every read: the initial reconciliation reads it twice (resync, then settle),
+        // and the clock's passes may read it before, between or after those.
+        release.add_permits(tokio::sync::Semaphore::MAX_PERMITS);
         while completed.recv().await.unwrap() != "initial" {}
     })
     .await

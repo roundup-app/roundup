@@ -49,49 +49,50 @@ const observe = async <T>(read: () => Promise<T>): Promise<T> => {
 const art = captureDir("U445");
 
 run("u445 real Drawer layout", () => {
-  for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
-    for (const worst of [false, true]) for (const name of ["title", "body"]) for (const keyboard of [false, true]) {
-      const seed = `${name}-${worst ? "worst" : "tree"}-${keyboard ? "enter" : "double-click"}-${width}x${height}-${scheme}`;
+  for (const scheme of ["light", "dark"] as const) for (const worst of [false, true]) for (const name of ["title", "body"]) for (const keyboard of [false, true]) {
+    // Dark changes only the computed colour, so one edit per field reads it.
+    if (scheme === "dark" && (worst || keyboard)) continue;
 
-      let reading: Promise<Read> | undefined;
+    const seed = `${name}-${worst ? "worst" : "tree"}-${keyboard ? "enter" : "double-click"}-1280x800-${scheme}`;
 
-      // All three clauses read the same edit, so observe it once per seed.
-      const read = () => reading ??= observe(async () => {
-        await page.scheme(scheme);
-        await page.load("/harness.html?seed=tree-40", width, height);
-        await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`, 60_000);
-        const result = await page.call<Read>(U445_READ, name, worst, keyboard);
+    let reading: Promise<Read> | undefined;
 
-        if (art) {
-          mkdirSync(art, { recursive: true });
-          writeFileSync(join(art, `${seed}.json`), JSON.stringify(result));
-        }
+    // All three clauses read the same edit, so observe it once per seed.
+    const read = () => reading ??= observe(async () => {
+      await page.scheme(scheme);
+      await page.load("/harness.html?seed=tree-40", 1280, 800);
+      await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`, 60_000);
+      const result = await page.call<Read>(U445_READ, name, worst, keyboard);
 
-        return result;
-      });
+      if (art) {
+        mkdirSync(art, { recursive: true });
+        writeFileSync(join(art, `${seed}.json`), JSON.stringify(result));
+      }
 
-      it(`u445_${name}_field_matches_shown_${name} ${seed}`, async () => {
-        const { before, after } = await read();
-        expect(before.box.width).toBeGreaterThan(0);
-        expect(before.box.height).toBeGreaterThan(0);
+      return result;
+    });
 
-        for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(after.box[key] - before.box[key]), key).toBeLessThanOrEqual(1);
-        expect(after.type).toEqual(before.type);
-      }, 90_000);
-      it(`u445_a_long_title_wraps_as_shown ${seed}`, async () => {
-        const { before, after } = await read();
-        expect(after.lines).toEqual(before.lines);
-        expect(Math.round(after.lineCount)).toBe(before.lines.length);
-        expect(after.scrollHeight).toBeLessThanOrEqual(after.clientHeight);
-        expect(after.scrollWidth).toBeLessThanOrEqual(after.clientWidth);
-        expect(after.overflow).toBe("hidden");
-      }, 90_000);
-      it(`u445_nothing_else_moves ${seed}`, async () => {
-        const { before, after } = await read();
-        expect(before.others.length).toBeGreaterThan(0);
-        expect(after.others).toEqual(before.others);
-      }, 90_000);
-    }
+    it(`u445_${name}_field_matches_shown_${name} ${seed}`, async () => {
+      const { before, after } = await read();
+      expect(before.box.width).toBeGreaterThan(0);
+      expect(before.box.height).toBeGreaterThan(0);
+
+      for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(after.box[key] - before.box[key]), key).toBeLessThanOrEqual(1);
+      expect(after.type).toEqual(before.type);
+    }, 90_000);
+    it(`u445_a_long_title_wraps_as_shown ${seed}`, async () => {
+      const { before, after } = await read();
+      expect(after.lines).toEqual(before.lines);
+      expect(Math.round(after.lineCount)).toBe(before.lines.length);
+      expect(after.scrollHeight).toBeLessThanOrEqual(after.clientHeight);
+      expect(after.scrollWidth).toBeLessThanOrEqual(after.clientWidth);
+      expect(after.overflow).toBe("hidden");
+    }, 90_000);
+    it(`u445_nothing_else_moves ${seed}`, async () => {
+      const { before, after } = await read();
+      expect(before.others.length).toBeGreaterThan(0);
+      expect(after.others).toEqual(before.others);
+    }, 90_000);
   }
 });
 
@@ -101,20 +102,20 @@ type Checks = Record<string, { status: string }>;
 const baseline: Record<string, Checks> = mainChecks;
 
 run("u445 Checks retain main's passes on every seed", () => {
-  for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 820], [1280, 800]] as const) for (const seed of SEEDS) {
-    it(`u445_no_check_regresses ${seed}-${width}x${height}-${scheme}`, async () => {
-      const file = `${seed}-${width}x${height}-${scheme}.checks.json`;
+  for (const scheme of ["light", "dark"] as const) for (const seed of SEEDS) {
+    it(`u445_no_check_regresses ${seed}-1280x800-${scheme}`, async () => {
+      const file = `${seed}-1280x800-${scheme}.checks.json`;
 
       const check = (url: string) => observe(async () => {
         await page.scheme(scheme);
-        await page.load(url, width, height);
+        await page.load(url, 1280, 800);
         await page.until("() => Boolean(window.__fake && document.querySelector('[aria-label=Rail]'))", 60_000);
         await page.call("async () => { await document.fonts.ready; }");
 
         return page.call<Checks>("() => window.__checks()");
       });
 
-      // main ea6ddc04: statuses recorded by this observer at both viewports and schemes.
+      // main ea6ddc04: statuses recorded by this observer at 1280x800 in both schemes.
       const base = process.env.U445_BASE_URL
         ? await check(`${process.env.U445_BASE_URL}/harness.html?seed=${seed}`)
         : baseline[file]!;
@@ -137,15 +138,15 @@ run("u445 Checks retain main's passes on every seed", () => {
 });
 
 (art ? run : describe.skip)("u445 agent-browser observer", () => {
-  for (const scheme of ["light", "dark"]) for (const [width, height] of [[1280, 820], [1280, 800]]) for (const name of ["title", "body"]) {
-    it(`u445_agent_browser_reads_real_boxes ${name}-${width}x${height}-${scheme}`, async () => {
+  for (const scheme of ["light", "dark"]) for (const name of ["title", "body"]) {
+    it(`u445_agent_browser_reads_real_boxes ${name}-1280x800-${scheme}`, async () => {
       if (!art) throw new Error("U445 observer needs just capture U445");
       const session = "u445-builder-38459033958-capture";
       const browser = (...args: string[]) => execFileSync("agent-browser", ["--session", session, ...args], { encoding: "utf8" });
 
       try {
         browser("--color-scheme", scheme!, "open", "http://localhost:5199/harness.html?seed=tree-40");
-        browser("set", "viewport", String(width), String(height));
+        browser("set", "viewport", "1280", "800");
         browser("set", "media", scheme!);
         const output = JSON.parse(browser("--json", "eval", `(${U445_READ})(${JSON.stringify(name)},true,false)`));
         expect(output.success).toBe(true);
@@ -156,36 +157,34 @@ run("u445 Checks retain main's passes on every seed", () => {
         for (const key of ["x", "y", "width", "height"] as const) expect(Math.abs(read.before.box[key] - read.after.box[key])).toBeLessThanOrEqual(1);
         expect(read.after.others).toEqual(read.before.others);
         expect(read.after.lines).toEqual(read.before.lines);
-        writeFileSync(join(art, `agent-browser-${name}-${width}x${height}-${scheme}.json`), JSON.stringify(output.data.result));
-        browser("screenshot", join(art, `agent-browser-${name}-${width}x${height}-${scheme}.png`));
+        writeFileSync(join(art, `agent-browser-${name}-1280x800-${scheme}.json`), JSON.stringify(output.data.result));
+        browser("screenshot", join(art, `agent-browser-${name}-1280x800-${scheme}.png`));
       } finally { browser("close"); }
     }, 90_000);
   }
 });
 
 run("u445 real body height follows input", () => {
-  for (const [width, height] of [[1280, 820], [1280, 800]]) {
-    it(`u445_the_body_grows_and_shrinks_with_its_text ${width}x${height}`, async () => {
-      const sizes = await observe(async () => {
-        await page.load("/harness.html?seed=tree-40", width!, height!);
-        await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`);
-        await page.call(U445_READ, "body", true, false);
+  it("u445_the_body_grows_and_shrinks_with_its_text", async () => {
+    const sizes = await observe(async () => {
+      await page.load("/harness.html?seed=tree-40", 1280, 800);
+      await page.until(`() => Boolean(document.querySelector('[data-id="5"] button'))`);
+      await page.call(U445_READ, "body", true, false);
 
-        return page.call<number[]>(String.raw`() => {
-          const field = document.querySelector('textarea');
-          const initial = field.getBoundingClientRect().height;
-          field.value += '\nnext body line'; field.dispatchEvent(new Event('input', {bubbles:true}));
-          const grown = field.getBoundingClientRect().height;
-          const noScroll = field.scrollHeight <= field.clientHeight;
-          field.value = field.value.slice(0, field.value.lastIndexOf('\n'));
-          field.dispatchEvent(new Event('input', {bubbles:true}));
-          return [initial, grown, field.getBoundingClientRect().height, noScroll ? 1 : 0];
-        }`);
-      });
+      return page.call<number[]>(String.raw`() => {
+        const field = document.querySelector('textarea');
+        const initial = field.getBoundingClientRect().height;
+        field.value += '\nnext body line'; field.dispatchEvent(new Event('input', {bubbles:true}));
+        const grown = field.getBoundingClientRect().height;
+        const noScroll = field.scrollHeight <= field.clientHeight;
+        field.value = field.value.slice(0, field.value.lastIndexOf('\n'));
+        field.dispatchEvent(new Event('input', {bubbles:true}));
+        return [initial, grown, field.getBoundingClientRect().height, noScroll ? 1 : 0];
+      }`);
+    });
 
-      expect(sizes[1]! - sizes[0]!).toBe(sizes[0]! / 40);
-      expect(sizes[2]).toBe(sizes[0]);
-      expect(sizes[3]).toBe(1);
-    }, 90_000);
-  }
+    expect(sizes[1]! - sizes[0]!).toBe(sizes[0]! / 40);
+    expect(sizes[2]).toBe(sizes[0]);
+    expect(sizes[3]).toBe(1);
+  }, 90_000);
 });

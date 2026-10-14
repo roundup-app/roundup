@@ -33,15 +33,16 @@ const load = async (width: number, height: number) => {
   await page.until(`() => { const left = document.querySelector(".shelf").getBoundingClientRect().left; const same = window.__last === left; window.__last = left; return same && left < window.innerWidth; }`);
 };
 
-type Edges = { strip: number; shelf: number; button: number; scrollRight: number; plus: number; scrollable: boolean };
+type Edges = { title: number; strip: number; shelf: number; button: number; scrollRight: number; plus: number; scrollable: boolean };
 
 const EDGES = `() => {
   const rect = (selector) => document.querySelector(selector)?.getBoundingClientRect();
   const scroll = document.querySelector(".strip-scroll");
   return {
+    title: rect(".window-title").left,
     strip: rect(".strip").right,
     shelf: rect(".shelf").left,
-    button: rect('.header [aria-label="Show Shelf"]')?.left ?? -1,
+    button: rect('.content-actions [aria-label="Show work items"]')?.left ?? -1,
     scrollRight: scroll.getBoundingClientRect().right,
     plus: rect(".strip-add").right,
     scrollable: document.querySelector(".tablist").scrollWidth >= document.querySelector(".tablist").clientWidth,
@@ -56,25 +57,25 @@ run("u369 the strip ends at the Shelf's leading edge", () => {
       await load(width, height);
       const edges = await page.call<Edges>(EDGES);
 
-      expect(Math.abs(edges.strip - edges.shelf)).toBeLessThanOrEqual(1);
+      expect(Math.abs(edges.strip - edges.title)).toBeLessThanOrEqual(1);
     });
 
     it(`u369_the_strip_scrolls_inside_the_remaining_width at ${width}x${height}`, async () => {
       await load(width, height);
       const edges = await page.call<Edges>(EDGES);
 
-      expect(edges.scrollRight).toBeLessThanOrEqual(edges.shelf + 1);
-      expect(edges.plus).toBeLessThanOrEqual(edges.shelf + 1);
+      expect(edges.scrollRight).toBeLessThanOrEqual(edges.title + 1);
+      expect(edges.plus).toBeLessThanOrEqual(edges.title + 1);
     });
 
     it(`u369_closed_the_strip_ends_at_the_show_button at ${width}x${height}`, async () => {
       await load(width, height);
-      await page.call(`() => document.querySelector('[aria-label="Hide Shelf"]').click()`);
-      await page.until(`() => document.querySelector('.header [aria-label="Show Shelf"]') !== null`);
+      await page.call(`() => document.querySelector('[aria-label="Hide work items"]').click()`);
+      await page.until(`() => document.querySelector('.content-actions [aria-label="Show work items"]') !== null`);
       const edges = await page.call<Edges>(EDGES);
 
-      expect(Math.abs(edges.strip - edges.button)).toBeLessThanOrEqual(1);
-      expect(edges.plus).toBeLessThanOrEqual(edges.button + 1);
+      expect(Math.abs(edges.strip - edges.title)).toBeLessThanOrEqual(1);
+      expect(edges.plus).toBeLessThanOrEqual(edges.title + 1);
     });
   }
 });
