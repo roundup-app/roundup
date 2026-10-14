@@ -29,6 +29,9 @@ impl Run {
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
 import json, os, subprocess, sys, tty
+if sys.argv[1:3] == ['plugin', 'test']:
+    print('Q11 runtime hook closure: 1 pass')
+    sys.exit(0)
 tty.setraw(0)
 print('\033]0;✳ Ready\007', flush=True)
 settings = json.load(open(sys.argv[sys.argv.index('--settings') + 1]))
