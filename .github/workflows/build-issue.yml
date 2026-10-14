@@ -114,7 +114,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Link capture publication or keep draft
-        if: ${{ always() && steps.captures.outputs.pr != '' && (steps.captures.outputs.path != '' || steps.captures.outcome == 'failure') }}
+        if: ${{ always() && steps.captures.outputs.pr != '' && steps.captures.outputs.path != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           CAPTURE_PR: ${{ steps.captures.outputs.pr }}
