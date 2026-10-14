@@ -268,19 +268,9 @@ describe("u369 and u371 the Shelf floats over the window", () => {
     expect(shelf().parentElement!.classList.contains("window")).toBe(true);
   });
 
-  it("u369_the_rail_and_the_pane_do_not_move_at_1280", () => {
+  it("u369_the_centre_floor_uses_the_shared_token", () => {
     expect(appCss).not.toContain("@media (max-width: 1101px)");
-    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(388px, 1fr\)/);
-  });
-
-  it("u371_the_pane_box_is_the_same_open_and_closed", async () => {
-    await mountApp();
-    const columns = document.querySelector(".columns")!;
-    const before = [columns.getAttribute("style"), columns.className, getComputedStyle(columns).gridTemplateColumns];
-
-    chord();
-    expect([columns.getAttribute("style"), columns.className, getComputedStyle(columns).gridTemplateColumns]).toEqual(before);
-    expect(columns.contains(shelf())).toBe(false);
+    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(var\(--centre-min-width\), 1fr\)/);
   });
 
   it("u371_the_shelf_paints_over_the_pane_below_the_drawer", async () => {

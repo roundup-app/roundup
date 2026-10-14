@@ -102,7 +102,7 @@ p {
   position: relative;
   display: grid;
   grid-area: 2 / 1;
-  grid-template-columns: var(--rail-width) minmax(388px, 1fr);
+  grid-template-columns: var(--rail-width) minmax(var(--centre-min-width), 1fr);
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
@@ -219,7 +219,7 @@ p {
   border-right-color: var(--hairline);
 }
 
-/* U369, U371: the Shelf floats from the window's top edge to its bottom at the trailing edge, above the pane and below the Drawer; the pane's box is the same open or closed. */
+/* U369, U371: the Shelf floats from the window's top edge to its bottom at the trailing edge, below the Drawer; it reserves width when the centre has room, otherwise it overlays a scrim. */
 .shelf {
   position: absolute;
   top: 0;
@@ -316,9 +316,31 @@ p {
   border-left-color: var(--hairline);
 }
 
+/* U371: match the Shelf transform's displacement, including interrupted slides. */
+.window[data-shelf-mode="reserved"][data-shelf-shown="true"] .columns {
+  width: calc(100% - var(--shelf-span));
+}
+
+.window[data-shelf-mode="reserved"][data-shelf-animated="true"] .columns {
+  transition: width var(--duration-drawer) ease-out;
+}
+
+.shelf-scrim {
+  position: absolute;
+  top: var(--header-height);
+  right: 0;
+  bottom: 0;
+  left: var(--rail-width);
+  background-color: var(--pressed);
+}
+
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
-.window:has(.drawer[data-open="true"]) .columns {
+.window[data-shelf-mode]:has(.drawer[data-open="true"]) .columns {
   width: calc(100% - var(--drawer-span));
+}
+
+.window:has(.drawer[data-open="true"]) .shelf-scrim {
+  display: none;
 }
 
 /* DrawerHost keeps content mounted through closing; restoring the floor sooner jumps beneath the slide. */
@@ -326,7 +348,7 @@ p {
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
 }
 
-.window:has(.drawer[data-motion="slide"]) .columns {
+.window:has(.drawer[data-motion="slide"][data-open="true"], .drawer[data-motion="slide"] > :not(.close)) .columns {
   transition: width var(--duration-drawer) ease-out;
 }
 
