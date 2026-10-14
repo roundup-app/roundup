@@ -106,6 +106,7 @@ const pageOf = (doc: Document): Page => {
   const resolve = (value: string): string => value.replace(/var\(--([\w-]+)\)/g, (whole, name: string) => token(name) ?? whole);
   // #1679 measured 3,300 style reads for 139 elements; keeping observations within this call avoids repeated declaration cloning.
   const styles = new Map<Element, CSSStyleDeclaration>([[doc.documentElement, rootStyle]]);
+
   const style = (el: Element) => {
     let computed = styles.get(el);
 
@@ -116,6 +117,7 @@ const pageOf = (doc: Document): Page => {
 
     return computed;
   };
+
   const visible = (el: Element) => !el.closest("[hidden], [aria-hidden=true]") && style(el).display !== "none";
 
   return { doc, view, elements: [...doc.body.querySelectorAll("*")].filter((el) => !/^(SCRIPT|STYLE)$/.test(el.tagName) && visible(el)), style, token, resolve };

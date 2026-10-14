@@ -29,6 +29,7 @@ describe("u137 one module measures the checks", () => {
       const expected = runChecks();
       const original = window.getComputedStyle.bind(window);
       const reads = new Map<Element, number>();
+
       const read = vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
         reads.set(el, (reads.get(el) ?? 0) + 1);
         const result = original(el, pseudo);
