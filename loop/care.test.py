@@ -701,6 +701,25 @@ class Care(unittest.TestCase):
                 self.assertEqual(len(source.splitlines()), row['end'])
                 self.assertIn('tree-sitter-bash', row['parser_error'])
 
+    def test_l107_invalid_shell_fails_with_syntax_evidence(self):
+        import care
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'broken.sh').write_text('if true; then\n  echo unfinished\n')
+            with self.assertRaisesRegex(RuntimeError, r'bash .*broken.sh exited 2:.*broken.sh'):
+                care.source_inventory(root, ['broken.sh'])
+
+    def test_l107_complete_shell_assertions_remain_asserted(self):
+        import care
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'l107.test.sh').write_text('# L107\n[ "$actual" = expected ]\n')
+            row = care.source_inventory(root, ['l107.test.sh'])['tests'][0]
+            self.assertEqual('asserted', row['assertion'])
+            self.assertNotIn('helper_inspection', row['categories'])
+
     def test_l107_comments_and_strings_never_count_as_assertions(self):
         import care
         import tempfile
