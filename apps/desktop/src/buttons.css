@@ -97,17 +97,17 @@ button[data-pressed="true"]:not([aria-disabled="true"]) {
   transition-duration: 0s;
 }
 
-/* A pressed button in a group of `aria-pressed` buttons (the Shelf's scope control, U368) takes `--selected`. */
-[role="group"] > [data-button="quiet"] {
-  --button-inline: var(--space-2);
-}
-
-[role="group"] > [data-button="quiet"][aria-pressed="true"] {
+/* U470: an icon toggle keeps its library mark and shows its state on a selected surface. */
+[data-button="icon"][aria-pressed="true"] {
   color: var(--text);
   background-color: var(--selected);
 }
 
-[role="group"] > [data-button="quiet"][aria-pressed="true"]:active:not([aria-disabled="true"]) {
+[data-button="icon"][aria-pressed="true"]:hover:not([aria-disabled="true"]) {
+  background-color: var(--selected-hover);
+}
+
+[data-button="icon"][aria-pressed="true"]:active:not([aria-disabled="true"]) {
   background-color: var(--pressed);
 }
 
