@@ -26,13 +26,13 @@ Reproduce the inventory with `git ls-tree -r --name-only f8886e87 -- loop .githu
 
 | File | Lines | Scenario served | Stock replacement considered | Decision and boundary |
 | --- | ---: | --- | --- | --- |
-| `.github/workflows/activity.yml` | 44 | L104 | Native Actions checks and PR run links | **delete** — Only observes loop runs; retire activity status and five-minute polling, never any required gate. |
-| `.github/workflows/build-issue.yml` | 175 | L23, L79, L81, L96, L98, L112 | claude-code-action @claude / reusable workflows | **keep** — Already reusable; stock Claude mode cannot replace the accepted Codex login/model execution policy. |
+| `.github/workflows/activity.yml` | 44 | L104 | Native Actions checks and PR run links | **deleted** in [#1786](https://github.com/saadshahd/roundup/pull/1786) on 2026-10-14 by the owner's decision, which replaced #1735's specify step. The `activity` status and five-minute polling are gone; no required gate changed. |
+| `.github/workflows/build-issue.yml` | 175 | L23, L79, L81, L96, L98 | claude-code-action @claude / reusable workflows | **keep** — Already reusable; stock Claude mode cannot replace the accepted Codex login/model execution policy. |
 | `.github/workflows/build.yml` | 101 | L23, L34, L96, L98 | @claude / Actions schedules and concurrency | **keep** — Scheduled authorized priority/dependency intake is not mention-driven execution; retain until equivalence is proved. |
 | `.github/workflows/care.yml` | 116 | L107 | Actions schedule / claude-code-action | **keep** — Already uses stock model action and artifacts for product code/test care. |
 | `.github/workflows/check.yml` | 95 | L24, L82, L84, L89, L98, L99 | GitHub required checks / merge queue | **keep** — Product validation is required; add merge_group only if ownership makes queue available. |
 | `.github/workflows/critic.yml` | 160 | L103 | claude-code-action review / required reviews | **keep** — Already uses the action; generic review does not supply the independent held-out visual critic or separate veto. |
-| `.github/workflows/fix-branch.yml` | 221 | L23, L79, L81, L82, L98, L112 | Actions concurrency / @claude / merge queue | **keep** — Already serializes branch writes; real check/review repairs and Codex policy survive even with a queue. |
+| `.github/workflows/fix-branch.yml` | 221 | L23, L79, L81, L82, L98 | Actions concurrency / @claude / merge queue | **keep** — Already serializes branch writes; real check/review repairs and Codex policy survive even with a queue. |
 | `.github/workflows/fix-observer.yml` | 91 | L82 | Actions artifacts / run and job API | **delete** — A dedicated observer of fix jobs, not product acceptance; archive historical evidence before removing publication. |
 | `.github/workflows/fix.yml` | 96 | L82, L103, L98 | Actions retry / @claude / merge queue | **keep** — Only branch-update causes could leave with a queue; stock retry does not implement bounded source repairs. |
 | `.github/workflows/loop.yml` | 104 | L2, L3, L24, L37, L41, L46, L82, L95–L98, L101, L102, L112 | actionlint / GitHub required checks | **replace** — Add pinned actionlint as stock syntax/expression validation; preserve all repository-specific rules and trusted gate authority. |
@@ -42,9 +42,9 @@ Reproduce the inventory with `git ls-tree -r --name-only f8886e87 -- loop .githu
 | `.github/workflows/stall.yml` | 51 | L94, L79, L98 | Actions failure notifications | **delete** — A separate loop-job observer and repair source; delete its callers before stall.py. |
 | `.github/workflows/summary.yml` | 64 | L23, L24, L66, L82, L103, L106, L107 (job-result reporting) | Native Actions job summaries and logs | **delete** — Only summarizes other loop jobs; retain useful result links at their producing steps and remove reusable calls. |
 | `loop/author.sh` | 13 | L2, L23, L97 | Git trailers / GitHub required reviews | **keep** — Stock reviews do not stamp Agent attribution or allocate scenario IDs. |
-| `loop/builder.py` | 1,797 | L23, L24, L34, L46, L79, L81, L82, L100, L102–L104, L107 | claude-code-action review / @claude; required reviews; merge queue | **replace** — Replace review invocation, activity polling and ready/merge wrappers where stock APIs suffice; retain Codex execution, queue authorization, recovery and trusted verdict publication. |
+| `loop/builder.py` | 1,797 | L23, L24, L34, L46, L79, L81, L82, L100, L102–L104, L107 | claude-code-action review / @claude; required reviews; merge queue | **replace** — Replace review invocation and ready/merge wrappers where stock APIs suffice ([#1786](https://github.com/saadshahd/roundup/pull/1786) deleted activity polling); retain Codex execution, queue authorization, recovery and trusted verdict publication. |
 | `loop/builder.test.py` | 2,624 | L23, L24, L79, L81, L82, L100, L102–L104 | Action upstream tests / GitHub checks | **keep** — Repository-specific authorization, stale-head and recovery assertions remain; migrate affected assertions with their implementation. |
-| `loop/captures.test.sh` | 255 | L112 | Actions artifacts | **keep** — Tests head-bound publication and retention beyond artifact transport. |
+| `loop/captures.test.sh` | 31 | L105, L112 | — | **keep** — Clean-tree check and the evidence link audit. |
 | `loop/care.py` | 853 | L107 | Scheduled claude-code-action / GitHub code scanning | **keep** — Code scanning lacks complete scenario/test evidence ranking and bounded authorized repair intake. |
 | `loop/care.test.py` | 727 | L107 | Code scanning / upstream action tests | **keep** — Proves collector completeness and publication authority, not vendor execution. |
 | `loop/fix-observer.py` | 651 | L82 | Actions run/job API and retained artifacts | **delete** — One historical fixed-window observer of fix jobs; preserve its existing evidence before retirement. |
@@ -69,7 +69,7 @@ Reproduce the inventory with `git ls-tree -r --name-only f8886e87 -- loop .githu
 
 ## Gates and ordering
 
-The regression contract is `.agents/data/gates.md`: `check`, `rules`, `review`, `critic` succeed for the exact head; authored commits retain Agent attribution and undo intent; Capture publication is authenticated and head-bound; review and critic are independent, main-owned and cannot be cleared by authors or by one another. `activity`, stall detection, historical fix observation and decorative summaries are not required gates. Retiring their extra scheduling/escalation promises requires explicit superseding acceptance; it does not retire failed-check evidence or source repair.
+The regression contract is `.agents/data/gates.md`: `check`, `rules`, `review`, `critic` succeed for the exact head; authored commits retain Agent attribution and undo intent; review and critic are independent, main-owned and cannot be cleared by authors or by one another. Stall detection, historical fix observation and decorative summaries are not required gates. Retiring their extra scheduling/escalation promises requires explicit superseding acceptance; it does not retire failed-check evidence or source repair.
 
 ```text
 stock invocation / Issue form / actionlint
@@ -86,7 +86,7 @@ First settle overlapping owners via native blockers, then merge implementation s
 
 | Row | Work Issue | Native blockers at filing |
 | --- | --- | --- |
-| `.github/workflows/activity.yml` | [#1735](https://github.com/saadshahd/roundup/issues/1735) | #1602, #1655, #1644, #1287 |
+| `.github/workflows/activity.yml` | [#1735](https://github.com/saadshahd/roundup/issues/1735), done in [#1786](https://github.com/saadshahd/roundup/pull/1786) | #1602, #1655, #1644, #1287 |
 | `.github/workflows/stall.yml` | [#1736](https://github.com/saadshahd/roundup/issues/1736) | #1602, #1287 |
 | `.github/workflows/fix-observer.yml` | [#1737](https://github.com/saadshahd/roundup/issues/1737) | #1602 |
 | `.github/workflows/summary.yml` | [#1738](https://github.com/saadshahd/roundup/issues/1738) | #1602 |

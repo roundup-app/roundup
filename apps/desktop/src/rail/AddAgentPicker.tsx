@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createSignal, For, onMount, Show } from "solid-js";
 import type { ModelList } from "@contracts/project/ModelList";
 import type { RoleModels } from "@contracts/project/RoleModels";
@@ -36,20 +37,20 @@ export const AddAgentPicker = (props: {
     const id = defaults()?.[field];
     const list = field === "model" ? props.list.models : props.list.efforts;
 
-    return `Default (${id == null ? "Claude Code" : list.find((choice) => choice.id === id)?.label ?? id})`;
+    return copy.defaultModel(id == null ? copy.claudeCode : list.find((choice) => choice.id === id)?.label ?? id);
   };
 
   return <div class="rail-agent-picker" onKeyDown={(event) => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.onClose(); }
   }}>
     <For each={["model", "effort"] as const}>{(field) => <label>
-      {field === "model" ? "Model" : "Effort"}
-      <select class="choice-select" aria-label={field === "model" ? "Model" : "Effort"} onChange={(event) => props.onChange({ ...props.pair, [field]: event.currentTarget.value || null })}>
+      {field === "model" ? copy.model : copy.effort}
+      <select class="choice-select" aria-label={field === "model" ? copy.model : copy.effort} onChange={(event) => props.onChange({ ...props.pair, [field]: event.currentTarget.value || null })}>
         <option value="" selected={props.pair[field] === null}>{label(field)}</option>
         <For each={field === "model" ? props.list.models : props.list.efforts}>{(choice) => <option value={choice.id} selected={props.pair[field] === choice.id}>{choice.label}</option>}</For>
       </select>
     </label>}</For>
-    <button type="button" data-button="quiet" aria-disabled={props.disabled || !loaded() || undefined} onClick={() => { if (!props.disabled && loaded()) props.onAdd(); }}>Add agent</button>
-    <Show when={failure()}>{(message) => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void loadDefaults()}>Retry</button></>}</Show>
+    <button type="button" data-button="quiet" aria-disabled={props.disabled || !loaded() || undefined} onClick={() => { if (!props.disabled && loaded()) props.onAdd(); }}>{copy.addAgent}</button>
+    <Show when={failure()}>{(message) => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void loadDefaults()}>{copy.retry}</button></>}</Show>
   </div>;
 };

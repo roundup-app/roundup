@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
@@ -84,7 +85,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
 
   return {
     rail: {
-      label: "Resize Rail",
+      label: copy.resizeRail,
       direction: 1,
       min: RAIL.min,
       fallback: RAIL.fallback,
@@ -101,7 +102,7 @@ export const createWidths = (path: Accessor<string | null>): Widths => {
       },
     },
     shelf: {
-      label: "Resize Shelf",
+      label: copy.resizeShelf,
       direction: -1,
       min: SHELF.min,
       fallback: SHELF.fallback,

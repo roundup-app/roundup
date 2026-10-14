@@ -4,6 +4,37 @@ roundup supervises coding Agents in each open Project from a macOS App. Names us
 
 ## Language
 
+### Code terms and user labels
+
+**Code term**:
+The name used by identifiers, types and RPC methods. Rule 6 applies to public code names.
+
+**User label**:
+App-authored words describing an action or content. A label may differ from its code term; authored names, ids, paths, code, Adapter labels, Agent output and Terminal content stay as written. Other domain terms keep their current user spelling until explicitly mapped.
+
+**App copy catalogue** (`copy`):
+The single collection of App-authored labels and parameterised prose, separate from code terms and authored values.
+
+| Code term | User label in App prose |
+| --- | --- |
+| Door | supervisor |
+| Takeover | control |
+| Shelf | work items |
+| Handoff | summary |
+
+| Existing action label | User label |
+| --- | --- |
+| Start Door | Start supervisor |
+| Retry Door | Retry supervisor |
+| End Takeover | Give control back |
+| Take over | Take control |
+| Show Shelf | Show work items |
+| Hide Shelf | Hide work items |
+| Clear without Handoff | Clear without a summary |
+| Clear (prompt submit) | Clear and keep a summary |
+
+Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback does not.
+
 ### Project and its nodes
 
 **Project**:
@@ -120,6 +151,9 @@ The window's native drop of files, which the Tauri shell takes before the webvie
 **Message image**:
 An absolute path to an image file in a Message body, which the Thread shows under the body's text; the App seam gives the webview its URL as `imageUrl` and the shell serves only image files (U352).
 
+**Window bar**:
+The App’s shared row for native traffic lights, Project tabs and the centred Project — Workstream title.
+
 **Project tab**:
 One entry of the header strip for an open Project: its name (the folder's until the user renames it) and one Tab mark; closing it stops that Project's Daemon (`scenarios/project-tabs.md`).
 
@@ -228,7 +262,7 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 
 **Signal**:
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
-_Avoid_: notification, alert
+_Avoid_: notification
 
 **Steer**:
 Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
@@ -429,7 +463,7 @@ What `just check` runs and builds with: `justfile`, `Cargo.toml`, `Cargo.lock`, 
 `loop/`, `.github/`, `.agents/`, `.claude/`, and every `AGENTS.md` or `CLAUDE.md`; review runs read `main`'s copy, never the PR's, and a review run rejects a change that lets a PR pass its own gate (L24, L46).
 
 **Capture**:
-A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: `artifacts/ux/journey/<id>/`) that a test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` selects only the PR's `Scenarios:` ids and `just check` writes none. Required captures belong to that PR head, published with a download link, observer command, exit code and conditions with explicit 14-day Actions retention; publication failure leaves draft, and `rules` rejects uncited publication and tracked evidence additions or edits while permitting deletion-only retirement (L112; `.agents/data/captures.md`).
+A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: `artifacts/ux/journey/<id>/`) that a test writes only when `ROUNDUP_CAPTURES` names its id; `just capture <ids>` selects only the PR's `Scenarios:` ids and `just check` writes none. `rules` rejects tracked evidence additions or edits and permits deletion-only retirement (L112).
 
 ### Todo history
 
@@ -444,3 +478,20 @@ A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: 
 **Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
 
 **Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked and cannot be completed again.
+
+### App component layer
+
+**Dialog**:
+A Token-styled question or panel in the App that holds focus until dismissed.
+
+**AlertDialog**:
+A Dialog asking permission before a destructive action; dismissal cancels the action.
+
+**Menu**:
+A Token-styled list of App actions opened from a control.
+
+**Tooltip**:
+A Token-styled explanation shown on hover or focus of an App control.
+
+**IconButton**:
+An App button of the icon kind, named for its action for assistive technology.

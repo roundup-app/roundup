@@ -660,6 +660,28 @@ class Care(unittest.TestCase):
         interrupted = care.test_results('PASS [0.003s] ( 1/2) example::scenarios u1::u1_renders\n', job, run)
         self.assertEqual(['u1::u1_renders'], [r['name'] for r in interrupted])
 
+    def test_l107_l89_each_rust_half_and_the_mac_lane_must_print_a_nextest_summary(self):
+        import care
+        run = dict(id=12, head_sha='c'*40, head_branch='main')
+        log = 'PASS [0.003s] ( 1/1) example::scenarios u1::u1_renders\nSummary [1.00s] 1 tests run: 1 passed\n'
+        for name in ('rust 1', 'rust 2', 'mac', 'check / mac'):
+            job = dict(id=3, name=name, conclusion='success', html_url='https://github.com/o/r/actions/jobs/3', run_attempt=1,
+                       completed_at=fixtures.NOW, steps=[dict(name='test-rust', conclusion='success')])
+            self.assertEqual(['u1::u1_renders'], [r['name'] for r in care.test_results(log, job, run)], name)
+            with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
+                care.test_results('Compiling rupd\n', job, run)
+            # A PR's diff can reach no crate, or no test of this half or profile.
+            for empty in ('no Rust test reaches the diff since HEAD^1\n',
+                          'Starting 0 tests across 0 binaries (4 binaries skipped)\nSummary [0.000s] 0 tests run: 0 passed, 0 skipped\n'):
+                self.assertEqual([], care.test_results(empty, job, run), name)
+        web = dict(id=4, name='web', conclusion='success', html_url='https://github.com/o/r/actions/jobs/4', run_attempt=1,
+                   completed_at=fixtures.NOW, steps=[dict(name='check-web', conclusion='success')])
+        self.assertEqual([], care.test_results('no web test reaches the diff since HEAD^1\n', web, run))
+        with self.assertRaisesRegex(RuntimeError, 'complete results missing'):
+            care.test_results('Found 0 errors\n', web, run)
+        for name in ('lint', 'rust-linux full-j8', 'macos'):
+            self.assertFalse(care.NEXTEST_LANE.fullmatch(name) or care.VITEST_LANE.fullmatch(name), name)
+
     def test_l107_fail_fast_nextest_summary_counts_each_test_once(self):
         import care
         job = dict(id=2, name='linux', conclusion='failure', html_url='https://github.com/o/r/actions/jobs/2',

@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
@@ -25,17 +26,17 @@ export type PadEditorHandle = {
 };
 
 const topBarNames = new Map([
-  ["bold", "Bold"],
-  ["italic", "Italic"],
-  ["strikethrough", "Strikethrough"],
-  ["code", "Inline code"],
-  ["bullet-list", "Bullet list"],
-  ["ordered-list", "Numbered list"],
-  ["task-list", "Checklist"],
-  ["link", "Link"],
-  ["code-block", "Code block"],
-  ["quote", "Quote"],
-  ["hr", "Horizontal rule"],
+  ["bold", copy.bold],
+  ["italic", copy.italic],
+  ["strikethrough", copy.strikethrough],
+  ["code", copy.inlineCode],
+  ["bullet-list", copy.bulletList],
+  ["ordered-list", copy.numberedList],
+  ["task-list", copy.checklist],
+  ["link", copy.link],
+  ["code-block", copy.codeBlock],
+  ["quote", copy.quote],
+  ["hr", copy.horizontalRule],
 ]);
 
 /** U147: the Pad's one surface. `readonly` is ownership (P2), never a mode; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
@@ -58,7 +59,7 @@ export default function PadRichEditor(props: {
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
-    if (!host) throw new Error("Pad Editor host is missing");
+    if (!host) throw new Error(copy.padEditorHostIsMissing);
 
     crepe = new CrepeBuilder({
       root: host,
@@ -77,17 +78,17 @@ export default function PadRichEditor(props: {
               .map((item) => {
                 const label = topBarNames.get(item.key);
 
-                if (!label) throw new Error(`Pad Editor toolbar action ${item.key} has no name`);
+                if (!label) throw new Error(copy.padEditorToolbarActionHasNoName(item.key));
 
                 return label;
               }),
           );
         },
         headingOptions: [
-          { label: "Text", level: null },
-          { label: "Heading 1", level: 1 },
-          { label: "Heading 2", level: 2 },
-          { label: "Heading 3", level: 3 },
+          { label: copy.text, level: null },
+          { label: copy.headingOne, level: 1 },
+          { label: copy.headingTwo, level: 2 },
+          { label: copy.headingThree, level: 3 },
         ],
       });
 
@@ -120,16 +121,16 @@ export default function PadRichEditor(props: {
 
       const field = host.querySelector<HTMLElement>(".ProseMirror");
 
-      if (!field) throw new Error("Pad Editor did not open");
+      if (!field) throw new Error(copy.padEditorDidNotOpen);
 
       const buttons = host.querySelectorAll<HTMLButtonElement>(".milkdown-top-bar .top-bar-item");
 
-      if (buttons.length !== topBarLabels.length) throw new Error("Pad Editor toolbar changed");
+      if (buttons.length !== topBarLabels.length) throw new Error(copy.padEditorToolbarChanged);
 
       buttons.forEach((button, index) => {
         const label = topBarLabels[index];
 
-        if (!label) throw new Error("Pad Editor toolbar label is missing");
+        if (!label) throw new Error(copy.padEditorToolbarLabelIsMissing);
 
         button.setAttribute("aria-label", label);
         button.title = label;
@@ -138,12 +139,12 @@ export default function PadRichEditor(props: {
       const heading = host.querySelector<HTMLButtonElement>(".milkdown-top-bar .top-bar-heading-button");
 
       if (heading) {
-        heading.setAttribute("aria-label", "Heading");
-        heading.title = "Heading";
+        heading.setAttribute("aria-label", copy.heading);
+        heading.title = copy.heading;
       }
 
       field.setAttribute("role", "textbox");
-      field.setAttribute("aria-label", "Pad body");
+      field.setAttribute("aria-label", copy.padBody);
       field.setAttribute("aria-multiline", "true");
 
       const document = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).state.doc);

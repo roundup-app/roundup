@@ -3,6 +3,9 @@
 a run ended, when a PR leaves draft, when it gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub
 could not be read or written."""
 import json
+import hashlib
+import http.client
+import socket
 import fcntl
 import base64
 import os
@@ -24,7 +27,6 @@ import orders  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 NEEDS_USER = orders.NEEDS_USER
 NEEDS_MAC = orders.NEEDS_MAC
-ACTIVITY = 'activity'
 # L79: the model that screens a build run's `ask` (`.agents/screen.md`), and the verdicts it gives.
 SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
@@ -56,8 +58,9 @@ LAUNCH = 1800
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
 RERUNS = 6
 FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed run; `gh run view <id> --log-failed` shows why.'
-# L82: the jobs a `check` or `rules` cause stands for, and the workflow whose runs on `main` hold their results there.
-LANES = {'check': ('check.yml', ('rust', 'web')), 'rules': ('loop.yml', ('rules',))}
+# L82: the jobs a `check` or `rules` cause stands for, by check-run name, and the workflow whose runs on `main` hold their
+# results there.
+LANES = {'check': ('check.yml', ('lint', 'rust 1', 'rust 2', 'mac', 'web')), 'rules': ('loop.yml', ('rules',))}
 # L82: the comment a fix run that only merges `main` posts first, followed by the head it refreshes.
 REFRESH = '<!-- fix-refresh'
 # L82: the comment a fix run whose task names only a conflict posts first, followed by its head: `main` moved, not the
@@ -89,6 +92,203 @@ CAUSES = {
     'answered': 'The owner answered this draft\'s `Stopped:` question with a comment, the newest under Owner comments '
                 'below: act on it, remove the `Stopped:` paragraph from the PR body and finish the work.',
 }
+
+
+class ApiMeasurement:
+    """L114 append-only request evidence; shared counters never supply the job's own count."""
+    def __init__(self, path, sample):
+        self.path, self.sample = Path(path), sample
+        self.tokens = {}
+        self.pending = {}
+        self.identity = {key: os.environ.get(value, '') for key, value in
+                         [('workflow', 'GITHUB_WORKFLOW'), ('run', 'GITHUB_RUN_ID'), ('job', 'GITHUB_JOB'),
+                          ('run_attempt', 'GITHUB_RUN_ATTEMPT'), ('revision', 'GITHUB_SHA')]}
+        self.identity['run_url'] = (f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/"
+                                    f"{self.identity['run']}/attempts/{self.identity['run_attempt'] or '1'}")
+
+    def record(self, kind, **fields):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if kind == 'missing':
+            fields = {'token_source': 'unknown', 'resource': 'all', 'used': None, 'remaining': None, 'reset': None, **fields}
+        row = dict(self.identity, kind=kind, timestamp=datetime.now(timezone.utc).isoformat(), **fields)
+        with self.path.open('a') as output:
+            output.write(json.dumps(row, separators=(',', ':')) + '\n')
+        return row
+
+    def boundary(self, boundary, source, token_id, token):
+        request_id = 'sample-' + secrets.token_hex(16)
+        self.record('request', request_id=request_id, token_source=source, token_id=token_id, protocol='REST', measurement=True)
+        try:
+            resources = self.sample(token)
+        except (OSError, ValueError, KeyError, http.client.HTTPException) as error:
+            # Diagnostic bodies can hold credentials. Only the failure's type is public evidence.
+            self.record('sample', request_id=request_id, boundary=boundary, token_source=source, token_id=token_id,
+                        resource='all', used=None, remaining=None, reset=None, missing=type(error).__name__)
+            return
+        for resource, rate in resources.items():
+            self.record('sample', request_id=request_id, boundary=boundary, token_source=source, token_id=token_id,
+                        resource=resource, **{key: rate[key] for key in ('used', 'remaining', 'reset')})
+
+    def token(self, source, token):
+        token_id = hashlib.sha256(token.encode()).hexdigest()[:24]
+        if token_id not in self.tokens:
+            self.tokens[token_id] = (source, token)
+            self.boundary('before', source, token_id, token)
+        return token_id
+
+    def request(self, request_id, source, token, protocol):
+        token_id = self.token(source, token)
+        self.pending[request_id] = (source, token_id)
+        self.record('request', request_id=request_id, token_source=source, token_id=token_id,
+                    protocol=protocol, measurement=False)
+
+    def response(self, request_id, status, headers):
+        source, token_id = self.pending.pop(request_id)
+        self.record('response', request_id=request_id, token_source=source, token_id=token_id, status=status)
+        # Each response is a candidate last boundary, even when a token expires or is revoked before job end.
+        resource = headers.get('x-ratelimit-resource')
+        if resource and all(f'x-ratelimit-{key}' in headers for key in ('used', 'remaining', 'reset')):
+            self.record('sample', boundary='response', request_id=request_id, token_source=source, token_id=token_id,
+                        resource=resource, **{key: int(headers[f'x-ratelimit-{key}'])
+                                              for key in ('used', 'remaining', 'reset')})
+
+    def finish(self):
+        for token_id, (source, token) in self.tokens.items():
+            self.boundary('after', source, token_id, token)
+        self.record('complete', pending=list(self.pending))
+
+
+def measurement_sample(upstream, token, port=443, context=None):
+    """Sample upstream directly; avoid the measuring proxy's hosts entry and count this attempt separately."""
+    connection = http.client.HTTPSConnection('api.github.com', port, timeout=30, context=context)
+    connection._create_connection = lambda address, timeout, source=None: socket.create_connection(
+        (upstream, port), timeout, source)
+    try:
+        connection.request('GET', '/rate_limit', headers={**({'Authorization': f'Bearer {token}'} if token else {}),
+                                                        'User-Agent': 'roundup-loop-measurement'})
+        response = connection.getresponse()
+        if response.status != 200:
+            raise ValueError(f'rate sample HTTP {response.status}')
+        resources = json.loads(response.read())['resources']
+        if any(type(rate.get(key)) is not int for rate in resources.values() for key in ('used', 'remaining', 'reset')):
+            raise ValueError('malformed rate sample')
+        return resources
+    finally:
+        connection.close()
+
+
+class ApiMeasurementProxy:
+    """mitmproxy owns TLS and HTTP; this addon stores only counts, counter fields and token fingerprints."""
+    def __init__(self):
+        self.upstream = os.environ['LOOP_API_UPSTREAM']
+        self.control = os.environ['LOOP_API_CONTROL']
+        self.workflow_token = os.environ.get('GH_TOKEN', '')
+        self.measurement = ApiMeasurement(Path(os.environ['LOOP_API_DIRECTORY']) / 'records.jsonl',
+                                          lambda token: measurement_sample(self.upstream, token))
+
+    def running(self):
+        self.measurement.token('workflow', self.workflow_token)
+        owner = Path(os.environ['LOOP_API_DIRECTORY']).stat()
+        os.chown(self.measurement.path, owner.st_uid, owner.st_gid)
+        Path(os.environ['LOOP_API_DIRECTORY'], 'ready').touch()
+
+    def server_connect(self, data):
+        data.server.sni = 'api.github.com'
+
+    def _transport_error(self, data):
+        self.measurement.record('missing', reason='GitHub connection failed before HTTP response headers')
+
+    server_connect_error = _transport_error
+    tls_failed_server = _transport_error
+
+    def requestheaders(self, flow):
+        from mitmproxy import http
+        if flow.request.headers.get('x-loop-api-control') == self.control:
+            self.measurement.finish()
+            flow.response = http.Response.make(200, b'complete')
+            return
+        token = flow.request.headers.get('authorization', '').split(' ', 1)[-1]
+        source = 'workflow' if token == self.workflow_token else 'installation' if token else 'anonymous'
+        protocol = 'GraphQL' if flow.request.path.split('?', 1)[0] == '/graphql' else 'REST'
+        self.measurement.request(flow.id, source, token, protocol)
+
+    def responseheaders(self, flow):
+        if flow.id in self.measurement.pending:
+            self.measurement.response(flow.id, flow.response.status_code, flow.response.headers)
+
+    def error(self, flow):
+        if flow.id in self.measurement.pending:
+            self.measurement.response(flow.id, None, {})
+        else:
+            self.measurement.record('missing', request_id=flow.id, reason='GitHub transport failed outside request headers')
+
+
+def measurement_start():
+    """Install a pinned library proxy on this disposable runner, before checkout or any role API operation."""
+    directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+    directory.mkdir(mode=0o700, exist_ok=True)
+    upstream = socket.gethostbyname('api.github.com')
+    control = secrets.token_hex(32)
+    (directory / 'control').write_text(control)
+    (directory / 'control').chmod(0o600)
+    venv = directory / 'venv'
+    subprocess.run([sys.executable, '-m', 'venv', str(venv)], check=True, timeout=60)
+    subprocess.run([str(venv / 'bin/pip'), 'install', '--quiet', 'mitmproxy==12.2.3'], check=True, timeout=300)
+    # Store no flows or diagnostic payloads. Only the addon's allowlisted JSONL becomes an artifact.
+    addon = directory / 'addon.py'
+    addon.write_text(f"import sys\nsys.path.insert(0, {str(Path(__file__).parent)!r})\n"
+                     "from builder import ApiMeasurementProxy\naddons = [ApiMeasurementProxy()]\n")
+    env = {**os.environ, 'LOOP_API_UPSTREAM': upstream, 'LOOP_API_CONTROL': control,
+           'LOOP_API_DIRECTORY': str(directory)}
+    with (directory / 'private.log').open('w') as log:
+        proxy = subprocess.Popen(['sudo', '--preserve-env=GH_TOKEN,LOOP_API_UPSTREAM,LOOP_API_CONTROL,LOOP_API_DIRECTORY,'
+                                  'GITHUB_WORKFLOW,GITHUB_RUN_ID,GITHUB_JOB,GITHUB_RUN_ATTEMPT,GITHUB_REPOSITORY',
+                                  str(venv / 'bin/mitmdump'), '--quiet', '--listen-host', '127.0.0.1',
+                                  '--mode', f'reverse:https://{upstream}:443@443', '--set', 'keep_host_header=true',
+                                  '--set', f'confdir={directory / "ca"}', '-s', str(addon)],
+                                 env=env, stdout=log, stderr=log)
+    deadline = time.monotonic() + 60
+    while not (directory / 'ready').exists():
+        if proxy.poll() is not None or time.monotonic() > deadline:
+            raise ValueError('API measurement proxy did not become ready; private diagnostics stay on runner')
+        time.sleep(0.1)
+    cert = directory / 'ca/mitmproxy-ca-cert.pem'
+    subprocess.run(['sudo', 'cp', str(cert), '/usr/local/share/ca-certificates/loop-api-measurement.crt'],
+                   check=True, timeout=30)
+    subprocess.run(['sudo', 'update-ca-certificates'], check=True, capture_output=True, timeout=60)
+    # Only api.github.com is redirected. Anthropic, OIDC, artifacts, caches and git traffic are untouched.
+    with tempfile.NamedTemporaryFile(mode='w+') as hosts:
+        hosts.write('127.0.0.1 api.github.com\n')
+        hosts.flush()
+        hosts.seek(0)
+        subprocess.run(['sudo', 'tee', '-a', '/etc/hosts'], stdin=hosts,
+                       stdout=subprocess.DEVNULL, check=True, timeout=30)
+    with open(os.environ['GITHUB_ENV'], 'a') as output:
+        output.write(f'LOOP_API_MITMDUMP={venv / "bin/mitmdump"}\n')
+        for name in ('NO_PROXY', 'no_proxy'):
+            output.write(f'{name}={os.environ.get(name, "")},api.github.com\n')
+        for name in ('NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE'):
+            output.write(f'{name}=/etc/ssl/certs/ca-certificates.crt\n')
+
+
+def measurement_finish():
+    """Always-run final samples and an exact-count summary; retain partial evidence when setup or an API failed."""
+    directory = Path(os.environ['RUNNER_TEMP']) / 'loop-api-measurement'
+    if not (directory / 'ready').exists():
+        directory.mkdir(exist_ok=True)
+        ApiMeasurement(directory / 'records.jsonl', None).record('missing', boundary='both',
+                                                               reason='measurement setup did not complete')
+    else:
+        request = urllib.request.Request('https://api.github.com/__loop_measurement_finish',
+                                        headers={'X-Loop-Api-Control': (directory / 'control').read_text()})
+        try:
+            with urllib.request.urlopen(request, timeout=900) as response:
+                response.read()
+        except (OSError, ValueError) as error:
+            ApiMeasurement(directory / 'records.jsonl', None).record('missing', boundary='after',
+                                                                   reason=type(error).__name__)
+    rows = [json.loads(line) for line in (directory / 'records.jsonl').read_text().splitlines()]
+    (directory / 'summary.json').write_text(json.dumps(orders.measurement_summary(rows), indent=2) + '\n')
 
 
 def call(*args):
@@ -872,7 +1072,8 @@ def blame(pr, cause):
     """Who failed the `check` or `rules` cause on the PR's head, judged on the jobs that failed it (L82): 'pr' when one
     of them passed on each `main` push the PR's run could have merged, from its merge base until that job started;
     'main-failed' while `main`'s latest result still fails, 'main-pending' for an unfinished push; 'base' once `main`
-    passes each again. A job a newer push cancelled on `main` gives no result."""
+    passes each again. A job a newer push cancelled on `main` takes the result of the next newer push that ended it, as
+    that push holds the cancelled commit."""
     workflow, names = LANES[cause]
     jobs = {name: check for name, check in latest(pr, names).items() if check.get('conclusion') == 'FAILURE'}
     if not jobs:
@@ -891,7 +1092,12 @@ def blame(pr, cause):
         job = seen[push['id']].get(name)
         if job is None:
             return 'pending' if push['status'] != 'completed' else None
-        return job['conclusion'] if job['status'] == 'completed' else 'pending'
+        if job['status'] != 'completed':
+            return 'pending'
+        if job['conclusion'] == 'cancelled':
+            newer = (result(later, name) for later in reversed(pushes[:pushes.index(push)]))
+            return next((found for found in newer if found is not None), 'pending')
+        return job['conclusion']
 
     verdicts = set()
     for name, check in jobs.items():
@@ -1450,7 +1656,7 @@ def reuse_section(body):
     """L116: library evidence from `Reuse:` to the next ATX heading or PR body field. Blank lines belong to
     the section; acceptance fields and following rationale sections do not."""
     match = re.search(r'^Reuse:[^\r\n]*(?:\r?\n(?! {0,3}#{1,6}\s|(?:Scenarios|Moves|Principles|Stopped|Rationale|'
-                      r'Validation|Tests|Testing|Summary|Capture (?:ready|required|publication)):|'
+                      r'Validation|Tests|Testing|Summary):|'
                       r'(?:Refs|Closes) #\d+\b)[^\r\n]*)*', body, re.M)
     return match[0].rstrip() if match else ''
 
@@ -1624,284 +1830,39 @@ def critic_post(pr, head, critic, answer, ran, run_url):
     return True
 
 
-def live_runs():
-    """The Actions runs not yet ended, as `gh run list` reads them."""
-    return [run for state in ('queued', 'in_progress') for run in orders.gh(
-        'run', 'list', '--status', state, '--limit', '100', '--json', 'databaseId,workflowName,displayTitle,headSha,status,url')]
-
-
-def run_role(run, pr, issue, jobs=None):
-    """L104: which loop role `run` plays on PR `pr` (with Issue `issue`), or None when it is not on that head."""
-    name = run['workflowName']
-    if name == 'fix' and run['displayTitle'].startswith(f"Fix PR #{pr['number']}:"):
-        return 'fix'
-    if name == 'build' and issue:
-        jobs = jobs[run['databaseId']] if jobs is not None else orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['databaseId']}/jobs")['jobs']
-        return 'build' if any(re.match(rf'build #{issue}(?:\D|$)', job['name']) and job['status'] != 'completed' for job in jobs) else None
-    if run['headSha'] == pr['headRefOid'] and name in ('fix', 'review', 'critic') and not run['displayTitle'].startswith('Fix PR #'):
-        return name
-    return None
-
-
-class Partial(ValueError):
-    """An activity snapshot that may miss a running run; publishing it could show a working PR idle (L104)."""
-
-
-def activity_of(pr, snapshot=None):
-    """L104: the (state, description, target) the PR head's `activity` status holds."""
-    issue = orders.linked_issue(pr['body'])
-    runs = snapshot['runs'] if snapshot is not None else live_runs()
-    found = {}
-    for run in runs:
-        if role_name := run_role(run, pr, issue, snapshot['jobs'] if snapshot is not None else None):
-            found.setdefault(role_name, run)
-    for name in ('fix', 'build', 'review', 'critic'):
-        if name in found:
-            phase = 'queued' if found[name]['status'] == 'queued' else 'running'
-            return 'pending', f'{name}: {phase}', found[name]['url']
-    for number in related(pr):
-        if snapshot is not None:
-            if number in snapshot['waits']:
-                return 'pending', 'waiting: user', snapshot['waits'][number]
-        elif NEEDS_USER in labels(number):
-            asks = orders.marked(number, '<!-- needs-user -->')
-            return 'pending', 'waiting: user', asks[-1]['html_url'] if asks else ''
-    for run in runs:
-        if run['workflowName'] == 'check' and run['headSha'] == pr['headRefOid']:
-            return 'pending', 'waiting: check', run['url']
-    return 'success', 'idle', ''
-
-
-def activity(number, snapshot=None):
-    """L104: set the `activity` status on the head of open same-repository `build/` PR `number` from its runs and labels,
-    unless it already holds that state, description and target. It gates nothing (L46)."""
-    pr = snapshot['prs'][number] if snapshot is not None else view(number)
-    if pr['state'] != 'OPEN' or pr['isCrossRepository'] or not pr['headRefName'].startswith('build/'):
-        return
-    state, description, target = activity_of(pr, snapshot)
-    head = pr['headRefOid']
-    statuses = snapshot['statuses'][number] if snapshot is not None else orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/statuses')
-    current = next((s for s in statuses
-                    if s['context'] == ACTIVITY), None)
-    if current and (current['state'].lower(), current['description'], current.get('target_url') or '') == (state, description, target):
-        return
-    call('api', f'repos/{{owner}}/{{repo}}/statuses/{head}', '-f', f'state={state}', '-f', f'context={ACTIVITY}',
-         '-f', f'description={description}', *(['-f', f'target_url={target}'] if target else []))
-
-
-def activity_all():
-    """L104: one bounded snapshot per quarter hour; #1243 measured 310 fan-out events in 50 minutes."""
-    owner, repo = call('repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner').strip().split('/')
-    fields = """labels(first:100){nodes{name}}
-        comments(last:100){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
-    def query(selection):
-        result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={repo}',
-                           '-f', 'query=query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + selection + '}}')
-        if result.get('errors'):
-            raise ValueError(result['errors'])
-        return result['data']['repository']
-
-    page = query("""pullRequests(first:100,states:OPEN){pageInfo{hasNextPage} nodes{
-        number state headRefName headRefOid isCrossRepository body """ + fields + """
-        commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
-    }}""")['pullRequests']
-    if page['pageInfo']['hasNextPage']:
-        raise ValueError('activity snapshot exceeds 100 open PRs')
-    prs = {pr['number']: pr for pr in page['nodes']
-           if not pr['isCrossRepository'] and pr['headRefName'].startswith('build/')}
-    if not prs:
-        return
-    issues = {issue for pr in prs.values() if (issue := orders.linked_issue(pr['body']))}
-    waits = dict(prs)
-    if issues:
-        waits.update({int(key[1:]): value for key, value in query(' '.join(
-            f'i{issue}:issue(number:{issue}){{{fields}}}' for issue in sorted(issues))).items()})
-    runs = live_runs()
-    jobs = {run_id: orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}/jobs?per_page=100")['jobs']
-            for run_id in {run['databaseId'] for run in runs if run['workflowName'] == 'build'}}
-    activity_snapshot(prs, waits, runs, jobs)
-
-
-def activity_refresh(branch=None, live=()):
-    """L104: one GraphQL snapshot and changed-status writes, optionally for one branch only."""
-    repo = os.environ['GITHUB_REPOSITORY']
-    owner, name = repo.split('/')
-    fields = """number labels(first:100){nodes{name}}
-        comments(last:20){nodes{body url author{login __typename}} pageInfo{hasPreviousPage}}"""
-    selection = 'pullRequests(first:100,states:OPEN' + (',headRefName:' + json.dumps(branch) if branch else '') + ')'
-    run_fields = """id databaseId displayTitle url createdAt
-        checkSuite{status commit{oid} checkRuns(first:20,filterBy:{statuses:[QUEUED,IN_PROGRESS,WAITING,REQUESTED,PENDING]}){
-            pageInfo{hasNextPage} nodes{name status}}}"""
-    query = """query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
-        """ + selection + """{pageInfo{hasNextPage} nodes{
-            state headRefName headRefOid isCrossRepository body """ + fields + """
-            commits(last:1){nodes{commit{status{contexts{context state description targetUrl}}}}}
-        }}
-        issues(first:100,labels:["flag:needs-user"]){pageInfo{hasNextPage} nodes{ """ + fields + """ }}
-    }""" + ' '.join(f"""{role}:resource(url:{json.dumps('https://github.com/' + repo + '/actions/workflows/' + role + '.yml')}){{
-        ... on Workflow{{runs(first:20,orderBy:{{field:CREATED_AT,direction:DESC}}){{
-            pageInfo{{hasNextPage}} nodes{{{run_fields}}}
-        }}}}
-    }}""" for role in ('build', 'fix', 'review', 'critic', 'check')) + ' '.join(
-        f'held{index}:node(id:{json.dumps(node)}){{... on WorkflowRun{{{run_fields}}}}}'
-        for index, (role, node) in enumerate(live)) + '}'
-    result = orders.gh('api', 'graphql', '-f', f'owner={owner}', '-f', f'name={name}', '-f', f'query={query}')
-    if result.get('errors'):
-        raise ValueError(result['errors'])
-    data = result['data']
-    repository = data['repository']
-    for page in repository.values():
-        if page['pageInfo']['hasNextPage']:
-            raise ValueError('activity snapshot exceeds 100 PRs or waiting Issues')
-    prs = {p['number']: p for p in repository['pullRequests']['nodes']
-           if not p['isCrossRepository'] and p['headRefName'].startswith('build/')}
-    runs, jobs, next_live = [], {}, set()
-    pages = [(role, (data.get(role) or {}).get('runs', dict(nodes=[], pageInfo=dict(hasNextPage=False))))
-             for role in ('build', 'fix', 'review', 'critic', 'check')]
-    pages += [(role, dict(nodes=[data[f'held{index}']], pageInfo=dict(hasNextPage=False)))
-              for index, (role, node) in enumerate(live)]
-    seen = set()
-    for role, page in pages:
-        # At the recorded 310-event rate, twenty new runs cover a five-minute interval.
-        if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
-                orders.created(page['nodes'][-1]['createdAt']) > time.time() - 300):
-            raise Partial(f'activity {role} arrivals exceed snapshot')
-        for run in page['nodes']:
-            if not run or run['databaseId'] in seen:
-                continue
-            seen.add(run['databaseId'])
-            suite = run['checkSuite']
-            if suite['status'] == 'COMPLETED':
-                continue
-            if run.get('id'):
-                next_live.add((role, run['id']))
-            checks = suite['checkRuns']
-            if checks['pageInfo']['hasNextPage']:
-                raise ValueError('activity jobs outside snapshot')
-            active = [job for job in checks['nodes'] if job['status'] != 'COMPLETED']
-            if role in ('review', 'critic', 'fix'):
-                # Main's task gives the model job its PR and head; skipped task-only runs describe nothing.
-                for job in active:
-                    job_name = job['name']
-                    # A numbered fix already identifies its PR, including runs with the default job name.
-                    numbered = re.match(r'^Fix PR #(\d+):', run['displayTitle'])
-                    if role == 'fix' and job_name == 'fix-run' and numbered and int(numbered[1]) in prs:
-                        job_name = f"fix #{numbered[1]} {prs[int(numbered[1])]['headRefOid']}"
-                    match = re.fullmatch(rf'{role} #(\d+) ([0-9a-f]{{40}})', job_name)
-                    if match and int(match[1]) in prs:
-                        phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
-                        title = f'Fix PR #{match[1]}: run' if role == 'fix' else run['displayTitle']
-                        runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=title,
-                                         headSha=match[2], status=phase, url=run['url']))
-                continue
-            if role == 'build':
-                for index, job in enumerate(active):
-                    if not re.fullmatch(r'build #\d+ / build', job['name']):
-                        continue
-                    key = f"{run['databaseId']}:{index}"
-                    jobs[key] = [dict(name=job['name'].split(' / ', 1)[0], status='in_progress')]
-                    phase = 'in_progress' if job['status'] == 'IN_PROGRESS' else 'queued'
-                    runs.append(dict(databaseId=key, workflowName=role, displayTitle=run['displayTitle'],
-                                     headSha=suite['commit']['oid'], status=phase, url=run['url']))
-            else:
-                phase = 'in_progress' if suite['status'] == 'IN_PROGRESS' else 'queued'
-                runs.append(dict(databaseId=run['databaseId'], workflowName=role, displayTitle=run['displayTitle'],
-                                 headSha=suite['commit']['oid'], status=phase, url=run['url']))
-    items = {item['number']: item for item in [*prs.values(), *repository['issues']['nodes']]}
-    activity_snapshot(prs, items, runs, jobs)
-    return sorted(next_live)
-
-
-def activity_snapshot(prs, items, runs, jobs):
-    """Write a complete snapshot through the same L104 waiting and unchanged-status rules."""
-    waits = {}
-    for number, item in items.items():
-        if NEEDS_USER not in {label['name'] for label in item['labels']['nodes']}:
-            continue
-        comments = [c for c in item['comments']['nodes'] if (c['author'] or {}).get('__typename') == 'Bot'
-                    and c['author']['login'] == orders.BOT.removesuffix('[bot]')
-                    and c['body'].startswith('<!-- needs-user -->')]
-        if not comments and item['comments']['pageInfo']['hasPreviousPage']:
-            raise ValueError(f"activity waiting comment for #{number} outside snapshot")
-        waits[number] = comments[-1]['url'] if comments else ''
-    statuses = {}
-    for number, pr in prs.items():
-        held = pr['commits']['nodes'][-1]['commit']['status']
-        statuses[number] = [dict(context=c['context'], state=c['state'].lower(), description=c['description'],
-                                 target_url=c['targetUrl']) for c in held['contexts']] if held else []
-    snapshot = dict(prs=prs, runs=runs, jobs=jobs, waits=waits, statuses=statuses)
-    for number in prs:
-        activity(number, snapshot)
-
-
-def activity_runs():
-    """Seed live run IDs with at most six reads; retain the two-hour role-job window."""
-    repo = os.environ['GITHUB_REPOSITORY']
-    pages = {role: None for role in ('build', 'fix', 'review', 'critic', 'check')}
-    live = []
-    for _ in range(6):
-        query = '{' + ' '.join(
-            f'{role}:resource(url:{json.dumps("https://github.com/" + repo + "/actions/workflows/" + role + ".yml")})'
-            '{... on Workflow{runs(first:100,orderBy:{field:CREATED_AT,direction:DESC}' +
-            (',after:' + json.dumps(cursor) if cursor else '') + '){'
-            'pageInfo{hasNextPage endCursor} nodes{id createdAt checkSuite{status}}}}}'
-            for role, cursor in pages.items()) + '}'
-        result = orders.gh('api', 'graphql', '-f', f'query={query}')
-        if result.get('errors'):
-            raise ValueError(result['errors'])
-        pages = {}
-        for role, workflow in result['data'].items():
-            if not workflow:
-                continue
-            page = workflow['runs']
-            live.extend((role, run['id']) for run in page['nodes'] if run['checkSuite']['status'] != 'COMPLETED')
-            if page['pageInfo']['hasNextPage'] and (not page['nodes'] or
-                    orders.created(page['nodes'][-1]['createdAt']) > time.time() - 2 * 3600):
-                pages[role] = page['pageInfo']['endCursor']
-        if not pages:
-            return live
-    # Skipped fix runs can fill the window; samples still hold every run the newest twenty of a role list (L104).
-    print('::warning::activity live window exceeds six seed queries', file=sys.stderr)
-    return live
-
-
-def activity_event(event, live=()):
-    """Refresh the event's branch first; a build pick or a numbered dispatch needs the batch snapshot."""
-    title = event['workflow_run']['display_title']
-    match = re.fullmatch(r'(?:Review|Critic|Fix) (build/\S+)', title)
-    return activity_refresh(match[1] if match else None, live)
-
-
-def activity_watch(event):
-    """Run events start a one-hour observer; local five-minute deadlines replace GitHub's lossy timer."""
-    started = time.monotonic()
-    try:
-        live = activity_runs()
-    except subprocess.CalledProcessError as error:
-        if not orders.exhausted(error.stderr or ''):
-            raise
-        print('::warning::activity seed waits for the rate limit reset', file=sys.stderr)
-        live = []
-    for sample in range(13):
-        deadline = started + sample * 300
-        while (remaining := deadline - time.monotonic()) > 0:
-            time.sleep(min(remaining, 60))
-        try:
-            live = activity_event(event, live) if sample == 0 else activity_refresh(live=live)
-        except Partial as error:
-            # Every check or loop run also starts a fix run that skips at once; a burst of them overflows one sample.
-            print(f'::warning::activity sample {sample} skipped: {error}', file=sys.stderr)
-        except subprocess.CalledProcessError as error:
-            if not orders.exhausted(error.stderr or ''):
-                raise
-            # Activity gates nothing (L46); a sample after the reset sets what this one could not.
-            print(f'::warning::activity sample {sample} waits for the rate limit reset', file=sys.stderr)
-
-
 def task_or_nothing(task):
     """Print a task and exit 0, or exit 3 when there is none: the run has nothing to do."""
     print(task or '', end='')
     return 0 if task else 3
+
+
+def link_implementation(specification, implementation):
+    """L115 filing step: confirm additive links before the specification PR may open.
+
+    A failed or uncertain write leaves earlier links intact; rerunning reads them before writing again.
+    """
+    if specification == implementation:
+        raise ValueError('specification and implementation must differ')
+    issue = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{implementation}')
+    if (not isinstance(issue, dict) or type(issue.get('id')) is not int or issue['id'] <= 0
+            or issue.get('number') != implementation):
+        raise ValueError('unusable implementation Issue identity')
+    dependents = orders.dependencies(specification, 'blocking')
+    # The specification itself is a blocker identified by database id, not its Issue number.
+    source = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{specification}')
+    if (not isinstance(source, dict) or type(source.get('id')) is not int or source['id'] <= 0
+            or source.get('number') != specification):
+        raise ValueError('unusable specification Issue identity')
+    required = [(implementation, source['id'])] + [
+        (dep['number'], issue['id']) for dep in dependents
+        if dep['state'] == 'open' and dep['number'] not in (implementation, specification)]
+    for number, database_id in required:
+        if any(dep['id'] == database_id for dep in orders.dependencies(number)):
+            continue
+        orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{number}/dependencies/blocked_by',
+                  '-X', 'POST', '-F', f'issue_id={database_id}')
+        if not any(dep['id'] == database_id for dep in orders.dependencies(number)):
+            raise ValueError(f'Issue #{number}: blocker id {database_id} was not confirmed')
 
 
 def main(args):
@@ -1910,6 +1871,16 @@ def main(args):
     if args and args[0] in ('fix-task', 'fixed'):
         run_url += f"/attempts/{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
     match args:
+        case ['link-implementation', specification, implementation] if (
+                specification != implementation and all(
+                    re.fullmatch(r'[1-9][0-9]*', value) for value in (specification, implementation))):
+            try:
+                link_implementation(int(specification), int(implementation))
+            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+                detail = error.stderr if isinstance(error, subprocess.CalledProcessError) else ''
+                print(f'L115 filing failed; do not open or ready the specification PR: {error} {detail or ""}',
+                      file=sys.stderr)
+                return 1
         case ['prompt', *name] if len(name) < 2:
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['codex-login']:
@@ -1918,6 +1889,10 @@ def main(args):
             return 0 if worked(path) else 1
         case ['codex', model, *schema] if len(schema) < 2:
             return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['start-measurement']:
+            measurement_start()
+        case ['finish-measurement']:
+            measurement_finish()
         case ['read-token']:
             token = app_token({'contents': 'read', 'issues': 'read', 'pull_requests': 'read', 'actions': 'read', 'checks': 'read'})
             cli = os.environ.get('GH_LOOP_CLI') or shutil.which('gh')
@@ -1983,12 +1958,6 @@ def main(args):
             return task_or_nothing(critic_task(int(pr), head))
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
-        case ['activity-watch', event]:
-            activity_watch(json.loads(Path(event).read_text()))
-        case ['activity']:
-            activity_all()
-        case ['activity', pr] if pr.isdigit():
-            activity(int(pr))
         case ['closed', *numbers] if numbers and all(number.isdigit() for number in numbers):
             if owner_closed(*map(int, numbers)):
                 print('the owner closed one of them after this run started: change neither, push nothing, reopen nothing')
@@ -1996,10 +1965,10 @@ def main(args):
         case ['ready', pr] if pr.isdigit():
             return 0 if ready(int(pr)) else 1
         case _:
-            print('usage: builder.py read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py link-implementation <specification> <implementation> | read-token | prompt | worked <file> | codex <model> [<schema>] | codex-login | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-admit <pr> <head> <cause> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
-                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | activity [<pr>] | activity-watch <event-file> | ready <pr> | closed <number>...', file=sys.stderr)
+                  'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran> | ready <pr> | closed <number>...', file=sys.stderr)
             return 2
     return 0
 

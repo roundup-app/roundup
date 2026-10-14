@@ -71,7 +71,7 @@ class Guard(unittest.TestCase):
             env.pop('AGENT_BROWSER_EXECUTABLE_PATH', None)
             result = subprocess.run([sys.executable, str(GUARD), 'python3', '-c',
                 'import os,sys; assert os.environ["AGENT_BROWSER_EXECUTABLE_PATH"] == sys.argv[1]; '
-                'assert os.environ["HOME"] != sys.argv[2]', str(executable), folder],
+                'assert os.environ["HOME"] != sys.argv[2]', str(executable.resolve()), folder],
                 env={**env, 'HOME': folder}, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(executable.is_file())
@@ -81,7 +81,7 @@ class Guard(unittest.TestCase):
         for path in (ROOT / '.github/workflows').glob('*.yml'):
             lines = path.read_text().splitlines()
             for line in lines:
-                if re.search(r'(?:just (?:check|capture|perf)|cargo (?:test|nextest run)|pnpm (?:test|.*exec vitest)|loop/[^ ]*\.test\.(?:py|sh)|loop/qa-sweep\.sh)', line) and not line.lstrip().startswith('#'):
+                if re.search(r'(?:just (?:check|capture|perf|test-rust)|cargo (?:test|nextest run)|pnpm (?:test|.*exec vitest)|loop/[^ ]*\.test\.(?:py|sh)|loop/qa-sweep\.sh)', line) and not line.lstrip().startswith('#'):
                     self.assertIn('python3 loop/app-data.py ', line, f'{path}: {line}')
         check = (ROOT / '.github/workflows/check.yml').read_text()
         self.assertIn('python3 loop/app-data.py bash loop/ci-ping.sh', check)
