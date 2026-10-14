@@ -1,7 +1,8 @@
+import { mountRail, rowOf } from "./rail/railFixture";
 import { message, mountThread } from "./thread/threadFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { door, workstream, USER } from "./testing/nodes";
+import { door, workstream, USER, agent } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
 
 afterEach(cleanup);
@@ -44,7 +45,7 @@ const STRUCTURE = new Set([
   'input, textarea, select, [contenteditable="true"]', "select, input, button",
   "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",
   'ui-monospace, "SF Mono", Menlo, monospace', "no open Project: a region read the ConnectedProject outside one",
-  "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ", " (recommended)",
+  "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ",
 ]);
 
 const candidates = (source: string): { line: number; text: string }[] => {
@@ -87,6 +88,9 @@ const candidates = (source: string): { line: number; text: string }[] => {
     const attributeAt = ancestors.findLastIndex((each) => each.type === "JSXAttribute");
     const inContent = node.type === "JSXText" || expression > attributeAt && ancestors[expression - 1]?.type !== "JSXAttribute";
     const binding = ancestors.findLast((each) => each.type === "VariableDeclarator");
+    const marker = binding?.type === "VariableDeclarator" && binding.id.type === "Identifier" && binding.id.name === "RECOMMENDED" && node.type === "StringLiteral" && node.value === " (recommended)";
+
+    if (marker) return;
     const textBinding = binding?.type === "VariableDeclarator" && binding.id.type === "Identifier" && used.has(binding.id.name) && binding.init && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(binding.init.type);
     const uiAttribute = attribute?.type === "JSXAttribute" && attribute.name.type === "JSXIdentifier" && /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/.test(attribute.name.name);
 
@@ -104,7 +108,7 @@ const candidates = (source: string): { line: number; text: string }[] => {
       if (text.endsWith('px') || /^(alt\+Digit|<a href=|no (row|node)|WebGL renderer)/.test(text)) return;
     } else return;
 
-    if (!text.trim() || STRUCTURE.has(text) || /^(--|\.|\[|#|var\(|translate|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
+    if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
 
     if (node.type === "JSXText" || uiAttribute || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
       found.push({ line: node.loc?.start.line ?? 0, text });
@@ -150,12 +154,14 @@ const usesCase = (label: string): boolean => {
   return words.slice(1).every((word, at) => {
     const bare = word.replace(/[^\p{L}]/gu, "");
 
+    if ((words[at] ?? "").endsWith(":") && !/^[\p{Lu}\d]/u.test(word)) return false;
+
     return !/^\p{Lu}/u.test(bare) || TERMS.has(bare) || ACRONYMS.has(bare) || SHORTCUTS.has(word.replace(/[.,]$/, "")) || CODE_NAMES.has(bare) || /[:.!?]$/.test(words[at] ?? "");
   });
 };
 
 it("u471_case_observer_rejects_invalid_copy", () => {
-  for (const bad of ["retry now", "Take Control", "Start " + "Door", "End " + "Takeover", "Show " + "Shelf", "Clear without " + "Handoff", "ARBITRARY PROSE"]) expect(usesCase(bad), bad).toBe(false);
+  for (const bad of ["retry now", "Status: lowercase", "Take Control", "Start " + "Door", "End " + "Takeover", "Show " + "Shelf", "Clear without " + "Handoff", "ARBITRARY PROSE"]) expect(usesCase(bad), bad).toBe(false);
 
   for (const good of ["Take control", "Add Agent", "WORKSTREAMS", "KB", "Waiting for you: Answer below"]) expect(usesCase(good), good).toBe(true);
 });
@@ -239,9 +245,9 @@ const FORMAT_SAMPLES = {
   runningAgents: (count: number) => copy.runningAgents(count, "1", "1", "1"),
   percent: (count: number) => copy.percent(count),
   counted: (count: number) => copy.counted(count, "1"),
-  time: (count: number) => copy.time("1", "1"),
-  orderWithLimits: (count: number) => copy.orderWithLimits("1", "1"),
-  foldedText: (count: number) => copy.foldedText("1"),
+  time: () => copy.time("1", "1"),
+  orderWithLimits: () => copy.orderWithLimits("1", "1"),
+  foldedText: () => copy.foldedText("1"),
   daemonExit: () => copy.daemonExit("exited"),
   noField: () => copy.noField("title"),
   stopQuestion: () => copy.stopQuestion("authored"),
@@ -257,7 +263,7 @@ it("u471_catalogue_uses_sentence_case_and_user_labels", () => {
     // These fragments are evaluated in the sentences that their production callers compose.
     // Prefixing supplies context, rather than bypassing the case assertion.
     const prefixes = new Map<string, string>(Object.entries({
-      asks: "Agent", andMore: "3 Agents run: a, b, c", exitedBySignal: "Supervisor stopped, ",
+      asks: "Agent", andMore: "3 Agents run: A, b, c", exitedBySignal: "Supervisor stopped, ",
       exited: "Supervisor stopped, ", exitedCode: "Supervisor stopped, ", noLimits: "Order · ",
       doneCount: "1", selected: "1", readOnly: "Watching Agent", openTodoNoun: "1 ", doneTodos: "1 ",
       agentsMayStillBeWritingDeletingDoesNot: "Owned by Agent", cleared: "Iteration 1", left: "To the ", right: "To the ",
@@ -324,4 +330,19 @@ it("u471_catalogue_preserves_rendered_content", async () => {
   expect(screen.getByRole("button", { name: `Order of ${authored}` }).textContent).toBe("keep MY question?");
   await waitFor(() => expect(container.querySelector("[data-message-body]")?.textContent).toBe(body));
   expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
+});
+
+
+it("u471_previous_copy_assertions_are_preserved_rail_menu", async () => {
+  await mountRail([workstream("g"), agent("a", "working", "busy", { parent: "g" })]);
+  fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
+
+  const labels = [...document.querySelectorAll<HTMLElement>(".rail button, .rail-actions button, [role=menuitem], [role=menu]")].flatMap((each) => {
+    const label = each.getAttribute("aria-label") ?? each.textContent?.trim() ?? "";
+
+    return label === "" ? [] : [label];
+  });
+
+  expect(labels.length).toBeGreaterThan(3);
+  expect(labels.filter((label) => !usesCase(label))).toEqual([]);
 });
