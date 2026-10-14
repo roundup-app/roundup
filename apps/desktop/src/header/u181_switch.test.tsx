@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
-import { openTabs, path, rowSelected, tab } from "./stripFixture";
+import { openTabs, path, renderTabs, rowSelected, tab } from "./stripFixture";
 
 afterEach(cleanup);
 
@@ -68,5 +68,27 @@ describe("u181 clicking a tab", () => {
     await waitFor(() => expect(rowSelected("a1")).toBe("true"));
     expect(app.of(path("web")).calls.length).toBe(hidden);
     expect(screen.queryByText("w1")).toBeNull();
+  });
+
+  it("u181_a_tab_is_busy_until_its_projects_rail_is_current", async () => {
+    const { app } = renderTabs({ api: [], web: [] });
+    let answer = () => {};
+    const answered = new Promise<void>((done) => (answer = done));
+
+    app.of(path("api")).handlers["rail.tree"] = async () => {
+      await answered;
+
+      return [agent("ask", "needs-you", "x")];
+    };
+
+    await waitFor(() => expect(tab("web").getAttribute("aria-busy")).toBe("false"));
+    await waitFor(() => expect(app.of(path("api")).calls.some((call) => call.method === "rail.tree")).toBe(true));
+    expect(tab("api").getAttribute("aria-busy")).toBe("true");
+    expect(tab("api").querySelector(".tab-mark")).toBeNull();
+
+    answer();
+
+    await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
+    expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you");
   });
 });

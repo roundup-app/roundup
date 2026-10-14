@@ -163,6 +163,7 @@ export const ProjectTab = (props: {
           role="tab"
           class="tab-name-button"
           aria-selected={props.selected}
+          aria-busy={props.tab.busy}
           data-selected={props.selected}
           aria-describedby={near() && mark() !== null ? tip : undefined}
           title={props.tab.path}
