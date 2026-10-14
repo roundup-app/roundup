@@ -80,7 +80,7 @@ jobs:
             ${{ runner.temp }}/care-model-input.json
             ${{ runner.temp }}/care-raw/
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -101,7 +101,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-care-${{ github.job }}-${{ github.run_attempt }}
@@ -176,7 +176,7 @@ jobs:
             ${{ runner.temp }}/care-plan.json
             ${{ runner.temp }}/care-writes.json
       - name: Finish API measurement
-        if: always()
+        if: ${{ always() }}
         run: |
           if [ -f "$RUNNER_TEMP/loop-api-source/complete" ]; then
             python3 "$RUNNER_TEMP/loop-api-source/builder.py" finish-measurement
@@ -197,7 +197,7 @@ jobs:
           PYCODE
           fi
       - name: Retain API measurement
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: loop-api-care-${{ github.job }}-${{ github.run_attempt }}
