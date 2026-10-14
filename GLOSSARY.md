@@ -164,7 +164,10 @@ The small dot just after a Project tab's name: red if an Agent has Kind `error`,
 The tree of Workstreams and Agents.
 
 **Shelf**:
-The Todo and Pad overlay at the window's trailing edge, two tabs, `Todos` and `Pads`, that the user opens and closes. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
+The full-height Todo and Pad panel at the window's trailing edge, with two tabs, `Todos` and `Pads`, that the user opens and closes. It reserves its width for the centre; below the minimum centre width, it overlays a scrim. An open Drawer reserves width instead. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
+
+**Scrim**:
+The darkened surface over the centre while the Shelf overlays it.
 
 **Resize edge**:
 The 1 px `--hairline` `role="separator"` line between two regions, the Rail and the centre pane or the Shelf and the centre pane, that the user drags or keys to change a width (U389, U390). Not a button.
