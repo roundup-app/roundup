@@ -187,6 +187,9 @@ class DispatchGitHub(_GitHub):
                 listed = [run for run in self.actions if run['event'] != 'workflow_dispatch']
                 return [dict(workflow_runs=listed, total_count=len(listed) + self.unserved)]
             return [dict(workflow_runs=list(self.actions), total_count=len(self.actions) + self.unserved)]
+        if args[:3] == ('api', '--paginate', '--slurp') and '/actions/runs/' in path and '/jobs' in path:
+            run_id = int(path.split('/runs/')[1].split('/')[0])
+            return [dict(jobs=self.runs.get(run_id, ('completed', [dict(conclusion='success')]))[1])]
         if '/actions/runs/' in path and '/jobs' not in path:
             found = next((run for run in self.actions if str(run['id']) == path.rsplit('/', 1)[1]), None)
             if found:
@@ -614,6 +617,31 @@ class DispatchRetry(unittest.TestCase):
                                    display_title=f'Fix PR #9: unfinished @ {HEAD}'))
             builder.dispatch_fix(9, HEAD, 'unfinished')
             self.assertEqual((gh.fixes(), gh.actions[0]['run_attempt']), ([], 2))
+
+    def test_l82_all_skipped_run_does_not_block_failed_run_ownership(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            for run_id, conclusion in ((90, 'skipped'), (91, 'failure')):
+                gh.actions.append(dict(id=run_id, run_attempt=1, status='completed', event='workflow_run',
+                                       head_sha=HEAD, conclusion=conclusion,
+                                       display_title=f'Fix PR #9: check @ {HEAD}'))
+                gh.runs[run_id] = ('completed', [dict(name='admit', conclusion=conclusion),
+                                                dict(name='fix', conclusion='skipped')])
+            builder.dispatch_fix(9, HEAD, 'check')
+            state = json.loads(gh.commits[gh.refs[f'heads/loop-fix/9/check/{HEAD}']]['message'].split('\n\n')[0])
+            self.assertEqual((state['run'], state['infrastructure']), (91, 1))
+            self.assertEqual(gh.writes, [('run', 'rerun', '91')])
+            self.assertEqual([run['run_attempt'] for run in gh.actions], [1, 2])
+
+    def test_l82_two_started_historical_runs_remain_ambiguous(self):
+        with DispatchGitHub(view=pr(statusCheckRollup=FAILED)) as gh:
+            for run_id in (90, 91):
+                gh.actions.append(dict(id=run_id, run_attempt=1, status='completed', event='workflow_run',
+                                       head_sha=HEAD, conclusion='failure',
+                                       display_title=f'Fix PR #9: check @ {HEAD}'))
+                gh.runs[run_id] = ('completed', [dict(name='admit', conclusion='failure')])
+            with self.assertRaisesRegex(ValueError, 'ambiguous historical runs'):
+                builder.dispatch_fix(9, HEAD, 'check')
+            self.assertEqual((gh.refs, gh.writes), ({}, []))
 
     def test_l82_ambiguous_delivery_adopts_no_arbitrary_run(self):
         with DispatchGitHub() as gh:
