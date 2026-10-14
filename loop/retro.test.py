@@ -1273,5 +1273,18 @@ class Recovery(unittest.TestCase):
                 request.assert_not_called()
 
 
+class BoundedRecovery(unittest.TestCase):
+    def test_l109_api_budget_is_fixed_and_overflow_mutates_nothing(self):
+        github = retro.GitHub('o/r', bounded=True)
+        response = subprocess.CompletedProcess([], 0, '{}')
+        with patch.object(retro.subprocess, 'run', return_value=response) as transport:
+            for index in range(512):
+                self.assertEqual(github.request([f'repos/o/r/read/{index}']), '{}')
+            with self.assertRaisesRegex(retro.ReadLimit, '512'):
+                github.write('issues', 'POST', title='must not publish')
+        self.assertEqual(transport.call_count, 512)
+        self.assertTrue(all('-X' not in call.args[0] for call in transport.call_args_list))
+
+
 if __name__ == '__main__':
     unittest.main()
