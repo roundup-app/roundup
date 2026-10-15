@@ -130,25 +130,27 @@ fn parse_parts(parts: Vec<AskPart>, request: &Request) -> Result<Vec<AskPart>, S
         return Err("overlapping spans".into());
     }
     // A repeated substring can have several placements. Backtrack rather than reject a valid
-    // partition merely because an earlier part occupied the first occurrence.
+    // partition merely because an earlier part occupied the first occurrence. Bound the search
+    // so ambiguous model output becomes unclear instead of blocking the Daemon.
+    let mut remaining = 65_536usize;
     let mut spans: Vec<std::ops::Range<usize>> = Vec::new();
     let mut next = vec![0; parts.len()];
     while spans.len() < parts.len() {
         let index = spans.len();
-        let span = request
-            .text
-            .char_indices()
-            .filter(|(start, _)| *start >= next[index])
-            .filter_map(|(start, _)| {
-                request.text[start..]
-                    .starts_with(&parts[index].text)
-                    .then_some(start..start + parts[index].text.len())
-            })
-            .find(|span| {
-                spans
+        let mut span = None;
+        for (start, _) in request.text[next[index]..].char_indices() {
+            remaining = remaining.checked_sub(1).ok_or("span search exhausted")?;
+            let start = next[index] + start;
+            let candidate = start..start + parts[index].text.len();
+            if request.text[start..].starts_with(&parts[index].text)
+                && spans
                     .iter()
-                    .all(|used| span.end <= used.start || used.end <= span.start)
-            });
+                    .all(|used| candidate.end <= used.start || used.end <= candidate.start)
+            {
+                span = Some(candidate);
+                break;
+            }
+        }
         match span {
             Some(span) => {
                 next[index] = span.start
