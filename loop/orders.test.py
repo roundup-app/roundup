@@ -165,10 +165,29 @@ class Orders(unittest.TestCase):
         self.assertEqual((row['state'], row['reason']), ('in-flight', '#12'))
 
     def test_l34_only_completed_dependencies_unblock_work(self):
-        for state, reason, expected in [('open',None,'waiting'),('closed','not_planned','waiting'),('closed','completed','ready')]:
+        for state, reason, expected in [('open',None,'waiting'),('closed','completed','ready')]:
             with self.subTest(state=state, reason=reason):
                 rows = orders.classify([issue()], {1:[dict(number=2,state=state,state_reason=reason)]}, [])
                 self.assertEqual(rows[0]['state'], expected)
+
+    def test_l34_a_cancelled_blocker_holds_nothing_and_is_reported_to_the_builder(self):
+        cancelled = {1: [dict(number=2, state='closed', state_reason='not_planned')]}
+        row = orders.classify([issue()], cancelled, [])[0]
+        self.assertEqual((row['state'], row['cancelled']), ('ready', [2]))
+        self.assertIn('#2', row['reason'])
+        both = {1: cancelled[1] + [dict(number=3, state='open', state_reason=None)]}
+        self.assertEqual(orders.classify([issue()], both, [])[0]['state'], 'waiting')
+        output = io.StringIO()
+        with patch.object(orders, 'gh', return_value=issue()), \
+             patch.object(orders, 'read_orders', return_value=orders.classify([issue()], cancelled, [])), \
+             redirect_stdout(output):
+            orders.task(1)
+        self.assertIn('Blocker #2 was closed as not planned', output.getvalue())
+        self.assertIn('flag:needs-user', output.getvalue())
+
+    def test_l34_a_cancelled_blocker_in_a_loop_is_no_cycle(self):
+        loop = {1: [dict(number=2, state='closed', state_reason='not_planned')], 2: [dict(number=1, state='open')]}
+        self.assertEqual(orders.classify([issue()], loop, [])[0]['state'], 'ready')
 
     def test_l34_duplicate_keys_block_both_orders(self):
         self.assertEqual([r['state'] for r in orders.classify([issue(),issue(2)],{},[])], ['blocked','blocked'])
