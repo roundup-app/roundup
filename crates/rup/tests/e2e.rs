@@ -2975,15 +2975,18 @@ async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
     let project = daemon::start_real(fixture, &[]);
     let client = project.client().await;
     let agent: RailNode = serde_json::from_value(
-        client
-            .request(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
                 "agent.spawn",
                 json!({
                     "cwd": project.dir.path(), "prompt": "E10 create a blocked todo"
                 }),
-            )
-            .await
-            .unwrap(),
+            ),
+        )
+        .await
+        .expect("agent.spawn answered within the bound")
+        .unwrap(),
     )
     .unwrap();
     let result = project
