@@ -1605,3 +1605,20 @@ impl std::io::Write for ObservedInput {
         self.writer.flush()
     }
 }
+
+// N7: keep in-process test launches at the audited composition root. Callers own
+// the temporary data directory and must never fall back to the user's data.
+#[cfg(test)]
+fn test_daemon(dir: &Path) -> Result<Daemon, OpenError> {
+    assert!(dir.is_absolute(), "test data directory must be absolute");
+    Daemon::open(dir)
+}
+
+#[cfg(test)]
+fn test_daemon_with_agents(
+    dir: &Path,
+    configure: impl FnOnce(agents::Agents) -> agents::Agents,
+) -> Result<Daemon, OpenError> {
+    assert!(dir.is_absolute(), "test data directory must be absolute");
+    Daemon::open_stores(dir, dir, None, configure)
+}

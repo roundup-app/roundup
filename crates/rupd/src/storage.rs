@@ -341,7 +341,7 @@ mod tests {
         Connection::open(dir.path().join("pads.db")).unwrap().execute_batch("CREATE TABLE scribes(key TEXT PRIMARY KEY,agent TEXT NOT NULL); INSERT INTO scribes VALUES('kept pad','9');").unwrap();
         open(dir.path()).unwrap();
         assert_import(dir.path());
-        let _daemon = crate::Daemon::open(dir.path()).unwrap();
+        let _daemon = crate::test_daemon(dir.path()).unwrap();
         let source_companions = std::fs::read_dir(dir.path())
             .unwrap()
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
@@ -470,7 +470,7 @@ mod tests {
                 assert_import(dir.path());
             } else {
                 assert!(
-                    crate::Daemon::open(dir.path()).is_err(),
+                    crate::test_daemon(dir.path()).is_err(),
                     "failed import accepts no calls: {failure}"
                 );
             }
@@ -572,7 +572,7 @@ mod tests {
                 .unwrap()
         }
         let dir = tempfile::tempdir().unwrap();
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
         let main_files: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()
             .map(|e| e.unwrap().path())
@@ -709,7 +709,7 @@ mod tests {
         drop(ctx);
         drop(daemon);
         drop(db);
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = crate::test_daemon(dir.path()).unwrap();
         let reopened_digest =
             serde_json::to_value(daemon.digests.ask(&door, &ws, &sources).unwrap()).unwrap();
         assert_eq!(reopened_digest["children"][0]["pads"], json!([]));
