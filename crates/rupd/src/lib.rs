@@ -367,9 +367,7 @@ impl Daemon {
             }
             _ => None,
         };
-        let _takeover = if matches!(method, "takeover.begin" | "takeover.end")
-            && conn.actor.kind == ActorKind::User
-        {
+        let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             Some(self.child_effects(&agent).write_owned().await)
         } else {
@@ -511,7 +509,16 @@ impl Daemon {
             .await;
         if method == "takeover.end" && outcome.is_ok() {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
-            self.release_resizes(&agent).await?;
+            // Message release can await an already-recorded prompt. A new Takeover must
+            // remain independent of that typing, and it wins over this older release.
+            let _release = self.child_effects(&agent).write_owned().await;
+            if !self
+                .sender
+                .get()
+                .is_some_and(|messages| messages.takeover_active(&agent))
+            {
+                self.release_resizes(&agent).await?;
+            }
         }
         if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
             && let (Some(id), Some(attempt)) = (node["id"].as_str(), node["attempt"].as_str())
