@@ -30,7 +30,7 @@ impl Run {
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, tty
+import json, os, subprocess, sys, time, tty
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -58,9 +58,15 @@ while True:
     if not data: break
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
     if data != b'\x00': pending += data
-    if data == b'\r' and os.path.isfile('order-submit'):
+    if data == b'\r' and (os.path.isfile('order-submit') or os.path.isfile('decision-notice-fixture')):
         text = pending.decode().replace('\x1b[200~','').replace('\x1b[201~','').removeprefix('Follow this instruction: ').strip()
         pending = b''
+        if os.path.isfile('decision-notice-fixture') and '[decision ' in text:
+            continue
+        deadline = time.monotonic() + 10
+        while 'occupying steer' in text and os.path.isfile('background-gate'):
+            if time.monotonic() >= deadline: raise RuntimeError('background Steer was not released')
+            time.sleep(0.005)
         hook('UserPromptSubmit', {'prompt':text})
         hook('Stop', {})
         print('SUBMITTED', flush=True)
@@ -1125,6 +1131,7 @@ async fn failed_notice(
                 continue;
             }
             stage = format!("{name}: {}", serde_json::to_value(&message).unwrap());
+            eprintln!("{failure}: {:?}; {stage}", started.elapsed());
             if name == "message.delivered" && message.to == contracts::Actor::user().id {
                 let stored = run
                     .user
@@ -1235,6 +1242,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
                 .await
                 .unwrap();
         }
+        // A background Steer must submit before refusal of the Decision note can be isolated.
         let occupying = if failure == "terminal" {
             tokio::time::timeout(BOUND, async {
                 loop {
@@ -1261,13 +1269,17 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             });
             tokio::time::timeout(BOUND, async {
                 let mut output = String::new();
+                let expected: String = b"occupying steer\x1b[201~\r"
+                    .iter()
+                    .map(|byte| format!("BYTE:{byte:02x}\n"))
+                    .collect();
                 loop {
                     if let EventData::TerminalOutput(out) = monitor.next_event().await.unwrap().data
                     {
                         output.push_str(&String::from_utf8_lossy(
                             &STANDARD.decode(out.data).unwrap(),
                         ));
-                        if output.contains("BYTE:0d") {
+                        if output.contains(&expected) {
                             break;
                         }
                     }
@@ -1299,7 +1311,14 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
         .await
         .unwrap_or_else(|err| panic!("{err}"));
         if let Some(task) = occupying {
-            task.await.unwrap().unwrap();
+            let background = task.await.unwrap().unwrap();
+            assert_eq!(
+                run.user
+                    .request("message.get", json!({"id":background["id"]}))
+                    .await
+                    .unwrap()["status"],
+                "delivered"
+            );
         }
         assert!(notice["body"].as_str().unwrap().contains("delivery failed"));
         assert_eq!(notice["status"], "delivered");
