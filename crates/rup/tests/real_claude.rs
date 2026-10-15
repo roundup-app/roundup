@@ -1,10 +1,13 @@
-//! E11: aimock owns matching and the request journal.
+//! E3, E11, E12: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
 use daemon::aimock;
 
-use serde_json::json;
+use contracts::{EventData, Kind};
+use daemon::{next, rail_tree};
+use serde_json::{Value, json};
+use std::time::Duration;
 
 #[test]
 fn e11_an_unmatched_request_fails() {
@@ -122,5 +125,95 @@ os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], 
             .iter()
             .all(|entry| entry["credentials"].as_array().unwrap().is_empty()),
         "credential reached a hook or MCP: {records:?}"
+    );
+}
+
+#[tokio::test]
+async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context() {
+    let project = daemon::start_real("e3_startup_context", &[]);
+    let user = project.client().await;
+    let mut events = project.subscribed().await;
+    let node = user
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": project.dir.path(), "prompt": "E3"
+            }),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let request = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(entry) = model
+                .journal()
+                .into_iter()
+                .find(|entry| entry["body"]["tools"].is_array())
+            {
+                return entry;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("real Claude requests its first work turn");
+    let messages = request["body"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|message| message["content"].as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(messages.contains("Parent: none"), "{request:#?}");
+    assert!(
+        messages.contains(&format!(
+            "Your Agent id is {}. It never changes.",
+            node["id"].as_str().unwrap()
+        )),
+        "{request:#?}"
+    );
+    for line in ["Ask: the user", "Peers: none.", "Todos: none open."] {
+        assert!(messages.contains(line), "{request:#?}");
+    }
+    let brief = user
+        .request("agent.brief", json!({"id": node["id"]}))
+        .await
+        .unwrap();
+    let hook: Value = serde_json::from_str(brief["stdout"].as_str().unwrap()).unwrap();
+    assert!(
+        messages.contains(
+            hook["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+        )
+    );
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut events, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == node["id"].as_str().unwrap() && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    model.assert_matched();
+    assert_eq!(
+        model
+            .journal()
+            .iter()
+            .filter(|entry| entry["body"]["tools"].is_array())
+            .count(),
+        1
+    );
+    assert_eq!(
+        rail_tree(&user)
+            .await
+            .into_iter()
+            .find(|item| item.id == node["id"].as_str().unwrap())
+            .unwrap()
+            .name,
+        "e3"
     );
 }
