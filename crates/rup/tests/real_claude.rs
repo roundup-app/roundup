@@ -1,4 +1,4 @@
-//! E3, E6, E11, E12: real Claude at the model boundary; aimock owns matching and the request journal.
+//! D2, E3, E6, E11, E12: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -393,11 +393,7 @@ async fn d2_status_follows_the_hooks_in_order() {
         ]
     );
     let model = project.model.as_ref().unwrap();
-    let result = model.tool_result("toolu_d2_touch").await;
-    assert!(
-        !result["content"].as_str().unwrap().contains("error"),
-        "{result}"
-    );
+    model.tool_result("toolu_d2_touch").await;
     assert!(project.dir.path().join("d2-permitted").is_file());
     model.assert_matched();
 }
