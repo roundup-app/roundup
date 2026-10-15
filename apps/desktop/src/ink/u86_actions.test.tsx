@@ -5,7 +5,7 @@ import { mountRail, pinnedAdd, rowOf } from "../rail/railFixture";
 import { openPad, openShelf, padOf, AGENT } from "../pads/padsFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 import { resolveToken, tokensFrom, withStylesheets } from "../testing/contrast";
-import tokens from "../tokens.css?inline";
+import tokens from "../tokens.css?raw";
 import styles from "./styles.css?inline";
 import buttonStyles from "../buttons.css?inline";
 
