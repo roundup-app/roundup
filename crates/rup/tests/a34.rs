@@ -438,37 +438,37 @@ async fn failed_storage_removal(database: &str, trigger: &str) {
 
 #[tokio::test]
 async fn a34_a_failed_todo_deletion_rolls_back_earlier_items_and_retries() {
-    failed_storage_removal("todos.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON todos WHEN old.title = 'failure' BEGIN SELECT RAISE(FAIL, 'A34 Todo delete'); END;").await;
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON todos WHEN old.title = 'failure' BEGIN SELECT RAISE(FAIL, 'A34 Todo delete'); END;").await;
 }
 
 #[tokio::test]
 async fn a34_a_failed_todo_move_rolls_back_earlier_items_and_retries() {
-    failed_storage_removal("todos.db", "CREATE TRIGGER a34_fail BEFORE UPDATE OF home ON todos WHEN old.title = 'failure-open' BEGIN SELECT RAISE(FAIL, 'A34 Todo move'); END;").await;
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE UPDATE OF home ON todos WHEN old.title = 'failure-open' BEGIN SELECT RAISE(FAIL, 'A34 Todo move'); END;").await;
 }
 
 #[tokio::test]
 async fn a34_a_failed_pad_deletion_rolls_back_earlier_items_and_retries() {
-    failed_storage_removal("pads.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON pads WHEN old.name = 'b-failure' BEGIN SELECT RAISE(FAIL, 'A34 Pad delete'); END;").await;
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON pads WHEN old.name = 'b-failure' BEGIN SELECT RAISE(FAIL, 'A34 Pad delete'); END;").await;
 }
 
 #[tokio::test]
 async fn a34_a_failed_pad_move_rolls_back_earlier_items_and_retries() {
-    failed_storage_removal("pads.db", "CREATE TRIGGER a34_fail BEFORE UPDATE OF home ON pads WHEN old.name = 'd-failure-kept' BEGIN SELECT RAISE(FAIL, 'A34 Pad move'); END;").await;
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE UPDATE OF home ON pads WHEN old.name = 'd-failure-kept' BEGIN SELECT RAISE(FAIL, 'A34 Pad move'); END;").await;
 }
 
 #[tokio::test]
 async fn a34_a_failed_agent_deletion_rolls_back_storage_and_retries() {
-    failed_storage_removal("agents.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'agent' BEGIN SELECT RAISE(FAIL, 'A34 Agent delete'); END;").await;
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'agent' BEGIN SELECT RAISE(FAIL, 'A34 Agent delete'); END;").await;
 }
 
 #[tokio::test]
-async fn a34_a_failed_workstream_deletion_rolls_back_every_store_and_retries() {
-    failed_storage_removal("agents.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'workstream' BEGIN SELECT RAISE(FAIL, 'A34 Workstream delete'); END;").await;
+async fn n18_failed_removal_rolls_back_all_concerns() {
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE DELETE ON nodes WHEN old.kind = 'workstream' BEGIN SELECT RAISE(FAIL, 'A34 Workstream delete'); END;").await;
 }
 
 #[tokio::test]
 async fn a34_a_failed_touch_rolls_back_storage_and_retries() {
-    failed_storage_removal("provenance.db", "CREATE TRIGGER a34_fail BEFORE INSERT ON touches WHEN new.item = 'pad:b-failure' AND new.actor_id = 'rupd' BEGIN SELECT RAISE(FAIL, 'A34 Touch'); END;").await;
+    failed_storage_removal("project.db", "CREATE TRIGGER a34_fail BEFORE INSERT ON touches WHEN new.item = 'pad:b-failure' AND new.actor_id = 'rupd' BEGIN SELECT RAISE(FAIL, 'A34 Touch'); END;").await;
 }
 
 fn git_at(path: &std::path::Path, args: &[&str]) -> String {
@@ -574,7 +574,7 @@ async fn failed_worktree_removal(failure: &str) {
         .request("provenance.touched", json!({ "actor_id": "you" }))
         .await
         .unwrap();
-    let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     let second = &agents[1].1;
     let late_commit = (failure == "advance").then(|| {
         git_at(
@@ -596,7 +596,7 @@ async fn failed_worktree_removal(failure: &str) {
     if failure == "tree" {
         std::fs::write(&change_script, format!(
             "import sqlite3\nconn=sqlite3.connect({})\nconn.execute(\"UPDATE nodes SET parent=NULL WHERE id=?\", ({},))\nconn.commit()\n",
-            serde_json::to_string(&project.data_dir().join("agents.db").to_string_lossy()).unwrap(),
+            serde_json::to_string(&project.data_dir().join("project.db").to_string_lossy()).unwrap(),
             serde_json::to_string(&agents[0].0).unwrap(),
         )).unwrap();
         for node in before.as_array_mut().unwrap() {
@@ -835,7 +835,7 @@ async fn a34_a_judgement_failure_leaves_every_store_and_worktree_untouched() {
 }
 
 #[tokio::test]
-async fn a34_success_publishes_deletions_and_moves_after_the_workstream_is_gone() {
+async fn n18_removal_commits_all_concerns_once() {
     use contracts::EventData;
     use std::time::Duration;
     let project = start(&[]);

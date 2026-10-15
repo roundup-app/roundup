@@ -93,7 +93,7 @@ impl Push {
 pub struct Seen(Mutex<Book>);
 
 impl Seen {
-    /// A `Seen` whose Pad cursors live in `path` (`<dir>/digest.db`), as they were when the
+    /// A `Seen` whose Pad cursors live in `path` (`project.db` in production), as they were when the
     /// Daemon last ran (B23).
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut db = rusqlite::Connection::open(path)?;

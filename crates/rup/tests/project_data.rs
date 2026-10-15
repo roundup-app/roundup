@@ -146,15 +146,7 @@ async fn n1_n2_a_git_project_with_worktrees_off_is_left_as_it_was() {
     assert_eq!(listing(project.dir.path()), before);
     assert_eq!(git(project.dir.path(), &["status", "--porcelain"]), "");
     let data = project.data_dir();
-    for path in [
-        "agents.db",
-        "todos.db",
-        "pads.db",
-        "messages.db",
-        "provenance.db",
-        "digest.db",
-        "pads/notes.md",
-    ] {
+    for path in ["project.db", "pads/notes.md"] {
         assert!(
             data.join(path).is_file(),
             "{path} is not in {}",
@@ -252,7 +244,7 @@ async fn n3_an_older_project_opens_whole_and_its_worktree_stays() {
     age(&project);
     let worktrees = listing(&project.dir.path().join(".roundup/worktrees"));
     assert!(!worktrees.is_empty());
-    let bytes = std::fs::read(project.dir.path().join(".roundup/agents.db")).unwrap();
+    let bytes = std::fs::read(project.dir.path().join(".roundup/project.db")).unwrap();
 
     project.restart(&[]);
 
@@ -269,7 +261,7 @@ async fn n3_an_older_project_opens_whole_and_its_worktree_stays() {
         .collect();
     assert_eq!(left, ["worktrees"]);
     assert_eq!(listing(&old.join("worktrees")), worktrees);
-    assert!(project.data_dir().join("agents.db").is_file());
+    assert!(project.data_dir().join("project.db").is_file());
     assert!(!bytes.is_empty());
     assert!(project.data_dir().join("pads/notes.md").is_file());
 }
@@ -397,7 +389,7 @@ async fn n3_a_finished_copy_whose_old_file_a_kill_left_is_finished() {
     let old = project.dir.path().join(".roundup");
     std::fs::create_dir_all(&old).unwrap();
     let data = project.data_dir();
-    for name in ["todos.db", "todos.db-wal", "todos.db-shm"] {
+    for name in ["project.db", "project.db-wal", "project.db-shm"] {
         if data.join(name).is_file() {
             std::fs::copy(data.join(name), old.join(name)).unwrap();
         }
@@ -484,7 +476,7 @@ async fn n7_launch_sites_use_owned_data() {
         .request("todo.create", json!({"title": "private"}))
         .await
         .unwrap();
-    assert!(project.data_dir().join("todos.db").is_file());
+    assert!(project.data_dir().join("project.db").is_file());
     project.restart(&overrides);
     assert_eq!(titles(&project).await, ["private"]);
     drop(project);
@@ -658,7 +650,7 @@ async fn n1_fallback_uses_a_nested_temporary_home() {
         xdg.join("dev.roundup.app")
     };
     let data = rupd::data::project_data(&root, dir.path()).unwrap();
-    assert!(data.join("todos.db").is_file());
+    assert!(data.join("project.db").is_file());
     let pid = daemon.child.id();
     drop(daemon);
     assert_reaped(pid);
