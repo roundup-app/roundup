@@ -1361,7 +1361,8 @@ impl Shim {
             )
             .await;
         assert_ne!(result["isError"], true, "{result}");
-        serde_json::from_str(result["content"][0]["text"].as_str().unwrap()).unwrap()
+        let raw = result["content"][0]["text"].as_str().unwrap();
+        serde_json::from_str(raw).unwrap_or_else(|_| Value::String(raw.to_owned()))
     }
 }
 
@@ -4552,4 +4553,69 @@ async fn m14_a_door_that_spawns_claude_in_a_terminal_is_flagged_stray() {
     assert_eq!(flagged.id, door);
     assert_eq!(flagged.stray.len(), 1, "{flagged:?}");
     assert_eq!(flagged.stray[0].pid, pid_found);
+}
+
+#[tokio::test]
+async fn m17_decision_answer_names_the_decision_and_answer() {
+    for (question, answer, note, expected) in [
+        (false, json!("allow"), json!(""), "allow"),
+        (false, json!("deny"), json!(""), "deny"),
+        (true, json!("Yes"), json!(""), "Yes"),
+        (
+            true,
+            Value::Null,
+            json!("Use the other option"),
+            "Use the other option",
+        ),
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        let report = root.path().join("door.json");
+        let child_report = root.path().join("child.json");
+        let on_prompt = json!({"name":"decision_answer", "arguments":{"id":"$decision","answer":answer,"note":note}});
+        let ask = if question {
+            json!([{"name":"ask_user","arguments":{"question":"Proceed?","answers":[{"label":"Yes","description":"Continue"}]}}])
+        } else {
+            json!([])
+        };
+        let project = start(&[
+            ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+            ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
+            ("FAKE_CLAUDE_AGENT_TOOLS", &ask.to_string()),
+            ("FAKE_CLAUDE_AGENT_REPORT", child_report.to_str().unwrap()),
+        ]);
+        let user = project.client().await;
+        let door = start_door(&user).await;
+        let child = agent_in(&project, &user, Some(&door)).await;
+        let waiting = if question {
+            None
+        } else {
+            Some(h21_ask(&project, &child, "Bash", h21_bash()).await)
+        };
+        let notes = h21_notes(&user, &door, 1).await;
+        let id = notes[0]["body"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("[decision ")
+            .unwrap()
+            .split(']')
+            .next()
+            .unwrap();
+        let result = json_file(&report).await;
+        assert_eq!(result[0], format!("answered Decision {id}: {expected}"));
+        if let Some(waiting) = waiting {
+            let received = waiting.await.unwrap().unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(received["output"].as_str().unwrap()).unwrap()["hookSpecificOutput"]
+                    ["decision"]["behavior"],
+                answer,
+                "{received}"
+            );
+        } else {
+            let received = json_file(&child_report).await;
+            assert_eq!(received[0]["answer"], answer);
+            assert_eq!(received[0]["note"], note);
+        }
+        let open = user.request("decision.list", Value::Null).await.unwrap();
+        assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
+    }
 }

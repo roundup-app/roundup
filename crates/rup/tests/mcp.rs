@@ -1148,14 +1148,12 @@ async fn m6_over_stdio_an_agents_workstream_shows_in_the_tree_with_its_door_star
     assert_eq!(touches[0]["actor"]["kind"], "agent");
 }
 
-#[tokio::test]
-async fn m17_every_offered_unit_method_acknowledges_its_action() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("unit.sock");
+fn m17_daemon(socket: &Path, reply: Value) -> tokio::task::JoinHandle<()> {
     let listener = UnixListener::bind(&socket).unwrap();
     let server = tokio::spawn(async move {
         loop {
             let (stream, _) = listener.accept().await.unwrap();
+            let reply = reply.clone();
             tokio::spawn(async move {
                 let (read, mut write) = stream.into_split();
                 let mut lines = BufReader::new(read).lines();
@@ -1164,7 +1162,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                     let result = if request["method"] == "rail.tree" {
                         json!([{"id":"a1", "kind":"workstream", "name":"Door", "parent":null, "order":0, "can_resume":false, "stray":[]}])
                     } else {
-                        Value::Null
+                        reply.clone()
                     };
                     write_line(
                         &mut write,
@@ -1175,6 +1173,14 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             });
         }
     });
+    server
+}
+
+#[tokio::test]
+async fn m17_every_offered_unit_method_acknowledges_its_action() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("unit.sock");
+    let server = m17_daemon(&socket, Value::Null);
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
     for method in contracts::methods::METHODS
@@ -1236,4 +1242,52 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
         );
     }
     server.abort();
+}
+
+#[tokio::test]
+async fn m17_project_actions_acknowledge_requests_not_completion() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    for (name, args, expected) in [
+        (
+            "project_open",
+            json!({"path":project._dir.path()}),
+            format!(
+                "requested opening Project {}",
+                project._dir.path().display()
+            ),
+        ),
+        (
+            "project_rename",
+            json!({"name":"Renamed"}),
+            "requested renaming Project to Renamed".into(),
+        ),
+    ] {
+        let result = shim.call(name, args).await;
+        assert_eq!(result.is_error, Some(false), "{result:?}");
+        assert_eq!(result.content[0].as_text().unwrap().text, expected);
+    }
+    project.daemon.abort();
+}
+
+#[tokio::test]
+async fn m17_data_results_keep_their_json_text() {
+    for value in [
+        json!({"id":1}),
+        json!([1, "two"]),
+        json!("plain text"),
+        json!(42),
+        json!(true),
+        Value::Null,
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("data.sock");
+        let server = m17_daemon(&socket, value.clone());
+        let shim = spawn_shim(&socket, "a1").await;
+        // rail.remove declares nullable data, so even null must retain its JSON encoding.
+        let result = shim.call("rail_remove", json!({"id":"child"})).await;
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
+        server.abort();
+    }
 }

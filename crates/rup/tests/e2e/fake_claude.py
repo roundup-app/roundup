@@ -385,7 +385,11 @@ def mcp_session(calls, report=None, results_to=None):
             results.append({"error": json.loads(result["content"][0]["text"])})
             continue
         assert not result.get("isError"), result
-        parsed = json.loads(result["content"][0]["text"])
+        raw = result["content"][0]["text"]
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed = raw
         last = parsed.get("id") if isinstance(parsed, dict) else None
         # U376: "$ask" in a string argument is `ask.to` of the previous `agent_context` result, the Agent that started this one.
         asked = (parsed.get("ask") or {}).get("to", asked) if isinstance(parsed, dict) else asked
