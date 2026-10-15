@@ -698,7 +698,16 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
             .unwrap()
             .iter()
             .any(|m| { m["role"] == "user" && m["content"].to_string().contains("[decision d1]") }),
-        "{following:#?}"
+        "Door request sequence: {:#?}",
+        journal
+            .iter()
+            .filter(|e| &e["headers"]["x-claude-code-session-id"] == identity)
+            .map(
+                |e| json!({"stream": e["body"]["stream"], "response": e["response"],
+                "users": e["body"]["messages"].as_array().unwrap().iter()
+                    .filter(|m| m["role"] == "user").collect::<Vec<_>>()})
+            )
+            .collect::<Vec<_>>()
     );
 }
 
