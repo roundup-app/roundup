@@ -4,7 +4,7 @@ import { App } from "../App";
 import { runChecks } from "../testing/checks";
 import { resolveToken, tokensFrom } from "../testing/contrast";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";

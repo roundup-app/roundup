@@ -112,6 +112,9 @@ def main():
     tracer = None
     readers = []
     pending = {}
+    # Faults a snapshot found absent whose COMPLETED record is still in flight:
+    # the snapshot reads the map when handled, the printf crosses per-CPU buffers.
+    resolved = {}
     longest = []
     reports = 0
     snapshots = 0
@@ -161,6 +164,7 @@ def main():
             with condition:
                 if key in pending or len(pending) < 1024:
                     if key not in pending:
+                        resolved.pop(key, None)
                         pending[key] = event
                     condition.notify_all()
                 elif not active_limit:
@@ -170,7 +174,7 @@ def main():
             event["duration_ns"] = int(fields[11])
             event["return"] = int(fields[12])
             with condition:
-                prior = pending.pop(key, None)
+                prior = pending.pop(key, None) or resolved.pop(key, None)
                 if prior:
                     event.update(mapping=prior["mapping"], stack=prior["stack"])
                     if prior.pop("reported", False):
@@ -206,9 +210,14 @@ def main():
                 if key not in keys:
                     event = pending.pop(key)
                     reported = event.get("reported", False)
+                    alive = Path(f"/proc/{key[0]}").exists()
+                    if alive:
+                        resolved[key] = event
+                        if len(resolved) > 1024:
+                            del resolved[next(iter(resolved))]
                     # A vanished task independently establishes termination;
                     # otherwise the kernel map establishes only absence now.
-                    event = dict(event, status="terminated" if not Path(f"/proc/{key[0]}").exists() else "resolved", resolution="absent from kernel live-fault map")
+                    event = dict(event, status="resolved" if alive else "terminated", resolution="absent from kernel live-fault map")
                     event.pop("reported", None)
                     event.pop("quiet", None)
                     if reported:

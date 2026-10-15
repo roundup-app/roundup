@@ -5,6 +5,9 @@ import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin";
 
 const served = realDaemonFromEnv(process.env);
 
+// Radix Colors scopes light to `:root, .light, .light-theme` and dark to `.dark, .dark-theme`, which the App never toggles
+// (U478 clause 1, and styles.css owns the `.light` muted-text class). Rescope the package's own rules at build time: light
+// stays on `:root`, dark moves to `:root` under the same media query tokens.css uses.
 export default defineConfig({
   plugins: [solid(), ...(served ? [realDaemon(served)] : []), {
     name: "roundup-dev-ready",
@@ -36,6 +39,36 @@ export default defineConfig({
       });
     },
   }],
+  css: {
+    postcss: {
+      plugins: [
+        {
+          postcssPlugin: "radix-colors-prefers-color-scheme",
+          Once(root, { AtRule }) {
+            for (const node of root.nodes) {
+              if ((node.type !== "rule" && node.type !== "atrule") || !node.source?.input.file?.includes("/@radix-ui/colors/")) continue;
+
+              const rules: { selector: string }[] = [];
+
+              if (node.type === "rule") rules.push(node);
+              else node.walkRules((rule) => void rules.push(rule));
+
+              const dark = rules.some((rule) => /\.dark\b/.test(rule.selector));
+
+
+              for (const rule of rules) rule.selector = ":root";
+
+              if (!dark) continue;
+              const scoped = new AtRule({ name: "media", params: "(prefers-color-scheme: dark)" });
+
+              node.replaceWith(scoped);
+              scoped.append(node);
+            }
+          },
+        },
+      ],
+    },
+  },
   // tauri.conf.json's devUrl names this port; moving off it must fail, not open a blank window.
   server: { port: 5173, strictPort: true },
   test: {

@@ -1,0 +1,143 @@
+"""U26: real Chromium startup held until the command has failed, never a timer release."""
+from contextlib import contextmanager
+import fcntl
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+import unittest
+
+from test import line
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent.parent
+
+
+@contextmanager
+def held_startup():
+    with tempfile.TemporaryDirectory(prefix="u26-cold-") as directory:
+        root = Path(directory)
+        locks = []
+        for name in ("google-chrome", "google-chrome-for-testing", "chromium"):
+            path = root / name / "Crash Reports" / "settings.dat"
+            path.parent.mkdir(parents=True)
+            file = path.open("w+b")
+            fcntl.flock(file, fcntl.LOCK_EX)
+            locks.append(file)
+        # The private executable redirects only Crashpad's config location.
+        # openPage, its flags, real browser and DevTools pipe are unchanged.
+        wrapper = root / "chrome"
+        wrapper.write_text('#!/bin/sh\nprintf \"%s\\n\" \"$$\" >> \"$U26_BROWSER_PIDS\"\nexport CHROME_CONFIG_HOME="$U26_HELD_CONFIG"\nexec "$U26_REAL_CHROME" "$@"\n')
+        wrapper.chmod(0o755)
+        selected = subprocess.check_output(["node", "--experimental-strip-types", "--input-type=module", "-e", 'import {chromePath} from "./apps/desktop/src/testing/chromePage.ts"; console.log(chromePath())'], cwd=ROOT, text=True, timeout=10).strip()
+        assert Path(selected).is_file(), selected
+        env = dict(os.environ, CHROME_PATH=str(wrapper), U26_HELD_CONFIG=str(root), U26_REAL_CHROME=selected, U26_BROWSER_PIDS=str(root / "pids"))
+        try:
+            yield root, locks, env
+        finally:
+            for file in locks:
+                file.close()
+
+
+class ColdTest(unittest.TestCase):
+    def test_u26_concurrent_cold_deadline_captures_held_startup_before_release(self):
+        with held_startup() as (root, locks, env):
+            artifact = root / "cold.jsonl"
+            started = time.monotonic()
+            try:
+                result = subprocess.run(["python3", str(HERE / "observe.py"), "--log", str(root / "faults.jsonl"), "--", "node", "--experimental-strip-types", str(HERE / "cold.mts"), str(artifact)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertLess(time.monotonic() - started, 45)
+                events = [json.loads(row) for row in artifact.read_text().splitlines()]
+                starts = [event for event in events if event["status"] == "starting"]
+                failed = [event for event in events if event["status"] == "failed"]
+                self.assertEqual(len(starts), 2)
+                self.assertEqual(len(failed), 2)
+                self.assertLess(max(event["elapsed_ms"] for event in starts), min(event["elapsed_ms"] for event in failed))
+                for event in failed:
+                    self.assertIn("Target.createTarget timed out after 20000 ms", event["error"])
+                    self.assertIn("received=0 bytes", event["error"])
+                    self.assertIn("threads:\nprocess", event["error"])
+                    self.assertIn("wchan=locks_lock_inode_wait", event["error"])
+                    pid = event["error"].split("Chrome pid=", 1)[1].split(",", 1)[0]
+                    self.assertFalse(Path(f"/proc/{pid}").exists(), "owned browser survived failure")
+                faults = [json.loads(row) for row in (root / "faults.jsonl").read_text().splitlines()]
+                self.assertEqual(faults[-1]["command_status"], result.returncode)
+                self.assertTrue(any(event["status"] == "attached" for event in faults))
+                self.assertTrue(faults[-1]["live_state_verified"], faults[-1])
+                self.assertTrue(faults[-1]["history_complete"], faults[-1])
+                print(json.dumps({"observation": "held-cold", "errors": [event["error"].split("; stderr:")[0] for event in failed], "fault_artifact_verified": True}), flush=True)
+                pids = (root / "pids").read_text().splitlines()
+                self.assertEqual(len(pids), 2)
+                self.assertTrue(all(not Path(f"/proc/{pid}").exists() for pid in pids))
+                # Locks are still owned here: capture and command failure precede release.
+                self.assertTrue(all(not file.closed for file in locks))
+            finally:
+                for file in locks:
+                    file.close()
+
+    def test_u26_main_warmup_misses_the_original_cold_deadline(self):
+        with held_startup() as (root, locks, env):
+            baseline = root / "baseline.mts"
+            # Resolve main's extensionless TS import without editing its source.
+            baseline.write_text("""
+import { registerHooks } from 'node:module';
+registerHooks({ resolve(specifier, context, next) {
+  return next(specifier.endsWith('/chromePage') ? specifier + '.ts' : specifier, context);
+}});
+const { default: warmChrome } = await import(WARM);
+const { chromePath, openPage } = await import(HELPER);
+let warmed = false;
+const warm = warmChrome().then(() => { warmed = true; });
+const started = performance.now();
+try {
+  const page = await openPage(chromePath());
+  await page.close();
+  throw new Error('held cold startup unexpectedly succeeded');
+} catch (error) {
+  console.log(JSON.stringify({ status: 'cold-rejected', warmed, elapsed_ms: performance.now() - started, error: String(error).split("; stderr:")[0] }));
+}
+await warm;
+console.log(JSON.stringify({ status: 'warmed-after-release' }));
+""".replace("WARM", json.dumps((ROOT / "apps/desktop/src/testing/warmChrome.ts").as_uri())).replace("HELPER", json.dumps((ROOT / "apps/desktop/src/testing/chromePage.ts").as_uri())))
+            child = subprocess.Popen(["node", "--experimental-strip-types", str(baseline)], cwd=ROOT / "apps/desktop", env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                failure = json.loads(line(child.stdout))
+                self.assertEqual(failure["status"], "cold-rejected")
+                self.assertFalse(failure["warmed"])
+                self.assertIn("Target.createTarget timed out after 20000 ms", failure["error"])
+                self.assertIn("received=0 bytes", failure["error"])
+                self.assertIsNone(child.poll(), "warmup must remain held until the cold rejection event")
+                for file in locks:
+                    file.close()
+                output, errors = child.communicate(timeout=30)
+                self.assertEqual(child.returncode, 0, errors.decode())
+                self.assertIn(b'warmed-after-release', output)
+                print(json.dumps({"observation": "unchanged-main-warmup-gap", "elapsed_ms": failure["elapsed_ms"], "warmup_pending_at_cold_rejection": True, "warmup_completed_after_event_release": True}), flush=True)
+            finally:
+                for file in locks:
+                    file.close()
+                if child.poll() is None:
+                    child.kill()
+                child.communicate(timeout=10)
+
+    def test_u26_real_concurrent_calls_return_known_values(self):
+        with held_startup() as (root, locks, env):
+            for file in locks:
+                file.close()
+            artifact = root / "cold.jsonl"
+            result = subprocess.run(["node", "--experimental-strip-types", str(HERE / "cold.mts"), str(artifact)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=45)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            events = [json.loads(row) for row in artifact.read_text().splitlines()]
+            self.assertEqual([event["value"] for event in events if event["status"] == "answered"], [42, 42])
+            self.assertEqual(len([event for event in events if event["status"] == "closed"]), 2)
+            self.assertEqual(events[-1]["status"], "completed")
+            pids = (root / "pids").read_text().splitlines()
+            self.assertEqual(len(pids), 2)
+            self.assertTrue(all(not Path(f"/proc/{pid}").exists() for pid in pids))
+
+
+if __name__ == "__main__":
+    unittest.main()

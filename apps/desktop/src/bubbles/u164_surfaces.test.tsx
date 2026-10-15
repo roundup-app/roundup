@@ -2,7 +2,7 @@ import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { contrastRatio, tokensOf } from "../testing/contrast";
 import { lookLiterals } from "../testing/lookLiterals";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import bubbleCss from "./styles.css?inline";
 import { mountBubbles } from "./bubblesFixture";
 

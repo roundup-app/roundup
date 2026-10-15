@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import tokens from "../tokens.css?inline";
+import tokens from "../tokens.css?raw";
 import { resolveToken, tokensFrom, withStylesheets } from "../testing/contrast";
 import { agent, workstream, door, terminal } from "../testing/nodes";
 import { exitedTerminal, mountRail } from "./railFixture";

@@ -7,7 +7,7 @@ import { mountRail, rowOf } from "../rail/railFixture";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import { resolveToken, tokensFrom } from "../testing/contrast";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import buttonCss from "../buttons.css?inline";

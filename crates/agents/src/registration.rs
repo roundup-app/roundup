@@ -196,9 +196,10 @@ impl Shared {
     /// A22's ack confirmed for `id`: attach the Terminal `agent.resume` started (never before
     /// this moment), re-save the conversation (A21), apply every earlier held Signal in arrival
     /// order and then the ack itself, and wake the pending `agent.resume`. On failure, restore
-    /// `old` and stop the Terminal, same as a failed launch.
+    /// `old` only after the failed Attempt's Terminal is confirmed ended. The completion
+    /// sender follows cleanup, so no Resume result can precede its effect.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn promote_resuming(
+    fn promote_resuming(
         &self,
         rail: &mut rail::Rail,
         runs: &mut HashMap<String, Slot>,
@@ -215,16 +216,20 @@ impl Shared {
         payload: Value,
     ) -> Result<Applied, RpcError> {
         if let Err(err) = rail.attach_terminal(id, &terminal_id) {
-            if let Some(old) = old {
-                runs.insert(id.to_owned(), Slot::Running(*old));
-            }
-            let _ = done.send(Err(RpcError::conflict(format!("cannot resume: {err}"))));
-            self.spawn_kill(terminal_id);
+            self.fail_resume(
+                runs,
+                id,
+                attempt,
+                old,
+                Some(terminal_id),
+                done,
+                RpcError::conflict(format!("cannot resume: {err}")),
+            );
             return Err(err);
         }
         let clock = Arc::clone(&self.clock);
         let mut run = Run {
-            attempt,
+            attempt: attempt.clone(),
             status_revision: 1,
             closing: false,
             ended: false,
@@ -256,12 +261,25 @@ impl Shared {
             }
         }
         if let Err(err) = save_signal_conversation(rail, &run, id, &payload) {
-            let _ = rail.detach_terminal(id);
-            if let Some(old) = old {
-                runs.insert(id.to_owned(), Slot::Running(*old));
-            }
-            let _ = done.send(Err(RpcError::conflict(format!("cannot resume: {err}"))));
-            self.spawn_kill(terminal_id);
+            let err = match rail.detach_terminal(id) {
+                Ok(()) => err,
+                Err(detach) => RpcError::new(
+                    err.code,
+                    format!(
+                        "{}; cannot detach Terminal {terminal_id}: {}",
+                        err.message, detach.message
+                    ),
+                ),
+            };
+            self.fail_resume(
+                runs,
+                id,
+                attempt,
+                old,
+                Some(terminal_id),
+                done,
+                RpcError::conflict(format!("cannot resume: {err}")),
+            );
             return Err(err);
         }
         run.starred = starred;

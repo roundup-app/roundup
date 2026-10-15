@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import terminalStyles from "./styles.css?inline";
 import { contrastRatio, loadTokens, resolveToken } from "../testing/contrast";
 import { xtermOptions } from "./emulator";
-import tokenStyles from "../tokens.css?inline";
+import tokenStyles from "../tokens.css?raw";
 import { darkTerminalTheme, lightTerminalTheme, terminalThemeFor } from "./theme";
 import type { ITheme } from "@xterm/xterm";
 

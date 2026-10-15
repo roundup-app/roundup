@@ -83,6 +83,7 @@ impl Agents {
                     Duration::from_secs(claude_code::PERMISSION_TIMEOUT_SECS),
                 ),
                 me: me.clone(),
+                resume_effect: None,
                 steer_bound: STEER_BOUND,
                 steer: crate::Steer {
                     before_steer: None,
@@ -101,6 +102,17 @@ impl Agents {
             dir: dir.to_owned(),
             launcher,
         })
+    }
+
+    /// B6: observe a Resume's Terminal before recording its id, after recording it, and
+    /// before cleanup (phases `claim`, `claimed`, `cleanup`). Runs without Agent locks on a
+    /// blocking thread; a cleanup refusal leaves the Terminal untouched.
+    #[must_use]
+    pub fn with_resume_effect(
+        self,
+        observer: impl Fn(&str, &str) -> Result<(), RpcError> + Send + Sync + 'static,
+    ) -> Self {
+        self.configure(|shared| shared.resume_effect = Some(Arc::new(observer)))
     }
 
     /// Change a setting before any call has shared the Agents: the only holder of `shared` is
@@ -411,6 +423,7 @@ pub(super) mod tests {
             rail_view: rail_view::State { opened: 0 },
             decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
+            resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             steer: crate::Steer {
                 before_steer: None,
@@ -456,6 +469,7 @@ pub(super) mod tests {
             rail_view: rail_view::State { opened: 0 },
             decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
+            resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             steer: crate::Steer {
                 before_steer: None,
@@ -532,6 +546,7 @@ pub(super) mod tests {
             rail_view: rail_view::State { opened: 0 },
             decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
+            resume_effect: None,
             steer_bound: crate::STEER_BOUND,
             steer: crate::Steer {
                 before_steer: None,
