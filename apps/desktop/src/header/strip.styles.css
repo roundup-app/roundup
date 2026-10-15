@@ -21,8 +21,6 @@
   align-items: center;
   min-width: 0;
   overflow-x: auto;
-  /* A revealed tab stops a step short of the end: the scroll's whole-pixel rounding never clips its border, and it sits clear of the fade. */
-  scroll-padding-inline: var(--space-1);
   scrollbar-width: none;
 }
 
@@ -142,7 +140,8 @@
 .strip-fade {
   position: absolute;
   top: 0;
-  bottom: 0;
+  /* The header's rule runs along the row's bottom edge: the cover stops above it. */
+  bottom: var(--rule);
   width: calc(var(--cut) + var(--space-1));
   pointer-events: none;
 }

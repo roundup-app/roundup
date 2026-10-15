@@ -313,7 +313,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 });
 
 describe("u440 overflow edges sit beside the tab list", () => {
-  type Rect = { left: number; right: number };
+  type Rect = { left: number; right: number; bottom: number };
 
   type Reading = { case: string; fades: Rect[]; fadeImages: string[]; slots: number; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
@@ -329,7 +329,7 @@ describe("u440 overflow edges sit beside the tab list", () => {
   }, 1_200_000);
   afterAll(async () => { await server?.close(); });
 
-  const meets = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right;
+  const meets = (a: Pick<Rect, "left" | "right">, b: Pick<Rect, "left" | "right">) => a.left < b.right && b.left < a.right;
 
   it("u440_no_tab_meets_an_overflow_edge", () => {
     expect(readings.length).toBe(4);
@@ -346,6 +346,14 @@ describe("u440 overflow edges sit beside the tab list", () => {
   });
   it("u440_the_selected_tab_keeps_its_left_border_in_view", () => {
     for (const reading of readings) expect(reading.revealed.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
+  });
+
+  it("u440_the_revealed_tab_keeps_its_right_border_when_it_fits", () => {
+    for (const reading of readings) if (reading.list.right - reading.list.left >= reading.revealed.right - reading.revealed.left) expect(reading.revealed.right, reading.case).toBeLessThanOrEqual(reading.list.right + 0.5);
+  });
+
+  it("u442_a_cover_leaves_the_header_rule_showing", () => {
+    for (const reading of readings) for (const fade of reading.fades) expect(fade.bottom, reading.case).toBeLessThan(reading.list.bottom);
   });
 
   it("u440_a_slot_exists_only_beside_a_cap", () => {
