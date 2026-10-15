@@ -1,24 +1,34 @@
-/* U441 supplies colour and the name inset; U440/U442 own the remaining geometry. */
+/* U440/U442: the boxes fill the window row and share its bottom rule. */
 .strip {
   display: flex;
   flex: 1 1 auto;
-  align-items: baseline;
+  box-sizing: border-box;
+  height: 100%;
+  /* The boxes hang a step below the window's top edge and keep their bottoms on the rule; the + shares their centre line. */
+  padding-top: var(--space-2);
+  align-items: center;
   min-width: 0;
 }
 
 .strip-scroll {
-  position: relative;
   display: flex;
   flex: 0 1 auto;
+  height: 100%;
   min-width: 0;
 }
 
 .tablist {
+  position: relative;
   display: flex;
-  align-items: baseline;
+  height: 100%;
+  align-items: center;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  /* A tab the list cuts at an end fades out across the piece that shows, so the strip leaves a cue that it goes on and no half box stands at its end; the open tab is never cut (Strip.tsx). */
+  --cut-start: 0px;
+  --cut-end: 0px;
+  mask-image: linear-gradient(to right, transparent, var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), transparent);
 }
 
 .tablist::-webkit-scrollbar {
@@ -31,26 +41,32 @@
   position: relative;
   display: flex;
   flex: 0 1 auto;
-  align-items: baseline;
+  box-sizing: border-box;
+  height: 100%;
+  border: var(--rule) solid var(--hairline);
+  padding-inline: var(--space-1);
+  align-items: center;
   /* U382’s text floor and close target stay intact when the required name inset is added. */
-  min-width: calc(8ch + var(--space-5) + 2 * var(--space-1));
-  margin-right: var(--space-4);
+  min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule));
+  margin-right: var(--space-1);
 }
 
 .tab-name-button {
   --button-inline: var(--space-1);
   --button-hover: transparent;
-  display: flex;
+  display: grid;
+  /* U443: the dot follows the name's last character; U382’s floor lives on the tab’s min-width, not on a padded name column. */
+  grid-template-columns: minmax(0, max-content) var(--space-2);
+  justify-content: start;
   flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
-  align-items: baseline;
+  align-items: center;
   white-space: nowrap;
 }
 
 .tab-name {
   display: flex;
-  min-width: 8ch;
   overflow: hidden;
 }
 
@@ -68,6 +84,13 @@
 
 .tab-mark {
   flex: none;
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-control);
+  background-color: currentColor;
+  align-self: flex-start;
+  margin-top: var(--space-1);
 }
 
 .tab-close {
@@ -105,20 +128,39 @@
   flex: none;
 }
 
+.strip-slot {
+  flex: none;
+  display: flex;
+  box-sizing: border-box;
+  height: 100%;
+}
+
+/* One --space-1 gap between an edge cap and the tabs, as between two tabs. */
+.strip-slot[data-side="left"] {
+  margin-right: var(--space-1);
+}
+
+.strip-slot[data-side="right"] {
+  margin-left: var(--space-1);
+}
+
 .strip-edge {
-  position: absolute;
-  top: 0;
-  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  --button-inline: var(--space-1);
+  border: var(--rule) solid var(--hairline);
+  --button-radius: 0;
   --button-surface: var(--sunken);
   white-space: nowrap;
 }
 
-.strip-edge-left {
-  left: 0;
-}
-
-.strip-edge-right {
-  right: 0;
+.strip-edge .tab-mark {
+  align-self: center;
+  margin-top: 0;
 }
 
 .close-dialog {
@@ -145,10 +187,12 @@
 
 /* U449: symmetric title allocation keeps its midpoint on the whole window. */
 .window-bar {
+  /* D8: the one border width, named once for the tab boxes, the edges and the row that overlaps the header rule. */
+  --rule: 1px;
   display: grid;
   grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
   align-items: center;
-  height: 100%;
+  height: calc(100% + var(--rule));
   padding-inline: var(--space-2);
   box-sizing: border-box;
   user-select: none;
@@ -160,6 +204,8 @@
   grid-column: 3;
   min-width: 0;
   padding-inline: var(--space-4);
+  /* The tabs hang a step below the window top (.strip): the title keeps their centre line. */
+  margin-top: var(--space-2);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
