@@ -321,6 +321,17 @@ impl Slot {
     }
 }
 
+/// B6: an accounted first Steer. None of these outcomes authorizes another initial prompt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FirstSteerCompletion {
+    /// The physical write finished and UserPromptSubmit acknowledged it.
+    Submitted,
+    /// The prompt was dropped or refused without writing bytes.
+    Refused,
+    /// The physical effect ended, but submission (or a partial write) is unknown.
+    Uncertain,
+}
+
 /// An Agent's program and what is left to tell it.
 enum FirstPrompt {
     Reserved,
@@ -336,8 +347,10 @@ struct Run {
     adapter: ClaudeCode,
     /// H12: sent as a Steer at the first `SessionStart`, then gone.
     prompt: Option<String>,
-    /// H12: the first Steer has not yet been written, or dropped; no Message is typed before it.
+    /// H12: no Message overtakes the first Steer before its completion or refusal.
     first_pending: bool,
+    /// B6: retained first Steer result; only its physical writer may settle an active effect.
+    first_completion: Option<tokio::sync::watch::Sender<Option<FirstSteerCompletion>>>,
     /// Retained after the first Steer acknowledgement so a dropped coordinator can retry.
     first_prompt: Option<FirstPrompt>,
     /// H19: the first `SessionStart` Signal has arrived.
@@ -413,44 +426,65 @@ impl Shared {
     /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
     /// Steer, which goes before any Message. `text` goes out once, as one
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
-    /// Signal arrives. Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), SteerError> {
+    /// Signal arrives. `first` binds the initial Steer to its Attempt.
+    /// Nothing is written again on any failure.
+    async fn prompt(&self, id: &str, text: &str, first: Option<&str>) -> Result<(), SteerError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
-        let (terminal_id, submitted) = {
-            let mut runs = self.runs();
-            let Some(Slot::Running(run)) = runs.get_mut(id) else {
-                return Err(SteerError::Refused(match runs.get(id) {
-                    Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
-                        id: id.to_owned(),
-                        kind: Kind::Working,
-                    },
-                    _ => not_found(),
-                }));
+        let (terminal_id, submitted) = loop {
+            let mut completion = {
+                let mut runs = self.runs();
+                let Some(Slot::Running(run)) = runs.get_mut(id) else {
+                    return Err(SteerError::Refused(match runs.get(id) {
+                        Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
+                            id: id.to_owned(),
+                            kind: Kind::Working,
+                        },
+                        _ => not_found(),
+                    }));
+                };
+                if first.is_some_and(|attempt| attempt != run.attempt)
+                    || run.ended
+                    || run.closing
+                    || run.adapter.is_ended()
+                {
+                    return Err(SteerError::Refused(not_found()));
+                }
+                let kind = run
+                    .adapter
+                    .status()
+                    .map_or(Kind::Working, |status| status.kind);
+                let ahead = run.first_pending && first.is_none();
+                // An idle Signal can precede the first Steer's task resuming from its ack.
+                // Subscribe under the admission lock so Busy cannot miss the final wake-up.
+                if ahead
+                    && matches!(kind, Kind::Idle | Kind::Error)
+                    && matches!(run.first_prompt, Some(FirstPrompt::Acknowledged))
+                    && let Some(completion) = &run.first_completion
+                {
+                    completion.subscribe()
+                } else {
+                    if ahead
+                        || !matches!(kind, Kind::Idle | Kind::Error)
+                        || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
+                    {
+                        return Err(SteerError::Refused(PromptError::Busy {
+                            id: id.to_owned(),
+                            kind,
+                        }));
+                    }
+                    let (steer, submitted) = oneshot::channel();
+                    run.steer = Some(steer);
+                    // The first Steer stays ahead of Messages through physical completion.
+                    if first.is_some() && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
+                        run.first_prompt = Some(FirstPrompt::Written);
+                    }
+                    break (run.terminal_id.clone(), submitted);
+                }
             };
-            if run.ended || run.closing || run.adapter.is_ended() {
-                return Err(SteerError::Refused(not_found()));
-            }
-            let kind = run
-                .adapter
-                .status()
-                .map_or(Kind::Working, |status| status.kind);
-            let ahead = run.first_pending && !first;
-            if ahead
-                || !matches!(kind, Kind::Idle | Kind::Error)
-                || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
-            {
-                return Err(SteerError::Refused(PromptError::Busy {
-                    id: id.to_owned(),
-                    kind,
-                }));
-            }
-            let (steer, submitted) = oneshot::channel();
-            run.steer = Some(steer);
-            run.first_pending &= !first;
-            if first && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
-                run.first_prompt = Some(FirstPrompt::Written);
-            }
-            (run.terminal_id.clone(), submitted)
+            completion
+                .wait_for(Option::is_some)
+                .await
+                .map_err(|_| SteerError::Refused(not_found()))?;
         };
         let bytes = claude_code::steer_bytes(text);
         let before = self.steer.before_steer.clone();
@@ -493,7 +527,7 @@ impl Shared {
         };
         let mut runs = self.runs();
         let ended = match runs.get_mut(id) {
-            Some(Slot::Running(run)) => {
+            Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
                 run.steer = None;
                 run.ended || run.closing
             }

@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
+use agents::FirstSteerCompletion;
 use contracts::{Actor, ActorKind, Kind};
 use rpc::{Ctx, Module, RpcError, code};
 use serde_json::{Value, json};
@@ -297,6 +298,17 @@ async fn h12_a_first_prompt_that_is_not_accepted_leaves_the_agent_in_error() {
     assert_eq!(status_of(&tree, &node.id).label, "prompt not accepted");
     let text = paste("build it");
     assert_eq!(until_typed(&f, text.len()).await, text);
+    let attempt = f.attempt(&node.id).await;
+    assert_eq!(
+        f.agents.first_steer_completion(&node.id, &attempt).await,
+        Ok(FirstSteerCompletion::Uncertain)
+    );
+    // A late acknowledgement cannot turn an accounted timeout into permission to retry.
+    signal(&f, &node.id, "UserPromptSubmit").await;
+    assert_eq!(
+        f.agents.first_steer_completion(&node.id, &attempt).await,
+        Ok(FirstSteerCompletion::Uncertain)
+    );
 }
 
 #[tokio::test]
@@ -408,6 +420,11 @@ async fn h19_a_star_that_never_comes_leaves_the_agent_in_error_and_writes_nothin
         .until(|tree| status_of(tree, &node.id).kind == Kind::Error)
         .await;
     assert_eq!(status_of(&tree, &node.id).label, "prompt not accepted");
+    let attempt = f.attempt(&node.id).await;
+    assert_eq!(
+        f.agents.first_steer_completion(&node.id, &attempt).await,
+        Ok(FirstSteerCompletion::Refused)
+    );
     star(f.dir.path());
     assert!(
         !released(&mut gate, &node.id).await,
@@ -533,4 +550,200 @@ async fn b37_live_error_owner_is_open_until_terminal_exit() {
         f.agents.prompt(&id, "late").await,
         Err(agents::PromptError::NotFound { .. })
     ));
+}
+
+#[tokio::test]
+async fn b6_first_steer_completion_includes_the_gate_and_physical_writer() {
+    let (arrived, mut arrival) = tokio::sync::mpsc::unbounded_channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let released = std::sync::Mutex::new(released);
+    let mut f = frozen(Fixture::running(RECORD), BOUND);
+    f.agents = f.agents.with_steer_effect(move |_| {
+        arrived.send(()).unwrap();
+        released.lock().unwrap().recv().unwrap();
+        Ok(())
+    });
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    let attempt = f.attempt(&node.id).await;
+    let completion = f.agents.first_steer_completion(&node.id, &attempt);
+    tokio::pin!(completion);
+    assert!(
+        tokio::time::timeout(BOUND, &mut completion).await.is_err(),
+        "gate is still closed"
+    );
+    until_file(&f.dir.path().join("ready")).await;
+    signal(&f, &node.id, "SessionStart").await;
+    star(f.dir.path());
+    arrival.recv().await.unwrap();
+    assert!(
+        tokio::time::timeout(BOUND * 2, &mut completion)
+            .await
+            .is_err(),
+        "writer is still running beyond submit timeout"
+    );
+    release.send(()).unwrap();
+    until_typed(&f, paste("build it").len()).await;
+    signal(&f, &node.id, "UserPromptSubmit").await;
+    assert_eq!(completion.await, Ok(FirstSteerCompletion::Submitted));
+    assert_eq!(
+        f.agents.first_steer_completion(&node.id, &attempt).await,
+        Ok(FirstSteerCompletion::Submitted)
+    );
+}
+
+#[tokio::test]
+async fn b6_first_steer_writer_failure_retains_its_outcome_without_retry() {
+    for (uncertain, expected) in [
+        (false, FirstSteerCompletion::Refused),
+        (true, FirstSteerCompletion::Uncertain),
+    ] {
+        let mut f = frozen(Fixture::running(RECORD), BOUND);
+        f.agents = f.agents.with_steer_effect(move |_| {
+            Err(if uncertain {
+                RpcError::unknown_outcome("physical outcome lost")
+            } else {
+                RpcError::conflict("refused before bytes")
+            })
+        });
+        let node = f.spawn(None, Some("build it")).await.unwrap();
+        until_file(&f.dir.path().join("ready")).await;
+        let attempt = f.attempt(&node.id).await;
+        signal(&f, &node.id, "SessionStart").await;
+        star(f.dir.path());
+        assert_eq!(
+            f.agents.first_steer_completion(&node.id, &attempt).await,
+            Ok(expected)
+        );
+        assert_eq!(read(&typed(&f)), "");
+        signal(&f, &node.id, "SessionStart").await;
+        assert_eq!(
+            f.agents.first_steer_completion(&node.id, &attempt).await,
+            Ok(expected)
+        );
+        assert_eq!(read(&typed(&f)), "");
+    }
+}
+
+#[tokio::test]
+async fn b6_first_steer_exit_drops_the_unreleased_prompt() {
+    let (f, mut gate) = gated(Duration::from_secs(30));
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    let attempt = f.attempt(&node.id).await;
+    signal(&f, &node.id, "SessionStart").await;
+    assert!(!released(&mut gate, &node.id).await);
+    f.terminals
+        .kill(node.terminal_id.as_ref().unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        f.agents.first_steer_completion(&node.id, &attempt).await,
+        Ok(FirstSteerCompletion::Refused)
+    );
+    assert_eq!(read(&typed(&f)), "");
+}
+
+#[tokio::test]
+async fn b6_cancelling_a_completion_observer_keeps_the_physical_effect_accounted() {
+    let (arrived, mut arrival) = tokio::sync::mpsc::unbounded_channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let released = std::sync::Mutex::new(released);
+    let mut f = frozen(Fixture::running(RECORD), BOUND);
+    f.agents = f.agents.with_steer_effect(move |_| {
+        arrived.send(()).unwrap();
+        released.lock().unwrap().recv().unwrap();
+        Ok(())
+    });
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    let attempt = f.attempt(&node.id).await;
+    signal(&f, &node.id, "SessionStart").await;
+    star(f.dir.path());
+    arrival.recv().await.unwrap();
+    // Drop this observer at its deadline, then subscribe again while the writer is active.
+    assert!(
+        tokio::time::timeout(
+            BOUND * 2,
+            f.agents.first_steer_completion(&node.id, &attempt)
+        )
+        .await
+        .is_err()
+    );
+    let next = f.agents.first_steer_completion(&node.id, &attempt);
+    tokio::pin!(next);
+    assert!(tokio::time::timeout(BOUND, &mut next).await.is_err());
+    release.send(()).unwrap();
+    // No submit: the retained result is an accounted timeout, never a second write.
+    assert_eq!(next.await, Ok(FirstSteerCompletion::Uncertain));
+    assert_eq!(
+        until_typed(&f, paste("build it").len()).await,
+        paste("build it")
+    );
+}
+
+#[tokio::test]
+async fn b6_first_steer_completion_refuses_a_failed_launch() {
+    let f = Fixture::running(RECORD);
+    std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();
+    assert!(f.spawn(None, Some("build it")).await.is_err());
+    assert!(f.tree().await.is_empty());
+    assert_eq!(
+        f.agents.first_steer_completion("1", "1").await,
+        Err(agents::PromptError::NotFound { id: "1".into() })
+    );
+}
+
+#[tokio::test]
+async fn b6_exit_cannot_settle_a_first_steer_queued_on_terminal_input() {
+    let (f, mut gate) = gated(BOUND);
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    let attempt = f.attempt(&node.id).await;
+    let terminal = node.terminal_id.as_ref().unwrap();
+    let (arrived, arrival) = tokio::sync::oneshot::channel();
+    let (release, input_release) = std::sync::mpsc::channel();
+    let blocker = f.terminals.write_with(terminal, move |_| {
+        arrived.send(()).unwrap();
+        input_release.recv().unwrap();
+        Ok(())
+    });
+    tokio::pin!(blocker);
+    // Poll the real input operation to enqueue it; its closure acknowledges physical arrival.
+    tokio::select! {
+        result = &mut blocker => panic!("input blocker completed: {result:?}"),
+        result = arrival => result.unwrap(),
+    }
+    signal(&f, &node.id, "SessionStart").await;
+    assert!(!released(&mut gate, &node.id).await);
+    star(f.dir.path());
+    assert!(released(&mut gate, &node.id).await);
+    let completion = f.agents.first_steer_completion(&node.id, &attempt);
+    tokio::pin!(completion);
+    // Shared::prompt enqueues before awaiting physical completion; this observation window
+    // also exceeds H19's timer, which must not settle an already released prompt.
+    assert!(
+        tokio::time::timeout(BOUND * 2, &mut completion)
+            .await
+            .is_err()
+    );
+    f.terminals.kill(terminal).await.unwrap();
+    f.until(|tree| matches!(status_of(tree, &node.id).kind, Kind::Done | Kind::Error))
+        .await;
+    assert!(
+        tokio::time::timeout(BOUND, &mut completion).await.is_err(),
+        "exit hid queued input"
+    );
+    release.send(()).unwrap();
+    blocker.await.unwrap();
+    assert_eq!(completion.await, Ok(FirstSteerCompletion::Uncertain));
+}
+
+#[tokio::test]
+async fn b6_first_steer_completion_refuses_a_stale_attempt() {
+    let f = Fixture::running(RECORD);
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    assert_eq!(
+        f.agents.first_steer_completion(&node.id, "999").await,
+        Err(agents::PromptError::NotFound { id: node.id })
+    );
 }
