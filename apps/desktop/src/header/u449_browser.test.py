@@ -71,16 +71,27 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
             browser("wait", "--fn", "document.querySelectorAll('.project-tab').length === 8")
             for pick in ("first", "last"):
                 evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + ("0" if pick == "first" else "t.length-1") + "].click()")
-                browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]') !== null")
+                browser("wait", "--fn", "(() => {const t=[...document.querySelectorAll('.tab-name-button')];return t[" +
+                        ("0" if pick == "first" else "t.length-1") + "].getAttribute('aria-selected') === 'true'})()")
+                browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab').getBoundingClientRect().left >= document.querySelector('.tablist').getBoundingClientRect().left")
+                revealed = evaluate("document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab').getBoundingClientRect().toJSON()")
+                evaluate("const list=document.querySelector('.tablist');list.scrollLeft=" + ("0" if pick == "first" else "list.scrollWidth"))
                 browser("wait", "--fn", "(() => {const list=document.querySelector('.tablist');return " +
                         ("list.scrollLeft === 0" if pick == "first" else "Math.abs(list.scrollWidth-list.clientWidth-list.scrollLeft) <= 1") + "})()")
-                records.append({"case": f"tabs-8-{width}-{pick}", **evaluate(r"""(() => {
+                records.append({"case": f"tabs-8-{width}-{pick}", "revealed": revealed, **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
                   return {list: box(document.querySelector('.tablist')), mask: getComputedStyle(document.querySelector('.tablist')).maskImage, selected: box(selected),
                     tabs: [...document.querySelectorAll('.project-tab')].map(box),
                     edges: [...document.querySelectorAll('.strip-edge')].map(box)};
                 })()""")})
+                if output and width >= 1280:
+                    directory = Path(output) / "edges" / variant
+                    directory.mkdir(parents=True, exist_ok=True)
+                    name = records[-1]["case"]
+                    (directory / (name + ".geometry.json")).write_text(json.dumps(records[-1]) + "\n")
+                    (directory / (name + ".checks.json")).write_text(json.dumps(evaluate("window.__checks()")) + "\n")
+                    browser("screenshot", str(directory / (name + ".png")))
         print(json.dumps(records))
     finally:
         browser("close")

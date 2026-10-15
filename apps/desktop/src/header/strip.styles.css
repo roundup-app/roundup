@@ -27,15 +27,15 @@
 }
 
 /* A tab cut by a slot fades into it instead of ending in an open box. Only the alpha of the mask counts. */
-.strip-slot + .tablist {
+.tablist[data-cut-left="true"] {
   mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1));
 }
 
-.tablist:has(+ .strip-slot) {
+.tablist[data-cut-right="true"] {
   mask-image: linear-gradient(to left, transparent, var(--text) var(--space-1));
 }
 
-.strip-slot + .tablist:has(+ .strip-slot) {
+.tablist[data-cut-left="true"][data-cut-right="true"] {
   mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1), var(--text) calc(100% - var(--space-1)), transparent);
 }
 

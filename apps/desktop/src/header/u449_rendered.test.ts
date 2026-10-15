@@ -313,7 +313,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 describe("u440 overflow edges sit beside the tab list", () => {
   type Rect = { left: number; right: number };
 
-  type Reading = { case: string; mask: string; list: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
+  type Reading = { case: string; mask: string; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
   let server: ViteDevServer;
   let readings: Reading[];
@@ -321,7 +321,7 @@ describe("u440 overflow edges sit beside the tab list", () => {
   beforeAll(async () => {
     server = await createServer({ server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
     await server.listen();
-    const { stdout } = await promisify(execFile)("python3", ["src/header/u449_browser.test.py", server.resolvedUrls!.local[0]!, "", "", "head", "edges"], { timeout: 600_000, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await promisify(execFile)("python3", ["src/header/u449_browser.test.py", server.resolvedUrls!.local[0]!, captureDir("U440") ?? "", "", "head", "edges"], { timeout: 600_000, maxBuffer: 4 * 1024 * 1024 });
     readings = JSON.parse(stdout);
   }, 1_200_000);
   afterAll(async () => { await server?.close(); });
@@ -342,7 +342,7 @@ describe("u440 overflow edges sit beside the tab list", () => {
     }
   });
   it("u440_the_selected_tab_keeps_its_left_border_in_view", () => {
-    for (const reading of readings) expect(reading.selected.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
+    for (const reading of readings) expect(reading.revealed.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
   });
 
   it("u440_uncut_end_borders_stay_in_the_masks_opaque_region", () => {
