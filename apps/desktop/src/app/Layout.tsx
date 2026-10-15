@@ -24,17 +24,21 @@ export const Layout = (props: {
   /** #2003: bind Ark getRootProps/getPanelProps to the actual measured window and
    * owned regions. Layout retains styles, classes, visibility and transitions;
    * the adapter retains identity, ownership, events and element refs. */
-  splitter?: Partial<Record<"root" | "rail" | "centre" | "shelf", JSX.HTMLAttributes<HTMLElement>>>;
+  splitter?: Partial<Record<"root" | "rail" | "centre" | "shelf", Omit<JSX.HTMLAttributes<HTMLElement>, "ref"> & { ref?: (element: HTMLElement) => void }>>;
   overlay: JSX.Element;
 }) => {
   const binding = (part: "root" | "rail" | "centre" | "shelf") => {
     const [, attributes] = splitProps(props.splitter?.[part] ?? {}, ["style", "class", "classList", "children", "ref"]);
+
     return attributes;
   };
+
   const attach = (part: "root" | "rail" | "centre" | "shelf", element: HTMLElement) => {
     const ref = props.splitter?.[part]?.ref;
-    if (typeof ref === "function") ref(element);
+
+    ref?.(element);
   };
+
   const placement = () => props.shelfPlacement ?? SETTLED;
 
   let windowElement: HTMLDivElement | undefined;

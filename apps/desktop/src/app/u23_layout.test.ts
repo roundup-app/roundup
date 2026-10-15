@@ -40,6 +40,7 @@ afterEach(cleanup);
 it("u491_layout_binds_owned_panels_without_replacing_grid_or_visibility", () => {
   const [shown, setShown] = createSignal(true);
   const attached: HTMLElement[] = [];
+
   const { container } = render(() => createComponent(Layout, {
     header: "Header", rail: "Rail", centre: "Centre", shelf: "Shelf", overlay: null,
     get shelfPlacement() { return { open: shown(), rendered: shown(), shown: shown(), animated: false, onSettle() {} }; },
@@ -50,6 +51,7 @@ it("u491_layout_binds_owned_panels_without_replacing_grid_or_visibility", () => 
       shelf: { id: "splitter-shelf", "data-part": "panel", "data-ownedby": "splitter-root" },
     },
   }));
+
   const root = container.querySelector<HTMLElement>("#splitter-root")!;
   expect(root).not.toBeNull();
   expect(attached).toEqual([root]);
