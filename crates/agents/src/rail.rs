@@ -127,6 +127,7 @@ impl Drop for OwnerReads {
 impl Rail {
     pub fn open(path: &Path) -> Result<Self, OpenError> {
         let mut db = Connection::open(path)?;
+        db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
         // Terminal ids restart at 1 with the Daemon, so a stored id could name an unrelated Terminal.
@@ -146,7 +147,7 @@ impl Rail {
 
     /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
     pub fn terminal_owner(
-        &self,
+        &mut self,
         terminal: &str,
     ) -> Result<Option<(String, Option<String>)>, RpcError> {
         // R16 owner-read attribution: preparation costs 11.0–11.5 µs of 18.7–19.6 µs
@@ -157,28 +158,26 @@ impl Rail {
         // Rust stops at the second row, so SQL needs no limit counter. IS avoids
         // a NULL-parameter branch for bound &str; the explicit predicate keeps
         // the partial covering index and excludes unattached rows.
-        let mut query = self
-            .db
-            .prepare_cached(
+        self.db
+            .with_cached_rows(
                 "SELECT id, attempt FROM nodes WHERE terminal_id IS ? AND terminal_id IS NOT NULL",
+                [terminal],
+                |rows| {
+                    let Some(row) = rows.next().map_err(sql)? else {
+                        return Ok(None);
+                    };
+                    let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
+                    let attempt = match row.get::<_, i64>(1).map_err(sql)? {
+                        0 => None,
+                        n => Some(n.to_string()),
+                    };
+                    if rows.next().map_err(sql)?.is_some() {
+                        return Err(RpcError::conflict("Terminal has more than one receiver"));
+                    }
+                    Ok(Some((id, attempt)))
+                },
             )
-            .map_err(sql)?;
-        // The fixed SQL has one positional parameter. Bind it directly rather than
-        // asking SQLite to recount parameters on every fresh owner read.
-        query.raw_bind_parameter(1, terminal).map_err(sql)?;
-        let mut rows = query.raw_query();
-        let Some(row) = rows.next().map_err(sql)? else {
-            return Ok(None);
-        };
-        let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
-        let attempt = match row.get::<_, i64>(1).map_err(sql)? {
-            0 => None,
-            n => Some(n.to_string()),
-        };
-        if rows.next().map_err(sql)?.is_some() {
-            return Err(RpcError::conflict("Terminal has more than one receiver"));
-        }
-        Ok(Some((id, attempt)))
+            .map_err(sql)?
     }
 
     /// Every node, each parent before its children, siblings by `order`.
@@ -445,61 +444,42 @@ impl Rail {
         &mut self,
         id: &str,
         removal: &contracts::agent::Removal,
-        attachments: &[(&str, std::path::PathBuf)],
         apply: impl FnOnce(&Connection) -> Result<T, RpcError>,
     ) -> Result<T, RpcError> {
         self.db
             .pragma_update(None, "foreign_keys", true)
             .map_err(sql)?;
-        let mut attached = Vec::new();
-        let result = (|| {
-            for (name, path) in attachments {
-                self.db
-                    .execute(
-                        &format!("ATTACH DATABASE ? AS {name}"),
-                        [path.to_string_lossy()],
-                    )
-                    .map_err(sql)?;
-                attached.push(*name);
-            }
-            let tx = self
-                .db
-                .transaction_with_behavior(TransactionBehavior::Immediate)
-                .map_err(sql)?;
-            let out = apply(&tx)?;
-            let nodes = load(&tx)?;
-            let node = find(&nodes, id)?;
-            let mut ids = siblings(&nodes, node.parent.as_deref());
-            let at = ids
+        let tx = self
+            .db
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql)?;
+        let out = apply(&tx)?;
+        let nodes = load(&tx)?;
+        let node = find(&nodes, id)?;
+        let mut ids = siblings(&nodes, node.parent.as_deref());
+        let at = ids
+            .iter()
+            .position(|s| s == id)
+            .expect("Workstream is a sibling");
+        ids.splice(
+            at..=at,
+            removal
+                .kept
                 .iter()
-                .position(|s| s == id)
-                .expect("Workstream is a sibling");
-            ids.splice(
-                at..=at,
-                removal
-                    .kept
-                    .iter()
-                    .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
-                    .map(|i| i.id.clone()),
-            );
-            place(&tx, node.parent.as_deref(), &ids)?;
-            for item in removal.removed.iter().rev() {
-                if item.kind == contracts::agent::RemovalKind::Agent {
-                    tx.execute("DELETE FROM nodes WHERE id = ?", [&item.id])
-                        .map_err(sql)?;
-                }
+                .filter(|i| i.kind == contracts::agent::RemovalKind::Agent)
+                .map(|i| i.id.clone()),
+        );
+        place(&tx, node.parent.as_deref(), &ids)?;
+        for item in removal.removed.iter().rev() {
+            if item.kind == contracts::agent::RemovalKind::Agent {
+                tx.execute("DELETE FROM nodes WHERE id = ?", [&item.id])
+                    .map_err(sql)?;
             }
-            tx.execute("DELETE FROM nodes WHERE id = ?", [id])
-                .map_err(sql)?;
-            tx.commit().map_err(sql)?;
-            Ok(out)
-        })();
-        for name in attached {
-            self.db
-                .execute_batch(&format!("DETACH DATABASE {name}"))
-                .expect("detach coordinated removal store after transaction ends");
         }
-        result
+        tx.execute("DELETE FROM nodes WHERE id = ?", [id])
+            .map_err(sql)?;
+        tx.commit().map_err(sql)?;
+        Ok(out)
     }
 
     /// M7: record that Agent `creator` created node `id`; it goes with the node.

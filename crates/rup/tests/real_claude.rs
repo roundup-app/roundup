@@ -1,10 +1,13 @@
-//! E11: aimock owns matching and the request journal.
+//! D2, E3, E6, E11, E12: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
 use daemon::aimock;
 
-use serde_json::json;
+use contracts::{EventData, Kind};
+use daemon::{next, rail_tree};
+use serde_json::{Value, json};
+use std::time::Duration;
 
 #[test]
 fn e11_an_unmatched_request_fails() {
@@ -123,4 +126,274 @@ os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], 
             .all(|entry| entry["credentials"].as_array().unwrap().is_empty()),
         "credential reached a hook or MCP: {records:?}"
     );
+}
+
+#[tokio::test]
+async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
+    use contracts::EventData;
+    use contracts::agent::{Channel, RailNode};
+    use std::time::Duration;
+
+    let project = daemon::start_real(
+        "e6_immediate_shim",
+        &[("ROUNDUP_CHANNEL_DEADLINE_MS", "3000")],
+    );
+    let mut events = project.subscribed().await;
+
+    let node: RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            events.request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E10 immediate shim"
+                }),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(node.channel, Some(Channel::Pending));
+
+    assert_eq!(
+        daemon::next(&mut events, |data| match data {
+            EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
+            _ => None,
+        })
+        .await,
+        Channel::Up
+    );
+    tokio::time::sleep(Duration::from_millis(3500)).await;
+    assert_eq!(
+        daemon::rail_tree(&events)
+            .await
+            .into_iter()
+            .find(|entry| entry.id == node.id)
+            .unwrap()
+            .channel,
+        Some(Channel::Up)
+    );
+    let model = project.model.as_ref().unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while !model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["tools"].is_array())
+        {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("real Claude reaches the model");
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context() {
+    let project = daemon::start_real("e3_startup_context", &[]);
+    let user = project.client().await;
+    let mut events = project.subscribed().await;
+    let node = user
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": project.dir.path(), "prompt": "E3"
+            }),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let request = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(entry) = model
+                .journal()
+                .into_iter()
+                .find(|entry| entry["body"]["tools"].is_array())
+            {
+                return entry;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("real Claude requests its first work turn");
+    let messages = request["body"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|message| message["content"].as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(messages.contains("Parent: none"), "{request:#?}");
+    assert!(
+        messages.contains(&format!(
+            "Your Agent id is {}. It never changes.",
+            node["id"].as_str().unwrap()
+        )),
+        "{request:#?}"
+    );
+    for line in ["Ask: the user", "Peers: none.", "Todos: none open."] {
+        assert!(messages.contains(line), "{request:#?}");
+    }
+    let brief = user
+        .request("agent.brief", json!({"id": node["id"]}))
+        .await
+        .unwrap();
+    let hook: Value = serde_json::from_str(brief["stdout"].as_str().unwrap()).unwrap();
+    assert!(
+        messages.contains(
+            hook["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+        )
+    );
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut events, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == node["id"].as_str().unwrap() && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    model.assert_matched();
+    assert_eq!(
+        model
+            .journal()
+            .iter()
+            .filter(|entry| entry["body"]["tools"].is_array())
+            .count(),
+        1
+    );
+    assert_eq!(
+        rail_tree(&user)
+            .await
+            .into_iter()
+            .find(|item| item.id == node["id"].as_str().unwrap())
+            .unwrap()
+            .name,
+        "e3"
+    );
+}
+
+#[tokio::test]
+async fn d2_the_first_prompt_names_the_agent() {
+    let project = daemon::start_real("d2_the_first_prompt_names_the_agent", &[]);
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "fix the refresh race"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == agent.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    let tree = rail_tree(&client).await;
+    let named: Vec<_> = tree.iter().filter(|node| node.id == agent.id).collect();
+    assert_eq!(named.len(), 1);
+    assert_eq!(named[0].name, "fix-refresh-race");
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    assert!(
+        model.journal().iter().any(|entry| {
+            entry["body"]["tools"].is_array()
+                && entry["body"]["messages"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|message| {
+                        message["role"] == "user"
+                            && message["content"]
+                                .as_str()
+                                .is_some_and(|text| text.contains("fix the refresh race"))
+                    })
+        }),
+        "real Claude sends the first prompt to aimock"
+    );
+}
+
+#[tokio::test]
+async fn d2_status_follows_the_hooks_in_order() {
+    let project = daemon::start_real("d2_status_follows_the_hooks_in_order", &[]);
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "fix the refresh race"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    let mut kinds = Vec::new();
+    for _ in 0..5 {
+        kinds.push(daemon::next_kind(&mut client).await);
+        if kinds.len() == 3 {
+            let decisions: Vec<contracts::decision::Decision> = serde_json::from_value(
+                tokio::time::timeout(
+                    Duration::from_secs(30),
+                    client.request("decision.list", Value::Null),
+                )
+                .await
+                .expect("decision.list answers within the bound")
+                .unwrap(),
+            )
+            .unwrap();
+            let decision = decisions
+                .iter()
+                .find(|decision| decision.agent == agent.id)
+                .unwrap();
+            assert_eq!(decision.tool, "Bash");
+            tokio::time::timeout(
+                Duration::from_secs(30),
+                client.request(
+                    "decision.answer",
+                    json!({
+                        "id": decision.id, "answer": "allow", "proof": "0".repeat(64)
+                    }),
+                ),
+            )
+            .await
+            .expect("decision.answer answers within the bound")
+            .unwrap();
+        }
+    }
+    assert_eq!(
+        kinds,
+        [
+            Kind::Idle,
+            Kind::Working,
+            Kind::NeedsYou,
+            Kind::Working,
+            Kind::Idle
+        ]
+    );
+    let model = project.model.as_ref().unwrap();
+    model.tool_result("toolu_d2_touch").await;
+    assert!(project.dir.path().join("d2-permitted").is_file());
+    model.assert_matched();
 }
