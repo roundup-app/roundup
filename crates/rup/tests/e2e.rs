@@ -824,15 +824,10 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
 
 #[tokio::test]
 async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
-    let report = tempfile::tempdir().unwrap().keep().join("seen.json");
-    let tools = json!([
-        { "name": "todo_create", "arguments": { "title": "plan the workstream" } },
-        { "name": "todo_update", "arguments": { "id": "$id", "body": "owned files: none yet" } },
-    ]);
-    let project = start(&[
-        ("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap()),
-        ("FAKE_CLAUDE_TOOLS", &tools.to_string()),
-    ]);
+    let project = daemon::start_real(
+        "b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp",
+        &[],
+    );
     let mut client = project.subscribed().await;
     let workstream = client
         .request(
@@ -852,21 +847,35 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         _ => None,
     })
     .await;
-    let seen = seen_at(&report).await;
-
-    assert!(seen.brief.contains("coordinating Door"));
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_update_todo").await;
     assert!(
-        seen.brief.contains(HOLD_PLAIN),
-        "Q1: the pinned hold:Plain body"
+        result["content"]
+            .as_str()
+            .unwrap()
+            .contains("owned files: none yet"),
+        "{result}"
     );
+    let journal = model.journal();
+    let request = &journal
+        .iter()
+        .find(|entry| entry["body"]["tools"].is_array())
+        .unwrap()["body"];
+    let brief = request["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "system")
+        .map(|m| m["content"].as_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(brief.contains("coordinating Door"), "{request}");
+    assert!(brief.contains(HOLD_PLAIN), "Q1: the pinned hold:Plain body");
     assert!(
-        seen.brief.contains(REDUCE) && seen.brief.contains(SHOW_ME),
+        brief.contains(REDUCE) && brief.contains(SHOW_ME),
         "Q6: the pinned reduce and show-me bodies"
     );
-    assert!(!seen.brief.contains(&format!("Agent id is {door}")));
-    let mut listed = seen.tools;
-    listed.sort();
-    assert_eq!(advertised(&seen.brief), listed);
+    assert!(!brief.contains(&format!("Agent id is {door}")));
     assert_eq!(updated.title, "plan the workstream");
     assert_eq!(updated.body, "owned files: none yet");
     assert_eq!(
@@ -2962,15 +2971,34 @@ async fn m10_write_emits_the_event_and_logs_a_touch() {
 
 /// A33: an idle Agent whose own Todo waits on an open blocker reads `blocked`, and idle again
 /// once the blocker completes or the Todo is deleted.
-async fn a33_blocked_agent() -> (Project, rpc::Client, RailNode) {
-    let tools = json!([
-        { "name": "todo_create", "arguments": { "title": "blocker" } },
-        { "name": "todo_create", "arguments": { "title": "waiting", "blockers": [1] } },
-    ]);
-    let project = start(&[("FAKE_CLAUDE_TOOLS", &tools.to_string())]);
+async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
+    let project = daemon::start_real(fixture, &[]);
     let client = project.client().await;
-    let agent = project.spawn_agent(&client).await;
-    signal(&client, &agent.id, json!({"hook_event_name": "Stop"})).await;
+    let agent: RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E10 create a blocked todo"
+                }),
+            ),
+        )
+        .await
+        .expect("agent.spawn answered within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    let result = project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_waiting")
+        .await;
+    assert!(
+        result["content"].as_str().unwrap().contains("waiting"),
+        "{result}"
+    );
     (project, client, agent)
 }
 
@@ -2997,14 +3025,16 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
 
 #[tokio::test]
 async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
-    let (_project, client, agent) = a33_blocked_agent().await;
+    let (_project, client, agent) =
+        a33_blocked_agent("a33_an_idle_agent_with_a_blocked_todo_reads_blocked").await;
     let status = a33_reading(&client, &agent.id, Kind::Blocked).await;
     assert_eq!(status.label, "waits on #1");
 }
 
 #[tokio::test]
 async fn a33_completing_the_blocker_reads_idle() {
-    let (_project, client, agent) = a33_blocked_agent().await;
+    let (_project, client, agent) =
+        a33_blocked_agent("a33_completing_the_blocker_reads_idle").await;
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
         .request("todo.complete", json!({ "id": 1 }))
@@ -3015,7 +3045,7 @@ async fn a33_completing_the_blocker_reads_idle() {
 
 #[tokio::test]
 async fn a33_deleting_the_todo_reads_idle() {
-    let (_project, client, agent) = a33_blocked_agent().await;
+    let (_project, client, agent) = a33_blocked_agent("a33_deleting_the_todo_reads_idle").await;
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
         .request("todo.delete", json!({ "id": 2 }))
