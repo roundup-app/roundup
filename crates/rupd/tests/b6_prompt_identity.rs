@@ -1384,6 +1384,13 @@ async fn b6_a_full_terminal_refuses_interrupt_before_bytes() {
         &vec![b'x'; queued],
     ]
     .concat();
+    tokio::time::timeout(BOUND, async {
+        while run.screen().await.matches("BYTE:78").count() < queued {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
     assert_eq!(recorded_bytes(&run).await, expected);
     let _ = order.await.unwrap();
     run.finish().await;
