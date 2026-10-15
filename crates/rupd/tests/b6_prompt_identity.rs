@@ -2081,9 +2081,10 @@ async fn b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt() {
     run.finish().await;
 }
 
-#[tokio::test]
-async fn b6_begin_racing_a_door_write_waits_for_the_child_effect() {
-    let (run, caller) = door_terminal().await;
+async fn pause_door_write(
+    run: &Run,
+    caller: Arc<Client>,
+) -> tokio::task::JoinHandle<Result<Value, RpcError>> {
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "pause").unwrap();
     let terminal = run.terminal.clone();
@@ -2102,14 +2103,29 @@ async fn b6_begin_racing_a_door_write_waits_for_the_child_effect() {
     })
     .await
     .unwrap();
+    write
+}
+
+async fn release_door_write(run: &Run, write: tokio::task::JoinHandle<Result<Value, RpcError>>) {
+    std::fs::remove_file(run.dir.path().join("input-gate")).unwrap();
+    tokio::time::timeout(BOUND, write)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_write_waits_for_the_child_effect() {
+    let (run, caller) = door_terminal().await;
+    let write = pause_door_write(&run, caller).await;
     let user = Arc::clone(&run.user);
     let child = run.child.clone();
     let mut begin =
         tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
     // The physical input observer establishes that the Door call is inside its effect.
     let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
-    std::fs::remove_file(&gate).unwrap();
-    write.await.unwrap().unwrap();
+    release_door_write(&run, write).await;
     assert!(
         early.is_err(),
         "Takeover acquired before the Door write: {early:?}"
@@ -2120,5 +2136,72 @@ async fn b6_begin_racing_a_door_write_waits_for_the_child_effect() {
         .unwrap()
         .unwrap();
     assert_eq!(recorded_bytes(&run).await, b"once");
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_another_childs_takeover_does_not_wait_for_a_door_write() {
+    let (run, caller) = door_terminal().await;
+    let other = caller
+        .request(
+            "agent.spawn",
+            json!({"name":"other child","cwd":run.dir.path()}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let output = run
+                .user
+                .request(
+                    "terminal.read",
+                    json!({"id":other["terminal_id"],"after":0}),
+                )
+                .await
+                .unwrap();
+            if output["text"].as_str().unwrap().contains("READY") {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let write = pause_door_write(&run, caller).await;
+    let begin = tokio::time::timeout(
+        Duration::from_secs(1),
+        run.user
+            .request("takeover.begin", json!({"agent":other["id"]})),
+    )
+    .await;
+    release_door_write(&run, write).await;
+    begin
+        .expect("another child's Takeover waited for the paused write")
+        .unwrap();
+    run.user
+        .request("agent.stop", json!({"id":other["id"]}))
+        .await
+        .unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_direct_user_input_does_not_wait_for_a_door_write() {
+    let (run, caller) = door_terminal().await;
+    let write = pause_door_write(&run, caller).await;
+    // Direct input acknowledges enqueue even while the Door's physical write is paused.
+    let user_write = tokio::time::timeout(
+        Duration::from_secs(1),
+        run.user.request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"user")}),
+        ),
+    )
+    .await;
+    release_door_write(&run, write).await;
+    user_write
+        .expect("direct user input waited for the Door write")
+        .unwrap();
+    assert_eq!(recorded_bytes(&run).await, b"onceuser");
     run.finish().await;
 }
