@@ -98,3 +98,17 @@ it("u474_tooltip_pointer_and_keyboard", async () => {
   await browser("press", "Tab");
   await browser("wait", "--fn", `!document.querySelector('[role=tooltip]')`);
 }, 60_000);
+
+for (const path of ["hover", "focus"] as const) {
+  it(`u477_icon_button_${path}_shows_its_name`, async () => {
+    await load();
+    const selector = '[aria-label="Open Project"]';
+    if (path === "hover") await browser("hover", selector);
+    else {
+      await browser("eval", `document.querySelector('[data-scope=tooltip][data-part=trigger]').focus()`);
+      await browser("press", "Tab");
+    }
+    await browser("wait", "--fn", `!!document.querySelector('[role=tooltip]')`);
+    expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.textContent`)).toBe("Open Project");
+  }, 60_000);
+}
