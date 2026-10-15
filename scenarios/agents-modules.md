@@ -38,8 +38,8 @@ Then:
   visibility adjustments needed to compile them. No new behaviour, test
   retirement or unrelated cleanup. Observer: review each commit separately,
   using `git show --color-moved` for moves.
-- **Regression (policy).** Every pre-existing `agents` test passes unchanged, including
-  the crate's unit, integration and documentation tests. Run `cargo test -p
+- **Regression (policy).** Every pre-existing `agents` test passes unchanged,
+  including the crate's unit, integration and documentation tests. Run `cargo test -p
   agents` and `just check origin/main`; preserve the existing scenario assertions,
   rather than adding tests that reread module layout. Existing assertions include
   `a6_move_reorders_and_keeps_orders_contiguous_from_zero` and
@@ -74,5 +74,5 @@ qualified by module. List holder fields individually rather than counting the
 holder itself as a second reader. These tables are policy evidence inspected
 against the implementation, not new tests of source text.
 
-A nonzero command or a violated policy clause fails AM1. The specification PR establishes this
-acceptance only; it does not claim the refactor or the size guard is delivered.
+A nonzero command or a violated policy clause fails AM1. The specification PR
+establishes this acceptance only; it does not claim the refactor or the size guard is delivered.
