@@ -111,6 +111,11 @@
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
+/* U137: quiet labels need stronger ink on the selected wash to keep D5. */
+.rail-row[data-selected="true"] .rail-add-label {
+  color: var(--text);
+}
+
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
 .rail-row {
   position: relative;
