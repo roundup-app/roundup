@@ -1,4 +1,4 @@
-/** U26: run before Vitest; reuse its browser selection, launcher and reply deadline. */
+/** U26: run before Vitest; reuse its browser selection and launcher. Startup measurements: issue-1977.md. */
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -6,6 +6,7 @@ import { chromePath, openPage } from "../../apps/desktop/src/testing/chromePage.
 
 type Observation =
   | { call: number; status: "starting" }
+  | { call: number; status: "stage"; stage: string; duration_ms: number }
   | { call: number; status: "answered"; duration_ms: number; value: number }
   | { call: number; status: "closed"; duration_ms: number }
   | { call: number; status: "failed"; duration_ms: number; error: string }
@@ -38,7 +39,7 @@ const results = await Promise.allSettled([0, 1].map(async (call) => {
   const began = performance.now();
 
   try {
-    const page = await openPage(executable, { root: fileURLToPath(new URL("../../apps/desktop/", import.meta.url)) });
+    const page = await openPage(executable, { root: fileURLToPath(new URL("../../apps/desktop/", import.meta.url)), startupMs: 60_000, observe: (stage, duration_ms) => record({ call, status: "stage", stage, duration_ms }) });
 
     try {
       const value = await page.call<number>("() => 42");

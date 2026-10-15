@@ -59,28 +59,47 @@ export type ChromePage = {
   close(): Promise<void>;
 };
 
+/** Startup awaits the page acknowledgement and attachment within startupMs (defaults to replyMs). Post-startup replies retain replyMs; observe reports completed stages in elapsed milliseconds. */
 export const openPage = async (
   found: string,
-  { root = process.cwd(), clock, replyMs = 20_000 }: { root?: string; clock?: number; replyMs?: number } = {},
+  { root = process.cwd(), clock, replyMs = 20_000, startupMs = replyMs, observe }: { root?: string; clock?: number; replyMs?: number; startupMs?: number; observe?: (stage: string, elapsedMs: number) => void } = {},
 ): Promise<ChromePage> => {
   const startup = performance.now();
+  let stage = "executable-reading";
+  let ready = false;
+
+  const completed = (name: string) => {
+    stage = name;
+    observe?.(name, performance.now() - startup);
+  };
+
+  completed(stage);
 
   if (process.platform === "linux") {
     // U26's private cold executable at 100 read IOPS exhausts 20 s on
     // scattered demand faults. Large sequential reads use fewer disk requests
     // (3.1 s total at 140 IOPS versus two startup timeouts without them).
     // Stream rather than retaining Chrome's ~300 MB executable in Node's RSS.
-    const executable = createReadStream(found, { highWaterMark: 4 * 1024 * 1024, signal: AbortSignal.timeout(replyMs) });
+    const executable = createReadStream(found, { highWaterMark: 4 * 1024 * 1024, signal: AbortSignal.timeout(startupMs) });
 
     executable.resume();
-    await finished(executable);
+
+    try {
+      await finished(executable);
+    } catch (error) {
+      throw new Error(`Chromium startup timed out or failed during ${stage}; limit=${startupMs} ms; elapsed=${performance.now() - startup} ms`, { cause: error });
+    }
   }
+
+  completed("executable-read");
 
   // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
   const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
 
   await server.listen();
+
+  completed("server-listening");
 
   const origin = (server.resolvedUrls?.local[0] ?? "").replace(/\/$/, "");
   const profile = mkdtempSync(join(tmpdir(), "chrome-page-"));
@@ -115,6 +134,8 @@ export const openPage = async (
       },
     },
   );
+
+  completed("launched");
 
   let diagnostics = "";
 
@@ -217,15 +238,14 @@ export const openPage = async (
     if (failure !== undefined) return Promise.reject(new Error(`${method}: ${failure}`));
 
     const id = ++next;
-    const started = id === 1 ? startup : performance.now();
-    // Preparation consumes the same startup budget; it cannot hide a stall
-    // before a fresh 20-second Target.createTarget timer starts.
-    const budget = Math.max(0, replyMs - (performance.now() - started));
+    const started = ready ? performance.now() : startup;
+    const limit = ready ? replyMs : startupMs;
+    const budget = Math.max(0, limit - (performance.now() - started));
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after ${replyMs} ms; elapsed=${performance.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
+        reject(new Error(`${method} timed out after ${limit} ms; last completed stage=${stage}; elapsed=${performance.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
       }, budget);
 
       waiting.set(id, (reply) => {
@@ -313,8 +333,14 @@ export const openPage = async (
   };
 
   try {
+    // Target.createTarget acknowledges a real page in Chromium; executable
+    // reading alone cannot settle startup. Attachment keeps the same absolute
+    // startup bound; normal calls retain their separate reply deadline.
     targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+    completed("target-created");
     await attach();
+    completed("page-ready");
+    ready = true;
   } catch (error) {
     // A failed startup must not leave Chromium competing with the next test file.
     await close();
