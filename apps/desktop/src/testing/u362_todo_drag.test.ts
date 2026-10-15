@@ -87,7 +87,10 @@ run('u137 compound selected ground', () => {
           document.querySelector('.compound').style.backgroundImage = 'linear-gradient(rgb(255, 255, 255), rgb(255, 255, 255)), linear-gradient(rgba(255, 255, 255, .4), rgba(255, 255, 255, .4))';
           document.querySelector('.compound button').style.color = 'rgb(170, 170, 170)';
         }
-        if (coverage === 'single') document.querySelector('.compound').style.backgroundImage = 'linear-gradient(rgba(0, 0, 0, .1), rgba(0, 0, 0, .1))';
+        if (coverage === 'single') {
+          document.querySelector('.compound').style.backgroundImage = 'linear-gradient(rgba(0, 0, 0, .1), rgba(0, 0, 0, .1))';
+          document.querySelector('.compound').style.backgroundSize = 'auto';
+        }
         if (coverage === 'partial') document.querySelector('.compound').style.backgroundSize = '2px 100%, 50% 100%';
         if (coverage === 'overlapping') document.querySelector('.compound').style.backgroundSize = '100% 100%, auto';
       }`, coverage, scheme);
@@ -96,7 +99,8 @@ run('u137 compound selected ground', () => {
       expect(checks.D10?.status).toBe('fail');
       expect(checks.D10?.value).toEqual(expect.objectContaining({failing: expect.arrayContaining(['D5'])}));
 
-      if (coverage === 'full' || coverage === 'single') expect(checks.D5?.value).toEqual({text: expect.any(Number)});
+      // WCAG: #707070 on RGB(229.5,229.5,229.5); #aaa on #666. The leading mark is outside the label.
+      if (coverage === 'full' || coverage === 'single') expect(checks.D5?.value).toEqual({text: expect.closeTo(scheme === 'dark' ? 2.471602 : 3.949511, 5)});
       else expect(checks.D5?.value).toBe('not measurable');
     }, 30_000);
   }
