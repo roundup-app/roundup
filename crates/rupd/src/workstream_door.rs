@@ -40,7 +40,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
         modules: Default::default(),
-        todos: Arc::new(todos::Todos::open(&dir, bus.clone(), &touches).unwrap()),
+        todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
@@ -55,7 +55,6 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         agents: agents.clone(),
         notes: Default::default(),
         sender: Default::default(),
-        old_bound: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
         clears: Default::default(),
     };
@@ -274,7 +273,7 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
         modules: Default::default(),
-        todos: Arc::new(todos::Todos::open(&dir, bus.clone(), &touches).unwrap()),
+        todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
@@ -289,7 +288,6 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
         agents: agents.clone(),
         notes: Default::default(),
         sender,
-        old_bound: Default::default(),
         attachments: crate::attachment::Attachments::open(&dir),
         clears: Default::default(),
     };
