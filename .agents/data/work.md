@@ -16,7 +16,7 @@ Mode is `implement` or `specify`; a specification Issue may propose new scenario
 
 An Issue with no `Key:` line is a request, such as a bug report: the queue builds it as `Mode: specify` with Key `issue-<number>` and Priority 50. That build run adds the request's scenarios, then edits the Issue to add the fields above (L34).
 
-Key is an immutable branch identity: letters, digits and single hyphens; its Builder branch is `build/<key>`. Priority is 0 (first) through 100 (last). Native GitHub blocked-by dependencies hold Issue numbers; only a dependency closed as completed frees work. Cancelled dependencies, malformed orders and duplicate Keys need engineering repair, not user escalation. A dependency cycle must be corrected before execution.
+Key is an immutable branch identity: letters, digits and single hyphens; its Builder branch is `build/<key>`. Priority is 0 (first) through 100 (last). Native GitHub blocked-by dependencies hold Issue numbers; a dependency closed as completed or as not planned frees work, and a not-planned one is never added. Malformed orders and duplicate Keys need engineering repair, not user escalation. A dependency cycle must be corrected before execution.
 
 An open work order is queued as soon as it exists; add its native dependencies when you file it. Routine engineering decisions use the accepted product/design documents. New specifications must merge before their implementation Issue is eligible: make it blocked by the specification Issue and close that Issue from its specification PR.
 
