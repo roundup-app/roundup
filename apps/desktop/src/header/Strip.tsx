@@ -78,6 +78,7 @@ export const Strip = (props: {
       return;
     }
 
+    const frame = list.getBoundingClientRect();
     const from = list.scrollLeft;
     const to = from + list.clientWidth;
     const out: Record<"left" | "right", StripTab[]> = { left: [], right: [] };
@@ -97,9 +98,12 @@ export const Strip = (props: {
       // The open tab is never covered: where the list is barely wider than one tab, covering its cut would hide the only tab in view.
       const open = tab.path === props.active;
 
-      if (near < from && far > from && !open) startPiece = far - from;
+      // The cover is exactly the piece that shows: fractional layout, so it neither leaves a sliver of the cut tab's border nor reaches the next tab's.
+      const box = element.getBoundingClientRect();
 
-      if (near < to && far > to && !open) endPiece = to - near;
+      if (near < from && far > from && !open) startPiece = box.right - frame.left;
+
+      if (near < to && far > to && !open) endPiece = frame.right - box.left;
 
       if (tab.path === props.active && ((near < from && far > from) || (near < to && far > to))) activeCut = true;
 

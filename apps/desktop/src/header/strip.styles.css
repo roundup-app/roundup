@@ -128,7 +128,7 @@
   height: 100%;
 }
 
-/* A tab the list cuts at an end is left out there: the header's own ground covers the whole piece that shows and the gap to the next tab, so no half box remains. */
+/* A tab the list cuts at an end is left out there: the header's own ground covers exactly the piece that shows, and takes clicks so blank ground never reaches the hidden tab under it, so no half box remains. */
 .tablist-frame {
   position: relative;
   display: flex;
@@ -142,8 +142,7 @@
   top: 0;
   /* The header's rule runs along the row's bottom edge: the cover stops above it. */
   bottom: var(--rule);
-  width: calc(var(--cut) + var(--space-1));
-  pointer-events: none;
+  width: var(--cut);
 }
 
 .strip-fade-start {
