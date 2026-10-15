@@ -18,12 +18,11 @@ const laidOut = (element: Element | null) => {
   expect(style.fontFamily).toBe("var(--font-ui)");
 };
 
-const meetsD2D5 = () => {
+const meetsD2 = () => {
   // the test container is outside the app's stylesheet and holds no text of its own
   document.body.firstElementChild!.setAttribute("style", "font-size: var(--text-body)");
   const checks = runChecks();
   expect(checks.D2.status, JSON.stringify(checks.D2)).toBe("pass");
-  expect(checks.D5.status, JSON.stringify(checks.D5.value)).toBe("pass");
 };
 
 describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
@@ -131,14 +130,16 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     await toYou("Run `just check` first.\n```\ncargo test\n```\n| Agent | State |\n| --- | --- |\n| alpha | editing |\n| beta | idle |\nNext: wait.");
     await waitFor(() => expect(document.querySelector("[data-message-body] table")).not.toBeNull());
     expect(document.querySelector("[data-message-body] pre")).not.toBeNull();
-    meetsD2D5();
+    // D5 needs painted layout: src/testing/u197_column.test.ts::q3_thread_text_meets_d2_d5_on_painted_layout.
+    meetsD2();
   });
 
   it("q3_decision_card_meets_d2_d5", async () => {
     await mountApp([asking("d1", "a", "Which folder should I use?", ["src", "docs"])]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
-    meetsD2D5();
+    // D5 needs painted layout: src/testing/u197_column.test.ts::q3_decision_card_meets_d2_d5_on_painted_layout.
+    meetsD2();
   });
 
   it("q3_digest_card_meets_d2_d5", async () => {
@@ -147,7 +148,8 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       messages: [message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${text(entry)}` })],
     });
     await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
-    meetsD2D5();
+    // D5 needs painted layout: src/testing/u197_column.test.ts::q3_digest_card_meets_d2_d5_on_painted_layout.
+    meetsD2();
   });
 
   it.each([1280])("q3_the_surfaces_wrap_and_meet_d2_d5 at %i", async (width) => {
@@ -176,8 +178,8 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     // the test container is outside the app's stylesheet and holds no text of its own
     document.body.firstElementChild!.setAttribute("style", "font-size: var(--text-body)");
 
+    // D5 needs painted layout: src/testing/u197_column.test.ts::q3_long_drawer_wraps_and_meets_d2_d5_on_painted_layout.
     const checks = runChecks();
     expect(checks.D2.status, JSON.stringify(checks.D2)).toBe("pass");
-    expect(checks.D5.status, JSON.stringify(checks.D5.value)).toBe("pass");
   });
 });
