@@ -32,10 +32,6 @@
   flex: none;
 }
 
-.resource-project {
-  flex: none;
-}
-
 .resource-stale {
   color: var(--text);
 }
@@ -64,7 +60,7 @@
   white-space: nowrap;
 }
 
-/* Both resource groups fit beside long Terminal names without changing the bar's height. */
+/* Selected-Agent resources fit beside long Terminal names without changing the bar's height. */
 .terminal-tabs-host {
   grid-column: 1;
   grid-row: 1 / -1;
@@ -78,12 +74,6 @@
 .resource-stale {
   grid-column: 3;
   grid-row: 1;
-}
-
-.resource-project {
-  grid-column: 2 / -1;
-  grid-row: 2;
-  justify-self: end;
 }
 
 /* A wide Rail and Drawer can leave a narrow centre; units may wrap instead of clipping. */
