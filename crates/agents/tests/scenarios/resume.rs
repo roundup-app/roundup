@@ -410,6 +410,7 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
     };
     f.until_attempt_changed(&id, &old_attempt).await;
     tokio::time::advance(Duration::from_secs(11)).await;
+    // Cleanup waits on the real PTY reader; its exit bound needs the real clock.
     tokio::time::resume();
 
     let err = resuming.await.unwrap().unwrap_err();
@@ -442,10 +443,11 @@ async fn held_as_not_the_ack(session_id: &str, source: &str) {
 
     f.session_start(&id, session_id, source).await.unwrap();
     tokio::time::advance(Duration::from_secs(11)).await;
+    // Cleanup waits on the real PTY reader; its exit bound needs the real clock.
     tokio::time::resume();
 
     let err = resuming.await.unwrap().unwrap_err();
-    assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(err.code, code::CONFLICT, "{err}");
 }
 
 #[tokio::test]
