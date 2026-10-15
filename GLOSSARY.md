@@ -508,6 +508,9 @@ A Token-styled list of App actions opened from a control.
 **Tooltip**:
 A Token-styled explanation shown on hover or focus of an App control.
 
+**Tabs**:
+A Token-styled set of named App views, with one selected view and its panel visible at a time.
+
 **IconButton**:
 An App button of the icon kind, named for its action for assistive technology.
 
