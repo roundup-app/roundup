@@ -515,3 +515,11 @@ Register a KeyScope's chords, guards and actions for its owner's lifetime.
 
 **chordsFor**:
 The matching spellings of one displayed Help chord.
+
+### Shared hierarchy and ordering
+
+**TreeView**:
+The App's Token-styled Ark tree parts, with caller-owned rows and collection identity; Ark owns focus, traversal, expansion and tree semantics.
+
+**Sortable**:
+The App's library-driven ordering parts, with caller-owned rows and named handles. The library owns preview, sensors, cancellation and scrolling; a completed reorder reports one order to the caller, which owns durable data.

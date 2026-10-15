@@ -23,3 +23,74 @@
   margin: 0;
   font: inherit;
 }
+
+.app-tree [data-part="branch-control"],
+.app-tree [data-part="item"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-6);
+  padding-inline: var(--space-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.app-tree [data-part="branch-content"] {
+  padding-inline-start: var(--space-4);
+}
+
+.app-tree [data-part="branch-control"]:focus-visible,
+.app-tree [data-part="item"]:focus-visible {
+  outline: var(--hairline) solid var(--accent);
+}
+
+.sortable-fixture {
+  max-height: var(--order-field-max-height);
+  overflow: auto;
+}
+
+.sortable-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-6);
+}
+
+.app-tree [data-part="branch"] {
+  cursor: pointer;
+}
+
+.app-tree [data-part="branch-control"]:hover,
+.app-tree [data-part="item"]:hover {
+  background-color: var(--hover);
+}
+
+.app-tree [data-part="branch"]:focus-visible {
+  outline: var(--hairline) solid var(--accent);
+}
+
+[data-scope="tree-view"][data-part="label"] {
+  margin: 0;
+  font: inherit;
+}
+
+.app-tree [data-part="branch-control"]:active,
+.app-tree [data-part="item"]:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
+}
+
+.app-tree [data-part="branch"]:hover {
+  color: var(--text);
+}
+
+.app-tree [data-part="branch"]:active {
+  background-color: var(--pressed);
+  color: var(--text);
+  transition-duration: 0s;
+}
+
+/* The library's clipped live region stays offscreen without its off-scale negative margin. */
+[id^="dnd-kit-announcement-"] {
+  margin: 0 !important;
+}

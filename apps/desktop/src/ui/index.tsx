@@ -1,3 +1,4 @@
+import { TreeView as ArkTreeView } from "@ark-ui/solid/tree-view";
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
@@ -32,3 +33,10 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
 
   return <button type="button" {...rest} data-button="icon" class={`word ${local.class ?? ""}`} />;
 };
+
+export const TreeView = {
+  ...ArkTreeView,
+  Tree: (props: ArkTreeView.TreeProps) => <ArkTreeView.Tree {...props} class={`app-tree ${props.class ?? ""}`} />,
+};
+
+export { Sortable } from "./sortable";

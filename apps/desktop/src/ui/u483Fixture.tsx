@@ -1,3 +1,4 @@
+import { render } from "solid-js/web";
 import { createSignal, For, Show } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { TreeView, IconButton } from "./index";
@@ -13,10 +14,11 @@ const collection = createTreeCollection<Node>({
   rootNode: { id: "root", children: [{ id: "Alpha", children: [{ id: "Beta", children: [{ id: "Cedar" }] }, { id: "Delta" }] }, { id: "Echo" }] },
 });
 
-export const u483Fixture = () => {
+const u483Fixture = () => {
   const [expanded, expand] = createSignal<string[]>([]);
   const [selected, select] = createSignal<string[]>([]);
-  const row = (node: Node) => <><span aria-hidden="true">○</span><span id={`label-${node.id}`}>{node.id}</span><IconButton tabIndex={-1} aria-label={`Inspect ${node.id}`} onClick={(event) => event.stopPropagation()}>+</IconButton></>;
+  const row = (node: Node) => <><span class="glyph" aria-hidden="true">○</span><span id={`label-${node.id}`}>{node.id}</span><IconButton data-reads="text" tabIndex={-1} aria-label={`Inspect ${node.id}`} onClick={(event) => event.stopPropagation()}>+</IconButton></>;
+
   const node = (item: Node, indexPath: number[]) => <TreeView.NodeProvider node={item} indexPath={indexPath}>
     <Show when={item.children} fallback={<TreeView.Item aria-labelledby={`label-${item.id}`} data-id={item.id}>{row(item)}</TreeView.Item>}>
       <TreeView.Branch aria-labelledby={`label-${item.id}`} data-id={item.id}>
@@ -32,3 +34,5 @@ export const u483Fixture = () => {
     <button data-button="quiet" onClick={() => { expand(["Alpha", "Beta"]); select(["Cedar"]); }}>Select Cedar</button>
   </TreeView.Root>;
 };
+
+render(u483Fixture, document.getElementById("root")!);
