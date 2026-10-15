@@ -271,6 +271,9 @@ _Avoid_: notification
 Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
 _Avoid_: inject, nudge
 
+**First Steer completion** (`FirstSteerCompletion`, `Agents::first_steer_completion`):
+The Agent's Attempt-bound observation of its initial Steer, covering H19's gate, queued or running Terminal input and submission. Submitted, refused and uncertain outcomes follow physical completion or an unwritten refusal; none authorizes retry. A lookup error establishes no completion. Cancelling the observation leaves the Steer accounted for.
+
 **Interrupt**:
 Ending the Agent's current turn through the Adapter (`agent.interrupt`); the Agent stays alive and becomes `idle`.
 _Avoid_: cancel, abort
