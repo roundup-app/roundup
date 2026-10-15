@@ -127,8 +127,9 @@ for (const path of ["hover", "focus"] as const) {
       await browser("press", "Tab");
     }
 
-    await browser("wait", "--fn", `!!document.querySelector('[role=tooltip]')`);
+    await browser("wait", "--fn", `document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.getClientRects().length > 0`);
     expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.textContent`)).toBe("Open Project");
+    expect(await read<number>(`[...document.querySelectorAll('[role=tooltip]')].filter(el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0).length`)).toBe(1);
   }, 60_000);
 }
 
@@ -139,6 +140,7 @@ it("u477_icon_button_leave_hides_its_name", async () => {
   await browser("mouse", "move", "1200", "700");
   await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'closed'`);
   expect(await read<string | null>(`document.getElementById('fixture-icon').getAttribute('aria-describedby')`)).toBeNull();
+  expect(await read<boolean>(`[...document.querySelectorAll('[role=tooltip]')].some(el => el.textContent === 'Open Project' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0)`)).toBe(false);
 }, 60_000);
 
 it("u477_icon_button_blur_hides_its_name", async () => {
@@ -149,6 +151,7 @@ it("u477_icon_button_blur_hides_its_name", async () => {
   await browser("press", "Tab");
   await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'closed'`);
   expect(await read<string | null>(`document.getElementById('fixture-icon').getAttribute('aria-describedby')`)).toBeNull();
+  expect(await read<boolean>(`[...document.querySelectorAll('[role=tooltip]')].some(el => el.textContent === 'Open Project' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0)`)).toBe(false);
 }, 60_000);
 
 it("u477_icon_button_preserves_button_props", async () => {
@@ -166,12 +169,14 @@ it("u477_disabled_icon_button_shows_its_name", async () => {
     if (path === "hover") await browser("hover", selector);
     else {
       await browser("mouse", "move", "1200", "700");
+      await browser("wait", "--fn", `document.querySelector('${selector}').dataset.state === 'closed'`);
       await browser("eval", `document.getElementById('fixture-icon').focus()`);
       await browser("press", "Tab");
     }
 
     await browser("wait", "--fn", `document.querySelector('${selector}').dataset.state === 'open'`);
     expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.textContent`)).toBe("Unavailable action");
+    expect(await read<boolean>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby')).getClientRects().length > 0`)).toBe(true);
   }
 }, 60_000);
 
