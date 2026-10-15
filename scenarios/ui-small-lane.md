@@ -91,4 +91,4 @@ Policy: run all existing tests in all nine directories, preserving every live sc
 
 The shared-provider implementation records each observer failure as its own row on #2003, with command/test, actual exit code and diagnostic; a skipped required comparison is incomplete evidence even on exit 0 (policy).
 
-The specification PR runs the last row and `just check origin/main`. Its merge completes #1606's specification only; a separate implementation Issue remains natively blocked by #1606 and any missing shared-provider implementation (policy).
+Specification-only PRs run the last row and `just check origin/main`. The lane specification belongs to #1606; its separate implementation depends on any missing shared-provider implementation. A U491/U492 specification PR uses `Refs #2003`, never closes #2003, and leaves its `Scenarios: U491, U492` and `Mode: implement` fields ready for implementation after the scenarios merge (policy).
