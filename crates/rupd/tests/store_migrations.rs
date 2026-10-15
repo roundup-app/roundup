@@ -160,3 +160,21 @@ fn n9_unexpected_schema_version_combinations_fail() {
         );
     }
 }
+
+#[test]
+fn n16_all_stores_share_one_project_database() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = rupd::Daemon::open(dir.path()).unwrap();
+    let mut databases: Vec<_> = std::fs::read_dir(dir.path()).unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "db"))
+        .collect();
+    databases.sort();
+    assert_eq!(databases, [dir.path().join("project.db")]);
+    let db = Connection::open(&databases[0]).unwrap();
+    for table in ["nodes", "settings", "todos", "blockers", "changes", "pads", "pad_settings", "touches", "messages", "routes", "message_restarts", "message_retirements", "pad_cursors", "checkpoints", "marks"] {
+        assert!(db.prepare(&format!("SELECT * FROM {table}")).is_ok(), "missing {table}");
+    }
+    drop(daemon);
+    drop(rupd::Daemon::open(dir.path()).unwrap());
+}
