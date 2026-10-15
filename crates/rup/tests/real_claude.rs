@@ -1,4 +1,4 @@
-//! D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -877,6 +877,54 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
             _ => None,
         })
         .await;
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp() {
+    let project = daemon::start_real("a26_three_deep", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a26_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a26_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    assert_eq!(a.parent.as_deref(), Some(door.as_str()));
+    assert_eq!(b.parent.as_deref(), Some(a.id.as_str()));
+    let tree = rail_tree(&client).await;
+    let ids: Vec<_> = tree.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, [door.as_str(), a.id.as_str(), b.id.as_str()]);
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let id = next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if [&door, &a.id, &b.id].contains(&&status.id)
+                    && status.status.kind == Kind::Idle =>
+            {
+                Some(status.id.clone())
+            }
+            _ => None,
+        })
+        .await;
+        idle.insert(id);
     }
     model.assert_matched();
 }
