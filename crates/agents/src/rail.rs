@@ -157,7 +157,10 @@ impl Rail {
             .db
             .prepare_cached("SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2")
             .map_err(sql)?;
-        let mut rows = query.query([terminal]).map_err(sql)?;
+        // The fixed SQL has one positional parameter. Bind it directly rather than
+        // asking SQLite to recount parameters on every fresh owner read.
+        query.raw_bind_parameter(1, terminal).map_err(sql)?;
+        let mut rows = query.raw_query();
         let Some(row) = rows.next().map_err(sql)? else {
             return Ok(None);
         };
