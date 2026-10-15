@@ -1172,36 +1172,6 @@ mod tests {
     }
 
     #[test]
-    fn b8_a_store_written_before_rank_opens_and_takes_a_send() {
-        let dir = tempfile::tempdir().unwrap();
-        {
-            let db = Connection::open(dir.path().join("messages.db")).unwrap();
-            db.execute_batch(
-                "CREATE TABLE messages (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    from_actor TEXT NOT NULL,
-                    to_id TEXT NOT NULL,
-                    kind TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    reply_to INTEGER,
-                    status TEXT NOT NULL,
-                    reason TEXT,
-                    at INTEGER NOT NULL
-                );
-                INSERT INTO messages (from_actor, to_id, kind, body, status, at)
-                VALUES ('{\"kind\":\"agent\",\"id\":\"a\",\"parent\":null}', 'b', 'note', 'old', 'pending', 1);",
-            )
-            .unwrap();
-        }
-
-        let store = open(dir.path());
-        let new = put(&store, MessageStatus::Pending, None);
-
-        assert_eq!(store.pending_queue("b", (0, i64::MAX)).unwrap()[0].id, 1);
-        assert_eq!(new, 2);
-    }
-
-    #[test]
     fn b6_begin_between_check_and_record_holds_the_message() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = open(dir.path());

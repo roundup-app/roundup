@@ -46,12 +46,14 @@ it("u469_the_bar_is_the_last_line_with_tabs_left_and_resources_right", async () 
 
     for (const width of [1280, 1440]) {
       await page.load('/harness.html?seed=bubbles', width, 800);
-      await page.until(`() => document.querySelector('.terminal-tabs') && document.querySelector('.resource-project')`);
+      await page.until(`() => Boolean(window.__fake)`);
+      await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
+      await page.until(`() => document.querySelector('.terminal-tabs') && document.querySelector('.resource-agent .resource-num')`);
 
       const read = await page.call<{last:boolean; left:boolean; dock:boolean}>(`() => {
         const bar = document.querySelector('.resource-strip');
         const tabs = document.querySelector('.terminal-tabs');
-        const resources = document.querySelector('.resource-project');
+        const resources = document.querySelector('.resource-agent');
         return {last:bar.parentElement.lastElementChild===bar, left:tabs.getBoundingClientRect().right<=resources.getBoundingClientRect().left, dock:!!document.querySelector('.bubble-dock')};
       }`);
 
@@ -235,7 +237,9 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
       await page.call(`() => document.querySelector('[data-id="dense"]').click()`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===10`);
       await record('selection');
-      await page.call(`() => { document.querySelector('.todo-project-root').click(); document.querySelector('.terminal-new').click(); }`);
+      await page.call(`() => document.querySelector('.todo-project-root').click()`);
+      await page.until(`() => document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true' && document.querySelector('.terminal-new')`);
+      await page.call(`() => document.querySelector('.terminal-new').click()`);
       await page.until(`() => document.querySelector('.bubble-failure[role="status"]')?.textContent==='Select a Workstream first'`);
       await record('missing-selection');
     }

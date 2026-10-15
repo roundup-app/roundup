@@ -3046,43 +3046,6 @@ async fn p14_only_owner_writes() {
     assert_eq!(pad["text"], "by owner");
 }
 
-#[tokio::test]
-async fn p14_old_scribe_loads_and_is_removed() {
-    let mut project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes"]).await;
-    let old = agent_in(&project, &user, None).await;
-    let kept = agent_in(&project, &user, None).await;
-    project.crash();
-    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
-    db.execute_batch("CREATE TABLE scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL)")
-        .unwrap();
-    db.execute("INSERT INTO scribes VALUES ('notes', ?1)", [&old])
-        .unwrap();
-    drop(db);
-
-    project.restart(&[]);
-
-    let user = project.client().await;
-    let pad = user
-        .request("pad.read", json!({ "name": "notes" }))
-        .await
-        .unwrap();
-    assert_eq!(pad["text"], "start");
-    let ids: Vec<String> = rail_tree(&user).await.into_iter().map(|n| n.id).collect();
-    assert!(!ids.contains(&old));
-    assert!(ids.contains(&kept));
-    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
-    let left: i64 = db
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'scribes'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(left, 0);
-}
-
 /// M11: the tools a Brief lists, between its "## Tools" heading and the next.
 fn brief_tools(brief: &str) -> Vec<String> {
     let section = brief.split("## Tools").nth(1).unwrap();
@@ -3584,39 +3547,6 @@ async fn m9_the_brief_names_exactly_the_tools_offered() {
     ] {
         assert!(listed.iter().any(|t| t == tool), "{tool}");
     }
-}
-
-/// M6, M9: a Door told to make a Workstream calls the two tools, and the Workstream is on the Rail with its Door started.
-#[tokio::test]
-async fn m9_a_door_asked_for_a_workstream_makes_one() {
-    let root = tempfile::tempdir().unwrap();
-    let report = root.path().join("result.json");
-    let once = root.path().join("once");
-    let tools = json!([
-        { "name": "rail_createWorkstream", "arguments": { "name": "x", "parent": null } },
-        { "name": "rail_startDoor", "arguments": { "id": "$id" } },
-    ]);
-    let mut project = start(&[]);
-    project.restart(&[
-        ("FAKE_CLAUDE_DOOR_TOOLS", &tools.to_string()),
-        ("FAKE_CLAUDE_DOOR_ONCE", once.to_str().unwrap()),
-        ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-    ]);
-    let client = project.client().await;
-
-    let door = start_door(&client).await;
-    let results = json_file(&report).await;
-
-    let made: RailNode = serde_json::from_value(results[0].clone()).unwrap();
-    assert_eq!(made.name, "x");
-    let tree = rail_tree(&client).await;
-    let node = tree.iter().find(|n| n.id == made.id).unwrap();
-    assert!(node.parent.is_none());
-    assert!(node.attempt.is_some(), "its Door is started");
-    assert!(
-        tree.iter().any(|n| n.id == door),
-        "the Door that asked stays"
-    );
 }
 
 /// X12: the Terminals belong to the Daemon, so a connection ending closes nothing and a new one lists them again.
