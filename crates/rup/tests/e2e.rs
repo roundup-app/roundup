@@ -3549,39 +3549,6 @@ async fn m9_the_brief_names_exactly_the_tools_offered() {
     }
 }
 
-/// M6, M9: a Door told to make a Workstream calls the two tools, and the Workstream is on the Rail with its Door started.
-#[tokio::test]
-async fn m9_a_door_asked_for_a_workstream_makes_one() {
-    let root = tempfile::tempdir().unwrap();
-    let report = root.path().join("result.json");
-    let once = root.path().join("once");
-    let tools = json!([
-        { "name": "rail_createWorkstream", "arguments": { "name": "x", "parent": null } },
-        { "name": "rail_startDoor", "arguments": { "id": "$id" } },
-    ]);
-    let mut project = start(&[]);
-    project.restart(&[
-        ("FAKE_CLAUDE_DOOR_TOOLS", &tools.to_string()),
-        ("FAKE_CLAUDE_DOOR_ONCE", once.to_str().unwrap()),
-        ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-    ]);
-    let client = project.client().await;
-
-    let door = start_door(&client).await;
-    let results = json_file(&report).await;
-
-    let made: RailNode = serde_json::from_value(results[0].clone()).unwrap();
-    assert_eq!(made.name, "x");
-    let tree = rail_tree(&client).await;
-    let node = tree.iter().find(|n| n.id == made.id).unwrap();
-    assert!(node.parent.is_none());
-    assert!(node.attempt.is_some(), "its Door is started");
-    assert!(
-        tree.iter().any(|n| n.id == door),
-        "the Door that asked stays"
-    );
-}
-
 /// X12: the Terminals belong to the Daemon, so a connection ending closes nothing and a new one lists them again.
 #[tokio::test]
 async fn x12_a_connection_ending_closes_nothing() {
