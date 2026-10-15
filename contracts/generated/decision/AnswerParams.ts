@@ -9,6 +9,9 @@ import type { PromptIdentity } from "./PromptIdentity";
  * `proof` is checked against the value the Daemon holds (H4); a missing or wrong one is
  * `FORBIDDEN`, so the field must deserialize even when the caller sends none. An Agent's call is
  * judged by Reach instead (H21) and its `proof` is ignored.
+ * U468: success durably retains the original prompt, answer and authenticated Actor.
+ * A storage failure before delivery leaves the request actionable; a failure after
+ * delivery is UNKNOWN_OUTCOME and must not be retried blindly.
  */
 export type AnswerParams = { 
 /**
