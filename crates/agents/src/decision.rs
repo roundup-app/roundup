@@ -79,7 +79,7 @@ pub struct Decisions {
     open: Mutex<HashMap<String, Open>>,
     history: Mutex<rusqlite::Connection>,
     next: Mutex<u64>,
-    /// No nonce means new Decisions and guarded effects refuse; existing user answers still work.
+    /// No nonce means capture and guarded effects refuse; unguarded user answers still work.
     daemon: Option<String>,
     before_effect: Option<EffectProbe>,
     /// H4: the secret the App holds; `None` refuses every answer.
@@ -111,8 +111,16 @@ impl Decisions {
 
     pub(crate) fn with_store(self, path: &std::path::Path) -> Result<Self, rpc::OpenError> {
         let db = rusqlite::Connection::open(path)?;
+        // Only retained requests need identities across Daemon runs. Open Cards
+        // stay ephemeral; PromptIdentity's nonce still fences their reuse (B6).
+        let next = db.query_row(
+            "SELECT COALESCE(MAX(CAST(SUBSTR(decision, 2) AS INTEGER)), 0) FROM decision_answers",
+            [],
+            |row| row.get(0),
+        )?;
         Ok(Self {
             history: Mutex::new(db),
+            next: Mutex::new(next),
             ..self
         })
     }
@@ -125,16 +133,10 @@ impl Decisions {
         crate::agent_lock(&self.open).expect("decisions lock")
     }
 
-    fn next_id(&self) -> Result<String, RpcError> {
+    fn next_id(&self) -> String {
         let mut next = self.next.lock().expect("decision id lock");
         *next += 1;
-        // The random Daemon nonce keeps retained requests distinct after reopen.
-        Ok(format!(
-            "{}-d{next}",
-            self.daemon
-                .as_deref()
-                .ok_or_else(|| RpcError::internal("Decision identity nonce unavailable"))?
-        ))
+        format!("d{next}")
     }
 
     /// The open Decisions, oldest first.
@@ -367,7 +369,7 @@ impl Shared {
                 return Err(RpcError::not_found(format!("agent {id} has ended")));
             }
             let decision = Decision {
-                id: self.decisions.next_id()?,
+                id: self.decisions.next_id(),
                 agent: id.to_owned(),
                 tool: request.tool,
                 args: request.args,
