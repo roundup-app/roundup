@@ -82,6 +82,8 @@ pub trait AgentAdapter {
 
 /// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
+type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
+
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
 /// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
@@ -126,6 +128,7 @@ struct Shared {
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
     before_steer: Option<SteerEffect>,
+    resume_effect: Option<ResumeEffect>,
     /// H19: a test's observer of each gate decision; absent in production.
     gate_observer: Option<GateObserver>,
     /// H13: how long an Interrupt waits for the title to change.
@@ -1373,12 +1376,33 @@ impl Shared {
         }
     }
 
+    async fn resume_effect(&self, phase: &'static str, terminal: &str) -> Result<(), RpcError> {
+        let Some(observer) = self.resume_effect.clone() else {
+            return Ok(());
+        };
+        let terminal = terminal.to_owned();
+        tokio::task::spawn_blocking(move || observer(phase, &terminal))
+            .await
+            .map_err(RpcError::internal)?
+    }
+
     /// A21: stop a Terminal in the background, for a failure that must not block the caller
     /// (`observe`'s own `Err` return) and has no actor to attribute a `rail.changed` to.
     fn spawn_kill(&self, terminal_id: String) {
+        let observer = self.resume_effect.clone();
         let kill = Arc::clone(&self.kill);
         let terminals = Arc::clone(&self.terminals);
         tokio::spawn(async move {
+            if let Some(observer) = observer {
+                let terminal = terminal_id.clone();
+                if tokio::task::spawn_blocking(move || observer("cleanup", &terminal))
+                    .await
+                    .unwrap()
+                    .is_err()
+                {
+                    return;
+                }
+            }
             if let Err(err) = kill_or_already_gone(&*kill, &terminals, &terminal_id).await {
                 eprintln!(
                     "agents: could not stop terminal {terminal_id} after a conversation save \
@@ -2247,6 +2271,7 @@ impl Agents {
                 me: me.clone(),
                 steer_bound: STEER_BOUND,
                 before_steer: None,
+                resume_effect: None,
                 gate_observer: None,
                 interrupt_bound: INTERRUPT_BOUND,
                 channels: Mutex::new(HashMap::new()),
@@ -2379,6 +2404,17 @@ impl Agents {
         before: impl Fn(&str) -> Result<(), RpcError> + Send + Sync + 'static,
     ) -> Self {
         self.configure(|shared| shared.before_steer = Some(Arc::new(before)))
+    }
+
+    /// B6: observe a Resume's Terminal before recording its id, after recording it, and
+    /// before cleanup (phases `claim`, `claimed`, `cleanup`). Runs without Agent locks on a
+    /// blocking thread; a cleanup refusal leaves the Terminal untouched.
+    #[must_use]
+    pub fn with_resume_effect(
+        self,
+        observer: impl Fn(&str, &str) -> Result<(), RpcError> + Send + Sync + 'static,
+    ) -> Self {
+        self.configure(|shared| shared.resume_effect = Some(Arc::new(observer)))
     }
 
     /// Change a setting before any call has shared the Agents: the only holder of `shared` is
@@ -3034,6 +3070,7 @@ impl Agents {
             }
         };
         let terminal_id = spawned.id.clone();
+        self.shared.resume_effect("claim", &terminal_id).await?;
         let claimed = {
             let mut runs = self.shared.runs();
             match runs.get_mut(id) {
@@ -3060,6 +3097,7 @@ impl Agents {
                 "{id}: resume no longer pending"
             )));
         }
+        self.shared.resume_effect("claimed", &terminal_id).await?;
         // An ack that raced ahead of this very claim (held because the Terminal id was not yet
         // recorded) is acted on now, rather than left held until the 10 s timeout.
         self.shared.promote_held_resume_ack(id);
@@ -4220,6 +4258,7 @@ mod tests {
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
             before_steer: None,
+            resume_effect: None,
             gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
@@ -4639,6 +4678,7 @@ mod tests {
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
             before_steer: None,
+            resume_effect: None,
             gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
@@ -5008,6 +5048,7 @@ mod tests {
             me: std::sync::Weak::new(),
             steer_bound: super::STEER_BOUND,
             before_steer: None,
+            resume_effect: None,
             gate_observer: None,
             interrupt_bound: super::INTERRUPT_BOUND,
             channels: Mutex::new(HashMap::new()),
