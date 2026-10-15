@@ -259,7 +259,29 @@ const d4 = ({ doc }: Page): Measure => {
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
 
-const groundOf = (page: Page, el: Element): Rgba => {
+// A bottom mark must fit inside padding so it cannot become the content’s ground.
+const gradientOf = (page: Page, el: Element) => {
+  const style = page.style(el);
+  const image = resolveAt(page, el, style.backgroundImage);
+
+  if (!image || image === "none") return { kind: "none" } as const;
+
+  const wash = /^linear-gradient\((rgba?\([^)]+\)|#[0-9a-fA-F]{6}),\s*\1\)$/.exec(image)?.[1];
+  const colour = wash ? parseColour(wash) : null;
+
+  if (!colour) return { kind: "none" } as const;
+  const size = style.backgroundSize;
+
+  if (!size || size === "auto" || size === "auto auto" || size === "100% 100%") return { kind: "wash", colour } as const;
+  const height = /^100% (.+)$/.exec(size)?.[1];
+  const pixels = height ? px(height) : null;
+
+  if (pixels !== null && pixels > 0 && pixels <= (px(style.paddingBottom) ?? 0) && pixels < el.getBoundingClientRect().height && style.backgroundRepeat === "no-repeat" && style.backgroundPosition === "50% 100%") return { kind: "mark", colour } as const;
+
+  return { kind: "unsupported" } as const;
+};
+
+const groundOf = (page: Page, el: Element): Rgba | null => {
   let ground: Rgba = parseColour(page.token("ground") ?? "") ?? { r: 255, g: 255, b: 255, a: 1 };
   const chain: Element[] = [];
 
@@ -270,12 +292,11 @@ const groundOf = (page: Page, el: Element): Rgba => {
 
     if (background && background.a > 0) ground = over(background, ground);
 
-    // A uniform Token wash paints above the opaque box (U441).
-    const image = resolveAt(page, node, page.style(node).backgroundImage);
-    const wash = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
-    const layer = wash ? parseColour(wash) : null;
+    const image = gradientOf(page, node);
 
-    if (layer) ground = over(layer, ground);
+    if (image.kind === "unsupported") return null;
+
+    if (image.kind === "wash") ground = over(image.colour, ground);
   }
 
   return ground;
@@ -286,27 +307,53 @@ const d5 = (page: Page): Measure => {
   const ratio = (el: Element, property: string) => {
     const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
 
-    return colour ? contrastRgb(over(colour, groundOf(page, el)), groundOf(page, el)) : null;
+    const ground = groundOf(page, el);
+
+    return colour && ground ? contrastRgb(over(colour, ground), ground) : null;
   };
 
   const ink = (el: Element) => [...el.childNodes].some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "");
-  const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" ? page.doc.activeElement : null;
+  const focused = page.doc.activeElement !== page.doc.body ? page.doc.activeElement : null;
 
   return offender(page, (el) => {
     if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
-      if (found !== null && found < 3) return { glyph: found };
+      if (found === null) return { glyph: NOT_MEASURABLE };
+
+      if (found < 3) return { glyph: found };
     } else if (ink(el)) {
       const found = ratio(el, "color");
 
-      if (found !== null && found < 4.5) return { text: found };
+      if (found === null) return { text: NOT_MEASURABLE };
+
+      if (found < 4.5) return { text: found };
     }
 
     if (el === focused) {
-      const found = ratio(el, "outline-color");
+      const style = page.style(el);
 
-      if (found !== null && found < 3) return { focusRing: found };
+      if (style.outlineStyle && style.outlineStyle !== "none" && (px(style.outlineWidth) ?? 0) > 0) {
+        const found = ratio(el, "outline-color");
+
+        if (found === null) return { focusRing: NOT_MEASURABLE };
+
+        if (found < 3) return { focusRing: found };
+      }
+
+      for (let node: Element | null = el; node; node = node.parentElement) {
+        const image = gradientOf(page, node);
+
+        if (image.kind === "unsupported") return { focusRing: NOT_MEASURABLE };
+
+        if (image.kind !== "mark") continue;
+        const ground = groundOf(page, node);
+
+        if (!ground) return { focusRing: NOT_MEASURABLE };
+        const found = contrastRgb(over(image.colour, ground), ground);
+
+        if (found < 3) return { focusRing: found };
+      }
     }
 
     return null;

@@ -146,7 +146,7 @@ describe("u137 one module measures the checks", () => {
       expect(checks[id].value).toBe("not measurable");
     }
 
-    expect(checks.D10.status).toBe("fail");
+    expect(checks.D10).toMatchObject({ status: "fail", value: { failing: expect.arrayContaining(["D5"]) } });
   });
 
   it("u137_the_result_parses_under_the_checks_json_shape_delta_reads", async () => {
@@ -179,21 +179,30 @@ describe("u137 one module measures the checks", () => {
 });
 
 const chrome = chromePath();
+
 const rendered = chrome || process.env.CI ? describe : describe.skip;
 
 rendered("u137 rendered composer focus", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
-  beforeAll(async () => { if (!chrome) throw new Error("U137 requires Chromium"); page = await openPage(chrome); }, 90_000);
+
+  beforeAll(async () => {
+    if (!chrome) throw new Error("U137 requires Chromium");
+
+    page = await openPage(chrome);
+  }, 90_000);
+
   afterAll(async () => { await page?.close(); });
 
   for (const width of [1280, 1440]) {
     it(`u137_measures_the_visible_composer_mark_after_takeover_release_at_${width}`, async () => {
       await page.load("/harness.html?seed=thread-report", width, 800);
       await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
-      await page.press("0", "Digit0", 1);
+      await page.press("1", "Digit1", 1);
       await page.until(`() => Boolean(document.querySelector('.pane-takeover'))`);
       await page.press("0", "Digit0", 1);
       await page.until(`() => document.activeElement?.matches('[data-thread-input]') && !document.querySelector('.pane-takeover')`);
+      // A zero-width outline matching the ground must not veto the visible blue bar.
+      await page.call(`() => { document.activeElement.style.outlineColor = "var(--sunken)"; }`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
       expect(checks.D5).toMatchObject({ status: "pass" });
       expect(checks.D10.status).toBe("pass");
@@ -203,9 +212,20 @@ rendered("u137 rendered composer focus", () => {
   it("u137_a_low_contrast_visible_mark_fails_despite_a_zero_width_outline", async () => {
     await page.load("/harness.html?seed=thread-report", 1280, 800);
     await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
-    await page.call(`() => { document.querySelector('[data-thread-input]').focus(); const sheet = document.createElement('style'); sheet.textContent = '.thread-composer:has(textarea:focus-visible) { background-image: linear-gradient(var(--ground), var(--ground)); }'; document.head.append(sheet); }`);
+    await page.call(`() => { document.querySelector('[data-thread-input]').focus(); const sheet = document.createElement('style'); sheet.textContent = '.thread-composer:has(textarea:focus-visible) { background-image: linear-gradient(rgb(220, 220, 220), rgb(220, 220, 220)); }'; document.head.append(sheet); }`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
-    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: 1 } });
-    expect(checks.D10.status).toBe("fail");
+    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: expect.closeTo(1.2594, 3) } });
+    expect(checks.D10).toMatchObject({ status: "fail", value: { failing: expect.arrayContaining(["D5"]) } });
   });
+
+  for (const [name, size, expected] of [["a_full_size_wash_is_part_of_the_ground", "100% 100%", { text: 1 }], ["unsupported_localized_coverage_is_not_measurable", "50% 50%", { text: "not measurable" }]] as const) {
+    it(`u137_${name}`, async () => {
+      await page.load("/harness.html?seed=thread-report", 1280, 800);
+      await page.until(`() => Boolean(window.__checks)`);
+      await page.call(`(size) => { document.body.innerHTML = '<p>Visible text</p>'; document.body.style.cssText = 'background:white'; const p=document.querySelector('p'); p.style.cssText = 'color:black; background-image:linear-gradient(rgb(0,0,0),rgb(0,0,0)); background-size:' + size; }`, size);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+      expect(checks.D5).toMatchObject({ status: "fail", value: expected });
+      expect(checks.D10).toMatchObject({ status: "fail", value: { failing: expect.arrayContaining(["D5"]) } });
+    });
+  }
 });
