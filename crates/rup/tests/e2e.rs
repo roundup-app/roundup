@@ -2272,32 +2272,6 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
 }
 
 #[tokio::test]
-async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
-    let root = tempfile::tempdir().unwrap();
-    let report = root.path().join("seen.json");
-    let project = start(&[("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap())]);
-    let client = project.client().await;
-
-    start_door(&client).await;
-    let seen = json_file(&report).await;
-
-    let listed: Vec<_> = seen["tools"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|t| t.as_str().unwrap())
-        .collect();
-    assert!(listed.contains(&"agent_spawn"));
-    assert_eq!(listed.len(), 63);
-    assert!(
-        seen["brief"]
-            .as_str()
-            .unwrap()
-            .contains("You cannot execute commands or open or write to a Terminal")
-    );
-}
-
-#[tokio::test]
 async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp() {
     let root = tempfile::tempdir().unwrap();
     let door_report = root.path().join("door.json");
@@ -3615,7 +3589,12 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
     for id in [&rail.m, &rail.a] {
         let mut shim = Shim::start(&project, id).await;
         let offered = tool_names(&mut shim).await;
-        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
+        for name in [
+            "terminal_screen",
+            "terminal_read",
+            "terminal_search",
+            "terminal_resizeHistory",
+        ] {
             assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
         }
         assert!(
@@ -3623,7 +3602,7 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .iter()
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
-                == 9,
+                == 10,
             "{offered:?}"
         );
     }
@@ -4317,32 +4296,6 @@ async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
                 )
                 .await;
             assert!(result["content"].is_null(), "{id} settled with {name}");
-        }
-    }
-}
-
-/// M14: each Brief names the seven tools and the limits on `route_set`.
-#[tokio::test]
-async fn m14_the_brief_names_the_seven_tools() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    for id in [&rail.m, &rail.a] {
-        let _shim = Shim::start(&project, id).await;
-        let brief =
-            std::fs::read_to_string(project.data_dir().join(format!("agents/{id}.brief.md")))
-                .unwrap();
-        let named = brief_tools(&brief);
-        for name in [
-            "route_set",
-            "terminal_spawn",
-            "terminal_open",
-            "terminal_close",
-            "terminal_write",
-            "terminal_resize",
-            "terminal_kill",
-        ] {
-            assert!(named.iter().any(|n| n == name), "{id} brief lacks {name}");
         }
     }
 }

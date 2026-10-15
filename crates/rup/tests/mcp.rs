@@ -224,7 +224,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 59] = [
+const TOOL_METHODS: [&str; 60] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -291,6 +291,7 @@ const TOOL_METHODS: [&str; 59] = [
     "terminal.close",
     "terminal.write",
     "terminal.resize",
+    "terminal.resizeHistory",
     "terminal.kill",
 ];
 
@@ -1283,10 +1284,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             "terminal.close" => (json!({"id":"t1"}), "closed Terminal t1"),
             "terminal.kill" => (json!({"id":"t1"}), "stopped Terminal t1"),
             "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
-            "terminal.resize" => (
-                json!({"id":"t1","cols":80,"rows":24}),
-                "resized Terminal t1 to 80 by 24",
-            ),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream a1",
@@ -1346,6 +1343,36 @@ async fn m17_data_results_keep_their_json_text() {
         let shim = spawn_shim(&socket, "a1").await;
         // rail.remove declares nullable data, so even null must retain its JSON encoding.
         let result = shim.call("rail_remove", json!({"id":"child"})).await;
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
+        server.abort();
+    }
+}
+
+#[tokio::test]
+async fn b6_mcp_resize_receipts_and_history_keep_their_waiting_or_completed_data() {
+    for (name, args, value) in [
+        (
+            "terminal_resize",
+            json!({"id":"t1","cols":80,"rows":24}),
+            Value::Null,
+        ),
+        (
+            "terminal_resize",
+            json!({"id":"t1","cols":80,"rows":24}),
+            json!({"id":"1","agent":"child","terminal":"t1","cols":80,"rows":24,"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "terminal_resizeHistory",
+            json!({"id":"t1"}),
+            json!([{ "id":"1","agent":"child","terminal":"t1","cols":80,"rows":24,"outcome":{"status":"dropped","reason":"original Terminal did not survive Daemon restart"}}]),
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("resize.sock");
+        let server = m17_daemon(&socket, value.clone());
+        let shim = spawn_shim(&socket, "a1").await;
+        let result = shim.call(name, args).await;
         assert_eq!(result.is_error, Some(false));
         assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
         server.abort();
