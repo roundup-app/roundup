@@ -276,3 +276,199 @@ Actual exit: 0.
   "skipped": [{"metric":"cold_plugin_materialization_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"ping_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"rail_tree_40_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"terminal_write_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"write_to_output_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0}]
 }
 ```
+
+### D: merged main, concurrent compilation/browser checks
+
+Source: `3aa27e5f96a58bb382cdd1ce6f39bb6c78a86c17`, merging main
+`1255adabfa80384359f54f2cee7db488a89e6f24`. Command:
+`CARGO_TARGET_DIR=/tmp/roundup-perf-before/target just perf`, from
+`/tmp/roundup-perf`; standard eleven-run workload. Actual exit: 1.
+RSS passed at 0.90234375 MB. The unchanged 2 ms absolute Rail-10 limit failed
+at 2.6538299999999997 ms during concurrent compilation and browser tests; loud R13 skips
+never waive an absolute limit. This failed observation is retained in full.
+
+Binary SHA-256:
+
+```text
+bd3d98417b070b74dc02a08dd251733207afea1a9b99acfd7b0dbe6571965182  target/release/perf
+9681f5136d0bf5cd8c9642439a1d6a0401f1e8403f36be035190002adafd72df  target/release/rupd
+f571100519f99235e8e367728d16494ed80bd26d81b3f7f374057ee920219943  target/release/rup
+```
+
+```json
+{
+  "os": "linux",
+  "cpus": 4,
+  "runs": 11,
+  "loads": [
+    16.08,
+    16.48,
+    17.55,
+    18.42,
+    18.54,
+    18.25,
+    17.76,
+    17.3,
+    17.11,
+    17.13,
+    16.88
+  ],
+  "metrics": {
+    "cold_plugin_materialization_ms": 40.613851,
+    "cold_start_ms": 31.237526000000003,
+    "hook_loop_ms": 1153.970079,
+    "ping_p95_ms": 0.25131,
+    "rail_tree_10_p95_ms": 2.6538299999999997,
+    "rail_tree_40_p95_ms": 5.403837,
+    "rss_extra_mb": 0.90234375,
+    "terminal_write_p95_ms": 1.2874869999999998,
+    "write_to_output_p95_ms": 2.767543
+  },
+  "per_run": {
+    "cold_plugin_materialization_ms": [
+      54.020002,
+      89.989879,
+      40.613851,
+      34.886336,
+      42.547039000000005,
+      39.195704,
+      18.382485,
+      52.249701,
+      44.251459,
+      17.828622,
+      38.209873
+    ],
+    "cold_start_ms": [
+      26.123374000000002,
+      42.37566,
+      29.374900999999998,
+      95.189262,
+      29.149988,
+      48.787490000000005,
+      36.200745,
+      17.270698,
+      36.259723,
+      24.572491,
+      31.237526000000003
+    ],
+    "hook_loop_ms": [
+      3142.135017,
+      1362.403373,
+      1833.723767,
+      1229.965433,
+      1153.684827,
+      1153.970079,
+      1005.237947,
+      1059.498493,
+      1228.653688,
+      1129.9283950000001,
+      751.365473
+    ],
+    "ping_p95_ms": [
+      4.854854,
+      4.402764,
+      0.449701,
+      2.9936469999999997,
+      0.141595,
+      4.577218,
+      0.25131,
+      0.149028,
+      0.174326,
+      0.132929,
+      0.150712
+    ],
+    "rail_tree_10_p95_ms": [
+      2.6538299999999997,
+      2.567449,
+      4.466398,
+      3.4779020000000003,
+      2.445824,
+      5.158345,
+      2.077584,
+      2.8780810000000003,
+      3.1914890000000002,
+      0.32848499999999997,
+      0.783054
+    ],
+    "rail_tree_40_p95_ms": [
+      6.569198,
+      6.642666,
+      6.144449,
+      5.876646999999999,
+      5.39087,
+      6.930869,
+      4.4427449999999995,
+      3.663259,
+      5.403837,
+      3.527021,
+      4.132767
+    ],
+    "rss_extra_mb": [
+      0.82421875,
+      0.95703125,
+      0.83984375,
+      0.83203125,
+      0.88671875,
+      0.94921875,
+      0.90625,
+      0.90234375,
+      0.90625,
+      0.828125,
+      0.91015625
+    ],
+    "terminal_write_p95_ms": [
+      4.26907,
+      2.261327,
+      4.3980440000000005,
+      2.355694,
+      1.07488,
+      2.2064749999999997,
+      1.2874869999999998,
+      0.992044,
+      0.774729,
+      0.24955700000000003,
+      0.250328
+    ],
+    "write_to_output_p95_ms": [
+      5.942276,
+      4.685683,
+      3.338312,
+      2.3420289999999997,
+      3.820023,
+      4.616931,
+      2.767543,
+      1.1864480000000002,
+      2.2298109999999998,
+      1.104355,
+      2.446093
+    ]
+  },
+  "skipped": [
+    {
+      "metric": "cold_plugin_materialization_ms",
+      "load_per_cpu": 4.325,
+      "max_load_per_cpu": 2.0
+    },
+    {
+      "metric": "ping_p95_ms",
+      "load_per_cpu": 4.325,
+      "max_load_per_cpu": 2.0
+    },
+    {
+      "metric": "rail_tree_40_p95_ms",
+      "load_per_cpu": 4.325,
+      "max_load_per_cpu": 2.0
+    },
+    {
+      "metric": "terminal_write_p95_ms",
+      "load_per_cpu": 4.325,
+      "max_load_per_cpu": 2.0
+    },
+    {
+      "metric": "write_to_output_p95_ms",
+      "load_per_cpu": 4.325,
+      "max_load_per_cpu": 2.0
+    }
+  ]
+}
+```
