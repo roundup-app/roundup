@@ -1,6 +1,7 @@
+import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable, useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { splitProps, type JSX } from "solid-js";
+import { onCleanup, splitProps, type JSX } from "solid-js";
 
 type RootProps = JSX.HTMLAttributes<HTMLDivElement> & {
   ids: readonly string[];
@@ -9,11 +10,31 @@ type RootProps = JSX.HTMLAttributes<HTMLDivElement> & {
 
 const Root = (props: RootProps) => {
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "children"]);
+  let stopRestoringFocus: (() => void) | undefined;
+
+  onCleanup(() => stopRestoringFocus?.());
 
   return <DragDropProvider onDragEnd={(event) => {
     const source = event.operation.source;
 
-    if (event.canceled || !isSortable(source) || source.initialIndex === source.index) return;
+    if (event.canceled) {
+      const handle = source?.handle;
+
+      if (source && handle instanceof HTMLElement) {
+        stopRestoringFocus?.();
+        stopRestoringFocus = effect(() => {
+          if (source.status !== "idle") return;
+          // Idle precedes the library replacing its placeholder; focus after that replacement.
+          queueMicrotask(() => { stopRestoringFocus?.();
+
+ if (handle.isConnected) handle.focus(); });
+        });
+      }
+
+      return;
+    }
+
+    if (!isSortable(source) || source.initialIndex === source.index) return;
     const order = [...local.ids];
     const [moved] = order.splice(source.initialIndex, 1);
 
