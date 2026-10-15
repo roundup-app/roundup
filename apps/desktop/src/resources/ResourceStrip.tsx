@@ -31,20 +31,20 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
   </>
 );
 
-/** U444: the centre's last line, under the Thread's composer, with the selected Agent's memory, CPU and disk and the Project's totals; none of it is on the Rail. The line stays when empty. */
+/** U444: the centre's last line, under the Thread's composer, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
 export const ResourceStrip = () => {
   const { app, rail, daemonExit } = useConnectedProject();
   const [result, setResult] = createSignal<Resources | null>(null);
   const [failed, setFailed] = createSignal(false);
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
-  const running = createMemo(() => rail.nodes.some(isRunning));
-  const live = () => running() && visible() && daemonExit() === null;
 
   const own = createMemo(() => {
     const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
     return node && isRunning(node) ? node.id : null;
   });
+
+  const live = () => own() !== null && visible() && daemonExit() === null;
 
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
 
@@ -55,6 +55,11 @@ export const ResourceStrip = () => {
   let pending = false;
 
   createEffect(() => {
+    const selected = own();
+
+    setResult(null);
+    setFailed(false);
+
     if (!live()) return;
 
     let current = true;
@@ -63,8 +68,6 @@ export const ResourceStrip = () => {
       if (pending) return;
 
       pending = true;
-
-      const selected = untrack(rail.selected);
 
       void app
         .rpc("project.resources", null)
@@ -102,23 +105,14 @@ export const ResourceStrip = () => {
 
   return (
     <div class="resource-strip" role="status" aria-live="off" aria-hidden="false">
-      <Show when={running()}>
-        <span class="resource-agent">
-          <Show when={own() !== null}>
-            <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
-          </Show>
-        </span>
-        <Show when={failed()}>
-          <span class="resource-stale">{copy.notUpdating}</span>
+      {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
+      <span class="resource-agent">
+        <Show when={own() !== null}>
+          <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
         </Show>
-        <Show when={result()}>
-          {(sampled) => (
-            <span class="resource-project">
-              <span class="resource-word">{copy.project}</span>
-              <Values memory={sizeText(sampled().total.memory_bytes)} cpu={cpuText(sampled().total.cpu_percent)} disk={sizeText(sampled().total.disk_bytes)} />
-            </span>
-          )}
-        </Show>
+      </span>
+      <Show when={own() !== null && failed()}>
+        <span class="resource-stale">{copy.notUpdating}</span>
       </Show>
     </div>
   );

@@ -98,7 +98,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | plain | 240 / 120 | plain-text.md Q10 | Support | Keep safe Markdown on surviving surfaces. |
 | rail | 11,671 / 8,511 | ui-rail*.md, ui-kind-glyph.md, workstream.md, U467/U468 | Door, Attention | Keep identities, nesting of Agents, Status and Takeover. |
 | resize | 551 / 315 | ui-resize.md | Support | Keep narrow usable panes; no freeform desktop layout engine. |
-| resources | 648 / 404 | resources.md D8/U408/U444 | Support | Keep on-demand CPU/RSS/disk strip. It is not Model usage accounting; no background telemetry suite. |
+| resources | 648 / 404 | resources.md D8/U408/U444 | Support | Keep selected-Agent CPU/RSS/disk values in the shared bottom bar. It is not Model usage accounting; no background telemetry suite. |
 | shelf | 2,379 / 1,664 | ui-shelf*.md, T12–T14, P12 | Door, Support | Keep Workstream-scoped items and review access. |
 | state | 1,250 / 453 | ui-persist.md, ui-reload.md, contract-match.md | Support | Keep reconnect, user selection and fingerprint handling. |
 | terminal | 5,226 / 3,526 | ui-terminal*.md, U467/U468, ui-file-drop.md | Door, Attention | Keep vendor primary Terminal, xterm and input safety; #1641 owns primitive migration. |
@@ -123,7 +123,7 @@ These costs are subsets of the preceding directories, **not additive**. Keeping 
 | Pad Markdown/storage/export: pads **1,858**, App pads **4,242** | P1–P14; U18–U21/U147 | Door, Support | Keep existing notes, ownership and Home. They preserve review context; external editors remain available. |
 | Mermaid/Excalidraw mounts and block plumbing: drawingBlock.ts + mermaidBlock.ts + visualBlocks.ts + visualKinds.ts **404**, inside App pads; CSS/editor/test cost remains shared | U147–U149 in ui-rail.md | Support only | **Defer additions**, #1666. Existing drawings/source/export remain. Deletion savings **0**: removing shipped editors would break accepted scenarios and saved work; Nimbalyst already offers broader visual editors. |
 | Models/Effort: agents/models.rs **163** plus App models **482** and Adapter mapping | A36/A37/M12/U377/U378; P8/P9 | Usage | Keep explicit model choice and confirmation; defer no owner-requested setting. No spend prediction dashboard. |
-| Resource strip: App resources **648**, shared D8 sampling in agents/rupd | D8/U408/U444 | Support only | Keep small existing on-demand aid; no sampling while idle and no monitoring product. It cannot prove P9/P10 token savings. |
+| Resource strip: App resources **648**, shared D8 sampling in agents/rupd | D8/U408/U444 | Support only | Keep selected-running-Agent values only, without Project totals; no sampling without that selection and no monitoring product. It cannot prove P9/P10 token savings. |
 | Worktrees/Landing: agents/worktree.rs **738**, shared launch/state/callers | G1–G8; P5 | Support only | Keep git isolation and green explicit Landing; #1635 owns cheaper removal. Use git/editor/PR tools for deep review, not a new IDE or source-control suite. |
 | Orders: agents/order.rs **52**, shared store/Brief/MCP; App orders **1,011** | O1–O16 | Door, Usage | Keep bounded instructions and one first Steer; **remove** obsolete visual order presentation under #1497, retaining API/data. |
 | Pinned plugins: plugins.rs **300**, skills.rs **401**, vendored assets additional | Q11; Q1/Q6 surviving clauses | Door, Support | Keep explicit owner direction (#1567); no plugin catalogue or second Agent vendor implementation without new selected work. |

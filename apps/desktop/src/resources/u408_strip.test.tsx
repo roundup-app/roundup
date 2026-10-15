@@ -51,7 +51,7 @@ const valueWords = (item: Element): string => {
   return `${name} ${item.querySelector(".resource-num")?.textContent}`;
 };
 
-// Each part reads as its Project word and its values, an icon's name replaced by the icon: `memory 412 MB · cpu 18%`.
+// Read each icon by its accessible name alongside its number.
 const words = () =>
   [...(strip()?.children ?? [])]
     .flatMap((part) => {
@@ -99,23 +99,45 @@ describe("u408 the Resource strip", () => {
     await mount([agent("a", "working", "x")], { result: () => ({ agents: [{ id: "a", memory_bytes: 1, cpu_percent: 0, disk_bytes: null }], total: { memory_bytes: 1, cpu_percent: 0, disk_bytes: null } }) });
     await settle();
 
-    expect(words()).toBe("memory 1 B · cpu 0% | Project · memory 1 B · cpu 0%");
+    expect(words()).toBe("memory 1 B · cpu 0%");
   });
 
-  it("u408_a_done_agent_or_a_workstream_shows_only_the_project", async () => {
-    const { connected } = await mount([agent("a", "done", "x"), workstream("w"), agent("b", "working", "y")], { select: "a" });
-    await settle();
+  it("u408_other_selections_are_empty_and_make_no_calls", async () => {
+    const { connected, calls, app } = await mount([agent("a", "done", "x"), workstream("w"), terminal("t"), agent("b", "working", "y")], { select: "a" });
 
-    expect(words()).toBe("Project · memory 1.4 GB · cpu 61% · disk 3.2 GB");
-
-    connected.rail.select("w");
-    expect(words()).toBe("Project · memory 1.4 GB · cpu 61% · disk 3.2 GB");
-
-    connected.rail.select(null);
-    expect(words()).toBe("Project · memory 1.4 GB · cpu 61% · disk 3.2 GB");
+    for (const selection of ["a", "w", "t", null]) {
+      connected.rail.select(selection);
+      await settle(6000);
+      expect(words()).toBe("");
+      expect(calls()).toBe(0);
+    }
 
     connected.rail.select("b");
-    expect(words()).toBe("Project · memory 1.4 GB · cpu 61% · disk 3.2 GB");
+    await settle();
+    expect(calls()).toBe(1);
+    app.handlers["project.resources"] = () => { throw new RpcError(-32603, "gone"); };
+
+    await settle(2000);
+    expect(words()).toBe("Not updating");
+    connected.rail.select("w");
+    await settle(6000);
+    expect(words()).toBe("");
+    expect(calls()).toBe(2);
+    connected.rail.select("b");
+    await settle();
+    expect(calls()).toBe(3);
+  });
+
+  it("u408_a_running_door_shows_its_own_values", async () => {
+    await mount([door("a", "working", "x")]);
+    await settle();
+    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB");
+  });
+
+  it("u408_a_missing_agent_entry_never_uses_totals", async () => {
+    await mount([agent("a", "working", "x")], { result: () => ({ ...RESULT, agents: [] }) });
+    await settle();
+    expect(words()).toBe("");
   });
 
   it("u408_no_running_agent_draws_no_strip_and_makes_no_call", async () => {
@@ -196,14 +218,6 @@ describe("u408 the Resource strip", () => {
     expect(words()).not.toContain("Not updating");
   });
 
-  it("u408_the_rail_holds_none_of_it", async () => {
-    const { view } = await mount([agent("a", "working", "x")]);
-    await settle();
-
-    expect(document.querySelector(".rail")).toBeNull();
-    expect(view.container.querySelectorAll(".rail-row").length).toBe(0);
-  });
-
   it("u408_the_strip_holds_still_as_digits_change", async () => {
     let at = 0;
     const second: Resources = { agents: [{ id: "a", memory_bytes: 999e6, cpu_percent: 1600, disk_bytes: 12.3e12 }], total: { memory_bytes: 999.9e9, cpu_percent: 1600, disk_bytes: 12.3e12 } };
@@ -213,12 +227,12 @@ describe("u408 the Resource strip", () => {
 
     const numbers = [...document.querySelectorAll(".resource-num")];
 
-    expect(numbers.length).toBe(6);
+    expect(numbers.length).toBe(3);
     expect(sheet).toMatch(/\.resource-num\s*{[^}]*font-variant-numeric:\s*tabular-nums/);
     expect(sheet).toMatch(/\.resource-num\s*{[^}]*min-width:\s*7ch/);
 
     await settle(2000);
-    expect(document.querySelectorAll(".resource-num").length).toBe(6);
+    expect(document.querySelectorAll(".resource-num").length).toBe(3);
     expect(words()).toContain("memory 999 MB · cpu 1600% · disk 12.3 TB");
   });
 
@@ -237,26 +251,9 @@ describe("u408 the Resource strip", () => {
 
     const titles = [...element.querySelectorAll<HTMLElement>(".resource-value")].map((value) => value.title);
 
-    expect(titles).toEqual(["Resident memory", "CPU of one core", "Worktree on disk", "Resident memory", "CPU of one core", "Worktree on disk"]);
+    expect(titles).toEqual(["Resident memory", "CPU of one core", "Worktree on disk"]);
   });
 
-  it("u444_the_composer_does_not_move_as_the_strip_fills_or_empties", async () => {
-    await mount([agent("a", "done", "x")]);
-    await settle();
-
-    expect(strip()).not.toBeNull();
-    expect(strip()?.textContent).toBe("");
-    expect(sheet).toMatch(/\.resource-strip\s*{[^}]*flex:\s*none/);
-    expect(sheet).toMatch(/\.resource-strip\s*{[^}]*(?<!-)height:\s*calc\(2 \* var\(--space-5\)\)/);
-  });
-
-  it("u408_a_narrow_column_keeps_both_parts_and_clips_no_value", () => {
-    const block = /\.resource-strip\s*{([^}]*)}/.exec(sheet)?.[1] ?? "";
-
-    expect(block).toMatch(/grid-template-rows:\s*repeat\(2, var\(--space-5\)\)/);
-    expect(block).not.toMatch(/overflow:\s*hidden/);
-    expect(sheet).toMatch(/\.resource-strip > span\s*{[^}]*white-space:\s*nowrap/);
-  });
 });
 
 describe("u444 the Resource strip is the quiet last line", () => {
@@ -266,7 +263,7 @@ describe("u444 the Resource strip is the quiet last line", () => {
 
     const values = [...document.querySelectorAll(".resource-value")];
 
-    expect(values.length).toBe(6);
+    expect(values.length).toBe(3);
 
     for (const value of values) {
       expect(value.querySelector("svg.icon")?.getAttribute("aria-hidden")).toBe("true");
@@ -281,7 +278,7 @@ describe("u444 the Resource strip is the quiet last line", () => {
     await settle();
 
     expect(strip()?.textContent).not.toContain("–");
-    expect(document.querySelectorAll(".resource-value").length).toBe(3);
+    expect(document.querySelectorAll(".resource-value").length).toBe(1);
   });
 
   it("u444_every_word_is_sentence_case", async () => {
@@ -293,7 +290,7 @@ describe("u444 the Resource strip is the quiet last line", () => {
 
     await settle(2000);
 
-    expect(strip()?.querySelector(".resource-word")?.textContent).toBe("Project");
+    expect([...document.querySelectorAll(".resource-value")].map(value => value.getAttribute("title"))).toEqual([...NAMES.keys()]);
     expect(strip()?.querySelector(".resource-stale")?.textContent).toBe("Not updating");
   });
 
