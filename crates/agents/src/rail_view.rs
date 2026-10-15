@@ -352,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn b32_owner_read_leases_expire_independently_of_input() {
+    fn b32_owner_read_leases_expire_and_rearm_independently_of_input() {
         for ongoing in [false, true] {
             let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
             let id = shared
@@ -362,54 +362,58 @@ mod tests {
                 .id;
             let agents = owner_agents(shared, dir.path());
             let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-            loop {
-                agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+            // The second burst must acquire a new lease after the first burst's
+            // checkpoint completed, even when all intervening wakeups were coalesced.
+            for _ in 0..2 {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+                loop {
+                    agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+                    db.busy_timeout(std::time::Duration::from_millis(500))
+                        .unwrap();
+                    db.execute("UPDATE nodes SET attempt = attempt + 1 WHERE id = ?", [&id])
+                        .unwrap();
+                    db.busy_timeout(std::time::Duration::ZERO).unwrap();
+                    let (busy, frames, copied): (i64, i64, i64) = db
+                        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                        })
+                        .unwrap();
+                    if busy != 0 && frames > copied && copied >= 0 {
+                        break;
+                    }
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "owner reads never shared a bounded WAL read lease"
+                    );
+                    std::thread::yield_now();
+                }
+                // Uncopied frames witness an active reader, unlike (-1, -1) for a competing
+                // checkpoint. Further input must neither release nor renew that reader.
                 db.busy_timeout(std::time::Duration::from_millis(500))
                     .unwrap();
-                db.execute("UPDATE nodes SET attempt = attempt + 1 WHERE id = ?", [&id])
-                    .unwrap();
-                db.busy_timeout(std::time::Duration::ZERO).unwrap();
-                let (busy, frames, copied): (i64, i64, i64) = db
-                    .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
-                        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-                    })
-                    .unwrap();
-                if busy != 0 && frames > copied && copied >= 0 {
-                    break;
-                }
-                assert!(
-                    std::time::Instant::now() < deadline,
-                    "owner reads never shared a bounded WAL read lease"
-                );
-                std::thread::yield_now();
+                let stop = std::sync::atomic::AtomicBool::new(false);
+                std::thread::scope(|scope| {
+                    let input = ongoing.then(|| {
+                        scope.spawn(|| {
+                            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                                agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+                            }
+                        })
+                    });
+                    let checkpoint = db.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, i64>(2)?,
+                        ))
+                    });
+                    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                    if let Some(input) = input {
+                        input.join().unwrap();
+                    }
+                    assert_eq!(checkpoint.unwrap(), (0, 0, 0), "ongoing input: {ongoing}");
+                });
             }
-            // Uncopied frames witness an active reader, unlike (-1, -1) for a competing
-            // checkpoint. Further input must neither release nor renew that reader.
-            db.busy_timeout(std::time::Duration::from_millis(500))
-                .unwrap();
-            let stop = std::sync::atomic::AtomicBool::new(false);
-            std::thread::scope(|scope| {
-                let input = ongoing.then(|| {
-                    scope.spawn(|| {
-                        while !stop.load(std::sync::atomic::Ordering::Relaxed) {
-                            agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
-                        }
-                    })
-                });
-                let checkpoint = db.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                    ))
-                });
-                stop.store(true, std::sync::atomic::Ordering::Relaxed);
-                if let Some(input) = input {
-                    input.join().unwrap();
-                }
-                assert_eq!(checkpoint.unwrap(), (0, 0, 0), "ongoing input: {ongoing}");
-            });
         }
     }
 
