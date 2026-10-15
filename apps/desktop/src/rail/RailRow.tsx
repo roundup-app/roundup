@@ -156,10 +156,9 @@ export const RailRowView = (props: {
           <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
           <RowIcons actions={props.actions}>
             <Show when={showsAction()}>
-              <button data-button="icon"
+              <IconButton data-button="icon"
                 class="door-action"
                 aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
-                title={props.doorFailure ? copy.retryDoor : copy.startDoor}
                 aria-disabled={props.doorPending ? true : undefined}
                 onClick={(click) => {
                   click.stopPropagation();
@@ -169,7 +168,7 @@ export const RailRowView = (props: {
               >
                 <Icon name="play" />
                 <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
-              </button>
+              </IconButton>
             </Show>
           </RowIcons>
         </span>

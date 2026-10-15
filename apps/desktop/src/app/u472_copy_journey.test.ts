@@ -120,6 +120,7 @@ const mapped = (value: string): string => {
     [['Start', 'Door'].join(' '), 'Start supervisor'], [['Retry', 'Door'].join(' '), 'Retry supervisor'],
     [['End', 'Takeover'].join(' '), 'Give control back'], [['Take', 'over'].join(' '), 'Take control'],
     [['Show', 'Shelf'].join(' '), 'Show work items'], [['Hide', 'Shelf'].join(' '), 'Hide work items'],
+    ['Clear', 'Clear Workstream…'],
     ['Shelf', 'Work items'], ['shelf', 'Work items'], ['rail', 'Rail'], ['centre', 'Centre'],
     ['Resize Shelf', 'Resize work items'], ['Shelf keys', 'Work items keys'],
     ['agents and terminals', 'Workstreams and Agents'],
@@ -165,7 +166,8 @@ for (const [seed, scheme] of [...seeds.map((seed) => [seed, "light"] as const), 
     const after = await inventory();
 
     expect(after.text, `${name} text`).toEqual(before.text.map(mapped));
-    expect(after.names, `${name} accessible names`).toEqual(before.names.map(mapped));
+    // U477 moves native titles into accessible names, removing duplicate attribute strings.
+    expect([...new Set(after.names)].sort(), `${name} accessible names`).toEqual([...new Set(before.names.map(mapped))].sort());
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(head[id].status, `${name} ${id}`).toBe("pass");
 

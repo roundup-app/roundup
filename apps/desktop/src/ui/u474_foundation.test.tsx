@@ -41,7 +41,7 @@ it("u477_app_has_no_raw_icon_only_buttons", () => {
   const files = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? files(join(directory, entry.name)) : entry.name.endsWith(".tsx") && !entry.name.includes("test") ? [join(directory, entry.name)] : []);
 
   const visibleText = (element: JSXElement): boolean => {
-    if (element.openingElement.attributes.some(attribute => attribute.type === "JSXAttribute" && isJSXIdentifier(attribute.name, { name: "aria-hidden" }))) return false;
+    if (element.openingElement.attributes.some(attribute => attribute.type === "JSXAttribute" && (isJSXIdentifier(attribute.name, { name: "aria-hidden" }) || (isJSXIdentifier(attribute.name, { name: "class" }) && attribute.value?.type === "StringLiteral" && attribute.value.value === "door-action-label")))) return false;
 
     if (isJSXIdentifier(element.openingElement.name) && ["Icon", "OwnerMark", "KindGlyph", "ListFilter", "svg"].includes(element.openingElement.name.name)) return false;
 

@@ -303,11 +303,10 @@ describe("u17 Todo detail", () => {
     app.handlers["todo.setBlockers"] = async ({ blockers }) => ({ ...blocked(), blockers });
     fireEvent.click(within(drawer()).getByText("Blocker"));
     fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
-    await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(1));
-
     fireEvent.click(within(drawer()).getByText("Blocker"));
 
-    expect(within(drawer()).queryByRole("button", { name: /#7/ })).toBeNull();
+    await waitFor(() => expect(within(drawer()).queryByRole("button", { name: /#7/ })).toBeNull());
+    expect(callsTo(app, "todo.setBlockers")).toHaveLength(1);
   });
 
   it("u17_a_failed_history_read_keeps_current_content_editable", async () => {
