@@ -112,11 +112,10 @@ impl Daemon {
     fn open_in(project: &Path, dir: &Path, proof: Option<String>) -> Result<Self, OpenError> {
         std::fs::create_dir_all(dir)?;
         let bus = Bus::new();
-        let terminals = Arc::new(terminal::Terminals::open_with(
-            dir,
-            bus.clone(),
-            &agents::claude_code::MARKERS,
-        )?);
+        let terminals = Arc::new(
+            terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
+                .with_input_writer(terminal_input_observer()),
+        );
         // O4: the Agents ask whether a Takeover is active before they Steer a changed order; the
         // Messages that know are made after them.
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
@@ -126,6 +125,7 @@ impl Daemon {
                 .with_proof(proof)
                 .with_prompt_effect(prompt_effect_observer())
                 .with_steer_effect(steer_effect_observer())
+                .with_resume_effect(resume_effect_observer())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -1425,5 +1425,83 @@ fn steer_effect_observer() -> impl Fn(&str) -> Result<(), RpcError> + Send + Syn
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         Ok(())
+    }
+}
+
+/// B6's isolated observer controls Terminal recording and cleanup without a desktop.
+fn resume_effect_observer() -> impl Fn(&str, &str) -> Result<(), RpcError> + Send + Sync {
+    let gate = std::env::var_os("RUPD_RESUME_EFFECT_GATE").map(std::path::PathBuf::from);
+    move |phase, terminal| {
+        let Some(gate) = &gate else { return Ok(()) };
+        let gate = gate.with_extension(phase);
+        let recording = gate.with_extension(format!("{phase}-recording"));
+        std::fs::write(&recording, terminal).map_err(RpcError::internal)?;
+        std::fs::rename(recording, gate.with_extension(format!("{phase}-arrived")))
+            .map_err(RpcError::internal)?;
+        let started = std::time::Instant::now();
+        while gate.is_file() {
+            if std::fs::read_to_string(&gate).ok().as_deref() == Some("refuse") {
+                return Err(RpcError::conflict("Terminal cleanup refused before kill"));
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(30) {
+                return Err(RpcError::unknown_outcome(
+                    "Resume observer was not released",
+                ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(())
+    }
+}
+
+/// B6's isolated physical-IO observer uses the real PTY underneath every controlled write.
+fn terminal_input_observer()
+-> impl Fn(Box<dyn std::io::Write + Send>) -> Box<dyn std::io::Write + Send> {
+    let gate = std::env::var_os("RUPD_TERMINAL_INPUT_GATE").map(std::path::PathBuf::from);
+    move |writer| match &gate {
+        Some(gate) => Box::new(ObservedInput {
+            writer,
+            gate: gate.clone(),
+            partial: false,
+        }),
+        None => writer,
+    }
+}
+
+struct ObservedInput {
+    writer: Box<dyn std::io::Write + Send>,
+    gate: std::path::PathBuf,
+    partial: bool,
+}
+
+impl std::io::Write for ObservedInput {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        match std::fs::read_to_string(&self.gate).ok().as_deref() {
+            Some("pause") => {
+                std::fs::write(self.gate.with_extension("arrived"), "input")?;
+                let started = std::time::Instant::now();
+                while self.gate.is_file() {
+                    if started.elapsed() >= std::time::Duration::from_secs(10) {
+                        return Err(std::io::Error::other("input observer was not released"));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+            }
+            Some("partial") if !self.partial => {
+                self.partial = true;
+                return self.writer.write(&bytes[..bytes.len().min(1)]);
+            }
+            Some("partial") => return Err(std::io::Error::other("input observer partial write")),
+            Some("end") => panic!("input observer ended without a result"),
+            _ => {}
+        }
+        self.writer.write(bytes)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        if std::fs::read_to_string(&self.gate).ok().as_deref() == Some("flush") {
+            return Err(std::io::Error::other("input observer flush failure"));
+        }
+        self.writer.flush()
     }
 }

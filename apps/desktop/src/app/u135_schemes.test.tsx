@@ -6,7 +6,7 @@ import { contrastRatio, resolveToken } from "../testing/contrast";
 import { rootTokensOf, underSettings } from "../testing/media";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";
