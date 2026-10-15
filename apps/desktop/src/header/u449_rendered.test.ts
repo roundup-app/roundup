@@ -313,7 +313,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 describe("u440 overflow edges sit beside the tab list", () => {
   type Rect = { left: number; right: number };
 
-  type Reading = { case: string; list: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
+  type Reading = { case: string; mask: string; list: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
   let server: ViteDevServer;
   let readings: Reading[];
@@ -343,5 +343,15 @@ describe("u440 overflow edges sit beside the tab list", () => {
   });
   it("u440_the_selected_tab_keeps_its_left_border_in_view", () => {
     for (const reading of readings) expect(reading.selected.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
+  });
+
+  it("u440_a_cut_tab_fades_into_its_edge", () => {
+    const cut = readings.filter((reading) => reading.tabs.some((tab) => tab.left < reading.list.left || tab.right > reading.list.right));
+    expect(cut.length).toBeGreaterThan(1);
+
+    for (const reading of cut) {
+      expect(reading.mask, reading.case).toContain("linear-gradient");
+      expect(reading.mask, reading.case).toContain("rgba(0, 0, 0, 0)");
+    }
   });
 });

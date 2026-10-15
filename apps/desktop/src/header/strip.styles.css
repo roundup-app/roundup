@@ -21,9 +21,22 @@
   align-items: center;
   min-width: 0;
   overflow-x: auto;
-  /* A revealed tab stops a step short of the slot, so the scroll's whole-pixel rounding never clips its border. */
+  /* A revealed tab stops a step short of the slot: the scroll's whole-pixel rounding never clips its border, and it sits clear of the fade below. */
   scroll-padding-inline: var(--space-1);
   scrollbar-width: none;
+}
+
+/* A tab cut by a slot fades into it instead of ending in an open box. Only the alpha of the mask counts. */
+.strip-slot + .tablist {
+  mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1));
+}
+
+.tablist:has(+ .strip-slot) {
+  mask-image: linear-gradient(to left, transparent, var(--text) var(--space-1));
+}
+
+.strip-slot + .tablist:has(+ .strip-slot) {
+  mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1), var(--text) calc(100% - var(--space-1)), transparent);
 }
 
 .tablist::-webkit-scrollbar {
