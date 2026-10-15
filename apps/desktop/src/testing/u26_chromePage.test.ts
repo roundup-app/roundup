@@ -22,7 +22,7 @@ it.runIf(process.platform === "linux")("u26_parallel_cold_pages_answer_under_a_r
 
   try {
     // Only this copy is evicted. The caller's browser and host cache stay intact.
-    cpSync(source, join(dir, "browser"), { recursive: true });
+    cpSync(source, join(dir, "browser"), { recursive: true, dereference: true });
     execFileSync("python3", ["-c", `
 import os, pathlib, subprocess, sys
 root, group = sys.argv[1:]
