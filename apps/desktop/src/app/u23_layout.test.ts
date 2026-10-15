@@ -81,13 +81,21 @@ export const mount = () => {
 `;
 
 const profile = mkdtempSync(join(tmpdir(), "u507-profile-"));
+
 let server: Awaited<ReturnType<typeof createServer>>;
 
+let main: Awaited<ReturnType<typeof createServer>> | undefined;
+
 const session = `u507-layout-${process.pid}`;
+
 const env = { ...process.env };
+
 const executable = chromePath();
+
 if (executable) env.AGENT_BROWSER_EXECUTABLE_PATH = executable;
+
 const browser = (...args: string[]) => promisify(execFile)("agent-browser", ["--session", session, "--profile", profile, ...args], { encoding: "utf8", timeout: 60_000, env }).then(result => result.stdout);
+
 const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("--json", "eval", script)).data.result;
 
 // Pane refits on the next frame after ResizeObserver/drag completion; Shelf
@@ -105,6 +113,8 @@ beforeAll(async () => {
     server: { port: 0, strictPort: false },
     plugins: [{
       name: "u507-layout-host",
+      // Supply the public Layout props at the App composition site without
+      // replacing Layout, its children, width controls or Terminal implementation.
       enforce: "pre",
       resolveId: (id, importer) => id === "./app/Layout" && importer?.endsWith("/src/App.tsx") ? "/u507-bound-layout.js" : id === "/u507-host.js" ? id : undefined,
       load: (id) => id === "/u507-host.js" ? fixture : id === "/u507-bound-layout.js" ? `
@@ -122,17 +132,25 @@ export const Layout = (props) => {
   });
 
   await server.listen();
+  const root = process.env["ROUNDUP_U507_MAIN"];
+
+  if (root) {
+    main = await createServer({ root, cacheDir: "node_modules/.vite-u507-main", server: { port: 0, hmr: false } });
+    await main.listen();
+  }
 }, 90_000);
 
 afterAll(async () => {
   try { await browser("close"); } finally {
     await server?.close();
+    await main?.close();
     rmSync(profile, { recursive: true, force: true });
   }
 });
 
 it("u507_layout_host_measures_owned_panels_without_changing_grid_or_shelf_placement", async () => {
   const captures = captureDir("U507");
+
   if (captures) mkdirSync(captures, { recursive: true });
     await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
     await browser("set", "viewport", "1280", "800");
@@ -201,12 +219,16 @@ const openApp = async (bound = true) => {
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40${bound ? "&bound=1" : ""}`);
   await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
   await settle();
+  expect(await evaluate(`document.querySelector('[data-layout-root]').dataset.scope === 'splitter'`)).toBe(bound);
+
+  if (bound) expect(await evaluate(`document.querySelectorAll('[data-part=panel][data-ownedby]').length`)).toBe(3);
 };
 
 for (const bound of [false, true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
   await openApp(bound);
   await evaluate("localStorage.clear()");
   await openApp(bound);
+
   for (const [panel, start, preview, committed] of [["rail", 288, 360, 304], ["shelf", 960, 880, 336]] as const) {
     const read = () => evaluate<number>(`document.querySelector('[data-layout-panel=${panel}]').getBoundingClientRect().width`);
     await browser("mouse", "move", String(start), "400");
@@ -223,6 +245,7 @@ for (const bound of [false, true]) it(`u507_bindings_preserve_width_controls_${b
     await settle();
     expect(await read()).toBe(committed);
   }
+
   await openApp(bound);
   expect(await evaluate(`['rail','centre','shelf'].map(id => document.querySelector('[data-layout-panel='+id+']').getBoundingClientRect().width)`)).toEqual([304, 640, 336]);
   expect(await evaluate(`document.querySelector('[data-layout-root]').style.cssText`)).toContain("--rail-width: 304px");
@@ -273,4 +296,53 @@ it("u507_bindings_preserve_resize_state", async () => {
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".thread-composer textarea");
   expect(await evaluate("document.querySelector('.thread-composer textarea').value")).toBe("Keep this draft λ");
+}, 180_000);
+
+it("u507_layout_checks", async () => {
+  const captures = captureDir("U507");
+  const baseline = new Map<string, Record<string, { status: string }>>();
+
+  for (const side of main ? ["base", "head"] : ["head"]) {
+    const origin = (side === "base" ? main! : server).resolvedUrls!.local[0];
+
+    for (const width of [1280, 1440]) {
+      await browser("set", "viewport", String(width), "800");
+      const url = `${origin}harness.html?seed=tree-40${side === "head" ? "&bound=1" : ""}`;
+      await browser("open", url);
+      await browser("wait", ".shelf-tabs");
+      await evaluate("localStorage.clear()");
+      await browser("open", url);
+      await browser("wait", ".shelf-tabs");
+      await settle();
+      // The Rail keeps the Daemon failure visible even with the Shelf closed.
+      await evaluate("window.__fake.app.exitDaemon({code:1})");
+      await settle();
+      expect(await evaluate(`(() => {
+        const error = [...document.querySelectorAll('[role=alert]')].find(el => el.textContent.includes('Daemon exited 1'));
+        const box = error?.getBoundingClientRect();
+        return Boolean(box && box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight);
+      })()`)).toBe(true);
+
+      for (const open of [true, false]) {
+        if (!open) {
+          await evaluate(`document.querySelector('[aria-label="Hide work items"]').click()`);
+          await settle();
+        }
+
+        const name = `${width}x800-${open ? "open" : "closed"}-failure`;
+        const checks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
+        if (side === "base") baseline.set(name, checks);
+        else for (const [id, check] of Object.entries(checks)) {
+          if (["D2", "D5", "D6"].includes(id) || baseline.get(name)?.[id]?.status === "pass") expect(check.status, `${name} ${id}: ${JSON.stringify(check)}`).toBe("pass");
+        }
+
+        if (captures) {
+          mkdirSync(join(captures, side), { recursive: true });
+          writeFileSync(join(captures, side, `${name}.checks.json`), JSON.stringify(checks));
+          await browser("screenshot", join(captures, side, `${name}.png`));
+        }
+      }
+    }
+  }
 }, 180_000);
