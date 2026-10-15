@@ -132,7 +132,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chromium-faults-${{ matrix.partition }}
+          name: chromium-faults-${{ matrix.partition }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/chromium-faults-${{ matrix.partition }}.jsonl
           retention-days: 7
 
