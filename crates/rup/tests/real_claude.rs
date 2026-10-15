@@ -586,3 +586,34 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
     model.tool_result("toolu_e6_context").await;
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own() {
+    let project = daemon::start_real("f3_child_home", &[]);
+    let client = project.client().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_f3_spawn").await;
+    let spawned: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
+    assert!(spawned.worktree.is_none());
+    let tree = rail_tree(&client).await;
+    let child = tree.iter().find(|n| n.id == spawned.id).unwrap();
+    assert_eq!(child.parent.as_deref(), Some(door.as_str()));
+    assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
+    model.assert_matched();
+}
