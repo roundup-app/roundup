@@ -236,6 +236,9 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
   it("u440_name_close_and_plus_share_a_centre_line", () => {
     for (const row of rows) for (const tab of row.tabs) for (const control of [tab.name, tab.close, row.plus]) expect(Math.abs(centre(control) - centre(tab.box)), row.case).toBeLessThanOrEqual(1);
   });
+  it("u440_tabs_hang_a_step_below_the_window_top", () => {
+    for (const row of rows) for (const tab of row.tabs) expect(tab.box.top - row.bar.top, row.case).toBeGreaterThanOrEqual(8);
+  });
   it("u440_a_tab_has_no_project_icon", () => {
     for (const row of rows) for (const tab of row.tabs) expect(tab.icons, row.case).toBe(0);
   });
@@ -315,11 +318,11 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 describe("u440 overflow edges sit beside the tab list", () => {
   type Rect = { left: number; right: number; bottom: number };
 
-  type Reading = { case: string; fades: Rect[]; fadeImages: string[]; slots: number; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
+  type Reading = { case: string; cuts: { start: number; end: number; mask: string }; slots: number; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
   let server: ViteDevServer;
   let readings: Reading[];
-  let tight: { list: Rect; fades: Rect[]; selected: Rect };
+  let tight: { list: Rect; cuts: { start: number; end: number }; selected: Rect };
 
   beforeAll(async () => {
     server = await createServer({ server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
@@ -342,6 +345,9 @@ describe("u440 overflow edges sit beside the tab list", () => {
         const seen = { left: Math.max(tab.left, reading.list.left), right: Math.min(tab.right, reading.list.right) };
         expect(seen.left < seen.right && meets(seen, edge), reading.case).toBe(false);
       }
+
+      // One step of ground between a cap and the list, as between two tabs.
+      for (const edge of reading.edges) expect(Math.min(Math.abs(reading.list.left - edge.right), Math.abs(edge.left - reading.list.right)), reading.case).toBeGreaterThanOrEqual(3.5);
     }
   });
   it("u440_the_selected_tab_keeps_its_left_border_in_view", () => {
@@ -352,22 +358,20 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) if (reading.list.right - reading.list.left >= reading.revealed.right - reading.revealed.left) expect(reading.revealed.right, reading.case).toBeLessThanOrEqual(reading.list.right + 0.5);
   });
 
-  it("u442_a_cover_leaves_the_header_rule_showing", () => {
-    for (const reading of readings) for (const fade of reading.fades) expect(fade.bottom, reading.case).toBeLessThan(reading.list.bottom);
-  });
-
   it("u440_a_slot_exists_only_beside_a_cap", () => {
     for (const reading of readings) expect(reading.slots, reading.case).toBe(reading.edges.length);
   });
 
   it("u440_a_list_barely_wider_than_a_tab_still_shows_the_open_tab", () => {
-    // The list is narrower than the open tab, so the tab is cut; no cover may lie over it.
+    // The list is narrower than the open tab, so the tab is cut; no fade may take it.
     expect(tight.list.right - tight.list.left).toBeLessThan(tight.selected.right - tight.selected.left + 1);
 
-    for (const fade of tight.fades) expect(fade.right <= tight.selected.left + 0.5 || fade.left >= tight.selected.right - 0.5).toBe(true);
+    if (tight.selected.left < tight.list.left - 0.5) expect(tight.cuts.start).toBe(0);
+
+    if (tight.selected.right > tight.list.right + 0.5) expect(tight.cuts.end).toBe(0);
   });
 
-  it("u440_only_a_cut_side_fades_over_the_whole_piece", () => {
+  it("u440_only_a_cut_side_fades_across_the_whole_piece", () => {
 
     // The open tab is never covered, so a cut of it (the list barely wider than one tab) is not a cut here.
     const isOpen = (reading: Reading, tab: Rect) => Math.abs(tab.left - reading.selected.left) < 0.5 && Math.abs(tab.right - reading.selected.right) < 0.5;
@@ -383,21 +387,11 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) {
       const { start, end } = cuts(reading);
 
-      // An uncut end keeps its border; a cut one is covered from the list's edge across exactly the piece of the tab that shows, and no whole tab beside it is touched.
-      expect(reading.fades.length, reading.case).toBe(Number(start.length > 0) + Number(end.length > 0));
+      // An uncut end keeps its border; a cut one fades across exactly the piece of the tab that shows.
+      expect(reading.cuts.start, reading.case).toBeCloseTo(start.length > 0 ? start[0]!.right - reading.list.left : 0, 0);
+      expect(reading.cuts.end, reading.case).toBeCloseTo(end.length > 0 ? reading.list.right - end[0]!.left : 0, 0);
 
-      for (const fade of reading.fades) {
-        const atStart = Math.abs(fade.left - reading.list.left) < 1;
-        const piece = atStart ? start[0]!.right - reading.list.left : reading.list.right - end[0]!.left;
-
-        expect(fade.right - fade.left, reading.case).toBeGreaterThanOrEqual(piece - 0.5);
-        expect(fade.right - fade.left, reading.case).toBeLessThanOrEqual(piece + 0.5);
-
-        for (const tab of reading.tabs) if (!start.includes(tab) && !end.includes(tab)) expect(Math.min(tab.right, fade.right) - Math.max(tab.left, fade.left), reading.case).toBeLessThanOrEqual(0.5);
-      }
-
-      // The cut piece is left out in the header's own ground: no gradient leaves a half box or a band over the tab's base.
-      expect(reading.fadeImages.every((image) => image === "none"), reading.case).toBe(true);
+      if (start.length + end.length > 0) expect(reading.cuts.mask, reading.case).toContain("linear-gradient");
     }
   });
 });

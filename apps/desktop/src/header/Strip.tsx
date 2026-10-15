@@ -219,7 +219,7 @@ export const Strip = (props: {
   const edge = (side: "left" | "right", shown: Edge | null) => (
     <Show when={shown}>
       {(hidden) => (
-        <div class="strip-slot">
+        <div class="strip-slot" data-side={side}>
           <button data-button="quiet"
             type="button"
             class={`strip-edge strip-edge-${side} ink`}
@@ -245,38 +245,30 @@ export const Strip = (props: {
     }}>
       <div class="strip-scroll">
         {edge(copy.left, left())}
-        <div class="tablist-frame">
-          <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
-            <For each={paths()}>
-              {(path) => {
-                // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
-                const tab = createMemo<StripTab>((last) => props.tabs.find((each) => each.path === path) ?? last, props.tabs.find((each) => each.path === path)!);
+        <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
+          <For each={paths()}>
+            {(path) => {
+              // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
+              const tab = createMemo<StripTab>((last) => props.tabs.find((each) => each.path === path) ?? last, props.tabs.find((each) => each.path === path)!);
 
-                return (
-                  <ProjectTab
-                    tab={tab()}
-                    selected={path === props.active}
-                    closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
-                    ref={(element) => {
-                      elements.set(path, element);
-                      onCleanup(() => elements.delete(path));
-                    }}
-                    onSelect={() => props.onSelect(path)}
-                    onMark={() => props.onMark(path)}
-                    onRename={(name) => props.onRename(path, name)}
-                    onClose={() => requestClose(tab())}
-                    onModels={() => props.onModels(path)}
-                  />
-                );
-              }}
-            </For>
-          </div>
-          <Show when={cutStart() > 0}>
-            <span class="strip-fade strip-fade-start" style={{ "--cut": `${cutStart()}px` }} />
-          </Show>
-          <Show when={cutEnd() > 0}>
-            <span class="strip-fade strip-fade-end" style={{ "--cut": `${cutEnd()}px` }} />
-          </Show>
+              return (
+                <ProjectTab
+                  tab={tab()}
+                  selected={path === props.active}
+                  closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
+                  ref={(element) => {
+                    elements.set(path, element);
+                    onCleanup(() => elements.delete(path));
+                  }}
+                  onSelect={() => props.onSelect(path)}
+                  onMark={() => props.onMark(path)}
+                  onRename={(name) => props.onRename(path, name)}
+                  onClose={() => requestClose(tab())}
+                  onModels={() => props.onModels(path)}
+                />
+              );
+            }}
+          </For>
         </div>
         {edge(copy.right, right())}
       </div>
