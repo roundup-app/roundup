@@ -17,16 +17,15 @@ file. What it does comes from the environment, so one script serves every scenar
                            the Brief and the real MCP list stand together
   FAKE_CLAUDE_CONTEXT_REPORT a file path: written with the stdout of the `rup context` command that
                            runs under SessionStart (E3), as Claude Code puts it in the session
-  FAKE_CLAUDE_ORDER_PROMPTS a count: the first prompts typed are the node's own order (H12); each is
-                           submitted and stopped, and no ASK or ON_PROMPT behaviour plays for it
+  FAKE_CLAUDE_ORDER_PROMPTS a legacy count of nonempty initial work lines: their complete prompts are
+                           submitted and stopped, and no ASK or ON_PROMPT behaviour plays for them
   FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
-  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"}, or a list of them played in order (O12), a call with "skip_prompt" (a regex) not played for a prompt it matches (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per prompt line typed into
+  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"}, or a list of them played in order (O12), a call with "skip_prompt" (a regex) not played for a prompt it matches (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per submitted prompt typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
-  FAKE_CLAUDE_PASTE_WHOLE  any value (A32), set with FAKE_CLAUDE_ON_PROMPT: a bracketed paste is one prompt, newlines
-                           inside it included, as Claude Code reads it
+  FAKE_CLAUDE_PASTE_WHOLE legacy flag: ORDER_PROMPTS counts whole pastes instead of nonempty work lines
   FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
                            UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
@@ -193,12 +192,11 @@ def hook(event, extra=None):
 
 def split_line(pending):
     """The first typed line of `pending` and the rest; a newline inside a bracketed paste does not end it."""
-    pasted = "FAKE_CLAUDE_PASTE_WHOLE" in os.environ
     inside = False
     for at in range(len(pending)):
-        if pasted and pending.startswith(b"\x1b[200~", at):
+        if pending.startswith(b"\x1b[200~", at):
             inside = True
-        elif pasted and pending.startswith(b"\x1b[201~", at):
+        elif pending.startswith(b"\x1b[201~", at):
             inside = False
         elif not inside and pending[at] in b"\r\n":
             return pending[:at], pending[at + 1 :]
@@ -206,7 +204,7 @@ def split_line(pending):
 
 
 def typed_prompts():
-    """Each line typed into the Terminal, with the bracketed-paste markers of a Steer removed."""
+    """Submitted prompts, keeping a bracketed paste whole and excluding roundup Context from the scripted work."""
     pending = b""
     while True:
         chunk = os.read(0, 4096)
@@ -218,6 +216,7 @@ def typed_prompts():
             text = line.replace(b"\x1b[200~", b"").replace(b"\x1b[201~", b"").decode(errors="replace").strip()
             # H20: the typed lead-in of a Steer, outside the paste; the prompt is the pasted body.
             text = text.removeprefix("Follow this instruction: ")
+            text = text.split("\n\n<roundup-context>\n", 1)[0]
             # The Daemon heads a Message with `[from <sender>, <kind>] `; the prompt is its body.
             text = re.sub(r"^\[[^\]]*\] ", "", text)
             if text:
@@ -286,7 +285,9 @@ def play_prompts(tool):
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
         hook("UserPromptSubmit", {"prompt": prompt})
         if orders:
-            orders -= 1
+            # Older observers counted the two nonempty clarification lines separately.
+            count = 1 if "FAKE_CLAUDE_PASTE_WHOLE" in os.environ else len([line for line in prompt.splitlines() if line.strip()])
+            orders = max(0, orders - count)
             hook("Stop")
             continue
         if "FAKE_CLAUDE_ON_PROMPT_ASK" in os.environ and not ask_permission(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT_ASK"]), prompt):
