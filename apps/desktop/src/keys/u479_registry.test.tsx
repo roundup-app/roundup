@@ -147,3 +147,26 @@ it("u479_remount_has_one_dispatch", () => {
   press(target);
   expect(count).toBe(1);
 });
+
+
+it("u496_focused_portalled_layer_owns_escape_in_both_registration_orders", () => {
+  for (const nested of [false, true]) for (const reverse of [false, true]) {
+    const drawer = element(nested ? element() : document.body);
+    const top = element();
+    let closes = 0;
+    let open = true;
+    const scopes: [KeyScope, Parameters<typeof registerKeys>[1]][] = [
+      [{ kind: "layer", element: () => drawer, active: () => true, modal: false }, [{ chords: ["Escape"], run: () => closes++ }]],
+      [{ kind: "layer", element: () => top, active: () => open, modal: true }, []],
+    ];
+    mount(() => { for (const [scope, bindings] of reverse ? scopes.reverse() : scopes) registerKeys(scope, bindings); });
+    top.focus();
+    top.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(closes).toBe(0);
+    open = false;
+    drawer.focus();
+    drawer.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(closes).toBe(1);
+    disposals.splice(0).forEach((dispose) => dispose());
+  }
+});
