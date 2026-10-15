@@ -80,7 +80,10 @@ accessor and the production function that consumes its result, qualified by
 module; count the consuming module, not a module that only forwards the value.
 Two consuming functions in the same module still count as one reader module. These
 tables are policy evidence inspected against the implementation, not new tests
-of source text.
+of source text. Identify the implementation head SHA with the tables. After a
+code move or field regrouping, update both tables against that head before
+requesting review (policy); evidence from an earlier layout does not establish
+the final layout or ownership.
 
 A nonzero command or a violated policy clause fails AM1. The specification PR
 establishes this acceptance only; it does not claim the refactor or the size guard is delivered.
