@@ -1,6 +1,6 @@
 # Fresh Terminal owner execution (#1917)
 
-Unmerged repair: #1917 is blocked by #1920, an independently reproduced main defect. The narrow measurements below do not establish full acceptance.
+The narrow repair removes redundant owner-query VM work. Its measurements do not establish User write p95 improvement or complete #1366, #1361 or #1251.
 
 Each call still locks Rail → Attempts, performs a fresh authoritative read and records synchronously inside the lifecycle cut. No owner facts are cached; each SQLite read transaction ends within the method. The implementation only changes the existing SELECT; callers, constructors, schema/index, raw one-parameter binding, callbacks and the bounded schema-only peer are unchanged.
 
@@ -80,11 +80,13 @@ Rule 10 removes `b32_an_unowned_terminal_has_no_receiver`: `b32_repeated_owner_r
 
 Existing proofs retain fresh positive/negative reads after external commits, ambiguity/recovery, SQL and callback errors, concurrent attachment/detach/reassignment/removal/reopen/Attempt changes, pending Resume, Status/revision fencing, callback effects and lifecycle lock order. The peer expiry/rearm test proves checkpoint progress after input stops and while it continues. No owner fact escaping the cut authorizes a later mutation.
 
-Validation is blocked by existing prerequisite [#1920](https://github.com/saadshahd/roundup/issues/1920). Both `just check origin/main` invocations exit 1: each Rust suite runs 1,461 tests, with 1,460 passing and the unchanged `a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first` timing out (10.407 / 10.344 s); five existing tests are skipped. Both reached web suites pass all 55 tests, with two existing skips. Formatting, Clippy, dependency checks, contract freshness and vocabulary pass; Message proofs print `ALL PROOFS CHECK` in both runs, without any law change.
+Initial validation was blocked by existing prerequisite [#1920](https://github.com/saadshahd/roundup/issues/1920). Both `just check origin/main` invocations exit 1: each Rust suite runs 1,461 tests, with 1,460 passing and the unchanged `a35_a_ready_title_before_ack_still_delivers_the_reserved_prompt_first` timing out (10.407 / 10.344 s); five existing tests are skipped. Both reached web suites pass all 55 tests, with two existing skips. Formatting, Clippy, dependency checks, contract freshness and vocabulary pass; Message proofs print `ALL PROOFS CHECK` in both runs, without any law change.
 
 The unchanged failing test passes alone in 0.79 s, but that does not settle the progress race. A baseline A35 group on `8001a5b04bd517af5e25679ca65e26070a44df3c`, with only failure-output diagnostics, reproduces it: 15 pass, one fails, outer nextest exit 100. The failure shows the reserved `rewind note` was typed and no bytes were dropped, but the following `pending Message` never arrives; the Terminal remains running with its ready title. This is the same ordering defect #1920 already owns. Its failure-only patch, source hash, complete log and command/exit are retained; no A35 or production repair from that worktree enters this branch.
 
-The native dependency #1917 → #1920 preserves scope. This is an unmerged owner-query repair, not full acceptance: #1917 remains open. Resume `build/terminal-owner-query-execution` after #1920 merges, incorporate main, review any measurement impact and pass `just check origin/main` before claiming completion. No test is weakened or skipped to get a green result.
+The native prerequisite #1920 merged in #1921. This branch incorporates main `93ef7b52`: only reserved first-Steer admission and its A35 tests changed since the measured baseline. Owner-query source, lifecycle cut, constructors, schema, peer and benchmark fixtures did not change. The matched measurements above remain observations of their recorded source pair, not measurements of the merged head; no new write-latency claim follows from this merge. No test is weakened or skipped to get a green result.
+
+Resumed validation after merging #1921: `pnpm install`, `just check origin/main` and `loop/rules.sh vocab` exit 0. All 1,462 reached Rust tests pass (five existing skips), including Agents, Message scenarios and the formerly failing A35 progress test. All 55 web tests pass (two existing skips). Formatting, Clippy, dependencies, contract freshness and Message proofs pass; proofs print `ALL PROOFS CHECK`. The complete resumed check/install/vocabulary logs and command/exit record are retained in the archive.
 
 ## Retained evidence and reproduction
 
@@ -111,4 +113,4 @@ For uninstrumented Daemons, use detached worktrees at the before/after refs abov
 
 For diagnostics only, apply `diagnostic.patch` to before or `diagnostic-after.patch` to after, compile and freeze separate release binaries, run the unchanged probe, and reverse the patch before any acceptance build. `instrument-final.py` reproduces that instrumentation. The C fixtures link the same `libsqlite3.a` the release Daemon used; `initial-commands.txt` gives their exact commands. They never supply acceptance. `transactions.c` measures prepared transaction controls; `sqlite-attribution.c` and `sqlite-candidates.c` retain the earlier controls and all candidates.
 
-Archive read-back verifies all 192 retained files and every matched sample count. Archive SHA-256 `ee7fc87273919f6d19233e005b47350545144f4e977faae9019b9807a59dde1d`; decoded JSON SHA-256 `5f2b4f343731e352b58be35798e1c2125d22bee32646e69cd88a9d5efe020d3e`.
+Archive read-back verifies all 196 retained files and every matched sample count. Archive SHA-256 `c542ec80086e036b916995734fb63bdb80076c868e0cfe4c70704ec1855da99b`; decoded JSON SHA-256 `ea2395c5e5a8414303e689c50d5a53bf69526d6b430064a9fb07b85739407ba3`.
