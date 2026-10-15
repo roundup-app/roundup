@@ -82,6 +82,8 @@ pub trait AgentAdapter {
 
 /// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
 type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
+type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
+
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
 
 /// H19: told, under the Agents' locks, each gate decision as `(agent id, released)`.
@@ -136,6 +138,7 @@ struct Shared {
     events: events::State,
     rail_view: rail_view::State,
     ending: ending::State,
+    resume_effect: Option<ResumeEffect>,
 }
 
 /// What kills a Terminal's program; real `Terminals` in production, a fake where a test needs a
@@ -278,24 +281,34 @@ enum Slot {
         terminal_id: Option<String>,
         /// Signals held exactly as `Starting`'s, awaiting the ack among them (A14).
         held: VecDeque<(Actor, Value)>,
-        /// Signalled once by whichever of the ack or the 10 s timeout resolves this resume
-        /// first; the loser finds the slot already gone and does nothing (A22's serialization).
+        /// Promotion or timeout claims this sender under the runs lock. Failure sends only
+        /// after cleanup finishes; a timer that loses the claim still awaits this sender.
         done: tokio::sync::oneshot::Sender<Result<(), RpcError>>,
     },
     Running(Run),
+    /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
+    ResumeCleanup {
+        attempt: String,
+        terminal_id: String,
+        pending: bool,
+        error: RpcError,
+    },
     Closing,
 }
 
 impl Slot {
     fn attempt(&self) -> &str {
         match self {
-            Self::Starting { attempt, .. } | Self::Resuming { attempt, .. } => attempt,
+            Self::Starting { attempt, .. }
+            | Self::Resuming { attempt, .. }
+            | Self::ResumeCleanup { attempt, .. } => attempt,
             Self::Running(run) => &run.attempt,
             Self::Closing => "",
         }
     }
     fn closing(&self) -> bool {
-        matches!(self, Self::Closing) || matches!(self, Self::Running(run) if run.closing)
+        matches!(self, Self::Closing | Self::ResumeCleanup { .. })
+            || matches!(self, Self::Running(run) if run.closing)
     }
 
     /// The node's name is final: no prompt renames it.
@@ -303,7 +316,7 @@ impl Slot {
         match self {
             Self::Running(run) => run.named = true,
             Self::Starting { named, .. } => *named = true,
-            Self::Resuming { .. } | Self::Closing => {}
+            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing => {}
         }
     }
 }

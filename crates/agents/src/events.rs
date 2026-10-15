@@ -164,7 +164,7 @@ impl Shared {
                     self.finish_resuming(rail.as_deref_mut(), &mut runs, id, actor, payload)?
                 }
                 None => return Err(RpcError::not_found(format!("agent {id}"))),
-                Some(Slot::Closing) => {
+                Some(Slot::Closing | Slot::ResumeCleanup { .. }) => {
                     return Err(RpcError::conflict(format!("agent {id} is stopping")));
                 }
             }
@@ -310,7 +310,7 @@ pub(super) fn channel_in(
     let live = match slot {
         Slot::Running(run) => !run.ended && !run.closing,
         Slot::Starting { .. } | Slot::Resuming { .. } => true,
-        Slot::Closing => false,
+        Slot::Closing | Slot::ResumeCleanup { .. } => false,
     };
     live.then(|| match channels.get(id) {
         Some((attempt, channel)) if attempt == slot.attempt() => *channel,

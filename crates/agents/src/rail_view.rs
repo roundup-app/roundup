@@ -83,6 +83,16 @@ impl Shared {
                 label: "starting".into(),
                 since: *since,
             }),
+            Some(Slot::ResumeCleanup {
+                terminal_id, error, ..
+            }) => {
+                node.terminal_id = Some(terminal_id.clone());
+                Some(Status {
+                    kind: Kind::Error,
+                    label: error.message.clone(),
+                    since: self.rail_view.opened,
+                })
+            }
             None | Some(Slot::Closing) => None,
         };
         node.status = Some(live.unwrap_or_else(|| Status {
@@ -93,7 +103,12 @@ impl Shared {
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.ended,
-            Some(Slot::Starting { .. } | Slot::Resuming { .. } | Slot::Closing) => false,
+            Some(
+                Slot::Starting { .. }
+                | Slot::Resuming { .. }
+                | Slot::ResumeCleanup { .. }
+                | Slot::Closing,
+            ) => false,
             None => true,
         };
         node.can_resume &= exited;
@@ -162,7 +177,7 @@ impl Agents {
                             .is_none_or(|status| status.kind == Kind::Done),
                 ),
                 Some(Slot::Starting { .. } | Slot::Resuming { .. }) => (Some("1".into()), false),
-                None | Some(Slot::Closing) => (None, true),
+                None | Some(Slot::Closing | Slot::ResumeCleanup { .. }) => (None, true),
             };
             TerminalOwner {
                 id,
