@@ -44,7 +44,7 @@ const Root = (props: RootProps) => {
   }}><div {...rest}>{local.children}</div></DragDropProvider>;
 };
 
-type ItemProps = Pick<UseSortableInput, "id" | "index" | "group" | "disabled"> & {
+type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
   children: (parts: ReturnType<typeof useSortable>) => JSX.Element;
 };
 
