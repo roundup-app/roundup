@@ -1626,6 +1626,43 @@ async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_conte
     );
 }
 
+#[tokio::test]
+async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context() {
+    let project = daemon::start_real("e3_startup_context", &[]);
+    let user = project.client().await;
+    let node = user
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": project.dir.path(), "prompt": "E10 read startup context"
+            }),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let request = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(entry) = model
+                .journal()
+                .into_iter()
+                .find(|entry| entry["body"]["tools"].is_array())
+            {
+                return entry;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("real Claude requests its first work turn");
+    model.assert_matched();
+    let messages = request["body"]["messages"].to_string();
+    assert!(messages.contains("Parent: none"), "{request:#?}");
+    assert!(
+        messages.contains(&format!("Your Agent id is {}. It never changes.", node["id"].as_str().unwrap())),
+        "{request:#?}"
+    );
+}
+
 async fn channel_of(client: &rpc::Client, id: &str) -> Option<Channel> {
     rail_tree(client)
         .await
