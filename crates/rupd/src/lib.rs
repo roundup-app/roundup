@@ -9,7 +9,6 @@ pub mod data;
 mod decision_notes;
 mod digest;
 mod handshake;
-mod old_bindings;
 mod removal;
 mod resources;
 mod storage;
@@ -56,8 +55,6 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
-    /// P14: Agents bound to a Pad by an older `pads.db`, removed on the first call.
-    old_bound: std::sync::Mutex<Vec<String>>,
     /// H21: subscribed at `open`, taken once with `pushes`.
     notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
@@ -135,7 +132,7 @@ impl Daemon {
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let probe = Arc::clone(&messages);
         let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
-        let todos = Arc::new(todos::Todos::open(dir, bus.clone(), &touches)?);
+        let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
         let context_todos = Arc::clone(&todos);
         let context_bus = bus.clone();
         let context_touches = Arc::clone(&touches);
@@ -187,7 +184,6 @@ impl Daemon {
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
-            old_bound: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
@@ -199,10 +195,6 @@ impl Daemon {
             ))),
         };
         daemon.register(todos);
-        *daemon
-            .old_bound
-            .get_mut()
-            .unwrap_or_else(|poisoned| poisoned.into_inner()) = pads.take_old_bindings()?;
         daemon.register(pads);
         daemon.register(Arc::new(
             checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()),
@@ -388,7 +380,6 @@ impl Daemon {
             }
         }
         self.before_prompt_effect(method, &params).await?;
-        self.remove_old_bound_agents().await?;
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
