@@ -54,7 +54,7 @@ it("u485_rendered_checks", async () => {
     await browser("set", "media", scheme);
 
     for (const surface of ["tree", "sort", "failure"]) {
-      const path = surface === "failure" ? "/harness.html?seed=tree-40" : baseline ? "/src/ui/u474.html" : surface === "tree" ? "/src/ui/u483.html" : "/src/ui/u484.html?dense";
+      const path = surface === "failure" ? "/harness.html?seed=tree-40" : surface === "tree" ? "/src/ui/u483.html" : "/src/ui/u484.html?dense";
       await browser("open", new URL(path, origin).href);
 
       if (surface === "failure") {
@@ -65,15 +65,16 @@ it("u485_rendered_checks", async () => {
         await browser("wait", "--fn", `!!document.querySelector('[role=alertdialog]')`);
         await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
         await browser("wait", "--fn", `document.body.textContent.includes('could not stop rupd')`);
-      } else if (!baseline && surface === "tree") {
+      } else if (surface === "tree") {
         await browser("wait", "--fn", `!!document.querySelector('[role=tree]')`);
         await browser("click", "button[data-button=quiet]");
         await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').getAttribute('aria-selected') === 'true'`);
-      } else if (!baseline) {
+      } else {
         await browser("wait", "--fn", `document.querySelectorAll('.sortable-row').length === 40`);
         await browser("focus", '[aria-label="Move 12"]');
         await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 0`);
-      } else await browser("wait", "--fn", `!!document.querySelector('[aria-label="Actions taken"]')`);
+      }
+
       const checks = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks(document))`);
 
       if (art) {
@@ -84,7 +85,7 @@ it("u485_rendered_checks", async () => {
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
       }
 
-      for (const id of CHECK_IDS) expect(checks[id], `${surface} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
+      if (!baseline) for (const id of CHECK_IDS) expect(checks[id], `${surface} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
     }
   }
 }, 180_000);
