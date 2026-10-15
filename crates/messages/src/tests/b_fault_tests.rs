@@ -470,7 +470,7 @@ async fn b32_r16_partial_input_failure_rolls_back_store_memory_and_events() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
     let dir = tempfile::tempdir().unwrap();
     let entered = Arc::new(tokio::sync::Notify::new());
