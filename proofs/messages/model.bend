@@ -1,6 +1,6 @@
 import Base
 
-# Pure model of `step` in crates/messages for ONE receiver (docs/messages.md; B1 to B9) and for ONE question's
+# Pure model of `step` in crates/messages for ONE receiver (docs/messages.md; B1 to B9, B37) and for ONE question's
 # escalation chain (B13 to B17). A Message is its id. Its status is the list its id sits in.
 # The chain's own state is the Question `Q`; `step` runs the delivery events on the World and `qstep` the chain
 # events on the Question, and each leaves the other's state alone: a hop is an ordinary Message (B13), so its
@@ -11,6 +11,23 @@ type Route is Data:
   AskFirst{}
   RouteDrop{}
 
+# B37 projection (docs/messages.md, lifecycle-to-model mapping): Idle/World.idle denote
+# delivery readiness, not the literal Kind. A current Attempt with a running Terminal at
+# idle or error after StopFailure supplies Idle; live error is not Exit. Send uses that
+# readiness for new Messages; Idle flushes pending ones in their existing ranks. Routes
+# still hold/drop, and Takeover/UserInput still prevent automatic typing until their own
+# release; UserDeliver retains the explicit user override, not new TakeoverBegin consent.
+# A Busy typing refusal supplies no Type effect and preserves pending/takeover-held work:
+# Rust rolls back its pre-typing record, whereas this model records and types atomically.
+# Busy clears readiness until a subsequent Idle. Actual current-Attempt ending (even with
+# last Kind error), done or removal supplies Exit; gone blocks later Idle and Send.
+# Filter older-Attempt/stale-revision observations before step: they supply no event for
+# the current receiver and cannot reopen it or end a resumed Attempt. A new Attempt has
+# a new receiver generation; final Message ids never revive. A35 projections below apply
+# after this classification. M1/M4/M6/M7/M10 keep their guards and fair-Idle assumption;
+# perpetual Busy cannot guarantee progress. These proofs cover the model, not the Rust
+# lifecycle projection: #1847 owns its B37 repair and runtime/Decision-note observers.
+# No event, transition or law is added to represent a vendor hook name.
 type Ev is Data:
   Send{from_user: Bool, route: Route}
   Idle{}
@@ -491,8 +508,9 @@ def qrun(evs: +List<Ev>, q: Q) -> Q:
 
 # A35: durable reservation projects temporary stop/error, next Attempt and reopen to Busy,
 # never Exit (final receiver ending). A final removal bypasses the reservation. Releasing
-# after matching SessionStart/first-prompt acknowledgement supplies an ordinary Idle; a
-# reopened Takeover releases via Restart{True} first. Ask-first/escalated holds are unchanged.
+# after matching SessionStart/first-prompt acknowledgement supplies Idle when ready,
+# including B37 live error. A reopened Takeover releases via Restart{True} first.
+# Ask-first/escalated holds are unchanged.
 # This projection is shared with Rust's restart_event; ordinary step and all laws stay intact.
 def restart_event(reserved: Bool, e: Ev) -> Ev:
   match reserved:
