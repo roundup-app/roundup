@@ -269,9 +269,16 @@ impl Fix {
             _ => None,
         })
         .await;
+        // A stopped Subagent's Digest may be logged after the new Door's Handoff.
         prompts(&self.log)
             .into_iter()
-            .last()
+            .rev()
+            .find(|p| {
+                !p["prompt"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with(agents::claude_code::STATUS_LEAD)
+            })
             .expect("the acknowledged Handoff prompt")
     }
 
@@ -602,7 +609,7 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     assert!(tree.iter().all(|n| n.id != fx.a && n.id != fx.b));
     assert!(tree.iter().any(|n| n.id == fx.ws));
     // The deeper Subagent's Worktree is handed off before the shallower one's.
-    let handoff = prompts(&fx.log).into_iter().last().unwrap()["prompt"]
+    let handoff = fx.handoff_prompt(&mut events).await["prompt"]
         .as_str()
         .unwrap()
         .to_owned();
@@ -621,6 +628,7 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
 #[tokio::test]
 async fn a32_worktrees_and_branches_survive_even_dirty() {
     let fx = fixture().await;
+    let mut events = fx.project.subscribed().await;
     let nodes = rail_tree(&fx.user).await;
     let trees: Vec<_> = [&fx.a, &fx.b]
         .map(|id| {
@@ -647,7 +655,7 @@ async fn a32_worktrees_and_branches_survive_even_dirty() {
         assert!(branches.contains(&tree.branch), "{branches}");
     }
     assert!(Path::new(&trees[1].path).join("dirty.txt").is_file());
-    let handoff = prompts(&fx.log).into_iter().last().unwrap()["prompt"]
+    let handoff = fx.handoff_prompt(&mut events).await["prompt"]
         .as_str()
         .unwrap()
         .to_owned();
@@ -677,18 +685,7 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let after = node(&fx.user, &fx.ws).await.unwrap();
     assert_eq!(after.attempt, Some("2".to_owned()));
     assert_ne!(after.terminal_id, first.terminal_id);
-    fx.handoff_prompt(&mut events).await;
-    // A Subagent's stopped Digest can arrive after the restart's Handoff.
-    let last = prompts(&fx.log)
-        .into_iter()
-        .rev()
-        .find(|p| {
-            !p["prompt"]
-                .as_str()
-                .unwrap()
-                .starts_with(agents::claude_code::STATUS_LEAD)
-        })
-        .unwrap();
+    let last = fx.handoff_prompt(&mut events).await;
     assert_eq!(last["resume"], false);
     let text = last["prompt"].as_str().unwrap();
     assert!(text.starts_with("Build the login page."), "{text}");
