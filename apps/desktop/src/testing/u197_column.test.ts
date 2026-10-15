@@ -174,9 +174,10 @@ run("Q3 and U197 rendered text contrast", () => {
       await page.until(`() => document.querySelector(".order-ask")?.textContent.length >= 300`);
       const wraps = await page.call<boolean>(`() => {
         const ask = document.querySelector(".order-ask");
+        const drawer = document.querySelector("[aria-label='Full order of workstream-1']");
         const range = document.createRange();
         range.selectNodeContents(ask);
-        return new Set([...range.getClientRects()].map((rect) => rect.top)).size > 1 && ask.scrollWidth <= ask.clientWidth;
+        return new Set([...range.getClientRects()].map((rect) => rect.top)).size > 1 && ask.scrollWidth <= ask.clientWidth && drawer.scrollWidth <= drawer.clientWidth;
       }`);
 
       expect(wraps).toBe(true);
