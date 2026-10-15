@@ -110,6 +110,11 @@ it("u479_handled_events_act_once_and_unhandled_events_keep_defaults", () => {
   const native = new KeyboardEvent("keydown", { key: "x", code: "KeyX", bubbles: true, cancelable: true });
   target.dispatchEvent(native);
   expect(native.defaultPrevented).toBe(false);
+
+  const unspecified = new Event("keydown", { bubbles: true, cancelable: true });
+
+  target.dispatchEvent(unspecified);
+  expect(unspecified.defaultPrevented).toBe(false);
   expect(count).toBe(1);
 });
 
