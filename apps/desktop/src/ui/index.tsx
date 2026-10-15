@@ -48,7 +48,7 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
   };
 
   // Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
-  return <Tooltip.Root closeOnEscape={false}>
+  return <Tooltip.Root closeOnEscape={false} positioning={{ strategy: "fixed" }}>
     <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
