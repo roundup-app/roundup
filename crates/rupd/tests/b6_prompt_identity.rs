@@ -2080,3 +2080,45 @@ async fn b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt() {
     assert_eq!(held["reason"], "takeover");
     run.finish().await;
 }
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_write_waits_for_the_child_effect() {
+    let (run, caller) = door_terminal().await;
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let terminal = run.terminal.clone();
+    let write = tokio::spawn(async move {
+        caller
+            .request(
+                "terminal.write",
+                json!({"id":terminal,"data":STANDARD.encode(b"once")}),
+            )
+            .await
+    });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The physical input observer establishes that the Door call is inside its effect.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    std::fs::remove_file(&gate).unwrap();
+    write.await.unwrap().unwrap();
+    assert!(
+        early.is_err(),
+        "Takeover acquired before the Door write: {early:?}"
+    );
+    tokio::time::timeout(BOUND, begin)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(recorded_bytes(&run).await, b"once");
+    run.finish().await;
+}
