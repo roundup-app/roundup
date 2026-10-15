@@ -479,8 +479,11 @@ mod tests {
             let stage = std::env::var("ROUNDUP_IMPORT_STAGE").unwrap();
             open_with(
                 Path::new(&dir),
-                Arc::new(move |phase, _| {
+                Arc::new(move |phase, db| {
                     if phase == stage {
+                        if phase == "after_verification" {
+                            db.execute("UPDATE pads SET text='destination write before kill'", [])?;
+                        }
                         println!("IMPORT_GATE");
                         std::io::stdout().flush().unwrap();
                         let mut release = String::new();
@@ -522,8 +525,16 @@ mod tests {
             reader.join().unwrap();
             entered.expect("import acknowledges the exact stage before kill");
             open(dir.path()).unwrap();
-            assert_import(dir.path());
             let db = Connection::open(dir.path().join("project.db")).unwrap();
+            if stage == "after_verification" {
+                assert_eq!(
+                    db.query_row("SELECT text FROM pads", [], |r| r.get::<_, String>(0))
+                        .unwrap(),
+                    "destination write before kill"
+                );
+            } else {
+                assert_import(dir.path());
+            }
             db.execute("UPDATE pads SET text='after restart'", [])
                 .unwrap();
             open(dir.path()).unwrap();
