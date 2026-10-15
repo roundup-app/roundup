@@ -1137,7 +1137,7 @@ async fn m6_over_stdio_an_agents_workstream_shows_in_the_tree_with_its_door_star
 
 fn m17_daemon(socket: &Path, reply: Value) -> tokio::task::JoinHandle<()> {
     let listener = UnixListener::bind(socket).unwrap();
-    let server = tokio::spawn(async move {
+    tokio::spawn(async move {
         loop {
             let (stream, _) = listener.accept().await.unwrap();
             let reply = reply.clone();
@@ -1159,8 +1159,7 @@ fn m17_daemon(socket: &Path, reply: Value) -> tokio::task::JoinHandle<()> {
                 }
             });
         }
-    });
-    server
+    })
 }
 
 #[tokio::test]
