@@ -64,6 +64,8 @@ struct Handle {
     program: Program,
 }
 
+type InputWriter = dyn Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send + Sync;
+
 type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send>;
 
 enum Input {
@@ -165,6 +167,7 @@ impl Shared {
 pub struct Terminals {
     shared: Arc<Shared>,
     next: AtomicU64,
+    input_writer: Option<Arc<InputWriter>>,
 }
 
 impl Terminals {
@@ -188,7 +191,17 @@ impl Terminals {
                     .collect(),
             }),
             next: AtomicU64::new(1),
+            input_writer: None,
         })
+    }
+
+    /// Adapt each PTY input writer before its input thread starts, for isolated physical-IO observers.
+    pub fn with_input_writer(
+        mut self,
+        adapt: impl Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send + Sync + 'static,
+    ) -> Self {
+        self.input_writer = Some(Arc::new(adapt));
+        self
     }
 
     /// Start `params.command` (or the login shell) in a new PTY.
@@ -336,6 +349,10 @@ impl Terminals {
         // channel), so no later failure can leave a program that nobody waits for.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;
         let writer = pair.master.take_writer().map_err(RpcError::internal)?;
+        let writer = match &self.input_writer {
+            Some(adapt) => adapt(writer),
+            None => writer,
+        };
         let number = self.next.fetch_add(1, Ordering::Relaxed);
         let snapshot_available = snapshot_size_supported(params.cols, params.rows);
         let scrollback = if snapshot_available {
@@ -435,7 +452,7 @@ impl Terminals {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.enqueue(id, Input::Effect(Box::new(effect), tx))?;
         rx.await.map_err(|_| {
-            RpcError::unknown_outcome("Terminal input ended before reporting the prompt effect")
+            RpcError::unknown_outcome("Terminal input ended before reporting its physical effect")
         })?
     }
 
