@@ -6,6 +6,7 @@ avoid flooding CI with ordinary disk reads; capture itself has no age filter.
 Keep at most 1024 active faults and the longest 128 completed faults. Publish
 at most 256 live fault pairs, plus the bounded final retained evidence. Every
 limit or tracer failure is explicit and never changes the command's result.
+Console backpressure disables console reports once; the artifact keeps capturing.
 """
 import argparse
 import datetime
@@ -14,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -40,25 +42,56 @@ def main():
         except OSError as error:
             log_error = str(error)
     output_lock = threading.Lock()
-    output_enabled = True
+    output_fd = None
+    output_error = None
+    try:
+        # Reopen rather than dup: O_NONBLOCK must not alter the caller's or
+        # command's shared file description. No Python buffer can later flush
+        # a failed write during shutdown and replace the command's exit status.
+        if stat.S_ISREG(os.fstat(1).st_mode):
+            # Preserve the shared offset when stdout is already a file.
+            output_fd = os.dup(1)
+        else:
+            output_fd = os.open("/proc/self/fd/1", os.O_WRONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOCTTY)
+    except OSError as error:
+        output_error = str(error)
 
     def publish(event):
-        nonlocal log, output_enabled
+        nonlocal log, output_fd, output_error
         with output_lock:
-            value = json.dumps(event)
+            value = json.dumps(event) + "\n"
+            log_failure = None
             if log:
                 try:
-                    log.write(value + "\n")
+                    log.write(value)
                     log.flush()
                 except OSError as error:
                     log = None
-                    if output_enabled:
-                        print(json.dumps({"status": "error", "detail": f"fault log write: {error}"}), flush=True)
-            if output_enabled:
+                    log_failure = json.dumps({"status": "error", "detail": f"fault log write: {error}"}) + "\n"
+            if output_fd is not None:
                 try:
-                    print(value, flush=True)
-                except BrokenPipeError:
-                    output_enabled = False
+                    # One nonblocking attempt, no queue or retry. A short write
+                    # loses the remainder too; disable output before another
+                    # record could be appended to that incomplete JSON line.
+                    payload = ((log_failure or "") + value).encode("utf-8")
+                    written = os.write(output_fd, payload)
+                    if written != len(payload):
+                        output_error = f"short write ({written}/{len(payload)} bytes)"
+                except OSError as error:
+                    output_error = str(error)
+                if output_error:
+                    os.close(output_fd)
+                    output_fd = None
+            if output_error:
+                # Artifact only: never report a failed output through itself.
+                # Emit once; all subsequent console records are suppressed.
+                if log:
+                    try:
+                        log.write(json.dumps({"status": "error", "detail": f"fault stdout disabled; console records lost; artifact capture continues: {output_error}"}) + "\n")
+                        log.flush()
+                    except OSError:
+                        log = None
+                output_error = None
 
     if log_error:
         publish({"status": "error", "detail": f"fault log unavailable: {log_error}"})
@@ -254,6 +287,8 @@ def main():
                 log = None
         if closing_error:
             publish({"status": "error", "detail": f"fault log close: {closing_error}"})
+        if output_fd is not None:
+            os.close(output_fd)
     if result < 0:
         # SIGKILL cannot have a handler; every terminating signal still has
         # to reach the caller as a signal rather than a fabricated exit code.

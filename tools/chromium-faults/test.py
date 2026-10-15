@@ -83,7 +83,6 @@ def held_command(binary, mount, endpoint):
             control.close()
 
 
-
 @contextmanager
 def artifact_watch(path):
     # Linux inotify acknowledges artifact writes without a polling sleep.
@@ -102,12 +101,16 @@ def artifact_watch(path):
 
 def fill_pipe(descriptor):
     written = 0
+    block = b"X" * 4096
     while True:
         try:
-            written += os.write(descriptor, b"X" * 4096)
+            written += os.write(descriptor, block)
         except BlockingIOError:
-            assert written > 0
-            return
+            if len(block) > 1:
+                block = b"X"
+            else:
+                assert written > 0
+                return
 
 
 class FaultTest(unittest.TestCase):
@@ -171,6 +174,9 @@ class FaultTest(unittest.TestCase):
                         # Independently prove the reader has not completed its real load.
                         self.assertIn("D (disk sleep)", Path(f"/proc/{tid}/status").read_text())
                         self.assertIn("D (disk sleep)", Path(f"/proc/{outside_pid}/status").read_text())
+                        if backpressure in ("attachment", "capture"):
+                            loss = self.artifact_event(root / "trace.jsonl", watch, "error", None)
+                            self.assertIn("stdout disabled", loss["detail"])
                         held_until_ns = time.monotonic_ns()
                         send("R\n")
                         self.assertEqual(line(control), "VALUE Q")
@@ -185,12 +191,13 @@ class FaultTest(unittest.TestCase):
                         send("END\n")
                         finished = event("finished", None)
                         self.assertEqual(finished["command_status"], 37)
+                        self.assertEqual(finished["still_pending"], 0)
                     self.assertEqual(observer.wait(timeout=30), 37)
                     events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
                     self.assertFalse(any(event.get("pid") == outside_pid for event in events))
                     self.assertEqual(events[-1]["command_status"], 37)
                     if backpressure:
-                        self.assertTrue(any(item.get("status") == "error" and "stdout" in item.get("detail", "") for item in events))
+                        self.assertEqual(sum(item.get("status") == "error" and "stdout disabled" in item.get("detail", "") for item in events), 1)
                         self.assertFalse(any("tracer stream:" in item.get("detail", "") or "stopped while" in item.get("detail", "") for item in events))
                 finally:
                     if control:
@@ -262,6 +269,20 @@ class FaultTest(unittest.TestCase):
             events = [json.loads(row) for row in result.stdout.splitlines()]
             self.assertTrue(any(event["status"] == "error" for event in events))
             self.assertEqual(events[-1]["command_status"], 39)
+
+    def test_u26_reporting_failures_do_not_prevent_command_execution(self):
+        with tempfile.TemporaryDirectory(prefix="u26-report-failure-") as directory:
+            read_fd, write_fd = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)
+            try:
+                fill_pipe(write_fd)
+                marker = Path(directory) / "ran"
+                result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--log", "/dev/full", "--", sys.executable, "-c", "import pathlib,sys; pathlib.Path(sys.argv[1]).touch(); sys.exit(37)", str(marker)], env=dict(os.environ, PATH=directory), stdout=write_fd, stderr=subprocess.PIPE, timeout=10)
+                self.assertTrue(marker.exists())
+                self.assertEqual(result.returncode, 37, result.stderr)
+                self.assertNotIn(b"Traceback", result.stderr)
+            finally:
+                os.close(read_fd)
+                os.close(write_fd)
 
     def test_u26_a_signalled_command_preserves_its_signal_without_tracing(self):
         with tempfile.TemporaryDirectory(prefix="u26-no-tracer-") as directory:
