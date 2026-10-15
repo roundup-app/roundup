@@ -259,13 +259,20 @@ const d4 = ({ doc }: Page): Measure => {
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
 
-const groundOf = (page: Page, el: Element): Rgba | null => {
+const groundOf = (page: Page, el: Element, outline = false): Rgba | null => {
   let ground: Rgba = parseColour(page.token("ground") ?? "") ?? { r: 255, g: 255, b: 255, a: 1 };
   const chain: Element[] = [];
+  const offset = outline ? px(page.style(el).outlineOffset) ?? 0 : 0;
+  const width = outline ? px(page.style(el).outlineWidth) ?? 0 : 0;
+  const outside = outline && width > 0 && offset >= 0;
+  const inset = outline && width > 0 ? Math.max(0, -offset - width) : 0;
 
   for (let node: Element | null = el; node; node = node.parentElement) chain.unshift(node);
 
   for (const node of chain) {
+    // An outer outline paints on the surrounding ground, not its own box's wash or mark.
+    if (outside && node === el) continue;
+
     const background = parseColour(resolveAt(page, node, page.style(node).backgroundColor));
 
     if (background && background.a > 0) ground = over(background, ground);
@@ -288,7 +295,21 @@ const groundOf = (page: Page, el: Element): Rgba | null => {
       const clips = style.backgroundClip.split(",").map(value => value.trim());
       const mark = sizes[0]?.match(/^(\d+(?:\.\d+)?)px 100%$/)?.[1];
       const box = node.getBoundingClientRect();
-      const text = el.getBoundingClientRect();
+      const range = page.doc.createRange();
+      range.selectNodeContents(el);
+      const directText = !outline && [...el.childNodes].some(node => node.nodeType === 3 && node.textContent?.trim());
+      const bounds = el.getBoundingClientRect();
+      const content = directText ? range.getBoundingClientRect?.() ?? bounds : bounds;
+      const clipX = /^(hidden|clip|auto|scroll)$/.test(page.style(el).overflowX);
+      const clipY = /^(hidden|clip|auto|scroll)$/.test(page.style(el).overflowY);
+
+      const text = {
+        left: clipX ? Math.max(content.left, bounds.left) : content.left,
+        right: clipX ? Math.min(content.right, bounds.right) : content.right,
+        top: clipY ? Math.max(content.top, bounds.top) : content.top,
+        bottom: clipY ? Math.min(content.bottom, bounds.bottom) : content.bottom,
+      };
+
       const left = box.left + (px(style.borderLeftWidth) ?? 0);
       const wash = compound?.[2] ? parseColour(compound[2]) : null;
 
@@ -297,7 +318,7 @@ const groundOf = (page: Page, el: Element): Rgba | null => {
           origins.some(value => value !== "padding-box") || clips.some(value => value !== "border-box") ||
           style.backgroundBlendMode.split(",").some(value => value.trim() !== "normal") ||
           style.backgroundAttachment.split(",").some(value => value.trim() !== "scroll") ||
-          text.left < left + Number(mark) || text.right > box.right || text.top < box.top || text.bottom > box.bottom) return null;
+          text.left + inset < left + Number(mark) || text.right - inset > box.right || text.top + inset < box.top || text.bottom - inset > box.bottom) return null;
 
       ground = over(wash, ground);
     }
@@ -311,9 +332,11 @@ const d5 = (page: Page): Measure => {
   const ratio = (el: Element, property: string) => {
     const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
 
-    const ground = groundOf(page, el);
+    if (!colour) return null;
 
-    return colour && ground ? contrastRgb(over(colour, ground), ground) : null;
+    const ground = groundOf(page, el, property === "outline-color");
+
+    return ground ? contrastRgb(over(colour, ground), ground) : NOT_MEASURABLE;
   };
 
   const ink = (el: Element) => [...el.childNodes].some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "");
@@ -323,23 +346,23 @@ const d5 = (page: Page): Measure => {
     if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
-      if (found === null) return NOT_MEASURABLE;
+      if (found === NOT_MEASURABLE) return NOT_MEASURABLE;
 
-      if (found < 3) return { glyph: found };
+      if (found !== null && found < 3) return { glyph: found };
     } else if (ink(el)) {
       const found = ratio(el, "color");
 
-      if (found === null) return NOT_MEASURABLE;
+      if (found === NOT_MEASURABLE) return NOT_MEASURABLE;
 
-      if (found < 4.5) return { text: found };
+      if (found !== null && found < 4.5) return { text: found };
     }
 
     if (el === focused) {
       const found = ratio(el, "outline-color");
 
-      if (found === null) return NOT_MEASURABLE;
+      if (found === NOT_MEASURABLE) return NOT_MEASURABLE;
 
-      if (found < 3) return { focusRing: found };
+      if (found !== null && found < 3) return { focusRing: found };
     }
 
     return null;
