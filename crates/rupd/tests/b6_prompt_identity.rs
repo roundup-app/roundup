@@ -2026,3 +2026,57 @@ while True: time.sleep(60)
             .unwrap();
     }
 }
+
+#[tokio::test]
+async fn b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt() {
+    let (mut run, caller) = order_child().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let node = caller
+        .request(
+            "agent.spawn",
+            json!({"name":"first prompt child","cwd":run.dir.path(),"prompt":"first prompt","order":{"kind":"work","ask":"first prompt","limits":[]}}),
+        )
+        .await
+        .unwrap();
+    run.child = node["id"].as_str().unwrap().to_owned();
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The physical input observer acknowledges the first Steer before this absence window.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    std::fs::remove_file(&gate).unwrap();
+    assert!(
+        early.is_err(),
+        "Takeover acquired before the first prompt effect: {early:?}"
+    );
+    tokio::time::timeout(BOUND, begin)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    let held = caller
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"after acquisition"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(held["status"], "held");
+    assert_eq!(held["reason"], "takeover");
+    run.finish().await;
+}
