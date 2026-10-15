@@ -65,7 +65,7 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
-    /// B6's isolated observer pauses an answer or guarded write before its effect; absent in production.
+    /// B6's isolated observer pauses a Door answer or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
 
@@ -388,7 +388,8 @@ impl Daemon {
         ) {
             return self.decision_call(conn, method, params).await;
         }
-        self.before_prompt_effect(method, &params).await?;
+        self.before_prompt_effect(&conn.actor, method, &params)
+            .await?;
         if method == "attachment.save" {
             return self.attachments.save(params);
         }
@@ -527,7 +528,12 @@ impl Daemon {
         lock
     }
 
-    async fn before_prompt_effect(&self, method: &str, params: &Value) -> Result<(), RpcError> {
+    async fn before_prompt_effect(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<(), RpcError> {
         if method == "agent.signal"
             && agents::claude_code::ends_decision(&params["payload"])
             && let Some(gate) = &self.prompt_effect_gate
@@ -536,8 +542,9 @@ impl Daemon {
             // The Signal proceeds to its synchronous fold in this same router poll.
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
-        if method != "decision.answer"
-            && (method != "terminal.write" || !params["identity"].is_object())
+        if !matches!(method, "decision.answer" | "terminal.write")
+            || (!params["identity"].is_object()
+                && !(method == "decision.answer" && actor.kind == ActorKind::Agent))
         {
             return Ok(());
         }
@@ -598,7 +605,8 @@ impl Daemon {
             Some(child) => Some(self.child_effects(&child).read_owned().await),
             None => None,
         };
-        self.before_prompt_effect(method, &params).await?;
+        self.before_prompt_effect(&ctx.actor, method, &params)
+            .await?;
         module.call(&ctx, method, params).await
     }
 
