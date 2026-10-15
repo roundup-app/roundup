@@ -59,12 +59,12 @@ it("u485_rendered_checks", async () => {
 
       if (surface === "failure") {
         await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-        await browser("eval", `window.__fake.app.closeProject = async () => { throw new Error('could not stop rupd'); }`);
+        await browser("eval", `window.__fake.app.closeProject = async () => { throw new Error('could not stop project'); }`);
         await browser("hover", ".project-tab");
         await browser("eval", `document.querySelector('[aria-label^="Close "]').click()`);
         await browser("wait", "--fn", `!!document.querySelector('[role=alertdialog]')`);
         await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
-        await browser("wait", "--fn", `document.body.textContent.includes('could not stop rupd')`);
+        await browser("wait", "--fn", `document.body.textContent.includes('could not stop project')`);
       } else if (surface === "tree") {
         await browser("wait", "--fn", `!!document.querySelector('[role=tree]')`);
         await browser("click", "button[data-button=quiet]");
