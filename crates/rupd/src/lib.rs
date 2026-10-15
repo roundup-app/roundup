@@ -65,7 +65,7 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
-    /// B6's isolated observer pauses a guarded call before its effect; absent in production.
+    /// B6's isolated observer pauses an answer or guarded write before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
 
