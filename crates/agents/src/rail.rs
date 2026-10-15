@@ -11,7 +11,96 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
+    owner_reads: OwnerReads,
     db: Connection,
+}
+
+// R16 attribution (#1901, r16/owner-transaction): a fresh WAL reader's lock/unlock
+// syscalls dominate the owner step. A schema-only peer lets SQLite share its local
+// read lock. It must never supply owner facts: the authoritative query stays fresh.
+struct OwnerReads {
+    wake: Option<std::sync::mpsc::SyncSender<()>>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl OwnerReads {
+    fn open(path: &Path) -> Self {
+        let (wake, receive) = std::sync::mpsc::sync_channel(1);
+        let path = path.to_owned();
+        let thread = std::thread::Builder::new()
+            .name("Terminal owner reads".into())
+            .spawn(move || {
+                if let Err(error) = read_leases(&path, receive) {
+                    eprintln!("Terminal owner read lease stopped: {error}");
+                }
+            });
+        let thread = match thread {
+            Ok(thread) => Some(thread),
+            Err(error) => {
+                eprintln!("Terminal owner read lease unavailable: {error}");
+                None
+            }
+        };
+        Self {
+            wake: Some(wake),
+            thread,
+        }
+    }
+
+    fn wake(&self) {
+        if let Some(wake) = &self.wake {
+            // Full means one wake is already pending; disconnected means the optional
+            // peer stopped. Neither changes the authoritative query or its errors.
+            let _ = wake.try_send(());
+        }
+    }
+}
+
+fn read_leases(path: &Path, receive: std::sync::mpsc::Receiver<()>) -> rusqlite::Result<()> {
+    if receive.recv().is_err() {
+        return Ok(());
+    }
+    let db = Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::default() & !rusqlite::OpenFlags::SQLITE_OPEN_CREATE,
+    )?;
+    db.busy_timeout(std::time::Duration::ZERO)?;
+    let mut checkpoint = db.prepare("PRAGMA wal_checkpoint(PASSIVE)")?;
+    let mut begin = db.prepare("BEGIN DEFERRED")?;
+    let mut schema = db.prepare("SELECT rootpage FROM sqlite_schema LIMIT 1")?;
+    let mut rollback = db.prepare("ROLLBACK")?;
+    loop {
+        let (busy, frames, copied): (i64, i64, i64) =
+            checkpoint.query_row([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+        // Do not overlap leases with unfinished backfill: renewing old snapshots
+        // indefinitely would starve checkpoints under sustained input and writes.
+        let leased = busy == 0 && frames >= 0 && frames == copied;
+        if leased {
+            begin.execute([])?;
+            schema.exists([])?;
+        }
+        // Input cannot renew this deadline. Release even if no call ever follows;
+        // an unsuccessful checkpoint must not start a retry for every keystroke either.
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        if leased {
+            rollback.execute([])?;
+        }
+        let _ = receive.try_recv();
+        if receive.recv().is_err() {
+            return Ok(());
+        }
+    }
+}
+
+impl Drop for OwnerReads {
+    fn drop(&mut self) {
+        self.wake.take();
+        if let Some(thread) = self.thread.take()
+            && thread.join().is_err()
+        {
+            eprintln!("Terminal owner read lease thread panicked");
+        }
+    }
 }
 
 impl Rail {
@@ -28,7 +117,10 @@ impl Rail {
         )?;
         drop_terminal_nodes(&db)?;
         flatten_workstreams(&mut db)?;
-        Ok(Self { db })
+        Ok(Self {
+            owner_reads: OwnerReads::open(path),
+            db,
+        })
     }
 
     /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
@@ -39,6 +131,7 @@ impl Rail {
         // R16 owner-read attribution: preparation costs 11.0–11.5 µs of 18.7–19.6 µs
         // on the measured 7763 host (r16/owner-read). Reuse compiled SQL, never owner facts:
         // each query still binds and reads under Rail then Attempts, including negative reads.
+        self.owner_reads.wake();
         let mut query = self
             .db
             .prepare_cached("SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2")
