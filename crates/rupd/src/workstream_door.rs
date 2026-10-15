@@ -40,10 +40,8 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
         modules: Default::default(),
-        data_dir: dir.to_owned(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone(), &touches).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-        storage_calls: Default::default(),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
         bus: bus.clone(),
@@ -276,10 +274,8 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
         modules: Default::default(),
-        data_dir: dir.to_owned(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone(), &touches).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-        storage_calls: Default::default(),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
         bus: bus.clone(),
