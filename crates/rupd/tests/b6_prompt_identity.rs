@@ -2542,3 +2542,63 @@ async fn b6_begin_racing_a_door_order_waits_for_the_child_effect() {
 async fn b6_begin_racing_a_door_interrupt_waits_for_the_child_effect() {
     steering_takeover_race("agent.interrupt").await;
 }
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
+    let (run, caller) = order_child().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let fake = run.dir.path().join("claude");
+    let script = std::fs::read_to_string(&fake).unwrap().replace(
+        "hook('SessionStart',",
+        "if '--resume' in sys.argv:\n    import time\n    open('resume-arrived', 'w').close()\n    while os.path.isfile('resume-gate'): time.sleep(0.005)\nhook('SessionStart',",
+    );
+    std::fs::write(fake, script).unwrap();
+    let gate = run.dir.path().join("resume-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let child = run.child.clone();
+    let resume =
+        tokio::spawn(async move { caller.request("agent.resume", json!({"id":child})).await });
+    tokio::time::timeout(BOUND, async {
+        while !run.dir.path().join("resume-arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The new vendor process acknowledges launch before the absence observation window.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    std::fs::remove_file(gate).unwrap();
+    let resumed = tokio::time::timeout(BOUND, resume)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(
+        early.is_err(),
+        "Takeover returned before Resume completed: {early:?}"
+    );
+    tokio::time::timeout(BOUND, begin)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_ne!(resumed["attempt"], run.attempt);
+    let message = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"new Attempt"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(message["status"], "held");
+    assert_eq!(message["reason"], "takeover");
+    run.finish().await;
+}
