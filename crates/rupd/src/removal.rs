@@ -111,7 +111,7 @@ mod tests {
         });
         let dependency = stop.clone();
         let a = Arc::new(
-            Daemon::open_stores(first.path(), first.path(), None, |agents| {
+            crate::test_daemon_with_agents(first.path(), |agents| {
                 agents.with_terminal_kills(move |terminal| {
                     let dependency = dependency.clone();
                     async move { dependency.kill(&terminal).await }
@@ -120,7 +120,7 @@ mod tests {
             .unwrap(),
         );
         let b = if other_project {
-            Arc::new(Daemon::open(second.path()).unwrap())
+            Arc::new(crate::test_daemon(second.path()).unwrap())
         } else {
             a.clone()
         };
@@ -189,7 +189,7 @@ mod tests {
         use std::process::{Command, Stdio};
         const CHILD: &str = "ROUNDUP_REMOVAL_CHILD";
         if let Some(dir) = std::env::var_os(CHILD) {
-            let daemon = Daemon::open(std::path::Path::new(&dir)).unwrap();
+            let daemon = crate::test_daemon(std::path::Path::new(&dir)).unwrap();
             let stage = std::env::var("ROUNDUP_REMOVAL_STAGE").unwrap();
             let id = std::env::var("ROUNDUP_REMOVAL_ID").unwrap();
             daemon
@@ -207,7 +207,7 @@ mod tests {
         }
         for stage in ["before_commit", "after_commit"] {
             let dir = tempfile::tempdir().unwrap();
-            let daemon = Daemon::open(dir.path()).unwrap();
+            let daemon = crate::test_daemon(dir.path()).unwrap();
             let ws = call(&daemon, "rail.createWorkstream", json!({"name":"removed"}))
                 .await
                 .unwrap()["id"]
@@ -283,7 +283,7 @@ mod tests {
             child.wait().unwrap();
             reader.join().unwrap();
             entered.expect("removal acknowledges the commit stage before kill");
-            let daemon = Daemon::open(dir.path()).unwrap();
+            let daemon = crate::test_daemon(dir.path()).unwrap();
             let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
             if stage == "before_commit" {
                 let mut after_rail = call(&daemon, "rail.tree", Value::Null).await.unwrap();
