@@ -279,3 +279,55 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         "e3"
     );
 }
+
+#[tokio::test]
+async fn d2_the_first_prompt_names_the_agent() {
+    let project = daemon::start_real("d2_the_first_prompt_names_the_agent", &[]);
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "fix the refresh race"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == agent.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    let tree = rail_tree(&client).await;
+    let named: Vec<_> = tree.iter().filter(|node| node.id == agent.id).collect();
+    assert_eq!(named.len(), 1);
+    assert_eq!(named[0].name, "fix-refresh-race");
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    assert!(
+        model.journal().iter().any(|entry| {
+            entry["body"]["tools"].is_array()
+                && entry["body"]["messages"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|message| {
+                        message["role"] == "user"
+                            && message["content"]
+                                .as_str()
+                                .is_some_and(|text| text.contains("fix the refresh race"))
+                    })
+        }),
+        "real Claude sends the first prompt to aimock"
+    );
+}

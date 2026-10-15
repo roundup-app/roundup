@@ -74,20 +74,6 @@ async fn d2_status_follows_the_hooks_in_order() {
     );
 }
 
-#[tokio::test]
-async fn d2_the_first_prompt_names_the_agent() {
-    let (project, gate) = d2_project();
-    let mut client = project.subscribed().await;
-    let agent = project.spawn_agent(&client).await;
-    d2_kinds(&mut client, &gate).await;
-
-    let tree = rail_tree(&client).await;
-
-    let named: Vec<_> = tree.iter().filter(|node| node.id == agent.id).collect();
-    assert_eq!(named.len(), 1);
-    assert_eq!(named[0].name, "fix-refresh-race");
-}
-
 /// A Daemon whose one Agent has called `todo_create`; the Todo exists once this returns.
 async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
     let project = daemon::start_real(fixture, &[]);
