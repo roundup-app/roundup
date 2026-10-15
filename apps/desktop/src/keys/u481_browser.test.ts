@@ -224,7 +224,7 @@ it("u496_top_layer_escape_is_order_independent", async () => {
 
 it("u496_editor_and_terminal_keep_escape", async () => {
   await load();
-  await mountLayers(false, true);
+  await mountLayers(false, true, true);
 
   for (const selector of ["input", "textarea", "[contenteditable]", ".xterm"]) {
     await read(`document.querySelector('[data-registry-drawer] ${selector}').focus()`);

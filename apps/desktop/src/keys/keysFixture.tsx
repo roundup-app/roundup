@@ -44,7 +44,7 @@ export const mountKeys = async (tree: RailNode[], neighbors: KeysNeighbors = {})
 
 
 /** Isolated registry consumer: Ark retains dismissal and focus return; the Drawer binds only its own Escape. */
-export const mountRegistryLayers = (reverse: boolean, nested: boolean) => {
+export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors = false) => {
   const [drawerOpen, setDrawerOpen] = createSignal(true);
   const [dialogOpen, setDialogOpen] = createSignal(false);
   const [menuOpen, setMenuOpen] = createSignal(false);
@@ -73,10 +73,10 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean) => {
           <Menu.Item value="project">Project action</Menu.Item>
         </Menu.Content></Menu.Positioner></Portal>
       </Menu.Root>
-      <input aria-label="Drawer input" />
+      <Show when={editors}><input aria-label="Drawer input" />
       <textarea aria-label="Drawer text" />
       <div contentEditable tabIndex={0}>Editable content</div>
-      <div class="xterm" tabIndex={0}>Terminal</div>
+      <div class="xterm" tabIndex={0}>Terminal</div></Show>
       <p>Unchanged Drawer content</p>
     </aside></Show>;
   };
