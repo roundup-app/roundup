@@ -1,0 +1,126 @@
+//! E11: aimock owns matching and the request journal.
+#[path = "e2e/daemon.rs"]
+#[allow(dead_code)]
+mod daemon;
+use daemon::aimock;
+
+use serde_json::json;
+
+#[test]
+fn e11_an_unmatched_request_fails() {
+    let model = aimock::Model::start("unmatched");
+    let response = std::process::Command::new("curl")
+        .args(["--silent", "--show-error", "--max-time", "10", "-X", "POST"])
+        .arg(format!("{}/v1/messages", model.url))
+        .args(["-H", "content-type: application/json", "-H"])
+        .arg(format!("x-api-key: {}", aimock::KEY))
+        .arg("-d")
+        .arg(
+            json!({
+                "model": "claude-sonnet-4-6", "max_tokens": 32,
+                "messages": [{"role": "user", "content": "this turn has no fixture"}]
+            })
+            .to_string(),
+        )
+        .output()
+        .unwrap();
+    assert!(response.status.success());
+    let journal = model.journal();
+    assert_eq!(journal.len(), 1);
+    assert_eq!(journal[0]["response"]["status"], 503, "{journal:#?}");
+    assert!(journal[0]["response"]["fixture"].is_null());
+}
+
+#[tokio::test]
+async fn e12_model_routing_keeps_credentials_out_of_hooks_and_mcp() {
+    use std::os::unix::fs::PermissionsExt;
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-observer");
+    let log = probe.path().join("environment.jsonl");
+    std::fs::write(
+        &wrapper,
+        r##"#!/usr/bin/env python3
+import json, os, sys
+key = "sk-mock-key-000000000000000000000001"
+with open(os.environ["REAL_CLAUDE_ENV_LOG"], "a") as log:
+    log.write(json.dumps({"command": sys.argv[1], "credentials": [
+        name for name, value in os.environ.items()
+        if name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN") or key in value
+    ]}) + "\n")
+os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
+"##,
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "e12_model_routing",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("REAL_CLAUDE_ENV_LOG", log.to_str().unwrap()),
+            ("ANTHROPIC_API_KEY", "parent-key-must-be-stripped"),
+            ("ANTHROPIC_AUTH_TOKEN", "parent-token-must-be-stripped"),
+        ],
+    );
+    let client = project.client().await;
+    client
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": project.dir.path(), "prompt": "E10 create split checkout"
+            }),
+        )
+        .await
+        .unwrap();
+    project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_create_todo")
+        .await;
+    // Aimock redacts credentials in its journal. Require its inbound-key gate instead:
+    // real Claude's successful tool round above used the dummy key; a wrong one is refused.
+    let refused = std::process::Command::new("curl")
+        .args([
+            "--silent",
+            "--show-error",
+            "--max-time",
+            "10",
+            "--noproxy",
+            "*",
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{http_code}",
+            "-X",
+            "POST",
+            "-H",
+            "x-api-key: wrong-key",
+        ])
+        .arg(format!(
+            "{}/v1/messages",
+            project.model.as_ref().unwrap().url
+        ))
+        .output()
+        .unwrap();
+    assert!(refused.status.success());
+    assert_eq!(String::from_utf8(refused.stdout).unwrap(), "401");
+    drop(project); // Observe shutdown hooks too.
+    let records: Vec<serde_json::Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    for command in ["signal", "mcp"] {
+        assert!(
+            records.iter().any(|entry| entry["command"] == command),
+            "no {command}: {records:?}"
+        );
+    }
+    assert!(
+        records
+            .iter()
+            .all(|entry| entry["credentials"].as_array().unwrap().is_empty()),
+        "credential reached a hook or MCP: {records:?}"
+    );
+}
