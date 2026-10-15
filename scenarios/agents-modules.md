@@ -80,7 +80,9 @@ accessor and the production function that consumes its result, qualified by
 module; count the consuming module, not a module that only forwards the value.
 Two consuming functions in the same module still count as one reader module. These
 tables are policy evidence inspected against the implementation, not new tests
-of source text. Identify the implementation head SHA with the tables. After a
+of source text. Identify the implementation head SHA and the baseline `origin/main` SHA with
+the tables. Use that baseline for the public-interface and unchanged-test
+comparisons, so later changes to `main` do not change what was compared. After a
 code move or field regrouping, update both tables against that head before
 requesting review (policy); evidence from an earlier layout does not establish
 the final layout or ownership.
