@@ -222,3 +222,43 @@ it("u477_icon_button_preserves_bound_click_handler", async () => {
   await browser("wait", "--fn", `document.querySelector('output').textContent === '2'`);
   expect(await read<string>(`document.querySelector('output').textContent`)).toBe("2");
 }, 60_000);
+
+// App caller inventory: each selector denotes a source occurrence, not one seeded instance.
+// Bubbles seed reveals the floating header and terminal bar; tree-40 reveals Todo deletion.
+const appIcons = [
+  { seed: "bubbles", selector: '.bubble-header button[aria-label="Minimise"]' },
+  { seed: "bubbles", selector: '.bubble-header button[aria-label="Close"]' },
+  { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]' },
+  { seed: "tree-40", selector: '.todo-delete' },
+];
+
+const loadAppIcon = async (base: string, seed: string, selector: string) => {
+  await browser("open", new URL(`/harness.html?seed=${seed}`, base).href);
+  await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+  if (seed === "tree-40") {
+    await browser("eval", `document.querySelector('#shelf-tab-todos').click()`);
+    await browser("wait", "--fn", `!!document.querySelector('.shelf .todo-row-button')`);
+    await browser("eval", `document.querySelector('.shelf .todo-row-button').click()`);
+  }
+  await browser("wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`);
+};
+
+for (const path of ["hover", "focus"] as const) {
+  it(`u477_app_${path}_shows_each_icon_button_name`, async () => {
+    for (const { seed, selector } of appIcons) {
+      await loadAppIcon(origin, seed, selector);
+      const query = `document.querySelector(${JSON.stringify(selector)})`;
+      const name = await read<string>(`${query}.getAttribute('aria-label')`);
+      if (path === "hover") await browser("hover", `${selector}:first-of-type`);
+      else {
+        // Start on the preceding tab stop, then use browser keyboard navigation.
+        await browser("eval", `(() => { const button = ${query}; const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); stops[stops.indexOf(button) - 1].focus(); })()`);
+        await browser("press", "Tab");
+        await browser("wait", "--fn", `document.activeElement === ${query}`);
+      }
+      await browser("wait", "--fn", `${query}.dataset.state === 'open'`);
+      expect(await read<string>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.textContent`), selector).toBe(name);
+      expect(await read<boolean>(`(() => { const tip = document.getElementById(${query}.getAttribute('aria-describedby')); return tip?.getAttribute('role') === 'tooltip' && tip.getClientRects().length > 0 && getComputedStyle(tip).visibility !== 'hidden'; })()`), selector).toBe(true);
+    }
+  }, 120_000);
+}
