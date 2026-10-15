@@ -18,6 +18,7 @@ struct Run {
     data: tempfile::TempDir,
     user: Arc<Client>,
     child: String,
+    door: Option<String>,
     terminal: Value,
     attempt: Value,
 }
@@ -72,6 +73,7 @@ while True:
             data,
             user,
             child: String::new(),
+            door: None,
             terminal: Value::Null,
             attempt: Value::Null,
         };
@@ -83,7 +85,10 @@ while True:
         assert!(self.data.path().is_dir());
         let node = self
             .user
-            .request("agent.spawn", json!({"name":"child","cwd":self.dir.path()}))
+            .request(
+                "agent.spawn",
+                json!({"name":"child","cwd":self.dir.path(),"parent":self.door}),
+            )
             .await
             .unwrap();
         self.child = node["id"].as_str().unwrap().to_owned();
@@ -1080,4 +1085,165 @@ async fn b6_a_refused_prompt_effect_does_not_submit_the_users_input() {
     run.clear().await;
     let _ = waiting.await.unwrap();
     run.finish().await;
+}
+
+#[tokio::test]
+async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
+    for failure in ["send", "full", "terminal"] {
+        let mut run = Run::start().await;
+        let door = run
+            .user
+            .request("rail.createWorkstream", json!({"name":"supervisor"}))
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        run.user
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap();
+        run.door = Some(door.clone());
+        run.spawn().await;
+        run.user
+            .request("rail.startDoor", json!({"id":door}))
+            .await
+            .unwrap();
+        if failure != "terminal" {
+            run.user
+                .request("takeover.begin", json!({"agent":door}))
+                .await
+                .unwrap();
+        }
+        if failure == "full" {
+            for _ in 0..32 {
+                run.user
+                    .request(
+                        "message.send",
+                        json!({"to":door,"kind":"note","body":"queued"}),
+                    )
+                    .await
+                    .unwrap();
+            }
+        }
+        if failure == "send" {
+            run.user
+                .request("agent.stop", json!({"id":door}))
+                .await
+                .unwrap();
+        }
+        let (decision, waiting) = run.open("permission").await;
+        let notice = tokio::time::timeout(Duration::from_secs(40), async {
+            loop {
+                let listed = run
+                    .user
+                    .request("message.list", json!({"to":"user"}))
+                    .await
+                    .unwrap();
+                if let Some(message) = listed.as_array().unwrap().iter().find(|m| {
+                    m["body"]
+                        .as_str()
+                        .unwrap()
+                        .contains(&format!("[decision {}]", decision["id"].as_str().unwrap()))
+                }) {
+                    break message.clone();
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("failed Decision notice is visible to the user");
+        assert!(notice["body"].as_str().unwrap().contains("delivery failed"));
+        assert_eq!(notice["status"], "delivered");
+        assert_eq!(
+            run.user
+                .request("message.get", json!({"id":notice["id"]}))
+                .await
+                .unwrap(),
+            notice
+        );
+        assert_eq!(
+            run.user.request("decision.list", ()).await.unwrap()[0],
+            decision
+        );
+        run.user_answer(&decision, "permission").await;
+        let outcome = waiting.await.unwrap().unwrap();
+        assert!(
+            outcome["output"].as_str().unwrap().contains("allow"),
+            "{outcome}"
+        );
+        run.finish().await;
+    }
+}
+
+#[tokio::test]
+async fn b37_decision_note_exclusions_still_hold() {
+    for exclusion in ["takeover", "unanswerable", "no Door"] {
+        let mut run = Run::start().await;
+        let door = run
+            .user
+            .request("rail.createWorkstream", json!({"name":"supervisor"}))
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        if exclusion != "no Door" {
+            run.user
+                .request("agent.stop", json!({"id":run.child}))
+                .await
+                .unwrap();
+            run.door = Some(door.clone());
+            run.spawn().await;
+        }
+        if exclusion == "takeover" {
+            run.user
+                .request("takeover.begin", json!({"agent":run.child}))
+                .await
+                .unwrap();
+        }
+        let kind = if exclusion == "unanswerable" {
+            "native"
+        } else {
+            "permission"
+        };
+        let (excluded, waiting) = run.open(kind).await;
+        run.user_answer(&excluded, kind).await;
+        waiting.await.unwrap().unwrap();
+        // A later eligible Decision's Message acknowledges the serial note consumer has
+        // passed the excluded Decision; no duration stands in for that ordering boundary.
+        run.user
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap();
+        run.door = Some(door.clone());
+        run.spawn().await;
+        let (witness, waiting) = run.open("permission").await;
+        let messages = tokio::time::timeout(BOUND, async {
+            loop {
+                let messages = run.user.request("message.list", json!({})).await.unwrap();
+                if messages.as_array().unwrap().iter().any(|m| {
+                    m["body"]
+                        .as_str()
+                        .unwrap()
+                        .starts_with(&format!("[decision {}]", witness["id"].as_str().unwrap()))
+                }) {
+                    break messages;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(
+            !messages.as_array().unwrap().iter().any(|m| m["body"]
+                .as_str()
+                .unwrap()
+                .starts_with(&format!("[decision {}]", excluded["id"].as_str().unwrap()))),
+            "{exclusion}: {messages}"
+        );
+        run.user_answer(&witness, "permission").await;
+        waiting.await.unwrap().unwrap();
+        run.finish().await;
+    }
 }
