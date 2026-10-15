@@ -128,6 +128,35 @@ console.log(JSON.stringify({ status: 'warmed-after-release' }));
                     child.kill()
                 child.communicate(timeout=10)
 
+    def test_u26_slow_concurrent_cold_waits_for_readiness(self):
+        import time
+        with held_startup() as (root, locks, env):
+            artifact = root / "slow.jsonl"
+            child = subprocess.Popen(["node", "--experimental-strip-types", str(HERE / "cold.mts"), str(artifact)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            try:
+                deadline = time.monotonic() + 15
+                while not (root / "pids").exists() or len((root / "pids").read_text().splitlines()) < 2:
+                    self.assertLess(time.monotonic(), deadline, "both browsers must reach the owned startup hold")
+                    time.sleep(.05)
+                # Negative observation window: neither call may fail at the old deadline.
+                time.sleep(21)
+                self.assertIsNone(child.poll(), "slow startup failed before the readiness event")
+                self.assertFalse(any(json.loads(row)["status"] in ("failed", "answered") for row in artifact.read_text().splitlines()))
+                for file in locks:
+                    file.close()
+                _, errors = child.communicate(timeout=40)
+                self.assertEqual(child.returncode, 0, errors.decode())
+                events = [json.loads(row) for row in artifact.read_text().splitlines()]
+                self.assertEqual([event["value"] for event in events if event["status"] == "answered"], [42, 42])
+                self.assertEqual(len([event for event in events if event["status"] == "closed"]), 2)
+                self.assertTrue(all(not Path(f"/proc/{pid}").exists() for pid in (root / "pids").read_text().splitlines()))
+            finally:
+                for file in locks:
+                    file.close()
+                if child.poll() is None:
+                    child.kill()
+                child.communicate(timeout=10)
+
     def test_u26_real_concurrent_calls_return_known_values(self):
         with held_startup() as (root, locks, env):
             for file in locks:
