@@ -38,7 +38,13 @@ copies and one roundup test; upstream test files remain in the delivered bundle 
 are excluded from this focused compatibility probe.
 A corrupt, missing, additional or symlinked asset rejects the entire bundle.
 
-`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is mandatory. The vendor runtime supplies
+Every launch sets `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` and
+`CLAUDE_CODE_PLUGIN_DIR_WATCH=0`. Disabling the vendor's directory-development
+mode prevents type declarations and tsconfig files from changing the pinned
+inventory in Claude 2.1.300. See the
+[vendor environment reference](https://code.claude.com/docs/en/env-vars).
+
+The vendor runtime supplies
 `claude-code` and `claude-code/testing`; these must not be replaced by an npm stub.
 hope's slop.tsx imports update and its judge.sh executes sh/git/claude (the
 judgement itself uses the user's logged-in Claude). hunch's tend.tsx imports

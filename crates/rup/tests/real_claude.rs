@@ -1,4 +1,4 @@
-//! D2, E3, E6, E11, E12: real Claude at the model boundary; aimock owns matching and the request journal.
+//! D2, E3, E6, E11, E12, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -459,13 +459,15 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
-    next(&mut events, |event| match event {
-        EventData::AgentStatus(status) if status.id == door && status.status.kind == Kind::Idle => {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut events, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.status.kind == kind => {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
     let agent = events
         .request(
             "agent.spawn",

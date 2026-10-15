@@ -224,6 +224,9 @@ impl Runtime {
         plugins.validate()?;
         let mut command = Command::new(&self.executable);
         command.env("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS", "1");
+        // Claude's directory-development mode writes type declarations/tsconfig files.
+        // Disable it so subsequent launch, resume and clear verify the exact pinned inventory.
+        command.env("CLAUDE_CODE_PLUGIN_DIR_WATCH", "0");
         for path in plugins.directories() {
             command.arg("--plugin-dir").arg(path);
         }
