@@ -117,9 +117,124 @@ What can go wrong:
 
 ## Existing RSS gate repair (#1990)
 
-The repair keeps R2/R8/R13, the ten login shells, the 1.6 MB Linux baseline,
-0.05 MB noise and 1.810 MB ceiling unchanged. The release observer itself
-is the regression test: reproduce on `1406d1bb0ad1ad106a7a57114b6d6f456fa75a9c`,
-then run the same observer against repaired Daemon bytes. Isolate Daemon changes
-from probe changes by retaining the original probe and `rup` binaries.
-Record every invocation, its actual exit, hashes and per-run values below.
+Ten unused local event backlogs caused the RSS miss. `Terminals::start` allocated
+`broadcast::channel::<EventData>(1024)` for every RPC spawn, then `Module::call`
+discarded its receiver. The sender retained the preallocated buffer for the
+Terminal's lifetime, although RPC subscribers receive the shared Bus instead.
+[Tokio 1.53.1](https://docs.rs/tokio/1.53.1/src/tokio/sync/broadcast.rs.html),
+`Sender::new_with_receiver_count`, eagerly
+initializes every slot. A scratch counting allocator measured 114,824 allocated
+bytes per channel (88-byte `EventData`), or 1,148,240 bytes for ten channels.
+
+The repair passes no local sender for RPC spawns. In-process spawns still install
+their channel before the reader starts; `subscribe` creates the same 1,024-slot
+channel under the table lock when a later local subscriber needs one. Bus
+publication, terminal counts, login shells, settling, workload, and every metric
+and gate comparison are unchanged. No dependency, baseline, noise or load threshold
+changes. The existing release RSS comparison is the regression observer; X8's
+late-subscription test now starts over RPC, exercising the lazy channel path.
+Existing Bus-output, slow-subscriber and in-process-spawn tests retain their proofs;
+no redundant test was added or removed.
+
+Before: `1406d1bb0ad1ad106a7a57114b6d6f456fa75a9c`.
+After: `81246386493dda4e495eeba2cfe07bd92d585691`, based on
+`e53926666c321f7886ef76b768f4ad00d62ec345`.
+These immutable references identify the measured source; subsequent documentation
+commits change no executable source. The intervening main change sets a Claude
+plugin-watch environment variable when launching Agents; RSS is measured before
+any Agent launch. The original probe and `rup` are held byte-for-byte fixed in
+observation B, isolating the Daemon repair from probe changes and UI changes.
+
+Host: Ubuntu 24.04 x86_64, AMD EPYC 7763 64-Core Processor, four available CPUs
+(`0-3`), kernel `6.17.0-1022-azure`; `SHELL=/bin/bash`.
+Toolchain: `rustc 1.99.0 (b940084d7 2026-09-28)`, LLVM 23.1.1;
+standard workspace release profile, no build-setting overrides.
+Budgets SHA-256, identical before and after:
+`f85aa3a9c94316148506d2eb19c848389adc876742313fb6d19cc990e6c77236`.
+The Linux RSS baseline remains 1.6 MB, noise 0.05 MB, ceiling 1.810 MB,
+absolute limit 150 MB. RSS is compared at every load. Timing skips are reported
+separately and do not establish a clean latency-regression observation.
+
+Commands (all measurement defaults: eleven fresh Daemons, 1,000 calls):
+
+```sh
+# A: exact reported main revision, isolated worktree
+cd /tmp/roundup-perf-before
+just perf > /tmp/perf-before.log 2>&1
+# actual exit: 1; retain target/perf.json as /tmp/perf-before.json
+mkdir -p /tmp/perf-original-bin
+cp target/release/{perf,rup,rupd} /tmp/perf-original-bin/
+
+# Build the repair, reusing compilation artifacts, not changing build settings
+cd /tmp/roundup-perf
+CARGO_TARGET_DIR=/tmp/roundup-perf-before/target cargo build --release -p rupd -p rup -p perf
+# actual exit: 0
+
+# B: original observer and rup, repaired Daemon
+/tmp/perf-original-bin/perf --rupd /tmp/roundup-perf-before/target/release/rupd --rup /tmp/perf-original-bin/rup --out /tmp/perf-isolated-after.json > /tmp/perf-isolated-after.log 2>&1
+
+# C: ordinary just perf; expose the shared release directory at its expected path
+ln -s /tmp/roundup-perf-before/target/release target/release
+CARGO_TARGET_DIR=/tmp/roundup-perf-before/target just perf > /tmp/perf-after.log 2>&1
+# retain target/perf.json as /tmp/perf-after.json
+sha256sum /tmp/perf-original-bin/{perf,rupd,rup} target/release/{perf,rupd,rup}
+```
+
+Binary SHA-256:
+
+| Binary | Before (A; B uses the same probe and rup) | After (C; B uses this rupd) |
+|---|---|---|
+| perf | `739bfa4173890cd40056b7e61d54def4ff3a7c7b66cc8b6bcb73e63936d6ddc8` | `cd300c174546f64f80e57bc9824b08b90ffa2773046709f129360b6ab46c14eb` |
+| rupd | `44cd40c77851978ca01a640d6674df8225430f432b35ddfdb0bc19020553a9cb` | `7a1b01e89399a317af07e84ebf18f55fa78da47737c2c7692b820d021ec9825e` |
+| rup | `1c820f7fda98a8dff56b9e7e676ec6eae8e8154b8ecc405076d8848f0ebc46ec` | `1c820f7fda98a8dff56b9e7e676ec6eae8e8154b8ecc405076d8848f0ebc46ec` |
+
+Every observation follows, including all per-run metrics and loads. Concurrent
+repository builds/tests supplied the load; no synthetic load was introduced.
+
+### A: unchanged reported main
+
+Actual exit: 1.
+
+```json
+{
+  "os": "linux",
+  "cpus": 4,
+  "runs": 11,
+  "loads": [4.15,4.15,3.81,3.59,3.7,3.7,3.73,4.95,5.1,5.1,5.18],
+  "metrics": {"cold_plugin_materialization_ms":18.927943,"cold_start_ms":20.488578,"hook_loop_ms":598.9693219999999,"ping_p95_ms":0.141354,"rail_tree_10_p95_ms":0.318556,"rail_tree_40_p95_ms":1.4818209999999998,"rss_extra_mb":2.03515625,"terminal_write_p95_ms":0.24598000000000003,"write_to_output_p95_ms":1.151909},
+  "per_run": {"cold_plugin_materialization_ms":[12.374559,11.704776,11.457343,13.048087,36.972328999999995,37.118159999999996,18.116638000000002,36.564001,19.993921,36.022325,18.927943],"cold_start_ms":[13.339322000000001,11.300289999999999,11.425348999999999,15.210048,20.488578,27.590274,30.977218,34.844477999999995,27.983764,28.746508000000002,15.693354999999999],"hook_loop_ms":[276.770142,277.42731,308.204498,712.822709,598.9693219999999,749.149906,956.683477,897.992965,801.014188,433.134708,317.180362],"ping_p95_ms":[0.12287,0.105357,0.14126699999999998,0.137136,0.145893,0.14952,0.143849,0.13303800000000002,0.141354,0.159849,0.144547],"rail_tree_10_p95_ms":[0.29929,0.233026,0.256043,0.26742699999999997,0.328224,0.333894,0.326521,2.642091,0.306823,0.318556,0.37220899999999996],"rail_tree_40_p95_ms":[0.6503359999999999,0.5063300000000001,0.630653,1.4818209999999998,1.443194,2.1812989999999997,2.9955619999999996,3.0247669999999998,2.273182,3.268792,0.776152],"rss_extra_mb":[2.58203125,2.53125,2.59375,2.58984375,1.96484375,1.9765625,1.96875,1.96484375,2.03515625,1.89453125,2.5390625],"terminal_write_p95_ms":[0.132396,0.131078,0.146143,0.260627,0.252343,0.216264,0.35611600000000004,0.573412,0.24598000000000003,1.141855,0.156612],"write_to_output_p95_ms":[0.24466400000000002,0.24726199999999998,0.257853,1.883642,1.151909,2.116678,2.530703,2.222806,2.279202,0.274684,0.35622699999999996]},
+  "skipped": []
+}
+```
+
+### B: original probe and rup, repaired Daemon
+
+Actual exit: 0.
+
+```json
+{
+  "os": "linux",
+  "cpus": 4,
+  "runs": 11,
+  "loads": [9.89,9.26,8.84,10.05,11.09,11.72,12.55,11.62,12.06,11.79,11.57],
+  "metrics": {"cold_plugin_materialization_ms":36.068286,"cold_start_ms":32.143625,"hook_loop_ms":728.5732230000001,"ping_p95_ms":0.14205199999999998,"rail_tree_10_p95_ms":0.341719,"rail_tree_40_p95_ms":1.899704,"rss_extra_mb":0.89453125,"terminal_write_p95_ms":0.23515,"write_to_output_p95_ms":2.247013},
+  "per_run": {"cold_plugin_materialization_ms":[19.104284,36.955481999999996,36.283816,36.068286,37.969332,32.264518,17.164327,16.898139,59.27011,19.48638,36.395581],"cold_start_ms":[20.114382,33.083721000000004,27.055746,32.143625,43.638547,26.705363,13.602825000000001,27.665395,35.625611,36.819905999999996,42.893412],"hook_loop_ms":[674.991483,630.910642,825.684769,818.291294,671.609177,302.083559,424.152176,1155.813337,1109.479811,798.63266,728.5732230000001],"ping_p95_ms":[0.138479,0.13623500000000002,0.141445,0.145381,0.144881,0.134391,0.14205199999999998,2.54489,0.296585,0.350134,0.140843],"rail_tree_10_p95_ms":[0.33409500000000003,0.337091,0.325068,2.5964270000000003,0.341719,0.324507,0.328054,4.1746989999999995,4.547796,3.695761,2.510815],"rail_tree_40_p95_ms":[2.933657,0.783045,1.899704,2.247995,0.843158,0.761284,0.7987839999999999,6.724689,5.77384,3.556581,1.5829710000000001],"rss_extra_mb":[0.90625,0.890625,0.90625,0.828125,0.88671875,0.90234375,0.83984375,0.890625,0.89453125,0.90234375,0.91015625],"terminal_write_p95_ms":[0.196868,0.534259,0.23515,0.199373,0.27637700000000004,0.155521,0.200585,1.3476009999999998,0.921975,1.235711,0.233376],"write_to_output_p95_ms":[0.266409,1.579474,2.345888,2.249428,2.247013,0.735575,0.26055700000000004,4.791784000000001,2.851153,3.004228,0.27690800000000004]},
+  "skipped": [{"metric":"cold_plugin_materialization_ms","load_per_cpu":2.8925,"max_load_per_cpu":2.0},{"metric":"ping_p95_ms","load_per_cpu":2.8925,"max_load_per_cpu":2.0},{"metric":"rail_tree_40_p95_ms","load_per_cpu":2.8925,"max_load_per_cpu":2.0},{"metric":"terminal_write_p95_ms","load_per_cpu":2.8925,"max_load_per_cpu":2.0},{"metric":"write_to_output_p95_ms","load_per_cpu":2.8925,"max_load_per_cpu":2.0}]
+}
+```
+
+### C: just perf on the repair
+
+Actual exit: 0.
+
+```json
+{
+  "os": "linux",
+  "cpus": 4,
+  "runs": 11,
+  "loads": [10.35,10.16,9.83,9.68,9.46,9.27,9.08,9.08,8.99,8.67,8.62],
+  "metrics": {"cold_plugin_materialization_ms":23.378141000000003,"cold_start_ms":27.488512,"hook_loop_ms":850.4161789999999,"ping_p95_ms":0.146794,"rail_tree_10_p95_ms":0.328454,"rail_tree_40_p95_ms":2.732348,"rss_extra_mb":0.88671875,"terminal_write_p95_ms":0.23918799999999998,"write_to_output_p95_ms":2.0851889999999997},
+  "per_run": {"cold_plugin_materialization_ms":[18.985671,26.32712,39.864111,40.268286,37.080431,19.407021,31.565893,17.733964,17.927476000000002,18.338865,23.378141000000003],"cold_start_ms":[34.353615,27.488512,24.064460999999998,32.454339999999995,33.069871,24.146722999999998,33.086486,24.840119,21.175007,29.147625,24.462108],"hook_loop_ms":[640.626154,853.408005,862.2046359999999,850.4161789999999,905.013584,651.818652,995.189035,753.16233,867.339569,823.9899849999999,627.2163859999999],"ping_p95_ms":[1.858414,0.151243,0.146124,0.146013,0.151753,0.146794,0.14013099999999998,0.145563,0.175668,0.150551,0.136034],"rail_tree_10_p95_ms":[0.346649,0.320028,0.325669,0.328454,1.489957,2.796068,0.325739,0.324166,0.301174,1.669792,0.337672],"rail_tree_40_p95_ms":[3.063596,0.923697,2.732348,2.219249,2.530602,3.292966,2.865697,1.893049,3.036178,1.121808,3.2747829999999998],"rss_extra_mb":[0.90625,0.828125,0.88671875,0.890625,0.88671875,0.88671875,0.91015625,0.83203125,0.890625,0.90234375,0.8828125],"terminal_write_p95_ms":[0.25651999999999997,0.293038,0.224069,0.222125,0.231443,0.222456,0.249576,0.235931,0.269584,0.7149669999999999,0.23918799999999998],"write_to_output_p95_ms":[2.0851889999999997,2.048031,1.537734,2.092734,2.596205,2.351988,2.223297,2.5366630000000003,1.659684,0.332401,1.1589669999999999]},
+  "skipped": [{"metric":"cold_plugin_materialization_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"ping_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"rail_tree_40_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"terminal_write_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0},{"metric":"write_to_output_p95_ms","load_per_cpu":2.3175,"max_load_per_cpu":2.0}]
+}
+```
