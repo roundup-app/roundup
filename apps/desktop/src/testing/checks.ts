@@ -173,7 +173,7 @@ const d1 = ({ doc, elements }: Page): Measure => {
   return { ok: all.length === 0, value: all.map((one) => one.literal), selector: all[0]?.selector ?? "" };
 };
 
-const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) => object | null): Measure => {
+const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) => object | typeof NOT_MEASURABLE | null): Measure => {
   const hit = page.elements.map((el) => ({ el, found: test(el, page.style(el)) })).find((one) => one.found);
 
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
@@ -255,7 +255,7 @@ const d4 = ({ doc }: Page): Measure => {
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
 
-const groundOf = (page: Page, el: Element): Rgba => {
+const groundOf = (page: Page, el: Element): Rgba | null => {
   let ground: Rgba = parseColour(page.token("ground") ?? "") ?? { r: 255, g: 255, b: 255, a: 1 };
   const chain: Element[] = [];
 
@@ -272,6 +272,31 @@ const groundOf = (page: Page, el: Element): Rgba => {
     const layer = wash ? parseColour(wash) : null;
 
     if (layer) ground = over(layer, ground);
+    else if (image && image !== "none") {
+      // U137: only a full wash behind a leading mark has one ground at the text.
+      // CSSOM supplies the parsed values; unsupported paint geometry must not pass D5.
+      const compound = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\),\s*linear-gradient\((rgba?\([^)]+\)),\s*\2\)$/.exec(image);
+      const style = page.style(node);
+      const sizes = style.backgroundSize.split(",").map(value => value.trim());
+      const positions = style.backgroundPosition.split(",").map(value => value.trim());
+      const repeats = style.backgroundRepeat.split(",").map(value => value.trim());
+      const origins = style.backgroundOrigin.split(",").map(value => value.trim());
+      const clips = style.backgroundClip.split(",").map(value => value.trim());
+      const mark = sizes[0]?.match(/^(\d+(?:\.\d+)?)px 100%$/)?.[1];
+      const box = node.getBoundingClientRect();
+      const text = el.getBoundingClientRect();
+      const left = box.left + (px(style.borderLeftWidth) ?? 0);
+      const wash = compound?.[2] ? parseColour(compound[2]) : null;
+
+      if (!wash || !mark || sizes.length !== 2 || sizes[1] !== "auto" ||
+          positions.some(value => value !== "0% 0%") || repeats.some(value => value !== "no-repeat") ||
+          origins.some(value => value !== "padding-box") || clips.some(value => value !== "border-box") ||
+          style.backgroundBlendMode.split(",").some(value => value.trim() !== "normal") ||
+          style.backgroundAttachment.split(",").some(value => value.trim() !== "scroll") ||
+          text.left < left + Number(mark) || text.right > box.right || text.top < box.top || text.bottom > box.bottom) return null;
+
+      ground = over(wash, ground);
+    }
   }
 
   return ground;
@@ -282,7 +307,9 @@ const d5 = (page: Page): Measure => {
   const ratio = (el: Element, property: string) => {
     const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
 
-    return colour ? contrastRgb(over(colour, groundOf(page, el)), groundOf(page, el)) : null;
+    const ground = groundOf(page, el);
+
+    return colour && ground ? contrastRgb(over(colour, ground), ground) : null;
   };
 
   const ink = (el: Element) => [...el.childNodes].some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "");
@@ -292,17 +319,23 @@ const d5 = (page: Page): Measure => {
     if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
-      if (found !== null && found < 3) return { glyph: found };
+      if (found === null) return NOT_MEASURABLE;
+
+      if (found < 3) return { glyph: found };
     } else if (ink(el)) {
       const found = ratio(el, "color");
 
-      if (found !== null && found < 4.5) return { text: found };
+      if (found === null) return NOT_MEASURABLE;
+
+      if (found < 4.5) return { text: found };
     }
 
     if (el === focused) {
       const found = ratio(el, "outline-color");
 
-      if (found !== null && found < 3) return { focusRing: found };
+      if (found === null) return NOT_MEASURABLE;
+
+      if (found < 3) return { focusRing: found };
     }
 
     return null;

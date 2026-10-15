@@ -60,27 +60,43 @@ run('u137 compound selected ground', () => {
       it(`u137_nested_rail_text_is_measured_on_the_full_size_wash ${scheme} ${width}`, async () => {
         await page.scheme(scheme);
         await setup(false, '', width, 800);
+        await page.call(`() => document.querySelector('.rail-row[data-id="payments"]').click()`);
+        await page.until(`() => Boolean(document.querySelector('.rail-row[data-selected="true"] .rail-add-label'))`);
         const checks = await page.call<Checks>(`() => window.__checks()`);
         expect(checks.D5?.status, JSON.stringify(checks.D5)).toBe('pass');
         expect(checks.D10?.status, JSON.stringify(checks.D10)).toBe('pass');
+        await capture('U137', `${scheme}-${width}-selected`, {checks});
       }, 30_000);
     }
   }
 
-  for (const coverage of ['full', 'partial', 'overlapping'] as const) {
-    it(`u137_compound_ground_never_silently_ignores_${coverage}_coverage`, async () => {
-      await setup();
-      await page.call(`coverage => {
+  for (const [coverage, scheme, width] of [
+    ['full', 'light', 1280], ['full', 'light', 1440], ['full', 'dark', 1280], ['full', 'dark', 1440],
+    ['partial', 'light', 1280], ['overlapping', 'light', 1280], ['single', 'light', 1280],
+  ] as const) {
+    it(`u137_compound_ground_never_silently_ignores_${coverage}_coverage ${scheme} ${width}`, async () => {
+      await page.scheme(scheme);
+      await setup(false, '', width, 800);
+      await page.call(`(coverage, scheme) => {
         document.body.innerHTML = '<div class="compound"><button><span>Nested Rail label</span></button></div>';
         const sheet = document.head.appendChild(document.createElement('style'));
         sheet.textContent = 'body {background: white} .compound {width: 200px; height: 32px; padding-left: 24px; background-color: white; background-image: linear-gradient(rgb(0, 0, 0), rgb(0, 0, 0)), linear-gradient(rgba(0, 0, 0, .1), rgba(0, 0, 0, .1)); background-size: 2px 100%, auto; background-repeat: no-repeat; background-position: left top} .compound button {background: transparent; color: rgb(112, 112, 112)}';
+        if (scheme === 'dark') {
+          document.body.style.backgroundColor = 'black';
+          document.querySelector('.compound').style.backgroundColor = 'black';
+          document.querySelector('.compound').style.backgroundImage = 'linear-gradient(rgb(255, 255, 255), rgb(255, 255, 255)), linear-gradient(rgba(255, 255, 255, .4), rgba(255, 255, 255, .4))';
+          document.querySelector('.compound button').style.color = 'rgb(170, 170, 170)';
+        }
+        if (coverage === 'single') document.querySelector('.compound').style.backgroundImage = 'linear-gradient(rgba(0, 0, 0, .1), rgba(0, 0, 0, .1))';
         if (coverage === 'partial') document.querySelector('.compound').style.backgroundSize = '2px 100%, 50% 100%';
         if (coverage === 'overlapping') document.querySelector('.compound').style.backgroundSize = '100% 100%, auto';
-      }`, coverage);
+      }`, coverage, scheme);
       const checks = await page.call<Checks>(`() => window.__checks()`);
       expect(checks.D5?.status).toBe('fail');
       expect(checks.D10?.status).toBe('fail');
-      if (coverage === 'full') expect(checks.D5?.value).toEqual({text: expect.any(Number)});
+      expect(checks.D10?.value).toEqual(expect.objectContaining({failing: expect.arrayContaining(['D5'])}));
+
+      if (coverage === 'full' || coverage === 'single') expect(checks.D5?.value).toEqual({text: expect.any(Number)});
       else expect(checks.D5?.value).toBe('not measurable');
     }, 30_000);
   }
