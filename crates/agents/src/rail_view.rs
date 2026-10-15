@@ -276,6 +276,13 @@ impl Agents {
     }
 }
 
+/// O7: an explicit order, also held to the ask cap.
+pub(super) fn valid_explicit_order(order: &Order) -> Result<(), RpcError> {
+    order
+        .validate_explicit()
+        .map_err(|message| RpcError::new(code::INVALID_PARAMS, message))
+}
+
 /// O1: an order of the right shape, or `INVALID_PARAMS`.
 pub(super) fn valid_order(order: &Order) -> Result<(), RpcError> {
     order

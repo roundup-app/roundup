@@ -382,10 +382,10 @@ mod worktree_wiring;
 use door::{Scan, scan_interval_from_env};
 use ending::{Ending, RailPublication};
 use events::{channel_deadline_from_env, channel_in, watch};
-use rail_view::valid_order;
+use rail_view::{valid_explicit_order, valid_order};
 use registration::{hold, save_signal_conversation};
 use steer::SteerError;
-use worktree_wiring::{report_undo, valid_explicit_order};
+use worktree_wiring::report_undo;
 
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
 const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
