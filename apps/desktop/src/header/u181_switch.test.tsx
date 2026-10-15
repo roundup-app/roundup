@@ -49,7 +49,7 @@ describe("u181 clicking a tab", () => {
       web: [agent("w1", "idle", "x")],
     });
 
-    expect(tab("api").querySelector(".tab-mark")?.getAttribute("aria-label")).toBe("error");
+    expect(tab("api").querySelector(".tab-mark")?.getAttribute("aria-label")).toBe("Error");
     fireEvent.click(tab("api").querySelector(".tab-mark")!);
 
     await waitFor(() => expect(rowSelected("boom")).toBe("true"));
