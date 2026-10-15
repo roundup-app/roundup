@@ -408,7 +408,7 @@ impl Daemon {
         }
         if matches!(
             method,
-            "decision.list" | "decision.answer" | "decision.capture"
+            "decision.list" | "decision.answer" | "decision.capture" | "decision.answers"
         ) {
             return self.decision_call(conn, method, params).await;
         }
@@ -919,6 +919,14 @@ impl Daemon {
             bus: self.bus.clone(),
             touches: Arc::clone(&self.touches),
         }
+    }
+
+    /// Observe future events directly on this Daemon's global Bus, with its retained-event
+    /// capacity. The caller controls reads: falling behind returns Tokio's structured
+    /// `RecvError::Lagged`, without pausing producers or other subscribers. No forwarding
+    /// queue is created. Dropping the receiver detaches only this observer.
+    pub fn subscribe(&self) -> (tokio::sync::broadcast::Receiver<contracts::Event>, usize) {
+        (self.bus.subscribe(), self.bus.capacity())
     }
 
     /// Stop every running Terminal's program, Agents' included, and return once none is running.

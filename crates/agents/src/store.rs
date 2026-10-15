@@ -69,6 +69,15 @@ impl Agents {
                 eprintln!("agents: {}: {}; kept", node.id, error.message);
             }
         }
+        let decisions = decision::Decisions::new(
+            None,
+            Duration::from_secs(claude_code::PERMISSION_TIMEOUT_SECS),
+        )
+        .with_store(&dir.join(if dir.join("project.db").exists() {
+            "project.db"
+        } else {
+            "agents.db"
+        }))?;
         Ok(Self {
             shared: Arc::new_cyclic(|me| Shared {
                 git,
@@ -82,10 +91,7 @@ impl Agents {
                 terminals,
                 clock: Arc::new(now_ms),
                 rail_view: rail_view::State { opened: now_ms() },
-                decisions: decision::Decisions::new(
-                    None,
-                    Duration::from_secs(claude_code::PERMISSION_TIMEOUT_SECS),
-                ),
+                decisions,
                 me: me.clone(),
                 resume_effect: None,
                 steer_bound: STEER_BOUND,

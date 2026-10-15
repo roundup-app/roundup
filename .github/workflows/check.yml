@@ -144,6 +144,58 @@ jobs:
             ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
 
+  # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
+  # then tests the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
+  # no real check ever runs on it (#1931, #1933, #1998, #2023). A Draft check whose PR is ready on its own head, with no
+  # real check run on that head, turns the PR draft and ready again as the Claude App, whose events start workflows
+  # (a `GITHUB_TOKEN`'s do not), and re-arms the auto-merge that turning it draft disarmed.
+  rekick:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      pull-requests: read
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - id: stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ready() { gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -e --arg head "$HEAD" '(.draft | not) and .head.sha == $head' >/dev/null; }
+          ready || exit 0
+          # The ready run, if it tested this head, appears within seconds.
+          sleep 30
+          ready || exit 0
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/check.yml/runs?head_sha=$HEAD&event=pull_request" \
+            | jq -e '[.workflow_runs[] | select(.display_title == "Check" and .conclusion != "cancelled")] | length > 0' >/dev/null && exit 0
+          echo 'stale=true' >>"$GITHUB_OUTPUT"
+      - if: steps.stale.outputs.stale
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - if: steps.stale.outputs.stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          merge=$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest.mergeMethod // empty')
+          python3 - <<'PY'
+          import os, sys
+          sys.path.insert(0, 'loop')
+          import builder
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f"APP_TOKEN={builder.app_token()}\n")
+          PY
+          export GH_TOKEN=$APP_TOKEN
+          trap 'gh api -X DELETE /installation/token' EXIT
+          gh pr ready "$PR" --undo
+          gh pr ready "$PR"
+          [ -z "$merge" ] || gh pr merge "$PR" --auto "--${merge,,}"
+
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
