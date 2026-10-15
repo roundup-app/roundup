@@ -1,6 +1,6 @@
 # Messages between Actors
 
-Design for `scenarios/messages.md` (B1 to B23) Serves `PRINCIPLES.md` P1, P3 and P4 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
+Design for `scenarios/messages.md` (B1 to B37) Serves `PRINCIPLES.md` P1, P3 and P4 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
 
 ## What exists and what does not
 
@@ -10,12 +10,53 @@ Exists: the `Delivery` type and the `bus.route` Hook type (`contracts/hooks.ts`)
 
 | Status | Meaning | Leaves it by |
 |---|---|---|
-| `pending` | to be typed at the receiver's next `idle` | typed (`delivered`), or the receiver exits (`dropped`) |
+| `pending` | to be typed when the current Attempt is delivery-ready (`idle` or B37's live `error`) | typed (`delivered`), or the receiver exits (`dropped`) |
 | `held` (`ask-first`, `takeover` or `escalated`) | waits for the user, for a Takeover to end, or for unsent input to be submitted or cleared | `message.deliver`, `message.drop`, the end of a Takeover or the submit or clear of unsent input (only `takeover`), the user's answer (only `escalated`) |
 | `delivered` | typed into the Terminal, or stored for the user | final |
 | `dropped` | never typed, with a reason | final |
 
 Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery is at most once (B8). `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
+
+## B37 lifecycle-to-model mapping
+
+The model's `Idle` event and `World.idle` mean delivery readiness, not a literal
+Kind. For the current Attempt, a running Terminal at `idle` or at `error` after
+`StopFailure` is delivery-ready. Kind `error` alone is not evidence of ending.
+The Attempt identity and authoritative ending facts must be checked before
+projecting Status into model events; a Status observation cannot revive an ended
+Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
+
+| Current receiver fact or action | Existing model interpretation |
+|---|---|
+| Live current Attempt becomes `idle` or reports `StopFailure` / `error` | `Idle`: flush pending Messages in B7 order, with B30 batching in Rust; do not drop them or wait for another `idle` Signal. |
+| New Message while already delivery-ready | `Send` with the current Route and sender; the ready state permits delivery immediately. |
+| Route `ask-first` or `drop` | `Send` retains the ask-first hold or drops respectively; readiness bypasses neither Route. `UserDeliver` / `UserDrop` retain their existing guards. |
+| Existing Takeover or unsent input | `TakeoverBegin` / `UserInput` keeps automatic delivery held, including Messages from the user (B32). `TakeoverEnd`, `UserSubmit` or `UserClear` releases only its own holds in B7 order; ask-first holds remain. Explicit `UserDeliver` still wins. B37 grants no new `takeover.begin` eligibility. |
+| Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending, or takeover-held if a Takeover began meanwhile. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A later readiness observation supplies `Idle` again. |
+| Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `Exit`: drop pending and takeover-held Messages as receiver-gone in id order, retain ask-first holds, refuse later sends and manual delivery. A later `Idle` cannot clear `gone`. |
+| Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `Exit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
+
+A resumed Attempt has a new receiver generation; its predecessor's final Messages
+stay final (B36). Bus-lag reconciliation and fresh send/release scheduling use the
+same current-Attempt facts, never the last Kind alone. A35's explicit reservation
+projections below still apply after this lifecycle classification.
+
+M1 retains the conditional record/at-most-once typing boundary; M4 retains queue
+ranks and hold-release order; M6 retains every pending or held record on live
+failure and Busy refusal; M7 applies `Exit` to actual ending, not live failure;
+M10's fair `Idle` progress includes live `error`. Fairness still requires eventual
+accepted delivery: an indefinitely Busy receiver cannot promise progress.
+`LAWS.bend`, predicates and transitions are unchanged. Proofs cover the model,
+not Rust lifecycle classification, batching or Terminal effects.
+
+This is the required B37 interpretation, not a claim that the runtime projection
+already implements it. At this alignment, `crates/agents/src/lib.rs`'s `prompt`
+accepts live `Idle | Error` and refuses ended/closing Attempts, while
+`crates/messages/src/lib.rs`'s `ended`, `on_status` and fresh-delivery scheduling
+still classify by Kind. #1847 owns that projection repair and B37's runtime,
+Decision-note and real-Claude observer acceptance; this alignment does not close
+it. V4's existing pure transition correspondence remains unchanged; V7 must also
+check the lifecycle projection against those seams.
 
 ## Modules
 
@@ -89,8 +130,9 @@ replaced. Stop/error, next Attempt, delayed earlier Statuses, lag resync and Dae
 reopen preserve pending and held records and never type them. In the pure model,
 `restart_event` projects these temporary Exit/Idle/Restart inputs to Busy; entering
 the window first applies Busy. Final receiver removal without an explicit retirement reservation bypasses this
-projection, ends the restart reservation and follows B9. Ordinary stop/error/exit outside a reservation
-still applies Exit and drops pending and Takeover-held Messages. Ask-first and
+projection, ends the restart reservation and follows B9. Outside a reservation,
+actual ending applies Exit and drops pending and Takeover-held Messages; a live
+StopFailure instead applies Idle under B37. Ask-first and
 escalated holds retain their Reasons; skipped Agents' Takeovers are untouched.
 Question bounds pause while their receiver is reserved and restart on release;
 an explicit `message.pass` remains the Actor's choice.
@@ -98,7 +140,7 @@ an explicit `message.pass` remains the Actor's choice.
 Release requires a live matching Attempt greater than the reserved Attempt, and
 any Door note's acknowledgement to be recorded for that Attempt or an earlier
 completed Attempt of the same operation. It rebinds only
-pending/held records, retains their B7 ranks, and nudges an already idle receiver.
+pending/held records, retains their B7 ranks, and nudges an already delivery-ready receiver (idle or B37 live error).
 Final Messages are never rebound or revived. A failed restart or recording leaves
 its reservation available to the same retry, including after reopening the Daemon.
 On reopen, reservations replay from SQLite before reconciliation. Takeovers and
@@ -121,7 +163,7 @@ recording rather than sending it with `message.send`.
 Affected laws: M1 (no second typing or note), M3 (no Takeover as an internal lock),
 M4 (B7 ranks retained), M5 (final records untouched), M6 (no queue loss), M7 (final
 ending remains Exit, temporary restart is Busy), M9 (durable reservation/note
-replay), M10 (delivery follows coordinator release and fair Idle). M2's holds stay
+replay), M10 (delivery follows coordinator release and fair Idle (including B37 live error)). M2's holds stay
 unchanged; M8's bound fairness additionally requires completion of the explicit
 restart. `model.bend` models the reservation as a schedule projection into the
 unchanged delivery transitions and the already-typed prompt as an idempotent
