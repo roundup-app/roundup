@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { parse } from "@babel/parser";
+import { traverseFast, isJSXElement } from "@babel/types";
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
@@ -7,8 +10,8 @@ import { AlertDialog, Dialog, Menu, Tooltip, IconButton } from "./index";
 afterEach(cleanup);
 
 it("u474_icon_button_has_its_name", () => {
-  render(() => <IconButton aria-label="Close Project">×</IconButton>);
-  expect(screen.getByRole("button", { name: "Close Project" }).dataset.button).toBe("icon");
+  render(u474Fixture);
+  expect(screen.getByRole("button", { name: "Open Project" }).dataset.button).toBe("icon");
 });
 
 // u474_icon_button_requires_a_name: tsc checks both sides without mounting invalid UI.
@@ -33,7 +36,60 @@ it("u474_dependency_and_exports", () => {
   expect(screen.getByRole("button", { name: "Project actions" })).toBeDefined();
 });
 
-it("u474_fixture_uses_the_shared_wrappers", () => {
-  render(u474Fixture);
-  expect(screen.getByRole("button", { name: "Open Project" }).dataset.button).toBe("icon");
+// Exhaustive source audit: all other raw callers paint words, names or counts.
+// Compact Rail actions and single-count Project edges can paint marks alone,
+// so they remain explicitly inventoried even when a seed paints their labels.
+// Stable name keys let each lane remove callers without editing this inventory.
+// PadRichEditor.tsx mounts CrepeBuilder: every Milkdown-generated toolbar/link
+// button is also owned by cancelled #1988; it produces no source JSX button.
+// drawingBlock.ts mounts Excalidraw inside a rich Pad: its generated canvas
+// toolbar, menus and action buttons likewise belong to cancelled #1988.
+const rawIconOwners = new Map([
+  ["drawer/DrawerHost.tsx:{copy.close}", "#1997 close Drawer"],
+  ["header/ProjectTab.tsx:{copy.closeProject(props.tab.name)}", "#1605 close Project"],
+  ["header/Strip.tsx:{copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}", "#1605 hidden attention edge (single count paints marks only)"],
+  ["header/Strip.tsx:{copy.openAFolder}", "#1605 add Project"],
+  ["rail/RailRow.tsx:{copy.collapse}", "#1607 collapse Workstream"],
+  ["rail/RailRow.tsx:{props.doorFailure ? copy.retryDoor : copy.startDoor}", "#1607 start/retry Door (label hidden in compact rows)"],
+  ["rail/RowIcons.tsx:{props.label}", "#1607 clear/stop/open folder/open editor via RowIcon"],
+  ["rail/RowIcons.tsx:{copy.addAgentLabel}", "#1607 add Agent (label hidden in compact rows)"],
+  ["rail/RowIcons.tsx:{copy.chooseModelAndEffort}", "#1607 model and effort"],
+  ["shelf/ScopeControl.tsx:{props.showAll ? copy.showOnlyThisWorkstream : copy.showAllWorkstreams}", "#2002 scope"],
+  ["shelf/Shelf.tsx:{props.open ? copy.hideShelf : copy.showShelf}", "#2002 toggle Shelf"],
+  ["pads/PadDrawer.tsx:{copy.makeYours}", "#1988 cancelled: make yours"],
+  ["pads/PadDrawer.tsx:{copy.openOwner}", "#1988 cancelled: open owner"],
+  ["pads/PadDrawer.tsx:{copy.exportMd}", "#1988 cancelled: export"],
+  ["pads/PadDrawer.tsx:{copy.delete}", "#1988 cancelled: delete"],
+  ["pads/Pads.tsx:{copy.makePadYours(pad.name)}", "#1988 cancelled: make yours"],
+  ["orders/OrderDrawer.tsx:{copy.editOrder}", "#1497 deletes: edit order"],
+  ["thread/MoreMenu.tsx:{copy.more}", "#1497 deletes: more"],
+  ["thread/Thread.tsx:{copy.removeAttachment(props.attachment.name)}", "#1497 deletes: attachment removal"],
+  ["thread/Thread.tsx:{copy.dismissAnswer}", "#1497 deletes: dismiss answer"],
+  ["thread/Thread.tsx:{copy.removeQuoteFrom(quote.source)}", "#1497 deletes: remove quote"],
+]);
+
+it("u477_app_has_no_raw_icon_only_buttons", () => {
+  const unowned: string[] = [];
+
+  for (const file of readdirSync("src", { recursive: true }).map(String).filter(file => file.endsWith(".tsx") && !/test|Fixture/.test(file)).sort()) {
+    if (file === "ui/index.tsx") continue;
+
+    const source = readFileSync(`src/${file}`, "utf8");
+
+    traverseFast(parse(source, { sourceType: "module", plugins: ["jsx", "typescript"] }), (node) => {
+      if (!isJSXElement(node) || node.openingElement.name.type !== "JSXIdentifier" || node.openingElement.name.name !== "button") return;
+
+      const attributes = node.openingElement.attributes;
+      const label = attributes.find(attribute => attribute.type === "JSXAttribute" && attribute.name.name === "aria-label");
+      const key = `${file}:${label?.type === "JSXAttribute" && label.value ? source.slice(label.value.start!, label.value.end!) : "unnamed"}`;
+      const owner = rawIconOwners.get(key);
+      const iconKind = attributes.some(attribute => attribute.type === "JSXAttribute" && attribute.name.name === "data-button" && attribute.value?.type === "StringLiteral" && attribute.value.value === "icon");
+      const painted = node.children.filter(child => child.type !== "JSXText" || child.value.trim());
+      const glyphsOnly = painted.length > 0 && painted.every(child => isJSXElement(child) && child.openingElement.name.type === "JSXIdentifier" && /Icon$|Mark$|Glyph$|^ListFilter$/.test(child.openingElement.name.name));
+
+      if ((iconKind || glyphsOnly) && !owner) unowned.push(`${file}:${node.loc?.start.line} ${key}`);
+    });
+  }
+
+  expect(unowned).toEqual([]);
 });
