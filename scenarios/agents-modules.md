@@ -63,10 +63,12 @@ Then:
 
 ## Observer results
 
-The implementation PR records one row per command with its exit code and any
-failure, including failures caused by the environment. Record each command's
-literal invocation; a failed invocation remains a row even when a later retry
-passes.
+The implementation PR records one row per command invocation with columns
+`Command`, `Exit code` and `Failures`. Record the literal invocation and every
+reported failure, including failures caused by the environment; write `none`
+when there are none. A failed invocation remains a row even when a later retry
+passes. If one invocation reports several failures, list each in its row;
+recording only the first failure or only the exit code is insufficient.
 
 The line-count table has one row for `lib.rs` and each new Rust file, with its
 path and total line count. The state-reader table has one row for every
