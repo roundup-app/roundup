@@ -2554,6 +2554,229 @@ async fn b6_begin_racing_a_door_interrupt_waits_for_the_child_effect() {
 }
 
 #[tokio::test]
+async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
+    let mut run = Run::start().await;
+    let door = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"supervisor"}))
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.door = Some(door.clone());
+    run.spawn().await;
+    std::fs::write(run.dir.path().join("order-submit"), "").unwrap();
+    let mut events = notice_events(&run).await;
+    run.user
+        .request("rail.startDoor", json!({"id":door}))
+        .await
+        .unwrap();
+    let door_node = tokio::time::timeout(BOUND, async {
+        loop {
+            let tree = run.user.request("rail.tree", ()).await.unwrap();
+            let node = tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == door)
+                .unwrap();
+            if node["status"]["kind"] == "idle" {
+                break node.clone();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":door}))
+        .await
+        .unwrap();
+    let (decision, waiting) = run.open("permission").await;
+    let marker = format!("[decision {}]", decision["id"].as_str().unwrap());
+    let note = tokio::time::timeout(BOUND, async {
+        loop {
+            if let EventData::MessageSent(m) = events.next_event().await.unwrap().data
+                && m.to == door
+                && m.body.starts_with(&marker)
+            {
+                break m;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    run.user.request("agent.signal", json!({"id":door,"attempt":door_node["attempt"],"payload":{"hook_event_name":"StopFailure","error":"server_error"}})).await.unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            if let EventData::AgentStatus(s) = events.next_event().await.unwrap().data
+                && s.id == door
+                && s.status.kind == contracts::Kind::Error
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let caller = Client::connect(&run.daemon.socket).await.unwrap();
+    caller
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":door}}),
+        )
+        .await
+        .unwrap();
+    caller
+        .request(
+            "decision.answer",
+            json!({"id":decision["id"],"answer":"allow","proof":"0".repeat(64)}),
+        )
+        .await
+        .unwrap();
+    assert!(waiting.await.unwrap().is_ok());
+    run.user
+        .request("takeover.end", json!({"agent":door}))
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        let mut delivered = false;
+        let mut working = false;
+        while !delivered || !working {
+            match events.next_event().await.unwrap().data {
+                EventData::MessageDelivered(m) if m.id == note.id => delivered = true,
+                EventData::AgentStatus(s)
+                    if s.id == door && s.status.kind == contracts::Kind::Working =>
+                {
+                    working = true
+                }
+                _ => {}
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let stored = run
+        .user
+        .request("message.get", json!({"id":note.id}))
+        .await
+        .unwrap();
+    assert_eq!(stored["status"], "delivered");
+    let text = tokio::time::timeout(BOUND, async {
+        loop {
+            let screen = run
+                .user
+                .request(
+                    "terminal.read",
+                    json!({"id":door_node["terminal_id"],"after":0}),
+                )
+                .await
+                .unwrap()["text"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            // Terminal output can lag the hook event; wait for the note's actual bytes.
+            let bytes: Vec<_> = screen
+                .lines()
+                .filter_map(|line| line.strip_prefix("BYTE:"))
+                .map(|hex| u8::from_str_radix(hex.trim(), 16).unwrap())
+                .collect();
+            let text = String::from_utf8(bytes).unwrap();
+            if text.contains(&marker) {
+                break text;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(text.matches(&marker).count(), 1, "{text}");
+    run.finish().await;
+}
+
+async fn input_after_error(pending: bool) {
+    let run = Run::start().await;
+    std::fs::write(run.dir.path().join("order-submit"), "").unwrap();
+    let mut events = notice_events(&run).await;
+    if pending {
+        run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"UserPromptSubmit"}})).await.unwrap();
+        for body in ["one", "two"] {
+            run.user
+                .request(
+                    "message.send",
+                    json!({"to":run.child,"kind":"note","body":body}),
+                )
+                .await
+                .unwrap();
+        }
+    }
+    run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"StopFailure","error":"server_error"}})).await.unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            if let EventData::AgentStatus(s) = events.next_event().await.unwrap().data
+                && s.id == run.child
+                && s.status.kind == contracts::Kind::Error
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    if !pending {
+        run.user
+            .request(
+                "message.send",
+                json!({"to":run.child,"kind":"note","body":"one"}),
+            )
+            .await
+            .unwrap();
+    }
+    tokio::time::timeout(BOUND, async {
+        let mut delivered = 0;
+        let mut working = false;
+        while delivered < if pending { 2 } else { 1 } || !working {
+            match events.next_event().await.unwrap().data {
+                EventData::MessageDelivered(m) if m.to == run.child => delivered += 1,
+                EventData::AgentStatus(s)
+                    if s.id == run.child && s.status.kind == contracts::Kind::Working =>
+                {
+                    assert_eq!(s.attempt, run.attempt.as_str().unwrap());
+                    working = true;
+                }
+                _ => {}
+            }
+        }
+    })
+    .await
+    .unwrap();
+    let text = String::from_utf8(recorded_bytes(&run).await).unwrap();
+    let expected = if pending {
+        "[from you, note] one\n\n[from you, note] two"
+    } else {
+        "[from you, note] one"
+    };
+    assert_eq!(text.matches(expected).count(), 1, "{text}");
+    assert_eq!(text.matches('\r').count(), 1, "one prompt: {text}");
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b37_a_live_error_accepts_and_delivers_a_new_message() {
+    input_after_error(false).await;
+}
+
+#[tokio::test]
+async fn b37_stop_failure_delivers_pending_messages_in_one_prompt() {
+    input_after_error(true).await;
+}
+
+#[tokio::test]
 async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     let (run, caller) = order_child().await;
     run.user
