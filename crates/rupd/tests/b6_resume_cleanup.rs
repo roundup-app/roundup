@@ -177,7 +177,10 @@ async fn b6_resume_completion_waits_for_both_promotion_failure_cleanups() {
             }
             arrived(&run.gate("cleanup-arrived")).await;
             let terminal = std::fs::read_to_string(run.gate("cleanup-arrived")).unwrap();
-            assert!(run.terminal_running(&terminal).await);
+            assert!(
+                run.terminal_running(&terminal).await,
+                "cleanup marker named {terminal:?}"
+            );
             let retry = run
                 .user
                 .request("agent.resume", json!({"id":run.child}))
