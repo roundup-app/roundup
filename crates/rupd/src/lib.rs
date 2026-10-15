@@ -43,8 +43,8 @@ pub struct Daemon {
     storage_calls: tokio::sync::RwLock<()>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    /// B6: Takeover acquisition excludes in-flight Door writes to this child.
-    child_writes: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
+    /// B6: Takeover acquisition excludes in-flight Door writes and steering of this child.
+    child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     touches: Arc<Touches>,
@@ -147,7 +147,7 @@ impl Daemon {
             pads: Arc::clone(&pads),
             storage_calls: Default::default(),
             door_first_steers: Default::default(),
-            child_writes: Default::default(),
+            child_effects: Default::default(),
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -305,19 +305,26 @@ impl Daemon {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
         }
-        // A Door write's completion includes its physical effect. Begin must wait for
-        // that completion, including an uncertain result, before granting the child.
-        let _door_write = if method == "terminal.write" && conn.actor.kind == ActorKind::Agent {
-            match self.guard_terminal_read(&conn.actor, &params).await? {
-                Some(child) => Some(self.child_writes(&child).read_owned().await),
-                None => None,
+        // These Door calls account for their physical effects before returning, including
+        // uncertain outcomes. Begin must not grant the child while an effect can still run.
+        let child = if conn.actor.kind == ActorKind::Agent {
+            match method {
+                "terminal.write" => self.guard_terminal_read(&conn.actor, &params).await?,
+                "agent.prompt" | "agent.setOrder" | "agent.interrupt" => {
+                    Some(rpc::params::<NodeId>(params.clone())?.id)
+                }
+                _ => None,
             }
         } else {
             None
         };
+        let _door_effect = match child {
+            Some(child) => Some(self.child_effects(&child).read_owned().await),
+            None => None,
+        };
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
-            Some(self.child_writes(&agent).write_owned().await)
+            Some(self.child_effects(&agent).write_owned().await)
         } else {
             None
         };
@@ -489,12 +496,12 @@ impl Daemon {
         outcome
     }
 
-    fn child_writes(&self, child: &str) -> Arc<tokio::sync::RwLock<()>> {
+    fn child_effects(&self, child: &str) -> Arc<tokio::sync::RwLock<()>> {
         let mut writes = self
-            .child_writes
+            .child_effects
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        // No historical child or completed write needs a live lock. Weak entries keep
+        // No historical child or completed effect needs a live lock. Weak entries keep
         // concurrent callers on one lock without retaining every Agent ever created.
         writes.retain(|_, lock| lock.strong_count() != 0);
         if let Some(lock) = writes.get(child).and_then(std::sync::Weak::upgrade) {
