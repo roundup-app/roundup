@@ -13,11 +13,11 @@ from test import line
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 
-# Harness limit for one observe.py run, not the scenario's 20 s Chromium deadline.
-# observe.py may wait 45 s for bpftrace to attach, then the command's 20 s deadline
+# Bound the observer attachment, the explicit 60 s startup cap, and teardown.
+# observe.py may wait 45 s for bpftrace to attach, then the command's 60 s deadline
 # runs, then tracer teardown takes at most 5 s (reader joins) + 10 s (tracer wait)
 # + 5 s (kill-after); the margin covers process start and exit.
-OBSERVER_LIMIT_S = 45 + 20 + 20 + 15
+OBSERVER_LIMIT_S = 45 + 60 + 20 + 15
 
 
 @contextmanager
@@ -60,9 +60,10 @@ class ColdTest(unittest.TestCase):
                 self.assertEqual(len(failed), 2)
                 self.assertLess(max(event["elapsed_ms"] for event in starts), min(event["elapsed_ms"] for event in failed))
                 # elapsed_ms starts when cold.mts does, after the observer attached.
-                self.assertLess(max(event["elapsed_ms"] for event in failed), 45_000)
+                self.assertLess(max(event["elapsed_ms"] for event in failed), 85_000)
                 for event in failed:
-                    self.assertIn("Target.createTarget timed out after 20000 ms", event["error"])
+                    self.assertIn("Target.createTarget timed out after 60000 ms", event["error"])
+                    self.assertIn("last completed stage=launched", event["error"])
                     self.assertIn("received=0 bytes", event["error"])
                     self.assertIn("threads:\nprocess", event["error"])
                     self.assertIn("wchan=locks_lock_inode_wait", event["error"])
@@ -149,6 +150,11 @@ console.log(JSON.stringify({ status: 'warmed-after-release' }));
                 events = [json.loads(row) for row in artifact.read_text().splitlines()]
                 self.assertEqual([event["value"] for event in events if event["status"] == "answered"], [42, 42])
                 self.assertEqual(len([event for event in events if event["status"] == "closed"]), 2)
+                for call in (0, 1):
+                    stages = [event for event in events if event.get("call") == call and event["status"] == "stage"]
+                    self.assertEqual([event["stage"] for event in stages], ["executable-reading", "executable-read", "server-listening", "launched", "target-created", "page-ready"])
+                    self.assertGreater(stages[-1]["duration_ms"], 20_000)
+                print(json.dumps({"observation": "slow-cold-released", "events": events}), flush=True)
                 self.assertTrue(all(not Path(f"/proc/{pid}").exists() for pid in (root / "pids").read_text().splitlines()))
             finally:
                 for file in locks:
