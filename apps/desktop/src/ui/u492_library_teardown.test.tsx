@@ -3,7 +3,9 @@ import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 
 const duration = 5000;
+
 const removeDelay = 150;
+
 const cardSelector = '[data-scope="toast"][data-part="root"]';
 
 afterEach(() => {
@@ -19,10 +21,13 @@ function mount() {
   const observe = vi.spyOn(MutationObserver.prototype, "observe");
   const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
   const toaster = createToaster({ placement: "bottom-end", removeDelay });
+
   const mounted = render(() => <Toaster toaster={toaster}>
     {(toast) => <Toast.Root><Toast.Title>{toast().title}</Toast.Title></Toast.Root>}
   </Toaster>);
+
   const create = () => toaster.create({ title: "Saved", duration, onStatusChange: status });
+
   return { ...mounted, toaster, create, status, observe, disconnect };
 }
 
@@ -47,26 +52,33 @@ it.each(["immediate", "settled", "hovered", "focused", "hovered-focused", "settl
     const id = probe.create();
     const card = screen.getByRole("status");
     expect(screen.getByText("Saved")).toBeDefined();
+
     if (state.includes("settled")) {
       // Zag's mount/height effects each schedule one RAF; let both run.
       await vi.advanceTimersToNextFrame();
       expect(card.hasAttribute("data-mounted")).toBe(true);
       expect(probe.observe).toHaveBeenCalled();
     }
+
     if (state.includes("hovered")) fireEvent.mouseMove(screen.getByRole("region"));
+
     if (state.includes("focused")) card.focus();
+
     if (state.includes("hovered") || state.includes("focused")) {
       await vi.advanceTimersByTimeAsync(0);
       expect(card.hasAttribute("data-paused")).toBe(true);
     }
+
     if (state === "exiting") {
       probe.toaster.dismiss(id);
       await vi.advanceTimersByTimeAsync(0);
       expect(card.dataset.state).toBe("closed");
     }
+
     probe.unmount();
     expect(vi.getTimerCount()).toBe(0);
     expect(document.querySelector('[data-scope="toast"]')).toBeNull();
+
     if (state.includes("settled")) expect(probe.disconnect).toHaveBeenCalled();
     await expectIdle(probe);
   },
