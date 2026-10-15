@@ -106,7 +106,7 @@ class FaultTest(unittest.TestCase):
                         outsider.stdin.flush()
                         send("G\n")
                         self.assertEqual(line(control), "HELD")
-                        pending = self.event(observer.stdout, "pending", tid)
+                        pending = self.event(observer.stdout, "pending", tid, address)
                         live = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
                         self.assertTrue(any(event.get("status") == "pending" and event.get("tid") == tid for event in live))
                         self.assertEqual(pending["pid"], pid)
@@ -129,7 +129,7 @@ class FaultTest(unittest.TestCase):
                         self.assertEqual(line(control), "VALUE Q")
                         self.assertEqual(line(outsider.stdout), "VALUE Q")
                         self.assertEqual(outsider.wait(timeout=10), 0)
-                        completed = self.event(observer.stdout, "completed", tid)
+                        completed = self.event(observer.stdout, "completed", tid, address)
                         self.assertEqual(completed["entry_ns"], pending["entry_ns"])
                         self.assertEqual(completed["address"], address)
                         self.assertGreaterEqual(completed["duration_ns"], held_until_ns - pending["entry_ns"])
@@ -168,7 +168,7 @@ class FaultTest(unittest.TestCase):
                 observer.stdin.write("G\n")
                 observer.stdin.flush()
                 self.assertEqual(line(fuse.stdout), "HELD")
-                pending = self.event(observer.stdout, "pending", reader_tid)
+                pending = self.event(observer.stdout, "pending", reader_tid, int(mapped[3], 16))
                 # Kill only the command's waiting leader. Its renamed reader
                 # remains in the real kernel fault while the tracer tears down.
                 os.kill(attached["root_pid"], 15)
@@ -213,10 +213,10 @@ class FaultTest(unittest.TestCase):
             result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--", sys.executable, "-c", "import os,signal; os.kill(os.getpid(),signal.SIGTERM)"], env=dict(os.environ, PATH=directory), capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, -15)
 
-    def event(self, stream, status, tid):
+    def event(self, stream, status, tid, address=None):
         while True:
             event = json.loads(line(stream))
-            if event.get("status") == status and event.get("tid") == tid:
+            if event.get("status") == status and event.get("tid") == tid and (address is None or event.get("address") == address):
                 return event
             self.assertNotEqual(event.get("status"), "error", event)
 
