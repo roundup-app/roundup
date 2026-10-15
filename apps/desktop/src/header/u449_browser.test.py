@@ -87,7 +87,7 @@ if len(sys.argv) > 5 and sys.argv[5] == "boxes":
                       return [...document.querySelectorAll('.project-tab')].map(e=>{
                         const name=e.querySelector('.tab-name-button'),close=e.querySelector('.tab-close'),mark=e.querySelector('.tab-mark'),css=getComputedStyle(e);
                         const m=mark&&getComputedStyle(mark);
-                        return {box:box(e),name:box(name),close:box(close),border:css.borderTopWidth,bottomBorder:css.borderBottomWidth,
+                        return {box:box(e),name:box(name),tail:box(e.querySelector('.tab-tail')),close:box(close),border:css.borderTopWidth,bottomBorder:css.borderBottomWidth,
                           pad:getComputedStyle(name).paddingInlineStart,icons:e.querySelectorAll('.tab-name-button svg').length,
                           mark:mark?{box:box(mark),radius:m.borderRadius,background:m.backgroundColor,colour:m.color,children:mark.children.length,label:mark.getAttribute('aria-label')}:null};
                       });

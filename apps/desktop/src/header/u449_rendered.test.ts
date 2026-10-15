@@ -191,7 +191,7 @@ run("u449 isolated rendered window bar", () => {
 describe("u440 to u443 boxed tabs in isolated Chromium", () => {
   type Rect = Box & { width: number };
 
-  type Tab = { box: Rect; name: Rect; close: Rect; border: string; bottomBorder: string; pad: string; icons: number; mark: null | { box: Rect; radius: string; background: string; colour: string; children: number; label: string } };
+  type Tab = { box: Rect; name: Rect; tail: Rect; close: Rect; border: string; bottomBorder: string; pad: string; icons: number; mark: null | { box: Rect; radius: string; background: string; colour: string; children: number; label: string } };
 
   type Row = Observation & { rule: { width: string; colour: string; token: string }; tabs: Tab[]; rest?: string; markChanged?: string; hover?: string; selected?: string; paint?: { image: string; background: string; selected: string }; rename?: { field: Rect; tab: Rect; padding: string }; edges?: { box: Rect; mark: Rect }[] };
 
@@ -301,6 +301,8 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
       expect(mark.radius).toBe("6px");
       expect(mark.background).toBe(mark.colour);
       expect(mark.box.top).toBeLessThan(centre(tab.name));
+      // Just after the name: one `--space-1` gap from its last character, whatever the name's length.
+      expect(mark.box.left - tab.tail.right, "the dot follows the name").toBeLessThanOrEqual(5);
       expect(mark.box.right).toBeLessThanOrEqual(tab.name.right);
       expect(mark.box.right).toBeLessThan(tab.close.left);
       expect(["Error", "Needs you"]).toContain(mark.label);

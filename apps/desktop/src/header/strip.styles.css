@@ -48,7 +48,9 @@
   --button-inline: var(--space-1);
   --button-hover: transparent;
   display: grid;
-  grid-template-columns: minmax(8ch, 1fr) var(--space-2);
+  /* U443: the dot follows the name's last character; U382’s floor lives on the tab’s min-width, not on a padded name column. */
+  grid-template-columns: minmax(0, max-content) var(--space-2);
+  justify-content: start;
   flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
@@ -58,7 +60,6 @@
 
 .tab-name {
   display: flex;
-  min-width: 8ch;
   overflow: hidden;
 }
 
