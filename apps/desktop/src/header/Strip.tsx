@@ -45,9 +45,8 @@ export const Strip = (props: {
   const [asking, setAsking] = createSignal<string | null>(null);
   const [left, setLeft] = createSignal<Edge | null>(null);
   const [right, setRight] = createSignal<Edge | null>(null);
-  const [isCutLeft, setCutLeft] = createSignal(false);
-  const [isCutRight, setCutRight] = createSignal(false);
   const [overflowing, setOverflowing] = createSignal(false);
+  const [cut, setCut] = createSignal<"none" | "start" | "end" | "both">("none");
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
   let scroller: HTMLDivElement | undefined;
@@ -69,8 +68,7 @@ export const Strip = (props: {
       setLeft(null);
       setRight(null);
       setOverflowing(false);
-      setCutLeft(false);
-      setCutRight(false);
+      setCut("none");
 
       return;
     }
@@ -80,19 +78,27 @@ export const Strip = (props: {
 
     const from = list.scrollLeft;
     const to = from + list.clientWidth;
-    setCutLeft(from > 0);
-    setCutRight(to < list.scrollWidth);
     const out: Record<"left" | "right", StripTab[]> = { left: [], right: [] };
+
+    let cutStart = false;
+    let cutEnd = false;
 
     for (const tab of props.tabs) {
       const element = elements.get(tab.path);
 
       if (!element) continue;
 
+      const near = element.offsetLeft;
+      const far = near + element.offsetWidth;
+
+      cutStart ||= near < from && far > from;
+      cutEnd ||= near < to && far > to;
+
       if (element.offsetLeft + element.offsetWidth <= from) out.left.push(tab);
       else if (element.offsetLeft >= to) out.right.push(tab);
     }
 
+    setCut(cutStart && cutEnd ? "both" : cutStart ? "start" : cutEnd ? "end" : "none");
     setLeft(edgeOf(out.left, false));
     setRight(edgeOf(out.right, true));
     revealOpen();
@@ -197,7 +203,7 @@ export const Strip = (props: {
     }}>
       <div class="strip-scroll" ref={(element) => (scroller = element)}>
         {edge(copy.left, left())}
-        <div class="tablist" data-cut-left={isCutLeft()} data-cut-right={isCutRight()} role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
+        <div class="tablist" data-cut={cut()} role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
           <For each={paths()}>
             {(path) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.

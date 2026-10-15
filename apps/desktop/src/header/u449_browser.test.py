@@ -78,6 +78,8 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
                 evaluate("const list=document.querySelector('.tablist');list.scrollLeft=" + ("0" if pick == "first" else "list.scrollWidth"))
                 browser("wait", "--fn", "(() => {const list=document.querySelector('.tablist');return " +
                         ("list.scrollLeft === 0" if pick == "first" else "Math.abs(list.scrollWidth-list.clientWidth-list.scrollLeft) <= 1") + "})()")
+                # Flush the measurement even when a headless page holds scroll frames.
+                evaluate("document.querySelector('.tablist').dispatchEvent(new Event('scroll'))")
                 records.append({"case": f"tabs-8-{width}-{pick}", "revealed": revealed, **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');

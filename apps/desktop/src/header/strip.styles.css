@@ -26,16 +26,16 @@
   scrollbar-width: none;
 }
 
-/* A tab cut by a slot fades into it instead of ending in an open box. Only the alpha of the mask counts. */
-.tablist[data-cut-left="true"] {
+/* A tab the list cuts at a slot fades into it instead of ending in an open box; a side no tab crosses keeps every border. Only the mask's alpha counts. */
+.tablist[data-cut="start"] {
   mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1));
 }
 
-.tablist[data-cut-right="true"] {
+.tablist[data-cut="end"] {
   mask-image: linear-gradient(to left, transparent, var(--text) var(--space-1));
 }
 
-.tablist[data-cut-left="true"][data-cut-right="true"] {
+.tablist[data-cut="both"] {
   mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1), var(--text) calc(100% - var(--space-1)), transparent);
 }
 
