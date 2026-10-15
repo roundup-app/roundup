@@ -3868,3 +3868,68 @@ async fn b6_resize_crashes_preserve_receipts_and_never_replay_an_uncertain_effec
         run.finish().await;
     }
 }
+
+#[tokio::test]
+async fn b6_held_resizes_preserve_wire_arrival_order_before_task_scheduling() {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    let (run, _) = door_terminal().await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let door = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["parent"]
+        .clone();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let mut client = tokio::net::UnixStream::connect(&run.daemon.socket)
+        .await
+        .unwrap();
+    let mut batch = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).unwrap();
+    batch.push(b'\n');
+    for cols in 120..152 {
+        batch.extend(serde_json::to_vec(&json!({"jsonrpc":"2.0","id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).unwrap());
+        batch.push(b'\n');
+    }
+    client.write_all(&batch).await.unwrap();
+    let mut replies = BufReader::new(client).lines();
+    for _ in 0..33 {
+        let line = tokio::time::timeout(BOUND, replies.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let reply: Value = serde_json::from_str(&line).unwrap();
+        assert!(reply.get("result").is_some(), "{reply}");
+    }
+    let history = run
+        .user
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    let widths: Vec<_> = history
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["cols"].as_u64().unwrap())
+        .collect();
+    assert_eq!(
+        widths,
+        (120..152).collect::<Vec<_>>(),
+        "acceptance must follow the already-read wire frames"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 151);
+    run.finish().await;
+}
