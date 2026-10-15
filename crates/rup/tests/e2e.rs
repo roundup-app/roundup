@@ -3046,43 +3046,6 @@ async fn p14_only_owner_writes() {
     assert_eq!(pad["text"], "by owner");
 }
 
-#[tokio::test]
-async fn p14_old_scribe_loads_and_is_removed() {
-    let mut project = start(&[]);
-    let user = project.client().await;
-    p14_pads(&user, &["notes"]).await;
-    let old = agent_in(&project, &user, None).await;
-    let kept = agent_in(&project, &user, None).await;
-    project.crash();
-    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
-    db.execute_batch("CREATE TABLE scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL)")
-        .unwrap();
-    db.execute("INSERT INTO scribes VALUES ('notes', ?1)", [&old])
-        .unwrap();
-    drop(db);
-
-    project.restart(&[]);
-
-    let user = project.client().await;
-    let pad = user
-        .request("pad.read", json!({ "name": "notes" }))
-        .await
-        .unwrap();
-    assert_eq!(pad["text"], "start");
-    let ids: Vec<String> = rail_tree(&user).await.into_iter().map(|n| n.id).collect();
-    assert!(!ids.contains(&old));
-    assert!(ids.contains(&kept));
-    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
-    let left: i64 = db
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'scribes'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(left, 0);
-}
-
 /// M11: the tools a Brief lists, between its "## Tools" heading and the next.
 fn brief_tools(brief: &str) -> Vec<String> {
     let section = brief.split("## Tools").nth(1).unwrap();

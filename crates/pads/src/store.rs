@@ -1,4 +1,4 @@
-//! App-stored Pads in the Project database, with support for legacy standalone stores.
+//! App-stored Pads in the Project database, with standalone stores for current callers.
 
 use std::path::Path;
 
@@ -15,7 +15,6 @@ pub struct Store {
 }
 
 impl Store {
-    /// Rejects pre-release Pads without a `key`; supported schemas keep their data.
     pub fn open(path: &Path) -> Result<Self, OpenError> {
         let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
@@ -103,25 +102,6 @@ impl Store {
             params![key(name), owner_json(owner), at],
         )?;
         Ok(changed == 1)
-    }
-
-    /// P14: the Agents a `pads.db` from before bound to a Pad; the binding table is dropped, so they are returned once.
-    pub fn take_old_bindings(&self) -> rusqlite::Result<Vec<String>> {
-        let has_table: bool = self.db.query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'scribes'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_table {
-            return Ok(Vec::new());
-        }
-        let agents = self
-            .db
-            .prepare("SELECT agent FROM scribes")?
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<rusqlite::Result<_>>()?;
-        self.db.execute_batch("DROP TABLE scribes")?;
-        Ok(agents)
     }
 
     pub fn files(&self) -> rusqlite::Result<bool> {

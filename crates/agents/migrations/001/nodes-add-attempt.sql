@@ -1,1 +1,0 @@
-ALTER TABLE nodes ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0 CHECK (attempt >= 0);

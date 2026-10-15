@@ -25,21 +25,15 @@ pub struct Todos {
 
 impl Todos {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused.
-    /// Existing Touches order migrated baselines against the user's last read (T15).
-    pub fn open(dir: &Path, _bus: Bus, touches: &provenance::Touches) -> Result<Self, OpenError> {
+    pub fn open(dir: &Path, _bus: Bus) -> Result<Self, OpenError> {
         Ok(Self {
-            store: Mutex::new(Store::open(
-                &dir.join(if dir.join("project.db").exists() {
+            store: Mutex::new(Store::open(&dir.join(
+                if dir.join("project.db").exists() {
                     "project.db"
                 } else {
                     "todos.db"
-                }),
-                |id| {
-                    touches
-                        .wrote_sequence(&item(id))
-                        .map(|seq| seq.saturating_sub(1))
                 },
-            )?),
+            ))?),
         })
     }
 
@@ -297,7 +291,7 @@ mod tests {
                 touches: Arc::new(Touches::in_memory().unwrap()),
             };
             Self {
-                todos: Todos::open(dir, bus, &ctx.touches).unwrap(),
+                todos: Todos::open(dir, bus).unwrap(),
                 ctx,
                 events,
             }
@@ -476,56 +470,6 @@ mod tests {
             changes(&Harness::new(dir.path()), 1).await["changes"],
             before
         );
-    }
-
-    #[tokio::test]
-    async fn t15_old_database_has_current_baseline() {
-        let dir = tempfile::tempdir().unwrap();
-        let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-        db.execute_batch("CREATE TABLE todos(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL); INSERT INTO todos VALUES (1, 'current', 'old body', 1, 0);").unwrap();
-        drop(db);
-        let h = Harness::new(dir.path());
-        let history = changes(&h, 1).await;
-        assert_eq!(history["changes"].as_array().unwrap().len(), 1);
-        assert!(history["changes"][0]["before"].is_null());
-        assert_eq!(
-            history["changes"][0]["after"],
-            json!({"title": "current", "body": "old body", "done": true, "blockers": []})
-        );
-    }
-
-    #[tokio::test]
-    async fn t15_old_baseline_follows_existing_read_touches() {
-        for unread in [false, true] {
-            let dir = tempfile::tempdir().unwrap();
-            let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-            db.execute_batch("CREATE TABLE todos(id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL); INSERT INTO todos VALUES (1, 'current', 'body', 0, 0);").unwrap();
-            drop(db);
-            let touches = Arc::new(Touches::in_memory().unwrap());
-            touches.record(&agent("a"), Verb::Wrote, "todo:1").unwrap();
-            touches
-                .record(&Actor::user(), Verb::Read, "todo:1")
-                .unwrap();
-            touches
-                .record(
-                    &agent("a"),
-                    Verb::Wrote,
-                    if unread { "todo:1" } else { "todo:2" },
-                )
-                .unwrap();
-            let bus = Bus::new();
-            let todos = Todos::open(dir.path(), bus.clone(), &touches).unwrap();
-            let ctx = Ctx {
-                actor: Actor::user(),
-                bus,
-                touches,
-            };
-            let history = todos
-                .call(&ctx, "todo.getHistory", json!({"id": 1}))
-                .await
-                .unwrap();
-            assert_eq!(history["unread"].is_null(), !unread);
-        }
     }
 
     #[tokio::test]
@@ -1053,45 +997,6 @@ mod tests {
         assert_eq!(err.code, code::INTERNAL);
     }
 
-    /// A `todos.db` written before `creator` existed, by hand, as T8 asks.
-    #[tokio::test]
-    async fn t8_a_todo_from_before_this_field_reads_as_the_user() {
-        let dir = tempfile::tempdir().unwrap();
-        let db_path = dir.path().join("todos.db");
-        {
-            let old = rusqlite::Connection::open(&db_path).unwrap();
-            old.execute_batch(
-                "CREATE TABLE todos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    done INTEGER NOT NULL DEFAULT 0,
-                    created_at INTEGER NOT NULL
-                );
-                CREATE TABLE blockers (
-                    todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                    blocker INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                    PRIMARY KEY (todo, blocker)
-                );
-                INSERT INTO todos (title, body, created_at) VALUES ('old', '', 0);",
-            )
-            .unwrap();
-        }
-
-        let h = Harness::new(dir.path());
-        let got = h.call("todo.get", json!({"id": 1})).await.unwrap();
-        assert_eq!(got["creator"], serde_json::to_value(Actor::user()).unwrap());
-
-        let created = h
-            .call("todo.create", json!({"title": "new"}))
-            .await
-            .unwrap();
-        assert_eq!(
-            created["creator"],
-            serde_json::to_value(Actor::user()).unwrap()
-        );
-    }
-
     async fn get_home(h: &Harness, id: u32) -> Value {
         h.call("todo.get", json!({"id": id})).await.unwrap()["home"].clone()
     }
@@ -1156,33 +1061,6 @@ mod tests {
         }
         let h = Harness::new(dir.path());
         assert_eq!(get_home(&h, 1).await, "r1");
-    }
-
-    #[tokio::test]
-    async fn t12_a_todo_from_before_this_field_reads_as_the_project_root() {
-        let dir = tempfile::tempdir().unwrap();
-        {
-            let old = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-            old.execute_batch(
-                "CREATE TABLE todos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    done INTEGER NOT NULL DEFAULT 0,
-                    created_at INTEGER NOT NULL,
-                    creator TEXT NOT NULL DEFAULT '{\"kind\":\"user\",\"id\":\"you\",\"parent\":null}'
-                );
-                CREATE TABLE blockers (
-                    todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                    blocker INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                    PRIMARY KEY (todo, blocker)
-                );
-                INSERT INTO todos (title, body, created_at) VALUES ('old', '', 0);",
-            )
-            .unwrap();
-        }
-        let h = Harness::new(dir.path());
-        assert_eq!(get_home(&h, 1).await, Value::Null);
     }
 
     #[tokio::test]
@@ -1384,34 +1262,6 @@ mod tests {
         }
         let h = Harness::new(dir.path());
         assert_eq!(order(&h).await, [1, 4, 2, 3]);
-    }
-
-    #[tokio::test]
-    async fn t10_a_database_from_before_the_order_opens_in_id_order() {
-        let dir = tempfile::tempdir().unwrap();
-        {
-            let old = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
-            old.execute_batch(
-                "CREATE TABLE todos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    body TEXT NOT NULL,
-                    done INTEGER NOT NULL DEFAULT 0,
-                    created_at INTEGER NOT NULL
-                );
-                CREATE TABLE blockers (
-                    todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                    blocker INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-                    PRIMARY KEY (todo, blocker)
-                );
-                INSERT INTO todos (title, body, created_at) VALUES ('a', '', 0), ('b', '', 0), ('c', '', 0);",
-            )
-            .unwrap();
-        }
-        let h = Harness::new(dir.path());
-        assert_eq!(order(&h).await, [1, 2, 3]);
-        h.call("todo.create", json!({"title": "d"})).await.unwrap();
-        assert_eq!(order(&h).await, [1, 2, 3, 4]);
     }
 
     #[tokio::test]

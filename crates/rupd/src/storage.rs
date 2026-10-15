@@ -42,8 +42,7 @@ mod tests {
         "checkpoints",
     ];
 
-    #[allow(dead_code)]
-    mod baseline {
+    mod standalone {
         include!("../tests/support/store_migrations.rs");
     }
 
@@ -85,9 +84,19 @@ mod tests {
         let db = Connection::open(&main_files[0]).unwrap();
         let mut expected = std::collections::BTreeMap::new();
         for name in STORES {
-            for (table, sql) in
-                baseline::expected_schema(name, if name == "agents" { 2 } else { 1 })
-            {
+            let mut current = Connection::open_in_memory().unwrap();
+            let initialize = match name {
+                "agents" => agents::schema::open,
+                "todos" => todos::schema::open,
+                "pads" => pads::schema::open,
+                "provenance" => provenance::schema::open,
+                "messages" => messages::schema::open,
+                "digest" => messages::digest_schema::open,
+                "checkpoints" => checkpoints::schema::open,
+                _ => unreachable!(),
+            };
+            initialize(&mut current, Path::new(name)).unwrap();
+            for (table, sql) in standalone::schema(&current) {
                 let (table, sql) = if name == "pads" && table == "settings" {
                     (
                         "pad_settings".to_owned(),
@@ -99,7 +108,8 @@ mod tests {
                 expected.insert(table, sql);
             }
         }
-        let actual: std::collections::BTreeMap<_, _> = baseline::schema(&db).into_iter().collect();
+        let actual: std::collections::BTreeMap<_, _> =
+            standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
         assert_eq!(
             Migrations::new(vec![M::up(SCHEMA)])
