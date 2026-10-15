@@ -1,8 +1,10 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { CHECK_IDS, runChecks } from "./checks";
 import { withStylesheets } from "./contrast";
+import { chromePath, openPage } from "./chromePage";
+import type { Checks } from "./checks";
 import { seedApp } from "./seeds";
 
 afterEach(() => {
@@ -155,5 +157,37 @@ describe("u137 one module measures the checks", () => {
 
       expect([document.body.innerHTML, document.head.innerHTML, String(document.activeElement === row)]).toEqual(before);
     });
+  });
+});
+
+const chrome = chromePath();
+const rendered = chrome || process.env.CI ? describe : describe.skip;
+
+rendered("u137 rendered composer focus", () => {
+  let page: Awaited<ReturnType<typeof openPage>>;
+  beforeAll(async () => { if (!chrome) throw new Error("U137 requires Chromium"); page = await openPage(chrome); }, 90_000);
+  afterAll(async () => { await page?.close(); });
+
+  for (const width of [1280, 1440]) {
+    it(`u137_measures_the_visible_composer_mark_after_takeover_release_at_${width}`, async () => {
+      await page.load("/harness.html?seed=thread-report", width, 800);
+      await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+      await page.press("0", "Digit0", 1);
+      await page.until(`() => Boolean(document.querySelector('.pane-takeover'))`);
+      await page.press("0", "Digit0", 1);
+      await page.until(`() => document.activeElement?.matches('[data-thread-input]') && !document.querySelector('.pane-takeover')`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+      expect(checks.D5).toMatchObject({ status: "pass" });
+      expect(checks.D10.status).toBe("pass");
+    }, 60_000);
+  }
+
+  it("u137_a_low_contrast_visible_mark_fails_despite_a_zero_width_outline", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => { document.querySelector('[data-thread-input]').focus(); const sheet = document.createElement('style'); sheet.textContent = '.thread-composer:has(textarea:focus-visible) { background-image: linear-gradient(var(--ground), var(--ground)); }'; document.head.append(sheet); }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: 1 } });
+    expect(checks.D10.status).toBe("fail");
   });
 });
