@@ -203,7 +203,7 @@
   display: block;
   width: 100%;
   min-height: 24px;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   font: inherit;
   color: var(--text);
   background: var(--ground);
