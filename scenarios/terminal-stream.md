@@ -120,11 +120,12 @@ These are existing anchors, not evidence that X14 is implemented:
 Policy: reuse the existing per-Terminal Tokio broadcast and Tauri raw IPC
 capabilities before adding machinery. [Tokio broadcast](https://docs.rs/tokio/1.53.1/tokio/sync/broadcast/index.html)
 provides bounded fan-out and explicit lag reporting; its
-[release record](https://github.com/tokio-rs/tokio/releases) establishes maintenance.
+[1.53.1 release](https://github.com/tokio-rs/tokio/releases/tag/tokio-1.53.1)
+was published 2026-07-20.
 [Tauri Channel](https://docs.rs/tauri/2.12.1/tauri/ipc/struct.Channel.html) with
 [Response](https://docs.rs/tauri/2.12.1/tauri/ipc/struct.Response.html) supplies raw
-IPC bodies; its [release record](https://github.com/tauri-apps/tauri/releases)
-establishes maintenance. These libraries cover different boundaries and are
+IPC bodies; its [2.12.1 release](https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.12.1)
+was published 2026-09-30. These libraries cover different boundaries and are
 selected together. [vt100 0.16.2](https://docs.rs/vt100/0.16.2/vt100/struct.Screen.html)
 provides screen/scrollback contents; its
 [changelog](https://github.com/doy/vt100-rust/blob/main/CHANGELOG.md) records the
