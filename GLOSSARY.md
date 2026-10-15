@@ -519,7 +519,7 @@ The matching spellings of one displayed Help chord.
 ### Shared hierarchy and ordering
 
 **TreeView**:
-The App's Token-styled Ark tree parts, with caller-owned rows and collection identity; Ark owns focus, traversal, expansion and tree semantics.
+The App's shared hierarchical row view, with caller-rendered content, selection and expansion.
 
 **Sortable**:
-The App's library-driven ordering parts, with caller-owned rows and named handles. The library owns preview, sensors, cancellation and scrolling; a completed reorder reports one order to the caller, which owns durable data.
+The App's shared ordered row view, with caller-rendered content and separate move handles.
