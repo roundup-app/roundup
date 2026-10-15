@@ -1603,38 +1603,6 @@ async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect(
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_write_waits_at_its_own_physical_effect() {
-    let (run, caller) = door_terminal().await;
-    let gate = run.dir.path().join("input-gate");
-    std::fs::write(&gate, "pause").unwrap();
-    let terminal = run.terminal.clone();
-    let mut completion = tokio::spawn(async move {
-        caller
-            .request(
-                "terminal.write",
-                json!({"id":terminal,"data":STANDARD.encode(b"once")}),
-            )
-            .await
-    });
-    tokio::time::timeout(BOUND, async {
-        while !gate.with_extension("arrived").is_file() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    let early = tokio::time::timeout(Duration::from_millis(200), &mut completion).await;
-    std::fs::remove_file(gate).unwrap();
-    assert!(
-        early.is_err(),
-        "Door completed before its physical write: {early:?}"
-    );
-    completion.await.unwrap().unwrap();
-    assert_eq!(recorded_bytes(&run).await, b"once");
-    run.finish().await;
-}
-
-#[tokio::test]
 async fn b6_ordinary_door_write_refuses_a_full_queue_before_any_bytes() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
@@ -3024,4 +2992,76 @@ async fn b6_begin_racing_a_door_resize_waits_for_the_child_effect() {
         (after["cols"].as_u64(), after["rows"].as_u64()),
         (Some(101), Some(37))
     );
+}
+
+#[tokio::test]
+async fn b6_a_held_resize_is_acknowledged_without_effect_and_released_in_order() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let mut accepted = Vec::new();
+    for cols in [101, 102] {
+        let held = caller
+            .request(
+                "terminal.resize",
+                json!({"id":run.terminal,"cols":cols,"rows":37}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            held["outcome"],
+            json!({"status":"waiting","reason":"takeover"})
+        );
+        accepted.push(held);
+    }
+    let before = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(before["cols"], 80);
+    let history = caller
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(history, json!(accepted));
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(after["cols"], 102);
+    let history = caller
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    for (record, ack) in history.as_array().unwrap().iter().zip(&accepted) {
+        assert_eq!(record["id"], ack["id"]);
+        assert_eq!(record["outcome"], json!({"status":"completed"}));
+    }
+    // A duplicate release cannot replay the earlier resize over direct user input.
+    run.user
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":111,"rows":38}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(after["cols"], 111);
+    run.finish().await;
 }
