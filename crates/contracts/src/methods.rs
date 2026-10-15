@@ -105,6 +105,11 @@ pub const METHODS: &[Method] = &[
     m("agent.ask", "decision_AskParams", "decision_AskOutput"),
     m("decision.list", "null", "decision_Decision[]"),
     m(
+        "decision.answers",
+        "decision_AnswersParams",
+        "decision_AnsweredDecision[]",
+    ),
+    m(
         "decision.capture",
         "decision_CaptureParams",
         "decision_PromptIdentity",
