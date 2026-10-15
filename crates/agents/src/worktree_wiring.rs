@@ -152,10 +152,3 @@ pub(super) fn real_paths(project: &Path, cwd: &Path) -> Result<(PathBuf, PathBuf
     }
     Ok((real_project, real_cwd))
 }
-
-/// O7: an explicit order, also held to the ask cap.
-pub(super) fn valid_explicit_order(order: &Order) -> Result<(), RpcError> {
-    order
-        .validate_explicit()
-        .map_err(|message| RpcError::new(code::INVALID_PARAMS, message))
-}
