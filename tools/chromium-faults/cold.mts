@@ -6,6 +6,7 @@ import { chromePath, openPage } from "../../apps/desktop/src/testing/chromePage.
 
 type Observation =
   | { call: number; status: "starting" }
+  | { call: number; status: "stage"; stage: string; duration_ms: number }
   | { call: number; status: "answered"; duration_ms: number; value: number }
   | { call: number; status: "closed"; duration_ms: number }
   | { call: number; status: "failed"; duration_ms: number; error: string }
@@ -38,7 +39,7 @@ const results = await Promise.allSettled([0, 1].map(async (call) => {
   const began = performance.now();
 
   try {
-    const page = await openPage(executable, { root: fileURLToPath(new URL("../../apps/desktop/", import.meta.url)) });
+    const page = await openPage(executable, { root: fileURLToPath(new URL("../../apps/desktop/", import.meta.url)), observe: (stage, duration_ms) => record({ call, status: "stage", stage, duration_ms }) });
 
     try {
       const value = await page.call<number>("() => 42");
