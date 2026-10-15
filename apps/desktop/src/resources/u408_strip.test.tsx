@@ -44,8 +44,6 @@ const strip = () => document.querySelector<HTMLElement>(".resource-strip");
 const NAMES = new Map([["Resident memory", "memory"], ["CPU of one core", "cpu"], ["Worktree on disk", "disk"]]);
 
 const valueWords = (item: Element): string => {
-  if (!item.classList.contains("resource-value")) return item.textContent ?? "";
-
   const name = NAMES.get(item.getAttribute("title") ?? "");
 
   return `${name} ${item.querySelector(".resource-num")?.textContent}`;
