@@ -5,7 +5,7 @@ import { resolveToken, tokensFrom } from "../testing/contrast";
 import { runChecks } from "../testing/checks";
 import { agent } from "../testing/nodes";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import { mountRail } from "./railFixture";
 
