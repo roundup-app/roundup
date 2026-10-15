@@ -120,7 +120,7 @@ describe("u197 the Thread is one page in one column", () => {
       expect(getComputedStyle(mine.querySelector(".thread-body")!)[property]).toBe(getComputedStyle(door.querySelector(".thread-body")!)[property]);
     }
 
-    expect(runChecks().D5).toMatchObject({ status: "pass" });
+    // D5 needs painted layout: src/testing/u197_column.test.ts::u197_user_and_supervisor_messages_meet_d5_on_painted_layout.
   });
 
   it("u197_the_card_has_no_border_and_answer_is_a_button", async () => {

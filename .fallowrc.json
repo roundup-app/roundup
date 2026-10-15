@@ -2,7 +2,8 @@
   "entry": [
     "contracts/**/*.ts",
     "apps/*/harness.html",
-    "docs/u478-contrast-observer.test.mjs"
+    "docs/u478-contrast-observer.test.mjs",
+    "crates/agents/src/claude_code/question.js"
   ],
   "ignorePatterns": [
     "tools/oxlint/anti-slop/**",
