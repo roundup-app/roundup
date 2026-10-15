@@ -41,6 +41,9 @@ importers:
       '@milkdown/kit':
         specifier: ^7.22.2
         version: 7.22.2(@codemirror/language@6.12.4)(@codemirror/state@6.7.6)(@codemirror/view@6.43.13)(typescript@7.0.2)
+      '@radix-ui/colors':
+        specifier: 3.0.0
+        version: 3.0.0
       '@tauri-apps/api':
         specifier: ^2.12.1
         version: 2.12.1
@@ -764,6 +767,9 @@ packages:
   '@oxlint/plugins@1.86.0':
     resolution: {integrity: sha512-JeAiaaRMyUiUEQHQ7zBsJn1aEdbLyt1HJsOs4XKIIlATNxcvWRrRxneZA+RF4G03cQobq3IhTqSfyLhOFv03qA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+
+  '@radix-ui/colors@3.0.0':
+    resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
 
   '@radix-ui/primitive@1.0.0':
     resolution: {integrity: sha512-3e7rn8FDMin4CgeL7Z/49smCA3rFYY3Ha2rUQ7HRWFadS5iCRw08ZgVT1LaNTCNqgvrUiyczLflrVrF0SRQtNA==}
@@ -4361,6 +4367,8 @@ snapshots:
     optional: true
 
   '@oxlint/plugins@1.86.0': {}
+
+  '@radix-ui/colors@3.0.0': {}
 
   '@radix-ui/primitive@1.0.0':
     dependencies:
