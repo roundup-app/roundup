@@ -3,12 +3,14 @@
 //! hands one Message to `Deliver` (slice 3 maps that to H11's `Agents::prompt`).
 
 pub mod digest;
-mod digest_schema;
+#[doc(hidden)]
+pub mod digest_schema;
 mod hops;
 mod pushes;
 mod restart;
 mod retirement;
-mod schema;
+#[doc(hidden)]
+pub mod schema;
 mod step;
 mod store;
 
@@ -164,7 +166,13 @@ impl Messages {
     ) -> Result<Self, OpenError> {
         let events = bus.subscribe();
         let inner = Arc::new(Inner {
-            store: Mutex::new(Store::open(&dir.join("messages.db"))?),
+            store: Mutex::new(Store::open(&dir.join(
+                if dir.join("project.db").exists() {
+                    "project.db"
+                } else {
+                    "messages.db"
+                },
+            ))?),
             agents,
             bus,
             deliver,

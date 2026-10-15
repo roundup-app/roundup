@@ -359,7 +359,7 @@ async fn a35_marks_survive_a_restart() {
 async fn a35_an_old_checkpoint_is_not_rewindable() {
     let fx = fixture().await;
     // A historical M10 card has no Marks: reproduce its old writer, never seed a Rail.
-    let db = rusqlite::Connection::open(fx.project.data_dir().join("checkpoints.db")).unwrap();
+    let db = rusqlite::Connection::open(fx.project.data_dir().join("project.db")).unwrap();
     db.execute(
         "INSERT INTO checkpoints (workstream,id,at,title,blocks) VALUES (?1,1,1,'old',?2)",
         rusqlite::params![fx.ws, json!([{"kind":"text","text":"facts"}]).to_string()],

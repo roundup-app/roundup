@@ -13,7 +13,8 @@ messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
-rusqlite.workspace = true
+rusqlite = { workspace = true, features = ["backup"] }
+rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
@@ -22,7 +23,6 @@ todos = { path = "../todos" }
 tokio.workspace = true
 
 [dev-dependencies]
-rusqlite_migration.workspace = true
 async-trait.workspace = true
 tempfile.workspace = true
 

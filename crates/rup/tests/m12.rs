@@ -105,6 +105,8 @@ impl Run {
     /// An Agent `m` with its `rup mcp`.
     async fn caller(&self, client: &Client) -> (RailNode, Shim) {
         let node = self.project.spawn_agent(client).await;
+        // The child must not race its caller for the first launch-log entry.
+        self.launch_number(1);
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
             .args(["mcp", &node.id])
             .env("RUPD_SOCKET", self.project.socket())
@@ -282,8 +284,6 @@ async fn m12_a_refusal_starts_nothing() {
     let user = run.project.client().await;
     set_models(&user, json!([]), json!(["haiku"])).await;
     let (caller, shim) = run.caller(&user).await;
-    // Wait for the caller's launch so it cannot be mistaken for a refused child's.
-    run.launch_number(1);
     let (tree, launches, touches) = (
         rail_tree(&user).await.len(),
         run.launches().len(),
