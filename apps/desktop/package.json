@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",
+    "@dnd-kit/dom": "0.5.1",
     "@dnd-kit/solid": "0.5.1",
     "@dnd-kit/state": "0.5.1",
     "@excalidraw/excalidraw": "^0.18.1",

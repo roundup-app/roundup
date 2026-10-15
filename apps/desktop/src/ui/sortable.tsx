@@ -1,3 +1,4 @@
+import { Cursor, Feedback } from "@dnd-kit/dom";
 import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable, useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
@@ -14,25 +15,24 @@ const Root = (props: RootProps) => {
 
   onCleanup(() => stopRestoringFocus?.());
 
-  return <DragDropProvider onDragEnd={(event) => {
+  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragEnd={(event) => {
     const source = event.operation.source;
 
-    if (event.canceled) {
-      const handle = source?.handle;
+    const handle = source?.handle;
 
-      if (source && handle instanceof HTMLElement) {
-        stopRestoringFocus?.();
-        stopRestoringFocus = effect(() => {
-          if (source.status !== "idle") return;
-          // Idle precedes the library replacing its placeholder; focus after that replacement.
-          queueMicrotask(() => { stopRestoringFocus?.();
-
- if (handle.isConnected) handle.focus(); });
+    if (source && handle instanceof HTMLElement) {
+      stopRestoringFocus?.();
+      stopRestoringFocus = effect(() => {
+        if (source.status !== "idle") return;
+        // Idle precedes the library replacing its placeholder; focus after that replacement.
+        queueMicrotask(() => {
+          stopRestoringFocus?.();
+          if (handle.isConnected) handle.focus();
         });
-      }
-
-      return;
+      });
     }
+
+    if (event.canceled) return;
 
     if (!isSortable(source) || source.initialIndex === source.index) return;
     const order = [...local.ids];
