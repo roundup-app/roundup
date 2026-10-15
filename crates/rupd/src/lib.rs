@@ -12,6 +12,7 @@ mod handshake;
 mod old_bindings;
 mod removal;
 mod resources;
+mod storage;
 mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -37,10 +38,8 @@ const STOP_ROUNDS: usize = 5;
 pub struct Daemon {
     modules: HashMap<&'static str, Arc<dyn Module>>,
     bus: Bus,
-    data_dir: std::path::PathBuf,
     todos: Arc<todos::Todos>,
     pads: Arc<pads::Pads>,
-    storage_calls: tokio::sync::RwLock<()>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
     /// B6: Takeover acquisition excludes in-flight Door writes and steering of this child.
@@ -114,7 +113,17 @@ impl Daemon {
     }
 
     fn open_in(project: &Path, dir: &Path, proof: Option<String>) -> Result<Self, OpenError> {
+        Self::open_stores(project, dir, proof, |agents| agents)
+    }
+
+    fn open_stores(
+        project: &Path,
+        dir: &Path,
+        proof: Option<String>,
+        configure: impl FnOnce(agents::Agents) -> agents::Agents,
+    ) -> Result<Self, OpenError> {
         std::fs::create_dir_all(dir)?;
+        storage::open(dir)?;
         let bus = Bus::new();
         let terminals = Arc::new(
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
@@ -124,35 +133,56 @@ impl Daemon {
         // Messages that know are made after them.
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
         let probe = Arc::clone(&messages);
+        let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
+        let todos = Arc::new(todos::Todos::open(dir, bus.clone(), &touches)?);
+        let context_todos = Arc::clone(&todos);
+        let context_bus = bus.clone();
+        let context_touches = Arc::clone(&touches);
         let agents = Arc::new(
-            agents::Agents::open(project, dir, bus.clone(), Arc::clone(&terminals))?
-                .with_proof(proof)
-                .with_prompt_effect(prompt_effect_observer())
-                .with_steer_effect(steer_effect_observer())
-                .with_resume_effect(resume_effect_observer())
-                .with_takeover(move |agent| {
-                    probe
-                        .get()
-                        .is_some_and(|messages| messages.takeover_active(agent))
-                }),
+            configure(agents::Agents::open(
+                project,
+                dir,
+                bus.clone(),
+                Arc::clone(&terminals),
+            )?)
+            .with_proof(proof)
+            .with_context(move |nodes, id| {
+                let todos = Arc::clone(&context_todos);
+                let ctx = Ctx {
+                    actor: Actor::daemon(),
+                    bus: context_bus.clone(),
+                    touches: Arc::clone(&context_touches),
+                };
+                async move {
+                    let todos: Vec<contracts::todo::Todo> =
+                        serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
+                            .map_err(RpcError::internal)?;
+                    let context = context::compose(&nodes, &todos, Vec::new(), &id)?;
+                    Ok(context::text(&nodes, &context))
+                }
+            })
+            .with_prompt_effect(prompt_effect_observer())
+            .with_steer_effect(steer_effect_observer())
+            .with_resume_effect(resume_effect_observer())
+            .with_takeover(move |agent| {
+                probe
+                    .get()
+                    .is_some_and(|messages| messages.takeover_active(agent))
+            }),
         );
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
-        let touches = Arc::new(Touches::open(&dir.join("provenance.db"))?);
-        let todos = Arc::new(todos::Todos::open(dir, bus.clone(), &touches)?);
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
-            data_dir: dir.to_owned(),
             todos: Arc::clone(&todos),
             pads: Arc::clone(&pads),
-            storage_calls: Default::default(),
             door_first_steers: Default::default(),
             child_effects: Default::default(),
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
             attachments: attachment::Attachments::open(dir),
-            digests: Arc::new(messages::digest::Seen::open(&dir.join("digest.db"))?),
+            digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
@@ -358,13 +388,6 @@ impl Daemon {
         }
         self.before_prompt_effect(method, &params).await?;
         self.remove_old_bound_agents().await?;
-        // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
-        // traffic remains available while the Door stops.
-        let _storage = if matches!(namespace, "todo" | "pad") {
-            Some(self.storage_calls.read().await)
-        } else {
-            None
-        };
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
@@ -1599,4 +1622,21 @@ impl std::io::Write for ObservedInput {
         }
         self.writer.flush()
     }
+}
+
+// N7: keep in-process test launches at the audited composition root. Callers own
+// the temporary data directory and must never fall back to the user's data.
+#[cfg(test)]
+fn test_daemon(dir: &Path) -> Result<Daemon, OpenError> {
+    assert!(dir.is_absolute(), "test data directory must be absolute");
+    Daemon::open(dir)
+}
+
+#[cfg(test)]
+fn test_daemon_with_agents(
+    dir: &Path,
+    configure: impl FnOnce(agents::Agents) -> agents::Agents,
+) -> Result<Daemon, OpenError> {
+    assert!(dir.is_absolute(), "test data directory must be absolute");
+    Daemon::open_stores(dir, dir, None, configure)
 }

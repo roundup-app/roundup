@@ -4,7 +4,8 @@
 mod check;
 mod marks;
 mod objects;
-mod schema;
+#[doc(hidden)]
+pub mod schema;
 pub use marks::{File, FileContent, Mark, Marks, RecordMarks};
 
 use std::path::Path;
@@ -27,7 +28,11 @@ pub struct Checkpoints {
 impl Checkpoints {
     /// `dir` is the Project's data folder (N1).
     pub fn open(dir: &Path) -> Result<Self, OpenError> {
-        let path = dir.join("checkpoints.db");
+        let path = dir.join(if dir.join("project.db").exists() {
+            "project.db"
+        } else {
+            "checkpoints.db"
+        });
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, &path)?;

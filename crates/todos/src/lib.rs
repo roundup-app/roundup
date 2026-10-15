@@ -1,7 +1,8 @@
 //! Todos: items with blockers, in SQLite. Owner: todos Builder.
 
 mod cycle;
-mod schema;
+#[doc(hidden)]
+pub mod schema;
 mod store;
 
 use std::collections::BTreeSet;
@@ -27,15 +28,22 @@ impl Todos {
     /// Existing Touches order migrated baselines against the user's last read (T15).
     pub fn open(dir: &Path, _bus: Bus, touches: &provenance::Touches) -> Result<Self, OpenError> {
         Ok(Self {
-            store: Mutex::new(Store::open(&dir.join("todos.db"), |id| {
-                touches
-                    .wrote_sequence(&item(id))
-                    .map(|seq| seq.saturating_sub(1))
-            })?),
+            store: Mutex::new(Store::open(
+                &dir.join(if dir.join("project.db").exists() {
+                    "project.db"
+                } else {
+                    "todos.db"
+                }),
+                |id| {
+                    touches
+                        .wrote_sequence(&item(id))
+                        .map(|seq| seq.saturating_sub(1))
+                },
+            )?),
         })
     }
 
-    /// A34: apply this Workstream's Todos through the coordinator's attached transaction.
+    /// A34: apply this Workstream's Todos through the coordinator's Project transaction.
     /// Events are returned for publication only after every store and the Rail commit.
     pub fn remove_workstream(
         &self,

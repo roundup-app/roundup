@@ -1,6 +1,7 @@
 //! Provenance: the append-only log of Touches. There is no update or delete.
 
-mod schema;
+#[doc(hidden)]
+pub mod schema;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};

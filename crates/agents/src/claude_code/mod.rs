@@ -242,6 +242,9 @@ impl AgentAdapter for ClaudeCode {
     }
 }
 
+/// E3: mutable Context travels after the work text so A27's name still comes from the work.
+pub(crate) const CONTEXT_START: &str = "\n\n<roundup-context>\n";
+
 /// The hook event a payload names, or `Signal` when it names none.
 pub fn event_name(payload: &Value) -> &str {
     payload["hook_event_name"].as_str().unwrap_or("Signal")

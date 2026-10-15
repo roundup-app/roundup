@@ -148,12 +148,16 @@ fn words(context: &Context, door: bool) -> String {
 
 /// E3: what `rup context` prints for `context`'s Agent, in the vendor's own shape.
 pub(crate) fn brief(nodes: &[RailNode], context: &Context) -> Brief {
+    Brief {
+        stdout: agents::claude_code::session_start_context(&text(nodes, context)),
+    }
+}
+
+pub(crate) fn text(nodes: &[RailNode], context: &Context) -> String {
     let door = nodes
         .iter()
         .any(|node| node.id == context.ask.to && node.kind == NodeKind::Workstream);
-    Brief {
-        stdout: agents::claude_code::session_start_context(&words(context, door)),
-    }
+    words(context, door)
 }
 
 #[cfg(test)]
