@@ -331,3 +331,73 @@ async fn d2_the_first_prompt_names_the_agent() {
         "real Claude sends the first prompt to aimock"
     );
 }
+
+#[tokio::test]
+async fn d2_status_follows_the_hooks_in_order() {
+    let project = daemon::start_real("d2_status_follows_the_hooks_in_order", &[]);
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "fix the refresh race"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    let mut kinds = Vec::new();
+    for _ in 0..5 {
+        kinds.push(daemon::next_kind(&mut client).await);
+        if kinds.len() == 3 {
+            let decisions: Vec<contracts::decision::Decision> = serde_json::from_value(
+                tokio::time::timeout(
+                    Duration::from_secs(30),
+                    client.request("decision.list", Value::Null),
+                )
+                .await
+                .expect("decision.list answers within the bound")
+                .unwrap(),
+            )
+            .unwrap();
+            let decision = decisions
+                .iter()
+                .find(|decision| decision.agent == agent.id)
+                .unwrap();
+            assert_eq!(decision.tool, "Bash");
+            tokio::time::timeout(
+                Duration::from_secs(30),
+                client.request(
+                    "decision.answer",
+                    json!({
+                        "id": decision.id, "answer": "allow", "proof": "0".repeat(64)
+                    }),
+                ),
+            )
+            .await
+            .expect("decision.answer answers within the bound")
+            .unwrap();
+        }
+    }
+    assert_eq!(
+        kinds,
+        [
+            Kind::Idle,
+            Kind::Working,
+            Kind::NeedsYou,
+            Kind::Working,
+            Kind::Idle
+        ]
+    );
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_d2_touch").await;
+    assert!(
+        !result["content"].as_str().unwrap().contains("error"),
+        "{result}"
+    );
+    assert!(project.dir.path().join("d2-permitted").is_file());
+    model.assert_matched();
+}
