@@ -101,7 +101,16 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
                     (directory / (name + ".geometry.json")).write_text(json.dumps(records[-1]) + "\n")
                     (directory / (name + ".checks.json")).write_text(json.dumps(evaluate("window.__checks()")) + "\n")
                     browser("screenshot", str(directory / (name + ".png")))
-        print(json.dumps(records))
+        # A list one pixel wider than a tab: the scroll padding cuts the open tab, and no cover may hide it.
+        evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[0].click()")
+        settle()
+        evaluate("document.querySelector('.tablist').style.maxWidth=(document.querySelector('.project-tab').getBoundingClientRect().width+1)+'px'")
+        settle()
+        evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[3].click()")
+        browser("wait", "--fn", "document.querySelectorAll('.tab-name-button')[3].getAttribute('aria-selected') === 'true'")
+        settle()
+        tight = evaluate("(() => { const box = e => e.getBoundingClientRect().toJSON(); return {list: box(document.querySelector('.tablist')), fades: [...document.querySelectorAll('.strip-fade')].map(box), selected: box(document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab'))}; })()")
+        print(json.dumps({"readings": records, "tight": tight}))
     finally:
         browser("close")
     sys.exit(0)

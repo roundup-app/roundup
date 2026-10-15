@@ -94,9 +94,12 @@ export const Strip = (props: {
       const near = element.offsetLeft;
       const far = near + element.offsetWidth;
 
-      if (near < from && far > from) startPiece = far - from;
+      // The open tab is never covered: where the list is barely wider than one tab, covering its cut would hide the only tab in view.
+      const open = tab.path === props.active;
 
-      if (near < to && far > to) endPiece = to - near;
+      if (near < from && far > from && !open) startPiece = far - from;
+
+      if (near < to && far > to && !open) endPiece = to - near;
 
       if (tab.path === props.active && ((near < from && far > from) || (near < to && far > to))) activeCut = true;
 
