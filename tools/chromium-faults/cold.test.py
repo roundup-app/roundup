@@ -6,13 +6,18 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
-import time
 import unittest
 
 from test import line
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+
+# Harness limit for one observe.py run, not the scenario's 20 s Chromium deadline.
+# observe.py may wait 45 s for bpftrace to attach, then the command's 20 s deadline
+# runs, then tracer teardown takes at most 5 s (reader joins) + 10 s (tracer wait)
+# + 5 s (kill-after); the margin covers process start and exit.
+OBSERVER_LIMIT_S = 45 + 20 + 20 + 15
 
 
 @contextmanager
@@ -45,17 +50,17 @@ class ColdTest(unittest.TestCase):
     def test_u26_concurrent_cold_deadline_captures_held_startup_before_release(self):
         with held_startup() as (root, locks, env):
             artifact = root / "cold.jsonl"
-            started = time.monotonic()
             try:
-                result = subprocess.run(["python3", str(HERE / "observe.py"), "--log", str(root / "faults.jsonl"), "--", "node", "--experimental-strip-types", str(HERE / "cold.mts"), str(artifact)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=60)
+                result = subprocess.run(["python3", str(HERE / "observe.py"), "--log", str(root / "faults.jsonl"), "--", "node", "--experimental-strip-types", str(HERE / "cold.mts"), str(artifact)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=OBSERVER_LIMIT_S)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
-                self.assertLess(time.monotonic() - started, 45)
                 events = [json.loads(row) for row in artifact.read_text().splitlines()]
                 starts = [event for event in events if event["status"] == "starting"]
                 failed = [event for event in events if event["status"] == "failed"]
                 self.assertEqual(len(starts), 2)
                 self.assertEqual(len(failed), 2)
                 self.assertLess(max(event["elapsed_ms"] for event in starts), min(event["elapsed_ms"] for event in failed))
+                # elapsed_ms starts when cold.mts does, after the observer attached.
+                self.assertLess(max(event["elapsed_ms"] for event in failed), 45_000)
                 for event in failed:
                     self.assertIn("Target.createTarget timed out after 20000 ms", event["error"])
                     self.assertIn("received=0 bytes", event["error"])
