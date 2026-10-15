@@ -1,6 +1,6 @@
 //! The Decision store (`scenarios/decisions.md` H2 to H7, H10): one open Decision per Agent, in
-//! memory only, so none outlives the Daemon (H5). The vendor's payload and reply text are
-//! `claude_code`'s; this module carries opaque text.
+//! memory only (H5); successful answers are retained in Project data (U468).
+//! The vendor's payload and reply text are `claude_code`'s; this module carries opaque text.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -25,6 +25,7 @@ type EffectProbe = Arc<dyn Fn(&PromptIdentity) -> Result<(), RpcError> + Send + 
 
 struct Open {
     decision: Decision,
+    prompt: String,
     /// The Attempt the Decision was opened for, so the Observations it causes reach that one.
     attempt: String,
     /// The hook's waiting call; `None` once its connection closed at its `timeout` (H7(c)) and
@@ -76,8 +77,9 @@ fn valid_ask(question: &str, answers: &[AskAnswer]) -> bool {
 
 pub struct Decisions {
     open: Mutex<HashMap<String, Open>>,
+    history: Mutex<rusqlite::Connection>,
     next: Mutex<u64>,
-    /// No nonce means capture and guarded effects refuse; unguarded user answers still work.
+    /// No nonce means new Decisions and guarded effects refuse; existing user answers still work.
     daemon: Option<String>,
     before_effect: Option<EffectProbe>,
     /// H4: the secret the App holds; `None` refuses every answer.
@@ -92,7 +94,12 @@ impl Decisions {
         let daemon = getrandom::fill(&mut nonce)
             .ok()
             .map(|()| nonce.iter().map(|byte| format!("{byte:02x}")).collect());
+        let history = rusqlite::Connection::open_in_memory().expect("Decision history database");
+        history
+            .execute_batch(include_str!("../migrations/003/up.sql"))
+            .expect("Decision history schema");
         Self {
+            history: Mutex::new(history),
             open: Mutex::new(HashMap::new()),
             next: Mutex::new(0),
             daemon,
@@ -100,6 +107,14 @@ impl Decisions {
             proof,
             hook_timeout,
         }
+    }
+
+    pub(crate) fn with_store(self, path: &std::path::Path) -> Result<Self, rpc::OpenError> {
+        let db = rusqlite::Connection::open(path)?;
+        Ok(Self {
+            history: Mutex::new(db),
+            ..self
+        })
     }
 
     pub(crate) fn set_proof(&mut self, proof: Option<String>) {
@@ -110,10 +125,16 @@ impl Decisions {
         crate::agent_lock(&self.open).expect("decisions lock")
     }
 
-    fn next_id(&self) -> String {
+    fn next_id(&self) -> Result<String, RpcError> {
         let mut next = self.next.lock().expect("decision id lock");
         *next += 1;
-        format!("d{next}")
+        // The random Daemon nonce keeps retained requests distinct after reopen.
+        Ok(format!(
+            "{}-d{next}",
+            self.daemon
+                .as_deref()
+                .ok_or_else(|| RpcError::internal("Decision identity nonce unavailable"))?
+        ))
     }
 
     /// The open Decisions, oldest first.
@@ -241,9 +262,10 @@ impl Shared {
         id: &str,
         payload: Value,
     ) -> Result<PermissionOutput, RpcError> {
+        let prompt = payload["tool_input"].to_string();
         let request = claude_code::permission_request(&payload);
         let signal = claude_code::as_permission_signal(payload);
-        let opened = self.open_decision(actor, id, request, signal, None)?;
+        let opened = self.open_decision(actor, id, request, signal, None, prompt)?;
         let Some(rx) = opened.waiting else {
             return Ok(PermissionOutput {
                 output: String::new(),
@@ -300,6 +322,7 @@ impl Shared {
             request,
             claude_code::as_permission_signal(signal),
             Some(labels),
+            input.to_string(),
         )?;
         let rx = opened.waiting.expect("an ask_user Decision waits");
         let mut guard = HookGuard {
@@ -330,6 +353,7 @@ impl Shared {
         request: claude_code::PermissionRequest,
         signal: Value,
         choices: Option<Vec<String>>,
+        prompt: String,
     ) -> Result<Opened, RpcError> {
         let started = (self.clock)();
         let (rx, attempt, decision) = {
@@ -343,7 +367,7 @@ impl Shared {
                 return Err(RpcError::not_found(format!("agent {id} has ended")));
             }
             let decision = Decision {
-                id: self.decisions.next_id(),
+                id: self.decisions.next_id()?,
                 agent: id.to_owned(),
                 tool: request.tool,
                 args: request.args,
@@ -357,6 +381,7 @@ impl Shared {
                 id.to_owned(),
                 Open {
                     decision: decision.clone(),
+                    prompt,
                     attempt: run.attempt.clone(),
                     waiter,
                     choices,
@@ -546,6 +571,35 @@ impl Shared {
             .collect())
     }
 
+    /// U468: history uses the same authenticated Reach as the live Decision list.
+    pub(crate) fn answers_for(
+        &self,
+        actor: &Actor,
+        agent: &str,
+    ) -> Result<Vec<contracts::decision::AnsweredDecision>, RpcError> {
+        if actor.kind == contracts::ActorKind::Agent && !self.reach(&actor.id)?.contains(agent) {
+            return Err(RpcError::forbidden(format!(
+                "{agent} is outside the Reach of {}",
+                actor.id
+            )));
+        }
+        let history = self
+            .decisions
+            .history
+            .lock()
+            .expect("Decision history lock");
+        let mut statement = history
+            .prepare("SELECT record FROM decision_answers WHERE agent = ?1 AND completed = 1 ORDER BY seq")
+            .map_err(RpcError::internal)?;
+        let rows = statement
+            .query_map([agent], |row| row.get::<_, String>(0))
+            .map_err(RpcError::internal)?;
+        rows.map(|row| {
+            serde_json::from_str(&row.map_err(RpcError::internal)?).map_err(RpcError::internal)
+        })
+        .collect()
+    }
+
     /// H21: whether Agent `m` may answer Decision `id`: `NOT_FOUND` for an unknown id, then
     /// `FORBIDDEN` outside its Reach, then `CONFLICT` under a Takeover.
     fn may_answer(&self, m: &str, id: &str) -> Result<(), RpcError> {
@@ -604,6 +658,11 @@ impl Shared {
         } else if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
             return Err(RpcError::forbidden("decision.answer needs the App's proof"));
         }
+        let mut history = self
+            .decisions
+            .history
+            .lock()
+            .expect("Decision history lock");
         let (agent, attempt, outcome, waiter, text) = {
             let runs = self.runs();
             let mut open = self.decisions.open();
@@ -680,9 +739,31 @@ impl Shared {
                 // The caller has gone; its guard is about to clear the Decision as a close.
                 return Err(RpcError::not_found(format!("decision {id}")));
             }
-            let waiter = entry.waiter.take().expect("an answerable Decision waits");
+            let record = contracts::decision::AnsweredDecision {
+                decision: entry.decision.clone(),
+                prompt: entry.prompt.clone(),
+                attempt: entry.attempt.clone(),
+                answer: answer.map(str::to_owned),
+                note: note.clone(),
+                answered_by: actor.clone(),
+                answered_at: (self.clock)(),
+            };
             let agent = agent.clone();
             let attempt = entry.attempt.clone();
+            // Stage an unobserved draft before consuming the actionable request.
+            // No SQLite write lock may span observe or Touch (the same Project DB).
+            let tx = history.transaction().map_err(RpcError::internal)?;
+            tx.execute(
+                "INSERT INTO decision_answers(decision, agent, record) VALUES (?1, ?2, ?3)",
+                rusqlite::params![
+                    id,
+                    agent,
+                    serde_json::to_string(&record).map_err(RpcError::internal)?
+                ],
+            )
+            .map_err(RpcError::internal)?;
+            tx.commit().map_err(RpcError::internal)?;
+            let waiter = entry.waiter.take().expect("an answerable Decision waits");
             open.remove(&agent);
             (agent, attempt, outcome, waiter, text)
         };
@@ -693,11 +774,21 @@ impl Shared {
         if let Err(err) = self.observe(actor, &agent, &attempt, Observation::Answered) {
             eprintln!("agents: {agent}: answered Decision {id} after the Agent ended: {err}");
         }
-        // The hook is woken last: its Agent's next Signal (a denied turn's `Stop`) must follow
-        // `Answered`, or `Answered` would set the Workstream `working` again after it went idle.
-        if waiter.send(Ok(text)).is_err() {
-            return Err(RpcError::not_found(format!("decision {id}")));
-        }
+        // H9: the hook wakes after Answered, so its next Stop cannot be overtaken.
+        // A closed hook leaves only an incomplete draft, never a successful record.
+        waiter
+            .send(Ok(text))
+            .map_err(|_| RpcError::not_found(format!("decision {id}")))?;
+        history
+            .execute(
+                "UPDATE decision_answers SET completed = 1 WHERE decision = ?1",
+                [id],
+            )
+            .map_err(|error| {
+                RpcError::unknown_outcome(format!(
+                    "Decision delivered but answer record commit failed: {error}"
+                ))
+            })?;
         Ok(())
     }
 

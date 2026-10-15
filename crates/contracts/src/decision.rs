@@ -21,6 +21,33 @@ pub struct Decision {
     pub answerable: bool,
 }
 
+/// U468: one successful answer, retained in Project data after its live hook ends.
+/// `decision.tool` distinguishes `ask_user` questions from permission requests;
+/// `prompt` is the complete original tool input as JSON (the live Card's args may
+/// be truncated for display). `answer` and `note` retain
+/// exactly the accepted AnswerParams, without Proof. The Actor is authenticated.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct AnsweredDecision {
+    pub decision: Decision,
+    pub prompt: String,
+    pub attempt: String,
+    pub answer: Option<String>,
+    pub note: String,
+    pub answered_by: crate::Actor,
+    #[ts(type = "number")]
+    pub answered_at: i64,
+}
+
+/// U468: read one Agent's answered Decisions, oldest first. The user may read any
+/// Agent; an Agent may read only Agents in its Reach, just as with decision.list.
+/// Records remain readable by the user even after the requesting Agent is removed.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct AnswersParams {
+    pub agent: String,
+}
+
 /// B6: a Decision's original prompt, scoped to one Daemon run and Attempt. It is an
 /// identity, not permission: Proof, Reach and Takeover are checked separately.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
@@ -116,6 +143,9 @@ impl Answer {
 /// `proof` is checked against the value the Daemon holds (H4); a missing or wrong one is
 /// `FORBIDDEN`, so the field must deserialize even when the caller sends none. An Agent's call is
 /// judged by Reach instead (H21) and its `proof` is ignored.
+/// U468: success durably retains the original prompt, answer and authenticated Actor.
+/// A storage failure before delivery leaves the request actionable; a failure after
+/// delivery is UNKNOWN_OUTCOME and must not be retried blindly.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct AnswerParams {
