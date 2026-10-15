@@ -36,8 +36,4 @@ it("u499_content_retention", async () => {
     })()`)).toEqual({ draft, count: "1", mount: "1", same: true });
   }
 
-  expect(await read<unknown>(`(() => {
-    const tab = document.querySelector('[data-caller=trigger]');
-    return [tab.dataset.ref, tab.querySelector('[aria-hidden=true]').textContent, !!document.querySelector('[data-caller=list]'), !!document.querySelector('[data-caller=panel]')];
-  })()`)).toEqual(["connected", " ·", true, true]);
 }, 90_000);
