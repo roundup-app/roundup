@@ -2613,8 +2613,7 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     run.finish().await;
 }
 
-#[tokio::test]
-async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
+async fn answer_takeover_race(kind: &str, guarded: bool) {
     let (run, _) = order_child().await;
     let tree = run.user.request("rail.tree", ()).await.unwrap();
     let door = tree
@@ -2645,15 +2644,20 @@ async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
     })
     .await
     .unwrap();
-    let (decision, waiting) = run.open("permission").await;
+    let (decision, waiting) = run.open(kind).await;
     let identity = run.capture(&decision).await;
     let gate = run.dir.path().join("effect-gate");
     std::fs::write(&gate, "before").unwrap();
+    let mut params =
+        json!({"id":decision["id"],"answer":if kind == "permission" { "allow" } else { "Yes" }});
+    if guarded {
+        params["identity"] = identity;
+    }
     std::fs::write(
         run.dir.path().join("peer-request"),
         serde_json::to_vec(&json!({
             "jsonrpc":"2.0", "id":1,"method":"decision.answer",
-            "params":{"id":decision["id"],"identity":identity,"answer":"allow"}
+            "params":params
         }))
         .unwrap(),
     )
@@ -2701,4 +2705,18 @@ async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
         .await
         .unwrap();
     run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
+    for kind in ["permission", "ask_user"] {
+        answer_takeover_race(kind, true).await;
+    }
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
+    for kind in ["permission", "ask_user"] {
+        answer_takeover_race(kind, false).await;
+    }
 }
