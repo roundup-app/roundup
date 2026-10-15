@@ -397,3 +397,46 @@ async fn d2_status_follows_the_hooks_in_order() {
     assert!(project.dir.path().join("d2-permitted").is_file());
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn m9_a_door_asked_for_a_workstream_makes_one() {
+    let project = daemon::start_real("m9_create_workstream", &[]);
+    let mut events = project.subscribed().await;
+    let door = events
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    events
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    next(&mut events, |event| match event {
+        EventData::AgentStatus(status) if status.id == door && status.status.kind == Kind::Idle => {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    events.request("message.send", json!({"to": door, "kind": "note", "body": "E10 create another Workstream named x and start its Door"})).await.unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_m9_create").await;
+    let made: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(made.name, "x");
+    model.tool_result("toolu_m9_start").await;
+    let tree = rail_tree(&events).await;
+    let node = tree.iter().find(|n| n.id == made.id).unwrap();
+    assert!(node.parent.is_none());
+    assert!(node.attempt.is_some(), "its Door is started");
+    assert!(
+        tree.iter().any(|n| n.id == door),
+        "the Door that asked stays"
+    );
+    model.assert_matched();
+}
