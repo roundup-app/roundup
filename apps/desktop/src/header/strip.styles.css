@@ -21,22 +21,9 @@
   align-items: center;
   min-width: 0;
   overflow-x: auto;
-  /* A revealed tab stops a step short of the slot: the scroll's whole-pixel rounding never clips its border, and it sits clear of the fade below. */
+  /* A revealed tab stops a step short of the end: the scroll's whole-pixel rounding never clips its border, and it sits clear of the fade. */
   scroll-padding-inline: var(--space-1);
   scrollbar-width: none;
-}
-
-/* A tab the list cuts at a slot fades into it instead of ending in an open box; a side no tab crosses keeps every border. Only the mask's alpha counts. */
-.tablist[data-cut="start"] {
-  mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1));
-}
-
-.tablist[data-cut="end"] {
-  mask-image: linear-gradient(to left, transparent, var(--text) var(--space-1));
-}
-
-.tablist[data-cut="both"] {
-  mask-image: linear-gradient(to right, transparent, var(--text) var(--space-1), var(--text) calc(100% - var(--space-1)), transparent);
 }
 
 .tablist::-webkit-scrollbar {
@@ -51,11 +38,11 @@
   flex: 0 1 auto;
   box-sizing: border-box;
   height: 100%;
-  border: 1px solid var(--hairline);
+  border: var(--rule) solid var(--hairline);
   padding-inline: var(--space-1);
   align-items: center;
   /* U382’s text floor and close target stay intact when the required name inset is added. */
-  min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2px);
+  min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule));
   margin-right: var(--space-1);
 }
 
@@ -140,9 +127,34 @@
   flex: none;
   display: flex;
   box-sizing: border-box;
-  /* The slot is as wide as its cap, never narrower than a dot. */
-  min-width: calc(var(--space-5) + var(--space-1));
   height: 100%;
+}
+
+/* A tab the list cuts at an end fades into the header there: opaque over most of the piece that shows, clear by its end. */
+.tablist-frame {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  height: 100%;
+  min-width: 0;
+}
+
+.strip-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--cut) + var(--space-1));
+  pointer-events: none;
+}
+
+.strip-fade-start {
+  left: 0;
+  background-image: linear-gradient(to right, var(--ground) 60%, transparent);
+}
+
+.strip-fade-end {
+  right: 0;
+  background-image: linear-gradient(to left, var(--ground) 60%, transparent);
 }
 
 .strip-edge {
@@ -152,9 +164,9 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  padding-inline: 0;
-  border: 1px solid var(--hairline);
-  --button-radius: calc(var(--radius-control) * 0);
+  --button-inline: 0;
+  border: var(--rule) solid var(--hairline);
+  --button-radius: 0;
   --button-surface: var(--sunken);
   white-space: nowrap;
 }
@@ -188,10 +200,12 @@
 
 /* U449: symmetric title allocation keeps its midpoint on the whole window. */
 .window-bar {
+  /* D8: the one border width, named once for the tab boxes, the edges and the row that overlaps the header rule. */
+  --rule: 1px;
   display: grid;
   grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
   align-items: center;
-  height: calc(100% + 1px);
+  height: calc(100% + var(--rule));
   padding-inline: var(--space-2);
   box-sizing: border-box;
   user-select: none;

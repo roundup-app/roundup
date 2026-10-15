@@ -43,13 +43,15 @@ export const Strip = (props: {
   onModels: (path: string) => void;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
-  const [left, setLeft] = createSignal<Edge | null>(null);
-  const [right, setRight] = createSignal<Edge | null>(null);
-  const [overflowing, setOverflowing] = createSignal(false);
-  const [cut, setCut] = createSignal<"none" | "start" | "end" | "both">("none");
+  // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
+  const sameEdge = (a: Edge | null, b: Edge | null) => a === b || (a !== null && b !== null && a.mark === b.mark && a.count === b.count && a.nearest === b.nearest);
+  const [left, setLeft] = createSignal<Edge | null>(null, { equals: sameEdge });
+  const [right, setRight] = createSignal<Edge | null>(null, { equals: sameEdge });
+  // The part of a tab that the list cuts at its start or end, in px (0: no tab is cut there).
+  const [cutStart, setCutStart] = createSignal(0);
+  const [cutEnd, setCutEnd] = createSignal(0);
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
-  let scroller: HTMLDivElement | undefined;
   const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
   const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
@@ -64,24 +66,21 @@ export const Strip = (props: {
 
   const measure = () => {
     // Without layout (no width) nothing is scrolled out of view.
-    if (!list || !scroller || list.clientWidth === 0) {
+    if (!list || list.clientWidth === 0) {
       setLeft(null);
       setRight(null);
-      setOverflowing(false);
-      setCut("none");
+      setCutStart(0);
+      setCutEnd(0);
 
       return;
     }
-
-    // The strip is as wide as its tabs and both slots until the window is narrower: the slots exist exactly while the tabs do not fit, so a slot never changes the answer.
-    setOverflowing(list.scrollWidth > scroller.clientWidth);
 
     const from = list.scrollLeft;
     const to = from + list.clientWidth;
     const out: Record<"left" | "right", StripTab[]> = { left: [], right: [] };
 
-    let cutStart = false;
-    let cutEnd = false;
+    let startPiece = 0;
+    let endPiece = 0;
 
     for (const tab of props.tabs) {
       const element = elements.get(tab.path);
@@ -91,14 +90,16 @@ export const Strip = (props: {
       const near = element.offsetLeft;
       const far = near + element.offsetWidth;
 
-      cutStart ||= near < from && far > from;
-      cutEnd ||= near < to && far > to;
+      if (near < from && far > from) startPiece = far - from;
+
+      if (near < to && far > to) endPiece = to - near;
 
       if (element.offsetLeft + element.offsetWidth <= from) out.left.push(tab);
       else if (element.offsetLeft >= to) out.right.push(tab);
     }
 
-    setCut(cutStart && cutEnd ? "both" : cutStart ? "start" : cutEnd ? "end" : "none");
+    setCutStart(startPiece);
+    setCutEnd(endPiece);
     setLeft(edgeOf(out.left, false));
     setRight(edgeOf(out.right, true));
     revealOpen();
@@ -173,27 +174,25 @@ export const Strip = (props: {
   onCleanup(() => document.removeEventListener("keydown", onKey, true));
 
   const edge = (side: "left" | "right", shown: Edge | null) => (
-    <Show when={overflowing()}>
-      <div class="strip-slot">
-        <Show when={shown}>
-          {(hidden) => (
-            <button data-button="quiet"
-              type="button"
-              class={`strip-edge strip-edge-${side} ink`}
-              data-button-surface
-              data-tone={MARKS[hidden().mark].tone}
-              data-kind={hidden().mark}
-              aria-label={copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}
-              onClick={() => reveal(hidden().nearest)}
-            >
-              {side === "left" ? copy.previousProjectsMark : ""}
-              <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true" />
-              {hidden().count > 1 ? ` ${hidden().count}` : ""}
-              {side === "right" ? copy.nextProjectsMark : ""}
-            </button>
-          )}
-        </Show>
-      </div>
+    <Show when={shown}>
+      {(hidden) => (
+        <div class="strip-slot">
+          <button data-button="quiet"
+            type="button"
+            class={`strip-edge strip-edge-${side} ink`}
+            data-button-surface
+            data-tone={MARKS[hidden().mark].tone}
+            data-kind={hidden().mark}
+            aria-label={copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}
+            onClick={() => reveal(hidden().nearest)}
+          >
+            {side === "left" ? copy.previousProjectsMark : ""}
+            <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true" />
+            {hidden().count > 1 ? ` ${hidden().count}` : ""}
+            {side === "right" ? copy.nextProjectsMark : ""}
+          </button>
+        </div>
+      )}
     </Show>
   );
 
@@ -201,32 +200,40 @@ export const Strip = (props: {
     <div class="strip" onFocusIn={(press) => {
       if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
     }}>
-      <div class="strip-scroll" ref={(element) => (scroller = element)}>
+      <div class="strip-scroll">
         {edge(copy.left, left())}
-        <div class="tablist" data-cut={cut()} role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
-          <For each={paths()}>
-            {(path) => {
-              // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
-              const tab = createMemo<StripTab>((last) => props.tabs.find((each) => each.path === path) ?? last, props.tabs.find((each) => each.path === path)!);
+        <div class="tablist-frame">
+          <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
+            <For each={paths()}>
+              {(path) => {
+                // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
+                const tab = createMemo<StripTab>((last) => props.tabs.find((each) => each.path === path) ?? last, props.tabs.find((each) => each.path === path)!);
 
-              return (
-                <ProjectTab
-                  tab={tab()}
-                  selected={path === props.active}
-                  closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
-                  ref={(element) => {
-                    elements.set(path, element);
-                    onCleanup(() => elements.delete(path));
-                  }}
-                  onSelect={() => props.onSelect(path)}
-                  onMark={() => props.onMark(path)}
-                  onRename={(name) => props.onRename(path, name)}
-                  onClose={() => requestClose(tab())}
-                  onModels={() => props.onModels(path)}
-                />
-              );
-            }}
-          </For>
+                return (
+                  <ProjectTab
+                    tab={tab()}
+                    selected={path === props.active}
+                    closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
+                    ref={(element) => {
+                      elements.set(path, element);
+                      onCleanup(() => elements.delete(path));
+                    }}
+                    onSelect={() => props.onSelect(path)}
+                    onMark={() => props.onMark(path)}
+                    onRename={(name) => props.onRename(path, name)}
+                    onClose={() => requestClose(tab())}
+                    onModels={() => props.onModels(path)}
+                  />
+                );
+              }}
+            </For>
+          </div>
+          <Show when={cutStart() > 0}>
+            <span class="strip-fade strip-fade-start" style={{ "--cut": `${cutStart()}px` }} />
+          </Show>
+          <Show when={cutEnd() > 0}>
+            <span class="strip-fade strip-fade-end" style={{ "--cut": `${cutEnd()}px` }} />
+          </Show>
         </div>
         {edge(copy.right, right())}
       </div>

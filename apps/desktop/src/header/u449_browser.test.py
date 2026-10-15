@@ -78,7 +78,7 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
                 records.append({"case": f"tabs-8-{width}-{pick}", **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
-                  return {list: box(document.querySelector('.tablist')), mask: getComputedStyle(document.querySelector('.tablist')).maskImage, selected: box(selected),
+                  return {list: box(document.querySelector('.tablist')), fades: [...document.querySelectorAll('.strip-fade')].map(box), slots: document.querySelectorAll('.strip-slot').length, selected: box(selected),
                     tabs: [...document.querySelectorAll('.project-tab')].map(box),
                     edges: [...document.querySelectorAll('.strip-edge')].map(box)};
                 })()""")})
