@@ -319,12 +319,13 @@ describe("u440 overflow edges sit beside the tab list", () => {
 
   let server: ViteDevServer;
   let readings: Reading[];
+  let tight: { list: Rect; fades: Rect[]; selected: Rect };
 
   beforeAll(async () => {
     server = await createServer({ server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
     await server.listen();
     const { stdout } = await promisify(execFile)("python3", ["src/header/u449_browser.test.py", server.resolvedUrls!.local[0]!, captureDir("U440") ?? "", "", "head", "edges"], { timeout: 600_000, maxBuffer: 4 * 1024 * 1024 });
-    readings = JSON.parse(stdout);
+    ({ readings, tight } = JSON.parse(stdout));
   }, 1_200_000);
   afterAll(async () => { await server?.close(); });
 
@@ -351,10 +352,21 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) expect(reading.slots, reading.case).toBe(reading.edges.length);
   });
 
+  it("u440_a_list_barely_wider_than_a_tab_still_shows_the_open_tab", () => {
+    // The list is narrower than the open tab, so the tab is cut; no cover may lie over it.
+    expect(tight.list.right - tight.list.left).toBeLessThan(tight.selected.right - tight.selected.left + 1);
+
+    for (const fade of tight.fades) expect(fade.right <= tight.selected.left + 0.5 || fade.left >= tight.selected.right - 0.5).toBe(true);
+  });
+
   it("u440_only_a_cut_side_fades_over_the_whole_piece", () => {
+
+    // The open tab is never covered, so a cut of it (the list barely wider than one tab) is not a cut here.
+    const isOpen = (reading: Reading, tab: Rect) => Math.abs(tab.left - reading.selected.left) < 0.5 && Math.abs(tab.right - reading.selected.right) < 0.5;
+
     const cuts = (reading: Reading) => ({
-      start: reading.tabs.filter((tab) => tab.left < reading.list.left - 0.5 && tab.right > reading.list.left + 0.5),
-      end: reading.tabs.filter((tab) => tab.left < reading.list.right - 0.5 && tab.right > reading.list.right + 0.5),
+      start: reading.tabs.filter((tab) => tab.left < reading.list.left - 0.5 && tab.right > reading.list.left + 0.5 && !isOpen(reading, tab)),
+      end: reading.tabs.filter((tab) => tab.left < reading.list.right - 0.5 && tab.right > reading.list.right + 0.5 && !isOpen(reading, tab)),
     });
 
     expect(readings.some((reading) => cuts(reading).start.length > 0)).toBe(true);
