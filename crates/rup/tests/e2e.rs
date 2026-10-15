@@ -1630,11 +1630,12 @@ async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_conte
 async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context() {
     let project = daemon::start_real("e3_startup_context", &[]);
     let user = project.client().await;
+    let mut events = project.subscribed().await;
     let node = user
         .request(
             "agent.spawn",
             json!({
-                "cwd": project.dir.path(), "prompt": "E10 read startup context"
+                "cwd": project.dir.path(), "prompt": "E3"
             }),
         )
         .await
@@ -1654,12 +1655,64 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
     })
     .await
     .expect("real Claude requests its first work turn");
-    model.assert_matched();
-    let messages = request["body"]["messages"].to_string();
+    let messages = request["body"]["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|message| message["content"].as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(messages.contains("Parent: none"), "{request:#?}");
     assert!(
-        messages.contains(&format!("Your Agent id is {}. It never changes.", node["id"].as_str().unwrap())),
+        messages.contains(&format!(
+            "Your Agent id is {}. It never changes.",
+            node["id"].as_str().unwrap()
+        )),
         "{request:#?}"
+    );
+    for line in ["Ask: the user", "Peers: none.", "Todos: none open."] {
+        assert!(messages.contains(line), "{request:#?}");
+    }
+    let brief = user
+        .request("agent.brief", json!({"id": node["id"]}))
+        .await
+        .unwrap();
+    let hook: Value = serde_json::from_str(brief["stdout"].as_str().unwrap()).unwrap();
+    assert!(
+        messages.contains(
+            hook["hookSpecificOutput"]["additionalContext"]
+                .as_str()
+                .unwrap()
+        )
+    );
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut events, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == node["id"].as_str().unwrap() && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    model.assert_matched();
+    assert_eq!(
+        model
+            .journal()
+            .iter()
+            .filter(|entry| entry["body"]["tools"].is_array())
+            .count(),
+        1
+    );
+    assert_eq!(
+        rail_tree(&user)
+            .await
+            .into_iter()
+            .find(|item| item.id == node["id"].as_str().unwrap())
+            .unwrap()
+            .name,
+        "e3"
     );
 }
 

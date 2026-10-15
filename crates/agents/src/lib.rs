@@ -125,6 +125,8 @@ struct Shared {
     /// O4: whether a Takeover of the Agent is active, which keeps a changed order from being
     /// sent to it. Without one, none is.
     takeover: Option<TakeoverProbe>,
+    /// E3: the Daemon supplies mutable Context before the one first Steer.
+    context: Option<ContextText>,
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
     /// it reads `blocked`.
     waits: Mutex<HashMap<String, u32>>,
@@ -193,6 +195,16 @@ fn agent_lock<T>(mutex: &Mutex<T>) -> std::sync::LockResult<MutexGuard<'_, T>> {
 }
 
 type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
+
+type ContextText = Arc<
+    dyn Fn(
+            Vec<RailNode>,
+            String,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, RpcError>> + Send>>
+        + Send
+        + Sync,
+>;
 
 /// What `Shared::apply` leaves to do once its locks are let go: the first prompt to Steer at the
 /// first `SessionStart` (H12), and when, on `clock`, the adapter wants its next
