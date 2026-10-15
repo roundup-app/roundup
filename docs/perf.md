@@ -126,6 +126,44 @@ Terminal's lifetime, although RPC subscribers receive the shared Bus instead.
 initializes every slot. A scratch counting allocator measured 114,824 allocated
 bytes per channel (88-byte `EventData`), or 1,148,240 bytes for ten channels.
 
+The allocation diagnostic used the same release dependencies, outside the repo:
+
+```sh
+rustc --edition=2024 /tmp/channel-allocation.rs -L dependency=/tmp/roundup-perf-before/target/release/deps --extern contracts=/tmp/roundup-perf-before/target/release/deps/libcontracts-ba0a3c972ce65974.rlib --extern tokio=/tmp/roundup-perf-before/target/release/deps/libtokio-1ad5f608686766b8.rlib -o /tmp/channel-allocation
+/tmp/channel-allocation
+# exit 0: channel bytes allocated: 114824; EventData bytes: 88
+# receivers after RPC discards local receiver: 0
+```
+
+`/tmp/channel-allocation.rs`:
+
+```rust
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::sync::atomic::{AtomicUsize, Ordering};
+struct Count;
+static BYTES: AtomicUsize = AtomicUsize::new(0);
+unsafe impl GlobalAlloc for Count {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        BYTES.fetch_add(layout.size(), Ordering::Relaxed);
+        unsafe { System.alloc(layout) }
+    }
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        unsafe { System.dealloc(ptr, layout) }
+    }
+}
+#[global_allocator]
+static ALLOCATOR: Count = Count;
+fn main() {
+    let before = BYTES.load(Ordering::Relaxed);
+    let (tx, rx) = tokio::sync::broadcast::channel::<contracts::EventData>(1024);
+    let allocated = BYTES.load(Ordering::Relaxed) - before;
+    println!("channel bytes allocated: {allocated}; EventData bytes: {}",
+        std::mem::size_of::<contracts::EventData>());
+    drop(rx);
+    println!("receivers after RPC discards local receiver: {}", tx.receiver_count());
+}
+```
+
 The repair passes no local sender for RPC spawns. In-process spawns still install
 their channel before the reader starts; `subscribe` creates the same 1,024-slot
 channel under the table lock when a later local subscriber needs one. Bus
