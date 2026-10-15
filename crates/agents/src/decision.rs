@@ -790,7 +790,11 @@ impl crate::Agents {
                     }
                 }
             }
-            return shared.terminals.write(terminal, &bytes).await;
+            return if user {
+                shared.terminals.write(terminal, &bytes).await
+            } else {
+                shared.terminals.write_completed(terminal, bytes).await
+            };
         };
         shared
             .terminals

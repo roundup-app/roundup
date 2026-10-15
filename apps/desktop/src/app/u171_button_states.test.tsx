@@ -4,7 +4,7 @@ import { contrastRatio } from "../testing/contrast";
 import { driveStates, outlineRulesIn, styleIn } from "../testing/pointerStates";
 import appCss from "../styles.css?inline";
 import buttonsCss from "../buttons.css?inline";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 
 const KINDS = ["primary", "quiet", "add", "row-action", "icon"] as const;
 

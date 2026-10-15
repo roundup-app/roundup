@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
 import appCss from "../styles.css?inline";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 
 const sheets = import.meta.glob<string>("../**/*.css", { query: "?raw", import: "default", eager: true });
 

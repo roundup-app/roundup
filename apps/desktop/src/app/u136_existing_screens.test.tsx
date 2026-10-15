@@ -7,7 +7,7 @@ import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
 import type { Controls, SeedName } from "../testing/seeds";
 import xtermCss from "@xterm/xterm/css/xterm.css?inline";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";

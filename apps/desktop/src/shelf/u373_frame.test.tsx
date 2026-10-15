@@ -5,7 +5,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { event, terminal } from "../testing/nodes";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import buttonCss from "../buttons.css?inline";
