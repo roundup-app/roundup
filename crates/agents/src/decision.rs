@@ -78,7 +78,7 @@ fn valid_ask(question: &str, answers: &[AskAnswer]) -> bool {
 pub struct Decisions {
     open: Mutex<HashMap<String, Open>>,
     history: Mutex<rusqlite::Connection>,
-    next: Mutex<u64>,
+    next: Mutex<i64>,
     /// No nonce means capture and guarded effects refuse; unguarded user answers still work.
     daemon: Option<String>,
     before_effect: Option<EffectProbe>,
