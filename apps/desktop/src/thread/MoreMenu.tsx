@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Icon } from "../ink/Icon";
@@ -47,7 +48,7 @@ export const MoreMenu = (props: { items: readonly MoreItem[] }) => {
 
   return (
     <div class="thread-more-menu" ref={setRoot} onKeyDown={onKeyDown}>
-      <button
+      <IconButton
         ref={setButton}
         data-button="icon"
         type="button"
@@ -61,7 +62,7 @@ export const MoreMenu = (props: { items: readonly MoreItem[] }) => {
         }}
       >
         <Icon name="more" />
-      </button>
+      </IconButton>
       <Show when={open()}>
         <div class="thread-menu" role="menu" aria-label={copy.more}>
           <For each={props.items}>

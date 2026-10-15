@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -95,9 +96,9 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         if (!isOpen()) setMounted(null);
       }}
     >
-      <button data-button="icon" type="button" class="word close" aria-label={copy.close} onClick={() => props.drawer.close()}>
+      <IconButton data-button="icon" type="button" class="word close" aria-label={copy.close} onClick={() => props.drawer.close()}>
         <Icon name="x" />
-      </button>
+      </IconButton>
       <Show when={mounted()} keyed>
         {(content) => content()}
       </Show>

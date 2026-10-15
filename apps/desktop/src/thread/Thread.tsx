@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, Index, onCleanup, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
@@ -176,9 +177,9 @@ const AttachmentChip = (props: { attachment: Attachment; onPreview: (preview: Pr
     </Show>
     <Show when={props.onRemove}>
       {(remove) => (
-        <button data-button="icon" type="button" class="word" aria-label={copy.removeAttachment(props.attachment.name)} onClick={remove()}>
+        <IconButton data-button="icon" type="button" class="word" aria-label={copy.removeAttachment(props.attachment.name)} onClick={remove()}>
           <Icon name="x" />
-        </button>
+        </IconButton>
       )}
     </Show>
   </span>
@@ -1007,9 +1008,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
         <Show when={answering()}>
           {(reply) => (
             <span class="thread-answering" data-answering>{copy.answering}{reply().name}
-              <button data-button="icon" type="button" class="word" aria-label={copy.dismissAnswer} onClick={() => setAnswering(null)}>
+              <IconButton data-button="icon" type="button" class="word" aria-label={copy.dismissAnswer} onClick={() => setAnswering(null)}>
                 <Icon name="x" />
-              </button>
+              </IconButton>
             </span>
           )}
         </Show>
@@ -1017,9 +1018,9 @@ const ThreadBody = (props: { door: Accessor<string>; doorMode: DoorMode; selecti
           {(quote, index) => (
             <span class="thread-quote" data-quote title={quote.text}>
               <span class="light">{quote.source}</span> {quote.text}
-              <button data-button="icon" type="button" class="word" aria-label={copy.removeQuoteFrom(quote.source)} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
+              <IconButton data-button="icon" type="button" class="word" aria-label={copy.removeQuoteFrom(quote.source)} onClick={() => setQuotes((now) => now.filter((_, at) => at !== index()))}>
                 <Icon name="x" />
-              </button>
+              </IconButton>
             </span>
           )}
         </For>

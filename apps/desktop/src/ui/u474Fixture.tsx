@@ -37,6 +37,9 @@ export const u474Fixture = () => {
       <Tooltip.Trigger data-button="quiet">Project explanation</Tooltip.Trigger>
       <Tooltip.Positioner><Tooltip.Content>Project contains Agents.</Tooltip.Content></Tooltip.Positioner>
     </Tooltip.Root>
-    <IconButton aria-label="Open Project">+</IconButton>
+    <IconButton aria-label="Open Project" id="fixture-icon" data-fixture="ordinary" aria-expanded={false}
+      ref={(button) => { button.dataset.refConnected = "true"; }} onClick={() => setChosen(chosen() + 1)}>+</IconButton>
+    <IconButton aria-label="Unavailable action" aria-disabled onClick={() => setChosen(chosen() + 1)}>×</IconButton>
+    <button type="button" data-button="quiet">End</button>
   </>;
 };

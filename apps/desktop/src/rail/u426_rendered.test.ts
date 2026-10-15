@@ -109,7 +109,7 @@ for (const railWidth of [288]) {
     await page.call(`width => { document.querySelector('.rail').style.width=width+'px'; document.querySelector('.rail-row').focus(); }`, railWidth);
     await page.press("Tab", "Tab");
     await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
-    const labels = ["Add Agent", "Choose Model and Effort", "Start supervisor", "Clear", "Open folder", "Open in editor"];
+    const labels = ["Add Agent", "Choose Model and Effort", "Start supervisor", "Clear Workstream…", "Open folder", "Open in editor"];
 
     for (const label of labels) {
       await page.press("Tab", "Tab");
@@ -132,7 +132,7 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
   await load("tree-40", 1280, "light");
   await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
   await page.until(`() => document.querySelector('[data-id="backend"]').dataset.selected === 'true'`);
-  await page.call(`() => document.querySelector('[data-id="auth"] [aria-label="Clear"]').click()`);
+  await page.call(`() => document.querySelector('[data-id="auth"] [aria-label="Clear Workstream…"]').click()`);
   await page.until(`() => Boolean(document.querySelector('[role="dialog"] [data-clear-prompt] textarea'))`);
   expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]').dataset.id`)).toBe("backend");
   expect(await page.call(`() => document.activeElement === document.querySelector('[role="dialog"] textarea')`)).toBe(true);
@@ -169,7 +169,7 @@ for (const scheme of ["light", "dark"] as const) {
   it(`u427_clear_flips_above_its_row_near_the_viewport_bottom ${scheme}`, async () => {
     await load("tree-40", 1440, scheme);
     await page.resize(1440, 400);
-    await page.call(`() => document.querySelector('[data-id="payments"] [aria-label="Clear"]').click()`);
+    await page.call(`() => document.querySelector('[data-id="payments"] [aria-label="Clear Workstream…"]').click()`);
     await page.until(`() => {
       const row=document.querySelector('[data-id="payments"]').getBoundingClientRect();
       const prompt=document.querySelector('.rail-clear')?.getBoundingClientRect();

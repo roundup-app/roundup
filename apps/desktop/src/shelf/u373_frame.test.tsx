@@ -185,15 +185,14 @@ describe("u470 the shared scope toggle", () => {
     }
   });
 
-  it("u470_name_hover_text_and_pressed_state", async () => {
+  it("u470_name_and_pressed_state", async () => {
     await mountApp();
     const toggle = await selectWorkstream();
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    expect(toggle.title).toBe("Show all Workstreams");
+    expect(toggle.getAttribute("aria-label")).toBe("Show all Workstreams");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
     expect(toggle.getAttribute("aria-label")).toBe("Show only this Workstream");
-    expect(toggle.title).toBe("Show only this Workstream");
   });
 
   it("u470_absent_without_a_workstream", async () => {

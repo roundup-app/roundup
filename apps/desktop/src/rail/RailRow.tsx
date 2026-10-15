@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -115,7 +116,7 @@ export const RailRowView = (props: {
           when={workstream()}
           fallback={<KindGlyph kind={kind() ?? "idle"} />}
         >
-          <button data-button="icon"
+          <IconButton data-button="icon"
             class="word rail-chevron"
             aria-label={copy.collapse}
             onClick={(click) => {
@@ -124,7 +125,7 @@ export const RailRowView = (props: {
             }}
           >
             <Icon name={props.row.collapsed ? "right" : "down"} />
-          </button>
+          </IconButton>
         </Show>
         <Show
           when={editing()}
