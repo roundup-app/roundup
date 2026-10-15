@@ -971,8 +971,8 @@ async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), 
 }
 
 /// Reads `agent.status` off `events` for as long as `inner` has a subscriber: an `idle` Kind
-/// calls `deliver` once, for the oldest deliverable Message to that Agent (B2, B7); a `done` or
-/// `error` Kind ends any Takeover of it and drops its `pending` Messages with the reason
+/// or live `error` Kind delivers pending Messages (B2, B30, B37); a `done` or
+/// exited `error` Kind ends any Takeover of it and drops its `pending` Messages with the reason
 /// `receiver gone` (B6, B9). A `Lagged` receiver may have missed one of those, so it resyncs from
 /// the Rail instead of guessing what it lost (B9), and tries again on its next event while the
 /// Rail cannot answer.
@@ -1026,22 +1026,32 @@ async fn on_status(inner: &Arc<Inner>, agent: &str, attempt: &str, revision: &st
         contracts::agent::parse_positive_ordinal(attempt).expect("wire Attempt"),
         contracts::agent::parse_positive_ordinal(revision).expect("wire Status revision"),
     );
+    // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
+    // error cannot reopen an exited Attempt or close a resumed one.
+    let (closed, ready) = if kind == Kind::Error {
+        let Ok(nodes) = rail_nodes(inner).await else {
+            return;
+        };
+        let node = nodes
+            .iter()
+            .find(|node| node.id == agent && binding(node).0 == at.0);
+        (
+            node.is_none_or(ended),
+            node.is_some_and(|node| {
+                binding(node) == at && node.status.as_ref().is_some_and(|s| s.kind == Kind::Error)
+            }),
+        )
+    } else {
+        (kind == Kind::Done, kind == Kind::Idle)
+    };
     {
         let mut store = lock(&inner.store);
         if let Err(cause) = (inner.fault)("on_status") {
             panic!("{cause}");
         }
-        reconcile(
-            inner,
-            &mut store,
-            agent,
-            at,
-            matches!(kind, Kind::Done | Kind::Error),
-            false,
-        )
-        .expect("message store");
+        reconcile(inner, &mut store, agent, at, closed, false).expect("message store");
     }
-    if kind == Kind::Idle {
+    if !closed && ready {
         on_idle(inner, agent, at, Pick::Next).await;
     }
     settle_logged(inner, "settle").await;
@@ -1252,15 +1262,19 @@ enum Pick {
     Fresh,
 }
 
-/// B2, B3, B6, B13: types the next Message to `agent` now if the Rail shows it `idle`.
+/// B2, B3, B6, B13, B37: delivers pending input when the receiver is ready for a turn.
 async fn nudge(inner: &Arc<Inner>, agent: &str) {
     let Ok(nodes) = rail_nodes(inner).await else {
         return;
     };
-    if let Some(node) = nodes
-        .iter()
-        .find(|node| node.id == agent && node.status.as_ref().is_some_and(|s| s.kind == Kind::Idle))
-    {
+    if let Some(node) = nodes.iter().find(|node| {
+        node.id == agent
+            && !ended(node)
+            && node
+                .status
+                .as_ref()
+                .is_some_and(|s| matches!(s.kind, Kind::Idle | Kind::Error))
+    }) {
         on_idle(inner, agent, binding(node), Pick::Fresh).await;
     }
 }
@@ -1277,9 +1291,10 @@ fn binding(node: &RailNode) -> store::Binding {
 }
 
 fn ended(node: &RailNode) -> bool {
-    node.status
-        .as_ref()
-        .is_none_or(|s| matches!(s.kind, Kind::Done | Kind::Error))
+    node.status_revision.is_none()
+        || node.status.as_ref().is_none_or(|s| {
+            s.kind == Kind::Done || (s.kind == Kind::Error && node.terminal_id.is_none())
+        })
 }
 
 fn permanently_ended(node: &RailNode) -> bool {
