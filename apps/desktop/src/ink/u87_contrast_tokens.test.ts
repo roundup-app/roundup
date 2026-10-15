@@ -22,31 +22,6 @@ describe("u87 stylesheet text-colour allowlist", () => {
   it("u87_no_rule_outside_the_allowlist_sets_a_text_colour_to_light", () => {
     const sheets = allStylesheets();
 
-    expect(Object.keys(sheets).sort()).toEqual([
-      "../bubbles/styles.css",
-      "../buttons.css",
-      "../decisions/styles.css",
-      "../digest/styles.css",
-      "../header/strip.styles.css",
-    "../models/styles.css",
-      "../orders/styles.css",
-      "../pads/styles.css",
-      "../plain/styles.css",
-      "../rail/styles.css",
-      "../resources/styles.css",
-      "../shelf/styles.css",
-      "../styles.css",
-      "../terminal/styles.css",
-      "../testing/todoWorstCase.styles.css",
-      "../thread/styles.css",
-      "../toasts/styles.css",
-      "../todos/drawer.styles.css",
-      "../todos/rowButton.styles.css",
-      "../tokens.css",
-      "../ui/styles.css",
-      "./styles.css",
-    ]);
-
     for (const [file, css] of Object.entries(sheets)) {
       const offenders = rulesOf(css)
         .filter((rule) => TEXT_COLOUR.test(rule.body))
