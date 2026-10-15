@@ -65,7 +65,7 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
-    /// B6's isolated observer pauses a guarded call before its effect; absent in production.
+    /// B6's isolated observer pauses a Door answer or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
 
@@ -379,7 +379,6 @@ impl Daemon {
                 self.door_first_steers.lock().await.remove(&agent);
             }
         }
-        self.before_prompt_effect(method, &params).await?;
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
@@ -389,6 +388,8 @@ impl Daemon {
         ) {
             return self.decision_call(conn, method, params).await;
         }
+        self.before_prompt_effect(&conn.actor, method, &params)
+            .await?;
         if method == "attachment.save" {
             return self.attachments.save(params);
         }
@@ -527,7 +528,12 @@ impl Daemon {
         lock
     }
 
-    async fn before_prompt_effect(&self, method: &str, params: &Value) -> Result<(), RpcError> {
+    async fn before_prompt_effect(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<(), RpcError> {
         if method == "agent.signal"
             && agents::claude_code::ends_decision(&params["payload"])
             && let Some(gate) = &self.prompt_effect_gate
@@ -537,7 +543,8 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         if !matches!(method, "decision.answer" | "terminal.write")
-            || !params["identity"].is_object()
+            || (!params["identity"].is_object()
+                && !(method == "decision.answer" && actor.kind == ActorKind::Agent))
         {
             return Ok(());
         }
@@ -579,7 +586,28 @@ impl Daemon {
             .modules
             .get("decision")
             .ok_or_else(|| RpcError::method_not_found(method))?;
-        module.call(&self.ctx(actor), method, params).await
+        let ctx = self.ctx(actor);
+        // H21 derives identity from the peer, so the connection's claimed role must
+        // never decide whether this child effect excludes Takeover acquisition.
+        let child = if method == "decision.answer" && ctx.actor.kind == ActorKind::Agent {
+            let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
+            let listed = module.call(&ctx, "decision.list", Value::Null).await?;
+            let decisions: Vec<contracts::decision::Decision> =
+                serde_json::from_value(listed).map_err(RpcError::internal)?;
+            decisions
+                .into_iter()
+                .find(|d| d.id == answer.id)
+                .map(|d| d.agent)
+        } else {
+            None
+        };
+        let _door_effect = match child {
+            Some(child) => Some(self.child_effects(&child).read_owned().await),
+            None => None,
+        };
+        self.before_prompt_effect(&ctx.actor, method, &params)
+            .await?;
+        module.call(&ctx, method, params).await
     }
 
     /// M13: `NOT_FOUND` for an unknown Terminal, then `FORBIDDEN` when an Agent may not read it.

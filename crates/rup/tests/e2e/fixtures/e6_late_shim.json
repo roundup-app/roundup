@@ -1,0 +1,36 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: E6 late shim"
+      },
+      "response": {
+        "content": "{\"title\":\"Late shim\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_e6_context",
+        "toolResultContains": "\"id\":\"1\""
+      },
+      "response": {
+        "content": "The real MCP is available."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: E6 late shim",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_e6_context",
+            "name": "mcp__roundup__agent_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    }
+  ]
+}

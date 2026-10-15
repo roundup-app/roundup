@@ -1595,21 +1595,6 @@ async fn e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count(
 }
 
 #[tokio::test]
-async fn e6_a_late_shim_goes_missing_then_up() {
-    let project = start(&[
-        ("FAKE_CLAUDE_TOOLS", "[]"),
-        ("FAKE_CLAUDE_SHIM_DELAY_MS", "2000"),
-        DEADLINE,
-    ]);
-    let mut events = project.subscribed().await;
-
-    let node = project.spawn_agent(&events).await;
-
-    assert_eq!(next_channel(&mut events, &node.id).await, Channel::Missing);
-    assert_eq!(next_channel(&mut events, &node.id).await, Channel::Up);
-}
-
-#[tokio::test]
 async fn e6_only_the_agent_reports_its_channel_and_a_second_report_emits_nothing() {
     let project = start(&[("ROUNDUP_CHANNEL_DEADLINE_MS", "60000")]);
     let mut user = project.subscribed().await;
