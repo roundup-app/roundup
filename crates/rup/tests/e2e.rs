@@ -4572,25 +4572,28 @@ async fn m17_decision_answer_names_the_decision_and_answer() {
         let report = root.path().join("door.json");
         let child_report = root.path().join("child.json");
         let on_prompt = json!({"name":"decision_answer", "arguments":{"id":"$decision","answer":answer,"note":note}});
+        let on_prompt = on_prompt.to_string();
         let ask = if question {
             json!([{"name":"ask_user","arguments":{"question":"Proceed?","answers":[{"label":"Yes","description":"Continue"}]}}])
         } else {
             json!([])
         };
-        let project = start(&[
-            ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+        let mut fake = vec![
+            ("FAKE_CLAUDE_ON_PROMPT", on_prompt.as_str()),
             ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-            ("FAKE_CLAUDE_AGENT_TOOLS", &ask.to_string()),
             ("FAKE_CLAUDE_AGENT_REPORT", child_report.to_str().unwrap()),
-        ]);
+        ];
+        let ask = ask.to_string();
+        if question {
+            fake.push(("FAKE_CLAUDE_AGENT_TOOLS", &ask));
+        } else {
+            // The fake emits its startup hooks before requesting permission, like Claude.
+            fake.push(("FAKE_CLAUDE_KINDS", r#"["needs-you"]"#));
+        }
+        let project = start(&fake);
         let user = project.client().await;
         let door = start_door(&user).await;
-        let child = agent_in(&project, &user, Some(&door)).await;
-        let waiting = if question {
-            None
-        } else {
-            Some(h21_ask(&project, &child, "Bash", h21_bash()).await)
-        };
+        let _child = agent_in(&project, &user, Some(&door)).await;
         let notes = h21_notes(&user, &door, 1).await;
         let id = notes[0]["body"]
             .as_str()
@@ -4602,18 +4605,15 @@ async fn m17_decision_answer_names_the_decision_and_answer() {
             .unwrap();
         let result = json_file(&report).await;
         assert_eq!(result[0], format!("answered Decision {id}: {expected}"));
-        if let Some(waiting) = waiting {
-            let received = waiting.await.unwrap().unwrap();
-            assert_eq!(
-                serde_json::from_str::<Value>(received["output"].as_str().unwrap()).unwrap()["hookSpecificOutput"]
-                    ["decision"]["behavior"],
-                answer,
-                "{received}"
-            );
-        } else {
-            let received = json_file(&child_report).await;
+        let received = json_file(&child_report).await;
+        if question {
             assert_eq!(received[0]["answer"], answer);
             assert_eq!(received[0]["note"], note);
+        } else {
+            assert_eq!(
+                received["hookSpecificOutput"]["decision"]["behavior"], answer,
+                "{received}"
+            );
         }
         let open = user.request("decision.list", Value::Null).await.unwrap();
         assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
