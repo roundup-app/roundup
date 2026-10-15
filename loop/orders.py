@@ -99,6 +99,12 @@ def waits(item):
     return [label for label in WAITS if label in names]
 
 
+def holds(dep):
+    """Whether a blocker still holds its dependent. One closed as not planned was cancelled by the owner: it never
+    completes, so it holds nothing and `classify` reports it instead."""
+    return dep['state'] != 'closed' or dep.get('state_reason') not in ('completed', 'not_planned')
+
+
 def classify(issues, dependencies, prs):
     """Return observable states; malformed orders and unavailable dependencies never become ready."""
     rows = []
@@ -112,7 +118,7 @@ def classify(issues, dependencies, prs):
         if number in visited:
             return
         for dep in dependencies.get(number, []):
-            if dep['state'] != 'closed' or dep.get('state_reason') != 'completed':
+            if holds(dep):
                 visit(dep['number'], path + [number])
         visited.add(number)
     for number in dependencies:
@@ -133,8 +139,9 @@ def classify(issues, dependencies, prs):
                 active = [pr['number'] for pr in prs if not pr.get('isCrossRepository', False) and
                           (pr['headRefName'] == 'build/' + row['slug'] or
                            re.search(r'^(?:Refs|Closes|Fixes|Resolves) #' + str(number) + r'\b', pr.get('body') or '', re.M | re.I))]
-                blocked = [dep for dep in dependencies.get(number, [])
-                           if dep['state'] != 'closed' or dep.get('state_reason') != 'completed']
+                blocked = [dep for dep in dependencies.get(number, []) if holds(dep)]
+                row['cancelled'] = [dep['number'] for dep in dependencies.get(number, [])
+                                    if dep['state'] == 'closed' and dep.get('state_reason') == 'not_planned']
                 if active:
                     row.update(state='in-flight', reason=' '.join(f'#{n}' for n in active))
                 elif frozen(issue):
@@ -146,7 +153,7 @@ def classify(issues, dependencies, prs):
                 elif blocked:
                     row.update(state='waiting', reason='blocked by ' + ', '.join(f'#{dep["number"]}' for dep in blocked))
                 else:
-                    row.update(state='ready', reason='')
+                    row.update(state='ready', reason=' '.join(f'ignores cancelled blocker #{n}' for n in row['cancelled']))
         except (KeyError, TypeError, ValueError) as error:
             row.update(state='blocked', reason=f'invalid work order: {error}', invalid=issue.get('state') == 'open',
                        flagged=bool(waits(issue)))
@@ -213,10 +220,15 @@ class NotReady(Exception):
     """The Issue is no longer ready; starting no run is the correct outcome."""
 
 
+def current(number):
+    """The queue's row for Issue `number` now, or None."""
+    return next((row for row in read_orders() if row['issue'] == number), None)
+
+
 def queued(number):
     """True when the queue would build Issue `number` now: no dependency, PR or missing field holds it."""
-    current = next((row for row in read_orders() if row['issue'] == number), None)
-    return current is not None and current['state'] == 'ready'
+    row = current(number)
+    return row is not None and row['state'] == 'ready'
 
 
 def task(number):
@@ -234,8 +246,13 @@ def task(number):
               f'reason on the Issue; label it `{NEEDS_USER}` only when the missing field is a product choice. '
               f'Open no PR; edit Issue #{number}.')
         return
-    if not queued(number):
+    now = current(number)
+    if now is None or now['state'] != 'ready':
         raise NotReady(f'Issue #{number} is no longer ready')
+    # L34: a cancelled blocker holds nothing, so the Builder is told which ones to weigh.
+    cancelled = ''.join(f' Blocker #{n} was closed as not planned and holds nothing: if this work truly needs what it '
+                        f'would have built, comment that on Issue #{number}, label it `{NEEDS_USER}` and open no PR.'
+                        for n in now.get('cancelled', []))
     if row['request']:
         completion = ('This Issue is a request without queue fields. Add its acceptance as scenarios, then edit this Issue '
                       'to add Key, Priority, Specification and Scenarios lines and Mode: implement, so the queue builds it '
@@ -252,7 +269,7 @@ def task(number):
                       f'does not close it. Use Closes #{number} when that condition holds.')
     print(f"Work order: {issue['html_url']}\n\n{issue['body']}\n\n"
           f"Mode: {row['mode']}. Use this Issue as the canonical work order. Link the PR with Refs #{number}. {completion} "
-          "Put progress and unresolved engineering questions on the Issue, not in scenario Work tables.")
+          "Put progress and unresolved engineering questions on the Issue, not in scenario Work tables." + cancelled)
 
 
 def main():
