@@ -124,3 +124,65 @@ os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], 
         "credential reached a hook or MCP: {records:?}"
     );
 }
+
+#[tokio::test]
+async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
+    use contracts::EventData;
+    use contracts::agent::{Channel, RailNode};
+    use std::time::Duration;
+
+    let project = daemon::start_real(
+        "e6_immediate_shim",
+        &[("ROUNDUP_CHANNEL_DEADLINE_MS", "3000")],
+    );
+    let mut events = project.subscribed().await;
+
+    let node: RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            events.request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E10 immediate shim"
+                }),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(node.channel, Some(Channel::Pending));
+
+    assert_eq!(
+        daemon::next(&mut events, |data| match data {
+            EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
+            _ => None,
+        })
+        .await,
+        Channel::Up
+    );
+    tokio::time::sleep(Duration::from_millis(3500)).await;
+    assert_eq!(
+        daemon::rail_tree(&events)
+            .await
+            .into_iter()
+            .find(|entry| entry.id == node.id)
+            .unwrap()
+            .channel,
+        Some(Channel::Up)
+    );
+    let model = project.model.as_ref().unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while !model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["tools"].is_array())
+        {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("real Claude reaches the model");
+    model.assert_matched();
+}
