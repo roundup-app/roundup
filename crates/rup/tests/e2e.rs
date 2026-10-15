@@ -1586,39 +1586,43 @@ async fn e3_a_daemon_that_never_answers_is_given_up_on_within_five_seconds() {
 }
 
 #[tokio::test]
-async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context() {
-    let project = daemon::start_real("e3_startup_context", &[]);
+async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_context() {
+    let report = tempfile::tempdir().unwrap().keep().join("context.txt");
+    let project = start(&[
+        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
+        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
+        ("FAKE_CLAUDE_CONTEXT_REPORT", report.to_str().unwrap()),
+    ]);
     let user = project.client().await;
-    let node = user
-        .request(
-            "agent.spawn",
-            json!({
-                "cwd": project.dir.path(), "prompt": "E10 read startup context"
-            }),
-        )
-        .await
-        .unwrap();
-    let model = project.model.as_ref().unwrap();
-    let request = tokio::time::timeout(Duration::from_secs(30), async {
+    let id = agent_in(&project, &user, None).await;
+
+    let told = tokio::time::timeout(Duration::from_secs(30), async {
         loop {
-            if let Some(entry) = model
-                .journal()
-                .into_iter()
-                .find(|entry| entry["body"]["tools"].is_array())
-            {
-                return entry;
+            match std::fs::read_to_string(&report) {
+                Ok(text) if !text.is_empty() => return text,
+                _ => tokio::time::sleep(Duration::from_millis(20)).await,
             }
-            tokio::time::sleep(Duration::from_millis(25)).await;
         }
     })
     .await
-    .expect("real Claude requests its first work turn");
-    model.assert_matched();
-    let messages = request["body"]["messages"].to_string();
-    assert!(messages.contains("Parent: none"), "{request:#?}");
+    .expect("the context was printed");
+
+    let told: Value = serde_json::from_str(&told).unwrap();
+    assert_eq!(told["hookSpecificOutput"]["hookEventName"], "SessionStart");
     assert!(
-        messages.contains(node["id"].as_str().unwrap()),
-        "{request:#?}"
+        told["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap()
+            .contains("Parent: none")
+    );
+    assert_eq!(
+        rail_tree(&user)
+            .await
+            .iter()
+            .find(|n| n.id == id)
+            .unwrap()
+            .id,
+        id
     );
 }
 
