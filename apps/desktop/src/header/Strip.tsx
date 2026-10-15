@@ -64,6 +64,9 @@ export const Strip = (props: {
     }
   };
 
+  let settling = 0;
+  let flips = 0;
+
   const measure = () => {
     // Without layout (no width) nothing is scrolled out of view.
     if (!list || list.clientWidth === 0) {
@@ -81,6 +84,7 @@ export const Strip = (props: {
 
     let startPiece = 0;
     let endPiece = 0;
+    let activeCut = false;
 
     for (const tab of props.tabs) {
       const element = elements.get(tab.path);
@@ -94,14 +98,32 @@ export const Strip = (props: {
 
       if (near < to && far > to) endPiece = to - near;
 
+      if (tab.path === props.active && ((near < from && far > from) || (near < to && far > to))) activeCut = true;
+
       if (element.offsetLeft + element.offsetWidth <= from) out.left.push(tab);
       else if (element.offsetLeft >= to) out.right.push(tab);
     }
 
+    const nextLeft = edgeOf(out.left, false);
+    const nextRight = edgeOf(out.right, true);
+    const slotsChanged = (left() === null) !== (nextLeft === null) || (right() === null) !== (nextRight === null);
+
+    // A slot that appears narrows the list under the open tab, so the next two measures bring that tab back into view; a few flips at most per open tab.
+    if (settling > 0) {
+      settling -= 1;
+
+      if (activeCut && props.active) unrevealed = props.active;
+    }
+
+    if (slotsChanged && flips < 4) {
+      flips += 1;
+      settling = 2;
+    }
+
     setCutStart(startPiece);
     setCutEnd(endPiece);
-    setLeft(edgeOf(out.left, false));
-    setRight(edgeOf(out.right, true));
+    setLeft(nextLeft);
+    setRight(nextRight);
     revealOpen();
   };
 
@@ -124,6 +146,7 @@ export const Strip = (props: {
   createEffect(on(layoutKey, measure));
 
   createEffect(on(() => props.active, (path) => {
+    flips = 0;
     unrevealed = path;
     queueMicrotask(revealOpen);
   }));

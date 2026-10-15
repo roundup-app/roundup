@@ -33,53 +33,6 @@ impl Shared {
         });
     }
 
-    /// A22: give up on `id`'s pending resume of Attempt `attempt`, if it is still the one
-    /// pending (the ack may have already won the race under this same lock, in which case this
-    /// is a no-op: whichever of the two claims the slot first decides the outcome). Stops the
-    /// Terminal it started, if it had, and restores the stashed old Run, or removes the id from
-    /// `runs` entirely when there was none to restore (A12's reopened case).
-    pub(super) async fn rollback_resume(
-        &self,
-        id: &str,
-        attempt: &str,
-        publication: RailPublication,
-    ) {
-        let claimed = {
-            let mut runs = self.runs();
-            match runs.get(id) {
-                Some(Slot::Resuming {
-                    attempt: active, ..
-                }) if active == attempt => runs.remove(id),
-                _ => None,
-            }
-        };
-        let Some(Slot::Resuming {
-            old, terminal_id, ..
-        }) = claimed
-        else {
-            return;
-        };
-        if let Some(terminal_id) = terminal_id {
-            report_undo(
-                "stop a resume's Terminal on rollback",
-                kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await,
-            );
-        }
-        let mut runs = self.runs();
-        match old {
-            Some(run) => {
-                runs.insert(id.to_owned(), Slot::Running(*run));
-            }
-            None => {
-                runs.remove(id);
-            }
-        }
-        drop(runs);
-        if publication == RailPublication::Immediate {
-            self.bus.emit(Actor::daemon(), EventData::RailChanged);
-        }
-    }
-
     pub(super) async fn stop(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
         self.end_with(actor, id, Ending::Stop, RailPublication::Immediate)
             .await
@@ -163,6 +116,18 @@ impl Shared {
                 None => {
                     runs.insert(id.to_owned(), Slot::Closing);
                 }
+                Some(Slot::ResumeCleanup {
+                    terminal_id,
+                    pending,
+                    error,
+                    ..
+                }) => {
+                    if *pending {
+                        return Err(error.clone());
+                    }
+                    node.terminal_id = Some(terminal_id.clone());
+                    *pending = true;
+                }
                 Some(Slot::Closing) => {
                     return Err(RpcError::conflict(format!("{id} is being removed")));
                 }
@@ -179,7 +144,13 @@ impl Shared {
         }
         let killed = match terminal_id {
             Some(terminal_id) => {
-                kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await
+                let killed =
+                    kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await;
+                if matches!(self.runs().get(id), Some(Slot::ResumeCleanup { .. })) {
+                    killed.and_then(|()| self.confirm_terminal_exit(&terminal_id))
+                } else {
+                    killed
+                }
             }
             None => Ok(()),
         };
@@ -213,6 +184,8 @@ impl Shared {
             if let Err(err) = killed {
                 if let Some(Slot::Running(run)) = runs.get_mut(id) {
                     run.closing = false;
+                } else if let Some(Slot::ResumeCleanup { pending, .. }) = runs.get_mut(id) {
+                    *pending = false;
                 } else {
                     runs.remove(id);
                 }
