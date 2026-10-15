@@ -1,1 +1,0 @@
-ALTER TABLE pads ADD COLUMN home TEXT;

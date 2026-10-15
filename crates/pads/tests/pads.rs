@@ -777,23 +777,6 @@ async fn p5_flip_back_reports_only_the_edited_pad() {
 }
 
 #[tokio::test]
-async fn a_database_from_an_older_version_fails_to_open_loudly() {
-    let dir = TempDir::new().unwrap();
-    rusqlite::Connection::open(dir.path().join("pads.db"))
-        .unwrap()
-        .execute_batch(
-            "CREATE TABLE pads (name TEXT PRIMARY KEY, owner TEXT NOT NULL, text TEXT NOT NULL, updated_at INTEGER NOT NULL);",
-        )
-        .unwrap();
-
-    let err = Pads::open(dir.path(), Bus::new())
-        .err()
-        .expect("must not open");
-
-    assert!(err.to_string().contains("pads.db"), "{err}");
-}
-
-#[tokio::test]
 async fn p6_a_relative_export_path_is_invalid_params() {
     let rig = Rig::new();
     rig.create("notes", "x").await;
@@ -1108,7 +1091,7 @@ async fn p12_a_rejected_move_leaves_no_trace() {
 }
 
 #[tokio::test]
-async fn p12_the_home_survives_open_and_an_old_database_reads_null() {
+async fn p12_the_home_survives_open() {
     let rig = Rig::new();
     rig.create("notes", "x").await;
     rig.ok(
@@ -1126,17 +1109,4 @@ async fn p12_the_home_survives_open_and_an_old_database_reads_null() {
     };
     let listed = reopened.call(&ctx, "pad.list", Value::Null).await.unwrap();
     assert_eq!(listed[0]["home"], "r1");
-
-    let old = TempDir::new().unwrap();
-    rusqlite::Connection::open(old.path().join("pads.db"))
-        .unwrap()
-        .execute_batch(
-            "CREATE TABLE pads (key TEXT PRIMARY KEY, name TEXT NOT NULL, owner TEXT NOT NULL, text TEXT NOT NULL, updated_at INTEGER NOT NULL);
-             INSERT INTO pads VALUES ('notes', 'notes', '{\"kind\":\"user\",\"id\":\"user\",\"parent\":null}', 'old', 0);",
-        )
-        .unwrap();
-    let pads = Pads::open(old.path(), Bus::new()).unwrap();
-    let listed = pads.call(&ctx, "pad.list", Value::Null).await.unwrap();
-    assert_eq!(listed[0]["home"], Value::Null);
-    assert_eq!(listed[0]["text"], "old");
 }
