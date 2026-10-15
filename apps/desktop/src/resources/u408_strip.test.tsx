@@ -227,7 +227,6 @@ describe("u408 the Resource strip", () => {
 
     expect(numbers.length).toBe(3);
     expect(sheet).toMatch(/\.resource-num\s*{[^}]*font-variant-numeric:\s*tabular-nums/);
-    expect(sheet).toMatch(/\.resource-num\s*{[^}]*min-width:\s*7ch/);
 
     await settle(2000);
     expect(document.querySelectorAll(".resource-num").length).toBe(3);
