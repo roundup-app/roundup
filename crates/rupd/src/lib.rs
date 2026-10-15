@@ -43,6 +43,8 @@ pub struct Daemon {
     storage_calls: tokio::sync::RwLock<()>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
+    /// B6: Takeover acquisition excludes in-flight Door writes to this child.
+    child_writes: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     touches: Arc<Touches>,
@@ -145,6 +147,7 @@ impl Daemon {
             pads: Arc::clone(&pads),
             storage_calls: Default::default(),
             door_first_steers: Default::default(),
+            child_writes: Default::default(),
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -302,6 +305,22 @@ impl Daemon {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
         }
+        // A Door write's completion includes its physical effect. Begin must wait for
+        // that completion, including an uncertain result, before granting the child.
+        let _door_write = if method == "terminal.write" && conn.actor.kind == ActorKind::Agent {
+            match self.guard_terminal_read(&conn.actor, &params).await? {
+                Some(child) => Some(self.child_writes(&child).read_owned().await),
+                None => None,
+            }
+        } else {
+            None
+        };
+        let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
+            let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
+            Some(self.child_writes(&agent).write_owned().await)
+        } else {
+            None
+        };
         // A Door's spawn publishes the child before its detached first Steer completes.
         // Hold registration through that publication so begin cannot miss the effect.
         let mut first_steers = if method == "agent.spawn" && conn.actor.kind == ActorKind::Agent {
@@ -470,6 +489,22 @@ impl Daemon {
         outcome
     }
 
+    fn child_writes(&self, child: &str) -> Arc<tokio::sync::RwLock<()>> {
+        let mut writes = self
+            .child_writes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        // No historical child or completed write needs a live lock. Weak entries keep
+        // concurrent callers on one lock without retaining every Agent ever created.
+        writes.retain(|_, lock| lock.strong_count() != 0);
+        if let Some(lock) = writes.get(child).and_then(std::sync::Weak::upgrade) {
+            return lock;
+        }
+        let lock = Arc::new(tokio::sync::RwLock::new(()));
+        writes.insert(child.to_owned(), Arc::downgrade(&lock));
+        lock
+    }
+
     async fn before_prompt_effect(&self, method: &str, params: &Value) -> Result<(), RpcError> {
         if method == "agent.signal"
             && agents::claude_code::ends_decision(&params["payload"])
@@ -526,13 +561,18 @@ impl Daemon {
     }
 
     /// M13: `NOT_FOUND` for an unknown Terminal, then `FORBIDDEN` when an Agent may not read it.
-    /// A malformed id is left to the Terminal's own `INVALID_PARAMS`.
-    async fn guard_terminal_read(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
+    /// A malformed id is left to the Terminal's own `INVALID_PARAMS`. Returns the authorized
+    /// Terminal's owner so its write and the owner's Takeover use the same exclusion lock.
+    async fn guard_terminal_read(
+        &self,
+        actor: &Actor,
+        params: &Value,
+    ) -> Result<Option<String>, RpcError> {
         if actor.kind != ActorKind::Agent {
-            return Ok(());
+            return Ok(None);
         }
         let Some(id) = params["id"].as_str() else {
-            return Ok(());
+            return Ok(None);
         };
         let terminals = self
             .modules
@@ -546,11 +586,12 @@ impl Daemon {
         match infos.iter().find(|info| info.id == id) {
             Some(info) => self
                 .agents
-                .guard_terminal_read(actor, id, info.owner.as_deref()),
+                .guard_terminal_read(actor, id, info.owner.as_deref())
+                .map(|()| info.owner.clone()),
             None if id.parse::<u64>().is_ok_and(|n| n.to_string() == id) => {
                 Err(RpcError::not_found(format!("terminal {id}")))
             }
-            None => Ok(()),
+            None => Ok(None),
         }
     }
 
