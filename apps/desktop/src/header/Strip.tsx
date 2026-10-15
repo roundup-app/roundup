@@ -45,6 +45,8 @@ export const Strip = (props: {
   const [asking, setAsking] = createSignal<string | null>(null);
   const [left, setLeft] = createSignal<Edge | null>(null);
   const [right, setRight] = createSignal<Edge | null>(null);
+  const [isCutLeft, setCutLeft] = createSignal(false);
+  const [isCutRight, setCutRight] = createSignal(false);
   const [overflowing, setOverflowing] = createSignal(false);
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
@@ -67,6 +69,8 @@ export const Strip = (props: {
       setLeft(null);
       setRight(null);
       setOverflowing(false);
+      setCutLeft(false);
+      setCutRight(false);
 
       return;
     }
@@ -76,6 +80,8 @@ export const Strip = (props: {
 
     const from = list.scrollLeft;
     const to = from + list.clientWidth;
+    setCutLeft(from > 0);
+    setCutRight(to < list.scrollWidth);
     const out: Record<"left" | "right", StripTab[]> = { left: [], right: [] };
 
     for (const tab of props.tabs) {
@@ -191,7 +197,7 @@ export const Strip = (props: {
     }}>
       <div class="strip-scroll" ref={(element) => (scroller = element)}>
         {edge(copy.left, left())}
-        <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
+        <div class="tablist" data-cut-left={isCutLeft()} data-cut-right={isCutRight()} role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
           <For each={paths()}>
             {(path) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
