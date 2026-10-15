@@ -391,6 +391,44 @@ class FaultTest(unittest.TestCase):
                 fuse.stdin.close()
                 fuse.stdout.close()
 
+    def test_u26_a_completion_that_trails_the_snapshot_missing_it_is_still_reported(self):
+        # bpftrace reads a printed map when userspace handles it, but a printf
+        # crosses per-CPU buffers: a snapshot can precede the COMPLETED record
+        # of a fault it no longer lists. This stands in for sudo and bpftrace.
+        tracer = r"""#!/usr/bin/env python3
+import json, os, signal, sys, time
+def printf(text): print(json.dumps({"type": "printf", "data": text}), flush=True)
+def snapshot(opening, closing, live, stack):
+    printf(opening)
+    for name, data in (("@live", {"0": [0] * 9 + [""], **live}), ("@stack", stack), ("@integrity", 0)):
+        print(json.dumps({"type": "map", "data": {name: data}}), flush=True)
+    printf(closing)
+if "bpftrace" not in sys.argv:
+    arguments = sys.argv[2:] if sys.argv[1] == "-n" else sys.argv[1:]
+    os.execvp(arguments[0], arguments)
+tid, entry = int(sys.argv[-2]), time.monotonic_ns()
+done = []
+signal.signal(signal.SIGINT, lambda *_: done.append(1))
+printf("READY\n")
+snapshot("SNAPSHOT\n", "SNAPSHOT_END\n", {str(tid): [tid, 4096, 4096, entry, 4096, 8192, 4096, 2, 49, "held"]}, {f"{tid},{entry}": "folio_wait_bit_common+307"})
+time.sleep(0.5)
+snapshot("SNAPSHOT\n", "SNAPSHOT_END\n", {}, {})
+printf(f"COMPLETED {tid} {tid} 4096 4096 {entry} 4096 8192 4096 2 49 500000000 0\nheld\n")
+while not done: time.sleep(0.01)
+snapshot("FINAL\n", "FINAL_END\n", {}, {})
+"""
+        with tempfile.TemporaryDirectory(prefix="u26-trailing-completion-") as directory:
+            fake = Path(directory) / "sudo"
+            fake.write_text(tracer)
+            fake.chmod(0o755)
+            log = Path(directory) / "trace.jsonl"
+            result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--log", str(log), "--", sys.executable, "-c", "import time; time.sleep(2)"], env=dict(os.environ, PATH=f"{directory}:{os.environ['PATH']}"), capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            events = [json.loads(row) for row in log.read_text().splitlines()]
+            lifecycle = [event["status"] for event in events if "entry_ns" in event]
+            self.assertEqual(lifecycle, ["pending", "resolved", "completed", "completed"], events)  # live and final evidence
+            self.assertEqual(events[-1]["still_pending"], 0)
+
     def test_u26_tracer_launch_failure_preserves_the_command_exit(self):
         with tempfile.TemporaryDirectory(prefix="u26-no-tracer-") as directory:
             environment = dict(os.environ, PATH=directory)
