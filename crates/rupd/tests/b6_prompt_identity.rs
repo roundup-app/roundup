@@ -608,11 +608,6 @@ async fn b6_a_paused_effect_refuses_after_the_user_answers_or_replaces_the_origi
     }
 }
 
-#[tokio::test]
-async fn b6_a_checked_effect_completes_before_a_racing_prompt_replacement() {
-    checked_effect_before_replacement().await;
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn b6_checked_effects_exclude_prompt_replacement_under_parallel_load() {
     let mut runs = tokio::task::JoinSet::new();
@@ -2721,30 +2716,57 @@ async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
     }
 }
 
-#[tokio::test]
-async fn b6_begin_racing_a_door_stop_waits_for_the_child_effect() {
-    let (run, caller) = order_child().await;
+async fn ending_takeover_race(method: &'static str) {
+    let (run, caller) = if method == "agent.stop" {
+        order_child().await
+    } else {
+        door_terminal().await
+    };
     run.pause();
-    let child = run.child.clone();
-    let stop = tokio::spawn(async move { caller.request("agent.stop", json!({"id":child})).await });
+    let id = if method == "agent.stop" {
+        json!(run.child)
+    } else {
+        run.terminal.clone()
+    };
+    let ending = tokio::spawn(async move { caller.request(method, json!({"id":id})).await });
     run.paused().await;
     let user = Arc::clone(&run.user);
     let child = run.child.clone();
     let mut begin =
         tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
-    // The Daemon acknowledges arrival before the stop effect. The window observes absence.
+    // Arrival acknowledges the paused child effect; this window observes absence of acquisition.
     let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
     run.release();
-    tokio::time::timeout(BOUND, stop)
+    tokio::time::timeout(BOUND, ending)
         .await
         .unwrap()
         .unwrap()
         .unwrap();
     assert!(
         early.is_err(),
-        "Takeover acquired before the Door stopped its child: {early:?}"
+        "Takeover acquired before {method}'s child effect: {early:?}"
     );
     let acquired = tokio::time::timeout(BOUND, begin).await.unwrap().unwrap();
-    assert_eq!(acquired.unwrap_err().code, rpc::code::CONFLICT);
+    if method == "agent.stop" {
+        assert_eq!(acquired.unwrap_err().code, rpc::code::CONFLICT);
+    } else {
+        // The auxiliary Terminal ended; its owning child remains available for Takeover.
+        acquired.unwrap();
+    }
     run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_stop_waits_for_the_child_effect() {
+    ending_takeover_race("agent.stop").await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_terminal_kill_waits_for_the_child_effect() {
+    ending_takeover_race("terminal.kill").await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_terminal_close_waits_for_the_child_effect() {
+    ending_takeover_race("terminal.close").await;
 }
