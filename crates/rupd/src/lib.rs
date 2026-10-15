@@ -542,10 +542,13 @@ impl Daemon {
             // The Signal proceeds to its synchronous fold in this same router poll.
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
-        if !matches!(method, "decision.answer" | "terminal.write")
-            || (!params["identity"].is_object()
-                && !(method == "decision.answer" && actor.kind == ActorKind::Agent))
-        {
+        let observed = match method {
+            "agent.stop" | "terminal.kill" | "terminal.close" => actor.kind == ActorKind::Agent,
+            "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
+            "terminal.write" => params["identity"].is_object(),
+            _ => false,
+        };
+        if !observed {
             return Ok(());
         }
         let Some(gate) = &self.prompt_effect_gate else {
