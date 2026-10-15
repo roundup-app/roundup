@@ -534,3 +534,31 @@ async fn b37_live_error_owner_is_open_until_terminal_exit() {
         Err(agents::PromptError::NotFound { .. })
     ));
 }
+
+#[tokio::test]
+async fn b6_first_steer_completion_includes_the_gate_and_physical_writer() {
+    let (arrived, mut arrival) = tokio::sync::mpsc::unbounded_channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let released = std::sync::Mutex::new(released);
+    let mut f = frozen(Fixture::running(RECORD), BOUND);
+    f.agents = f.agents.with_steer_effect(move |_| {
+        arrived.send(()).unwrap();
+        released.lock().unwrap().recv().unwrap();
+        Ok(())
+    });
+    let node = f.spawn(None, Some("build it")).await.unwrap();
+    let attempt = f.attempt(&node.id).await;
+    let completion = f.agents.first_steer_completion(&node.id, &attempt);
+    tokio::pin!(completion);
+    assert!(tokio::time::timeout(BOUND, &mut completion).await.is_err(), "gate is still closed");
+    until_file(&f.dir.path().join("ready")).await;
+    signal(&f, &node.id, "SessionStart").await;
+    star(f.dir.path());
+    arrival.recv().await.unwrap();
+    assert!(tokio::time::timeout(BOUND * 2, &mut completion).await.is_err(), "writer is still running beyond submit timeout");
+    release.send(()).unwrap();
+    until_typed(&f, paste("build it").len()).await;
+    signal(&f, &node.id, "UserPromptSubmit").await;
+    assert_eq!(completion.await, Ok(()));
+    assert_eq!(f.agents.first_steer_completion(&node.id, &attempt).await, Ok(()));
+}
