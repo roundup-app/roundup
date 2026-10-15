@@ -14,6 +14,7 @@ use crate::error::RpcError;
 #[derive(Clone)]
 pub struct Bus {
     sender: broadcast::Sender<Event>,
+    capacity: usize,
 }
 
 impl Default for Bus {
@@ -24,13 +25,21 @@ impl Default for Bus {
 
 impl Bus {
     pub fn new() -> Self {
+        // Tokio rounds its ring to a power of two; report the retained event count.
+        let capacity = 1024_usize.next_power_of_two();
         Self {
-            sender: broadcast::channel(1024).0,
+            sender: broadcast::channel(capacity).0,
+            capacity,
         }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<Event> {
         self.sender.subscribe()
+    }
+
+    /// Maximum retained events before an unread receiver reports lag.
+    pub fn capacity(&self) -> usize {
+        self.capacity
     }
 
     /// Publish an event. Having no subscribers is normal, not an error.

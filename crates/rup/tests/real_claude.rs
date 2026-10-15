@@ -1,4 +1,4 @@
-//! D2, E3, E6, E11, E12, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -759,5 +759,124 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
     assert_eq!(up, Channel::Up);
     let model = project.model.as_ref().unwrap();
     model.tool_result("toolu_e6_context").await;
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own() {
+    let project = daemon::start_real("f3_child_home", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_f3_spawn").await;
+    let spawned: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
+    assert!(spawned.worktree.is_none());
+    let tree = rail_tree(&client).await;
+    let child = tree.iter().find(|n| n.id == spawned.id).unwrap();
+    assert_eq!(child.parent.as_deref(), Some(door.as_str()));
+    assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == spawned.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
+    let project = daemon::start_real("f3_child_worktree", &[]);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut client = project.subscribed().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_f3_spawn").await;
+    let spawned: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
+    let worktree = spawned.worktree.expect("the child has a Worktree");
+    assert_eq!(worktree.branch, format!("roundup/agent-{}", spawned.id));
+    let listed = std::process::Command::new("git")
+        .current_dir(path)
+        .args(["worktree", "list"])
+        .output()
+        .unwrap();
+    assert!(listed.status.success());
+    let listed = String::from_utf8(listed.stdout).unwrap();
+    assert!(listed.contains(&worktree.path), "{listed}");
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == spawned.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
     model.assert_matched();
 }
