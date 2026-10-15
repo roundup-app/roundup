@@ -28,6 +28,8 @@ import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
 import type { AnswerParams as decision_AnswerParams } from "./decision/AnswerParams";
+import type { AnsweredDecision as decision_AnsweredDecision } from "./decision/AnsweredDecision";
+import type { AnswersParams as decision_AnswersParams } from "./decision/AnswersParams";
 import type { AskOutput as decision_AskOutput } from "./decision/AskOutput";
 import type { AskParams as decision_AskParams } from "./decision/AskParams";
 import type { CaptureParams as decision_CaptureParams } from "./decision/CaptureParams";
@@ -142,6 +144,7 @@ export type RpcMethods = {
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
   "agent.ask": { params: decision_AskParams; result: decision_AskOutput };
   "decision.list": { params: null; result: decision_Decision[] };
+  "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
   "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };
   "decision.answer": { params: decision_AnswerParams; result: null };
   "rail.tree": { params: null; result: agent_RailNode[] };
