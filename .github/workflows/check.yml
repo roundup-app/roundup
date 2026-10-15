@@ -124,6 +124,11 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      # This must be the runner's first browser command, before any warmup or regression fixture.
+      - name: U26 concurrent cold Chromium
+        run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults-${{ matrix.partition }}.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold-${{ matrix.partition }}.jsonl"
+      - name: U26 held cold startup regression
+        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
       - name: U26 held file-backed fault
         run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
       - name: test-web
@@ -133,7 +138,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chromium-faults-${{ matrix.partition }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/chromium-faults-${{ matrix.partition }}.jsonl
+          path: |
+            ${{ runner.temp }}/chromium-faults-${{ matrix.partition }}.jsonl
+            ${{ runner.temp }}/chromium-cold-faults-${{ matrix.partition }}.jsonl
+            ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
