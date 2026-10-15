@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import selectors
+import signal
 import socket
 import subprocess
 import sys
@@ -210,8 +211,10 @@ class FaultTest(unittest.TestCase):
 
     def test_u26_a_signalled_command_preserves_its_signal_without_tracing(self):
         with tempfile.TemporaryDirectory(prefix="u26-no-tracer-") as directory:
-            result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--", sys.executable, "-c", "import os,signal; os.kill(os.getpid(),signal.SIGTERM)"], env=dict(os.environ, PATH=directory), capture_output=True, text=True, timeout=10)
-            self.assertEqual(result.returncode, -15)
+            for signum in (signal.SIGTERM, signal.SIGKILL):
+                with self.subTest(signal=signum):
+                    result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--", sys.executable, "-c", f"import os; os.kill(os.getpid(),{int(signum)})"], env=dict(os.environ, PATH=directory), capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode, -signum)
 
     def event(self, stream, status, tid, address=None):
         while True:

@@ -255,7 +255,10 @@ def main():
         if closing_error:
             publish({"status": "error", "detail": f"fault log close: {closing_error}"})
     if result < 0:
-        signal.signal(-result, signal.SIG_DFL)
+        # SIGKILL cannot have a handler; every terminating signal still has
+        # to reach the caller as a signal rather than a fabricated exit code.
+        if -result != signal.SIGKILL:
+            signal.signal(-result, signal.SIG_DFL)
         os.kill(os.getpid(), -result)
     return result
 
