@@ -3269,22 +3269,27 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
 
 #[tokio::test]
 async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
-    let hold = tempfile::tempdir().unwrap().keep().join("start");
     let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
-    let project = start(&[
-        ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
-    ]);
+    let project = start(&[("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string())]);
     let client = project.client().await;
     let door = start_door(&client).await;
+    // Hold the note until after the answer without blocking H19's startup admission.
+    client
+        .request("takeover.begin", json!({ "agent": door }))
+        .await
+        .unwrap();
     let child = agent_in(&project, &client, Some(&door)).await;
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
     let decision = h21_decision(&client, &child, None).await;
     let id = decision["id"].as_str().unwrap().to_owned();
-    h21_notes(&client, &door, 1).await;
+    let notes = h21_notes(&client, &door, 1).await;
+    assert_eq!(notes[0]["status"], "held");
 
     h21_user_answers(&client, &id, "deny").await.unwrap();
-    std::fs::write(&hold, "").unwrap();
+    client
+        .request("takeover.end", json!({ "agent": door }))
+        .await
+        .unwrap();
 
     let typed = h21_poll("the typed note", async || {
         let todos = client.request("todo.list", Value::Null).await.unwrap();
