@@ -1424,6 +1424,7 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
             assert!(paths[0].join("hooks/judge.sh").is_file());
             assert!(paths[1].join("hooks/memory.tsx").is_file());
             assert_eq!(env["CLAUDE_CODE_ENABLE_FUNCTION_HOOKS"], "1");
+            assert_eq!(env["CLAUDE_CODE_PLUGIN_DIR_WATCH"], "0");
         }
     }
     assert_eq!(
