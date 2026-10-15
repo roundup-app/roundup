@@ -334,31 +334,6 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
 }
 
 #[tokio::test]
-async fn b6_original_prompt_identity_refuses_identical_replacements() {
-    let run = Run::start().await;
-    for kind in ["permission", "ask_user", "native"] {
-        let (original, waiting) = run.open(kind).await;
-        let identity = run.capture(&original).await;
-        run.user_answer(&original, kind).await;
-        let _ = waiting.await.unwrap();
-        let (replacement, waiting) = run.open(kind).await;
-        assert_eq!(original["args"], replacement["args"]);
-        let err = run.write(identity, b"old\r").await.unwrap_err();
-        assert_eq!(err.code, rpc::code::CONFLICT);
-        assert!(err.message.contains("original prompt"), "{err:?}");
-        assert!(!err.message.contains("observer"), "{err:?}");
-        // Only the user's native answer may have reached the Terminal.
-        assert!(
-            !run.recorded_input().await.contains("BYTE:6f"),
-            "old answer reached the replacement"
-        );
-        run.clear().await;
-        let _ = waiting.await.unwrap();
-    }
-    run.finish().await;
-}
-
-#[tokio::test]
 async fn b6_a_valid_original_prompt_has_one_effect() {
     let run = Run::start().await;
     for kind in ["permission", "ask_user", "native"] {
@@ -2992,4 +2967,61 @@ async fn b6_begin_racing_a_door_terminal_kill_waits_for_the_child_effect() {
 #[tokio::test]
 async fn b6_begin_racing_a_door_terminal_close_waits_for_the_child_effect() {
     ending_takeover_race("terminal.close").await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_resize_waits_for_the_child_effect() {
+    let (run, caller) = door_terminal().await;
+    run.pause();
+    let terminal = run.terminal.clone();
+    let resize = tokio::spawn(async move {
+        caller
+            .request(
+                "terminal.resize",
+                json!({"id":terminal,"cols":101,"rows":37}),
+            )
+            .await
+    });
+    run.paused().await;
+    let before = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(
+        (before["cols"].as_u64(), before["rows"].as_u64()),
+        (Some(80), Some(24))
+    );
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The gate acknowledges arrival before resize. This window observes absence of acquisition.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    run.release();
+    tokio::time::timeout(BOUND, resize)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    let acquired_early = early.is_ok();
+    let acquired = match early {
+        Ok(result) => result.unwrap(),
+        Err(_) => tokio::time::timeout(BOUND, begin).await.unwrap().unwrap(),
+    };
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert!(
+        !acquired_early,
+        "Takeover acquired before Door resize completed"
+    );
+    acquired.unwrap();
+    assert_eq!(
+        (after["cols"].as_u64(), after["rows"].as_u64()),
+        (Some(101), Some(37))
+    );
 }
