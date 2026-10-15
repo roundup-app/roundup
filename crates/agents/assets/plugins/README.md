@@ -38,6 +38,16 @@ copies and one roundup test; upstream test files remain in the delivered bundle 
 are excluded from this focused compatibility probe.
 A corrupt, missing, additional or symlinked asset rejects the entire bundle.
 
+`Runtime.command` sets `CLAUDE_CODE_PLUGIN_DIR_WATCH=0`: roundup delivers pinned
+plugins, while Claude's directory-development mode writes generated TypeScript
+declarations and tsconfig files into their roots. Those unpinned files would
+correctly fail the next launch's exact inventory check. The setting is present in
+the pinned Claude Code 2.1.300 loader; its real-session regressions in
+`crates/rup/tests/real_claude.rs` cover starting another Door and Agent after a
+completed turn. Keep inventory verification exact rather than allowing generated
+paths or deleting unexpected files, which could hide tampering. Fresh copies per
+launch would add lifetime/storage handling and conceal changes to prior copies.
+
 `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is mandatory. The vendor runtime supplies
 `claude-code` and `claude-code/testing`; these must not be replaced by an npm stub.
 hope's slop.tsx imports update and its judge.sh executes sh/git/claude (the
