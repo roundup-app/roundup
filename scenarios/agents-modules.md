@@ -73,8 +73,12 @@ path and total line count. The state-reader table has one row for every
 ungrouped `Shared` field and every field inside a module-owned holder, with the
 field's qualified name, owning type and module, and production reader functions
 qualified by module. List holder fields individually rather than counting the
-holder itself as a second reader. These tables are policy evidence inspected
-against the implementation, not new tests of source text.
+holder itself as a second reader. For a read through an accessor, list the
+accessor and the production function that consumes its result, qualified by
+module; count the consuming module, not a module that only forwards the value.
+Two consuming functions in the same module still count as one reader module. These
+tables are policy evidence inspected against the implementation, not new tests
+of source text.
 
 A nonzero command or a violated policy clause fails AM1. The specification PR
 establishes this acceptance only; it does not claim the refactor or the size guard is delivered.
