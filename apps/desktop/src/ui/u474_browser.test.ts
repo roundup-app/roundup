@@ -1,10 +1,15 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
+
+import { CHECK_IDS, type Checks } from "../testing/checks";
+import { captureDir } from "../testing/captures";
+
+const art = captureDir("U477");
 
 const exec = promisify(execFile);
 
@@ -15,6 +20,10 @@ const session = `u474-${process.pid}`;
 let server: ViteDevServer;
 
 let origin: string;
+
+let baselineServer: ViteDevServer | undefined;
+
+let baselineOrigin: string | undefined;
 
 const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 25_000 })).stdout;
 
@@ -31,12 +40,20 @@ beforeAll(async () => {
   server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!;
+  const baseRoot = process.env.U477_BASE_ROOT;
+
+  if (baseRoot) {
+    baselineServer = await createServer({ root: baseRoot, configFile: join(baseRoot, "vite.config.ts"), cacheDir: join(profile, "base"), server: { port: 0, hmr: false }, logLevel: "silent" });
+    await baselineServer.listen();
+    baselineOrigin = baselineServer.resolvedUrls!.local[0]!;
+  }
+
   await browser("--profile", profile, "open", new URL("/src/ui/u474.html", origin).href);
 
 }, 90_000);
 
 afterAll(async () => {
-  try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
+  try { await browser("close"); } finally { await server?.close(); await baselineServer?.close(); rmSync(profile, { recursive: true, force: true }); }
 });
 
 
@@ -85,30 +102,118 @@ it("u474_menu_keyboard", async () => {
 
 it("u474_tooltip_pointer_and_keyboard", async () => {
   await load();
-  await browser("hover", '[data-scope="tooltip"][data-part="trigger"]');
+  await browser("hover", '[data-scope="tooltip"][data-part="trigger"]:not([data-button=icon])');
   await browser("wait", "--fn", `!!document.querySelector('[role=tooltip]')`);
-  const linked = `document.getElementById(document.querySelector('[data-scope=tooltip][data-part=trigger]').getAttribute('aria-describedby'))?.textContent`;
+  const linked = `document.getElementById(document.querySelector('[data-scope=tooltip][data-part=trigger]:not([data-button=icon])').getAttribute('aria-describedby'))?.textContent`;
   expect(await read<string>(linked)).toBe("Project contains Agents.");
   await browser("mouse", "move", "1200", "700");
-  await browser("wait", "--fn", `!document.querySelector('[role=tooltip]')`);
+  await browser("wait", "--fn", `![...document.querySelectorAll('[role=tooltip]')].some(el => el.textContent === "Project contains Agents.")`);
   await browser("eval", `document.querySelector('[data-scope=menu][data-part=trigger]').focus()`);
   await browser("press", "Tab");
   await browser("wait", "--fn", `!!document.querySelector('[role=tooltip]')`);
   expect(await read<string>(linked)).toBe("Project contains Agents.");
   await browser("press", "Tab");
-  await browser("wait", "--fn", `!document.querySelector('[role=tooltip]')`);
+  await browser("wait", "--fn", `![...document.querySelectorAll('[role=tooltip]')].some(el => el.textContent === "Project contains Agents.")`);
 }, 60_000);
 
 for (const path of ["hover", "focus"] as const) {
   it(`u477_icon_button_${path}_shows_its_name`, async () => {
     await load();
     const selector = '[aria-label="Open Project"]';
+
     if (path === "hover") await browser("hover", selector);
     else {
-      await browser("eval", `document.querySelector('[data-scope=tooltip][data-part=trigger]').focus()`);
+      await browser("eval", `document.querySelector('[data-scope=tooltip][data-part=trigger]:not([data-button=icon])').focus()`);
       await browser("press", "Tab");
     }
+
     await browser("wait", "--fn", `!!document.querySelector('[role=tooltip]')`);
     expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.textContent`)).toBe("Open Project");
+  }, 60_000);
+}
+
+it("u477_icon_button_leave_hides_its_name", async () => {
+  await load();
+  await browser("hover", '#fixture-icon');
+  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
+  await browser("mouse", "move", "1200", "700");
+  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'closed'`);
+  expect(await read<string | null>(`document.getElementById('fixture-icon').getAttribute('aria-describedby')`)).toBeNull();
+}, 60_000);
+
+it("u477_icon_button_blur_hides_its_name", async () => {
+  await load();
+  await browser("eval", `document.querySelector('[data-scope=tooltip][data-part=trigger]:not([data-button=icon])').focus()`);
+  await browser("press", "Tab");
+  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
+  await browser("press", "Tab");
+  await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'closed'`);
+  expect(await read<string | null>(`document.getElementById('fixture-icon').getAttribute('aria-describedby')`)).toBeNull();
+}, 60_000);
+
+it("u477_icon_button_preserves_button_props", async () => {
+  await load();
+  await browser("click", '#fixture-icon');
+  await browser("wait", "--fn", `document.querySelector('output').textContent === '1'`);
+  expect(await read<string[]>(`(() => { const button = document.getElementById('fixture-icon'); return [button.dataset.refConnected, button.dataset.fixture, button.getAttribute('aria-expanded'), button.dataset.button]; })()`)).toEqual(["true", "ordinary", "false", "icon"]);
+}, 60_000);
+
+it("u477_disabled_icon_button_shows_its_name", async () => {
+  await load();
+  const selector = '[aria-label="Unavailable action"]';
+
+  for (const path of ["hover", "focus"]) {
+    if (path === "hover") await browser("hover", selector);
+    else {
+      await browser("mouse", "move", "1200", "700");
+      await browser("eval", `document.getElementById('fixture-icon').focus()`);
+      await browser("press", "Tab");
+    }
+
+    await browser("wait", "--fn", `document.querySelector('${selector}').dataset.state === 'open'`);
+    expect(await read<string>(`document.getElementById(document.querySelector('${selector}').getAttribute('aria-describedby'))?.textContent`)).toBe("Unavailable action");
+  }
+}, 60_000);
+
+it("u477_disabled_icon_button_does_not_act", async () => {
+  await load();
+  await browser("click", '[aria-label="Unavailable action"]');
+  await browser("press", "Enter");
+  await browser("press", "Space");
+  expect(await read<string>(`document.querySelector('output').textContent`)).toBe("0");
+}, 60_000);
+
+for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+  it(`u477_tooltip_checks ${scheme}-${width}`, async () => {
+    await browser("set", "media", scheme);
+    await browser("set", "viewport", String(width), "800");
+    await browser("open", new URL("/harness.html?seed=tree-40", baselineOrigin ?? origin).href);
+    await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+    const baseline = await read<Checks>("window.__checks()");
+
+    if (art) {
+      mkdirSync(art, { recursive: true });
+      await browser("screenshot", join(art, `${scheme}-${width}-before.png`));
+      writeFileSync(join(art, `${scheme}-${width}-before.checks.json`), JSON.stringify(baseline));
+    }
+
+    if (baselineOrigin) {
+      await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+      await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+    }
+
+    await browser("eval", `(() => { window.__fake.app.openFailure = new Error("U477 rejected action remains visible"); const button = document.querySelector('.rail-row:not([aria-expanded]) [aria-label="Open folder"]'); button.id = "u477-folder"; button.closest(".rail-row").id = "u477-row"; button.click(); })()`);
+    await browser("wait", "--fn", `document.body.textContent.includes('U477 rejected action remains visible')`);
+    await browser("hover", "#u477-row");
+    await browser("hover", '#u477-folder');
+    await browser("wait", "--fn", `document.querySelector('.rail-row:not([aria-expanded]) [aria-label="Open folder"]').dataset.state === 'open'`);
+    const checks = await read<Checks>("window.__checks()");
+
+    for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, id).toBe("pass");
+
+    if (art) {
+      await browser("screenshot", join(art, `${scheme}-${width}-failure-tooltip.png`));
+      writeFileSync(join(art, `${scheme}-${width}-failure-tooltip.checks.json`), JSON.stringify(checks));
+    }
   }, 60_000);
 }

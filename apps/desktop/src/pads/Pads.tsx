@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { createBulkDelete } from "../shelf/BulkDelete";
@@ -140,14 +141,14 @@ const PadRows = (props: {
               <Show
                 when={pad.owner.kind === "user"}
                 fallback={
-                  <button data-button="icon"
+                  <IconButton data-button="icon"
                     type="button"
                     class="word"
                     aria-label={copy.makePadYours(pad.name)}
                     onClick={() => props.onMakeYours(pad.name)}
                   >
                     <OwnerMark owner={pad.owner} />
-                  </button>
+                  </IconButton>
                 }
               >
                 <span class="light">

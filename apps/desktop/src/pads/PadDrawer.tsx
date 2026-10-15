@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
@@ -229,9 +230,9 @@ const PadBody = (props: {
         <Show
           when={ownedByUser()}
           fallback={
-            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.makeYours} onClick={() => void takeIt()}>
+            <IconButton data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.makeYours} onClick={() => void takeIt()}>
               <OwnerMark owner={pad().owner} decorative />
-            </button>
+            </IconButton>
           }
         >
           <span style={wholeWord}><OwnerMark owner={pad().owner} decorative /></span>
@@ -240,29 +241,27 @@ const PadBody = (props: {
           {name}
         </span>
         <Show when={owner()}>
-          <button
+          <IconButton
             data-button="icon"
             type="button"
             class="word"
             style={wholeWord}
-            aria-label={copy.openOwner}
-            title={copy.ownerName(connected.rail.nameOf(pad().owner))}
+            aria-label={copy.ownerName(connected.rail.nameOf(pad().owner))}
             onClick={() => void openOwner()}
           >
             <Icon name="talk" />
-          </button>
+          </IconButton>
         </Show>
-        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.exportMd} title={copy.exportMd} onClick={() => void exportToFile()}>
+        <IconButton data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
-        </button>
+        </IconButton>
         <Show when={!asking()}>
-          <button
+          <IconButton
             data-button="icon"
             type="button"
             class="word"
             style={wholeWord}
             aria-label={copy.delete}
-            title={copy.delete}
             ref={(button) => (deleteButton = button)}
             onClick={() => {
               actionFailure.clear();
@@ -270,7 +269,7 @@ const PadBody = (props: {
             }}
           >
             <Icon name="trash" />
-          </button>
+          </IconButton>
         </Show>
       </div>
       <Show when={asking()}>

@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
@@ -12,11 +13,10 @@ export type RowActions = {
 );
 
 const RowIcon = (props: { name: "plus" | "clear" | "stop" | "folder" | "editor"; label: string; title?: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
-  <button
+  <IconButton
     data-button="icon"
     type="button"
-    aria-label={props.label}
-    title={props.title ?? props.label}
+    aria-label={props.title ?? props.label}
     aria-disabled={props.disabled ? true : undefined}
     onClick={(click) => {
       click.stopPropagation();
@@ -24,7 +24,7 @@ const RowIcon = (props: { name: "plus" | "clear" | "stop" | "folder" | "editor";
     }}
   >
     <Icon name={props.name} />
-  </button>
+  </IconButton>
 );
 
 /** U426: shown while the row is near (hover, focus within, selected) and otherwise hidden by opacity, so it stays in the Tab order. */
@@ -34,7 +34,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       {(add) => (
         <span class="rail-split-add">
           <button type="button" data-button="quiet" aria-label={copy.addAgentLabel} title={copy.addAgentN} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(false); }}><Icon name="plus" /><span class="rail-add-label">{copy.agent}</span></button>
-          <button type="button" data-button="icon" aria-label={copy.chooseModelAndEffort} title={copy.chooseModelAndEffort} aria-expanded={add().expanded} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(true); }}><Icon name="down" /></button>
+          <IconButton type="button" data-button="icon" aria-label={copy.chooseModelAndEffort} aria-expanded={add().expanded} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(true); }}><Icon name="down" /></IconButton>
         </span>
       )}
     </Show>

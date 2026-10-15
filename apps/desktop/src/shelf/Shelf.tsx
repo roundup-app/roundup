@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
@@ -21,7 +22,7 @@ const LABELS: Record<ShelfTab, string> = { todos: copy.todos, pads: copy.pads };
 
 /** U370: the one button that hides and shows the Shelf; it sits in the Shelf's tablist line while open and at the header's trailing edge while closed. */
 export const ShelfToggle = (props: { open: boolean; onToggle: () => void }) => (
-  <button
+  <IconButton
     data-button="icon"
     type="button"
     class="shelf-toggle"
@@ -30,7 +31,7 @@ export const ShelfToggle = (props: { open: boolean; onToggle: () => void }) => (
     onClick={() => props.onToggle()}
   >
     <Icon name={props.open ? "right" : "left"} />
-  </button>
+  </IconButton>
 );
 
 /** U371: a scroll shadow shows on an edge only where content is clipped there. */
