@@ -679,7 +679,10 @@ mod tests {
             pads: &pads,
             messages: &[],
         };
-        daemon.digests.ask(&ctx.actor, &ws, &sources).unwrap();
+        let first_digest =
+            serde_json::to_value(daemon.digests.ask(&ctx.actor, &ws, &sources).unwrap()).unwrap();
+        assert_eq!(first_digest["children"][0]["pads"], json!(["kept Pad"]));
+        let door = ctx.actor.clone();
         let cursor: i64 = db
             .query_row("SELECT newest FROM pad_cursors WHERE door=?", [&ws], |r| {
                 r.get(0)
@@ -691,6 +694,9 @@ mod tests {
         drop(daemon);
         drop(db);
         let daemon = Daemon::open(dir.path()).unwrap();
+        let reopened_digest =
+            serde_json::to_value(daemon.digests.ask(&door, &ws, &sources).unwrap()).unwrap();
+        assert_eq!(reopened_digest["children"][0]["pads"], json!([]));
         assert_eq!(
             call(&daemon, "rail.tree", Json::Null).await[0]["name"],
             "kept Workstream"
