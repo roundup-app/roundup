@@ -417,7 +417,7 @@ impl Shared {
                     _ => not_found(),
                 }));
             };
-            if run.ended || run.closing {
+            if run.ended || run.closing || run.adapter.is_ended() {
                 return Err(SteerError::Refused(not_found()));
             }
             let kind = run
@@ -426,7 +426,7 @@ impl Shared {
                 .map_or(Kind::Working, |status| status.kind);
             let ahead = run.first_pending && !first;
             if ahead
-                || kind != Kind::Idle
+                || !matches!(kind, Kind::Idle | Kind::Error)
                 || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
             {
                 return Err(SteerError::Refused(PromptError::Busy {
@@ -2130,9 +2130,13 @@ impl Agents {
             let (status_revision, ended) = match runs.get(&id) {
                 Some(Slot::Running(run)) => (
                     Some(run.status_revision.to_string()),
-                    run.adapter
-                        .status()
-                        .is_none_or(|status| matches!(status.kind, Kind::Done | Kind::Error)),
+                    run.ended
+                        || run.closing
+                        || run.adapter.is_ended()
+                        || run
+                            .adapter
+                            .status()
+                            .is_none_or(|status| status.kind == Kind::Done),
                 ),
                 Some(Slot::Starting { .. } | Slot::Resuming { .. }) => (Some("1".into()), false),
                 None | Some(Slot::Closing) => (None, true),
@@ -4025,6 +4029,10 @@ mod tests {
                 })
                 .unwrap();
         }
+        assert!(matches!(
+            agents.prompt("1", "after fatal failure").await,
+            Err(super::PromptError::NotFound { .. })
+        ));
         watched.watcher.abort();
     }
 
@@ -4714,7 +4722,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
+    async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
         let mut watched = Watched::start();
         {
             let mut runs = watched.shared.runs();
@@ -4729,6 +4737,7 @@ mod tests {
             Observation::Tick,
             Observation::Exit { code: Some(1) },
             Observation::Signal(json!({"hook_event_name":"Stop"})),
+            Observation::Signal(json!({"hook_event_name":"StopFailure"})),
         ] {
             // A20: ignored, never an error to the sender.
             let ignored = watched
