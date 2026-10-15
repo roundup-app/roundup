@@ -702,6 +702,7 @@ async fn a23_a_restart_without_acknowledgement_fails_with_a22s_error() {
     };
     f.until_attempt_changed(&door.id, &old_attempt).await;
     tokio::time::advance(Duration::from_secs(11)).await;
+    tokio::time::resume();
 
     let err = starting.await.unwrap().unwrap_err();
 
