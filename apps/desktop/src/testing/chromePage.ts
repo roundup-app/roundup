@@ -63,7 +63,7 @@ export const openPage = async (
   found: string,
   { root = process.cwd(), clock, replyMs = 20_000 }: { root?: string; clock?: number; replyMs?: number } = {},
 ): Promise<ChromePage> => {
-  const startup = Date.now();
+  const startup = performance.now();
 
   if (process.platform === "linux") {
     // U26's private cold executable at 100 read IOPS exhausts 20 s on
@@ -217,15 +217,15 @@ export const openPage = async (
     if (failure !== undefined) return Promise.reject(new Error(`${method}: ${failure}`));
 
     const id = ++next;
-    const started = id === 1 ? startup : Date.now();
+    const started = id === 1 ? startup : performance.now();
     // Preparation consumes the same startup budget; it cannot hide a stall
     // before a fresh 20-second Target.createTarget timer starts.
-    const budget = Math.max(0, replyMs - (Date.now() - started));
+    const budget = Math.max(0, replyMs - (performance.now() - started));
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after ${replyMs} ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
+        reject(new Error(`${method} timed out after ${replyMs} ms; elapsed=${performance.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
       }, budget);
 
       waiting.set(id, (reply) => {
