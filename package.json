@@ -7,9 +7,12 @@
   "scripts": {
     "lint": "oxlint",
     "typecheck": "tsc",
-    "slop": "fallow dead-code && fallow dupes"
+    "slop": "fallow dead-code && fallow dupes",
+    "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.300",
+    "@copilotkit/aimock": "1.45.1",
     "@oxlint/plugins": "1.86.0",
     "fallow": "^3.31.0",
     "oxlint": "1.86.0",
