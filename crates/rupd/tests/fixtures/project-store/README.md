@@ -1,6 +1,6 @@
 # Project database import fixtures
 
-Main SHA: `ef37937d8aa12e73ca4db6a06708e99791d6b48a`. These seven databases were created with that checkout's real `Daemon::open`, then populated with the existing store-migration seed SQL. Every application table has rows, including both Rail and Pad settings, deleted-id sequence gaps, Todo Changes and blockers, ordered Touches, Message Routes and reservations, Digest cursors, Checkpoints and Marks. Tests compare typed values and sequences before runtime recovery.
+Main SHA: `ef37937d8aa12e73ca4db6a06708e99791d6b48a`. These seven databases were created with that checkout's real `Daemon::open`, then populated with the existing store-migration seed SQL. Every application table has rows, including both Rail and Pad settings, sparse primary keys and sequence state, Todo Changes and blockers, ordered Touches, Message Routes and reservations, Digest cursors, Checkpoints and Marks. Tests compare typed values and sequences before runtime recovery.
 
 Reproduce into an empty output directory:
 
