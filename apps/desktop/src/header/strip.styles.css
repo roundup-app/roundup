@@ -1,8 +1,9 @@
-/* U441 supplies colour and the name inset; U440/U442 own the remaining geometry. */
+/* U440/U442: the boxes fill the window row and share its bottom rule. */
 .strip {
   display: flex;
   flex: 1 1 auto;
-  align-items: baseline;
+  height: 100%;
+  align-items: center;
   min-width: 0;
 }
 
@@ -10,12 +11,14 @@
   position: relative;
   display: flex;
   flex: 0 1 auto;
+  height: 100%;
   min-width: 0;
 }
 
 .tablist {
   display: flex;
-  align-items: baseline;
+  height: 100%;
+  align-items: center;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -31,20 +34,25 @@
   position: relative;
   display: flex;
   flex: 0 1 auto;
-  align-items: baseline;
+  box-sizing: border-box;
+  height: 100%;
+  border: 1px solid var(--hairline);
+  padding-inline: var(--space-1);
+  align-items: center;
   /* U382’s text floor and close target stay intact when the required name inset is added. */
-  min-width: calc(8ch + var(--space-5) + 2 * var(--space-1));
-  margin-right: var(--space-4);
+  min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2px);
+  margin-right: var(--space-1);
 }
 
 .tab-name-button {
   --button-inline: var(--space-1);
   --button-hover: transparent;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(8ch, 1fr) var(--space-2);
   flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
-  align-items: baseline;
+  align-items: center;
   white-space: nowrap;
 }
 
@@ -68,6 +76,13 @@
 
 .tab-mark {
   flex: none;
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-control);
+  background-color: currentColor;
+  align-self: flex-start;
+  margin-top: var(--space-1);
 }
 
 .tab-close {
@@ -108,9 +123,22 @@
 .strip-edge {
   position: absolute;
   top: 0;
+  bottom: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  border: 1px solid var(--hairline);
+  --button-radius: calc(var(--radius-control) * 0);
   z-index: 1;
   --button-surface: var(--sunken);
   white-space: nowrap;
+}
+
+.strip-edge .tab-mark {
+  align-self: center;
+  margin-top: 0;
 }
 
 .strip-edge-left {
@@ -148,7 +176,7 @@
   display: grid;
   grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
   align-items: center;
-  height: 100%;
+  height: calc(100% + 1px);
   padding-inline: var(--space-2);
   box-sizing: border-box;
   user-select: none;

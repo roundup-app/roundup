@@ -19,9 +19,9 @@ export type Mark = "error" | "needs-you";
 /** U180: `error` over `needs-you`; an exited Daemon is an error whatever its Agents' Kinds were (U185). */
 export const markOf = (tab: StripTab): Mark | null => (tab.exitText !== null || tab.error > 0 ? "error" : tab.needsYou > 0 ? "needs-you" : null);
 
-export const MARKS: Record<Mark, { character: string; label: string; tone: "red" | "amber" }> = {
-  error: { character: "⊗", label: copy.error, tone: "red" },
-  "needs-you": { character: "◉", label: copy.needsYou, tone: "amber" },
+export const MARKS: Record<Mark, { label: string; tone: "red" | "amber" }> = {
+  error: { label: copy.error, tone: "red" },
+  "needs-you": { label: copy.needsYou, tone: "amber" },
 };
 
 /** U182: both counts always; an exited Daemon says so instead (U185). */

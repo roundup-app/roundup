@@ -66,6 +66,7 @@ p {
 }
 
 .header {
+  border-bottom: 1px solid var(--hairline);
   position: relative;
   color: var(--text);
   background-color: var(--ground);
@@ -368,7 +369,7 @@ p {
   right: 16px;
 }
 
-.header .ink {
+.header .ink:not(.tab-mark):not(.strip-edge) {
   display: inline;
 }
 

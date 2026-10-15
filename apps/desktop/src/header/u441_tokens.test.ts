@@ -43,11 +43,11 @@ afterAll(async () => {
 
 Baseline: main ${BASE}. Head: the source in this PR. Chromium uses a fresh isolated profile.
 
-Both schemes and normal/more contrast, at 1280×800 with three Projects: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/Reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. The existing U179–U186 tests remain unchanged.
+Both schemes and normal/more contrast, at 1280×800 with three Projects: rest, hover, selected, selected hover, close hover, pressed, disabled, keyboard focus, rename, overflow and failure/Reopen. The Rail, centre pane, Shelf, Drawer, tooltip and close dialog are measured before and after the contract. U179–U186 interactions run separately; the mark assertions follow U443’s dot.
 
 Each state compares every passing Check on the baseline against the head. A \`-main\` image/check pair uses the baseline styles on the same rendered DOM and interaction state; its unmarked pair uses the head. JSON colour rows retain unrounded composited channels and text/selected contrast readings.
 
-The contrast fixture temporarily draws a 1 px Token border on the existing tabs, so its actual computed border colour is measured. Overflow measurement constrains only the fixture's strip width. Only the required name inset changes runtime geometry. The Check comparison and behaviour test use runtime geometry. The remaining U440, U442 and U443 acceptance stays with #1093.
+The runtime boxes carry the measured 1 px Token borders. Overflow measurement constrains only the fixture's strip width. U440–U443 geometry and main-revision Check comparisons are captured separately in ../U440/. Dot contrast measures its foreground against the composited ancestor paint.
 
 The current-main D14 Shelf-gap repair stays passing; selected pointer and keyboard press retains every passing baseline Check with the repaired opaque Token. These captures show the webview, not native macOS behaviour.
 `);
@@ -79,6 +79,8 @@ const PAINT = `selector => {
   let ground = rgb(getComputedStyle(document.documentElement).getPropertyValue('--ground'));
   const layers = [];
   for (const node of chain) {
+    // A filled dot is foreground; its contrast is against the ancestor paint.
+    if (node === el && el.matches(".tab-mark")) continue;
     const css = getComputedStyle(node);
     const layer = rgb(css.backgroundColor);
     layers.push({ element: node.className, colour: css.backgroundColor });
@@ -199,12 +201,12 @@ const selectFirst = async () => {
   await page.until("() => document.querySelector('.tab-name-button').getAttribute('aria-selected') === 'true'");
 };
 
-// The two Kind tones run through the rendered Glyph's shipped colour rule, rather than comparing Token values alone.
+// Measure both dot tones through their shipped Ink rule.
 const dots = async () => {
-  const red = await paint('.tab-mark .glyph');
-  await page.call("() => document.querySelector('.tab-mark .glyph').dataset.tone = 'amber'");
-  const amber = await paint('.tab-mark .glyph');
-  await page.call("() => document.querySelector('.tab-mark .glyph').dataset.tone = 'red'");
+  const red = await paint('.tab-mark');
+  await page.call("() => document.querySelector('.tab-mark').dataset.tone = 'amber'");
+  const amber = await paint('.tab-mark');
+  await page.call("() => document.querySelector('.tab-mark').dataset.tone = 'red'");
 
   return { red, amber };
 };
@@ -508,7 +510,7 @@ it("u441_token_observers_resolve_the_surface", async () => {
     expect(good.D8.status).toBe('pass');
 
     for (const [css, check] of [
-      ['.header .tab-mark { color: #ff00ff; }', 'D3'],
+      ['.header .tab-mark[data-tone] { color: #ff00ff; }', 'D3'],
       ['.header { border-bottom: 1px solid var(--root-hairline); }', 'D8'],
       ['.header { --ground: #808080; }', 'D1'],
       [':root { --ground: #808080; }', 'D1'],
@@ -541,24 +543,6 @@ it("u441_token_checks_do_not_regress", async () => {
     await save(`${scheme}-${contrast ?? 'normal'}-three-${width}x${height}-head`, { before, after });
   }
 }, 180_000);
-
-it("u441_token_change_keeps_header_behaviour", async () => {
-  await three();
-  await selectFirst();
-  // U476 owns the inherited font; hold it constant while comparing U441’s color and inset changes.
-  await page.call(`() => { const sheet = document.createElement('style'); sheet.textContent = ':root { font-family: var(--font-ui); } .tab-name-button { --button-inline: var(--space-1); } .project-tab { min-width: calc(8ch + var(--space-5) + 2 * var(--space-1)); }'; document.head.append(sheet); }`);
-  const selectors = ['.header', '.strip', '.project-tab:nth-child(1)', '.project-tab:nth-child(2)', '.project-tab:nth-child(3)', '.tab-name-button', '.tab-close', '.strip-add'];
-  const after = await Promise.all(selectors.map(paint));
-  await useMain(true);
-  const before = await Promise.all(selectors.map(paint));
-  expect(after.map(row => row.rect)).toEqual(before.map(row => row.rect));
-  await useMain(false);
-  await selectFirst();
-  const selected = await Promise.all(selectors.map(paint));
-  expect(selected.map(row => row.rect)).toEqual(after.map(row => row.rect));
-  await hover('.tab-close');
-  expect((await Promise.all(selectors.map(paint))).map(row => row.rect)).toEqual(after.map(row => row.rect));
-}, 60_000);
 
 
 it("u441_light_header_keeps_root_ground", async () => {
