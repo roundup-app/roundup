@@ -43,12 +43,13 @@ describe("u181 clicking a tab", () => {
     expect(app.of(path("web")).calls.length).toBe(before);
   });
 
-  it("u181_a_click_on_a_mark_switches_and_selects_the_most_urgent_agent", async () => {
+  it("u443_the_mark_keeps_its_rule_name_and_click", async () => {
     await openTabs({
       api: [agent("calm", "idle", "x"), agent("ask", "needs-you", "x"), agent("boom", "error", "x")],
       web: [agent("w1", "idle", "x")],
     });
 
+    expect(tab("api").querySelector(".tab-mark")?.getAttribute("aria-label")).toBe("Error");
     fireEvent.click(tab("api").querySelector(".tab-mark")!);
 
     await waitFor(() => expect(rowSelected("boom")).toBe("true"));
