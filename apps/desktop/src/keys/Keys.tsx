@@ -1,4 +1,5 @@
-import { onCleanup } from "solid-js";
+import { registerKeys } from "./registry";
+import { chordsFor, RAIL_KEYS } from "./chords";
 import { useConnectedProject } from "../state/connectedProject";
 import { placeOf } from "./places";
 import { railStep } from "./railStep";
@@ -69,31 +70,23 @@ export const Keys = () => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   };
 
-  const onKey = (press: KeyboardEvent): void => {
-    if (press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey && (press.key === "1" || press.key === "2")) {
-      press.preventDefault();
-      (press.key === "1" ? focusTabbableRow : focusPane)();
+  const outsideTabRename = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.matches(".tab-rename"));
 
-      return;
-    }
+  registerKeys({ kind: "app" }, [
+    { chords: chordsFor("⌘1"), when: outsideTabRename, run: focusTabbableRow },
+    { chords: chordsFor("⌘2"), when: outsideTabRename, run: focusPane },
+  ]);
+  registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>('[role="tree"]') ?? undefined }, [
+    { chords: RAIL_KEYS,
+      when: (press) => placeOf(press.target instanceof Element ? press.target : null) === "rail" && isRow(press.target),
+      run: (press) => {
+        if (!isRow(press.target)) return;
 
-    if (press.metaKey || press.ctrlKey || press.altKey || press.shiftKey) return;
-
-    if (placeOf(press.target instanceof Element ? press.target : null) !== "rail") return;
-
-    if (!isRow(press.target)) return;
-
-    if (press.key === "ArrowLeft" || press.key === "ArrowRight") {
-      press.preventDefault();
-      onArrow(press.target, press.key === "ArrowLeft" ? "left" : "right");
-    } else if (press.key === "F2") {
-      press.preventDefault();
-      onRename(press.target);
-    }
-  };
-
-  document.addEventListener("keydown", onKey);
-  onCleanup(() => document.removeEventListener("keydown", onKey));
+        if (press.key === "F2") onRename(press.target);
+        else onArrow(press.target, press.key === "ArrowLeft" ? "left" : "right");
+      },
+    },
+  ]);
 
   return null;
 };
