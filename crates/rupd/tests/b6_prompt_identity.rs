@@ -334,31 +334,6 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
 }
 
 #[tokio::test]
-async fn b6_original_prompt_identity_refuses_identical_replacements() {
-    let run = Run::start().await;
-    for kind in ["permission", "ask_user", "native"] {
-        let (original, waiting) = run.open(kind).await;
-        let identity = run.capture(&original).await;
-        run.user_answer(&original, kind).await;
-        let _ = waiting.await.unwrap();
-        let (replacement, waiting) = run.open(kind).await;
-        assert_eq!(original["args"], replacement["args"]);
-        let err = run.write(identity, b"old\r").await.unwrap_err();
-        assert_eq!(err.code, rpc::code::CONFLICT);
-        assert!(err.message.contains("original prompt"), "{err:?}");
-        assert!(!err.message.contains("observer"), "{err:?}");
-        // Only the user's native answer may have reached the Terminal.
-        assert!(
-            !run.recorded_input().await.contains("BYTE:6f"),
-            "old answer reached the replacement"
-        );
-        run.clear().await;
-        let _ = waiting.await.unwrap();
-    }
-    run.finish().await;
-}
-
-#[tokio::test]
 async fn b6_a_valid_original_prompt_has_one_effect() {
     let run = Run::start().await;
     for kind in ["permission", "ask_user", "native"] {

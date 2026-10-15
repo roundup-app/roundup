@@ -332,7 +332,7 @@ impl Daemon {
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
         let child = if conn.actor.kind == ActorKind::Agent {
             match method {
-                "terminal.write" | "terminal.kill" | "terminal.close" => {
+                "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                     self.guard_terminal_read(&conn.actor, &params).await?
                 }
                 "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
