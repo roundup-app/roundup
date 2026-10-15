@@ -153,8 +153,16 @@ class FaultTest(unittest.TestCase):
                             subprocess.run(["sudo", "-n", "kill", "-STOP", str(tracer_pid)], check=True, timeout=5)
                             # waitid cannot reap a non-child: /proc is the
                             # independent acknowledgement of the stop signal.
-                            with open(f"/proc/{tracer_pid}/status") as status:
-                                self.assertIn("T (stopped)", status.read())
+                            # kill returns once SIGSTOP is queued; the thread
+                            # group stops when the target next runs, so poll
+                            # until it does and fail with the last state.
+                            deadline = time.monotonic() + 10
+                            while True:
+                                state = Path(f"/proc/{tracer_pid}/status").read_text()
+                                if "T (stopped)" in state or time.monotonic() >= deadline:
+                                    break
+                                time.sleep(0.01)
+                            self.assertIn("T (stopped)", state)
 
                         def resume_consumer():
                             subprocess.run(["sudo", "-n", "kill", "-CONT", str(tracer_pid)], check=True, timeout=5)
