@@ -172,6 +172,7 @@ run("Q3 and U197 rendered text contrast", () => {
       await page.until(`() => document.querySelector(".thread-goal")?.textContent.includes("Change no file")`);
       await page.call(`() => document.querySelector("[aria-label='Order of workstream-1']").click()`);
       await page.until(`() => document.querySelector(".order-ask")?.textContent.length >= 300`);
+
       const wraps = await page.call<boolean>(`() => {
         const ask = document.querySelector(".order-ask");
         const drawer = document.querySelector("[aria-label='Full order of workstream-1']");
