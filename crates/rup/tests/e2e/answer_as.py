@@ -3,7 +3,7 @@
 
   answer_as.py WAIT OUT DECISION DOOR_FILE DATA_DIR MODE
 
-It waits for the file WAIT; DECISION `$decision` reads the request id from WAIT. MODE is `plain`: it sends `decision.answer` {id: DECISION, answer:
+It waits for the file WAIT. MODE is `plain`: it sends `decision.answer` {id: DECISION, answer:
 "allow"} with no `proof`. `identify`: it first claims the Door whose id is in DOOR_FILE with
 `daemon.identify`. `files`: it first reads that Door's launch files in DATA_DIR/agents and the
 environment it inherited, as any process of the user can, and then claims the Door. The reply is
@@ -18,8 +18,6 @@ import time
 wait, out, decision, door_file, data_dir, mode = sys.argv[1:7]
 while not os.path.exists(wait):
     time.sleep(0.02)
-if decision == "$decision":
-    decision = open(wait).read().strip()
 door = open(door_file).read().strip()
 if mode == "files":
     for suffix in ("mcp.json", "settings.json", "brief.md"):
