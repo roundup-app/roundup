@@ -47,8 +47,8 @@ async fn spawn_shim(socket: &Path, agent: &str) -> Shim {
 }
 
 impl Shim {
-    async fn call(&self, tool: &'static str, arguments: Value) -> CallToolResult {
-        let mut request = CallToolRequestParams::new(tool);
+    async fn call(&self, tool: &str, arguments: Value) -> CallToolResult {
+        let mut request = CallToolRequestParams::new(tool.to_owned());
         if let Value::Object(map) = arguments {
             request = request.with_arguments(map);
         }
@@ -387,19 +387,6 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
-}
-
-/// M5 narrows T10 and T11: `todo.reorder` and `todo.delete` are tools.
-#[tokio::test]
-async fn t11_the_tool_list_has_todo_reorder_and_todo_delete() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    for name in ["todo_reorder", "todo_delete"] {
-        assert!(tools.iter().any(|t| t.name == name), "{name}");
-    }
 }
 
 #[tokio::test]
@@ -1146,4 +1133,151 @@ async fn m6_over_stdio_an_agents_workstream_shows_in_the_tree_with_its_door_star
         .unwrap();
     assert_eq!(touches[0]["actor"]["id"], caller.as_str());
     assert_eq!(touches[0]["actor"]["kind"], "agent");
+}
+
+fn m17_daemon(socket: &Path, reply: Value) -> tokio::task::JoinHandle<()> {
+    let listener = UnixListener::bind(socket).unwrap();
+    tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            let reply = reply.clone();
+            tokio::spawn(async move {
+                let (read, mut write) = stream.into_split();
+                let mut lines = BufReader::new(read).lines();
+                while let Some(line) = lines.next_line().await.unwrap() {
+                    let request: Value = serde_json::from_str(&line).unwrap();
+                    let result = if request["method"] == "rail.tree" {
+                        json!([{"id":"a1", "kind":"workstream", "name":"Door", "parent":null, "order":0, "can_resume":false, "stray":[]}])
+                    } else {
+                        reply.clone()
+                    };
+                    write_line(
+                        &mut write,
+                        &json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
+                    )
+                    .await;
+                }
+            });
+        }
+    })
+}
+
+#[tokio::test]
+async fn m17_every_offered_unit_method_acknowledges_its_action() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("unit.sock");
+    let server = m17_daemon(&socket, Value::Null);
+    let shim = spawn_shim(&socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(
+        tools.iter().any(|tool| tool.name == "workstream_handoff"),
+        "the fixture must be a Door to cover its unit methods"
+    );
+    for method in contracts::methods::METHODS
+        .iter()
+        .filter(|m| m.result == "null")
+    {
+        let name = method.name.replace('.', "_");
+        if !tools.iter().any(|t| t.name == name) {
+            continue;
+        }
+        let (args, expected) = match method.name {
+            "todo.delete" => (json!({"id":42}), "deleted Todo 42"),
+            "pad.delete" => (json!({"name":"notes"}), "deleted Pad notes"),
+            "pad.export" => (
+                json!({"name":"notes","path":"/tmp/notes.md"}),
+                "exported Pad notes to /tmp/notes.md",
+            ),
+            "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
+            "agent.stop" => (json!({"id":"child"}), "stopped Agent child"),
+            "agent.interrupt" => (json!({"id":"child"}), "interrupted Agent child"),
+            "agent.prompt" => (
+                json!({"id":"child","prompt":"hello"}),
+                "sent prompt to Agent child",
+            ),
+            "agent.discard" => (json!({"id":"child"}), "discarded Worktree of Agent child"),
+            "rail.move" => (json!({"id":"child","parent":"door"}), "moved child to door"),
+            "project.setWorktrees" => (json!({"on":false}), "disabled Worktrees"),
+            "project.open" => (
+                json!({"path":"/tmp/project"}),
+                "requested opening Project /tmp/project",
+            ),
+            "project.rename" => (
+                json!({"name":"New name"}),
+                "requested renaming Project to New name",
+            ),
+            "decision.answer" => (
+                json!({"id":"d1","answer":"allow"}),
+                "answered Decision d1: allow",
+            ),
+            "terminal.close" => (json!({"id":"t1"}), "closed Terminal t1"),
+            "terminal.kill" => (json!({"id":"t1"}), "stopped Terminal t1"),
+            "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
+            "terminal.resize" => (
+                json!({"id":"t1","cols":80,"rows":24}),
+                "resized Terminal t1 to 80 by 24",
+            ),
+            "workstream.handoff" => (
+                json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
+                "handed off Workstream a1",
+            ),
+            other => panic!("add an acknowledgement fixture for offered unit method {other}"),
+        };
+        let result = shim.call(&name, args).await;
+        assert_eq!(result.is_error, Some(false), "{name}");
+        assert_eq!(
+            result.content[0].as_text().unwrap().text,
+            expected,
+            "{name}"
+        );
+    }
+    server.abort();
+}
+
+#[tokio::test]
+async fn m17_project_actions_acknowledge_requests_not_completion() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    for (name, args, expected) in [
+        (
+            "project_open",
+            json!({"path":project._dir.path()}),
+            format!(
+                "requested opening Project {}",
+                project._dir.path().display()
+            ),
+        ),
+        (
+            "project_rename",
+            json!({"name":"Renamed"}),
+            "requested renaming Project to Renamed".into(),
+        ),
+    ] {
+        let result = shim.call(name, args).await;
+        assert_eq!(result.is_error, Some(false), "{result:?}");
+        assert_eq!(result.content[0].as_text().unwrap().text, expected);
+    }
+    project.daemon.abort();
+}
+
+#[tokio::test]
+async fn m17_data_results_keep_their_json_text() {
+    for value in [
+        json!({"id":1}),
+        json!([1, "two"]),
+        json!("plain text"),
+        json!(42),
+        json!(true),
+        Value::Null,
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("data.sock");
+        let server = m17_daemon(&socket, value.clone());
+        let shim = spawn_shim(&socket, "a1").await;
+        // rail.remove declares nullable data, so even null must retain its JSON encoding.
+        let result = shim.call("rail_remove", json!({"id":"child"})).await;
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
+        server.abort();
+    }
 }
