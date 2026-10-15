@@ -82,6 +82,7 @@ it("u484_keyboard_reorder", async () => {
   await down(["B", "A", "C"]);
   await browser("press", "Space");
   await committed("B,A,C");
+  await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
   expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe("Move A");
 }, 60_000);
 
@@ -111,6 +112,7 @@ it("u484_cancel_without_mutation", async () => {
     expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
     expect(await read<string>(`document.querySelector('[aria-label="Committed order"]').textContent`)).toBe("A,B,C");
 
+    await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
     expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe("Move A");
     await keyboard("A"); await down(["B", "A", "C"]);
     await browser("press", "Space"); await committed("B,A,C");
