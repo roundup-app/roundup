@@ -343,3 +343,38 @@ async fn a39_known_workstreams_can_be_routed_or_candidates() {
         parts
     );
 }
+
+#[test]
+fn a39_unplaceable_repeated_spans_return_unclear_promptly() {
+    let (sent, received) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let request = Request::new(
+            format!("{}{}", "ab".repeat(12), "b".repeat(20)),
+            vec![],
+            vec![],
+        );
+        let parts = vec![
+            part(
+                "a",
+                Destination::New {
+                    title: "Repair".into()
+                }
+            );
+            13
+        ];
+        let result = runtime.block_on(place(&Answer(parts), "repeated", &request, |_, _| {}));
+        let _ = sent.send((request.text, result));
+    });
+    // A synchronous parser cannot be interrupted by a Tokio timeout on its own executor.
+    let (text, result) = received
+        .recv_timeout(std::time::Duration::from_secs(2))
+        .expect("unplaceable repeated spans must finish promptly");
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].text, text);
+    assert!(
+        matches!(&result[0].destination, Destination::Unclear { candidates, .. } if candidates.is_empty())
+    );
+}
