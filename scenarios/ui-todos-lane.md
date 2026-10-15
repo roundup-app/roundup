@@ -6,27 +6,27 @@ Specification for #1609. Implementation owns `apps/desktop/src/todos/`,
 entries consumed by those directories. It does not edit `ui/`, `keys/`, other
 lanes, `tokens.css`, dependency manifests or lockfiles (policy).
 
-The `u490_`, `u491_` and `u492_` observers below are required implementation
+The `u490a_`, `u491a_` and `u492a_` observers below are required implementation
 acceptance, not tests claimed to exist in this specification PR. New behavioral
 tests live in the owned directories and exercise real library components.
 
-**U490 Todo reordering uses the shared Sortable.** Given three open Todos in
+**U490a Todo reordering uses the shared Sortable.** Given three open Todos in
 one Shelf list, including a blocked Todo, when the user moves the last before
 the first by pointer, then `todo.reorder` is called once with that Todo's id
 and the first Todo as `before`; after the Event/refetch the displayed order
 agrees, no Drawer opened and focus remains on the moved row
-(`u490_pointer_reorders`). Cancellation and dropping in the original place
-make no reorder call (`u490_cancel_and_noop`). Ordering under an Agent remains
+(`u490a_pointer_reorders`). Cancellation and dropping in the original place
+make no reorder call (`u490a_cancel_and_noop`). Ordering under an Agent remains
 within that Agent's list, preserving other Todos' relative order and the
-existing `before` translation (`u490_nested_order_boundary`).
+existing `before` translation (`u490a_nested_order_boundary`).
 
 Given the same list with a row focused, when Alt+Up or Alt+Down moves it, then
 exactly one reorder call is made, the refetched order changes and focus stays
 on the moved row; moving past either boundary calls nothing
-(`u490_keyboard_reorders`). Given the Shelf and no pointer use, when the user
+(`u490a_keyboard_reorders`). Given the Shelf and no pointer use, when the user
 Tabs to a row's accessible move controls and activates Move up or Move down
 with Space or Enter, then the same call, readback and focus rules hold
-(`u490_tab_space_enter_reorders`). These controls supplement the existing
+(`u490a_tab_space_enter_reorders`). These controls supplement the existing
 Alt chords so the work order's Tab/Space/Enter-only observer needs no arrow
 key or synthetic click.
 
@@ -38,66 +38,66 @@ focus and cancellation rules; only its consumer-owned 4 px threshold is
 superseded by the shared Sortable's activation behavior (policy). U156 in the
 same file keeps its motion outcome; replace its computed-style-only unit test
 with the rendered frame observer named there, retaining reduced-motion and
-interruption coverage (`u490_reorder_motion`). No new animation direction is
+interruption coverage (`u490a_reorder_motion`). No new animation direction is
 introduced (policy).
 
-**U491 Shelf questions and navigation use library components.** Given two
+**U491a Shelf questions and navigation use library components.** Given two
 selected Todos, when Delete opens the question, then a named `alertdialog`
 shows both targets and initially focuses the keep action; Tab and Shift+Tab
-stay within it (`u491_bulk_question_focus`). Escape, keep and outside dismissal
+stay within it (`u491a_bulk_question_focus`). Escape, keep and outside dismissal
 each remove nothing and return focus to the connected opener
-(`u491_bulk_question_cancels`). Confirm deletes exactly the frozen selected
+(`u491a_bulk_question_cancels`). Confirm deletes exactly the frozen selected
 set once, preserves unselected Todos, and reconciles selection after readback;
 a partial failure keeps the failed targets and visible failure text available
-for retry (`u491_bulk_delete_readback`). The shared BulkDelete path applies
+for retry (`u491a_bulk_delete_readback`). The shared BulkDelete path applies
 the same question and failure behavior to two selected Pads
-(`u491_pad_bulk_delete`). Existing clear-done, selection lifetime and stale
+(`u491a_pad_bulk_delete`). Existing clear-done, selection lifetime and stale
 context protection remain regression requirements (policy).
 
 Given only keyboard use from the Shelf, when Tab, Space and Enter select two
 Todos and confirm their deletion, then exactly those two disappear after
 readback, the third remains and focus is on a connected Shelf control
-(`u491_tab_space_enter_bulk_deletes`). The test sends real browser key events;
+(`u491a_tab_space_enter_bulk_deletes`). The test sends real browser key events;
 it uses no pointer, programmatic focus or synthetic click after initial entry
-(policy). The same restriction applies to `u490_tab_space_enter_reorders`.
+(policy). The same restriction applies to `u490a_tab_space_enter_reorders`.
 
 Given Todos and Pads tabs, when pointer activation or Left/Right and Home/End
 navigation switches tabs, then exactly one tab is selected, each tab is linked
 to its named tabpanel and Tab enters the selected panel; switching back keeps
-the existing content and scope behavior (`u491_shelf_tabs`). Compose shared
+the existing content and scope behavior (`u491a_shelf_tabs`). Compose shared
 Ark Tabs; no local tab keyboard state machine (policy). The current single
 scope icon stays a single toggle, rather than reviving the superseded pair
 from U347 (`scenarios/ui-shelf.md`, heading “U347 a Workstream's Shelf shows its
 own Todos and Pads until the user asks for all”); its label and scope behavior
-remain those of U470 (`u491_scope_toggle`).
+remain those of U470 (`u491a_scope_toggle`).
 
 Every owned modal/confirm composes `ui/Dialog` or `ui/AlertDialog`, every menu
 `ui/Menu`, every tooltip `ui/Tooltip`, and every icon-only button `ui/IconButton`
 with an action `aria-label` (policy: diff and rendered role inspection).
 Home selection remains reachable by keyboard, returns focus on dismissal and
-shows failed moves without losing the existing Home (`u491_home_menu`).
+shows failed moves without losing the existing Home (`u491a_home_menu`).
 Every App-authored visible string uses `copy.ts`; authored titles, paths and
 returned error text remain authored content (policy). Shortcut listeners move
 to the existing `keys/` registry with component lifetime and scope; Ark owns
-component navigation, dismissal and focus (`u491_shortcut_scope`, showing the
+component navigation, dismissal and focus (`u491a_shortcut_scope`, showing the
 Drawer/Shelf shortcut works once while mounted and stops after unmount).
 
-**U492 migration preserves the rendered journey and budgets.** Given
+**U492a migration preserves the rendered journey and budgets.** Given
 `tree-40` with the Shelf and Todo Drawer, at 1280×800 and 1440×800 in light and
 dark, when the reorder, bulk-delete cancellation/success/failure, tab and Home
 menu paths above run, then D2, D5 and D6 pass and no Check passing on the same
-main baseline regresses (`u492_rendered_checks`). D2 is the type/space Token
+main baseline regresses (`u492a_rendered_checks`). D2 is the type/space Token
 row, D5 the contrast row and D6 the target-state/size row of
 `docs/design-system.md`, heading “The checks”. With U154's long-title/ten-blocker
 seed, injected delete and move errors remain fully visible without overlap
-or horizontal overflow (`u492_dense_failure`). These observers preserve the
+or horizontal overflow (`u492a_dense_failure`). These observers preserve the
 Review stage's work inspection and Intervene stage's actionable errors in
 `.agents/data/journey.md`; a fake App seam proves webview behavior only
 (policy).
 
 Run in an isolated headless browser profile against `just harness`. Publish
 paired before/after captures and Check readings as PR artifacts using
-`artifacts/ux/U490/`, `U491/` and `U492/`; never commit generated captures
+`artifacts/ux/U490a/`, `U491a/` and `U492a/`; never commit generated captures
 (policy). Keep current Token names. Delete only CSS implementing interaction
 state now owned by Ark; preserve required focus appearance (policy).
 
