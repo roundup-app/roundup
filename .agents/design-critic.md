@@ -18,6 +18,6 @@ Later rounds (the task holds earlier critic findings and names the diff since th
 - A defect on code the new commits left unchanged, which an earlier round passed over, is out of bounds, and so is a failure that `delta` reads `still-failing` against `origin/main`.
 - Approve when every earlier finding is fixed and the new commits add none.
 
-Answer: `findings` holds only finding lines, one per line, no heading, no prose and no list marker other than `- `. Each line is exactly `rule <id>, scenario <id>, step <step>, <seen>` for a Check (`<id>` is one word, for example `D6`), or `bar, <element>, <seen>, <the change that would meet it>` for a judgement of taste no Check covers; `<element>` holds no comma. An approve may hold lines starting `NOTE:` or `ideas`. A reject whose lines do not match is dropped and gets no fix run.
+Answer: `findings` holds only finding lines, one per line, no heading, no prose and no list marker other than `- `. Each line is exactly `rule <id>, scenario <id>, step <step>, <seen>` for a Check (`<id>` is one word, for example `D6`), or `bar, <element>, <seen>, <the change that would meet it>` for a judgement of taste no Check covers; `<element>` holds no comma. An approve may hold lines starting `NOTE:` or `ideas`. Lines in another shape are posted as written, but the fix run and the next round read them less well.
 
 Done: `CRITIC: pass` or `fail` by that answer; the `delta` lines; at most three `ideas` no Check covers, never defects.
