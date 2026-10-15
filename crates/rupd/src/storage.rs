@@ -4,6 +4,8 @@ use std::path::Path;
 use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
 
+const RESIZES: &str = include_str!("../migrations/002/up.sql");
+
 const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
@@ -11,7 +13,7 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(&mut db, vec![M::up(SCHEMA)])
+        apply(&mut db, vec![M::up(SCHEMA), M::up(RESIZES)])
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
 }
@@ -108,14 +110,17 @@ mod tests {
                 expected.insert(table, sql);
             }
         }
+        let resize_schema = Connection::open_in_memory().unwrap();
+        resize_schema.execute_batch(RESIZES).unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
         assert_eq!(
-            Migrations::new(vec![M::up(SCHEMA)])
+            Migrations::new(vec![M::up(SCHEMA), M::up(RESIZES)])
                 .current_version(&db)
                 .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(1).unwrap())
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(2).unwrap())
         );
         let ws = call(
             &daemon,
