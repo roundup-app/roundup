@@ -1,4 +1,5 @@
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
+import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
 import { mergeProps, splitProps, type JSX } from "solid-js";
@@ -52,4 +53,16 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
+};
+
+export const Tabs = {
+  ...ArkTabs,
+  Root: (props: ArkTabs.RootProps) => <ArkTabs.Root lazyMount={false} unmountOnExit={false} {...props} />,
+  List: (props: ArkTabs.ListProps) => <ArkTabs.List {...props} class={`app-tabs ${props.class ?? ""}`} />,
+  Trigger: (props: ArkTabs.TriggerProps) => {
+    const api = useTabsContext();
+
+    // Ark omits inactive controls; retain its panel id so every tab stays linked.
+    return <ArkTabs.Trigger data-button="quiet" {...props} aria-controls={api().getContentProps({ value: props.value }).id} />;
+  },
 };

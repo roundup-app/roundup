@@ -515,3 +515,6 @@ Register a KeyScope's chords, guards and actions for its owner's lifetime.
 
 **chordsFor**:
 The matching spellings of one displayed Help chord.
+
+**Tabs** (`Tabs`):
+The shared UI parts wrapping Ark Tabs: one selected view with linked panels, library-owned keyboard focus and caller-owned content retained while inactive.
