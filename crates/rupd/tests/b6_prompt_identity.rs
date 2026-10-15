@@ -2720,3 +2720,31 @@ async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
         answer_takeover_race(kind, false).await;
     }
 }
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_stop_waits_for_the_child_effect() {
+    let (run, caller) = order_child().await;
+    run.pause();
+    let child = run.child.clone();
+    let stop = tokio::spawn(async move { caller.request("agent.stop", json!({"id":child})).await });
+    run.paused().await;
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The Daemon acknowledges arrival before the stop effect. The window observes absence.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    run.release();
+    tokio::time::timeout(BOUND, stop)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(
+        early.is_err(),
+        "Takeover acquired before the Door stopped its child: {early:?}"
+    );
+    let acquired = tokio::time::timeout(BOUND, begin).await.unwrap().unwrap();
+    assert_eq!(acquired.unwrap_err().code, rpc::code::CONFLICT);
+    run.finish().await;
+}
