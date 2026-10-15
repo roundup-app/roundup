@@ -189,7 +189,7 @@ export const ProjectTab = (props: {
           </span>
           <Show when={mark()}>
             {(shown) => (
-              <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label.toLowerCase()} />
+              <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />
             )}
           </Show>
         </button>

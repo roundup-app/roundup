@@ -303,7 +303,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
       expect(mark.box.top).toBeLessThan(centre(tab.name));
       expect(mark.box.right).toBeLessThanOrEqual(tab.name.right);
       expect(mark.box.right).toBeLessThan(tab.close.left);
-      expect(["error", "needs you"]).toContain(mark.label);
+      expect(["Error", "Needs you"]).toContain(mark.label);
     }
   });
 });
