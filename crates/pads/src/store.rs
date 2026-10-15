@@ -1,4 +1,4 @@
-//! The app-stored Pads: one SQLite table in `<dir>/pads.db`.
+//! App-stored Pads in the Project database, with support for legacy standalone stores.
 
 use std::path::Path;
 
@@ -11,6 +11,7 @@ const FILES_SETTING: &str = "files";
 
 pub struct Store {
     db: Connection,
+    settings: &'static str,
 }
 
 impl Store {
@@ -19,7 +20,14 @@ impl Store {
         let mut db = Connection::open(path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         crate::schema::open(&mut db, path)?;
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            settings: if path.file_name().is_some_and(|name| name == "project.db") {
+                "pad_settings"
+            } else {
+                "settings"
+            },
+        })
     }
 
     /// Runs `work` in one write transaction: its Store calls commit together or not at all, and no other connection writes meanwhile.
@@ -120,7 +128,7 @@ impl Store {
         let value: Option<String> = self
             .db
             .query_row(
-                "SELECT value FROM settings WHERE key = ?1",
+                &format!("SELECT value FROM {} WHERE key = ?1", self.settings),
                 [FILES_SETTING],
                 |row| row.get(0),
             )
@@ -130,8 +138,11 @@ impl Store {
 
     pub fn set_files(&self, files: bool) -> rusqlite::Result<()> {
         self.db.execute(
-            "INSERT INTO settings (key, value) VALUES (?1, ?2)
+            &format!(
+                "INSERT INTO {} (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                self.settings
+            ),
             params![FILES_SETTING, files.to_string()],
         )?;
         Ok(())
