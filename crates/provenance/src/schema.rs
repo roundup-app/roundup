@@ -12,16 +12,7 @@ fn migrations() -> Vec<M<'static>> {
 
 pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
     if path.file_name().is_some_and(|name| name == "project.db") {
-        let verified: bool = db.query_row(
-            "SELECT verified FROM project_import WHERE id = 0",
-            [],
-            |row| row.get(0),
-        )?;
-        return if verified {
-            Ok(())
-        } else {
-            Err(rusqlite::Error::InvalidQuery)
-        };
+        return Ok(());
     }
     apply(db, path, migrations())
 }
