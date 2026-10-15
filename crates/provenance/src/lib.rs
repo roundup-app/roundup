@@ -53,15 +53,6 @@ impl Touches {
             })
     }
 
-    /// The Todo's last write orders a migrated baseline against existing read Touches.
-    pub fn wrote_sequence(&self, item: &str) -> rusqlite::Result<i64> {
-        self.db()?.query_row(
-            "SELECT COALESCE(MAX(seq), 0) FROM touches WHERE item = ?1 AND verb = 'wrote'",
-            [item],
-            |row| row.get(0),
-        )
-    }
-
     /// Last read by this Actor: Touch order and, when known, the history it actually fetched.
     pub fn todo_read(
         &self,

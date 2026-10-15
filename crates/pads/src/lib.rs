@@ -94,13 +94,6 @@ impl Pads {
         Ok((undo, events))
     }
 
-    /// P14: the Agents a Pad was bound to before bindings went, dropped as they are returned.
-    pub fn take_old_bindings(&self) -> Result<Vec<String>, RpcError> {
-        self.store()?
-            .take_old_bindings()
-            .map_err(RpcError::internal)
-    }
-
     fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
         name::validate(&p.name)?;
         let pad = Pad {
