@@ -37,7 +37,7 @@ beforeAll(async () => {
   server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!;
-  await browser("--profile", profile, "open", origin);
+  await browser("--profile", profile, "open", new URL(new URL("./u485Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
 
   if (art) mkdirSync(art, { recursive: true });
 }, 90_000);
@@ -58,7 +58,6 @@ it("u485_rendered_checks", async () => {
     await browser("set", "media", scheme);
     await browser("open", new URL(new URL("./u485Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
     await browser("wait", "--fn", `document.querySelectorAll('.u485-row').length === 40`);
-    const passing = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks(document))`);
     const capture = async (step: string) => {
       const checks = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks(document))`);
 
@@ -70,7 +69,7 @@ it("u485_rendered_checks", async () => {
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
       }
 
-      if (!baseline) for (const id of CHECK_IDS) if (passing[id].status === "pass" || ["D1", "D2", "D5", "D6"].includes(id)) expect(checks[id], `${input} ${step} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
+      if (!baseline) for (const id of CHECK_IDS) expect(checks[id], `${input} ${step} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
     };
     const move = async () => {
       await browser("focus", '[aria-label="Move 1"]');
