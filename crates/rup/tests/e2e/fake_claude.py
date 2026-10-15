@@ -31,7 +31,7 @@ file. What it does comes from the environment, so one script serves every scenar
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
                            the tool call is made only when the Decision was allowed
   FAKE_CLAUDE_KINDS        JSON list of "working", "error", "needs-you", "idle" or "blocked" (U351, U356): the Nth run started with no
-                           `--tools` in its argv (an Agent, not a Door) plays entry N right after SessionStart:
+                           `--tools` in its argv (an Agent, not a Door) plays entry N after reading its first typed prompt:
                            UserPromptSubmit and then wait for stdin to close (working), StopFailure (error), a
                            PermissionRequest waited on as FAKE_CLAUDE_ON_PROMPT_ASK does (needs-you), or Stop
                            (idle), or, for blocked (U356), a Todo made through the MCP server as a blocker and a
@@ -327,7 +327,10 @@ def play_kind(kind):
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as in play_prompts
     sys.stdout.flush()
     hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000351", "source": "startup"})
-    hook("UserPromptSubmit", {"prompt": "u351"})
+    # A synthetic submit before the first Steer can make admission fail as Busy.
+    # Read the actual input before acknowledging it, as play_prompts does.
+    prompt = next(typed_prompts())
+    hook("UserPromptSubmit", {"prompt": prompt})
     if kind == "working":
         while os.read(0, 4096):
             pass
