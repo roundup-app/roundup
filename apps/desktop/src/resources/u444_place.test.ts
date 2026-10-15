@@ -30,7 +30,7 @@ it("u444_the_strip_is_the_centres_last_line_under_the_composer", async () => {
       await page.until(`() => Boolean(document.querySelector('.resource-agent .resource-num'))`);
       await page.until(`() => Boolean(document.querySelector('.thread-composer'))`);
 
-      const read = await page.call<{last: boolean; after: boolean; sides: number[]; gap: number; sideGap: number; clipped: string[]}>(`() => {
+      const read = await page.call<{last: boolean; after: boolean; sides: number[]; gap: number; sideGap: number; centres: number[]; iconGaps: number[]; expectedIconGap: number; clipped: string[]}>(`() => {
         const strip = document.querySelector('.resource-strip');
         const composer = document.querySelector('.thread-composer');
         const line = strip.getBoundingClientRect();
@@ -41,6 +41,9 @@ it("u444_the_strip_is_the_centres_last_line_under_the_composer", async () => {
           after: strip.previousElementSibling.classList.contains('thread'),
           sides: [line.left - box.left, line.right - box.right],
           gap: line.top - box.bottom, sideGap,
+          centres: [...strip.querySelectorAll('.resource-agent, .resource-stale, .terminal-tabs-host, .terminal-new')].map(value => { const r=value.getBoundingClientRect(); return r.top+r.height/2-(line.top+line.height/2); }),
+          iconGaps: values.filter(value => value.matches('.resource-value')).map(value => value.querySelector('.resource-num').getBoundingClientRect().left-value.querySelector('svg').getBoundingClientRect().right),
+          expectedIconGap: parseFloat(getComputedStyle(strip).getPropertyValue('--space-1')),
           clipped: values.filter(value => { const r = value.getBoundingClientRect(); return !value.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) || r.width === 0 || r.height === 0 || r.left < line.left || r.right > line.right || r.top < line.top || r.bottom > Math.min(line.bottom, innerHeight); }).map(value => value.textContent) };
       }`);
 
@@ -51,6 +54,11 @@ it("u444_the_strip_is_the_centres_last_line_under_the_composer", async () => {
       for (const side of read.sides) expect(Math.abs(side)).toBeLessThanOrEqual(1);
       expect(read.gap).toBe(read.sideGap);
       expect(read.clipped).toEqual([]);
+
+      for (const centre of read.centres) expect(Math.abs(centre)).toBeLessThanOrEqual(1);
+      expect(read.iconGaps.length).toBeGreaterThan(0);
+
+      for (const gap of read.iconGaps) expect(gap).toBe(read.expectedIconGap);
       const dir = captureDir("U444");
 
       if (dir) {
