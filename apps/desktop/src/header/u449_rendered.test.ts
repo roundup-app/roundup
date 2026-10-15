@@ -383,14 +383,17 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) {
       const { start, end } = cuts(reading);
 
-      // An uncut end keeps its border; a cut one is covered from the list's edge past the whole piece of the tab that shows.
+      // An uncut end keeps its border; a cut one is covered from the list's edge across exactly the piece of the tab that shows, and no whole tab beside it is touched.
       expect(reading.fades.length, reading.case).toBe(Number(start.length > 0) + Number(end.length > 0));
 
       for (const fade of reading.fades) {
         const atStart = Math.abs(fade.left - reading.list.left) < 1;
         const piece = atStart ? start[0]!.right - reading.list.left : reading.list.right - end[0]!.left;
 
-        expect(fade.right - fade.left, reading.case).toBeGreaterThanOrEqual(piece);
+        expect(fade.right - fade.left, reading.case).toBeGreaterThanOrEqual(piece - 0.5);
+        expect(fade.right - fade.left, reading.case).toBeLessThanOrEqual(piece + 0.5);
+
+        for (const tab of reading.tabs) if (!start.includes(tab) && !end.includes(tab)) expect(Math.min(tab.right, fade.right) - Math.max(tab.left, fade.left), reading.case).toBeLessThanOrEqual(0.5);
       }
 
       // The cut piece is left out in the header's own ground: no gradient leaves a half box or a band over the tab's base.
