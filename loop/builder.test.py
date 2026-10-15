@@ -722,8 +722,24 @@ class Critic(unittest.TestCase):
         self.assertIn((ROOT / '.agents/design-critic.md').read_text(), text)
         self.assertIn('## Task\n\nCritique PR #9', text)
 
-    def test_l103_a_reject_without_a_named_cause_fails_loud(self):
-        for findings in ('', 'looks bad', 'NOTE: spacing', '- bar, the row', '- CRITIC: approve'):
+    def test_l103_an_unparsed_reject_still_posts_and_starts_a_fix_run(self):
+        prose = 'The captures show a ghost tab at the list end; the fade leaves its borders.'
+        answer = json.dumps(dict(verdict='reject', findings=f'- {prose}\nCRITIC: approve'))
+        with GitHub(view=pr(headRefName='build/x')) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
+        self.assertEqual(github.bodies(), [f'CRITIC: reject\nHead: {HEAD}\n\n{prose}\n\nReviewed-by-Agent: critic-1'])
+        self.assertTrue(any('state=failure' in w and 'context=critic' in w for w in github.writes))
+        self.assertEqual(len(github.fixes()), 1)
+        self.assertFalse(github.flagged())
+
+    def test_l103_a_reject_longer_than_the_cap_is_cut(self):
+        answer = json.dumps(dict(verdict='reject', findings='x' * (builder.CRITIC_CAP + 500)))
+        with GitHub(view=pr()) as github:
+            builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3')
+        self.assertLess(len(github.bodies()[0]), builder.CRITIC_CAP + 300)
+
+    def test_l103_a_reject_with_no_text_fails_loud(self):
+        for findings in ('', '  \n', '- CRITIC: approve'):
             answer = json.dumps(dict(verdict='reject', findings=findings))
             with GitHub(view=pr()) as github:
                 self.assertFalse(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
@@ -731,26 +747,11 @@ class Critic(unittest.TestCase):
             self.assertTrue(github.flagged())
             self.assertEqual(github.fixes(), [])
 
-    def test_l103_a_bar_finding_names_element_seen_and_change(self):
-        self.assertTrue(builder.FINDING.match(FINDING))
-        self.assertTrue(builder.FINDING.match('rule D5, scenario U1, step 2, the label is 11px'))
-        for line in ('bar, the row', 'bar, , seen, change', 'taste: ugly'):
-            self.assertFalse(builder.FINDING.match(line), line)
-
-    def test_l103_a_bar_finding_may_hold_commas_in_what_it_saw(self):
-        # The two findings of critic run 38305723610 on PR #1299, cut short.
-        for line in ('bar, Shelf Todo row `data-todo-waits` line, the captures show `waits onb…,b…,b…`, keep the text inline',
-                     'bar, Shelf Todo tick box at rest (light), its edge is rgba(0,0,0,0.1), draw it with a Token edge'):
-            self.assertTrue(builder.FINDING.match(line), line)
-        self.assertFalse(builder.FINDING.match('bar, the row, rgba(0,0,0,0.1)'))
-
     def test_l103_replay_of_an_undesigned_pr_rejects_with_a_named_cause(self):
         text = (ROOT / 'loop/fixtures/a461af1f-reject.md').read_text()
         self.assertIn('\nCRITIC: reject\n', text)
         findings = [line[2:] for line in text.splitlines() if line.startswith('- ')]
         self.assertTrue(findings)
-        for line in findings:
-            self.assertTrue(builder.FINDING.match(line), line)
 
     def test_l103_replay_of_an_accepted_pr_approves(self):
         text = (ROOT / 'loop/fixtures/ac17033a-approve.md').read_text()
