@@ -703,6 +703,13 @@ class Critic(unittest.TestCase):
         self.assertLess(task.index(first), task.index(second))
         self.assertNotIn('VERDICT: approve', task)
 
+    def test_l103_a_later_round_is_scoped_to_the_commits_since_the_last_judged_head(self):
+        first = 'CRITIC: reject\nHead: first\n\nbar, Rail, crowded rows, increase spacing'
+        second = 'CRITIC: reject\nHead: second\n\nbar, Clear prompt, opens mid-window, anchor it'
+        with GitHub(view=pr(), files=UI, notes=[note(first, 30), note(second, 10)]):
+            task = builder.critic_task(9, HEAD)
+        self.assertIn('`git diff second...HEAD`', task)
+
     def test_l103_the_critic_task_without_earlier_findings_has_no_history_section(self):
         with GitHub(view=pr(), files=UI, notes=[note('VERDICT: approve')]):
             task = builder.critic_task(9, HEAD)
