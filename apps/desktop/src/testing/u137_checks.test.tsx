@@ -64,6 +64,21 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D9).toEqual({ status: "pass", value: [], selector: "" });
   });
 
+  it("u137_a_later_check_call_observes_new_interaction_rules", () => {
+    document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
+    document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';
+    const before = runChecks();
+
+    expect(before.D6).toMatchObject({ status: "fail", value: { missing: "hover" } });
+    expect(before.D7).toMatchObject({ status: "fail", value: { pressed: 0 } });
+
+    addSheet(".rail-row:hover { color: red; } .rail-row:focus-visible { outline: 1px solid; } .rail-row:active { color: blue; transition-duration: 0s; }");
+    const after = runChecks();
+
+    expect(after.D6.status).toBe("pass");
+    expect(after.D7.status).toBe("pass");
+  });
+
   it("u137_every_id_d1_to_d10_is_present_with_status_value_and_selector", async () => {
     await withStylesheets(async () => {
       mountSeed();
