@@ -3432,6 +3432,7 @@ async fn b6_a_held_resize_is_acknowledged_without_effect_and_released_in_order()
         .request("terminal.resizeHistory", json!({"id":run.terminal}))
         .await
         .unwrap();
+    assert_eq!(history.as_array().unwrap().len(), accepted.len());
     for (record, ack) in history.as_array().unwrap().iter().zip(&accepted) {
         assert_eq!(record["id"], ack["id"]);
         assert_eq!(record["outcome"], json!({"status":"completed"}));
