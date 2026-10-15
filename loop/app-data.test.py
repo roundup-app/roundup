@@ -164,5 +164,18 @@ if sys.argv[3] == 'nested-leak':
             self.assertFalse(state.exists())
 
 
+class DraftCheckRekick(unittest.TestCase):
+    def test_l24_a_draft_check_on_a_ready_head_asks_the_app_for_a_real_check(self):
+        # #1931, #1933, #1998, #2023: the ready run tested the previous head and the newest head kept a `Draft check`,
+        # which review and critic skip. Only an App's ready event starts the real check; `GITHUB_TOKEN` events start none.
+        check = (ROOT / '.github/workflows/check.yml').read_text()
+        self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', check)
+        rekick = check.split('\n  rekick:\n', 1)[1].split('\n  # Keep the required check name', 1)[0]
+        self.assertIn("if: github.event_name == 'pull_request' && github.event.pull_request.draft", rekick)
+        self.assertLess(rekick.index('gh pr ready "$PR" --undo'), rekick.index('gh pr ready "$PR"\n'))
+        self.assertLess(rekick.index('export GH_TOKEN=$APP_TOKEN'), rekick.index('gh pr ready "$PR" --undo'))
+        self.assertEqual(check.count('id-token: write'), 1)
+
+
 if __name__ == '__main__':
     unittest.main()
