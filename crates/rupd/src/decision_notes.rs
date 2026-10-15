@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use contracts::agent::{NodeKind, RailNode};
 use contracts::decision::Decision;
-use contracts::message::{Message, MessageKind, SendParams};
+use contracts::message::{Message, MessageKind, Reason, SendParams};
 use contracts::{Actor, EventData};
 use serde_json::json;
 use tokio::sync::broadcast::{Receiver, error::RecvError};
@@ -55,6 +55,26 @@ pub async fn tell_doors(
         let decision = match events.recv().await {
             Ok(event) => match event.data {
                 EventData::DecisionOpened(decision) if decision.answerable => decision,
+                EventData::MessageDropped(message)
+                    if message.from == Actor::daemon()
+                        && message.to != Actor::user().id
+                        && message.body.starts_with("[decision ") =>
+                {
+                    let failure = match message.reason {
+                        Some(Reason::ReceiverGone) => "receiver gone",
+                        Some(Reason::NotAccepted) => "Terminal did not accept the notice",
+                        _ => "notice was dropped",
+                    };
+                    report_failure(
+                        &reader,
+                        &message.to,
+                        &message.body,
+                        failure,
+                        Some(message.id),
+                    )
+                    .await;
+                    continue;
+                }
                 _ => continue,
             },
             Err(RecvError::Lagged(_)) => continue,
@@ -91,11 +111,26 @@ pub async fn tell_doors(
             .call::<Message>("message", "message.send", json!(params), Actor::daemon())
             .await;
         if let Err(err) = sent {
-            // A Door that is gone has no use for it (B9); the Decision stays open for the user.
-            eprintln!(
-                "rupd: the note of Decision {} was not sent: {err}",
-                decision.id
-            );
+            report_failure(&reader, &door.id, &params.body, &err.to_string(), None).await;
         }
     }
+}
+
+async fn report_failure(
+    reader: &Reader,
+    door: &str,
+    note: &str,
+    failure: &str,
+    reply_to: Option<u32>,
+) {
+    let params = SendParams {
+        to: Actor::user().id,
+        kind: MessageKind::Note,
+        body: format!("{note}\nDecision notice delivery failed for supervisor {door}: {failure}"),
+        reply_to,
+    };
+    reader
+        .call::<Message>("message", "message.send", json!(params), Actor::daemon())
+        .await
+        .expect("store Decision notice delivery failure for the user");
 }
