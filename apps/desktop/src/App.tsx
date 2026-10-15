@@ -1,3 +1,5 @@
+import { registerKeys } from "./keys/registry";
+import { chordsFor } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -229,16 +231,12 @@ export const App = (props: {
 
   createEffect(on(projects.active, () => setModelsOpen(false), { defer: true }));
 
-  const onModelsKey = (press: KeyboardEvent) => {
-    if (press.code !== "Comma" || !press.metaKey || press.ctrlKey || press.altKey || press.shiftKey) return;
-
-    press.preventDefault();
-
-    if (!press.repeat && projects.tabs().length > 0 && projects.active() !== null) setModelsOpen(true);
-  };
-
-  document.addEventListener("keydown", onModelsKey, true);
-  onCleanup(() => document.removeEventListener("keydown", onModelsKey, true));
+  registerKeys({ kind: "app" }, [{ chords: chordsFor("⌘,"),
+    when: (press) => press.code === "Comma" && !(press.target instanceof Element && press.target.matches(".tab-rename")),
+    run: (press) => {
+      if (!press.repeat && projects.tabs().length > 0 && projects.active() !== null) setModelsOpen(true);
+    },
+  }]);
 
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 

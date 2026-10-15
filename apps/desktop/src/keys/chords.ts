@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 
-/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true };
+/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); the rest bind from the pane too. `match` preserves key-based matching where the existing action uses `key` rather than `code`. */
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; match?: readonly string[] };
 
 const digits = (from: number, to: number): string[] =>
   Array.from({ length: to - from + 1 }, (_, offset) => `alt+Digit${from + offset}`);
@@ -15,8 +15,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘B", what: copy.nextBubble, presses: ["meta+KeyB", "meta+shift+KeyB"] },
   { keys: "⌘.", what: copy.minimiseOrRestoreTheBubble, presses: ["meta+Period"] },
   { keys: "⇧⌘⌫", what: copy.closeTheBubble, presses: ["meta+shift+Backspace"] },
-  { keys: "⌘1", what: copy.focusTheRail, presses: ["meta+Digit1"] },
-  { keys: "⌘2", what: copy.focusThePane, presses: ["meta+Digit2"] },
+  { keys: "⌘1", what: copy.focusTheRail, presses: ["meta+Digit1"], match: ["meta+1"] },
+  { keys: "⌘2", what: copy.focusThePane, presses: ["meta+Digit2"], match: ["meta+2"] },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true },
   { keys: "⌃O", what: copy.expandOrFoldTheThread, presses: ["ctrl+KeyO"] },
   { keys: "⌥1–⌥9", what: copy.takeOverTheNThAgent, presses: digits(1, 9) },
@@ -31,3 +31,19 @@ export const CHORDS: readonly Chord[] = [
 /** The `<mods>+<code>` of a key press, as `Chord.presses` writes it. */
 export const pressOf = (press: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "metaKey" | "shiftKey" | "code">): string =>
   [press.ctrlKey && "ctrl", press.altKey && "alt", press.metaKey && "meta", press.shiftKey && "shift", press.code].filter(Boolean).join("+");
+
+const MODIFIERS = Object.entries({ Control: "ctrl", Alt: "alt", Meta: "meta", Shift: "shift" });
+
+/** tinykeys spellings derived from the same presses Help displays. */
+export const chordsFor = (keys: string): readonly string[] => {
+  const chord = CHORDS.find((chord) => chord.keys === keys);
+
+  return (chord?.match ?? chord?.presses ?? []).map((press) =>
+    press.split("+").map((part) => MODIFIERS.find(([, name]) => name === part)?.[0] ?? part).join("+"),
+  );
+};
+
+/** Existing Rail navigation, kept local to Keys until its Rail lane adopts Ark. */
+export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");
+
+export const HELP_KEYS = ["[Shift]+?"];
