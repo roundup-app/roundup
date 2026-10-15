@@ -2,9 +2,9 @@
 
 use std::time::Duration;
 
-use crate::common::{open, sh, until_exit};
+use crate::common::{ctx, open, sh, until_exit};
 use contracts::EventData;
-use rpc::code;
+use rpc::{Module, code};
 use tokio::sync::broadcast::error::RecvError;
 
 /// How long a Terminal may go without any event before its reader counts as blocked.
@@ -13,11 +13,20 @@ const STALL: Duration = Duration::from_secs(5);
 #[tokio::test]
 async fn x8_a_late_subscriber_sees_output_in_order() {
     let dir = tempfile::tempdir().unwrap();
-    let (terminals, _) = open(&dir);
-    let spawned = terminals
-        .spawn(sh(dir.path(), "read go; seq 1 300"))
-        .await
-        .unwrap();
+    let (terminals, bus) = open(&dir);
+    // RPC spawn has no local receiver. A later in-process observer still gets every
+    // subsequent event, including the exit, from the full-sized local backlog.
+    let spawned: contracts::terminal::TerminalId = serde_json::from_value(
+        terminals
+            .call(
+                &ctx(&dir, &bus),
+                "terminal.spawn",
+                serde_json::to_value(sh(dir.path(), "read go; seq 1 300")).unwrap(),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
     let mut events = terminals.subscribe(&spawned.id).unwrap();
     terminals.write(&spawned.id, b"\n").await.unwrap();
     let (printed, _) = until_exit(&mut events).await;

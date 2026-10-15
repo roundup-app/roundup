@@ -80,7 +80,7 @@ struct Entry {
     /// The program's pid while it runs; gone at its exit, before `terminal.exited` is published,
     /// so a pid the OS reuses afterwards names no Terminal (H21).
     pid: Option<u32>,
-    events: broadcast::Sender<EventData>,
+    events: Option<broadcast::Sender<EventData>>,
     handle: Option<Arc<Handle>>,
     screen: Arc<Mutex<ScreenState>>,
 }
@@ -140,8 +140,12 @@ impl Shared {
 
     /// Hand `data` to this Terminal's subscribers and to the Bus. Neither can block the caller.
     fn publish(&self, number: u64, data: EventData) {
-        if let Some(entry) = self.table().get(&number) {
-            let _ = entry.events.send(data.clone());
+        if let Some(sender) = self
+            .table()
+            .get(&number)
+            .and_then(|entry| entry.events.as_ref())
+        {
+            let _ = sender.send(data.clone());
         }
         self.bus.emit(Actor::daemon(), data);
     }
@@ -219,7 +223,7 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        self.start(params, None, &[]).await
+        self.spawn_without(params, &[]).await
     }
 
     /// As [`Terminals::spawn`], and the program also lacks the env vars in `removed` (A30).
@@ -228,21 +232,36 @@ impl Terminals {
         params: SpawnParams,
         removed: &[&str],
     ) -> Result<Spawned, RpcError> {
-        self.start(params, None, removed).await
+        let (sender, events) = broadcast::channel(EVENT_BACKLOG);
+        let id = self.start(params, None, removed, Some(sender)).await?;
+        Ok(Spawned { id, events })
     }
 
     /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
     /// forgets the owner's oldest exited Terminal, and is `CONFLICT` when all eight run. Emits
     /// `terminal.changed`.
     pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
+        let (sender, events) = broadcast::channel(EVENT_BACKLOG);
+        let id = self.start_owned(params, owner, Some(sender)).await?;
+        Ok(Spawned { id, events })
+    }
+
+    async fn start_owned(
+        &self,
+        params: SpawnParams,
+        owner: &str,
+        events: Option<broadcast::Sender<EventData>>,
+    ) -> Result<String, RpcError> {
         let forgot = self.make_room(owner)?;
-        let spawned = self.start(params, Some(owner.to_owned()), &[]).await;
-        if forgot || spawned.is_ok() {
+        let started = self
+            .start(params, Some(owner.to_owned()), &[], events)
+            .await;
+        if forgot || started.is_ok() {
             self.shared
                 .bus
                 .emit(Actor::daemon(), EventData::TerminalChanged);
         }
-        spawned
+        started
     }
 
     /// X12: stop Terminal `id` if it runs and forget it. `INVALID_PARAMS` for one with no owner.
@@ -332,7 +351,8 @@ impl Terminals {
         params: SpawnParams,
         owner: Option<String>,
         removed: &[&str],
-    ) -> Result<Spawned, RpcError> {
+        events: Option<broadcast::Sender<EventData>>,
+    ) -> Result<String, RpcError> {
         check_program(&params)?;
         // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
         if !Path::new(&params.cwd).is_dir() {
@@ -424,7 +444,6 @@ impl Terminals {
             master: Mutex::new(pair.master),
         };
 
-        let (sender, events) = broadcast::channel(EVENT_BACKLOG);
         self.shared.table().insert(
             number,
             Entry {
@@ -438,7 +457,7 @@ impl Terminals {
                     exit_code: None,
                     owner,
                 },
-                events: sender,
+                events,
                 handle: Some(Arc::new(handle)),
                 screen,
             },
@@ -446,10 +465,7 @@ impl Terminals {
         arrival
             .send(program)
             .expect("the reader thread waits for its child");
-        Ok(Spawned {
-            id: number.to_string(),
-            events,
-        })
+        Ok(number.to_string())
     }
 
     /// Queue `bytes` to be typed into a running Terminal and return without waiting for the program to
@@ -656,11 +672,16 @@ impl Terminals {
     /// use [`Spawned::events`] instead.
     pub fn subscribe(&self, id: &str) -> Result<broadcast::Receiver<EventData>, RpcError> {
         let number = parse_terminal_number(id)?;
-        let table = self.shared.table();
+        let mut table = self.shared.table();
         table
-            .get(&number)
+            .get_mut(&number)
             .filter(|entry| entry.handle.is_some())
-            .map(|entry| entry.events.subscribe())
+            .map(|entry| {
+                entry
+                    .events
+                    .get_or_insert_with(|| broadcast::Sender::new(EVENT_BACKLOG))
+                    .subscribe()
+            })
             .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))
     }
 
@@ -899,12 +920,15 @@ impl Module for Terminals {
         match method {
             "terminal.spawn" => {
                 // M14: a Terminal an Agent starts is owned by it; the user's and an Extension's is ownerless (X1).
-                let spawned = if ctx.actor.kind == contracts::ActorKind::Agent {
-                    self.spawn_owned(params(value)?, &ctx.actor.id).await?
+                // RPC consumers receive the Bus. A local backlog is only needed by an
+                // in-process subscriber; ten unused backlogs caused #1990's RSS regression.
+                let id = if ctx.actor.kind == contracts::ActorKind::Agent {
+                    self.start_owned(params(value)?, &ctx.actor.id, None)
+                        .await?
                 } else {
-                    self.spawn(params(value)?).await?
+                    self.start(params(value)?, None, &[], None).await?
                 };
-                reply(&TerminalId { id: spawned.id })
+                reply(&TerminalId { id })
             }
             "terminal.write" => {
                 let WriteParams { id, data, identity } = params(value)?;
