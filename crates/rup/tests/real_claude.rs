@@ -594,6 +594,11 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
         _ => None,
     })
     .await;
+    // A child's permission state also pushes Digests. Hold delivery so one cannot
+    // consume the recovery turn before the Decision note has joined the batch.
+    user.request("takeover.begin", json!({"agent":door}))
+        .await
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let nodes = rail_tree(&user).await;
@@ -644,6 +649,16 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     .await
     .unwrap();
     assert!(permission.await.unwrap().is_ok());
+    next(&mut events, |data| match data {
+        EventData::MessageSent(m) if m.to == door && m.body.starts_with("[decision d1]") => {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    user.request("takeover.end", json!({"agent":door}))
+        .await
+        .unwrap();
     next(&mut events, |data| match data {
         EventData::MessageDelivered(m) if m.to == door && m.body.starts_with("[decision d1]") => {
             Some(())
