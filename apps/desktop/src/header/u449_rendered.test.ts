@@ -256,6 +256,8 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
         expect(edge.mark.height).toBe(8);
         expect(edge.mark.left).toBeGreaterThan(edge.box.left);
         expect(edge.mark.right).toBeLessThan(edge.box.right);
+        // The cap's content sits a step inside its 1 px border, not on it.
+        expect(Math.min(edge.mark.left - edge.box.left, edge.box.right - edge.mark.right)).toBeGreaterThanOrEqual(5);
       }
     }
 
@@ -313,7 +315,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 describe("u440 overflow edges sit beside the tab list", () => {
   type Rect = { left: number; right: number };
 
-  type Reading = { case: string; fades: Rect[]; slots: number; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
+  type Reading = { case: string; fades: Rect[]; fadeImages: string[]; slots: number; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
   let server: ViteDevServer;
   let readings: Reading[];
@@ -370,6 +372,9 @@ describe("u440 overflow edges sit beside the tab list", () => {
 
         expect(fade.right - fade.left, reading.case).toBeGreaterThanOrEqual(piece);
       }
+
+      // The cut piece is left out in the header's own ground: no gradient leaves a half box or a band over the tab's base.
+      expect(reading.fadeImages.every((image) => image === "none"), reading.case).toBe(true);
     }
   });
 });

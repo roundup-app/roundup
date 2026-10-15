@@ -130,7 +130,7 @@
   height: 100%;
 }
 
-/* A tab the list cuts at an end fades into the header there: opaque over most of the piece that shows, clear by its end. */
+/* A tab the list cuts at an end is left out there: the header's own ground covers the whole piece that shows and the gap to the next tab, so no half box remains. */
 .tablist-frame {
   position: relative;
   display: flex;
@@ -149,12 +149,12 @@
 
 .strip-fade-start {
   left: 0;
-  background-image: linear-gradient(to right, var(--ground) 60%, transparent);
+  background-color: var(--ground);
 }
 
 .strip-fade-end {
   right: 0;
-  background-image: linear-gradient(to left, var(--ground) 60%, transparent);
+  background-color: var(--ground);
 }
 
 .strip-edge {
@@ -164,7 +164,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  --button-inline: 0;
+  --button-inline: var(--space-1);
   border: var(--rule) solid var(--hairline);
   --button-radius: 0;
   --button-surface: var(--sunken);
