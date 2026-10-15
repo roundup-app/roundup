@@ -4,7 +4,10 @@ Source: the complete published rusqlite 0.40.2 crate from
 https://static.crates.io/crates/rusqlite/rusqlite-0.40.2.crate.
 Cargo pins the version and patches crates.io transitively to this directory;
 rusqlite_migration therefore uses the same Connection type. No SQLite C source
-or libsqlite3-sys dependency changes.
+or libsqlite3-sys dependency changes. The vendored upstream lockfile is retained
+for standalone cache tests. Resolving the workspace patch also repairs the
+existing cssparser-macros 0.7.1 lock edge from syn 3 to its declared syn 2;
+no package version changes.
 
 The repair moves SQL-key initialization into the successful cold-prepare arm.
 Warm checkout retains the existing allocation. Cache return, clear bindings,
@@ -16,6 +19,17 @@ Remove this patch after a maintained upstream release carries the correction,
 then rerun the allocation regression and Agents/Message acceptance. Preserve the
 version pin until that review. Do not edit upstream sources beyond src/cache.rs.
 
+Upstream archive SHA-256:
+`23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3`.
+
+Test reduction: upstream `test_cache_key` repeated `test_cache` with surrounding
+whitespace. `b32_r16_warm_checkout_retains_sql_key` now proves trimmed-key reuse
+and retained allocation, while `test_cache` retains cache checkout/return proof.
+
+The prerequisite leaves #1924 open for its complete matched owner and
+User/Extension/User observations. #1366, #1361 and #1251 keep their existing
+ceilings and workloads.
+
 ## Reuse
 
 - Selected: rusqlite 0.40.2 (released 2026-08-08),
@@ -23,7 +37,9 @@ version pin until that review. Do not edit upstream sources beyond src/cache.rs.
   Both that release and upstream master still replace the key on warm checkout.
   Cargo's supported local patch delivery preserves the public interface:
   https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html#testing-a-bugfix.
-- SQLx is actively released at https://github.com/transact-rs/sqlx/releases.
+- SQLx v0.9.0 is tagged 2026-05-21, with upstream activity on 2026-10-15:
+  https://github.com/transact-rs/sqlx/tree/v0.9.0 and
+  https://github.com/transact-rs/sqlx/commits/main/.
   It cannot supply rusqlite's Connection/Statement/prepare_cached types to
   rusqlite_migration or existing callers; migration changes the prohibited
   constructor/caller and SQL execution scope.

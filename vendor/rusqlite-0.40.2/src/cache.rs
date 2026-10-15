@@ -142,12 +142,14 @@ impl StatementCache {
         let mut cache = self.0.borrow_mut();
         let stmt = match cache.remove(trimmed) {
             Some(raw_stmt) => Ok(Statement::new(conn, raw_stmt)),
-            None => conn.prepare_with_flags(trimmed, PrepFlags::SQLITE_PREPARE_PERSISTENT),
+            None => conn
+                .prepare_with_flags(trimmed, PrepFlags::SQLITE_PREPARE_PERSISTENT)
+                .map(|mut stmt| {
+                    stmt.stmt.set_statement_cache_key(trimmed);
+                    stmt
+                }),
         };
-        stmt.map(|mut stmt| {
-            stmt.stmt.set_statement_cache_key(trimmed);
-            CachedStatement::new(stmt, self)
-        })
+        stmt.map(|stmt| CachedStatement::new(stmt, self))
     }
 
     // Return a statement to the cache.
@@ -203,12 +205,76 @@ mod test {
     fn b32_r16_warm_checkout_retains_sql_key() -> Result<()> {
         let db = Connection::open_in_memory()?;
         let first = db.prepare_cached(" SELECT ?1 ")?;
-        let key = first.stmt.as_ref().unwrap().stmt.statement_cache_key().unwrap();
+        let key = first
+            .stmt
+            .as_ref()
+            .unwrap()
+            .stmt
+            .statement_cache_key()
+            .unwrap();
         drop(first);
         let mut warm = db.prepare_cached("SELECT ?1")?;
-        let warm_key = warm.stmt.as_ref().unwrap().stmt.statement_cache_key().unwrap();
+        let warm_key = warm
+            .stmt
+            .as_ref()
+            .unwrap()
+            .stmt
+            .statement_cache_key()
+            .unwrap();
         assert!(std::sync::Arc::ptr_eq(&key, &warm_key));
         assert_eq!(warm.query_row([7], |row| row.get::<_, i64>(0))?, 7);
+        Ok(())
+    }
+
+    #[test]
+    fn b32_r16_eviction_or_flush_requires_a_new_key() -> Result<()> {
+        for flush in [false, true] {
+            let db = Connection::open_in_memory()?;
+            db.set_prepared_statement_cache_capacity(1);
+            let first = db.prepare_cached("SELECT 1")?;
+            let key = first
+                .stmt
+                .as_ref()
+                .unwrap()
+                .stmt
+                .statement_cache_key()
+                .unwrap();
+            drop(first);
+            if flush {
+                db.flush_prepared_statement_cache();
+            } else {
+                assert_eq!(
+                    db.prepare_cached("SELECT 2")?
+                        .query_row([], |r| r.get::<_, i64>(0))?,
+                    2
+                );
+            }
+            let mut fresh = db.prepare_cached("SELECT 1")?;
+            let fresh_key = fresh
+                .stmt
+                .as_ref()
+                .unwrap()
+                .stmt
+                .statement_cache_key()
+                .unwrap();
+            assert!(!std::sync::Arc::ptr_eq(&key, &fresh_key));
+            assert_eq!(fresh.query_row([], |r| r.get::<_, i64>(0))?, 1);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn b32_r16_binding_failure_returns_an_unbound_statement() -> Result<()> {
+        let db = Connection::open_in_memory()?;
+        let mut failed = db.prepare_cached("SELECT ?1")?;
+        failed.raw_bind_parameter(1, 7)?;
+        assert!(failed.raw_bind_parameter(2, 8).is_err());
+        drop(failed);
+        let mut next = db.prepare_cached("SELECT ?1")?;
+        assert_eq!(
+            next.raw_query().next()?.unwrap().get::<_, Option<i64>>(0)?,
+            None
+        );
         Ok(())
     }
 
@@ -330,30 +396,6 @@ mod test {
         conn.prepare_cached("SELECT * FROM sqlite_master;")?;
 
         conn.close().expect("connection not closed");
-        Ok(())
-    }
-
-    #[test]
-    fn test_cache_key() -> Result<()> {
-        let db = Connection::open_in_memory()?;
-        let cache = &db.cache;
-        assert_eq!(0, cache.len());
-
-        //let sql = " PRAGMA schema_version; -- comment";
-        let sql = "PRAGMA schema_version; ";
-        {
-            let mut stmt = db.prepare_cached(sql)?;
-            assert_eq!(0, cache.len());
-            assert_eq!(0, stmt.query_row([], |r| r.get::<_, i64>(0))?);
-        }
-        assert_eq!(1, cache.len());
-
-        {
-            let mut stmt = db.prepare_cached(sql)?;
-            assert_eq!(0, cache.len());
-            assert_eq!(0, stmt.query_row([], |r| r.get::<_, i64>(0))?);
-        }
-        assert_eq!(1, cache.len());
         Ok(())
     }
 
