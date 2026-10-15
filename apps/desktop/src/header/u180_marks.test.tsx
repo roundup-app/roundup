@@ -8,7 +8,7 @@ afterEach(cleanup);
 const markOf = (name: string) => tab(name).querySelector(".tab-mark");
 
 describe("u180 the Tab mark", () => {
-  it("u443_the_mark_keeps_its_rule_name_and_click", async () => {
+  it("u180_error_over_needs_you", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x"), agent("b", "error", "x")] });
 
     expect(markOf("api")?.getAttribute("aria-label")).toBe("error");
