@@ -217,3 +217,10 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
     }
   }, 60_000);
 }
+
+it("u477_icon_button_preserves_bound_click_handler", async () => {
+  await load();
+  await browser("click", '[aria-label="Bound action"]');
+  await browser("wait", "--fn", `document.querySelector('output').textContent === '2'`);
+  expect(await read<string>(`document.querySelector('output').textContent`)).toBe("2");
+}, 60_000);

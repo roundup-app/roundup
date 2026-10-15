@@ -41,11 +41,14 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
 
     const handler = local.onClick;
 
-    if (Array.isArray(handler)) handler[0](handler[1], event);
-    else handler?.(event);
+    if (!handler) return;
+
+    if (0 in handler) handler[0](handler[1], event);
+    else handler(event);
   };
 
-  return <Tooltip.Root>
+  // Escape belongs to the surrounding App surface; blur and pointer leave dismiss the name.
+  return <Tooltip.Root closeOnEscape={false}>
     <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;

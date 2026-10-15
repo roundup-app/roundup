@@ -41,5 +41,6 @@ export const u474Fixture = () => {
       ref={(button) => { button.dataset.refConnected = "true"; }} onClick={() => setChosen(chosen() + 1)}>+</IconButton>
     <IconButton aria-label="Unavailable action" aria-disabled onClick={() => setChosen(chosen() + 1)}>×</IconButton>
     <button type="button" data-button="quiet">End</button>
+    <IconButton aria-label="Bound action" onClick={[setChosen, 2]}>+</IconButton>
   </>;
 };
