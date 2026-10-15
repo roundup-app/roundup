@@ -501,7 +501,8 @@ impl Shared {
 
     /// H13, H16: the other place a Terminal is written on an Agent's behalf. One `ESC` goes out
     /// when `id` has a turn to end; this returns when the Agent's title shows it is no longer
-    /// working (`Kind::Idle`). Nothing is written again on any failure.
+    /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
+    /// means the Escape was written but its outcome is uncertain. Nothing is retried.
     async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
         let not_found = || RpcError::not_found(format!("agent {id} is not running"));
         let (terminal_id, acked) = {
@@ -541,39 +542,52 @@ impl Shared {
             run.interrupt = Some(waiting);
             (run.terminal_id.clone(), acked)
         };
+        // B6: an enqueue acknowledgement cannot bound the Escape's effect. Await its
+        // physical completion so no timeout result leaves a future write behind.
         let written = self
             .terminals
-            .write(&terminal_id, &claude_code::interrupt_bytes())
+            .write_with(&terminal_id, |writer| {
+                writer
+                    .write_all(&claude_code::interrupt_bytes())
+                    .and_then(|()| writer.flush())
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!(
+                            "Interrupt bytes may have been written: {err}"
+                        ))
+                    })
+            })
             .await;
-        let lost = match written {
-            Err(err) if err.code == code::NOT_FOUND => return Err(not_found()),
+        let error = match written {
             Err(err) => {
                 eprintln!("agents: could not write the interrupt to terminal {terminal_id}: {err}");
-                true
+                if err.code == code::UNKNOWN_OUTCOME {
+                    RpcError::unknown_outcome(format!(
+                        "agent {id}: Interrupt outcome uncertain; do not retry: {err}"
+                    ))
+                } else {
+                    RpcError::new(
+                        err.code,
+                        format!("agent {id}: Interrupt refused; no bytes written: {err}"),
+                    )
+                }
             }
-            Ok(()) => tokio::time::timeout(self.interrupt_bound, acked)
-                .await
-                .map_or(true, |signalled| signalled.is_err()),
+            Ok(()) => match tokio::time::timeout(self.interrupt_bound, acked).await {
+                Ok(Ok(())) => return Ok(()),
+                _ => {
+                    eprintln!("agents: {id}: the title did not change after the interrupt");
+                    RpcError::new(
+                        code::NOT_ACKED,
+                        format!(
+                            "agent {id} did not acknowledge the interrupt; Escape written; outcome uncertain; do not retry"
+                        ),
+                    )
+                }
+            },
         };
-        if !lost {
-            return Ok(());
+        if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
+            run.interrupt = None;
         }
-        let mut runs = self.runs();
-        let ended = match runs.get_mut(id) {
-            Some(Slot::Running(run)) => {
-                run.interrupt = None;
-                run.ended || run.closing
-            }
-            _ => true,
-        };
-        if ended {
-            return Err(not_found());
-        }
-        eprintln!("agents: {id}: the title did not change after the interrupt");
-        Err(RpcError::new(
-            code::NOT_ACKED,
-            format!("agent {id} did not acknowledge the interrupt"),
-        ))
+        Err(error)
     }
 
     fn rail(&self) -> MutexGuard<'_, rail::Rail> {
