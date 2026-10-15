@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render } from "@solidjs/testing-library";
+import { createComponent, createSignal } from "solid-js";
+import { Layout } from "./Layout";
 import styles from "../styles.css?inline";
 
 const effective = (css: string, selector: string, property: string) =>
@@ -32,22 +35,16 @@ describe("u24 narrow window", () => {
   });
 });
 
-
-// U491's host seam is Layout itself; Ark supplies identity/ownership while Layout keeps geometry.
-import { cleanup, render } from "@solidjs/testing-library";
-import { createComponent, createSignal } from "solid-js";
-import { afterEach } from "vitest";
-import { Layout } from "./Layout";
-
- afterEach(cleanup);
+afterEach(cleanup);
 
 it("u491_layout_binds_owned_panels_without_replacing_grid_or_visibility", () => {
   const [shown, setShown] = createSignal(true);
+  const attached: HTMLElement[] = [];
   const { container } = render(() => createComponent(Layout, {
     header: "Header", rail: "Rail", centre: "Centre", shelf: "Shelf", overlay: null,
     get shelfPlacement() { return { open: shown(), rendered: shown(), shown: shown(), animated: false, onSettle() {} }; },
     splitter: {
-      root: { id: "splitter-root", style: { display: "flex" }, "data-scope": "splitter", "data-part": "root" },
+      root: { ref: (element) => attached.push(element), id: "splitter-root", style: { display: "flex" }, "data-scope": "splitter", "data-part": "root" },
       rail: { id: "splitter-rail", style: { flex: "0 0 22.5%" }, "data-part": "panel", "data-ownedby": "splitter-root" },
       centre: { id: "splitter-centre", "data-part": "panel", "data-ownedby": "splitter-root" },
       shelf: { id: "splitter-shelf", "data-part": "panel", "data-ownedby": "splitter-root" },
@@ -55,6 +52,7 @@ it("u491_layout_binds_owned_panels_without_replacing_grid_or_visibility", () => 
   }));
   const root = container.querySelector<HTMLElement>("#splitter-root")!;
   expect(root).not.toBeNull();
+  expect(attached).toEqual([root]);
   expect([...root.querySelectorAll('[data-part="panel"][data-ownedby="splitter-root"]')].map((el) => el.id)).toEqual(["splitter-rail", "splitter-centre", "splitter-shelf"]);
   expect(root.style.display).toBe("");
   expect(container.querySelector<HTMLElement>("#splitter-rail")!.style.flex).toBe("");
