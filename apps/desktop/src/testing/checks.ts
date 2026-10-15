@@ -259,7 +259,7 @@ const d4 = ({ doc }: Page): Measure => {
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
 
-const groundOf = (page: Page, el: Element): Rgba => {
+const groundOf = (page: Page, el: Element): Rgba | null => {
   let ground: Rgba = parseColour(page.token("ground") ?? "") ?? { r: 255, g: 255, b: 255, a: 1 };
   const chain: Element[] = [];
 
@@ -275,7 +275,19 @@ const groundOf = (page: Page, el: Element): Rgba => {
     const wash = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
     const layer = wash ? parseColour(wash) : null;
 
-    if (layer) ground = over(layer, ground);
+    if (layer) {
+      const style = page.style(node);
+      const size = resolveAt(page, node, style.backgroundSize);
+      const full = !size || size === "auto" || size === "auto auto" || size === "100% 100%";
+
+      const mark = node.matches(".thread-composer:has(textarea:focus-visible)") &&
+        /^100% [\d.]+px$/.test(size) && Number.parseFloat(size.split(" ")[1]!) > 0 &&
+        Number.parseFloat(size.split(" ")[1]!) < node.getBoundingClientRect().height &&
+        style.backgroundRepeat === "no-repeat" && style.backgroundPosition === "50% 100%";
+
+      if (full) ground = over(layer, ground);
+      else if (!mark) return null;
+    } else if (image && image !== "none" && !image.includes("), linear-gradient(")) return null;
   }
 
   return ground;
@@ -283,16 +295,21 @@ const groundOf = (page: Page, el: Element): Rgba => {
 
 // D5: text 4.5:1, a Glyph tone and a focus ring 3:1 against their own ground; `done` is exempt (U4).
 const d5 = (page: Page): Measure => {
+  let measurable = true;
+
   const ratio = (el: Element, property: string) => {
     const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
+    const ground = groundOf(page, el);
 
-    return colour ? contrastRgb(over(colour, groundOf(page, el)), groundOf(page, el)) : null;
+    if (!ground) measurable = false;
+
+    return colour && ground ? contrastRgb(over(colour, ground), ground) : null;
   };
 
   const ink = (el: Element) => [...el.childNodes].some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "");
-  const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" ? page.doc.activeElement : null;
+  const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" && (px(page.style(page.doc.activeElement).outlineWidth) ?? 0) > 0 ? page.doc.activeElement : null;
 
-  return offender(page, (el) => {
+  const result = offender(page, (el) => {
     if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
       const found = ratio(el, "color");
 
@@ -303,6 +320,21 @@ const d5 = (page: Page): Measure => {
       if (found !== null && found < 4.5) return { text: found };
     }
 
+    if (el.matches(".thread-composer:has(textarea:focus-visible)")) {
+      const style = page.style(el);
+      const image = resolveAt(page, el, style.backgroundImage);
+      const mark = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
+      const colour = mark ? parseColour(mark) : null;
+      const ground = groundOf(page, el);
+
+      if (!colour || !ground) measurable = false;
+      else {
+        const found = contrastRgb(over(colour, ground), ground);
+
+        if (found < 3) return { focusRing: found };
+      }
+    }
+
     if (el === focused) {
       const found = ratio(el, "outline-color");
 
@@ -311,6 +343,8 @@ const d5 = (page: Page): Measure => {
 
     return null;
   });
+
+  return !measurable && result.ok ? { ok: false, value: NOT_MEASURABLE, selector: "" } : result;
 };
 
 // A rule that applies to `el` once its state pseudo-class is true: the selector without the pseudo-class matches it.

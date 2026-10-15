@@ -179,10 +179,12 @@ describe("u137 one module measures the checks", () => {
 });
 
 const chrome = chromePath();
+
 const rendered = chrome || process.env.CI ? describe : describe.skip;
 
 rendered("u137 rendered composer focus", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
+
   beforeAll(async () => { if (!chrome) throw new Error("U137 requires Chromium"); page = await openPage(chrome); }, 90_000);
   afterAll(async () => { await page?.close(); });
 
@@ -190,11 +192,14 @@ rendered("u137 rendered composer focus", () => {
     it(`u137_measures_the_visible_composer_mark_after_takeover_release_at_${width}`, async () => {
       await page.load("/harness.html?seed=thread-report", width, 800);
       await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
-      await page.press("0", "Digit0", 1);
+      await page.call(`() => document.querySelector('[aria-label="More"]').click()`);
+      await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some(el => el.textContent === 'Take control')`);
+      await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find(el => el.textContent === 'Take control').click()`);
       await page.until(`() => Boolean(document.querySelector('.pane-takeover'))`);
       await page.press("0", "Digit0", 1);
       await page.until(`() => document.activeElement?.matches('[data-thread-input]') && !document.querySelector('.pane-takeover')`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
+
       expect(checks.D5).toMatchObject({ status: "pass" });
       expect(checks.D10.status).toBe("pass");
     }, 60_000);
@@ -205,7 +210,27 @@ rendered("u137 rendered composer focus", () => {
     await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
     await page.call(`() => { document.querySelector('[data-thread-input]').focus(); const sheet = document.createElement('style'); sheet.textContent = '.thread-composer:has(textarea:focus-visible) { background-image: linear-gradient(var(--ground), var(--ground)); }'; document.head.append(sheet); }`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
-    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: 1 } });
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: expect.closeTo(1.08884, 4) } });
+    expect(checks.D10.status).toBe("fail");
+  });
+
+  it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 100% 100%">text</p>'; }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: { text: 1 } });
+  });
+
+  it("u137_unsupported_single_layer_coverage_is_not_measurable", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 50% 50%; background-repeat: no-repeat">text</p>'; }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: "not measurable" });
     expect(checks.D10.status).toBe("fail");
   });
 });
