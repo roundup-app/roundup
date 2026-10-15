@@ -284,7 +284,7 @@ Source: `3aa27e5f96a58bb382cdd1ce6f39bb6c78a86c17`, merging main
 `CARGO_TARGET_DIR=/tmp/roundup-perf-before/target just perf`, from
 `/tmp/roundup-perf`; standard eleven-run workload. Actual exit: 1.
 RSS passed at 0.90234375 MB. The unchanged 2 ms absolute Rail-10 limit failed
-at 2.6538299999999997 ms during concurrent compilation and browser tests; loud R13 skips
+at 2.65383 ms during concurrent compilation and browser tests; loud R13 skips
 never waive an absolute limit. This failed observation is retained in full.
 
 Binary SHA-256:
@@ -472,3 +472,190 @@ f571100519f99235e8e367728d16494ed80bd26d81b3f7f374057ee920219943  target/release
   ]
 }
 ```
+
+### E: merged-head repeat after verification finished
+
+Source: `00a68c42936f16c52be14eb43895f47d21051c4b` (only documentation
+changed since D). From `/tmp/roundup-perf`, command:
+`CARGO_TARGET_DIR=/tmp/roundup-perf-before/target just perf`.
+Actual exit: 1. No timing comparisons skipped. RSS passed in every sample:
+median 1.52734375, range 1.46484375–1.65625 MB.
+The four latency regression misses (`ping`, Rail-40, Terminal write and
+write-to-output) also failed on original main in A; they remain outside this
+RSS repair. B and C demonstrate exit 0 under unchanged R13 semantics, with their
+five explicit timing skips. Neither a skipped timing comparison nor these
+remaining latency misses waives the RSS comparison. D and E are retained,
+not substituted for B/C or described as passing whole-gate observations.
+
+Binary SHA-256:
+
+```text
+bd3d98417b070b74dc02a08dd251733207afea1a9b99acfd7b0dbe6571965182  target/release/perf
+9681f5136d0bf5cd8c9642439a1d6a0401f1e8403f36be035190002adafd72df  target/release/rupd
+f571100519f99235e8e367728d16494ed80bd26d81b3f7f374057ee920219943  target/release/rup
+```
+
+```json
+{
+  "os": "linux",
+  "cpus": 4,
+  "runs": 11,
+  "loads": [
+    5.04,
+    4.64,
+    4.27,
+    4.27,
+    4.16,
+    4.16,
+    5.35,
+    5.0,
+    5.0,
+    4.6,
+    4.6
+  ],
+  "metrics": {
+    "cold_plugin_materialization_ms": 11.814151,
+    "cold_start_ms": 11.445355000000001,
+    "hook_loop_ms": 279.60413,
+    "ping_p95_ms": 0.12329100000000001,
+    "rail_tree_10_p95_ms": 0.24810400000000002,
+    "rail_tree_40_p95_ms": 0.5888720000000001,
+    "rss_extra_mb": 1.52734375,
+    "terminal_write_p95_ms": 0.12907000000000002,
+    "write_to_output_p95_ms": 0.241931
+  },
+  "per_run": {
+    "cold_plugin_materialization_ms": [
+      13.116715,
+      11.542531,
+      11.686529,
+      11.805639999999999,
+      11.896721000000001,
+      11.814151,
+      12.126328,
+      11.347959,
+      11.822551,
+      11.689402,
+      11.890479000000001
+    ],
+    "cold_start_ms": [
+      11.609064,
+      11.34574,
+      11.472637,
+      11.332535,
+      11.404249,
+      13.453431,
+      13.383979,
+      13.484372,
+      11.37845,
+      11.307213,
+      11.445355000000001
+    ],
+    "hook_loop_ms": [
+      276.248288,
+      278.61978,
+      275.08819800000003,
+      283.286031,
+      278.183314,
+      288.605138,
+      279.60413,
+      282.27617,
+      280.80980100000005,
+      280.383737,
+      278.34249100000005
+    ],
+    "ping_p95_ms": [
+      0.12329100000000001,
+      0.10568799999999999,
+      0.121119,
+      0.119955,
+      0.10715999999999999,
+      0.105217,
+      0.126857,
+      0.153116,
+      0.125885,
+      0.130364,
+      0.14315199999999997
+    ],
+    "rail_tree_10_p95_ms": [
+      0.24810400000000002,
+      0.24746300000000002,
+      0.26113,
+      0.26010999999999995,
+      0.255301,
+      0.239779,
+      0.22601300000000002,
+      0.259996,
+      0.25864699999999996,
+      0.22422,
+      0.23870599999999997
+    ],
+    "rail_tree_40_p95_ms": [
+      0.544596,
+      0.6979420000000001,
+      0.590322,
+      0.571739,
+      0.5888720000000001,
+      0.597318,
+      0.526976,
+      0.7608330000000001,
+      0.57198,
+      0.6090540000000001,
+      0.586067
+    ],
+    "rss_extra_mb": [
+      1.53515625,
+      1.51953125,
+      1.51171875,
+      1.46484375,
+      1.546875,
+      1.55078125,
+      1.52734375,
+      1.65625,
+      1.484375,
+      1.53515625,
+      1.46875
+    ],
+    "terminal_write_p95_ms": [
+      0.125033,
+      0.12999999999999998,
+      0.128233,
+      0.127599,
+      0.12907000000000002,
+      0.12990300000000002,
+      0.13058699999999998,
+      0.128379,
+      0.12852999999999998,
+      0.129562,
+      0.131085
+    ],
+    "write_to_output_p95_ms": [
+      0.23578100000000002,
+      0.242112,
+      0.24001999999999998,
+      0.23954799999999998,
+      0.24005200000000002,
+      0.242223,
+      0.241931,
+      0.243619,
+      0.24295799999999998,
+      0.24182199999999998,
+      0.362358
+    ]
+  },
+  "skipped": []
+}
+```
+
+### Validation
+
+On the merged source, `just check origin/main` exited 0: 1,495 Rust tests
+passed (five existing skips); selected browser checks passed (58 passed, two
+existing opt-in skips). `cargo test -p perf --test budget --test r13` exited 0
+(16 budget tests and 16 R13 tests), including R2, R8 and memory-at-any-load.
+Clippy and the complete check pass without changing a test or gate to hide a
+failure. The first broad test attempt lacked the built debug App fixture;
+the full check supplied it. An earlier concurrent `cargo test -p terminal`
+timed out in U104; its isolated retry and both full Rust runs passed it.
+The first in-progress check caught a mutable-binding compiler error, fixed
+before the measured repair commit; the final complete check above exited 0.
