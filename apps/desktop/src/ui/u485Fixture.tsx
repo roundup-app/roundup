@@ -1,4 +1,4 @@
-import { Feedback } from "@dnd-kit/dom";
+import { Cursor, Feedback } from "@dnd-kit/dom";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable, useSortable } from "@dnd-kit/solid/sortable";
 import { createSignal, For } from "solid-js";
@@ -22,7 +22,7 @@ const Fixture = () => {
   const [commits, setCommits] = createSignal(0);
 
   return <>
-    <DragDropProvider plugins={(defaults) => defaults.map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragEnd={(event) => {
+    <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragEnd={(event) => {
       const source = event.operation.source;
 
       if (event.canceled || !isSortable(source) || source.initialIndex === source.index) return;
