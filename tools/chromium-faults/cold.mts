@@ -1,4 +1,4 @@
-/** U26: run before Vitest; reuse its browser selection, launcher and reply deadline. */
+/** U26: run before Vitest; reuse its browser selection and launcher. Startup measurements: issue-1977.md. */
 import { appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";

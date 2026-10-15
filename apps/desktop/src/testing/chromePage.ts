@@ -67,6 +67,7 @@ export const openPage = async (
   const startup = performance.now();
   let stage = "executable-reading";
   let ready = false;
+
   const completed = (name: string) => {
     stage = name;
     observe?.(name, performance.now() - startup);
@@ -82,6 +83,7 @@ export const openPage = async (
     const executable = createReadStream(found, { highWaterMark: 4 * 1024 * 1024, signal: AbortSignal.timeout(startupMs) });
 
     executable.resume();
+
     try {
       await finished(executable);
     } catch (error) {
