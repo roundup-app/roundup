@@ -114,3 +114,12 @@ What can go wrong:
 - **Load.** Run it with the laptop idle; the load average is printed per run.
 - **Windows over a headless Chromium number.** Chromium with the same xterm measured p95 under 5 ms; WKWebView on an M4 Max in the earlier spike measured 11 to 15 ms. The difference is the frame wait, so the budget is only meaningful here.
 
+
+## Existing RSS gate repair (#1990)
+
+The repair keeps R2/R8/R13, the ten login shells, the 1.6 MB Linux baseline,
+0.05 MB noise and 1.810 MB ceiling unchanged. The release observer itself
+is the regression test: reproduce on `1406d1bb0ad1ad106a7a57114b6d6f456fa75a9c`,
+then run the same observer against repaired Daemon bytes. Isolate Daemon changes
+from probe changes by retaining the original probe and `rup` binaries.
+Record every invocation, its actual exit, hashes and per-run values below.
