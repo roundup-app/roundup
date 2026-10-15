@@ -824,15 +824,10 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
 
 #[tokio::test]
 async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
-    let report = tempfile::tempdir().unwrap().keep().join("seen.json");
-    let tools = json!([
-        { "name": "todo_create", "arguments": { "title": "plan the workstream" } },
-        { "name": "todo_update", "arguments": { "id": "$id", "body": "owned files: none yet" } },
-    ]);
-    let project = start(&[
-        ("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap()),
-        ("FAKE_CLAUDE_TOOLS", &tools.to_string()),
-    ]);
+    let project = daemon::start_real(
+        "b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp",
+        &[],
+    );
     let mut client = project.subscribed().await;
     let workstream = client
         .request(
@@ -847,26 +842,69 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         .await
         .unwrap();
 
+    wait_until_idle(
+        &mut client,
+        std::slice::from_ref(&door),
+        Instant::now() + Duration::from_secs(30),
+    )
+    .await
+    .unwrap();
+    client
+        .request(
+            "message.send",
+            json!({
+                "to": door, "kind": "note", "body": "E10 plan the workstream"
+            }),
+        )
+        .await
+        .unwrap();
+
     let updated = next(&mut client, |data| match data {
         EventData::TodoUpdated(todo) if !todo.body.is_empty() => Some(todo),
         _ => None,
     })
     .await;
-    let seen = seen_at(&report).await;
-
-    assert!(seen.brief.contains("coordinating Door"));
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_update_todo").await;
     assert!(
-        seen.brief.contains(HOLD_PLAIN),
-        "Q1: the pinned hold:Plain body"
+        result["content"]
+            .as_str()
+            .unwrap()
+            .contains("owned files: none yet"),
+        "{result}"
     );
+    let journal = model.journal();
+    let request = &journal[0]["body"];
+    let brief = request["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "system")
+        .map(|m| m["content"].as_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(brief.contains("coordinating Door"), "{request}");
+    assert!(brief.contains(HOLD_PLAIN), "Q1: the pinned hold:Plain body");
     assert!(
-        seen.brief.contains(REDUCE) && seen.brief.contains(SHOW_ME),
+        brief.contains(REDUCE) && brief.contains(SHOW_ME),
         "Q6: the pinned reduce and show-me bodies"
     );
-    assert!(!seen.brief.contains(&format!("Agent id is {door}")));
-    let mut listed = seen.tools;
+    assert!(!brief.contains(&format!("Agent id is {door}")));
+    let mut listed: Vec<_> = request["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tool| {
+            tool["function"]["name"]
+                .as_str()
+                .unwrap()
+                .strip_prefix("mcp__roundup__")
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
     listed.sort();
-    assert_eq!(advertised(&seen.brief), listed);
+    assert_eq!(advertised(&brief), listed);
     assert_eq!(updated.title, "plan the workstream");
     assert_eq!(updated.body, "owned files: none yet");
     assert_eq!(
