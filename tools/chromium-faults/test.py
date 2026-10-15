@@ -124,6 +124,7 @@ class FaultTest(unittest.TestCase):
                         # Independently prove the reader has not completed its real load.
                         self.assertIn("D (disk sleep)", Path(f"/proc/{tid}/status").read_text())
                         self.assertIn("D (disk sleep)", Path(f"/proc/{outside_pid}/status").read_text())
+                        held_until_ns = time.monotonic_ns()
                         send("R\n")
                         self.assertEqual(line(control), "VALUE Q")
                         self.assertEqual(line(outsider.stdout), "VALUE Q")
@@ -131,7 +132,7 @@ class FaultTest(unittest.TestCase):
                         completed = self.event(observer.stdout, "completed", tid)
                         self.assertEqual(completed["entry_ns"], pending["entry_ns"])
                         self.assertEqual(completed["address"], address)
-                        self.assertGreater(completed["duration_ns"], 0)
+                        self.assertGreaterEqual(completed["duration_ns"], held_until_ns - pending["entry_ns"])
                         send("END\n")
                         finished = self.event(observer.stdout, "finished", None)
                         self.assertEqual(finished["command_status"], 37)
