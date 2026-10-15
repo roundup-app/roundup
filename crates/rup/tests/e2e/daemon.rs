@@ -19,9 +19,14 @@ const BOUND: Duration = Duration::from_secs(30);
 /// the first `agent.spawn`. Kept apart from `BOUND`, which `Drop` also uses, so this cannot drift.
 pub const TEN_IDLE_BOUND: Duration = Duration::from_secs(30);
 
+#[allow(dead_code)] // Each integration target uses a different part of the shared harness.
+#[path = "aimock.rs"]
+pub mod aimock;
+
 pub struct Project {
     /// Its stdin is held open: `--attached` makes the Daemon exit, and stop its Agents, when it closes.
     daemon: rupd_harness::Rupd,
+    pub model: Option<aimock::Model>,
     pub dir: tempfile::TempDir,
     /// The App's data folder (`ROUNDUP_DATA_DIR`, N1), kept outside the Project folder.
     pub data: tempfile::TempDir,
@@ -60,7 +65,12 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
     let mut stderr = daemon.stderr.take().unwrap();
     // Left unread, the pipe would fill and block the Daemon's logging.
     std::thread::spawn(move || std::io::copy(&mut stderr, &mut std::io::stderr()));
-    Project { daemon, dir, data }
+    Project {
+        daemon,
+        dir,
+        data,
+        model: None,
+    }
 }
 
 impl Project {
@@ -133,6 +143,11 @@ impl Drop for Project {
         }
         let _ = self.daemon.child.kill();
         let _ = self.daemon.child.wait();
+        if !std::thread::panicking()
+            && let Some(model) = &self.model
+        {
+            model.assert_matched();
+        }
     }
 }
 
@@ -258,4 +273,23 @@ pub async fn wait_until_idle(
         );
     }
     Err(report)
+}
+
+/// Start the actual pinned vendor against this test's model fixture.
+pub fn start_real(fixture: &str, env: &[(&str, &str)]) -> Project {
+    let model = aimock::Model::start(fixture);
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    std::fs::create_dir(&home).unwrap();
+    aimock::configure(&dir.path().join("claude-config"), dir.path(), &model.url);
+    let claude = aimock::package_bin("claude");
+    let mut launch = vec![
+        ("ROUNDUP_CLAUDE_BIN", claude.to_str().unwrap()),
+        ("HOME", home.to_str().unwrap()),
+        ("CLAUDE_CODE_OAUTH_TOKEN", ""),
+    ];
+    launch.extend_from_slice(env);
+    let mut project = start_in(dir, tempfile::tempdir().unwrap(), &launch);
+    project.model = Some(model);
+    project
 }

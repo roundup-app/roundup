@@ -7,11 +7,28 @@ impl Shared {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
+        let completion = match self.runs().get(id) {
+            Some(Slot::Running(run)) if run.attempt == attempt => run.first_completion.clone(),
+            _ => return,
+        };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            if let Err(err) = shared.prompt(&id, &prompt, true).await {
+            let result = shared.prompt(&id, &prompt, Some(&attempt)).await;
+            if let Err(err) = &result {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
                 shared.refuse_prompt(&id, &attempt);
+            }
+            if let Some(Slot::Running(run)) = shared.runs().get_mut(&id)
+                && run.attempt == attempt
+            {
+                run.first_pending = false;
+            }
+            if let Some(completion) = completion {
+                completion.send_replace(Some(match result {
+                    Ok(()) => FirstSteerCompletion::Submitted,
+                    Err(SteerError::Refused(_)) => FirstSteerCompletion::Refused,
+                    Err(SteerError::Uncertain(_)) => FirstSteerCompletion::Uncertain,
+                }));
             }
         });
     }
@@ -27,8 +44,15 @@ impl Shared {
             tokio::time::sleep(shared.steer_bound).await;
             let dropped = match shared.runs().get_mut(&id) {
                 Some(Slot::Running(run)) if run.attempt == attempt => {
-                    run.first_pending = false;
-                    run.prompt.take().is_some()
+                    if run.prompt.take().is_some() {
+                        run.first_pending = false;
+                        if let Some(completion) = &run.first_completion {
+                            completion.send_replace(Some(FirstSteerCompletion::Refused));
+                        }
+                        true
+                    } else {
+                        false
+                    }
                 }
                 _ => false,
             };
@@ -69,9 +93,41 @@ impl Shared {
 }
 
 impl Agents {
+    /// B6: wait through H19's gate, physical input and acknowledgement for this Attempt.
+    /// Every completion accounts for its physical effect; none authorizes a retry.
+    /// An error means completion could not be established, never permission for Takeover.
+    /// Cancelling this wait changes no effect. No deadline is imposed on the physical
+    /// writer: a caller deadline only stops observing, and a later caller may wait again.
+    pub async fn first_steer_completion(
+        &self,
+        id: &str,
+        attempt: &str,
+    ) -> Result<FirstSteerCompletion, PromptError> {
+        let missing = || PromptError::NotFound { id: id.to_owned() };
+        let mut completion = {
+            let runs = self.shared.runs();
+            let Some(Slot::Running(run)) = runs.get(id) else {
+                return Err(missing());
+            };
+            if run.attempt != attempt {
+                return Err(missing());
+            }
+            let Some(completion) = &run.first_completion else {
+                return Ok(FirstSteerCompletion::Refused);
+            };
+            completion.subscribe()
+        };
+        loop {
+            if let Some(result) = *completion.borrow_and_update() {
+                return Ok(result);
+            }
+            completion.changed().await.map_err(|_| missing())?;
+        }
+    }
+
     pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
         self.shared
-            .prompt(id, text, false)
+            .prompt(id, text, None)
             .await
             .map_err(PromptError::from)
     }

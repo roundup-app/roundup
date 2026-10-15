@@ -263,6 +263,7 @@ impl Agents {
             ended: false,
             adapter: ClaudeCode::starting(move || clock()),
             first_pending: prompt.is_some(),
+            first_completion: prompt.as_ref().map(|_| tokio::sync::watch::channel(None).0),
             first_prompt: None,
             prompt,
             steer: None,

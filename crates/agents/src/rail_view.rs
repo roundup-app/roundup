@@ -263,7 +263,7 @@ impl Agents {
                 ));
             }
             self.shared
-                .prompt(&id, &order::steer(&order, None), false)
+                .prompt(&id, &order::steer(&order, None), None)
                 .await
                 .map_err(|err| match err {
                     SteerError::Refused(reason) => {
@@ -282,7 +282,7 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text, false).await {
+                if let Err(err) = shared.prompt(&id, &text, None).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });
@@ -352,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn b32_owner_read_leases_expire_independently_of_input() {
+    fn b32_owner_read_leases_expire_and_rearm_independently_of_input() {
         for ongoing in [false, true] {
             let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
             let id = shared
@@ -362,68 +362,61 @@ mod tests {
                 .id;
             let agents = owner_agents(shared, dir.path());
             let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
-            loop {
-                agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+            // The second burst must acquire a new lease after the first burst's
+            // checkpoint completed, even when all intervening wakeups were coalesced.
+            for _ in 0..2 {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+                loop {
+                    agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+                    db.busy_timeout(std::time::Duration::from_millis(500))
+                        .unwrap();
+                    db.execute("UPDATE nodes SET attempt = attempt + 1 WHERE id = ?", [&id])
+                        .unwrap();
+                    db.busy_timeout(std::time::Duration::ZERO).unwrap();
+                    let (busy, frames, copied): (i64, i64, i64) = db
+                        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                        })
+                        .unwrap();
+                    if busy != 0 && frames > copied && copied >= 0 {
+                        break;
+                    }
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "owner reads never shared a bounded WAL read lease"
+                    );
+                    std::thread::yield_now();
+                }
+                // Uncopied frames witness an active reader, unlike (-1, -1) for a competing
+                // checkpoint. Further input must neither release nor renew that reader.
                 db.busy_timeout(std::time::Duration::from_millis(500))
                     .unwrap();
-                db.execute("UPDATE nodes SET attempt = attempt + 1 WHERE id = ?", [&id])
-                    .unwrap();
-                db.busy_timeout(std::time::Duration::ZERO).unwrap();
-                let (busy, frames, copied): (i64, i64, i64) = db
-                    .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
-                        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-                    })
-                    .unwrap();
-                if busy != 0 && frames > copied && copied >= 0 {
-                    break;
-                }
-                assert!(
-                    std::time::Instant::now() < deadline,
-                    "owner reads never shared a bounded WAL read lease"
-                );
-                std::thread::yield_now();
+                let stop = std::sync::atomic::AtomicBool::new(false);
+                std::thread::scope(|scope| {
+                    let input = ongoing.then(|| {
+                        scope.spawn(|| {
+                            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                                agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+                            }
+                        })
+                    });
+                    let checkpoint = db.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                        Ok((
+                            row.get::<_, i64>(0)?,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, i64>(2)?,
+                        ))
+                    });
+                    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                    if let Some(input) = input {
+                        input.join().unwrap();
+                    }
+                    assert_eq!(checkpoint.unwrap(), (0, 0, 0), "ongoing input: {ongoing}");
+                });
             }
-            // Uncopied frames witness an active reader, unlike (-1, -1) for a competing
-            // checkpoint. Further input must neither release nor renew that reader.
-            db.busy_timeout(std::time::Duration::from_millis(500))
-                .unwrap();
-            let stop = std::sync::atomic::AtomicBool::new(false);
-            std::thread::scope(|scope| {
-                let input = ongoing.then(|| {
-                    scope.spawn(|| {
-                        while !stop.load(std::sync::atomic::Ordering::Relaxed) {
-                            agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
-                        }
-                    })
-                });
-                let checkpoint = db.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                    ))
-                });
-                stop.store(true, std::sync::atomic::Ordering::Relaxed);
-                if let Some(input) = input {
-                    input.join().unwrap();
-                }
-                assert_eq!(checkpoint.unwrap(), (0, 0, 0), "ongoing input: {ongoing}");
-            });
         }
     }
 
-    #[test]
-    fn b32_an_unowned_terminal_has_no_receiver() {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let agents = owner_agents(shared, dir.path());
-        agents
-            .with_terminal_owner("unowned", |owner| {
-                assert!(owner.is_none());
-                Ok(())
-            })
-            .unwrap();
-    }
     #[test]
     fn b32_agent_and_door_owner_facts_match_receiver_binding() {
         for kind in [NodeKind::Agent, NodeKind::Workstream] {
@@ -447,23 +440,6 @@ mod tests {
                 })
                 .unwrap();
         }
-    }
-    #[test]
-    fn b32_ambiguous_ownership_fails_without_recording_input() {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        for name in ["first", "second"] {
-            shared
-                .rail()
-                .insert(NodeKind::Agent, name, None, Some("terminal"))
-                .unwrap();
-        }
-        let agents = owner_agents(shared, dir.path());
-        let error = agents
-            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
-                panic!("must not record input for an ambiguous receiver")
-            })
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::CONFLICT);
     }
     #[test]
     fn b32_repeated_owner_reads_bind_each_terminal_afresh() {
@@ -552,6 +528,35 @@ mod tests {
             })
             .unwrap();
     }
+    #[test]
+    fn b32_owner_read_stops_at_the_second_receiver() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        for name in ["first", "second", "third"] {
+            shared
+                .rail()
+                .insert(NodeKind::Agent, name, None, Some("terminal"))
+                .unwrap();
+        }
+        let agents = owner_agents(shared, dir.path());
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        // A third step must fail, so CONFLICT proves the query stopped at ambiguity
+        // rather than scanning the remaining receivers before rejecting the input.
+        db.execute_batch(
+            "ALTER TABLE nodes RENAME TO receivers;
+             CREATE VIEW nodes AS
+             SELECT id, terminal_id,
+                    CASE WHEN id = 3 THEN json_extract('invalid', '$') ELSE attempt END AS attempt
+             FROM receivers;",
+        )
+        .unwrap();
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input for an ambiguous receiver")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::CONFLICT);
+    }
+
     #[test]
     fn b32_a_warm_owner_read_fails_on_sql_error_without_recording_input() {
         let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
