@@ -1,11 +1,14 @@
 """Run an unchanged command with privileged, bounded Chromium fault evidence.
 
-The kernel captures each blocked fault before browser teardown, including BTF
+The kernel retains each blocked fault before browser teardown, including BTF
 backing-file identity and the wait stack. Live pending reports wait 100 ms to
 avoid flooding CI with ordinary disk reads; capture itself has no age filter.
 Keep at most 1024 active faults and the longest 128 completed faults. Publish
-at most 256 live fault pairs, plus the bounded final retained evidence. Every
+at most 256 live fault pairs and 256 live-set acknowledgements, plus final evidence. Every
 limit or tracer failure is explicit and never changes the command's result.
+Live state comes from kernel-map snapshots, not unmatched stream notifications;
+only a detached final snapshot can verify final pending evidence. Lost events
+invalidate history even when an independent snapshot recovers live state.
 Console backpressure disables console reports once; the artifact keeps capturing.
 """
 import argparse
@@ -111,8 +114,26 @@ def main():
     pending = {}
     longest = []
     reports = 0
+    snapshots = 0
     diagnostics = 0
     active_limit = False
+    history_complete = True
+    final_verified = False
+    snapshot = None
+    snapshot_integrity = None
+    snapshot_stacks = {}
+    snapshot_final = False
+    snapshot_valid = False
+    kernel_error = False
+
+    def invalidate(detail, kernel=False):
+        nonlocal history_complete, kernel_error, diagnostics
+        history_complete = False
+        kernel_error |= kernel
+        if diagnostics >= 16:
+            return
+        diagnostics += 1
+        publish({"status": "error", "detail": detail, "history_complete": False})
 
     def retain(data):
         nonlocal active_limit
@@ -138,12 +159,13 @@ def main():
             except OSError as error:
                 event["mapping"] = f"unavailable: {error}"
             with condition:
-                if len(pending) < 1024:
-                    pending[key] = event
+                if key in pending or len(pending) < 1024:
+                    if key not in pending:
+                        pending[key] = event
                     condition.notify_all()
                 elif not active_limit:
                     active_limit = True
-                    publish({"status": "error", "detail": "1024 simultaneous pending fault limit reached"})
+                    invalidate("1024 simultaneous pending fault limit reached", kernel=True)
         else:
             event["duration_ns"] = int(fields[11])
             event["return"] = int(fields[12])
@@ -160,8 +182,45 @@ def main():
                     heapq.heappushpop(longest, item)
                 condition.notify_all()
 
+    def reconcile(values, stacks, final):
+        nonlocal final_verified, snapshots
+        keys = set()
+        if len(values) > 1025:
+            invalidate("kernel snapshot exceeds 1024 retained pending faults", kernel=True)
+        for tid_text, fields in list(values.items())[:1025]:
+            tid = int(tid_text)
+            if tid == 0:
+                continue
+            pid, address, offset, entry, start, end, map_offset, inode, device, basename = fields
+            keys.add((tid, entry))
+            stack = stacks.get(f"{tid},{entry}")
+            if stack is None:
+                # A live traversal races completion. Never join another fault's
+                # stack; the next snapshot recovers a fault that remains held.
+                if final:
+                    invalidate("final live fault missing its kernel wait stack", kernel=True)
+                continue
+            retain(f"PENDING {pid} {tid} {address} {offset} {entry} {start} {end} {map_offset} {inode} {device}\n{basename}\n{stack}")
+        with condition:
+            for key in list(pending):
+                if key not in keys:
+                    event = pending.pop(key)
+                    reported = event.get("reported", False)
+                    # A vanished task independently establishes termination;
+                    # otherwise the kernel map establishes only absence now.
+                    event = dict(event, status="terminated" if not Path(f"/proc/{key[0]}").exists() else "resolved", resolution="absent from kernel live-fault map")
+                    event.pop("reported", None)
+                    event.pop("quiet", None)
+                    if reported:
+                        publish(event)
+            final_verified = final and not kernel_error
+            if snapshots < 256:
+                publish({"status": "live_snapshot", "observed_ns": time.monotonic_ns(), "pending": sorted(keys), "kernel_integrity": not kernel_error})
+                snapshots += 1
+            condition.notify_all()
+
     def consume():
-        nonlocal attached, diagnostics
+        nonlocal attached, diagnostics, snapshot, snapshot_stacks, snapshot_integrity, snapshot_final, snapshot_valid
         try:
             for raw in tracer.stdout:
                 if not raw.strip():
@@ -169,33 +228,61 @@ def main():
                 message = json.loads(raw)
                 if message.get("type") == "attached_probes":
                     continue
+                if message.get("type") == "map":
+                    if snapshot is not None and set(message["data"]) == {"@live"}:
+                        snapshot = message["data"]["@live"]
+                    elif snapshot is not None and set(message["data"]) == {"@stack"}:
+                        snapshot_stacks = message["data"]["@stack"]
+                    elif snapshot is not None and set(message["data"]) == {"@integrity"}:
+                        snapshot_integrity = message["data"]["@integrity"]
+                    else:
+                        invalidate(f"unexpected kernel snapshot: {str(message)[:2048]}")
+                    continue
                 if message.get("type") != "printf":
-                    if diagnostics < 16:
-                        publish({"status": "error", "detail": str(message)[:2048]})
-                        diagnostics += 1
+                    snapshot_valid = False
+                    invalidate(str(message)[:2048], kernel=message.get("type") != "lost_events")
                     continue
                 data = message["data"]
                 if data == "READY\n":
                     attached = True
                     publish({"status": "attached", "root_pid": child.pid, "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "clock": "kernel monotonic ns", "monotonic_ns": time.monotonic_ns(), "page_size": os.sysconf("SC_PAGE_SIZE")})
                     ready.set()
+                elif data in ("SNAPSHOT\n", "FINAL\n"):
+                    snapshot = {}
+                    snapshot_stacks = {}
+                    snapshot_integrity = None
+                    snapshot_final = data == "FINAL\n"
+                    snapshot_valid = True
+                elif data in ("SNAPSHOT_END\n", "FINAL_END\n"):
+                    if snapshot is not None and "0" in snapshot and snapshot_integrity is not None and snapshot_valid and snapshot_final == (data == "FINAL_END\n"):
+                        if snapshot_integrity:
+                            invalidate("kernel fault tracking map capacity exceeded", kernel=True)
+                        reconcile(snapshot, snapshot_stacks, snapshot_final)
+                    else:
+                        invalidate("incomplete kernel live-fault snapshot")
+                    snapshot = None
                 elif data.startswith(("PENDING ", "COMPLETED ")):
                     retain(data)
                 else:
-                    publish({"status": "error", "detail": data[:2048]})
+                    invalidate(data[:2048], kernel=True)
         except (ValueError, KeyError, IndexError, TypeError, OSError) as error:
-            publish({"status": "error", "detail": f"tracer stream: {error}"})
+            invalidate(f"tracer stream: {error}", kernel=True)
         finally:
             if not attached:
-                publish({"status": "error", "detail": "fault observer did not attach: permission, BTF or kernel probe support failure"})
+                invalidate("fault observer did not attach: permission, BTF or kernel probe support failure", kernel=True)
             elif child.poll() is None:
-                publish({"status": "error", "detail": "fault tracer stopped while the command was still running"})
+                invalidate("fault tracer stopped while the command was still running", kernel=True)
             ready.set()
 
     def stderr():
+        nonlocal kernel_error, history_complete
         for number, raw in enumerate(tracer.stderr):
+            if any(word in raw for word in ("ERROR", "error:", "Lost", "WARNING")):
+                # Even beyond the diagnostic cap, failure invalidates evidence.
+                kernel_error = True
+                history_complete = False
             if number < 16:
-                publish({"status": "error" if any(word in raw for word in ("ERROR", "error:", "Lost")) else "diagnostic", "detail": raw[:2048].strip()})
+                publish({"status": "error" if kernel_error else "diagnostic", "detail": raw[:2048].strip()})
 
     def announce():
         nonlocal reports
@@ -266,17 +353,29 @@ def main():
                 tracer.stdout.close()
                 tracer.stderr.close()
             if attached and tracer.returncode != 0:
-                publish({"status": "error", "detail": f"fault observer exited {tracer.returncode}"})
+                invalidate(f"fault observer exited {tracer.returncode}", kernel=True)
+        if attached and not final_verified:
+            invalidate("no verified final kernel live-fault snapshot", kernel=True)
         with condition:
             retained_pending = list(pending.values())
             retained_completed = list(longest)
+        verified_pending = []
+        unverified_pending = 0
         for event in retained_pending:
+            if not Path(f"/proc/{event['tid']}").exists():
+                publish(dict(event, status="terminated", resolution="task no longer exists"))
+                continue
+            if final_verified and not kernel_error:
+                verified_pending.append(event)
+            else:
+                unverified_pending += 1
+                event["status"] = "unverified"
             event.pop("reported", None)
             event.pop("quiet", None)
             publish(event)
         for _, _, _, event in sorted(retained_completed, reverse=True):
             publish(event)
-        publish({"status": "finished", "command_status": result, "still_pending": len(retained_pending), "completed_retained": len(retained_completed)})
+        publish({"status": "finished", "command_status": result, "still_pending": len(verified_pending), "unverified_pending": unverified_pending, "live_state_verified": final_verified and not kernel_error, "history_complete": history_complete, "completed_retained": len(retained_completed)})
         closing_error = None
         with output_lock:
             if log:
