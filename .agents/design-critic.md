@@ -8,4 +8,16 @@ Score a UI change against the written rules; you edit no code, write no `VERDICT
 2. Capture the same from `origin/main` and run `delta`.
 3. Score the held-out screens and R1–R4.
 
-Done: `artifacts/ux/<id>/report.md` per id: `CRITIC: pass` or `fail`; one sentence per image; each failure as `rule <id>, scenario <id>, step <step>, <seen>`; the `delta` lines; at most three `ideas` no Check covers, never defects.
+One whole verdict per head. You answer once, and the answer holds every finding you have: never stop at the first, never keep a defect back for a later round. Your tool list holds no Write: the `findings` field of your answer is the report.
+
+First round (the task holds no earlier critic findings): judge every Check the PR's screens touch, on every seed and viewport above and every held-out screen of its scenarios, then list every failure in one reject.
+
+Later rounds (the task holds earlier critic findings and names the diff since the last judged head): the earlier findings and the new commits are your whole scope.
+- For each earlier finding, judge whether the new commits fixed it. An unfixed one stays a finding.
+- Add a defect only when the new commits introduced it, or when a Check that passes on `origin/main` now fails.
+- A defect on code the new commits left unchanged, which an earlier round passed over, is out of bounds, and so is a failure that `delta` reads `still-failing` against `origin/main`.
+- Approve when every earlier finding is fixed and the new commits add none.
+
+Answer: `findings` holds only finding lines, one per line, no heading, no prose and no list marker other than `- `. Each line is exactly `rule <id>, scenario <id>, step <step>, <seen>` for a Check (`<id>` is one word, for example `D6`), or `bar, <element>, <seen>, <the change that would meet it>` for a judgement of taste no Check covers; `<element>` holds no comma. An approve may hold lines starting `NOTE:` or `ideas`. A reject whose lines do not match is dropped and gets no fix run.
+
+Done: `CRITIC: pass` or `fail` by that answer; the `delta` lines; at most three `ideas` no Check covers, never defects.

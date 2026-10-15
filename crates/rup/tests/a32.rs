@@ -986,6 +986,7 @@ async fn a32_a_failed_stop_retries_without_double_archive() {
 
     std::fs::write(&fx.hold, "").unwrap();
     idle(&fx.user, &fx.a).await;
+    let mut events = fx.project.subscribed().await;
     let mut retry = fx.clear("bloat", false).await;
     assert_eq!(retry.end().await.unwrap(), 2);
     let ids: Vec<_> = shape(&fx.user)
@@ -1000,7 +1001,7 @@ async fn a32_a_failed_stop_retries_without_double_archive() {
         4,
         "a retry archives nothing twice"
     );
-    let last = prompts(&fx.log).into_iter().last().unwrap();
+    let last = fx.handoff_prompt(&mut events).await;
     assert!(last["prompt"].as_str().unwrap().contains("archive-1"));
 }
 
