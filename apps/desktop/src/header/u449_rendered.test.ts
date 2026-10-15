@@ -345,6 +345,20 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) expect(reading.selected.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
   });
 
+  it("u440_uncut_end_borders_stay_in_the_masks_opaque_region", () => {
+    for (const reading of readings) {
+      // The computed gradients run from transparent at the edge to opaque at
+      // the first px stop (and, for a two-sided mask, back to transparent).
+      const ramp = Number(reading.mask.match(/rgb\([^)]*\) ([\d.]+)px/)?.[1] ?? 0);
+      const leftRamp = reading.mask.includes("to right") ? ramp : 0;
+      const rightRamp = reading.mask.includes("to left") || reading.mask.includes("calc(") ? ramp : 0;
+      const tab = reading.case.endsWith("first") ? reading.tabs[0]! : reading.tabs.at(-1)!;
+
+      if (reading.case.endsWith("first")) expect(tab.left, reading.case).toBeGreaterThanOrEqual(reading.list.left + leftRamp);
+      else expect(tab.right, reading.case).toBeLessThanOrEqual(reading.list.right - rightRamp);
+    }
+  });
+
   it("u440_a_cut_tab_fades_into_its_edge", () => {
     const cut = readings.filter((reading) => reading.tabs.some((tab) => tab.left < reading.list.left || tab.right > reading.list.right));
     expect(cut.length).toBeGreaterThan(1);

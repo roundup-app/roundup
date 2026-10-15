@@ -72,7 +72,8 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
             for pick in ("first", "last"):
                 evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + ("0" if pick == "first" else "t.length-1") + "].click()")
                 browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]') !== null")
-                browser("wait", "300")
+                browser("wait", "--fn", "(() => {const list=document.querySelector('.tablist');return " +
+                        ("list.scrollLeft === 0" if pick == "first" else "Math.abs(list.scrollWidth-list.clientWidth-list.scrollLeft) <= 1") + "})()")
                 records.append({"case": f"tabs-8-{width}-{pick}", **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
