@@ -101,6 +101,7 @@ impl Agents {
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
                 takeover: None,
+                context: None,
                 waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
@@ -157,6 +158,19 @@ impl Agents {
     #[must_use]
     pub fn with_proof(self, proof: Option<String>) -> Self {
         self.configure(|shared| shared.decisions.set_proof(proof))
+    }
+
+    /// E3: supply the Context text held by the Daemon, without giving Agents a Todos dependency.
+    /// Read once for the first Steer; a failed or timed-out read leaves that Steer unchanged.
+    #[must_use]
+    pub fn with_context<F, Fut>(self, read: F) -> Self
+    where
+        F: Fn(Vec<RailNode>, String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<String, RpcError>> + Send + 'static,
+    {
+        self.configure(|shared| {
+            shared.context = Some(Arc::new(move |nodes, id| Box::pin(read(nodes, id))))
+        })
     }
 
     /// O4: `active` says whether a Takeover of an Agent is active. Call it before the first call.
@@ -463,6 +477,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             takeover: None,
+            context: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
@@ -509,6 +524,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             takeover: None,
+            context: None,
             waits: Mutex::new(HashMap::new()),
         })
     }
@@ -587,6 +603,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             takeover: None,
+            context: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)

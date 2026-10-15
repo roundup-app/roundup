@@ -13,6 +13,18 @@ impl Shared {
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
+            let mut prompt = prompt;
+            if let Some(read) = &shared.context {
+                let context = async { read(shared.tree()?, id.clone()).await };
+                match tokio::time::timeout(Duration::from_secs(4), context).await {
+                    Ok(Ok(text)) => prompt.push_str(&format!(
+                        "{}{text}\n</roundup-context>",
+                        claude_code::CONTEXT_START
+                    )),
+                    Ok(Err(err)) => eprintln!("agents: no startup Context for {id}: {err}"),
+                    Err(_) => eprintln!("agents: startup Context for {id} timed out"),
+                }
+            }
             let result = shared.prompt(&id, &prompt, Some(&attempt)).await;
             if let Err(err) = &result {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
