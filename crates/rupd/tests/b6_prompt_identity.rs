@@ -2657,7 +2657,7 @@ async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
         .await
         .unwrap();
     assert_eq!(stored["status"], "delivered");
-    let screen = tokio::time::timeout(BOUND, async {
+    let text = tokio::time::timeout(BOUND, async {
         loop {
             let screen = run
                 .user
@@ -2670,21 +2670,21 @@ async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
                 .as_str()
                 .unwrap()
                 .to_owned();
-            if screen.contains("SUBMITTED") {
-                break screen;
+            // Terminal output can lag the hook event; wait for the note's actual bytes.
+            let bytes: Vec<_> = screen
+                .lines()
+                .filter_map(|line| line.strip_prefix("BYTE:"))
+                .map(|hex| u8::from_str_radix(hex.trim(), 16).unwrap())
+                .collect();
+            let text = String::from_utf8(bytes).unwrap();
+            if text.contains(&marker) {
+                break text;
             }
             tokio::task::yield_now().await;
         }
     })
     .await
     .unwrap();
-    // The controlled Terminal logs each input byte before emitting UserPromptSubmit.
-    let bytes: Vec<_> = screen
-        .lines()
-        .filter_map(|line| line.strip_prefix("BYTE:"))
-        .map(|hex| u8::from_str_radix(hex.trim(), 16).unwrap())
-        .collect();
-    let text = String::from_utf8(bytes).unwrap();
     assert_eq!(text.matches(&marker).count(), 1, "{text}");
     run.finish().await;
 }
