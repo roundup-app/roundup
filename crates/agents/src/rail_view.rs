@@ -557,6 +557,35 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn b32_owner_read_stops_at_the_second_receiver() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        for name in ["first", "second", "third"] {
+            shared
+                .rail()
+                .insert(NodeKind::Agent, name, None, Some("terminal"))
+                .unwrap();
+        }
+        let agents = owner_agents(shared, dir.path());
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        // A third step must fail, so CONFLICT proves the query stopped at ambiguity
+        // rather than scanning the remaining receivers before rejecting the input.
+        db.execute_batch(
+            "ALTER TABLE nodes RENAME TO receivers;
+             CREATE VIEW nodes AS
+             SELECT id, terminal_id,
+                    CASE WHEN id = 3 THEN json_extract('invalid', '$') ELSE attempt END AS attempt
+             FROM receivers;",
+        )
+        .unwrap();
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("must not record input for an ambiguous receiver")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::CONFLICT);
+    }
+
+    #[test]
     fn b32_a_warm_owner_read_fails_on_sql_error_without_recording_input() {
         let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let agents = owner_agents(Arc::clone(&shared), dir.path());
