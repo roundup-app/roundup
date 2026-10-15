@@ -332,6 +332,7 @@ mod tests {
                 adapter: ClaudeCode::starting(|| 0),
                 prompt: None,
                 first_pending: false,
+                first_completion: None,
                 first_prompt: None,
                 steer: None,
                 session_started: false,

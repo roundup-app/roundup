@@ -233,6 +233,14 @@ impl Shared {
             }
         } else if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             run.steer = None;
+            // No writer owns a prompt still waiting for H19. Drop it before settling;
+            // a released/queued writer must publish its own completion instead.
+            if run.prompt.take().is_some() {
+                run.first_pending = false;
+                if let Some(completion) = &run.first_completion {
+                    completion.send_replace(Some(FirstSteerCompletion::Refused));
+                }
+            }
         }
         // H13: the Interrupt's wait ends with the title (or the Dismissal of its dialog) that
         // leaves the Agent idle, or with the Agent.
@@ -485,6 +493,7 @@ mod tests {
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
             first_pending: false,
+            first_completion: None,
             first_prompt: None,
             steer: None,
             session_started: false,
@@ -535,6 +544,7 @@ mod tests {
             adapter: ClaudeCode::starting(|| 0),
             prompt: None,
             first_pending: false,
+            first_completion: None,
             first_prompt: None,
             steer: None,
             session_started: false,
@@ -603,6 +613,7 @@ mod tests {
                             adapter: ClaudeCode::starting(|| 0),
                             prompt: None,
                             first_pending: false,
+                            first_completion: None,
                             first_prompt: None,
                             steer: None,
                             session_started: false,
