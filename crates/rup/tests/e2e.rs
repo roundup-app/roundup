@@ -1599,23 +1599,26 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         .await
         .unwrap();
     let model = project.model.as_ref().unwrap();
-    tokio::time::timeout(Duration::from_secs(30), async {
+    let request = tokio::time::timeout(Duration::from_secs(30), async {
         loop {
-            if !model.journal().is_empty() {
-                break;
+            if let Some(entry) = model
+                .journal()
+                .into_iter()
+                .find(|entry| entry["body"]["tools"].is_array())
+            {
+                return entry;
             }
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
     })
     .await
-    .expect("real Claude requests its first model turn");
+    .expect("real Claude requests its first work turn");
     model.assert_matched();
-    let journal = model.journal();
-    let messages = journal[0]["body"]["messages"].to_string();
-    assert!(messages.contains("Parent: none"), "{journal:#?}");
+    let messages = request["body"]["messages"].to_string();
+    assert!(messages.contains("Parent: none"), "{request:#?}");
     assert!(
         messages.contains(node["id"].as_str().unwrap()),
-        "{journal:#?}"
+        "{request:#?}"
     );
 }
 
@@ -1663,7 +1666,11 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
     assert_eq!(channel_of(&events, &node.id).await, Some(Channel::Up));
     let model = project.model.as_ref().unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
-        while model.journal().is_empty() {
+        while !model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["tools"].is_array())
+        {
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
     })
