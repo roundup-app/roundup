@@ -330,7 +330,25 @@ impl Daemon {
         }
         // These Door calls account for their physical effects before returning, including
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
-        let child = if conn.actor.kind == ActorKind::Agent {
+        let child = if method == "decision.answer"
+            && conn
+                .peer
+                .and_then(|pid| self.agents.agent_of_peer(pid))
+                .is_some()
+        {
+            // H21 authenticates answers by process, even before daemon.identify.
+            // Resolve the live Decision rather than trusting a caller-supplied identity.
+            let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
+            let listed = self
+                .decision_call(conn, "decision.list", Value::Null)
+                .await?;
+            let decisions: Vec<contracts::decision::Decision> =
+                serde_json::from_value(listed).map_err(RpcError::internal)?;
+            decisions
+                .into_iter()
+                .find(|d| d.id == answer.id)
+                .map(|d| d.agent)
+        } else if conn.actor.kind == ActorKind::Agent {
             match method {
                 "terminal.write" => self.guard_terminal_read(&conn.actor, &params).await?,
                 "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume" => {
