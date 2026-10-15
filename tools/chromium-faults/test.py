@@ -202,8 +202,13 @@ class FaultTest(unittest.TestCase):
                     if tracer_pid and Path(f"/proc/{tracer_pid}").exists():
                         subprocess.run(["sudo", "-n", "kill", "-CONT", str(tracer_pid)], timeout=5, check=False)
                     if observer.poll() is None:
-                        observer.terminate()
-                        observer.wait(timeout=30)
+                        # Closing control lets the fixture release FUSE before
+                        # terminating its supervisor could orphan the mount.
+                        try:
+                            observer.wait(timeout=30)
+                        except subprocess.TimeoutExpired:
+                            observer.terminate()
+                            observer.wait(timeout=30)
 
     def test_u26_pending_file_fault_survives_until_completed(self):
         self.held_fault(None)
