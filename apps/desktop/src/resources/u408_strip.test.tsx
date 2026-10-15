@@ -6,7 +6,7 @@ import type { Resources } from "@contracts/project/Resources";
 import { RpcError } from "../app/seam";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, NOW, workstream } from "../testing/nodes";
+import { agent, door, NOW, terminal, workstream } from "../testing/nodes";
 import { cpuText, sizeText } from "./format";
 import { ResourceStrip } from "./ResourceStrip";
 
@@ -73,11 +73,14 @@ afterEach(() => {
 });
 
 describe("u408 the Resource strip", () => {
-  it("u408_the_strip_words_for_an_agent_and_the_project", async () => {
-    await mount([agent("a", "working", "x")]);
+  it("u408_only_the_selected_agents_values_ignore_project_totals", async () => {
+    const { app } = await mount([agent("a", "working", "x")]);
     await settle();
 
-    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB | Project · memory 1.4 GB · cpu 61% · disk 3.2 GB");
+    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB");
+    app.handlers["project.resources"] = () => ({ ...RESULT, total: { memory_bytes: 999e9, cpu_percent: 1600, disk_bytes: 12e12 } });
+    await settle(2000);
+    expect(words()).toBe("memory 412 MB · cpu 18% · disk 2.1 GB");
   });
 
   it("u408_units_round_by_magnitude_and_never_nan", () => {
