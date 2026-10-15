@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import { chromePath } from "../testing/chromePage";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import styles from "../styles.css?inline";
 
 const effective = (css: string, selector: string, property: string) =>
@@ -41,8 +42,7 @@ describe("u24 narrow window", () => {
 
 // The real Layout plus installed Ark, served by Vite in an isolated headless session.
 
-it("u491_layout_host_measures_owned_panels_without_changing_grid_or_shelf_placement", async () => {
-  const fixture = `
+const fixture = `
 import { createComponent, createSignal } from 'solid-js';
 import { render } from 'solid-js/web';
 import { useSplitter } from '@ark-ui/solid/splitter';
@@ -55,9 +55,9 @@ export const mount = () => {
   document.body.replaceChildren(host);
   render(() => {
     const [open, setOpen] = createSignal(true);
-    const widths = createWidths(() => '/u491-host');
+    const widths = createWidths(() => '/u507-host');
     const api = useSplitter(() => ({
-      id: 'u491',
+      id: 'u507',
       panels: [{ id: 'rail', minSize: '252px', maxSize: '480px' }, { id: 'centre' }, { id: 'shelf' }],
       defaultSize: [22.5, 52.5, 25],
     }));
@@ -80,33 +80,78 @@ export const mount = () => {
 };
 `;
 
-  const server = await createServer({
-    cacheDir: "node_modules/.vite-u491-layout",
+const profile = mkdtempSync(join(tmpdir(), "u507-profile-"));
+
+let server: Awaited<ReturnType<typeof createServer>>;
+
+let main: Awaited<ReturnType<typeof createServer>> | undefined;
+
+const session = `u507-layout-${process.pid}`;
+
+const env = { ...process.env };
+
+const executable = chromePath();
+
+if (executable) env.AGENT_BROWSER_EXECUTABLE_PATH = executable;
+
+const browser = (...args: string[]) => promisify(execFile)("agent-browser", ["--session", session, "--profile", profile, ...args], { encoding: "utf8", timeout: 60_000, env }).then(result => result.stdout);
+
+const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("--json", "eval", script)).data.result;
+
+// Pane refits on the next frame after ResizeObserver/drag completion; Shelf
+// placement schedules its first frame before its CSS animations are available.
+const settle = () => evaluate(`(async () => {
+  await new Promise(requestAnimationFrame);
+  await Promise.all(document.getAnimations().filter(a => a.effect?.target?.matches?.('.shelf, .columns, .drawer')).map(a => a.finished.catch(() => {})));
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  return true;
+})()`);
+
+beforeAll(async () => {
+  server = await createServer({
+    cacheDir: "node_modules/.vite-u507-layout",
     server: { port: 0, strictPort: false },
     plugins: [{
-      name: "u491-layout-host",
-      resolveId: (id) => id === "/u491-host.js" ? id : undefined,
-      load: (id) => id === "/u491-host.js" ? fixture : undefined,
+      name: "u507-layout-host",
+      // Supply the public Layout props at the App composition site without
+      // replacing Layout, its children, width controls or Terminal implementation.
+      enforce: "pre",
+      resolveId: (id, importer) => id === "./app/Layout" && importer?.endsWith("/src/App.tsx") ? "/u507-bound-layout.js" : id === "/u507-host.js" ? id : undefined,
+      load: (id) => id === "/u507-host.js" ? fixture : id === "/u507-bound-layout.js" ? `
+import { createComponent, mergeProps } from 'solid-js';
+import { useSplitter } from '@ark-ui/solid/splitter';
+import { Layout as RealLayout } from '/src/app/Layout.tsx';
+export const Layout = (props) => {
+  const bound = new URL(location.href).searchParams.has('bound');
+  const api = useSplitter(() => ({ id: 'u507-app', panels: [{id:'rail'}, {id:'centre'}, {id:'shelf'}], defaultSize: [22.5,52.5,25] }));
+  return createComponent(RealLayout, mergeProps(props, { get splitter() {
+    return bound ? {root:api().getRootProps(), rail:api().getPanelProps({id:'rail'}), centre:api().getPanelProps({id:'centre'}), shelf:api().getPanelProps({id:'shelf'})} : undefined;
+  }}));
+};` : undefined,
     }],
   });
 
-  const captures = captureDir("U491");
+  await server.listen();
+  const root = process.env["ROUNDUP_U507_MAIN"];
+
+  if (root) {
+    main = await createServer({ root, cacheDir: "node_modules/.vite-u507-main", server: { port: 0, hmr: false } });
+    await main.listen();
+  }
+}, 90_000);
+
+afterAll(async () => {
+  try { await browser("close"); } finally {
+    await server?.close();
+    await main?.close();
+    rmSync(profile, { recursive: true, force: true });
+  }
+});
+
+it("u507_layout_host_measures_owned_panels_without_changing_grid_or_shelf_placement", async () => {
+  const captures = captureDir("U507");
 
   if (captures) mkdirSync(captures, { recursive: true });
-
-  const session = `u491-layout-${process.pid}`;
-  const env = { ...process.env };
-  const executable = chromePath();
-
-  if (executable) env.AGENT_BROWSER_EXECUTABLE_PATH = executable;
-
-  const browser = (...args: string[]) => promisify(execFile)("agent-browser", ["--session", session, ...args], {
-    encoding: "utf8", timeout: 60_000,
-    env,
-  }).then((result) => result.stdout);
-
-  try {
-    await server.listen();
     await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
     await browser("set", "viewport", "1280", "800");
     await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
@@ -123,7 +168,7 @@ export const mount = () => {
 
     expect(defaultHost.data.result).toEqual({ width: 1280, panels: ["rail", "centre", "shelf"], edges: 2 });
 
-    await browser("eval", "(async () => { await document.fonts.ready; (await import('/u491-host.js')).mount(); })()");
+    await browser("eval", "(async () => { await document.fonts.ready; (await import('/u507-host.js')).mount(); })()");
 
     for (const width of [1280, 1440]) {
       await browser("set", "viewport", String(width), "800");
@@ -167,7 +212,137 @@ export const mount = () => {
     }))()`));
 
     expect(overlay.data.result).toEqual({ root: 1280, centre: 800, shelf: 560 });
-  } finally {
-    try { await browser("close"); } finally { await server.close(); }
+}, 180_000);
+
+const openApp = async (bound = true) => {
+  await browser("set", "viewport", "1280", "800");
+  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40${bound ? "&bound=1" : ""}`);
+  await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
+  await settle();
+  expect(await evaluate(`document.querySelector('[data-layout-root]').dataset.scope === 'splitter'`)).toBe(bound);
+
+  if (bound) expect(await evaluate(`document.querySelectorAll('[data-part=panel][data-ownedby]').length`)).toBe(3);
+};
+
+for (const bound of [false, true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
+  await openApp(bound);
+  await evaluate("localStorage.clear()");
+  await openApp(bound);
+
+  for (const [panel, start, preview, committed] of [["rail", 288, 360, 304], ["shelf", 960, 880, 336]] as const) {
+    const read = () => evaluate<number>(`document.querySelector('[data-layout-panel=${panel}]').getBoundingClientRect().width`);
+    await browser("mouse", "move", String(start), "400");
+    await browser("mouse", "down", "left");
+    await browser("mouse", "move", String(preview), "400");
+    await settle();
+    expect(await read()).toBe(panel === "rail" ? 360 : 400);
+    expect(await evaluate(`localStorage.getItem('roundup:widths:/Users/you/harness')`)).toBe(panel === "rail" ? null : JSON.stringify({ rail: 304, shelf: 320 }));
+    await browser("press", "Escape");
+    await browser("mouse", "up", "left");
+    await settle();
+    expect(await read()).toBe(panel === "rail" ? 288 : 320);
+    await evaluate(`(() => { const edge = document.querySelector('[aria-label="${panel === "rail" ? "Resize Rail" : "Resize work items"}"]'); edge.focus(); edge.dispatchEvent(new KeyboardEvent('keydown', {key:'${panel === "rail" ? "ArrowRight" : "ArrowLeft"}', bubbles:true})); })()`);
+    await settle();
+    expect(await read()).toBe(committed);
+  }
+
+  await openApp(bound);
+  expect(await evaluate(`['rail','centre','shelf'].map(id => document.querySelector('[data-layout-panel='+id+']').getBoundingClientRect().width)`)).toEqual([304, 640, 336]);
+  expect(await evaluate(`document.querySelector('[data-layout-root]').style.cssText`)).toContain("--rail-width: 304px");
+  expect(await evaluate(`document.querySelector('[data-layout-root]').style.cssText`)).toContain("--shelf-span: 336px");
+}, 120_000);
+
+it("u507_bindings_preserve_resize_state", async () => {
+  await openApp();
+  await evaluate("localStorage.clear()");
+  await openApp();
+  await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
+  await browser("wait", ".thread-composer textarea");
+  await settle();
+  await evaluate(`(() => {
+    const input = document.querySelector('.thread-composer textarea');
+    input.value = 'Keep this draft λ'; input.dispatchEvent(new Event('input', {bubbles:true}));
+    for (let n=0;n<40;n++) window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'message.sent',data:{id:9100+n,from:{kind:'user',id:'you',parent:null},to:'payments',kind:'note',body:'Line '+n,replyTo:null,status:'delivered',reason:null,passedFrom:null,at:Date.now()+n}});
+    document.querySelector('.thread [aria-label="More"]').click();
+  })()`);
+  await settle();
+  await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.includes('All Messages')).click()`);
+  await settle();
+  await evaluate(`document.querySelector('.thread-feed').scrollTop=100`);
+  await settle();
+  const read = () => evaluate(`({draft:document.querySelector('.thread-composer textarea').value, selected:document.querySelector('.rail [aria-selected=true]').dataset.id, scroll:document.querySelector('.thread-feed').scrollTop})`);
+  expect(await read()).toEqual({draft:"Keep this draft λ", selected:"payments", scroll:100});
+  await browser("mouse", "move", "288", "400");
+  await browser("mouse", "down", "left");
+  await browser("mouse", "move", "360", "400");
+  await settle();
+  await browser("mouse", "up", "left");
+  await settle();
+  expect(await read()).toEqual({draft:"Keep this draft λ", selected:"payments", scroll:100});
+  await evaluate(`document.querySelector('.rail [data-id="agent-4"] .name').click()`);
+  await browser("wait", ".xterm-screen");
+  await settle();
+  await evaluate("window.__fake.app.calls.length=0");
+  await browser("mouse", "move", "360", "400");
+  await browser("mouse", "down", "left");
+  await browser("mouse", "move", "416", "400");
+  await settle();
+  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(0);
+  await browser("mouse", "up", "left");
+  await settle();
+  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(1);
+  expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
+  expect(await evaluate("document.querySelector('.rail [aria-selected=true]').dataset.id")).toBe("agent-4");
+  await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
+  await browser("wait", ".thread-composer textarea");
+  expect(await evaluate("document.querySelector('.thread-composer textarea').value")).toBe("Keep this draft λ");
+}, 180_000);
+
+it("u507_layout_checks", async () => {
+  const captures = captureDir("U507");
+  const baseline = new Map<string, Record<string, { status: string }>>();
+
+  for (const side of main ? ["base", "head"] : ["head"]) {
+    const origin = (side === "base" ? main! : server).resolvedUrls!.local[0];
+
+    for (const width of [1280, 1440]) {
+      await browser("set", "viewport", String(width), "800");
+      const url = `${origin}harness.html?seed=tree-40${side === "head" ? "&bound=1" : ""}`;
+      await browser("open", url);
+      await browser("wait", "--fn", "Boolean(window.__fake) && Boolean(document.querySelector('[data-layout-root]'))");
+      await evaluate("localStorage.clear()");
+      await browser("open", url);
+      await browser("wait", ".shelf-tabs");
+      await settle();
+      // The Rail keeps the Daemon failure visible even with the Shelf closed.
+      await evaluate("window.__fake.app.exitDaemon({code:1})");
+      await settle();
+      expect(await evaluate(`(() => {
+        const error = [...document.querySelectorAll('[role=alert]')].find(el => el.textContent.includes('Daemon exited 1'));
+        const box = error?.getBoundingClientRect();
+        return Boolean(box && box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight);
+      })()`)).toBe(true);
+
+      for (const open of [true, false]) {
+        if (!open) {
+          await evaluate(`document.querySelector('[aria-label="Hide work items"]').click()`);
+          await settle();
+        }
+
+        const name = `${width}x800-${open ? "open" : "closed"}-failure`;
+        const checks = await evaluate<Record<string, { status: string }>>("window.__checks()");
+
+        if (side === "base") baseline.set(name, checks);
+        else for (const [id, check] of Object.entries(checks)) {
+          if (["D2", "D5", "D6"].includes(id) || baseline.get(name)?.[id]?.status === "pass") expect(check.status, `${name} ${id}: ${JSON.stringify(check)}`).toBe("pass");
+        }
+
+        if (captures) {
+          mkdirSync(join(captures, side), { recursive: true });
+          writeFileSync(join(captures, side, `${name}.checks.json`), JSON.stringify(checks));
+          await browser("screenshot", join(captures, side, `${name}.png`));
+        }
+      }
+    }
   }
 }, 180_000);
