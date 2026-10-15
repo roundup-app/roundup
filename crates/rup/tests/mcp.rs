@@ -47,8 +47,8 @@ async fn spawn_shim(socket: &Path, agent: &str) -> Shim {
 }
 
 impl Shim {
-    async fn call(&self, tool: &'static str, arguments: Value) -> CallToolResult {
-        let mut request = CallToolRequestParams::new(tool);
+    async fn call(&self, tool: &str, arguments: Value) -> CallToolResult {
+        let mut request = CallToolRequestParams::new(tool.to_owned());
         if let Value::Object(map) = arguments {
             request = request.with_arguments(map);
         }
@@ -1146,4 +1146,94 @@ async fn m6_over_stdio_an_agents_workstream_shows_in_the_tree_with_its_door_star
         .unwrap();
     assert_eq!(touches[0]["actor"]["id"], caller.as_str());
     assert_eq!(touches[0]["actor"]["kind"], "agent");
+}
+
+#[tokio::test]
+async fn m17_every_offered_unit_method_acknowledges_its_action() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("unit.sock");
+    let listener = UnixListener::bind(&socket).unwrap();
+    let server = tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                let (read, mut write) = stream.into_split();
+                let mut lines = BufReader::new(read).lines();
+                while let Some(line) = lines.next_line().await.unwrap() {
+                    let request: Value = serde_json::from_str(&line).unwrap();
+                    let result = if request["method"] == "rail.tree" {
+                        json!([{"id":"a1", "kind":"workstream", "name":"Door", "parent":null, "order":0, "can_resume":false, "stray":[]}])
+                    } else {
+                        Value::Null
+                    };
+                    write_line(
+                        &mut write,
+                        &json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
+                    )
+                    .await;
+                }
+            });
+        }
+    });
+    let shim = spawn_shim(&socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    for method in contracts::methods::METHODS
+        .iter()
+        .filter(|m| m.result == "null")
+    {
+        let name = method.name.replace('.', "_");
+        if !tools.iter().any(|t| t.name == name) {
+            continue;
+        }
+        let (args, expected) = match method.name {
+            "todo.delete" => (json!({"id":42}), "deleted Todo 42"),
+            "pad.delete" => (json!({"name":"notes"}), "deleted Pad notes"),
+            "pad.export" => (
+                json!({"name":"notes","path":"/tmp/notes.md"}),
+                "exported Pad notes to /tmp/notes.md",
+            ),
+            "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
+            "agent.stop" => (json!({"id":"child"}), "stopped Agent child"),
+            "agent.interrupt" => (json!({"id":"child"}), "interrupted Agent child"),
+            "agent.prompt" => (
+                json!({"id":"child","prompt":"hello"}),
+                "sent prompt to Agent child",
+            ),
+            "agent.discard" => (json!({"id":"child"}), "discarded Worktree of Agent child"),
+            "rail.move" => (json!({"id":"child","parent":"door"}), "moved child to door"),
+            "project.setWorktrees" => (json!({"on":false}), "disabled Worktrees"),
+            "project.open" => (
+                json!({"path":"/tmp/project"}),
+                "requested opening Project /tmp/project",
+            ),
+            "project.rename" => (
+                json!({"name":"New name"}),
+                "requested renaming Project to New name",
+            ),
+            "decision.answer" => (
+                json!({"id":"d1","answer":"allow"}),
+                "answered Decision d1: allow",
+            ),
+            "terminal.close" => (json!({"id":"t1"}), "closed Terminal t1"),
+            "terminal.kill" => (json!({"id":"t1"}), "stopped Terminal t1"),
+            "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
+            "terminal.resize" => (
+                json!({"id":"t1","cols":80,"rows":24}),
+                "resized Terminal t1 to 80 by 24",
+            ),
+            "workstream.handoff" => (
+                json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
+                "handed off Workstream a1",
+            ),
+            other => panic!("add an acknowledgement fixture for offered unit method {other}"),
+        };
+        let result = shim.call(&name, args).await;
+        assert_eq!(result.is_error, Some(false), "{name}");
+        assert_eq!(
+            result.content[0].as_text().unwrap().text,
+            expected,
+            "{name}"
+        );
+    }
+    server.abort();
 }
