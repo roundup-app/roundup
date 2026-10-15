@@ -389,19 +389,6 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     assert_eq!(names, expected);
 }
 
-/// M5 narrows T10 and T11: `todo.reorder` and `todo.delete` are tools.
-#[tokio::test]
-async fn t11_the_tool_list_has_todo_reorder_and_todo_delete() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    for name in ["todo_reorder", "todo_delete"] {
-        assert!(tools.iter().any(|t| t.name == name), "{name}");
-    }
-}
-
 #[tokio::test]
 async fn m1_input_schemas_are_the_contract_schemas() {
     let project = start_daemon();
@@ -1149,7 +1136,7 @@ async fn m6_over_stdio_an_agents_workstream_shows_in_the_tree_with_its_door_star
 }
 
 fn m17_daemon(socket: &Path, reply: Value) -> tokio::task::JoinHandle<()> {
-    let listener = UnixListener::bind(&socket).unwrap();
+    let listener = UnixListener::bind(socket).unwrap();
     let server = tokio::spawn(async move {
         loop {
             let (stream, _) = listener.accept().await.unwrap();
