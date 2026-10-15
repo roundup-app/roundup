@@ -332,7 +332,7 @@ describe("u440 overflow edges sit beside the tab list", () => {
   const meets = (a: Pick<Rect, "left" | "right">, b: Pick<Rect, "left" | "right">) => a.left < b.right && b.left < a.right;
 
   it("u440_no_tab_meets_an_overflow_edge", () => {
-    expect(readings.length).toBe(4);
+    expect(readings.length).toBe(9);
 
     for (const reading of readings) {
       expect(reading.edges.length, reading.case).toBeGreaterThan(0);

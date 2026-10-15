@@ -134,7 +134,20 @@ export const Strip = (props: {
     revealOpen();
   };
 
-  const reveal = (path: string) => list && list.scrollWidth > list.clientWidth && elements.get(path)?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  const reveal = (path: string) => {
+    const element = elements.get(path);
+
+    if (!list || !element || list.scrollWidth <= list.clientWidth) return;
+
+    element.scrollIntoView({ inline: "nearest", block: "nearest" });
+
+    // The scroll offset rounds to whole pixels while layout does not: a revealed tab's start never ends a fraction short of the list, and its end only gives way when the tab cannot fit.
+    const frame = list.getBoundingClientRect();
+    const box = element.getBoundingClientRect();
+
+    if (box.left < frame.left) list.scrollLeft -= Math.ceil(frame.left - box.left);
+    else if (box.right > frame.right && box.width <= frame.width) list.scrollLeft += Math.ceil(box.right - frame.right);
+  };
 
   // The open tab is revealed once the strip has a width and the tab an element, so a tab opened before the first layout (a restart, U186) is not left out of view.
   let unrevealed: string | null = null;

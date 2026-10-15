@@ -70,23 +70,25 @@ def settle():
 if len(sys.argv) > 5 and sys.argv[5] == "edges":
     try:
         browser("open", origin + "harness.html?seed=tabs-8")
-        for width in (1280, 700):
+        for width in (1280, 1000, 700):
             browser("set", "viewport", str(width), "800")
             browser("set", "media", "light")
             browser("open", origin + "harness.html?seed=tabs-8")
             browser("wait", ".strip-add")
             browser("wait", "--fn", "document.querySelectorAll('.project-tab').length === 8")
-            for pick in ("first", "last"):
-                evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + ("0" if pick == "first" else "t.length-1") + "].click()")
+            for pick in ("first", "middle", "last"):
+                index = {"first": "0", "middle": "3", "last": "t.length-1"}[pick]
+                evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + index + "].click()")
                 browser("wait", "--fn", "(() => {const t=[...document.querySelectorAll('.tab-name-button')];return t[" +
-                        ("0" if pick == "first" else "t.length-1") + "].getAttribute('aria-selected') === 'true'})()")
+                        index + "].getAttribute('aria-selected') === 'true'})()")
                 settle()
                 browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab').getBoundingClientRect().left >= document.querySelector('.tablist').getBoundingClientRect().left")
                 revealed = evaluate("document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab').getBoundingClientRect().toJSON()")
-                evaluate("const list=document.querySelector('.tablist');list.scrollLeft=" + ("0" if pick == "first" else "list.scrollWidth"))
-                browser("wait", "--fn", "(() => {const list=document.querySelector('.tablist');return " +
-                        ("list.scrollLeft === 0" if pick == "first" else "Math.abs(list.scrollWidth-list.clientWidth-list.scrollLeft) <= 1") + "})()")
-                settle()
+                if pick != "middle":
+                    evaluate("const list=document.querySelector('.tablist');list.scrollLeft=" + ("0" if pick == "first" else "list.scrollWidth"))
+                    browser("wait", "--fn", "(() => {const list=document.querySelector('.tablist');return " +
+                            ("list.scrollLeft === 0" if pick == "first" else "Math.abs(list.scrollWidth-list.clientWidth-list.scrollLeft) <= 1") + "})()")
+                    settle()
                 records.append({"case": f"tabs-8-{width}-{pick}", "revealed": revealed, **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
