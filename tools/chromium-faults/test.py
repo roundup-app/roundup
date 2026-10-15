@@ -4,6 +4,7 @@ import ctypes
 import json
 import os
 from pathlib import Path
+import select
 import selectors
 import signal
 import socket
@@ -45,7 +46,7 @@ def file_fixture():
         yield root, binary, mount
 
 
-def held_command(binary, mount, endpoint):
+def held_command(binary, mount, endpoint, pressure=""):
     with socket.socket(socket.AF_UNIX) as connection:
         connection.connect(endpoint)
         control = connection.makefile("r", buffering=1)
@@ -56,16 +57,27 @@ def held_command(binary, mount, endpoint):
             assert line(fuse.stdout) == "MOUNTED"
             reader = subprocess.Popen([binary, "read", mount + "/held"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
             send(line(reader.stdout) + "\n")
+            if pressure:
+                assert line(control) == "B"
+                subprocess.run([binary, "burst", pressure], check=True, timeout=60, stdout=subprocess.DEVNULL)
+                send("BURST\n")
             assert line(control) == "G"
             reader.stdin.write("G\n")
             reader.stdin.flush()
             assert line(fuse.stdout) == "HELD"
             send("HELD\n")
+            if pressure:
+                for _ in range(2):
+                    assert line(control) == "B"
+                    subprocess.run([binary, "burst", pressure], check=True, timeout=60, stdout=subprocess.DEVNULL)
+                    send("BURST\n")
             assert line(control) == "R"
             fuse.stdin.write("R\n")
             fuse.stdin.flush()
             send(line(reader.stdout) + "\n")
             assert reader.wait(timeout=10) == 0
+            if pressure:
+                send("EXITED\n")
             assert line(control) == "END"
         finally:
             fuse.stdin.write("R\n")
@@ -114,6 +126,98 @@ def fill_pipe(descriptor):
 
 
 class FaultTest(unittest.TestCase):
+    def test_u26_consumer_hold_preserves_fault_identity_and_lifecycle(self):
+        # Both generations run actual filemap_fault probes. Stop only bpftrace's
+        # userspace consumer; its attached kernel programs continue on one CPU.
+        with file_fixture() as (root, binary, mount):
+            with socket.socket(socket.AF_UNIX) as listener, artifact_watch(root / "trace.jsonl") as watch:
+                listener.bind(str(root / "control"))
+                listener.listen(1)
+                listener.settimeout(60)
+                observer = subprocess.Popen(["taskset", "-c", str(min(os.sched_getaffinity(0))), sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--", sys.executable, __file__, "held", str(binary), str(mount), str(root / "control"), str(root / "burst")], stdout=subprocess.DEVNULL)
+                tracer_pid = None
+                try:
+                    connection, _ = listener.accept()
+                    with connection, connection.makefile("r", buffering=1) as control:
+                        send = lambda value: connection.sendall(value.encode())
+                        mapped = line(control).split()
+                        pid, tid, address = int(mapped[1]), int(mapped[2]), int(mapped[3], 16)
+                        descendants = [observer.pid]
+                        for parent in descendants:
+                            children = Path(f"/proc/{parent}/task/{parent}/children").read_text().split()
+                            descendants.extend(map(int, children))
+                        backing = (mount / "held").stat()
+                        tracer_pid = next(pid for pid in descendants if Path(f"/proc/{pid}/comm").read_text().strip() == "bpftrace")
+
+                        def stop_consumer():
+                            subprocess.run(["sudo", "-n", "kill", "-STOP", str(tracer_pid)], check=True, timeout=5)
+                            # waitid cannot reap a non-child: /proc is the
+                            # independent acknowledgement of the stop signal.
+                            # kill returns once SIGSTOP is queued; the thread
+                            # group stops when the target next runs, so poll
+                            # until it does and fail with the last state.
+                            deadline = time.monotonic() + 10
+                            while True:
+                                state = Path(f"/proc/{tracer_pid}/status").read_text()
+                                if "T (stopped)" in state or time.monotonic() >= deadline:
+                                    break
+                                time.sleep(0.01)
+                            self.assertIn("T (stopped)", state)
+
+                        def resume_consumer():
+                            subprocess.run(["sudo", "-n", "kill", "-CONT", str(tracer_pid)], check=True, timeout=5)
+
+                        stop_consumer()
+                        send("B\n")
+                        self.assertEqual(line(control), "BURST")
+                        send("G\n")
+                        self.assertEqual(line(control), "HELD")
+                        resume_consumer()
+                        pending = self.artifact_event(root / "trace.jsonl", watch, "pending", tid, address)
+                        self.assertEqual(pending["pid"], pid)
+                        self.assertEqual(pending["file_basename"], "held")
+                        self.assertEqual(pending["inode"], backing.st_ino)
+                        # FUSE has acknowledged the held read, and no VALUE
+                        # acknowledgement can exist before the separate release.
+                        self.assertFalse(select.select([connection], [], [], 0)[0])
+                        stop_consumer()
+                        send("B\n")
+                        self.assertEqual(line(control), "BURST")
+                        burst_done = time.monotonic_ns()
+                        resume_consumer()
+                        snapshot = self.artifact_event(root / "trace.jsonl", watch, "live_snapshot", None, after_ns=burst_done)
+                        self.assertTrue(snapshot["kernel_integrity"])
+                        self.assertIn([tid, pending["entry_ns"]], snapshot["pending"])
+                        # Fill again before completion so its notification,
+                        # too, must survive loss or be reconciled independently.
+                        stop_consumer()
+                        send("B\n")
+                        self.assertEqual(line(control), "BURST")
+                        send("R\n")
+                        self.assertEqual(line(control), "VALUE Q")
+                        self.assertEqual(line(control), "EXITED")
+                        self.assertFalse(Path(f"/proc/{tid}").exists())
+                        resume_consumer()
+                        send("END\n")
+                        self.assertEqual(observer.wait(timeout=30), 37)
+                        events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
+                        self.assertEqual(events[-1]["still_pending"], 0, events[-1])
+                        self.assertTrue(events[-1]["live_state_verified"], [event for event in events if event["status"] in ("error", "finished")])
+                        self.assertFalse(events[-1]["history_complete"])
+                        self.assertTrue(any("lost_events" in event.get("detail", "") for event in events))
+                        self.assertTrue(any(event.get("tid") == tid and event.get("entry_ns") == pending["entry_ns"] and event.get("status") in ("completed", "terminated") for event in events))
+                finally:
+                    if tracer_pid and Path(f"/proc/{tracer_pid}").exists():
+                        subprocess.run(["sudo", "-n", "kill", "-CONT", str(tracer_pid)], timeout=5, check=False)
+                    if observer.poll() is None:
+                        # Closing control lets the fixture release FUSE before
+                        # terminating its supervisor could orphan the mount.
+                        try:
+                            observer.wait(timeout=30)
+                        except subprocess.TimeoutExpired:
+                            observer.terminate()
+                            observer.wait(timeout=30)
+
     def test_u26_pending_file_fault_survives_until_completed(self):
         self.held_fault(None)
 
@@ -216,6 +320,12 @@ class FaultTest(unittest.TestCase):
                         outsider.stdout.close()
 
     def test_u26_teardown_retains_a_fault_that_is_still_in_flight(self):
+        self.teardown_fault(False)
+
+    def test_u26_tracer_death_invalidates_unmatched_live_fault_evidence(self):
+        self.teardown_fault(True)
+
+    def teardown_fault(self, tracer_death):
         with file_fixture() as (root, binary, mount):
             fuse = subprocess.Popen([str(binary), str(mount)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
             observer = None
@@ -231,22 +341,42 @@ class FaultTest(unittest.TestCase):
                 observer.stdin.flush()
                 self.assertEqual(line(fuse.stdout), "HELD")
                 pending = self.event(observer.stdout, "pending", reader_tid, int(mapped[3], 16))
+                if tracer_death:
+                    # Kill only this run's tracer after the held fault's live
+                    # acknowledgement. No final kernel snapshot can follow.
+                    descendants = [observer.pid]
+                    for parent in descendants:
+                        descendants.extend(map(int, Path(f"/proc/{parent}/task/{parent}/children").read_text().split()))
+                    tracer_pid = next(pid for pid in descendants if Path(f"/proc/{pid}/comm").read_text().strip() == "bpftrace")
+                    subprocess.run(["sudo", "-n", "kill", "-KILL", str(tracer_pid)], check=True, timeout=5)
                 # Kill only the command's waiting leader. Its renamed reader
                 # remains in the real kernel fault while the tracer tears down.
                 os.kill(attached["root_pid"], 15)
-                finished = self.event(observer.stdout, "finished", None)
+                if tracer_death:
+                    self.assertEqual(observer.wait(timeout=30), -15)
+                    events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
+                    finished = events[-1]
+                else:
+                    finished = self.event(observer.stdout, "finished", None)
                 self.assertEqual(observer.wait(timeout=30), -15)
-                self.assertEqual(finished["still_pending"], 1)
+                self.assertEqual(finished["still_pending"], 0 if tracer_death else 1)
+                self.assertEqual(finished["live_state_verified"], not tracer_death)
+                if tracer_death:
+                    self.assertFalse(finished["history_complete"])
+                    self.assertEqual(finished["unverified_pending"], 1)
                 self.assertIn("D (disk sleep)", Path(f"/proc/{reader_tid}/status").read_text())
                 events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
-                retained = [event for event in events if event.get("tid") == reader_tid and event.get("status") == "pending"]
-                self.assertEqual(len(retained), 2)  # live and final evidence
+                retained = [event for event in events if event.get("tid") == reader_tid and event.get("status") == ("unverified" if tracer_death else "pending")]
+                self.assertEqual(len(retained), 1 if tracer_death else 2)  # live and final evidence
                 self.assertEqual(retained[-1]["entry_ns"], pending["entry_ns"])
                 self.assertEqual(retained[-1]["address"], int(mapped[3], 16))
                 self.assertIn(str(mount / "held"), retained[-1]["mapping"])
                 fuse.stdin.write("R\n")
                 fuse.stdin.flush()
-                self.assertEqual(line(observer.stdout), "VALUE Q")
+                value = line(observer.stdout)
+                while tracer_death and value.startswith("{"):
+                    value = line(observer.stdout)
+                self.assertEqual(value, "VALUE Q")
             finally:
                 fuse.stdin.write("R\n")
                 fuse.stdin.flush()
@@ -291,7 +421,7 @@ class FaultTest(unittest.TestCase):
                     result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--", sys.executable, "-c", f"import os; os.kill(os.getpid(),{int(signum)})"], env=dict(os.environ, PATH=directory), capture_output=True, text=True, timeout=10)
                     self.assertEqual(result.returncode, -signum)
 
-    def artifact_event(self, path, watch, status, tid, address=None):
+    def artifact_event(self, path, watch, status, tid, address=None, after_ns=0):
         deadline = time.monotonic() + 30
         with selectors.DefaultSelector() as selector:
             selector.register(watch, selectors.EVENT_READ)
@@ -301,7 +431,7 @@ class FaultTest(unittest.TestCase):
                     if not row.endswith(b"\n"):
                         continue
                     item = json.loads(row)
-                    if item.get("status") == status and item.get("tid") == tid and (address is None or item.get("address") == address):
+                    if item.get("status") == status and item.get("tid") == tid and (address is None or item.get("address") == address) and item.get("observed_ns", after_ns) >= after_ns:
                         return item
                 if not selector.select(max(0, deadline - time.monotonic())):
                     self.fail(f"artifact missing {status} for {tid}: {path.read_text()}")

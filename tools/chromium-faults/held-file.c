@@ -39,6 +39,21 @@ static void *ready(struct fuse_conn_info *conn, struct fuse_config *config) {
 }
 int main(int argc, char **argv) {
     setbuf(stdout, NULL);
+    if (argc == 3 && !strcmp(argv[1], "burst")) {
+        int fd = open(argv[2], O_RDWR | O_CREAT | O_TRUNC, 0600);
+        char data[8192];
+        memset(data, 'Q', sizeof(data));
+        if (fd < 0 || write(fd, data, sizeof(data)) != sizeof(data) || fsync(fd)) return 1;
+        for (int i = 0; i < 16384; i++) {
+            if (posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED)) return 2;
+            volatile char *address = mmap(NULL, sizeof(data), PROT_READ, MAP_PRIVATE, fd, 0);
+            if (address == MAP_FAILED || address[4096] != 'Q') return 3;
+            if (munmap((void *)address, sizeof(data))) return 4;
+        }
+        close(fd);
+        puts("BURST");
+        return 0;
+    }
     if (argc == 3 && !strcmp(argv[1], "read")) {
         pid_t child = fork();
         if (child < 0) { perror("fork"); return 1; }
