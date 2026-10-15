@@ -26,12 +26,12 @@ it.runIf(process.platform === "linux")("u26_parallel_cold_pages_answer_under_a_r
     execFileSync("python3", ["-c", `
 import os, pathlib, subprocess, sys
 root, group = sys.argv[1:]
-subprocess.run(['sudo', '-n', 'mkdir', group], check=True)
+subprocess.run(['sudo', '-n', 'mkdir', group], timeout=5, check=True)
 device = os.stat(root).st_dev
 block = pathlib.Path(f'/sys/dev/block/{os.major(device)}:{os.minor(device)}').resolve()
 if (block / 'partition').exists():
     block = block.parent
-subprocess.run(['sudo', '-n', 'tee', group + '/io.max'], input=block.joinpath('dev').read_text().strip() + ' riops=100', text=True, stdout=subprocess.DEVNULL, check=True)
+subprocess.run(['sudo', '-n', 'tee', group + '/io.max'], input=block.joinpath('dev').read_text().strip() + ' riops=100', text=True, stdout=subprocess.DEVNULL, timeout=5, check=True)
 for path in pathlib.Path(root).rglob('*'):
     if path.is_file():
         with path.open('rb') as source:
@@ -41,7 +41,7 @@ for path in pathlib.Path(root).rglob('*'):
 
     writeFileSync(launcher, `
 import os, subprocess, sys
-subprocess.run(['sudo', '-n', 'tee', ${JSON.stringify(join(group, "cgroup.procs"))}], input=str(os.getpid()), text=True, stdout=subprocess.DEVNULL, check=True)
+subprocess.run(['sudo', '-n', 'tee', ${JSON.stringify(join(group, "cgroup.procs"))}], input=str(os.getpid()), text=True, stdout=subprocess.DEVNULL, timeout=5, check=True)
 os.execv(sys.argv[1], sys.argv[1:])
 `);
     writeFileSync(runner, `
@@ -72,8 +72,8 @@ try {
     expect(output.trim()).toBe("[42,42]");
   } finally {
     // The cgroup contains only the subprocesses this test created.
-    execFileSync("sudo", ["-n", "tee", join(group, "cgroup.kill")], { input: "1", stdio: ["pipe", "ignore", "pipe"] });
-    execFileSync("sudo", ["-n", "rmdir", group]);
+    execFileSync("sudo", ["-n", "tee", join(group, "cgroup.kill")], { input: "1", stdio: ["pipe", "ignore", "pipe"], timeout: 5_000 });
+    execFileSync("sudo", ["-n", "rmdir", group], { timeout: 5_000 });
     rmSync(dir, { recursive: true, force: true });
   }
 }, 90_000);
