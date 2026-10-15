@@ -1,0 +1,43 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_waiting",
+        "toolResultContains": "waiting"
+      },
+      "response": {
+        "content": "The waiting Todo is blocked by the blocker."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_blocker",
+        "toolResultContains": "blocker"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_waiting",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"waiting\", \"blockers\": [1]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E10 create a blocked todo",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_blocker",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"blocker\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
