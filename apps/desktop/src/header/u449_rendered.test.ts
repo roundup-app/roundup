@@ -345,13 +345,24 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) expect(reading.selected.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
   });
 
-  it("u440_a_cut_tab_fades_into_its_edge", () => {
-    const cut = readings.filter((reading) => reading.tabs.some((tab) => tab.left < reading.list.left || tab.right > reading.list.right));
-    expect(cut.length).toBeGreaterThan(1);
+  it("u440_only_a_cut_side_fades", () => {
+    const cuts = (reading: Reading) => ({
+      start: reading.tabs.some((tab) => tab.left < reading.list.left - 0.5 && tab.right > reading.list.left + 0.5),
+      end: reading.tabs.some((tab) => tab.left < reading.list.right - 0.5 && tab.right > reading.list.right + 0.5),
+    });
 
-    for (const reading of cut) {
-      expect(reading.mask, reading.case).toContain("linear-gradient");
-      expect(reading.mask, reading.case).toContain("rgba(0, 0, 0, 0)");
+    expect(readings.some((reading) => cuts(reading).start)).toBe(true);
+    expect(readings.some((reading) => cuts(reading).end)).toBe(true);
+
+    for (const reading of readings) {
+      const { start, end } = cuts(reading);
+      const fades = reading.mask.split("rgba(0, 0, 0, 0)").length - 1;
+
+      // An uncut end keeps its border unmasked; a cut one fades into its slot.
+      expect(fades, reading.case).toBe(Number(start) + Number(end));
+
+      // Chromium serialises a leftward gradient as an angle, so only the rightward one is named.
+      expect(reading.mask.includes("to right"), reading.case).toBe(start);
     }
   });
 });
