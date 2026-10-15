@@ -282,6 +282,8 @@ async fn m12_a_refusal_starts_nothing() {
     let user = run.project.client().await;
     set_models(&user, json!([]), json!(["haiku"])).await;
     let (caller, shim) = run.caller(&user).await;
+    // Wait for the caller's launch so it cannot be mistaken for a refused child's.
+    run.launch_number(1);
     let (tree, launches, touches) = (
         rail_tree(&user).await.len(),
         run.launches().len(),
