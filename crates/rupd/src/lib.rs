@@ -12,6 +12,7 @@ mod handshake;
 mod removal;
 mod resources;
 mod storage;
+mod terminal_question;
 mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -323,6 +324,27 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        // A child may not turn its Terminal keystrokes into a user's answer by
+        // claiming `user`; H21's process identity applies to this input path too.
+        let input_actor = if method == "terminal.write" {
+            Some(
+                match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+                    Some(agent) => {
+                        let actor = Actor {
+                            kind: ActorKind::Agent,
+                            id: agent,
+                            parent: None,
+                        };
+                        conn.actor = actor.clone();
+                        actor
+                    }
+                    None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
+                    None => Actor::user(),
+                },
+            )
+        } else {
+            None
+        };
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -450,7 +472,7 @@ impl Daemon {
         }
         if method == "terminal.write" {
             let write: contracts::terminal::WriteParams = rpc::params(params.clone())?;
-            if write.identity.is_some() || conn.actor.kind == ActorKind::User {
+            {
                 use base64::Engine;
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(&write.data)
@@ -462,7 +484,15 @@ impl Daemon {
                     self.note_user_input(&params).await;
                 }
                 self.agents
-                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
+                    .write_terminal(
+                        &conn.actor,
+                        input_actor
+                            .as_ref()
+                            .expect("Terminal input has an authenticated source"),
+                        &write.id,
+                        bytes,
+                        write.identity,
+                    )
                     .await?;
                 // A refused guarded submit wrote no bytes and cannot release Messages
                 // waiting behind the user's input. Ordinary writes retain their queued cut.
@@ -979,7 +1009,14 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         .ok()
         .and_then(|cred| cred.pid())
         .and_then(|pid| u32::try_from(pid).ok());
-    let (read, mut write) = stream.into_split();
+    let mut stream = BufReader::new(stream);
+    let first = tokio::time::timeout(std::time::Duration::from_secs(10), stream.fill_buf())
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "connection sent no request"))??;
+    if first.first() == Some(&b'P') {
+        return terminal_question::serve(stream, daemon, stream_pid).await;
+    }
+    let (read, mut write) = tokio::io::split(stream);
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
     let (finished, mut finish) = tokio::sync::oneshot::channel();
     let writer = tokio::spawn(async move {
