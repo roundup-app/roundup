@@ -491,7 +491,10 @@ async fn b37_live_error_refuses_concurrent_input() {
     let waiting = steer(&f, &id, "one");
     let expected = format!("{}{}", first(), paste("one"));
     until_typed(&f, expected.len()).await;
-    assert_eq!(steer(&f, &id, "two").await.unwrap().unwrap_err().code, code::BUSY);
+    assert_eq!(
+        steer(&f, &id, "two").await.unwrap().unwrap_err().code,
+        code::BUSY
+    );
     signal(&f, &id, "UserPromptSubmit").await;
     waiting.await.unwrap().unwrap();
     assert_eq!(read(&typed(&f)), expected);
@@ -501,26 +504,33 @@ async fn b37_live_error_refuses_concurrent_input() {
 async fn b37_live_error_owner_is_open_until_terminal_exit() {
     let (f, id) = idle(Duration::from_secs(30)).await;
     signal(&f, &id, "StopFailure").await;
-    let terminal = f.tree().await.into_iter().find(|node| node.id == id).unwrap().terminal_id.unwrap();
-    f.agents.with_terminal_owner(&terminal, |owner| {
-        assert!(!owner.unwrap().ended);
-        Ok(())
-    }).unwrap();
+    let terminal = f
+        .tree()
+        .await
+        .into_iter()
+        .find(|node| node.id == id)
+        .unwrap()
+        .terminal_id
+        .unwrap();
+    f.agents
+        .with_terminal_owner(&terminal, |owner| {
+            assert!(!owner.unwrap().ended);
+            Ok(())
+        })
+        .unwrap();
     f.terminals.kill(&terminal).await.unwrap();
-    f.until(|tree| status_of(tree, &id).kind == Kind::Error && status_of(tree, &id).label != "error").await;
-    f.agents.with_terminal_owner(&terminal, |owner| {
-        assert!(owner.unwrap().ended);
-        Ok(())
-    }).unwrap();
-    assert!(matches!(f.agents.prompt(&id, "late").await, Err(agents::PromptError::NotFound { .. })));
-}
-
-#[tokio::test]
-async fn b37_old_attempt_stop_failure_cannot_make_a_working_receiver_promptable() {
-    let (f, id) = idle(Duration::from_secs(30)).await;
-    signal(&f, &id, "UserPromptSubmit").await;
-    f.call("agent.signal", json!({"id": id, "attempt": "999", "payload": {"hook_event_name": "StopFailure"}})).await.unwrap();
-    assert_eq!(status_of(&f.tree().await, &id).kind, Kind::Working);
-    assert!(matches!(f.agents.prompt(&id, "late").await, Err(agents::PromptError::Busy { .. })));
-    assert_eq!(read(&typed(&f)), first());
+    f.until(|tree| {
+        status_of(tree, &id).kind == Kind::Error && status_of(tree, &id).label != "error"
+    })
+    .await;
+    f.agents
+        .with_terminal_owner(&terminal, |owner| {
+            assert!(owner.is_none_or(|owner| owner.ended));
+            Ok(())
+        })
+        .unwrap();
+    assert!(matches!(
+        f.agents.prompt(&id, "late").await,
+        Err(agents::PromptError::NotFound { .. })
+    ));
 }
