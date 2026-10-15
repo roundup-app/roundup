@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -165,16 +166,43 @@ if sys.argv[3] == 'nested-leak':
 
 
 class DraftCheckRekick(unittest.TestCase):
+    def rekick(self):
+        check = (ROOT / '.github/workflows/check.yml').read_text()
+        return check, check.split('\n  rekick:\n', 1)[1].split('\n  # Keep the required check name', 1)[0]
+
     def test_l24_a_draft_check_on_a_ready_head_asks_the_app_for_a_real_check(self):
         # #1931, #1933, #1998, #2023: the ready run tested the previous head and the newest head kept a `Draft check`,
         # which review and critic skip. Only an App's ready event starts the real check; `GITHUB_TOKEN` events start none.
-        check = (ROOT / '.github/workflows/check.yml').read_text()
+        check, rekick = self.rekick()
         self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', check)
-        rekick = check.split('\n  rekick:\n', 1)[1].split('\n  # Keep the required check name', 1)[0]
         self.assertIn("if: github.event_name == 'pull_request' && github.event.pull_request.draft", rekick)
-        self.assertLess(rekick.index('gh pr ready "$PR" --undo'), rekick.index('gh pr ready "$PR"\n'))
-        self.assertLess(rekick.index('export GH_TOKEN=$APP_TOKEN'), rekick.index('gh pr ready "$PR" --undo'))
         self.assertEqual(check.count('id-token: write'), 1)
+
+    def test_l24_the_rekick_step_runs_every_gh_call_with_the_app_token(self):
+        _, rekick = self.rekick()
+        script = textwrap.dedent(rekick.rsplit('        run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'loop').mkdir()
+            (root / 'loop/builder.py').write_text(
+                'def app_token():\n    print("::add-mask::app-token")\n    return "app-token"\n')
+            (root / 'bin').mkdir()
+            gh = root / 'bin/gh'
+            gh.write_text('#!/bin/bash\necho "${GH_TOKEN:-none}|$*" >>"$CALLS"\n'
+                          '[ "$1 $2" != "pr view" ] || echo merge\n')
+            gh.chmod(0o755)
+            calls = root / 'calls'
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], cwd=root, text=True, capture_output=True,
+                                    env={**os.environ, 'PATH': f'{root}/bin:{os.environ["PATH"]}', 'CALLS': str(calls),
+                                         'PR': '7', 'GH_TOKEN': 'github-token'})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('::add-mask::app-token', result.stdout)
+            rows = calls.read_text().splitlines()
+            self.assertEqual(rows[0], 'github-token|pr view 7 --json autoMergeRequest --jq .autoMergeRequest.mergeMethod // empty')
+            self.assertEqual([row.split('|')[1] for row in rows[1:]],
+                             ['pr ready 7 --undo', 'pr ready 7', 'pr merge 7 --auto --merge',
+                              'api -X DELETE /installation/token'])
+            self.assertEqual({row.split('|')[0] for row in rows[1:]}, {'app-token'})
 
 
 if __name__ == '__main__':
