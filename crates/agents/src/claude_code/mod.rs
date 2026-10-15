@@ -6,6 +6,8 @@ mod brief;
 mod conversation;
 mod launch;
 mod models;
+mod placement;
+pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
 
