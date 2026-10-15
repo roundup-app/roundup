@@ -912,19 +912,22 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     let ids: Vec<_> = tree.iter().map(|n| n.id.as_str()).collect();
     assert_eq!(ids, [door.as_str(), a.id.as_str(), b.id.as_str()]);
     // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
     let mut idle = std::collections::BTreeSet::new();
     while idle.len() < 3 {
-        let id = next(&mut client, |event| match event {
-            EventData::AgentStatus(status)
-                if [&door, &a.id, &b.id].contains(&&status.id)
-                    && status.status.kind == Kind::Idle =>
-            {
-                Some(status.id.clone())
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
             }
             _ => None,
         })
         .await;
-        idle.insert(id);
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
     }
     model.assert_matched();
 }
