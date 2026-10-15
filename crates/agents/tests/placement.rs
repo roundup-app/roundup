@@ -142,7 +142,7 @@ async fn a39_a_failed_or_slow_call_is_unclear_and_logged_once() {
         let dir = tempfile::tempdir().unwrap();
         let bin = dir.path().join("fault");
         let started = dir.path().join("started");
-        std::fs::write(&bin, format!("#!/usr/bin/env python3\nimport os, sys\nsys.stdin.read()\nwith open({:?}, 'w') as f: f.write(str(os.getpid()))\n{body}\n", started.to_str().unwrap())).unwrap();
+        std::fs::write(&bin, format!("#!/usr/bin/env python3\nimport os, sys\nsys.stdin.read()\nwith open({:?}, 'w') as f: f.write(str(os.getpid()))\nos.replace({:?}, {:?})\n{body}\n", started.with_extension("tmp").to_str().unwrap(), started.with_extension("tmp").to_str().unwrap(), started.to_str().unwrap())).unwrap();
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let call = Launcher::new(
             bin.to_str().unwrap(),
