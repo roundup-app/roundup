@@ -1,0 +1,60 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m9_start",
+        "toolResultContains": "\"name\":\"x\""
+      },
+      "response": {
+        "content": "The new Door is started."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m9_create",
+        "toolResultContains": "\"id\":\"2\""
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m9_start",
+            "name": "mcp__roundup__rail_startDoor",
+            "arguments": "{\"id\":\"2\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E10 create another Workstream named x and start its Door",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m9_create",
+            "name": "mcp__roundup__rail_createWorkstream",
+            "arguments": "{\"name\":\"x\",\"parent\":null}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}
