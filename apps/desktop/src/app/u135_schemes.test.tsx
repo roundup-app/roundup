@@ -135,7 +135,8 @@ describe("u135 schemes", () => {
       const tokens = rootTokensOf(cssFor(settings));
       const checks = runChecks();
 
-      for (const id of ["D1", "D2", "D3", "D4", "D5", "D8", "D9"] as const) expect(checks[id], `${id} ${settings.join()}`).toMatchObject({ status: "pass" });
+      // D5 needs painted boxes: u135_<scheme>_d5_on_painted_layout_at_1280_by_800 in u137_checks.test.tsx retains each scheme proof.
+      for (const id of ["D1", "D2", "D3", "D4", "D8", "D9"] as const) expect(checks[id], `${id} ${settings.join()}`).toMatchObject({ status: "pass" });
 
       const ground = resolveToken("var(--ground)", tokens);
       const sunken = resolveToken("var(--sunken)", tokens);
@@ -146,12 +147,5 @@ describe("u135 schemes", () => {
     });
   }
 
-  it("u135_d10_holds_at_1280_by_800", async () => {
-    await mount(["dark"]);
-    Object.assign(window, { innerWidth: 1280, innerHeight: 800 });
-    const d10 = runChecks().D10;
-
-    expect(d10.value).toMatchObject({ viewport: "1280x800", scheme: "dark" });
-    expect(d10.status).toBe("pass");
-  });
+  // u135_d10_holds_at_1280_by_800 in u137_checks.test.tsx retains the selected Workstream proof with real boxes.
 });

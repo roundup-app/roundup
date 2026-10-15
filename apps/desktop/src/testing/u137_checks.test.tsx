@@ -276,10 +276,12 @@ rendered("U135 U136 U161 painted scheme checks", () => {
   beforeAll(async () => { if (!chrome) throw new Error("Scheme checks require Chromium"); page = await openPage(chrome); }, 90_000);
   afterAll(async () => { await page?.close(); });
 
-  const load = async (seed: string, width = 1280) => {
-    await page.load(`/harness.html?seed=${seed}`, width, 800);
+  const load = async (seed: string, width = 1280, height = 800) => {
+    await page.load(`/harness.html?seed=${seed}`, width, height);
     await page.until(`() => Boolean(window.__fake) && Boolean(document.querySelector('[role="tree"]'))`);
+
     if (seed === "daemon-exits") await page.until(`() => [...document.querySelectorAll('button')].some(el => el.textContent === 'Reopen')`);
+
     if (seed === "door-stopped") await page.until(`() => document.body.textContent.includes('Supervisor stopped, exited 0')`);
   };
 
@@ -291,8 +293,11 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     it(`u135_${name}_d5_on_painted_layout_at_1280_by_800`, async () => {
       await page.scheme(scheme, contrast, reduced);
       await load("agents-10");
+
       if (contrast) expect(await page.call<boolean>(`() => matchMedia('(prefers-contrast: more)').matches`)).toBe(true);
+
       if (reduced) expect(await page.call<boolean>(`(feature) => matchMedia('(prefers-reduced-' + feature + ': reduce)').matches`, reduced)).toBe(true);
+
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
       expect(checks.D5, JSON.stringify(checks.D5)).toMatchObject({ status: "pass" });
@@ -301,8 +306,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
 
   it("u135_d10_holds_at_1280_by_800", async () => {
     await page.scheme("dark");
-    await load("agents-10");
-    await page.call(`() => document.querySelector('[role="treeitem"]').click()`);
+    await load("door-stopped");
     await page.until(`() => Boolean(document.querySelector('[role="treeitem"][aria-selected="true"]'))`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
@@ -310,10 +314,10 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
   }, 60_000);
 
-  for (const seed of ["agents-10", "tree-40", "daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) {
-    it(`u136_${seed.replace("-", "_")}_${scheme}_d5_d10_on_painted_layout`, async () => {
+  for (const seed of ["agents-10", "tree-40", "daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1024, 768], [1280, 800]] as const) {
+    it(`u136_${seed.replace("-", "_")}_${scheme}_d5_d10_on_painted_layout_at_${width}_by_${height}`, async () => {
       await page.scheme(scheme);
-      await load(seed);
+      await load(seed, width, height);
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
       for (const id of ["D5", "D10"] as const) expect(checks[id], JSON.stringify(checks[id])).toMatchObject({ status: "pass" });
