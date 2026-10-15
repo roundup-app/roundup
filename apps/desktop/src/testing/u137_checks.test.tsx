@@ -24,13 +24,14 @@ const addSheet = (css: string) => {
 };
 
 describe("u137 one module measures the checks", () => {
-  it("u137_each_element_has_one_style_observation_per_check_call_under_processing_cost", async () => {
+  it("u137_styles_and_rules_have_one_observation_per_check_call_under_processing_cost", async () => {
     await withStylesheets(async () => {
       mountSeed();
       await screen.findAllByRole("treeitem");
       const expected = runChecks();
       const original = window.getComputedStyle.bind(window);
       const reads = new Map<Element, number>();
+      const sheets = vi.spyOn(document, "styleSheets", "get");
 
       const read = vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
         reads.set(el, (reads.get(el) ?? 0) + 1);
@@ -43,10 +44,12 @@ describe("u137 one module measures the checks", () => {
 
       try {
         expect(runChecks()).toEqual(expected);
+        expect(sheets).toHaveBeenCalledTimes(1);
         expect(reads.size).toBeGreaterThan(100);
         expect([...reads.values()]).toEqual(Array(reads.size).fill(1));
       } finally {
         read.mockRestore();
+        sheets.mockRestore();
       }
     });
   });
@@ -61,6 +64,21 @@ describe("u137 one module measures the checks", () => {
 
     document.querySelector<HTMLElement>(".rail-row")!.style.transitionDuration = "0s";
     expect(runChecks().D9).toEqual({ status: "pass", value: [], selector: "" });
+  });
+
+  it("u137_a_later_check_call_observes_new_interaction_rules", () => {
+    document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
+    document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';
+    const before = runChecks();
+
+    expect(before.D6).toMatchObject({ status: "fail", value: { missing: "hover" } });
+    expect(before.D7).toMatchObject({ status: "fail", value: { pressed: 0 } });
+
+    addSheet(".rail-row:hover { color: red; } .rail-row:focus-visible { outline: 1px solid; } .rail-row:active { color: blue; transition-duration: 0s; }");
+    const after = runChecks();
+
+    expect(after.D6.status).toBe("pass");
+    expect(after.D7.status).toBe("pass");
   });
 
   it("u137_every_id_d1_to_d10_is_present_with_status_value_and_selector", async () => {
