@@ -140,7 +140,8 @@ an explicit `message.pass` remains the Actor's choice.
 Release requires a live matching Attempt greater than the reserved Attempt, and
 any Door note's acknowledgement to be recorded for that Attempt or an earlier
 completed Attempt of the same operation. It rebinds only
-pending/held records, retains their B7 ranks, and nudges an already delivery-ready receiver (idle or B37 live error).
+pending/held records, retains their B7 ranks, and nudges an already delivery-ready
+receiver (idle or B37 live error).
 Final Messages are never rebound or revived. A failed restart or recording leaves
 its reservation available to the same retry, including after reopening the Daemon.
 On reopen, reservations replay from SQLite before reconciliation. Takeovers and
@@ -163,7 +164,8 @@ recording rather than sending it with `message.send`.
 Affected laws: M1 (no second typing or note), M3 (no Takeover as an internal lock),
 M4 (B7 ranks retained), M5 (final records untouched), M6 (no queue loss), M7 (final
 ending remains Exit, temporary restart is Busy), M9 (durable reservation/note
-replay), M10 (delivery follows coordinator release and fair Idle (including B37 live error)). M2's holds stay
+replay), M10 (delivery follows coordinator release and fair Idle, including B37
+live error). M2's holds stay
 unchanged; M8's bound fairness additionally requires completion of the explicit
 restart. `model.bend` models the reservation as a schedule projection into the
 unchanged delivery transitions and the already-typed prompt as an idempotent
