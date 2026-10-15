@@ -306,6 +306,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .env("TOKIO_WORKER_THREADS", "16")
                 .env("RUPD_PROMPT_EFFECT_GATE", project.join("effect-gate"))
                 .env("RUPD_ORDER_EFFECT_GATE", project.join("order-effect-gate"))
+                .env("RUPD_TERMINAL_INPUT_GATE", project.join("input-gate"))
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
@@ -1274,6 +1275,64 @@ async fn b37_decision_note_exclusions_still_hold() {
             .unwrap();
         run.finish().await;
     }
+}
+
+async fn door_terminal() -> (Run, Arc<Client>) {
+    let (mut run, caller) = order_child().await;
+    let opened = caller.request("terminal.spawn", json!({
+        "cwd":run.dir.path(), "cols":80,"rows":24,"env":{},
+        "command":["python3","-u","-c", "import os, tty\ntty.setraw(0)\nprint('READY')\nwhile True:\n b = os.read(0, 1)\n if not b: break\n print('BARRIER' if b == b'\\x00' else 'BYTE:' + b.hex())"]
+    })).await.unwrap();
+    run.terminal = opened["id"].clone();
+    tokio::time::timeout(BOUND, async {
+        while !run.screen().await.contains("READY") {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    (run, caller)
+}
+
+#[tokio::test]
+async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect() {
+    let (run, caller) = door_terminal().await;
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    // Direct user input still acknowledges enqueue while its physical write is held.
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"user")}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let terminal = run.terminal.clone();
+    let mut completion = tokio::spawn(async move {
+        caller
+            .request(
+                "terminal.write",
+                json!({"id":terminal,"data":STANDARD.encode(b"door")}),
+            )
+            .await
+    });
+    // This window observes absence of completion, rather than assuming task scheduling.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut completion).await;
+    std::fs::remove_file(gate).unwrap();
+    assert!(
+        early.is_err(),
+        "Door completed while its bytes were queued: {early:?}"
+    );
+    completion.await.unwrap().unwrap();
+    assert_eq!(recorded_bytes(&run).await, b"userdoor");
+    run.finish().await;
 }
 
 #[tokio::test]
