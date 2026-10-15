@@ -1,0 +1,1 @@
+CREATE TABLE scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL);

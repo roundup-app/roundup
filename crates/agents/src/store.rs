@@ -39,7 +39,11 @@ impl Agents {
         launcher: Launcher,
         git: worktree::Git,
     ) -> Result<Self, OpenError> {
-        let mut rail = rail::Rail::open(&dir.join("agents.db"))?;
+        let mut rail = rail::Rail::open(&dir.join(if dir.join("project.db").exists() {
+            "project.db"
+        } else {
+            "agents.db"
+        }))?;
         let recovery = git.bounded();
         for (node, plan, ready) in rail.provisioning()? {
             let Some(plan) = plan else {
@@ -97,11 +101,33 @@ impl Agents {
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
                 takeover: None,
+                context: None,
                 waits: Mutex::new(HashMap::new()),
             }),
             dir: dir.to_owned(),
             launcher,
         })
+    }
+
+    /// Supply the Terminal shutdown dependency before any Agents are shared.
+    #[must_use]
+    pub fn with_terminal_kills<F, Fut>(self, kill: F) -> Self
+    where
+        F: Fn(String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<(), RpcError>> + Send,
+    {
+        struct Kills<F>(F);
+        #[async_trait]
+        impl<F, Fut> KillsTerminals for Kills<F>
+        where
+            F: Fn(String) -> Fut + Send + Sync,
+            Fut: std::future::Future<Output = Result<(), RpcError>> + Send,
+        {
+            async fn kill(&self, id: &str) -> Result<(), RpcError> {
+                (self.0)(id.to_owned()).await
+            }
+        }
+        self.configure(|shared| shared.ending.kill = Arc::new(Kills(kill)))
     }
 
     /// B6: observe a Resume's Terminal before recording its id, after recording it, and
@@ -132,6 +158,19 @@ impl Agents {
     #[must_use]
     pub fn with_proof(self, proof: Option<String>) -> Self {
         self.configure(|shared| shared.decisions.set_proof(proof))
+    }
+
+    /// E3: supply the Context text held by the Daemon, without giving Agents a Todos dependency.
+    /// Read once for the first Steer; a failed or timed-out read leaves that Steer unchanged.
+    #[must_use]
+    pub fn with_context<F, Fut>(self, read: F) -> Self
+    where
+        F: Fn(Vec<RailNode>, String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<String, RpcError>> + Send + 'static,
+    {
+        self.configure(|shared| {
+            shared.context = Some(Arc::new(move |nodes, id| Box::pin(read(nodes, id))))
+        })
     }
 
     /// O4: `active` says whether a Takeover of an Agent is active. Call it before the first call.
@@ -438,6 +477,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             takeover: None,
+            context: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, bus, shared)
@@ -484,6 +524,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             takeover: None,
+            context: None,
             waits: Mutex::new(HashMap::new()),
         })
     }
@@ -562,6 +603,7 @@ pub(super) mod tests {
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
             takeover: None,
+            context: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)

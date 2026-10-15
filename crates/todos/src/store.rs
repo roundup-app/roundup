@@ -19,6 +19,7 @@ impl Store {
         before_write: impl Fn(u32) -> rusqlite::Result<i64>,
     ) -> rusqlite::Result<Self> {
         let mut db = Connection::open(path)?;
+        db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "foreign_keys", true)?;
         crate::schema::open(&mut db, path)?;
@@ -37,7 +38,7 @@ impl Store {
         Ok(store)
     }
 
-    /// A34: apply deletion and Home changes through the attached Todo store.
+    /// A34: apply deletion and Home changes through the Project database.
     pub(crate) fn remove_workstream(
         &self,
         db: &Connection,
@@ -51,7 +52,7 @@ impl Store {
         let mut events = Vec::new();
         for todo in before.iter().filter(|t| t.home.as_deref() == Some(home)) {
             if todo.done {
-                db.execute("DELETE FROM removal_todos.todos WHERE id = ?", [todo.id])
+                db.execute("DELETE FROM todos WHERE id = ?", [todo.id])
                     .map_err(RpcError::internal)?;
                 removal.removed.push(RemovedItem {
                     id: todo.id.to_string(),
@@ -60,11 +61,8 @@ impl Store {
                 });
                 events.push(EventData::TodoDeleted(TodoId { id: todo.id }));
             } else {
-                db.execute(
-                    "UPDATE removal_todos.todos SET home = NULL WHERE id = ?",
-                    [todo.id],
-                )
-                .map_err(RpcError::internal)?;
+                db.execute("UPDATE todos SET home = NULL WHERE id = ?", [todo.id])
+                    .map_err(RpcError::internal)?;
                 removal.kept.push(KeptItem {
                     id: todo.id.to_string(),
                     kind: RemovalKind::Todo,
@@ -80,9 +78,7 @@ impl Store {
                 continue;
             }
             todo.blockers = db
-                .prepare(
-                    "SELECT blocker FROM removal_todos.blockers WHERE todo = ? ORDER BY blocker",
-                )
+                .prepare("SELECT blocker FROM blockers WHERE todo = ? ORDER BY blocker")
                 .map_err(RpcError::internal)?
                 .query_map([todo.id], |r| r.get(0))
                 .map_err(RpcError::internal)?
@@ -94,19 +90,17 @@ impl Store {
             let after = values(&todo);
             if previous != &after {
                 let after_touch: i64 = db
-                    .query_row(
-                        "SELECT COALESCE(MAX(seq), 0) FROM removal_touches.touches",
-                        [],
-                        |row| row.get(0),
-                    )
+                    .query_row("SELECT COALESCE(MAX(seq), 0) FROM touches", [], |row| {
+                        row.get(0)
+                    })
                     .map_err(RpcError::internal)?;
                 db.execute(
-                    "INSERT INTO removal_todos.changes(todo, before_values, after_values, after_touch) VALUES (?1, ?2, ?3, ?4)",
+                    "INSERT INTO changes(todo, before_values, after_values, after_touch) VALUES (?1, ?2, ?3, ?4)",
                     params![todo.id, serde_json::to_string(previous).map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch],
                 ).map_err(RpcError::internal)?;
             }
             let was_blocked = todo.blocked;
-            todo.blocked = db.query_row("SELECT EXISTS(SELECT 1 FROM removal_todos.blockers b JOIN removal_todos.todos t ON t.id = b.blocker WHERE b.todo = ? AND t.done = 0)", [todo.id], |r| r.get(0)).map_err(RpcError::internal)?;
+            todo.blocked = db.query_row("SELECT EXISTS(SELECT 1 FROM blockers b JOIN todos t ON t.id = b.blocker WHERE b.todo = ? AND t.done = 0)", [todo.id], |r| r.get(0)).map_err(RpcError::internal)?;
             if todo.home.as_deref() == Some(home) {
                 todo.home = None;
                 events.push(EventData::TodoUpdated(todo.clone().into()));

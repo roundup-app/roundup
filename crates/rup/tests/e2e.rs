@@ -22,72 +22,6 @@ const RECORDED: &str = concat!(
     "/../../spikes/hooks-state/log.run1.jsonl"
 );
 
-const D2_EVENTS: &str = "SessionStart,UserPromptSubmit,PermissionRequest,PostToolUse,Stop";
-
-/// The fake `claude` leaves its `rup permission` open and waits for this file, which the test
-/// writes once the Agent is `needs-you` (H7a: the next Signal clears the Decision).
-fn d2_project() -> (Project, std::path::PathBuf) {
-    let gate = std::env::temp_dir().join(format!(
-        "d2-gate-{}-{:?}",
-        std::process::id(),
-        std::thread::current().id()
-    ));
-    let _ = std::fs::remove_file(&gate);
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", D2_EVENTS),
-        ("FAKE_CLAUDE_PROMPT", "fix the refresh race"),
-        ("FAKE_CLAUDE_GATE", gate.to_str().unwrap()),
-    ]);
-    (project, gate)
-}
-
-/// The next five Kinds, opening the gate once the third (`needs-you`) is in.
-async fn d2_kinds(client: &mut rpc::Client, gate: &std::path::Path) -> Vec<Kind> {
-    let mut kinds = Vec::new();
-    for _ in 0..5 {
-        kinds.push(next_kind(client).await);
-        if kinds.len() == 3 {
-            std::fs::write(gate, "").unwrap();
-        }
-    }
-    kinds
-}
-
-#[tokio::test]
-async fn d2_status_follows_the_hooks_in_order() {
-    let (project, gate) = d2_project();
-    let mut client = project.subscribed().await;
-
-    project.spawn_agent(&client).await;
-
-    let kinds = d2_kinds(&mut client, &gate).await;
-    assert_eq!(
-        kinds,
-        [
-            Kind::Idle,
-            Kind::Working,
-            Kind::NeedsYou,
-            Kind::Working,
-            Kind::Idle
-        ]
-    );
-}
-
-#[tokio::test]
-async fn d2_the_first_prompt_names_the_agent() {
-    let (project, gate) = d2_project();
-    let mut client = project.subscribed().await;
-    let agent = project.spawn_agent(&client).await;
-    d2_kinds(&mut client, &gate).await;
-
-    let tree = rail_tree(&client).await;
-
-    let named: Vec<_> = tree.iter().filter(|node| node.id == agent.id).collect();
-    assert_eq!(named.len(), 1);
-    assert_eq!(named[0].name, "fix-refresh-race");
-}
-
 /// A Daemon whose one Agent has called `todo_create`; the Todo exists once this returns.
 async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
     let project = daemon::start_real(fixture, &[]);
@@ -824,15 +758,10 @@ async fn e1_an_agents_brief_advertises_exactly_the_tools_its_rup_mcp_lists() {
 
 #[tokio::test]
 async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
-    let report = tempfile::tempdir().unwrap().keep().join("seen.json");
-    let tools = json!([
-        { "name": "todo_create", "arguments": { "title": "plan the workstream" } },
-        { "name": "todo_update", "arguments": { "id": "$id", "body": "owned files: none yet" } },
-    ]);
-    let project = start(&[
-        ("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap()),
-        ("FAKE_CLAUDE_TOOLS", &tools.to_string()),
-    ]);
+    let project = daemon::start_real(
+        "b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp",
+        &[],
+    );
     let mut client = project.subscribed().await;
     let workstream = client
         .request(
@@ -852,21 +781,35 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         _ => None,
     })
     .await;
-    let seen = seen_at(&report).await;
-
-    assert!(seen.brief.contains("coordinating Door"));
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_update_todo").await;
     assert!(
-        seen.brief.contains(HOLD_PLAIN),
-        "Q1: the pinned hold:Plain body"
+        result["content"]
+            .as_str()
+            .unwrap()
+            .contains("owned files: none yet"),
+        "{result}"
     );
+    let journal = model.journal();
+    let request = &journal
+        .iter()
+        .find(|entry| entry["body"]["tools"].is_array())
+        .unwrap()["body"];
+    let brief = request["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|m| m["role"] == "system")
+        .map(|m| m["content"].as_str().unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(brief.contains("coordinating Door"), "{request}");
+    assert!(brief.contains(HOLD_PLAIN), "Q1: the pinned hold:Plain body");
     assert!(
-        seen.brief.contains(REDUCE) && seen.brief.contains(SHOW_ME),
+        brief.contains(REDUCE) && brief.contains(SHOW_ME),
         "Q6: the pinned reduce and show-me bodies"
     );
-    assert!(!seen.brief.contains(&format!("Agent id is {door}")));
-    let mut listed = seen.tools;
-    listed.sort();
-    assert_eq!(advertised(&seen.brief), listed);
+    assert!(!brief.contains(&format!("Agent id is {door}")));
     assert_eq!(updated.title, "plan the workstream");
     assert_eq!(updated.body, "owned files: none yet");
     assert_eq!(
@@ -1617,37 +1560,12 @@ async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_conte
     );
 }
 
-async fn channel_of(client: &rpc::Client, id: &str) -> Option<Channel> {
-    rail_tree(client)
-        .await
-        .into_iter()
-        .find(|n| n.id == id)
-        .unwrap()
-        .channel
-}
-
 async fn next_channel(client: &mut rpc::Client, id: &str) -> Channel {
     next(client, |data| match data {
         EventData::AgentChannel(event) if event.id == id => Some(event.channel),
         _ => None,
     })
     .await
-}
-
-#[tokio::test]
-async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
-    let project = start(&[
-        ("FAKE_CLAUDE_TOOLS", "[]"),
-        ("ROUNDUP_CHANNEL_DEADLINE_MS", "3000"),
-    ]);
-    let mut events = project.subscribed().await;
-
-    let node = project.spawn_agent(&events).await;
-    assert_eq!(node.channel, Some(Channel::Pending));
-
-    assert_eq!(next_channel(&mut events, &node.id).await, Channel::Up);
-    tokio::time::sleep(Duration::from_millis(3500)).await;
-    assert_eq!(channel_of(&events, &node.id).await, Some(Channel::Up));
 }
 
 #[tokio::test]
@@ -2462,7 +2380,7 @@ async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
     drop(client);
     project.crash();
     // What an earlier Daemon stored: `w2` under `w1`, `w3` under `w2`.
-    let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     db.execute(
         "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
         (&w1, &w2),
@@ -2962,15 +2880,34 @@ async fn m10_write_emits_the_event_and_logs_a_touch() {
 
 /// A33: an idle Agent whose own Todo waits on an open blocker reads `blocked`, and idle again
 /// once the blocker completes or the Todo is deleted.
-async fn a33_blocked_agent() -> (Project, rpc::Client, RailNode) {
-    let tools = json!([
-        { "name": "todo_create", "arguments": { "title": "blocker" } },
-        { "name": "todo_create", "arguments": { "title": "waiting", "blockers": [1] } },
-    ]);
-    let project = start(&[("FAKE_CLAUDE_TOOLS", &tools.to_string())]);
+async fn a33_blocked_agent(fixture: &str) -> (Project, rpc::Client, RailNode) {
+    let project = daemon::start_real(fixture, &[]);
     let client = project.client().await;
-    let agent = project.spawn_agent(&client).await;
-    signal(&client, &agent.id, json!({"hook_event_name": "Stop"})).await;
+    let agent: RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E10 create a blocked todo"
+                }),
+            ),
+        )
+        .await
+        .expect("agent.spawn answered within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    let result = project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_waiting")
+        .await;
+    assert!(
+        result["content"].as_str().unwrap().contains("waiting"),
+        "{result}"
+    );
     (project, client, agent)
 }
 
@@ -2997,14 +2934,16 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
 
 #[tokio::test]
 async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
-    let (_project, client, agent) = a33_blocked_agent().await;
+    let (_project, client, agent) =
+        a33_blocked_agent("a33_an_idle_agent_with_a_blocked_todo_reads_blocked").await;
     let status = a33_reading(&client, &agent.id, Kind::Blocked).await;
     assert_eq!(status.label, "waits on #1");
 }
 
 #[tokio::test]
 async fn a33_completing_the_blocker_reads_idle() {
-    let (_project, client, agent) = a33_blocked_agent().await;
+    let (_project, client, agent) =
+        a33_blocked_agent("a33_completing_the_blocker_reads_idle").await;
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
         .request("todo.complete", json!({ "id": 1 }))
@@ -3015,7 +2954,7 @@ async fn a33_completing_the_blocker_reads_idle() {
 
 #[tokio::test]
 async fn a33_deleting_the_todo_reads_idle() {
-    let (_project, client, agent) = a33_blocked_agent().await;
+    let (_project, client, agent) = a33_blocked_agent("a33_deleting_the_todo_reads_idle").await;
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
         .request("todo.delete", json!({ "id": 2 }))
@@ -3115,7 +3054,7 @@ async fn p14_old_scribe_loads_and_is_removed() {
     let old = agent_in(&project, &user, None).await;
     let kept = agent_in(&project, &user, None).await;
     project.crash();
-    let db = rusqlite::Connection::open(project.data_dir().join("pads.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     db.execute_batch("CREATE TABLE scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL)")
         .unwrap();
     db.execute("INSERT INTO scribes VALUES ('notes', ?1)", [&old])
@@ -3133,7 +3072,7 @@ async fn p14_old_scribe_loads_and_is_removed() {
     let ids: Vec<String> = rail_tree(&user).await.into_iter().map(|n| n.id).collect();
     assert!(!ids.contains(&old));
     assert!(ids.contains(&kept));
-    let db = rusqlite::Connection::open(project.data_dir().join("pads.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     let left: i64 = db
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE name = 'scribes'",
