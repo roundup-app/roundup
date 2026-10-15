@@ -41,6 +41,8 @@ pub struct Daemon {
     todos: Arc<todos::Todos>,
     pads: Arc<pads::Pads>,
     storage_calls: tokio::sync::RwLock<()>,
+    /// B6: spawn publication and its Door-owned first Steer are registered together.
+    door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     touches: Arc<Touches>,
@@ -142,6 +144,7 @@ impl Daemon {
             todos: Arc::clone(&todos),
             pads: Arc::clone(&pads),
             storage_calls: Default::default(),
+            door_first_steers: Default::default(),
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -299,6 +302,34 @@ impl Daemon {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
         }
+        // A Door's spawn publishes the child before its detached first Steer completes.
+        // Hold registration through that publication so begin cannot miss the effect.
+        let mut first_steers = if method == "agent.spawn" && conn.actor.kind == ActorKind::Agent {
+            Some(self.door_first_steers.lock().await)
+        } else {
+            None
+        };
+        if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
+            let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
+            let attempt = self.door_first_steers.lock().await.get(&agent).cloned();
+            if let Some(attempt) = attempt
+                && self
+                    .rail()
+                    .await?
+                    .iter()
+                    .any(|node| node.id == agent && node.attempt.as_deref() == Some(&attempt))
+            {
+                self.agents
+                    .first_steer_completion(&agent, &attempt)
+                    .await
+                    .map_err(|err| {
+                        RpcError::conflict(format!(
+                            "cannot acquire Takeover of {agent}: first Steer completion is unknown: {err}"
+                        ))
+                    })?;
+                self.door_first_steers.lock().await.remove(&agent);
+            }
+        }
         self.before_prompt_effect(method, &params).await?;
         self.remove_old_bound_agents().await?;
         // A34's attached transaction excludes concurrent Todo/Pad calls; Signal and Terminal
@@ -412,6 +443,22 @@ impl Daemon {
         let outcome = module
             .call(&self.ctx(conn.actor.clone()), method, params)
             .await;
+        if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
+            && let (Some(id), Some(attempt)) = (node["id"].as_str(), node["attempt"].as_str())
+        {
+            first_steers.insert(id.to_owned(), attempt.to_owned());
+            let first_steers = Arc::clone(&self.door_first_steers);
+            let agents = Arc::clone(&self.agents);
+            let (id, attempt) = (id.to_owned(), attempt.to_owned());
+            tokio::spawn(async move {
+                if agents.first_steer_completion(&id, &attempt).await.is_ok() {
+                    let mut first_steers = first_steers.lock().await;
+                    if first_steers.get(&id) == Some(&attempt) {
+                        first_steers.remove(&id);
+                    }
+                }
+            });
+        }
         if matches!(method, "todo.create" | "pad.create") && conn.actor.kind == ActorKind::Agent {
             return self.home_in_workstream(method, &conn.actor, outcome?).await;
         }
