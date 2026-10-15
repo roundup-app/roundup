@@ -1586,43 +1586,36 @@ async fn e3_a_daemon_that_never_answers_is_given_up_on_within_five_seconds() {
 }
 
 #[tokio::test]
-async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_context() {
-    let report = tempfile::tempdir().unwrap().keep().join("context.txt");
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-        ("FAKE_CLAUDE_CONTEXT_REPORT", report.to_str().unwrap()),
-    ]);
+async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context() {
+    let project = daemon::start_real("e3_startup_context", &[]);
     let user = project.client().await;
-    let id = agent_in(&project, &user, None).await;
-
-    let told = tokio::time::timeout(Duration::from_secs(30), async {
+    let node = user
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": project.dir.path(), "prompt": "E10 read startup context"
+            }),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
         loop {
-            match std::fs::read_to_string(&report) {
-                Ok(text) if !text.is_empty() => return text,
-                _ => tokio::time::sleep(Duration::from_millis(20)).await,
+            if !model.journal().is_empty() {
+                break;
             }
+            tokio::time::sleep(Duration::from_millis(25)).await;
         }
     })
     .await
-    .expect("the context was printed");
-
-    let told: Value = serde_json::from_str(&told).unwrap();
-    assert_eq!(told["hookSpecificOutput"]["hookEventName"], "SessionStart");
+    .expect("real Claude requests its first model turn");
+    model.assert_matched();
+    let journal = model.journal();
+    let messages = journal[0]["body"]["messages"].to_string();
+    assert!(messages.contains("Parent: none"), "{journal:#?}");
     assert!(
-        told["hookSpecificOutput"]["additionalContext"]
-            .as_str()
-            .unwrap()
-            .contains("Parent: none")
-    );
-    assert_eq!(
-        rail_tree(&user)
-            .await
-            .iter()
-            .find(|n| n.id == id)
-            .unwrap()
-            .id,
-        id
+        messages.contains(node["id"].as_str().unwrap()),
+        "{journal:#?}"
     );
 }
 
@@ -1645,18 +1638,38 @@ async fn next_channel(client: &mut rpc::Client, id: &str) -> Channel {
 
 #[tokio::test]
 async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
-    let project = start(&[
-        ("FAKE_CLAUDE_TOOLS", "[]"),
-        ("ROUNDUP_CHANNEL_DEADLINE_MS", "3000"),
-    ]);
+    let project = daemon::start_real(
+        "e6_immediate_shim",
+        &[("ROUNDUP_CHANNEL_DEADLINE_MS", "3000")],
+    );
     let mut events = project.subscribed().await;
 
-    let node = project.spawn_agent(&events).await;
+    let node: RailNode = serde_json::from_value(
+        events
+            .request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E10 immediate shim"
+                }),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
     assert_eq!(node.channel, Some(Channel::Pending));
 
     assert_eq!(next_channel(&mut events, &node.id).await, Channel::Up);
     tokio::time::sleep(Duration::from_millis(3500)).await;
     assert_eq!(channel_of(&events, &node.id).await, Some(Channel::Up));
+    let model = project.model.as_ref().unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while model.journal().is_empty() {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("real Claude reaches the model");
+    model.assert_matched();
 }
 
 #[tokio::test]
