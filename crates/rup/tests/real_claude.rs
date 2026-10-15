@@ -1,4 +1,4 @@
-//! D2, E3, E6, E11, E12, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -590,7 +590,7 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
 #[tokio::test]
 async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own() {
     let project = daemon::start_real("f3_child_home", &[]);
-    let client = project.client().await;
+    let mut client = project.subscribed().await;
     let door = client
         .request(
             "rail.createWorkstream",
@@ -615,6 +615,17 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
     let child = tree.iter().find(|n| n.id == spawned.id).unwrap();
     assert_eq!(child.parent.as_deref(), Some(door.as_str()));
     assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == spawned.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
     model.assert_matched();
 }
 
@@ -647,7 +658,7 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
                 .success()
         );
     }
-    let client = project.client().await;
+    let mut client = project.subscribed().await;
     client
         .request("project.setWorktrees", json!({"on": true, "check": null}))
         .await
@@ -681,5 +692,16 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
     assert!(listed.status.success());
     let listed = String::from_utf8(listed.stdout).unwrap();
     assert!(listed.contains(&worktree.path), "{listed}");
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == spawned.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
     model.assert_matched();
 }

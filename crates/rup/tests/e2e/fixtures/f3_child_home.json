@@ -19,6 +19,14 @@
     },
     {
       "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Follow this instruction: What is this Workstream for?",
         "hasToolResult": false
       },
