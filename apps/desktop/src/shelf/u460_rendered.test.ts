@@ -140,6 +140,7 @@ describe("u135_selected_shelf_metadata_keeps_compound_contrast", () => {
       expect(metadata.length).toBeGreaterThan(0);
       for (const { text, ground } of metadata) expect(contrastRgb(text, ground), `${tag} selected Pad metadata`).toBeGreaterThanOrEqual(4.5);
       expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain('p'.repeat(120));
+
       const padChecks = await evaluate<Checks>("window.__checks()");
 
       for (const id of CHECK_IDS) expect(padChecks[id].status, id).toBe('pass');
