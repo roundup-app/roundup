@@ -45,8 +45,10 @@ export const Strip = (props: {
   const [asking, setAsking] = createSignal<string | null>(null);
   const [left, setLeft] = createSignal<Edge | null>(null);
   const [right, setRight] = createSignal<Edge | null>(null);
+  const [overflowing, setOverflowing] = createSignal(false);
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
+  let scroller: HTMLDivElement | undefined;
   const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
   const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
@@ -61,12 +63,16 @@ export const Strip = (props: {
 
   const measure = () => {
     // Without layout (no width) nothing is scrolled out of view.
-    if (!list || list.clientWidth === 0) {
+    if (!list || !scroller || list.clientWidth === 0) {
       setLeft(null);
       setRight(null);
+      setOverflowing(false);
 
       return;
     }
+
+    // The strip is as wide as its tabs and both slots until the window is narrower: the slots exist exactly while the tabs do not fit, so a slot never changes the answer.
+    setOverflowing(list.scrollWidth > scroller.clientWidth);
 
     const from = list.scrollLeft;
     const to = from + list.clientWidth;
@@ -155,23 +161,27 @@ export const Strip = (props: {
   onCleanup(() => document.removeEventListener("keydown", onKey, true));
 
   const edge = (side: "left" | "right", shown: Edge | null) => (
-    <Show when={shown}>
-      {(hidden) => (
-        <button data-button="quiet"
-          type="button"
-          class={`strip-edge strip-edge-${side} ink`}
-          data-button-surface
-          data-tone={MARKS[hidden().mark].tone}
-          data-kind={hidden().mark}
-          aria-label={copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}
-          onClick={() => reveal(hidden().nearest)}
-        >
-          {side === "left" ? copy.previousProjectsMark : ""}
-          <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true" />
-          {hidden().count > 1 ? ` ${hidden().count}` : ""}
-          {side === "right" ? copy.nextProjectsMark : ""}
-        </button>
-      )}
+    <Show when={overflowing()}>
+      <div class="strip-slot">
+        <Show when={shown}>
+          {(hidden) => (
+            <button data-button="quiet"
+              type="button"
+              class={`strip-edge strip-edge-${side} ink`}
+              data-button-surface
+              data-tone={MARKS[hidden().mark].tone}
+              data-kind={hidden().mark}
+              aria-label={copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}
+              onClick={() => reveal(hidden().nearest)}
+            >
+              {side === "left" ? copy.previousProjectsMark : ""}
+              <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true" />
+              {hidden().count > 1 ? ` ${hidden().count}` : ""}
+              {side === "right" ? copy.nextProjectsMark : ""}
+            </button>
+          )}
+        </Show>
+      </div>
     </Show>
   );
 
@@ -179,7 +189,7 @@ export const Strip = (props: {
     <div class="strip" onFocusIn={(press) => {
       if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
     }}>
-      <div class="strip-scroll">
+      <div class="strip-scroll" ref={(element) => (scroller = element)}>
         {edge(copy.left, left())}
         <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure}>
           <For each={paths()}>

@@ -8,7 +8,6 @@
 }
 
 .strip-scroll {
-  position: relative;
   display: flex;
   flex: 0 1 auto;
   height: 100%;
@@ -16,11 +15,14 @@
 }
 
 .tablist {
+  position: relative;
   display: flex;
   height: 100%;
   align-items: center;
   min-width: 0;
   overflow-x: auto;
+  /* A revealed tab stops a step short of the slot, so the scroll's whole-pixel rounding never clips its border. */
+  scroll-padding-inline: var(--space-1);
   scrollbar-width: none;
 }
 
@@ -121,18 +123,25 @@
   flex: none;
 }
 
-.strip-edge {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  height: 100%;
+.strip-slot {
+  flex: none;
   display: flex;
+  box-sizing: border-box;
+  /* The slot is as wide as its cap, never narrower than a dot. */
+  min-width: calc(var(--space-5) + var(--space-1));
+  height: 100%;
+}
+
+.strip-edge {
+  display: flex;
+  flex: 1 1 auto;
+  height: 100%;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
-  padding-inline: var(--space-2);
+  padding-inline: 0;
   border: 1px solid var(--hairline);
   --button-radius: calc(var(--radius-control) * 0);
-  z-index: 1;
   --button-surface: var(--sunken);
   white-space: nowrap;
 }
@@ -140,14 +149,6 @@
 .strip-edge .tab-mark {
   align-self: center;
   margin-top: 0;
-}
-
-.strip-edge-left {
-  left: 0;
-}
-
-.strip-edge-right {
-  right: 0;
 }
 
 .close-dialog {

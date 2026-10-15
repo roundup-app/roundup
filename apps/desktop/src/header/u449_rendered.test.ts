@@ -309,3 +309,39 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
     }
   });
 });
+
+describe("u440 overflow edges sit beside the tab list", () => {
+  type Rect = { left: number; right: number };
+
+  type Reading = { case: string; list: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
+
+  let server: ViteDevServer;
+  let readings: Reading[];
+
+  beforeAll(async () => {
+    server = await createServer({ server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
+    await server.listen();
+    const { stdout } = await promisify(execFile)("python3", ["src/header/u449_browser.test.py", server.resolvedUrls!.local[0]!, "", "", "head", "edges"], { timeout: 600_000, maxBuffer: 4 * 1024 * 1024 });
+    readings = JSON.parse(stdout);
+  }, 1_200_000);
+  afterAll(async () => { await server?.close(); });
+
+  const meets = (a: Rect, b: Rect) => a.left < b.right && b.left < a.right;
+
+  it("u440_no_tab_meets_an_overflow_edge", () => {
+    expect(readings.length).toBe(4);
+
+    for (const reading of readings) {
+      expect(reading.edges.length, reading.case).toBeGreaterThan(0);
+
+      for (const edge of reading.edges) for (const tab of reading.tabs) {
+        // A tab is only seen where the list shows it.
+        const seen = { left: Math.max(tab.left, reading.list.left), right: Math.min(tab.right, reading.list.right) };
+        expect(seen.left < seen.right && meets(seen, edge), reading.case).toBe(false);
+      }
+    }
+  });
+  it("u440_the_selected_tab_keeps_its_left_border_in_view", () => {
+    for (const reading of readings) expect(reading.selected.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
+  });
+});
