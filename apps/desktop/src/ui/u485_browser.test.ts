@@ -49,11 +49,11 @@ afterAll(async () => {
 const baseline = process.env.ROUNDUP_CAPTURE_BASE === "1";
 
 it("u485_rendered_checks", async () => {
-  for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
+  for (const width of [700, 1280, 1440]) for (const scheme of ["light", "dark"]) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
 
-    for (const surface of ["tree", "sort", "failure"]) {
+    for (const surface of ["tree", "sort", "keyboard-held", "pointer-held", "failure"]) {
       const path = surface === "failure" ? "/harness.html?seed=tree-40" : surface === "tree" ? "/src/ui/u483.html" : "/src/ui/u484.html?dense";
       await browser("open", new URL(path, origin).href);
 
@@ -67,12 +67,25 @@ it("u485_rendered_checks", async () => {
         await browser("wait", "--fn", `document.body.textContent.includes('could not stop project')`);
       } else if (surface === "tree") {
         await browser("wait", "--fn", `!!document.querySelector('[role=tree]')`);
-        await browser("click", "button[data-button=quiet]");
-        await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').getAttribute('aria-selected') === 'true'`);
+        await browser("press", "Tab");
+        await browser("press", "ArrowRight");
+        await browser("wait", "--fn", `document.querySelector('[data-id=Alpha]').getAttribute('aria-expanded') === 'true'`);
+        await browser("press", "ArrowRight");
+        await browser("wait", "--fn", `document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === 'Beta'`);
+        expect(await read<string>(`getComputedStyle(document.activeElement).outlineStyle`)).toBe("solid");
       } else {
         await browser("wait", "--fn", `document.querySelectorAll('.sortable-row').length === 40`);
         await browser("focus", '[aria-label="Move 12"]');
         await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 0`);
+        expect(await read<boolean>(`(() => { const handle = document.activeElement.getBoundingClientRect(); const box = document.querySelector('.sortable-fixture').getBoundingClientRect(); return handle.left - 3 >= box.left; })()`)).toBe(true);
+        if (surface === "keyboard-held") await browser("press", "Space");
+        if (surface === "pointer-held") {
+          const point = await read<{ x: number; y: number }>(`(() => { const r = document.activeElement.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+          await browser("mouse", "move", String(point.x), String(point.y));
+          await browser("mouse", "down");
+          await browser("mouse", "move", String(point.x + 20), String(point.y + 16));
+        }
+        if (surface.endsWith("held")) await browser("wait", "--fn", `!!document.querySelector('[data-dnd-dragging]')`);
       }
 
       const checks = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks(document))`);
@@ -85,7 +98,9 @@ it("u485_rendered_checks", async () => {
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
       }
 
+      if (surface === "pointer-held") await browser("mouse", "up");
+      if (surface === "keyboard-held") await browser("press", "Escape");
       if (!baseline) for (const id of CHECK_IDS) expect(checks[id], `${surface} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
     }
   }
-}, 180_000);
+}, 360_000);
