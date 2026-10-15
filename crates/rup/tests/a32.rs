@@ -664,6 +664,7 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let fx = fixture().await;
     fx.full().await;
     let first = node(&fx.user, &fx.ws).await.unwrap();
+    let mut events = fx.project.subscribed().await;
     let mut task = fx.clear("bloat", false).await;
     fx.asked().await;
     fx.hand_off(
@@ -676,6 +677,7 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let after = node(&fx.user, &fx.ws).await.unwrap();
     assert_eq!(after.attempt, Some("2".to_owned()));
     assert_ne!(after.terminal_id, first.terminal_id);
+    fx.handoff_prompt(&mut events).await;
     // A Subagent's stopped Digest can arrive after the restart's Handoff.
     let last = prompts(&fx.log)
         .into_iter()
