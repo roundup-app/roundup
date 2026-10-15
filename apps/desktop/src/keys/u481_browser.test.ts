@@ -1,3 +1,4 @@
+import type { mountRegistryLayers } from "./keysFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -13,6 +14,7 @@ const exec = promisify(execFile);
 const profile = mkdtempSync(join(tmpdir(), "u481-"));
 
 const art = captureDir("U481");
+
 const layerArt = captureDir("U496");
 
 const session = `u481-${process.pid}`;
@@ -172,26 +174,31 @@ it("u481_help_preserves_rendered_checks_and_failure", async () => {
 }, 180_000);
 
 
+const mountLayers = (...args: Parameters<typeof mountRegistryLayers>) => read(`(async () => {
+  const fixture = await import('/src/keys/keysFixture.tsx');
+  window.__registryFixture = fixture.mountRegistryLayers(...${JSON.stringify(args)});
+  window.__terminalCalls = window.__fake.app.calls.filter(c => c.method === 'terminal.write').length;
+})()`);
+
 it("u496_top_layer_escape_is_order_independent", async () => {
   for (const reverse of [false, true]) for (const nested of [false, true]) for (const top of ["modal", "menu"]) {
     await load();
     await browser("click", ".terminal-new");
     await wait(`!!document.querySelector(".bubble .xterm-screen")`);
-    await read(`(async () => {
-      const fixture = await import('/src/keys/keysFixture.tsx');
-      window.__registryFixture = fixture.mountRegistryLayers(${reverse}, ${nested});
-      window.__terminalCalls = window.__fake.app.calls.filter(c => c.method === 'terminal.write').length;
-    })()`);
+    await mountLayers(reverse, nested);
     await browser("click", top === "modal" ? '[data-registry-modal-trigger]' : '[data-registry-menu-trigger]');
     const selector = top === "modal" ? '[role=dialog]' : '[role=menu]';
     await wait(`document.querySelector('${selector}')?.contains(document.activeElement)`);
+
     const depths = await read<{drawer: number; top: number}>(`(() => {
       const depth = node => { let count = 0; for (; node; node = node.parentElement) count++; return count; };
       const drawer = depth(document.querySelector('[data-registry-drawer]'));
       const top = depth(document.querySelector('${selector}'));
       return {drawer, top};
     })()`);
+
     expect(nested ? depths.drawer > depths.top : depths.drawer === depths.top, JSON.stringify(depths)).toBe(true);
+
     if (layerArt) {
       await browser("screenshot", join(layerArt, `${reverse}-${nested}-${top}-open.png`));
       writeFileSync(join(layerArt, `${reverse}-${nested}-${top}-open.checks.json`), JSON.stringify(await read<Checks>(`window.__checks()`)));
@@ -213,7 +220,7 @@ it("u496_top_layer_escape_is_order_independent", async () => {
 
 it("u496_editor_and_terminal_keep_escape", async () => {
   await load();
-  await read(`(async () => { const fixture = await import('/src/keys/keysFixture.tsx'); window.__registryFixture = fixture.mountRegistryLayers(false, true); })()`);
+  await mountLayers(false, true);
 
   for (const selector of ["input", "textarea", "[contenteditable]", ".xterm"]) {
     await read(`document.querySelector('[data-registry-drawer] ${selector}').focus()`);
