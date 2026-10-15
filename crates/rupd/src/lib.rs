@@ -888,6 +888,14 @@ impl Daemon {
         }
     }
 
+    /// Observe future events directly on this Daemon's global Bus, with its retained-event
+    /// capacity. The caller controls reads: falling behind returns Tokio's structured
+    /// `RecvError::Lagged`, without pausing producers or other subscribers. No forwarding
+    /// queue is created. Dropping the receiver detaches only this observer.
+    pub fn subscribe(&self) -> (tokio::sync::broadcast::Receiver<contracts::Event>, usize) {
+        (self.bus.subscribe(), self.bus.capacity())
+    }
+
     /// Stop every running Terminal's program, Agents' included, and return once none is running.
     /// A program that ignores SIGHUP is killed by the Terminal module's own escalation. A
     /// Terminal spawned while this runs is caught by the next round, up to [`STOP_ROUNDS`]; past
