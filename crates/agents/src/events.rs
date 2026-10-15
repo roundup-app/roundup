@@ -1,5 +1,12 @@
 use super::*;
 
+pub(super) struct State {
+    /// H19: a test's observer of each gate decision; absent in production.
+    pub(super) gate_observer: Option<GateObserver>,
+    /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
+    pub(super) channel_deadline: Duration,
+}
+
 impl Shared {
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
     /// runs, and a second call while the Channel is `up` emits nothing.
@@ -50,7 +57,7 @@ impl Shared {
     pub(super) fn watch_channel(self: &Arc<Self>, id: &str, attempt: &str) {
         let (shared, id, attempt) = (Arc::clone(self), id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
-            tokio::time::sleep(shared.channel_deadline).await;
+            tokio::time::sleep(shared.events.channel_deadline).await;
             shared.set_channel(Actor::daemon(), &id, &attempt, Channel::Missing);
         });
     }
@@ -284,7 +291,7 @@ impl Shared {
         }
         let prompt = run.prompt.take_if(|_| run.session_started && run.starred);
         if (session_start || star)
-            && let Some(observer) = &self.gate_observer
+            && let Some(observer) = &self.events.gate_observer
         {
             observer(id, prompt.is_some());
         }

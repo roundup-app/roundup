@@ -110,26 +110,13 @@ struct Shared {
     runs: Mutex<HashMap<String, Slot>>,
     bus: Bus,
     terminals: Arc<Terminals>,
-    /// The same Terminals, behind the seam `stop` and `remove` kill through: real in production,
-    /// a fake in the one test that proves a failed kill deletes nothing (A16), since `Terminals`
-    /// is a concrete type a test cannot otherwise make fail on demand.
-    kill: Arc<dyn KillsTerminals>,
     /// Milliseconds since the Unix epoch. Adapters stamp Statuses with it and the watchers time
     /// Ticks by it, so the two never disagree about when a hold ends.
     clock: Clock,
-    /// Since when an Agent without a Terminal has been `done`.
-    opened: i64,
     /// H2 to H7: the open permission Decisions, in memory only.
     decisions: decision::Decisions,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
-    /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
-    steer_bound: Duration,
-    before_steer: Option<SteerEffect>,
-    /// H19: a test's observer of each gate decision; absent in production.
-    gate_observer: Option<GateObserver>,
-    /// H13: how long an Interrupt waits for the title to change.
-    interrupt_bound: Duration,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
     /// `(attempt, channel)`; an entry of an earlier Attempt reads as `pending`.
     channels: Mutex<HashMap<String, (String, Channel)>>,
@@ -139,10 +126,16 @@ struct Shared {
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
     /// it reads `blocked`.
     waits: Mutex<HashMap<String, u32>>,
-    /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
-    channel_deadline: Duration,
     /// F5: the scan of the Doors' process trees.
     scan: Scan,
+    /// Each Door's strays as last announced; a Door with none has no entry.
+    strays: Mutex<HashMap<String, Vec<Stray>>>,
+    /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
+    steer_bound: Duration,
+    steer: Steer,
+    events: events::State,
+    rail_view: rail_view::State,
+    ending: ending::State,
 }
 
 /// What kills a Terminal's program; real `Terminals` in production, a fake where a test needs a
@@ -315,6 +308,7 @@ impl Slot {
     }
 }
 
+/// An Agent's program and what is left to tell it.
 enum FirstPrompt {
     Reserved,
     Written,
@@ -352,7 +346,6 @@ struct Run {
 
 /// `spawn` registers an Agent before its watcher starts, so the watcher always finds it.
 const REGISTERED: &str = "a watched Agent is registered";
-/// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
 /// Facts for binding Messages to the receiver of a Terminal at the lifecycle cut.
 /// These are not a Rail presentation or permission to Steer the receiver.
 #[derive(Debug, PartialEq, Eq)]
@@ -394,400 +387,205 @@ use registration::{hold, save_signal_conversation};
 use steer::SteerError;
 use worktree_wiring::{report_undo, valid_explicit_order};
 
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+/// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
+const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
 
-    use async_trait::async_trait;
-    use contracts::agent::NodeKind;
-    use contracts::terminal::TitleEvent;
-    use contracts::{Actor, Event, EventData, Kind};
-    use rpc::Bus;
-    use serde_json::json;
-    use terminal::Terminals;
-    use tokio::sync::broadcast;
-    use tokio::task::JoinHandle;
-    use tokio::time::Instant;
+struct Steer {
+    before_steer: Option<SteerEffect>,
+    /// H13: how long an Interrupt waits for the title to change.
+    interrupt_bound: Duration,
+}
 
-    use crate::claude_code::ClaudeCode;
-    use crate::{Clock, KillsTerminals, Observation, Run, Shared, Slot, rail, watch, worktree};
-
-    pub(crate) const PATIENCE: Duration = Duration::from_secs(60);
-    /// Spelled out, not `STAR_HOLD`, so a changed hold fails these tests.
-    pub(crate) const HOLD: Duration = Duration::from_millis(200);
-    /// Agent `1`, watched over a stand-in for its Terminal's events, on tokio's clock, which these
-    /// tests pause.
-    pub(crate) struct Watched {
-        pub(crate) _dir: tempfile::TempDir,
-        pub(crate) shared: Arc<Shared>,
-        pub(crate) terminal: broadcast::Sender<EventData>,
-        pub(crate) events: broadcast::Receiver<Event>,
-        pub(crate) watcher: JoinHandle<()>,
-    }
-
-    impl Watched {
-        pub(crate) fn start() -> Self {
-            let begun = Instant::now();
-            let clock: Clock = Arc::new(move || begun.elapsed().as_millis() as i64);
-            let adapter_clock = Arc::clone(&clock);
-            let (dir, bus, shared) = shared_over_temp_dir(clock);
-            let run = Run {
-                attempt: "1".into(),
-                status_revision: 1,
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(move || adapter_clock()),
-                prompt: None,
-                first_pending: false,
-                first_prompt: None,
-                steer: None,
-                session_started: false,
-                starred: false,
-                interrupt: None,
-                named: false,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
+impl Shared {
+    /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
+    /// Steer, which goes before any Message. `text` goes out once, as one
+    /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
+    /// Signal arrives. Nothing is written again on any failure.
+    async fn prompt(&self, id: &str, text: &str, first: bool) -> Result<(), SteerError> {
+        let not_found = || PromptError::NotFound { id: id.to_owned() };
+        let (terminal_id, submitted) = {
+            let mut runs = self.runs();
+            let Some(Slot::Running(run)) = runs.get_mut(id) else {
+                return Err(SteerError::Refused(match runs.get(id) {
+                    Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
+                        id: id.to_owned(),
+                        kind: Kind::Working,
+                    },
+                    _ => not_found(),
+                }));
             };
-            shared.runs().insert("1".into(), Slot::Running(run));
-            let (terminal, terminal_events) = broadcast::channel(16);
-            let events = bus.subscribe();
-            let watcher = tokio::spawn(watch(
-                Arc::clone(&shared),
-                "1".into(),
-                "1".into(),
-                terminal_events,
-            ));
-            Self {
-                _dir: dir,
-                shared,
-                terminal,
-                events,
-                watcher,
+            if run.ended || run.closing || run.adapter.is_ended() {
+                return Err(SteerError::Refused(not_found()));
             }
-        }
-
-        pub(crate) fn signal(&self, event: &str) {
-            let payload = json!({"hook_event_name": event, "tool_name": "Bash"});
-            self.shared
-                .observe(Actor::daemon(), "1", "1", Observation::Signal(payload))
-                .unwrap();
-        }
-
-        pub(crate) fn send(&self, data: EventData) {
-            self.terminal.send(data).unwrap();
-        }
-
-        pub(crate) fn star(&self) {
-            self.send(EventData::TerminalTitle(TitleEvent {
-                id: "1".into(),
-                title: "\u{2733} Claude Code".into(),
-            }));
-        }
-
-        /// The Kind of the next `agent.status`.
-        pub(crate) async fn next_kind(&mut self) -> Kind {
-            loop {
-                let event = tokio::time::timeout(PATIENCE, self.events.recv())
-                    .await
-                    .expect("an agent.status in time")
-                    .unwrap();
-                if let EventData::AgentStatus(status) = event.data {
-                    return status.status.kind;
+            let kind = run
+                .adapter
+                .status()
+                .map_or(Kind::Working, |status| status.kind);
+            let ahead = run.first_pending && !first;
+            if ahead
+                || !matches!(kind, Kind::Idle | Kind::Error)
+                || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
+            {
+                return Err(SteerError::Refused(PromptError::Busy {
+                    id: id.to_owned(),
+                    kind,
+                }));
+            }
+            let (steer, submitted) = oneshot::channel();
+            run.steer = Some(steer);
+            run.first_pending &= !first;
+            if first && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
+                run.first_prompt = Some(FirstPrompt::Written);
+            }
+            (run.terminal_id.clone(), submitted)
+        };
+        let bytes = claude_code::steer_bytes(text);
+        let before = self.steer.before_steer.clone();
+        let agent = id.to_owned();
+        // B6: await the physical effect before starting the submit timeout. An enqueue
+        // acknowledgement could otherwise leave bytes to execute after completion.
+        let written = self
+            .terminals
+            .write_with(&terminal_id, move |writer| {
+                if let Some(before) = before {
+                    before(&agent)?;
+                }
+                writer
+                    .write_all(&bytes)
+                    .and_then(|()| writer.flush())
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!(
+                            "Steer bytes may have been written: {err}"
+                        ))
+                    })
+            })
+            .await;
+        let failure = match written {
+            Err(err) if err.code == code::NOT_FOUND => {
+                return Err(SteerError::Refused(not_found()));
+            }
+            Err(err) => {
+                eprintln!("agents: could not write the prompt to terminal {terminal_id}: {err}");
+                let reason = PromptError::NotAccepted { id: id.to_owned() };
+                if err.code == code::UNKNOWN_OUTCOME {
+                    SteerError::Uncertain(reason)
+                } else {
+                    SteerError::Refused(reason)
                 }
             }
-        }
-
-        /// Whether an `agent.status` is waiting.
-        pub(crate) fn has_news(&mut self) -> bool {
-            std::iter::from_fn(|| self.events.try_recv().ok())
-                .any(|event| matches!(event.data, EventData::AgentStatus(_)))
-        }
-    }
-    pub(crate) struct FailingKill;
-
-    #[async_trait]
-    impl KillsTerminals for FailingKill {
-        async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
-            Err(rpc::RpcError::internal("the kill failed"))
-        }
-    }
-
-    pub(crate) struct FlakyKill(std::sync::atomic::AtomicBool);
-
-    #[async_trait]
-    impl KillsTerminals for FlakyKill {
-        async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
-            if self.0.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                Ok(())
-            } else {
-                Err(rpc::RpcError::internal("the kill failed"))
+            Ok(()) => match tokio::time::timeout(self.steer_bound, submitted).await {
+                Ok(Ok(())) => return Ok(()),
+                _ => SteerError::Uncertain(PromptError::NotAccepted { id: id.to_owned() }),
+            },
+        };
+        let mut runs = self.runs();
+        let ended = match runs.get_mut(id) {
+            Some(Slot::Running(run)) => {
+                run.steer = None;
+                run.ended || run.closing
             }
-        }
-    }
-
-    pub(crate) fn owner_agents(shared: Arc<Shared>, dir: &std::path::Path) -> crate::Agents {
-        crate::Agents {
-            shared,
-            dir: dir.to_owned(),
-            launcher: crate::Launcher::new(
-                "unused",
-                dir.join("claude.json"),
-                dir.join("rup"),
-                None,
-            ),
-        }
-    }
-
-    /// Each transition competes with an input record, then a fresh read observes its result.
-    pub(crate) fn owner_transition(
-        initially_attached: bool,
-        transition: impl FnOnce(&Shared, &str, &std::path::Path) + Send,
-        expected: Option<(&str, &str)>,
-    ) {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let id = shared
-            .rail()
-            .insert(
-                NodeKind::Agent,
-                "receiver",
-                None,
-                initially_attached.then_some("terminal"),
-            )
-            .unwrap()
-            .id;
-        let attempt = shared.rail().allocate_attempt(&id).unwrap();
-        shared.mark_starting(&id, attempt);
-        let agents = owner_agents(Arc::clone(&shared), dir.path());
-        std::thread::scope(|scope| {
-            let (start, started) = std::sync::mpsc::sync_channel(0);
-            let (done, completed) = std::sync::mpsc::channel();
-            let mut change = None;
-            agents
-                .with_terminal_owner("terminal", |owner| {
-                    assert_eq!(owner.is_some(), initially_attached);
-                    let shared = Arc::clone(&shared);
-                    let id = id.clone();
-                    let path = dir.path();
-                    change = Some(scope.spawn(move || {
-                        // Successful try_lock would mean the ownership cut is not protected.
-                        assert!(matches!(
-                            shared.rail.try_lock(),
-                            Err(std::sync::TryLockError::WouldBlock)
-                        ));
-                        assert!(matches!(
-                            shared.runs.try_lock(),
-                            Err(std::sync::TryLockError::WouldBlock)
-                        ));
-                        start.send(()).unwrap();
-                        transition(&shared, &id, path);
-                        done.send(()).unwrap();
-                    }));
-                    started.recv_timeout(PATIENCE).unwrap();
-                    assert!(matches!(
-                        completed.try_recv(),
-                        Err(std::sync::mpsc::TryRecvError::Empty)
-                    ));
-                    Ok(())
-                })
-                .unwrap();
-            completed.recv_timeout(PATIENCE).unwrap();
-            change.unwrap().join().unwrap();
-        });
-        agents
-            .with_terminal_owner("terminal", |owner| {
-                assert_eq!(
-                    owner.map(|o| (o.id.as_str(), o.attempt.as_deref().unwrap())),
-                    expected
-                );
-                Ok(())
-            })
-            .unwrap();
-    }
-
-    /// A `Shared` wired to a fresh temp-dir Rail and Terminals, paired with the `Bus` it was built
-    /// from so a caller can subscribe to the same events.
-    pub(crate) fn shared_over_temp_dir(clock: Clock) -> (tempfile::TempDir, Bus, Arc<Shared>) {
-        let dir = tempfile::tempdir().unwrap();
-        let bus = Bus::new();
-        let terminals = Arc::new(Terminals::open(dir.path(), bus.clone()).unwrap());
-        let shared = Arc::new(Shared {
-            git: worktree::Git::from_env(),
-            project_dir: dir.path().to_owned(),
-            rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
-            runs: Mutex::new(HashMap::new()),
-            bus: bus.clone(),
-            kill: Arc::clone(&terminals) as Arc<dyn crate::KillsTerminals>,
-            terminals,
-            clock,
-            opened: 0,
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
-            me: std::sync::Weak::new(),
-            steer_bound: crate::STEER_BOUND,
-            before_steer: None,
-            gate_observer: None,
-            interrupt_bound: crate::INTERRUPT_BOUND,
-            channels: Mutex::new(HashMap::new()),
-            channel_deadline: crate::CHANNEL_DEADLINE,
-            scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            takeover: None,
-            waits: Mutex::new(HashMap::new()),
-        });
-        (dir, bus, shared)
-    }
-
-    /// A second connection holding a write transaction makes a write through `Rail`'s own
-    /// connection fail with a real SQLite error once rusqlite's default 5 s `busy_timeout`
-    /// elapses, without reaching into `Rail`'s private `db` field.
-    pub(crate) fn lock_db_for_writes(dir: &std::path::Path) -> rusqlite::Connection {
-        let lock = rusqlite::Connection::open(dir.join("agents.db")).unwrap();
-        lock.execute_batch("BEGIN IMMEDIATE;").unwrap();
-        lock
-    }
-
-    /// `Shared` wired like `shared_over_temp_dir`, but every kill fails.
-    pub(crate) fn shared_with_a_failing_kill() -> Arc<Shared> {
-        let dir = tempfile::tempdir().unwrap();
-        let bus = Bus::new();
-        Arc::new(Shared {
-            git: worktree::Git::from_env(),
-            project_dir: dir.path().to_owned(),
-            rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
-            runs: Mutex::new(HashMap::new()),
-            bus: bus.clone(),
-            terminals: Arc::new(Terminals::open(dir.path(), bus).unwrap()),
-            kill: Arc::new(FailingKill),
-            clock: Arc::new(|| 0),
-            opened: 0,
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
-            me: std::sync::Weak::new(),
-            steer_bound: crate::STEER_BOUND,
-            before_steer: None,
-            gate_observer: None,
-            interrupt_bound: crate::INTERRUPT_BOUND,
-            channels: Mutex::new(HashMap::new()),
-            channel_deadline: crate::CHANNEL_DEADLINE,
-            scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            takeover: None,
-            waits: Mutex::new(HashMap::new()),
+            _ => true,
+        };
+        Err(if ended {
+            match failure {
+                SteerError::Refused(_) => SteerError::Refused(not_found()),
+                SteerError::Uncertain(_) => SteerError::Uncertain(not_found()),
+            }
+        } else {
+            failure
         })
     }
-
-    /// A Running Agent node, with no watcher: the tests here drive `stop`/`remove` directly, so
-    /// nothing reaps its Terminal's events.
-    pub(crate) fn running_agent(shared: &Shared, parent: Option<&str>) -> String {
-        let id = shared
-            .rail()
-            .insert(NodeKind::Agent, "a", parent, Some("1"))
-            .unwrap()
-            .id;
-        shared.runs().insert(
-            id.clone(),
-            Slot::Running(Run {
-                attempt: "1".into(),
-                status_revision: 1,
-                closing: false,
-                ended: false,
-                adapter: ClaudeCode::starting(|| 0),
-                prompt: None,
-                first_pending: false,
-                first_prompt: None,
-                steer: None,
-                session_started: false,
-                starred: false,
-                interrupt: None,
-                named: true,
-                terminal_id: "1".into(),
-                cwd: "/".into(),
-            }),
-        );
-        id
-    }
-
-    /// A plain Agent node with a Terminal, with no watcher, for a test that drives `remove` directly.
-    pub(crate) fn terminal_node(shared: &Shared, parent: Option<&str>) -> String {
-        shared
-            .rail()
-            .insert(NodeKind::Agent, "t", parent, Some("1"))
-            .unwrap()
-            .id
-    }
-
-    /// `Shared` wired like `shared_with_a_failing_kill`, but its kill succeeds from the second
-    /// call on, so a retried `remove` can succeed.
-    pub(crate) fn shared_with_a_flaky_kill() -> (tempfile::TempDir, Arc<Shared>) {
-        let dir = tempfile::tempdir().unwrap();
-        let bus = Bus::new();
-        let shared = Arc::new(Shared {
-            git: worktree::Git::from_env(),
-            project_dir: dir.path().to_owned(),
-            rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
-            runs: Mutex::new(HashMap::new()),
-            bus: bus.clone(),
-            terminals: Arc::new(Terminals::open(dir.path(), bus).unwrap()),
-            kill: Arc::new(FlakyKill(std::sync::atomic::AtomicBool::new(false))),
-            clock: Arc::new(|| 0),
-            opened: 0,
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
-            me: std::sync::Weak::new(),
-            steer_bound: crate::STEER_BOUND,
-            before_steer: None,
-            gate_observer: None,
-            interrupt_bound: crate::INTERRUPT_BOUND,
-            channels: Mutex::new(HashMap::new()),
-            channel_deadline: crate::CHANNEL_DEADLINE,
-            scan: crate::Scan::new(crate::SCAN_INTERVAL),
-            takeover: None,
-            waits: Mutex::new(HashMap::new()),
-        });
-        (dir, shared)
-    }
-
-    /// H7(c): `elapsed_ms` after the hook began, on an injected clock and the 4 s `timeout` the
-    /// Decisions are built with, the hook's connection closes. Returns the events and the Kind.
-    pub(crate) async fn hook_closes_after(
-        elapsed_ms: i64,
-    ) -> (Vec<EventData>, Vec<contracts::decision::Decision>, Kind) {
-        use std::sync::atomic::{AtomicI64, Ordering};
-        let now = Arc::new(AtomicI64::new(1_000));
-        let clock = {
-            let now = Arc::clone(&now);
-            Arc::new(move || now.load(Ordering::SeqCst))
+    /// H13, H16: the other place a Terminal is written on an Agent's behalf. One `ESC` goes out
+    /// when `id` has a turn to end; this returns when the Agent's title shows it is no longer
+    /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
+    /// means the Escape was written but its outcome is uncertain. Nothing is retried.
+    async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
+        let not_found = || RpcError::not_found(format!("agent {id} is not running"));
+        let (terminal_id, acked) = {
+            let mut runs = self.runs();
+            let Some(Slot::Running(run)) = runs.get_mut(id) else {
+                return Err(match runs.get(id) {
+                    Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(
+                        code::NOT_RUNNING,
+                        format!("agent {id} has no turn to interrupt yet"),
+                    ),
+                    _ => not_found(),
+                });
+            };
+            if run.ended || run.closing {
+                return Err(not_found());
+            }
+            let kind = run
+                .adapter
+                .status()
+                .map_or(Kind::Working, |status| status.kind);
+            if matches!(kind, Kind::Idle | Kind::Done | Kind::Error) {
+                return Err(RpcError::new(
+                    code::NOT_RUNNING,
+                    format!("agent {id} is {kind:?}, with no turn to interrupt"),
+                ));
+            }
+            if run
+                .interrupt
+                .as_ref()
+                .is_some_and(|waiting| !waiting.is_closed())
+            {
+                return Err(RpcError::conflict(format!(
+                    "agent {id} is already being interrupted"
+                )));
+            }
+            let (waiting, acked) = oneshot::channel();
+            run.interrupt = Some(waiting);
+            (run.terminal_id.clone(), acked)
         };
-        let (_dir, bus, shared) = shared_over_temp_dir(clock);
-        let id = running_agent(&shared, None);
-        let mut events = bus.subscribe();
-        let payload = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
-                             "tool_input": {"command": "ls"}});
-        let hook = {
-            let (shared, id) = (Arc::clone(&shared), id.clone());
-            tokio::spawn(async move { shared.permission(Actor::daemon(), &id, payload).await })
-        };
-        while shared.decisions.list().is_empty() {
-            tokio::task::yield_now().await;
-        }
-
-        now.fetch_add(elapsed_ms, Ordering::SeqCst);
-        hook.abort();
-        let _ = hook.await;
-
-        let seen = std::iter::from_fn(|| events.try_recv().ok())
-            .map(|event| event.data)
-            .filter(|data| {
-                matches!(
-                    data,
-                    EventData::DecisionOpened(_) | EventData::DecisionCleared(_)
-                )
+        // B6: an enqueue acknowledgement cannot bound the Escape's effect. Await its
+        // physical completion so no timeout result leaves a future write behind.
+        let written = self
+            .terminals
+            .write_with(&terminal_id, |writer| {
+                writer
+                    .write_all(&claude_code::interrupt_bytes())
+                    .and_then(|()| writer.flush())
+                    .map_err(|err| {
+                        RpcError::unknown_outcome(format!(
+                            "Interrupt bytes may have been written: {err}"
+                        ))
+                    })
             })
-            .collect();
-        let kind = match shared.runs().get(&id) {
-            Some(Slot::Running(run)) => run.adapter.status().unwrap().kind,
-            _ => panic!("the Agent is running"),
+            .await;
+        let error = match written {
+            Err(err) => {
+                eprintln!("agents: could not write the interrupt to terminal {terminal_id}: {err}");
+                if err.code == code::UNKNOWN_OUTCOME {
+                    RpcError::unknown_outcome(format!(
+                        "agent {id}: Interrupt outcome uncertain; do not retry: {err}"
+                    ))
+                } else {
+                    RpcError::new(
+                        err.code,
+                        format!("agent {id}: Interrupt refused; no bytes written: {err}"),
+                    )
+                }
+            }
+            Ok(()) => match tokio::time::timeout(self.steer.interrupt_bound, acked).await {
+                Ok(Ok(())) => return Ok(()),
+                _ => {
+                    eprintln!("agents: {id}: the title did not change after the interrupt");
+                    RpcError::new(
+                        code::NOT_ACKED,
+                        format!(
+                            "agent {id} did not acknowledge the interrupt; Escape written; outcome uncertain; do not retry"
+                        ),
+                    )
+                }
+            },
         };
-        (seen, shared.decisions.list(), kind)
+        if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
+            run.interrupt = None;
+        }
+        Err(error)
     }
 }
 
-/// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
-const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
+#[cfg(test)]
+use store::tests;

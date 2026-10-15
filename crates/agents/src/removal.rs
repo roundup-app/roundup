@@ -385,7 +385,7 @@ mod tests {
             release: tokio::sync::Semaphore::new(0),
         });
         let mut shared = shared_with_a_failing_kill();
-        Arc::get_mut(&mut shared).unwrap().kill = shutdown.clone();
+        Arc::get_mut(&mut shared).unwrap().ending.kill = shutdown.clone();
         let ws = shared
             .rail()
             .insert(NodeKind::Workstream, "w", None, None)
@@ -446,7 +446,7 @@ mod tests {
             release: tokio::sync::Semaphore::new(0),
         });
         let mut shared = shared_with_a_failing_kill();
-        Arc::get_mut(&mut shared).unwrap().kill = shutdown.clone();
+        Arc::get_mut(&mut shared).unwrap().ending.kill = shutdown.clone();
         let ws = shared
             .rail()
             .insert(NodeKind::Workstream, "w", None, None)

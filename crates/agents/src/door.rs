@@ -58,7 +58,7 @@ impl Shared {
             })
             .collect();
         let changed: Vec<(String, Vec<Stray>)> = {
-            let mut found = self.scan.found.lock().expect("scan found lock");
+            let mut found = self.strays.lock().expect("scan found lock");
             let gone: Vec<String> = found
                 .keys()
                 .filter(|id| !now.contains_key(*id))
@@ -242,8 +242,6 @@ pub(super) struct Scan {
     pub(super) started: AtomicBool,
     /// Each started Door's marker: the path its program's arguments hold.
     pub(super) doors: Mutex<HashMap<String, String>>,
-    /// Each Door's strays as last announced; a Door with none has no entry.
-    pub(super) found: Mutex<HashMap<String, Vec<Stray>>>,
 }
 
 impl Scan {
@@ -252,7 +250,6 @@ impl Scan {
             interval,
             started: AtomicBool::new(false),
             doors: Mutex::new(HashMap::new()),
-            found: Mutex::new(HashMap::new()),
         }
     }
 }
