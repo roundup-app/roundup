@@ -3,6 +3,10 @@
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
 use std::path::Path;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
 use contracts::project::{ProjectModels, RoleModels, Worktrees};
@@ -20,17 +24,20 @@ pub struct Rail {
 // read lock. It must never supply owner facts: the authoritative query stays fresh.
 struct OwnerReads {
     wake: Option<std::sync::mpsc::SyncSender<()>>,
+    pending: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl OwnerReads {
     fn open(path: &Path) -> Self {
         let (wake, receive) = std::sync::mpsc::sync_channel(1);
+        let pending = Arc::new(AtomicBool::new(false));
+        let peer_pending = Arc::clone(&pending);
         let path = path.to_owned();
         let thread = std::thread::Builder::new()
             .name("Terminal owner reads".into())
             .spawn(move || {
-                if let Err(error) = read_leases(&path, receive) {
+                if let Err(error) = read_leases(&path, receive, &peer_pending) {
                     eprintln!("Terminal owner read lease stopped: {error}");
                 }
             });
@@ -43,20 +50,32 @@ impl OwnerReads {
         };
         Self {
             wake: Some(wake),
+            pending,
             thread,
         }
     }
 
     fn wake(&self) {
-        if let Some(wake) = &self.wake {
-            // Full means one wake is already pending; disconnected means the optional
-            // peer stopped. Neither changes the authoritative query or its errors.
+        // R16 attribution (#1913): each unnecessary channel submission costs
+        // 130–160 ns in the release Daemon. A pending attempt needs no further input.
+        // This flag carries no owner facts and never renews the peer's deadline.
+        if self.pending.load(Ordering::Relaxed) {
+            return;
+        }
+        if !self.pending.swap(true, Ordering::Relaxed)
+            && let Some(wake) = &self.wake
+        {
+            // A disconnected peer disables only the optimization, not the query.
             let _ = wake.try_send(());
         }
     }
 }
 
-fn read_leases(path: &Path, receive: std::sync::mpsc::Receiver<()>) -> rusqlite::Result<()> {
+fn read_leases(
+    path: &Path,
+    receive: std::sync::mpsc::Receiver<()>,
+    pending: &AtomicBool,
+) -> rusqlite::Result<()> {
     if receive.recv().is_err() {
         return Ok(());
     }
@@ -85,7 +104,9 @@ fn read_leases(path: &Path, receive: std::sync::mpsc::Receiver<()>) -> rusqlite:
         if leased {
             rollback.execute([])?;
         }
-        let _ = receive.try_recv();
+        // Rearm only after rollback (or a skipped attempt's sleep), before waiting.
+        // The flag synchronizes only wake admission; the channel publishes work.
+        pending.store(false, Ordering::Relaxed);
         if receive.recv().is_err() {
             return Ok(());
         }
