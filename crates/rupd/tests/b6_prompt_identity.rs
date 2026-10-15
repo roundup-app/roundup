@@ -1109,11 +1109,15 @@ async fn failed_notice(
     events: &mut Client,
     decision: &Value,
     failure: &str,
+    sent: Option<&contracts::message::Message>,
     bound: Duration,
 ) -> Result<Value, String> {
     let started = Instant::now();
     let marker = format!("[decision {}]", decision["id"].as_str().unwrap());
-    let mut stage = "Decision opened (decision.list)".to_owned();
+    let mut stage = sent.map_or_else(
+        || "Decision opened (decision.list)".to_owned(),
+        |message| format!("message.sent: {}", serde_json::to_value(message).unwrap()),
+    );
     let observed = tokio::time::timeout(bound, async {
         loop {
             let event = events
@@ -1306,6 +1310,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             &mut events,
             &decision,
             failure,
+            None,
             Duration::from_secs(40),
         )
         .await
@@ -1406,7 +1411,7 @@ async fn b38_a_missing_notice_fails_with_bounded_delivery_evidence() {
         let marker = format!("[decision {}]", decision["id"].as_str().unwrap());
         let sent = tokio::time::timeout(BOUND, async {
             loop {
-                if let EventData::MessageSent(m) = monitor.next_event().await.unwrap().data
+                if let EventData::MessageSent(m) = events.next_event().await.unwrap().data
                     && m.body.contains(&marker)
                 {
                     break m;
@@ -1434,6 +1439,7 @@ async fn b38_a_missing_notice_fails_with_bounded_delivery_evidence() {
                 &mut events,
                 &decision,
                 "terminal",
+                Some(&sent),
                 Duration::from_millis(300),
             ),
         )
