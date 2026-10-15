@@ -2700,6 +2700,14 @@ async fn u468_answered_decisions_survive_without_an_app_reader() {
         records.as_array().unwrap().iter().zip(&originals)
     {
         assert_eq!(record["decision"], *decision);
+        assert_eq!(
+            record["kind"],
+            if decision["tool"] == "ask_user" {
+                "question"
+            } else {
+                "permission"
+            }
+        );
         let original: Value = serde_json::from_str(record["prompt"].as_str().unwrap()).unwrap();
         assert_eq!(
             original[if decision["tool"] == "ask_user" {

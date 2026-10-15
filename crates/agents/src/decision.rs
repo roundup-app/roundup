@@ -741,6 +741,11 @@ impl Shared {
             }
             let record = contracts::decision::AnsweredDecision {
                 decision: entry.decision.clone(),
+                kind: if entry.choices.is_some() {
+                    contracts::decision::RequestKind::Question
+                } else {
+                    contracts::decision::RequestKind::Permission
+                },
                 prompt: entry.prompt.clone(),
                 attempt: entry.attempt.clone(),
                 answer: answer.map(str::to_owned),

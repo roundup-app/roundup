@@ -22,7 +22,6 @@ pub struct Decision {
 }
 
 /// U468: one successful answer, retained in Project data after its live hook ends.
-/// `decision.tool` distinguishes `ask_user` questions from permission requests;
 /// `prompt` is the complete original tool input as JSON (the live Card's args may
 /// be truncated for display). `answer` and `note` retain
 /// exactly the accepted AnswerParams, without Proof. The Actor is authenticated.
@@ -30,6 +29,7 @@ pub struct Decision {
 #[ts(export, export_to = "decision/")]
 pub struct AnsweredDecision {
     pub decision: Decision,
+    pub kind: RequestKind,
     pub prompt: String,
     pub attempt: String,
     pub answer: Option<String>,
@@ -37,6 +37,16 @@ pub struct AnsweredDecision {
     pub answered_by: crate::Actor,
     #[ts(type = "number")]
     pub answered_at: i64,
+}
+
+/// Whether the original Decision asks a question or requests permission. This is
+/// independent of the tool name: a permission hook can name any tool.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "decision/")]
+pub enum RequestKind {
+    Question,
+    Permission,
 }
 
 /// U468: read one Agent's answered Decisions, oldest first. The user may read any

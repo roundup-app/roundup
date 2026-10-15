@@ -383,7 +383,7 @@ The kind of Card that blocks an Agent on a live hook or tool call; the user answ
 
 **Answered Decision** (`AnsweredDecision`, `AnswersParams`, `decision.answers`):
 The Project's durable record of one accepted Decision answer: the full original Decision,
-requesting Attempt, exact answer and note, authenticated answering Actor and answer time.
+complete prompt, request kind (`RequestKind`: question or permission), requesting Attempt, exact answer and note, authenticated answering Actor and answer time.
 Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
 Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
 
