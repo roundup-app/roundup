@@ -1435,7 +1435,9 @@ fn resume_effect_observer() -> impl Fn(&str, &str) -> Result<(), RpcError> + Sen
     move |phase, terminal| {
         let Some(gate) = &gate else { return Ok(()) };
         let gate = gate.with_extension(phase);
-        std::fs::write(gate.with_extension(format!("{phase}-arrived")), terminal)
+        let recording = gate.with_extension(format!("{phase}-recording"));
+        std::fs::write(&recording, terminal).map_err(RpcError::internal)?;
+        std::fs::rename(recording, gate.with_extension(format!("{phase}-arrived")))
             .map_err(RpcError::internal)?;
         let started = std::time::Instant::now();
         while gate.is_file() {
