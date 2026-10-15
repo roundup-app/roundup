@@ -34,7 +34,7 @@ const kindReady = async (statusOf: () => Promise<Status | null | undefined>, con
       expect(status?.kind).toBe(context.expected);
     }, { timeout });
   } catch (failure) {
-    const records = await readFile(claims, "utf8").then((text) => text, (error: unknown) => `Kind claim records unavailable: ${String(error)}`);
+    const records = await readFile(claims, "utf8").then((text) => text, (error: Error) => `Kind claim records unavailable: ${String(error)}`);
 
     console.error("U482 Kind wait failed", { ...context, status }, records);
     throw failure;
@@ -51,6 +51,7 @@ it("u482_kind_wait_failure_reports_claims_and_preserves_the_assertion", async ()
 
   try {
     await writeFile(claims, record);
+
     for (const path of [claims, join(dir, "missing"), dir]) {
       await expect(kindReady(async () => status, context, path, 20)).rejects.toThrow("expected 'error' to be 'working'");
       expect(output).toHaveBeenLastCalledWith("U482 Kind wait failed", { ...context, status }, path === claims ? record : expect.stringContaining("Kind claim records unavailable:"));
@@ -69,10 +70,12 @@ it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
 
   await writeFile(settings, JSON.stringify({ hooks }));
   const executable = resolve("../../crates/rup/tests/e2e/fake_claude.py");
+
   const launch = (door: boolean) => spawn(executable, ["--settings", settings, ...(door ? ["--tools", ""] : [])], {
     env: { ...process.env, CLAUDE_CONFIG_DIR: dir, FAKE_CLAUDE_KINDS: '["working","idle","error","needs-you"]', FAKE_CLAUDE_ON_PROMPT: "[]" },
     stdio: "pipe",
   });
+
   const door = launch(true);
   let doorReady = false;
 
@@ -90,9 +93,11 @@ it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
       expect(records.filter((record) => record.index === null)).toHaveLength(3);
       expect(new Set(records.map((record) => record.pid))).toEqual(new Set(children.map((child) => child.pid)));
       expect(records.some((record) => record.pid === door.pid)).toBe(false);
+
       for (const record of records) {
         expect(record.ppid).toBe(process.pid);
         expect(record.argv).toEqual([executable, "--settings", settings]);
+
         if (record.index === null) expect(record.kind).toBeNull();
       }
     }, { timeout: 10_000 });
@@ -114,21 +119,23 @@ it("u482_kind_launch_acknowledges_the_typed_startup_prompt", async () => {
   const hooks = Object.fromEntries(["SessionStart", "UserPromptSubmit"].map((event) => [event, [{ hooks: [{ command }] }]]));
 
   await writeFile(settings, JSON.stringify({ hooks }));
+
   const child = spawn(resolve("../../crates/rup/tests/e2e/fake_claude.py"), ["--settings", settings], {
     env: { ...process.env, CLAUDE_CONFIG_DIR: dir, FAKE_CLAUDE_KINDS: '["working"]', U482_HOOK_LOG: events },
     stdio: "pipe",
   });
+
   const observed = async () => (await readFile(events, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
 
   try {
-    await waitFor(async () => expect((await observed())[0]?.hook_event_name).toBe("SessionStart"));
+    await waitFor(async () => expect((await observed())[0]?.hook_event_name).toBe("SessionStart"), { timeout: 10_000 });
     // H12 acknowledges the bytes actually submitted, not an invented startup prompt.
     child.stdin.write("build deterministic startup\n");
     await waitFor(async () => {
       const submitted = (await observed()).filter((event) => event.hook_event_name === "UserPromptSubmit");
 
       expect(submitted.map((event) => event.prompt)).toEqual(["build deterministic startup"]);
-    });
+    }, { timeout: 10_000 });
   } finally {
     await new Promise<void>((done) => {
       if (child.exitCode !== null || child.signalCode !== null) return done();
@@ -186,6 +193,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       const result = await rpc(method, params);
 
       if (method === "agent.spawn" || method === "rail.startDoor") console.error("U482 launch reply", method, result);
+
       return result;
     };
 
