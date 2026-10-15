@@ -1169,6 +1169,10 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
     let server = m17_daemon(&socket, Value::Null);
     let shim = spawn_shim(&socket, "a1").await;
     let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(
+        tools.iter().any(|tool| tool.name == "workstream_handoff"),
+        "the fixture must be a Door to cover its unit methods"
+    );
     for method in contracts::methods::METHODS
         .iter()
         .filter(|m| m.result == "null")
