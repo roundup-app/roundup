@@ -2,7 +2,7 @@
   "fixtures": [
     {
       "match": {
-        "userMessage": "<session>\nFollow this instruction: E10 read startup context"
+        "userMessage": "<session>\nFollow this instruction: E3"
       },
       "response": {
         "content": "{\"title\":\"Startup check\"}"
@@ -10,7 +10,7 @@
     },
     {
       "match": {
-        "userMessage": "E10 read startup context",
+        "userMessage": "E3",
         "hasToolResult": false
       },
       "response": {
