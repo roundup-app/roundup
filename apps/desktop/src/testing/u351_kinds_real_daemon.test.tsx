@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Status } from "@contracts/Status";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -23,6 +23,43 @@ const doorReady = async (statusOf: () => Promise<Status | null | undefined>, row
     expect(row().getAttribute("data-kind")).toBe(status?.kind);
   });
 };
+
+const kindReady = async (statusOf: () => Promise<Status | null | undefined>, context: { workstream: string; agent: string; expected: string }, claims: string, timeout = 60_000) => {
+  let status: Status | null | undefined;
+
+  try {
+    await waitFor(async () => {
+      status = await statusOf();
+      expect(status?.label).not.toBe("starting");
+      expect(status?.kind).toBe(context.expected);
+    }, { timeout });
+  } catch (failure) {
+    const records = await readFile(claims, "utf8").then((text) => text, (error: unknown) => `Kind claim records unavailable: ${String(error)}`);
+
+    console.error("U482 Kind wait failed", { ...context, status }, records);
+    throw failure;
+  }
+};
+
+it("u482_kind_wait_failure_reports_claims_and_preserves_the_assertion", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "u482-report-"));
+  const claims = join(dir, "claims.jsonl");
+  const record = '{"index":0,"kind":"error","pid":123,"ppid":122,"argv":["claude"]}\n';
+  const status: Status = { kind: "error", label: "u351", since: 1 };
+  const context = { workstream: "workstream-1", agent: "agent-1", expected: "working" };
+  const output = vi.spyOn(console, "error").mockImplementation(() => {});
+
+  try {
+    await writeFile(claims, record);
+    for (const path of [claims, join(dir, "missing"), dir]) {
+      await expect(kindReady(async () => status, context, path, 20)).rejects.toThrow("expected 'error' to be 'working'");
+      expect(output).toHaveBeenLastCalledWith("U482 Kind wait failed", { ...context, status }, path === claims ? record : expect.stringContaining("Kind claim records unavailable:"));
+    }
+  } finally {
+    output.mockRestore();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
 
 // U482 exercises the executable, so concurrent claims include the filesystem boundary.
 it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
@@ -62,7 +99,7 @@ it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
     })));
     await rm(dir, { recursive: true, force: true });
   }
-});
+}, 15_000);
 
 let real: StartedDaemon;
 
@@ -72,19 +109,19 @@ const FIRST = ["working", "idle", "needs-you", "working", "idle"];
 const SECOND = ["error", "needs-you", "working", "error", "needs-you"];
 
 describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
-beforeAll(async () => {
-  // A Door has `--tools`, plays no entry and is ready after its SessionStart, which FAKE_CLAUDE_ON_PROMPT plays.
-  real = await startRealDaemon({
-    FAKE_CLAUDE_KINDS: JSON.stringify([...FIRST, ...SECOND]),
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
+  beforeAll(async () => {
+    // A Door has `--tools`, plays no entry and is ready after its SessionStart, which FAKE_CLAUDE_ON_PROMPT plays.
+    real = await startRealDaemon({
+      FAKE_CLAUDE_KINDS: JSON.stringify([...FIRST, ...SECOND]),
+      FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
+    });
+  }, 120_000);
+
+  afterAll(async () => {
+    await real?.stop();
   });
-}, 120_000);
 
-afterAll(async () => {
-  await real?.stop();
-});
-
-afterEach(cleanup);
+  afterEach(cleanup);
 
   it("u351_door_readiness_survives_working_to_idle_before_the_rail_renders", async () => {
     const row = document.createElement("div");
@@ -103,6 +140,15 @@ afterEach(cleanup);
 
   it("u351_ten_agents_read_their_kinds_the_jump_visits_error_then_needs_you_and_working_is_quiet", async () => {
     const app: AppSeam = createServedApp(real.base);
+    const rpc = app.rpc;
+
+    app.rpc = async (method, params) => {
+      if (method === "agent.spawn" || method === "rail.startDoor") console.error("U482 launch request", method, params);
+      const result = await rpc(method, params);
+
+      if (method === "agent.spawn" || method === "rail.startDoor") console.error("U482 launch reply", method, result);
+      return result;
+    };
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
 
@@ -156,12 +202,8 @@ afterEach(cleanup);
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
         // The Adapter starts at Working/starting (claude_code/mod.rs); the fake program claims its Kind before it publishes any later label. Wait for that publication before launching the next program.
-        await waitFor(async () => {
-          const status = (await tree()).find((node) => node.id === born.id)?.status;
-
-          expect(status?.label).not.toBe("starting");
-          expect(status?.kind).toBe(kind);
-        }, { timeout: 60_000 });
+        await kindReady(async () => (await tree()).find((node) => node.id === born.id)?.status,
+          { workstream, agent: born.id, expected: kind }, join(real.dir, "claude-config", "fake-claude-kind-claims.jsonl"));
         // The RPC reply can precede the subscription that renders the Rail row.
         await waitFor(() => expect(row(born.id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
         agents.push({ id: born.id, kind });

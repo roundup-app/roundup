@@ -319,8 +319,21 @@ def claim_kind():
             os.close(os.open(os.path.join(directory, str(n)), os.O_CREAT | os.O_EXCL))
         except FileExistsError:
             continue
+        log_kind_claim(n, kind)
         return kind
+    log_kind_claim(None, None)
     return None
+
+
+def log_kind_claim(index, kind):
+    record = {"index": index, "kind": kind, "pid": os.getpid(), "ppid": os.getppid(), "argv": sys.argv, "cwd": os.getcwd()}
+    path = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "fake-claude-kind-claims.jsonl")
+    # One append syscall keeps concurrent launches individually attributable.
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        os.write(descriptor, (json.dumps(record) + "\n").encode())
+    finally:
+        os.close(descriptor)
 
 
 def play_kind(kind):
