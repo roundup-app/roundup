@@ -103,6 +103,10 @@ impl ClaudeCode {
         adapter
     }
 
+    pub(super) fn is_ended(&self) -> bool {
+        self.ending != Ending::Running
+    }
+
     pub fn status(&self) -> Option<&Status> {
         self.status.as_ref()
     }
