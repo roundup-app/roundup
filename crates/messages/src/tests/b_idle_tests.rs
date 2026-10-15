@@ -8,41 +8,6 @@ use serde_json::json;
 use super::*;
 use super::{FakeRail, agent, agent_node};
 
-#[tokio::test]
-async fn b2_a_message_to_an_already_idle_agent_is_typed_without_a_new_status() {
-    let dir = tempfile::tempdir().unwrap();
-    let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
-    let seen = Arc::clone(&typed);
-    let deliver: Deliver = Arc::new(move |_, text| {
-        seen.lock().unwrap().push(text);
-        Box::pin(async { Ok(()) })
-    });
-    let bus = Bus::new();
-    let rail = FakeRail::new(vec![agent_node("b", Kind::Idle)]);
-    let messages = Messages::open(dir.path(), bus.clone(), rail, deliver).unwrap();
-    let ctx = Ctx {
-        actor: agent("a"),
-        bus,
-        touches: Arc::new(Touches::in_memory().unwrap()),
-    };
-
-    let sent = json!({"to": "b", "kind": "note", "body": "now"});
-    messages.call(&ctx, "message.send", sent).await.unwrap();
-    for _ in 0..100 {
-        if !typed.lock().unwrap().is_empty() {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
-
-    assert_eq!(*typed.lock().unwrap(), ["[from a, note] now"]);
-    let got = messages
-        .call(&ctx, "message.get", json!({"id": 1}))
-        .await
-        .unwrap();
-    assert_eq!(got["status"], "delivered");
-}
-
 /// A Rail whose next `rail.tree` answers `working` once, as a read taken just before the receiver
 /// went `idle`; every later read answers `idle`.
 struct StaleOnce {
@@ -146,4 +111,117 @@ async fn b2_initial_acknowledgement_waits_for_idle_reconciliation() {
     })
     .await
     .expect("initial reconciliation acknowledged after Rail answers");
+}
+
+#[tokio::test]
+async fn b2_busy_rollback_preserves_the_next_idle_in_either_order() {
+    // Both callers share on_idle, but send uses Fresh and status uses Next.
+    for status_driven in [false, true] {
+        for idle_before_busy in [true, false] {
+            tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                let dir = tempfile::tempdir().unwrap();
+                let entered = Arc::new(tokio::sync::Notify::new());
+                let release = Arc::new(tokio::sync::Notify::new());
+                let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                let accepted: Arc<StdMutex<Vec<String>>> = Arc::default();
+                let deliver: Deliver = {
+                    let entered = entered.clone();
+                    let release = release.clone();
+                    let attempts = attempts.clone();
+                    let accepted = accepted.clone();
+                    Arc::new(move |_, text| {
+                        let first = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0;
+                        let entered = entered.clone();
+                        let release = release.clone();
+                        let accepted = accepted.clone();
+                        Box::pin(async move {
+                            if first {
+                                entered.notify_one();
+                                release.notified().await;
+                                Err(Refusal::Busy)
+                            } else {
+                                accepted.lock().unwrap().push(text);
+                                Ok(())
+                            }
+                        })
+                    })
+                };
+                let bus = Bus::new();
+                let rail = FakeRail::new(vec![agent_node(
+                    "b",
+                    if status_driven {
+                        Kind::Working
+                    } else {
+                        Kind::Idle
+                    },
+                )]);
+                let messages =
+                    Messages::open(dir.path(), bus.clone(), rail.clone(), deliver).unwrap();
+                let ctx = Ctx {
+                    actor: Actor::user(),
+                    bus,
+                    touches: Arc::new(Touches::in_memory().unwrap()),
+                };
+                let mut completed = messages.inner.completed.subscribe();
+                start_listener(&messages.inner);
+                while completed.recv().await.unwrap() != "initial" {}
+                let send = || {
+                    messages.call(
+                        &ctx,
+                        "message.send",
+                        json!({"to":"b", "kind":"note", "body":"[decision d1] test"}),
+                    )
+                };
+                if status_driven {
+                    send().await.unwrap();
+                    let mut nodes = rail.0.lock().unwrap();
+                    nodes[0].status.as_mut().unwrap().kind = Kind::Idle;
+                    nodes[0].status_revision = Some("2".into());
+                }
+                let delivery = async {
+                    if status_driven {
+                        on_status(&messages.inner, "b", "1", "2", Kind::Idle).await;
+                    } else {
+                        send().await.unwrap();
+                    }
+                };
+                let next_idle = || async {
+                    let revision = if status_driven { "3" } else { "2" };
+                    rail.0.lock().unwrap()[0].status_revision = Some(revision.into());
+                    on_status(&messages.inner, "b", "1", revision, Kind::Idle).await;
+                };
+                let ordering = async {
+                    entered.notified().await;
+                    if idle_before_busy {
+                        next_idle().await;
+                    }
+                    release.notify_one();
+                };
+                tokio::join!(delivery, ordering);
+                if !idle_before_busy {
+                    assert_eq!(
+                        attempts.load(std::sync::atomic::Ordering::SeqCst),
+                        1,
+                        "must not spin on the same idle revision"
+                    );
+                    next_idle().await;
+                }
+                let stored = messages
+                    .call(&ctx, "message.get", json!({"id":1}))
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    stored["status"], "delivered",
+                    "status_driven={status_driven}, idle_before_busy={idle_before_busy}: {stored}"
+                );
+                assert_eq!(
+                    *accepted.lock().unwrap(),
+                    ["[from you, note] [decision d1] test"]
+                );
+                assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 2);
+            })
+            .await
+            .expect("Busy/idle delivery did not settle");
+        }
+    }
 }
