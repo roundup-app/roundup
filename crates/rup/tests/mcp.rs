@@ -138,6 +138,74 @@ fn fake_daemon(socket: &Path, answered: &'static [&'static str]) -> mpsc::Unboun
     requests
 }
 
+#[tokio::test]
+async fn a40_an_agent_cannot_call_the_ask_methods() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let mut requests = fake_daemon(
+        &socket,
+        &[
+            "daemon.identify",
+            "agent.channelUp",
+            "rail.tree",
+            "todo.list",
+        ],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    for name in ["ask_send", "ask_list", "ask_pick"] {
+        assert!(!tools.iter().any(|tool| tool.name == name), "{name}");
+        let error = tokio::time::timeout(
+            BOUND,
+            shim.client.call_tool(CallToolRequestParams::new(name)),
+        )
+        .await
+        .expect("the shim refused the call")
+        .unwrap_err();
+        let rmcp::service::ServiceError::McpError(error) = error else {
+            panic!("expected a protocol permission error for {name}: {error:?}");
+        };
+        assert_eq!(error.code.0, -32002, "{name}: {error:?}");
+    }
+
+    // A completed Daemon round trip fences all preceding shim calls without a sleep.
+    shim.call("todo_list", json!({})).await;
+    loop {
+        let request = tokio::time::timeout(BOUND, requests.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        match request["method"].as_str().unwrap() {
+            "daemon.identify" | "agent.channelUp" | "rail.tree" => {}
+            "todo.list" => break,
+            other => panic!("refused call reached the Daemon: {other}"),
+        }
+    }
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn m1_an_unknown_tool_keeps_its_invalid_params_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let _requests = fake_daemon(
+        &socket,
+        &["daemon.identify", "agent.channelUp", "rail.tree"],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+    let error = shim
+        .client
+        .call_tool(CallToolRequestParams::new("unknown_tool"))
+        .await
+        .unwrap_err();
+    let rmcp::service::ServiceError::McpError(error) = error else {
+        panic!("expected a protocol error: {error:?}");
+    };
+    assert_eq!(error.code.0, -32602);
+    assert_eq!(error.message, "no tool named unknown_tool");
+}
+
 async fn run_without_client(socket: &Path) -> Output {
     let mut child = start_rup_mcp(socket, "a1");
     drop(child.stdin.take());
