@@ -1,0 +1,51 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_update_todo",
+        "toolResultContains": "owned files: none yet"
+      },
+      "response": {
+        "content": "Planned."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_create_todo",
+        "toolResultContains": "plan the workstream"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_update_todo",
+            "name": "mcp__roundup__todo_update",
+            "arguments": "{\"id\": 1, \"body\": \"owned files: none yet\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_create_todo",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"plan the workstream\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
