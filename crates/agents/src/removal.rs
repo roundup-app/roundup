@@ -13,7 +13,7 @@ impl Shared {
         actor: Actor,
         id: &str,
     ) -> Result<Removal, RpcError> {
-        self.remove_workstream_with(actor, id, Vec::new(), |_, _| Ok(()))
+        self.remove_workstream_with(actor, id, |_, _| Ok(()))
             .await
             .map(|(r, ())| r)
     }
@@ -22,7 +22,6 @@ impl Shared {
         self: &Arc<Self>,
         actor: Actor,
         id: &str,
-        attachments: Vec<(&'static str, PathBuf)>,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         let door = self.rail().node(id)?;
@@ -161,7 +160,7 @@ impl Shared {
                     }
                 }
                 let rail_removal = removal.clone();
-                let result = rail.remove_workstream(&id_owned, &rail_removal, &attachments, |db| {
+                let result = rail.remove_workstream(&id_owned, &rail_removal, |db| {
                     let out = apply(db, &mut removal)?;
                     undo.remove(&git, &project)?;
                     Ok(out)
@@ -247,19 +246,16 @@ impl Agents {
         self.shared.retire(actor, id).await
     }
 
-    /// A34: extend the Rail removal transaction to attached stores. `apply` returns a file
+    /// A34: extend the Project removal transaction. `apply` returns a file
     /// rollback guard, which is dropped on any later failure and returned only after commit.
     pub async fn remove_workstream_with<T: Send + 'static>(
         &self,
         actor: Actor,
         id: &str,
-        attachments: Vec<(&'static str, PathBuf)>,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
         self.shared.guard_reach(&actor, id, false)?;
-        self.shared
-            .remove_workstream_with(actor, id, attachments, apply)
-            .await
+        self.shared.remove_workstream_with(actor, id, apply).await
     }
 }
 
@@ -402,8 +398,7 @@ mod tests {
                 serde_json::json!({"hook_event_name": "SessionEnd"}),
             ));
         }
-        let removal =
-            shared.remove_workstream_with(Actor::daemon(), &ws, Vec::new(), |_, _| Ok(()));
+        let removal = shared.remove_workstream_with(Actor::daemon(), &ws, |_, _| Ok(()));
         tokio::pin!(removal);
         // Entry/release proves overlap without depending on the OS's PTY hangup behavior.
         tokio::time::timeout(Duration::from_secs(5), async {
@@ -473,11 +468,10 @@ mod tests {
             .terminal_id = None;
         let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let applied_by_transaction = applied.clone();
-        let removal =
-            shared.remove_workstream_with(Actor::daemon(), &ws, Vec::new(), move |_, _| {
-                applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
-                Ok(())
-            });
+        let removal = shared.remove_workstream_with(Actor::daemon(), &ws, move |_, _| {
+            applied_by_transaction.store(true, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        });
         tokio::pin!(removal);
         for _ in 0..2 {
             tokio::select! {
