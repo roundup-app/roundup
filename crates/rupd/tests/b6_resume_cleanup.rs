@@ -37,7 +37,7 @@ impl Run {
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, time, tty
+import json, os, signal, subprocess, sys, time, tty
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -51,6 +51,11 @@ if '--resume' not in sys.argv:
             subprocess.run(hook['command'], shell=True, input=payload, text=True, check=True)
     print('SAVED', flush=True)
 else:
+    if os.path.isfile('keep-pty') and os.fork() == 0:
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        open('descendant-ready', 'w').close()
+        while os.path.isfile('keep-pty'): time.sleep(0.01)
+        sys.exit(0)
     print('RESUMED', flush=True)
 while True: time.sleep(60)
 "#).unwrap();
@@ -113,6 +118,16 @@ while True: time.sleep(60)
         self.user.request("agent.signal", json!({"id":self.child,"attempt":"2","payload":{"hook_event_name":"SessionStart","source":"resume","session_id":CONVERSATION}})).await
     }
 
+    async fn node(&self) -> Value {
+        let tree = self.user.request("rail.tree", ()).await.unwrap();
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == self.child)
+            .unwrap()
+            .clone()
+    }
+
     async fn terminal_running(&self, terminal: &str) -> bool {
         let terminals = self.user.request("terminal.list", ()).await.unwrap();
         terminals
@@ -120,6 +135,14 @@ while True: time.sleep(60)
             .unwrap()
             .iter()
             .any(|t| t["id"] == terminal && t["running"] == true)
+    }
+}
+
+impl Drop for Run {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(self.dir.path().join("keep-pty"));
+        let _ = std::fs::remove_file(self.gate("cleanup"));
+        let _ = std::fs::remove_file(self.gate("claim"));
     }
 }
 
@@ -155,6 +178,17 @@ async fn b6_resume_completion_waits_for_both_promotion_failure_cleanups() {
             arrived(&run.gate("cleanup-arrived")).await;
             let terminal = std::fs::read_to_string(run.gate("cleanup-arrived")).unwrap();
             assert!(run.terminal_running(&terminal).await);
+            let retry = run
+                .user
+                .request("agent.resume", json!({"id":run.child}))
+                .await
+                .unwrap_err();
+            assert!(retry.message.contains(&terminal), "{retry:?}");
+            assert_eq!(
+                run.node().await["attempt"],
+                "2",
+                "retry allocated an Attempt during cleanup"
+            );
             // The acknowledgement timer must not escape cleanup, even when it expires.
             let early = tokio::time::timeout(
                 agents::RESUME_ACK_BOUND + Duration::from_millis(100),
@@ -223,4 +257,133 @@ async fn b6_resume_completion_waits_for_both_promotion_failure_cleanups() {
                 .unwrap();
         }
     }
+}
+
+#[tokio::test]
+async fn b6_cleanup_refusal_preserves_the_resume_failure_and_blocks_a_blind_retry() {
+    failed_cleanup(false).await;
+}
+
+#[tokio::test]
+async fn b6_unconfirmed_terminal_exit_preserves_the_resume_failure_and_blocks_a_blind_retry() {
+    failed_cleanup(true).await;
+}
+
+async fn failed_cleanup(uncertain: bool) {
+    let run = Run::start().await;
+    run.db.execute_batch("CREATE TRIGGER refuse_resume BEFORE UPDATE OF conversation_id ON nodes BEGIN SELECT RAISE(ABORT, 'resume save fault'); END;").unwrap();
+    if uncertain {
+        std::fs::write(run.dir.path().join("keep-pty"), "hold").unwrap();
+    } else {
+        std::fs::write(run.gate("cleanup"), "refuse").unwrap();
+    }
+    let caller = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let resume =
+        tokio::spawn(async move { caller.request("agent.resume", json!({"id":child})).await });
+    arrived(&run.gate("claimed-arrived")).await;
+    if uncertain {
+        arrived(&run.dir.path().join("descendant-ready")).await;
+    }
+    assert!(
+        run.ack()
+            .await
+            .unwrap_err()
+            .message
+            .contains("resume save fault")
+    );
+    let error = tokio::time::timeout(BOUND, resume)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    let terminal = std::fs::read_to_string(run.gate("cleanup-arrived")).unwrap();
+    assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME, "{error:?}");
+    assert!(error.message.contains("resume save fault"), "{error:?}");
+    assert!(error.message.contains(&terminal), "{error:?}");
+    assert!(error.message.contains("do not retry Resume"), "{error:?}");
+    assert!(
+        error.message.contains(if uncertain {
+            "exit not confirmed"
+        } else {
+            "refused before kill"
+        }),
+        "{error:?}"
+    );
+    assert!(run.terminal_running(&terminal).await);
+    let retry = run
+        .user
+        .request("agent.resume", json!({"id":run.child}))
+        .await
+        .unwrap_err();
+    assert_eq!(retry, error, "a retry lost the original outcome");
+    let node = run.node().await;
+    assert_eq!(node["attempt"], "2");
+    assert_eq!(node["terminal_id"], terminal);
+    assert_eq!(node["can_resume"], false);
+    // Only explicit resolution of the remaining Terminal makes another Resume safe.
+    if uncertain {
+        let stop = run
+            .user
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap_err();
+        assert_eq!(stop.code, rpc::code::UNKNOWN_OUTCOME, "{stop:?}");
+        assert_eq!(
+            run.node().await["can_resume"],
+            false,
+            "an unconfirmed stop authorized Resume"
+        );
+        std::fs::remove_file(run.dir.path().join("keep-pty")).unwrap();
+        tokio::time::timeout(BOUND, async {
+            while run.terminal_running(&terminal).await {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+    } else {
+        std::fs::remove_file(run.gate("cleanup")).unwrap();
+    }
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert!(!run.terminal_running(&terminal).await);
+    assert_eq!(run.node().await["can_resume"], true);
+}
+
+#[tokio::test]
+async fn b6_ack_timeout_waits_for_rollback_cleanup_and_accounts_for_refusal() {
+    let run = Run::start().await;
+    std::fs::write(run.gate("cleanup"), "pause").unwrap();
+    let caller = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut resume =
+        tokio::spawn(async move { caller.request("agent.resume", json!({"id":child})).await });
+    arrived(&run.gate("cleanup-arrived")).await;
+    let terminal = std::fs::read_to_string(run.gate("cleanup-arrived")).unwrap();
+    let early = tokio::time::timeout(Duration::from_millis(100), &mut resume).await;
+    std::fs::write(run.gate("cleanup"), "refuse").unwrap();
+    assert!(
+        early.is_err(),
+        "timeout escaped rollback cleanup: {early:?}"
+    );
+    let error = tokio::time::timeout(BOUND, resume)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
+    assert!(
+        error.message.contains("no acknowledgement within 10s"),
+        "{error:?}"
+    );
+    assert!(error.message.contains("refused before kill"), "{error:?}");
+    assert!(error.message.contains(&terminal), "{error:?}");
+    assert!(run.terminal_running(&terminal).await);
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
 }
