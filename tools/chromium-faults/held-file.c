@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <stdint.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
