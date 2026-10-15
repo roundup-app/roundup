@@ -224,13 +224,17 @@ def typed_prompts():
                 yield text
 
 
-def ask_permission(ask, prompt):
+def ask_permission(ask, prompt, report=None):
     """Play a PermissionRequest and wait for `rup permission` to exit; whether the Decision was allowed."""
     command = json.load(open(flag("--settings")))["hooks"]["PermissionRequest"][0]["hooks"][0]["command"]
     tool_input = {key: value.replace("$prompt", prompt) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
     payload = {"hook_event_name": "PermissionRequest", "tool_name": ask["tool_name"], "tool_input": tool_input}
     ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
-    return json.loads(ran.stdout or "{}").get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
+    received = json.loads(ran.stdout or "{}")
+    if report:
+        with open(report, "w") as out:
+            json.dump(received, out)
+    return received.get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
 
 
 def mark_conversation():
@@ -328,7 +332,7 @@ def play_kind(kind):
     elif kind == "error":
         hook("StopFailure", {"error": "u351"})
     elif kind == "needs-you":
-        ask_permission({"tool_name": "Bash", "tool_input": {"command": "echo u351"}}, "u351")
+        ask_permission({"tool_name": "Bash", "tool_input": {"command": "echo u351"}}, "u351", os.environ.get("FAKE_CLAUDE_AGENT_REPORT"))
     elif kind == "idle":
         hook("Stop")
     elif kind == "blocked":
@@ -385,7 +389,11 @@ def mcp_session(calls, report=None, results_to=None):
             results.append({"error": json.loads(result["content"][0]["text"])})
             continue
         assert not result.get("isError"), result
-        parsed = json.loads(result["content"][0]["text"])
+        raw = result["content"][0]["text"]
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed = raw
         last = parsed.get("id") if isinstance(parsed, dict) else None
         # U376: "$ask" in a string argument is `ask.to` of the previous `agent_context` result, the Agent that started this one.
         asked = (parsed.get("ask") or {}).get("to", asked) if isinstance(parsed, dict) else asked
