@@ -282,6 +282,7 @@ const focusMark = (page: Page, el: Element): Rgba | null => {
   const height = extent(size[1]!, box.height);
 
   if (width === null || height === null || !(width > 0 && width <= box.width && height > 0 && height <= box.height)) return null;
+
   if (width === box.width && height === box.height) return null;
 
   return uniformLayer(page, el);
