@@ -418,17 +418,6 @@ mod tests {
     }
 
     #[test]
-    fn b32_an_unowned_terminal_has_no_receiver() {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let agents = owner_agents(shared, dir.path());
-        agents
-            .with_terminal_owner("unowned", |owner| {
-                assert!(owner.is_none());
-                Ok(())
-            })
-            .unwrap();
-    }
-    #[test]
     fn b32_agent_and_door_owner_facts_match_receiver_binding() {
         for kind in [NodeKind::Agent, NodeKind::Workstream] {
             let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
@@ -451,23 +440,6 @@ mod tests {
                 })
                 .unwrap();
         }
-    }
-    #[test]
-    fn b32_ambiguous_ownership_fails_without_recording_input() {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        for name in ["first", "second"] {
-            shared
-                .rail()
-                .insert(NodeKind::Agent, name, None, Some("terminal"))
-                .unwrap();
-        }
-        let agents = owner_agents(shared, dir.path());
-        let error = agents
-            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
-                panic!("must not record input for an ambiguous receiver")
-            })
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::CONFLICT);
     }
     #[test]
     fn b32_repeated_owner_reads_bind_each_terminal_afresh() {

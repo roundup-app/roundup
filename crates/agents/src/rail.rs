@@ -153,9 +153,15 @@ impl Rail {
         // on the measured 7763 host (r16/owner-read). Reuse compiled SQL, never owner facts:
         // each query still binds and reads under Rail then Attempts, including negative reads.
         self.owner_reads.wake();
+        // R16 attribution (#1917, r16/owner-execution): 10 → 8 unowned VM steps.
+        // Rust stops at the second row, so SQL needs no limit counter. IS avoids
+        // a NULL-parameter branch for bound &str; the explicit predicate keeps
+        // the partial covering index and excludes unattached rows.
         let mut query = self
             .db
-            .prepare_cached("SELECT id, attempt FROM nodes WHERE terminal_id = ? LIMIT 2")
+            .prepare_cached(
+                "SELECT id, attempt FROM nodes WHERE terminal_id IS ? AND terminal_id IS NOT NULL",
+            )
             .map_err(sql)?;
         // The fixed SQL has one positional parameter. Bind it directly rather than
         // asking SQLite to recount parameters on every fresh owner read.
