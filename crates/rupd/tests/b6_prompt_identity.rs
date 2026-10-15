@@ -1279,7 +1279,16 @@ async fn b37_decision_note_exclusions_still_hold() {
 
 async fn door_terminal() -> (Run, Arc<Client>) {
     let (mut run, caller) = order_child().await;
-    let opened = caller.request("terminal.spawn", json!({
+    // Agent panes are ownerless (M14); a child-owned Run is in the Door's Reach.
+    let child = Client::connect(&run.daemon.socket).await.unwrap();
+    child
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    let opened = child.request("terminal.spawn", json!({
         "cwd":run.dir.path(), "cols":80,"rows":24,"env":{},
         "command":["python3","-u","-c", "import os, tty\ntty.setraw(0)\nprint('READY')\nwhile True:\n b = os.read(0, 1)\n if not b: break\n print('BARRIER' if b == b'\\x00' else 'BYTE:' + b.hex())"]
     })).await.unwrap();
@@ -1332,6 +1341,177 @@ async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect(
     );
     completion.await.unwrap().unwrap();
     assert_eq!(recorded_bytes(&run).await, b"userdoor");
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_ordinary_door_write_waits_at_its_own_physical_effect() {
+    let (run, caller) = door_terminal().await;
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let terminal = run.terminal.clone();
+    let mut completion = tokio::spawn(async move {
+        caller
+            .request(
+                "terminal.write",
+                json!({"id":terminal,"data":STANDARD.encode(b"once")}),
+            )
+            .await
+    });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut completion).await;
+    std::fs::remove_file(gate).unwrap();
+    assert!(
+        early.is_err(),
+        "Door completed before its physical write: {early:?}"
+    );
+    completion.await.unwrap().unwrap();
+    assert_eq!(recorded_bytes(&run).await, b"once");
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_ordinary_door_write_refuses_a_full_queue_before_any_bytes() {
+    let (run, caller) = door_terminal().await;
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"first")}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let mut accepted = 0;
+    loop {
+        match run
+            .user
+            .request(
+                "terminal.write",
+                json!({"id":run.terminal,"data":STANDARD.encode(b"x")}),
+            )
+            .await
+        {
+            Ok(_) => accepted += 1,
+            Err(error) => {
+                assert_eq!(error.code, rpc::code::CONFLICT);
+                break;
+            }
+        }
+    }
+    let error = caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"refused")}),
+        )
+        .await
+        .unwrap_err();
+    std::fs::remove_file(gate).unwrap();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    tokio::time::timeout(BOUND, async {
+        while run.screen().await.matches("BYTE:78").count() < accepted {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        recorded_bytes(&run).await,
+        [b"first".as_slice(), &vec![b'x'; accepted]].concat()
+    );
+    run.finish().await;
+}
+
+async fn uncertain_terminal_write(failure: &str, expected: &[u8]) {
+    let (run, caller) = door_terminal().await;
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, failure).unwrap();
+    let error = caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"uncertain")}),
+        )
+        .await
+        .unwrap_err();
+    std::fs::remove_file(gate).unwrap();
+    assert_eq!(
+        error.code,
+        rpc::code::UNKNOWN_OUTCOME,
+        "{failure}: {error:?}"
+    );
+    assert!(error.message.contains("do not retry"), "{error:?}");
+    // A later completed Door write and child barrier account for all earlier effects.
+    caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        recorded_bytes(&run).await,
+        [expected, b"later"].concat(),
+        "{failure}"
+    );
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_ordinary_door_partial_write_is_unknown_without_retry() {
+    uncertain_terminal_write("partial", b"u").await;
+}
+
+#[tokio::test]
+async fn b6_ordinary_door_flush_failure_is_unknown_without_retry() {
+    uncertain_terminal_write("flush", b"uncertain").await;
+}
+
+#[tokio::test]
+async fn b6_ordinary_door_write_lost_input_thread_result_stays_unknown() {
+    let (run, caller) = door_terminal().await;
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "end").unwrap();
+    let error = caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"unknown")}),
+        )
+        .await
+        .unwrap_err();
+    std::fs::remove_file(gate).unwrap();
+    assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
+    assert!(error.message.contains("do not retry"), "{error:?}");
+    assert!(error.message.contains("input ended"), "{error:?}");
+    // The failed input thread cannot accept or replay bytes through a replacement queue.
+    let later = caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
+        )
+        .await
+        .unwrap_err();
+    assert_ne!(later.code, rpc::code::UNKNOWN_OUTCOME);
+    // portable-pty's writer Drop may send newline/EOF; neither is a byte from
+    // the lost call or the refused later call.
+    let output = run.screen().await;
+    assert!(
+        !output.contains("BYTE:75"),
+        "unknown bytes replayed: {output}"
+    );
+    assert!(!output.contains("BYTE:6c"), "later bytes written: {output}");
     run.finish().await;
 }
 

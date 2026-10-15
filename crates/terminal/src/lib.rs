@@ -440,6 +440,23 @@ impl Terminals {
         self.enqueue(id, Input::Bytes(bytes.to_vec()))
     }
 
+    /// Await the physical write and flush in input order. Refusal to enqueue has no effect;
+    /// IO failure or a lost input-thread result is UNKNOWN_OUTCOME and must not be retried.
+    /// Success leaves no bytes from this call queued (it does not await the child's read).
+    pub async fn write_completed(&self, id: &str, bytes: Vec<u8>) -> Result<(), RpcError> {
+        self.write_with(id, move |writer| {
+            writer
+                .write_all(&bytes)
+                .and_then(|()| writer.flush())
+                .map_err(|err| {
+                    RpcError::unknown_outcome(format!(
+                        "Terminal write may be partial: {err}; do not retry"
+                    ))
+                })
+        })
+        .await
+    }
+
     /// Run an effect on the input thread at its place in the Terminal's write order, and
     /// return its result after it finishes. The effect may refuse before writing; a queued
     /// effect whose caller disappeared is skipped. B6 uses this to hold the prompt check
@@ -452,7 +469,9 @@ impl Terminals {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.enqueue(id, Input::Effect(Box::new(effect), tx))?;
         rx.await.map_err(|_| {
-            RpcError::unknown_outcome("Terminal input ended before reporting its physical effect")
+            RpcError::unknown_outcome(
+                "Terminal input ended before reporting its physical effect; do not retry",
+            )
         })?
     }
 
@@ -874,7 +893,11 @@ impl Module for Terminals {
                 let bytes = STANDARD
                     .decode(data)
                     .map_err(|err| invalid(format!("data is not base64: {err}")))?;
-                self.write(&id, &bytes).await.and(reply(&()))
+                if ctx.actor.kind == contracts::ActorKind::Agent {
+                    self.write_completed(&id, bytes).await.and(reply(&()))
+                } else {
+                    self.write(&id, &bytes).await.and(reply(&()))
+                }
             }
             "terminal.resize" => {
                 let ResizeParams { id, cols, rows } = params(value)?;
