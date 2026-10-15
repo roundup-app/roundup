@@ -701,3 +701,63 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
         "{following:#?}"
     );
 }
+
+#[tokio::test]
+async fn e6_a_late_shim_goes_missing_then_up() {
+    use contracts::agent::Channel;
+    use std::os::unix::fs::PermissionsExt;
+
+    let gate = tempfile::tempdir().unwrap();
+    let wrapper = gate.path().join("rup-gated");
+    let release = gate.path().join("release");
+    std::fs::write(
+        &wrapper,
+        r#"#!/usr/bin/env python3
+import os, pathlib, sys, time
+if sys.argv[1] == "mcp":
+    deadline = time.monotonic() + 30
+    while not pathlib.Path(os.environ["E6_SHIM_RELEASE"]).exists():
+        if time.monotonic() >= deadline:
+            sys.exit("E6 shim release deadline")
+        time.sleep(0.025)
+os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "e6_late_shim",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("E6_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("E6_SHIM_RELEASE", release.to_str().unwrap()),
+            ("ROUNDUP_CHANNEL_DEADLINE_MS", "100"),
+        ],
+    );
+    let mut events = project.subscribed().await;
+    let agent = events
+        .request(
+            "agent.spawn",
+            json!({"cwd": project.dir.path(), "prompt": "E6 late shim"}),
+        )
+        .await
+        .unwrap();
+    let id = agent["id"].as_str().unwrap();
+    assert_eq!(agent["channel"], "pending");
+    let missing = next(&mut events, |event| match event {
+        EventData::AgentChannel(channel) if channel.id == id => Some(channel.channel),
+        _ => None,
+    })
+    .await;
+    assert_eq!(missing, Channel::Missing);
+    std::fs::write(release, "release real MCP").unwrap();
+    let up = next(&mut events, |event| match event {
+        EventData::AgentChannel(channel) if channel.id == id => Some(channel.channel),
+        _ => None,
+    })
+    .await;
+    assert_eq!(up, Channel::Up);
+    let model = project.model.as_ref().unwrap();
+    model.tool_result("toolu_e6_context").await;
+    model.assert_matched();
+}
