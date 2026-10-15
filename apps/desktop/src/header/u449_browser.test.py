@@ -73,6 +73,8 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
                 evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + ("0" if pick == "first" else "t.length-1") + "].click()")
                 browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]') !== null")
                 browser("wait", "300")
+                # A headless page may hold its frames, and a scroll event waits for one: let the strip read the settled scroll.
+                evaluate("document.querySelector('.tablist').dispatchEvent(new Event('scroll'))")
                 records.append({"case": f"tabs-8-{width}-{pick}", **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
