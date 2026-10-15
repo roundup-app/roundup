@@ -648,7 +648,10 @@ def critic_task(pr, head):
              'viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
     earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
     if earlier:
-        lines += ['\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
+        last = orders.field(earlier[-1], 'Head', '')
+        lines += ['\nThis is a later round (`.agents/design-critic.md`, Later rounds): judge the earlier findings below and '
+                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only.',
+                  '\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 
