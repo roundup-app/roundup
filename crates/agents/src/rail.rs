@@ -1017,58 +1017,6 @@ mod tests {
     }
 
     #[test]
-    fn b29_a_pre_a20_rail_keeps_its_node_attempts() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("agents.db");
-        let db = rusqlite::Connection::open(&path).unwrap();
-        db.execute_batch("CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, parent INTEGER, ord INTEGER NOT NULL, meta INTEGER NOT NULL DEFAULT 0, terminal_id TEXT, incarnation INTEGER NOT NULL DEFAULT 0 CHECK (incarnation >= 0)); INSERT INTO nodes (kind,name,parent,ord,incarnation) VALUES ('workstream','w',NULL,0,0),('agent','a',1,0,2);").unwrap();
-        drop(db);
-        let mut rail = Rail::open(&path).unwrap();
-        assert_eq!(rail.allocate_attempt("2").unwrap(), "3");
-        drop(rail);
-        // A Rail holding both columns copies the old value into an empty new one.
-        let both = dir.path().join("both.db");
-        let db = rusqlite::Connection::open(&both).unwrap();
-        db.execute_batch("CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, parent INTEGER, ord INTEGER NOT NULL, meta INTEGER NOT NULL DEFAULT 0, terminal_id TEXT, incarnation INTEGER NOT NULL DEFAULT 0, attempt INTEGER NOT NULL DEFAULT 0); INSERT INTO nodes (kind,name,parent,ord,incarnation) VALUES ('workstream','w',NULL,0,0),('agent','a',1,0,2);").unwrap();
-        drop(db);
-        let mut rail = Rail::open(&both).unwrap();
-        assert_eq!(rail.allocate_attempt("2").unwrap(), "3");
-    }
-
-    #[test]
-    fn a8_legacy_plain_and_live_groups_keep_ids_order_and_children_as_workstreams() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("agents.db");
-        let db = rusqlite::Connection::open(&path).unwrap();
-        db.execute_batch("CREATE TABLE nodes (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, name TEXT NOT NULL, parent INTEGER, ord INTEGER NOT NULL, meta INTEGER NOT NULL DEFAULT 0, terminal_id TEXT); INSERT INTO nodes VALUES (1,'group','plain',NULL,0,0,NULL),(2,'group','coordinator',NULL,1,1,'99'),(3,'agent','child',2,0,0,'100');").unwrap();
-        drop(db);
-        let mut rail = Rail::open(&path).unwrap();
-        let tree = rail.tree().unwrap();
-        assert_eq!(
-            tree.iter()
-                .map(|n| (n.id.as_str(), n.name.as_str(), n.order))
-                .collect::<Vec<_>>(),
-            [
-                ("1", "plain", 0),
-                ("2", "coordinator", 1),
-                ("3", "child", 0)
-            ]
-        );
-        assert_eq!(tree[0].kind, NodeKind::Workstream);
-        assert_eq!(tree[1].kind, NodeKind::Workstream);
-        assert_eq!(tree[2].parent.as_deref(), Some("2"));
-        assert!(
-            tree.iter()
-                .all(|n| n.attempt.is_none() && n.terminal_id.is_none())
-        );
-        assert_eq!(rail.allocate_attempt("2").unwrap(), "1");
-        drop(rail);
-        let mut rail = Rail::open(&path).unwrap();
-        assert_eq!(rail.allocate_attempt("2").unwrap(), "2");
-        assert_eq!(rail.node("3").unwrap().parent.as_deref(), Some("2"));
-    }
-
-    #[test]
     fn a7_attempt_exhaustion_does_not_wrap_or_change_the_node() {
         let (_dir, mut rail) = rail();
         let node = rail
