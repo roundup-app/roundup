@@ -105,7 +105,14 @@ run("u197 the Thread is one page in one column", () => {
 run("Q3 and U197 rendered text contrast", () => {
   vi.setConfig({ testTimeout: 30_000 });
 
-  const checks = async () => {
+  const checks = async (...surfaces: string[]) => {
+    const painted = await page.call<boolean>(`(selectors) => selectors.every((selector) => {
+      const element = document.querySelector(selector);
+      const box = element?.getBoundingClientRect();
+      return box && box.width > 0 && box.height > 0;
+    })`, ["[role=treeitem][aria-selected=true] .name", ...surfaces]);
+
+    expect(painted).toBe(true);
     const result = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
 
     for (const id of ["D2", "D5"]) expect(result[id], JSON.stringify(result[id])).toMatchObject({ status: "pass" });
@@ -116,7 +123,7 @@ run("Q3 and U197 rendered text contrast", () => {
       await page.scheme(scheme);
       await load(1280, 800);
       await page.until(`() => document.querySelector(".thread-run[data-user] .thread-body") && document.querySelector(".thread-run:not([data-user]) .thread-body")`);
-      await checks();
+      await checks(".thread-run[data-user] .thread-body", ".thread-run:not([data-user]) .thread-body");
     });
 
     it(`q3_thread_text_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
@@ -128,17 +135,17 @@ run("Q3 and U197 rendered text contrast", () => {
         replyTo: null, status: "delivered", reason: null, passedFrom: null, at: Date.now()
       } })`);
       await page.until(`() => document.querySelector("[data-message-body] table tbody").children.length === 3 && document.querySelector("[data-message-body] pre")`);
-      await checks();
+      await checks("[data-message-body] table", "[data-message-body] pre", "[data-message-body] p code");
     });
 
     it(`q3_decision_card_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
       await page.scheme(scheme);
       await load(1280, 800);
       await page.call(String.raw`() => window.__fake.emit({ actor: { kind: "agent", id: "r1", parent: null }, name: "decision.opened", data: {
-        id: "q3-decision", agent: "r1", tool: "ask_user", args: JSON.stringify({ question: "Which folder should I use?", answers: ["src", "docs"] }), opened_at: Date.now(), answerable: true
+        id: "q3-decision", agent: "r1", tool: "ask_user", args: JSON.stringify({ question: "Which folder should I use?", answers: [{ label: "src", description: "about src" }, { label: "docs", description: "about docs" }] }), opened_at: Date.now(), answerable: true
       } })`);
       await page.until(`() => document.querySelector(".decision-question")?.textContent.includes("Which folder")`);
-      await checks();
+      await checks(".decision-question");
     });
 
     it(`q3_digest_card_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
@@ -150,7 +157,7 @@ run("Q3 and U197 rendered text contrast", () => {
         replyTo: null, status: "delivered", reason: null, passedFrom: null, at: Date.now()
       } })`);
       await page.until(`() => document.querySelector(".digest-card")?.textContent.includes("notes")`);
-      await checks();
+      await checks(".digest-card");
     });
 
     it(`q3_long_drawer_wraps_and_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
@@ -158,7 +165,7 @@ run("Q3 and U197 rendered text contrast", () => {
       await load(1280, 800);
       await page.call(`async () => {
         const nodes = await window.__fake.app.handlers["rail.tree"]({});
-        nodes.find((node) => node.id === "r1").work = { kind: "work", ask: "Change no file in the repo ".repeat(12).trim(), limits: [] };
+        nodes.find((node) => node.id === "r1").work = { kind: "work", title: "Keep repo unchanged", ask: "Change no file in the repo ".repeat(12).trim(), limits: [] };
         window.__fake.app.handlers["rail.tree"] = () => nodes;
         window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
       }`);
@@ -173,7 +180,7 @@ run("Q3 and U197 rendered text contrast", () => {
       }`);
 
       expect(wraps).toBe(true);
-      await checks();
+      await checks(".order-title", ".order-ask");
     });
   }
 });
