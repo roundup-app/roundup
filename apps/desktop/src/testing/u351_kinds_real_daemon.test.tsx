@@ -1,4 +1,8 @@
 // @vitest-environment jsdom
+import { spawn } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { Status } from "@contracts/Status";
@@ -20,6 +24,46 @@ const doorReady = async (statusOf: () => Promise<Status | null | undefined>, row
   });
 };
 
+// U482 exercises the executable, so concurrent claims include the filesystem boundary.
+it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "u482-"));
+  const settings = join(dir, "settings.json");
+  const hooks = Object.fromEntries(["SessionStart", "UserPromptSubmit", "Stop"].map((event) => [event, [{ hooks: [{ command: "true" }] }]]));
+
+  await writeFile(settings, JSON.stringify({ hooks }));
+  const executable = resolve("../../crates/rup/tests/e2e/fake_claude.py");
+  const launch = (door: boolean) => spawn(executable, ["--settings", settings, ...(door ? ["--tools", ""] : [])], {
+    env: { ...process.env, CLAUDE_CONFIG_DIR: dir, FAKE_CLAUDE_KINDS: '["idle","idle","idle","idle"]', FAKE_CLAUDE_ON_PROMPT: "[]" },
+    stdio: "pipe",
+  });
+  const door = launch(true);
+  const children = Array.from({ length: 7 }, () => launch(false));
+
+  try {
+    await waitFor(async () => {
+      const records = (await readFile(join(dir, "fake-claude-kind-claims.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+
+      expect(records).toHaveLength(7);
+      expect(records.filter((record) => record.index !== null).map((record) => record.index).sort()).toEqual([0, 1, 2, 3]);
+      expect(records.filter((record) => record.index === null)).toHaveLength(3);
+      expect(new Set(records.map((record) => record.pid))).toEqual(new Set(children.map((child) => child.pid)));
+      expect(records.some((record) => record.pid === door.pid)).toBe(false);
+      for (const record of records) {
+        expect(record.ppid).toBe(process.pid);
+        expect(record.argv).toEqual([executable, "--settings", settings]);
+        expect(record.kind).toBe(record.index === null ? null : "idle");
+      }
+    }, { timeout: 10_000 });
+  } finally {
+    await Promise.all([door, ...children].map((child) => new Promise<void>((done) => {
+      if (child.exitCode !== null || child.signalCode !== null) return done();
+      child.once("exit", () => done());
+      child.kill();
+    })));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 let real: StartedDaemon;
 
 // Two Workstreams of five Agents each; the Nth Agent started plays entry N (U351).
@@ -27,6 +71,7 @@ const FIRST = ["working", "idle", "needs-you", "working", "idle"];
 
 const SECOND = ["error", "needs-you", "working", "error", "needs-you"];
 
+describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
 beforeAll(async () => {
   // A Door has `--tools`, plays no entry and is ready after its SessionStart, which FAKE_CLAUDE_ON_PROMPT plays.
   real = await startRealDaemon({
@@ -41,7 +86,6 @@ afterAll(async () => {
 
 afterEach(cleanup);
 
-describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
   it("u351_door_readiness_survives_working_to_idle_before_the_rail_renders", async () => {
     const row = document.createElement("div");
     let observations = 0;
