@@ -1,7 +1,8 @@
 {
   "entry": [
     "contracts/**/*.ts",
-    "apps/*/harness.html"
+    "apps/*/harness.html",
+    "docs/u478-contrast-observer.test.mjs"
   ],
   "ignorePatterns": [
     "tools/oxlint/anti-slop/**",
