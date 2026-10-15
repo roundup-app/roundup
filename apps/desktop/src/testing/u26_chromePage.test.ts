@@ -1,11 +1,82 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { expect, it } from "vitest";
-import { openPage } from "./chromePage";
+import { chromePath, openPage } from "./chromePage";
 
 // A fake browser that never answers needs no 20 s wait to prove the timeout's report.
 const REPLY_MS = 5_000;
+
+it.runIf(process.platform === "linux")("u26_parallel_cold_pages_answer_under_a_read_iops_limit_within_the_original_deadline", async () => {
+  const found = chromePath();
+
+  if (!found) throw new Error("U26 requires isolated Chromium");
+
+  const source = dirname(realpathSync(found));
+  const dir = mkdtempSync(join(tmpdir(), "u26-cold-"));
+  const group = join("/sys/fs/cgroup", basename(dir));
+  const browser = join(dir, "browser", "chrome");
+  const runner = join(dir, "run.mts");
+  const launcher = join(dir, "launch.py");
+
+  try {
+    // Only this copy is evicted. The caller's browser and host cache stay intact.
+    cpSync(source, join(dir, "browser"), { recursive: true });
+    execFileSync("python3", ["-c", `
+import os, pathlib, subprocess, sys
+root, group = sys.argv[1:]
+subprocess.run(['sudo', '-n', 'mkdir', group], check=True)
+device = os.stat(root).st_dev
+block = pathlib.Path(f'/sys/dev/block/{os.major(device)}:{os.minor(device)}').resolve()
+if (block / 'partition').exists():
+    block = block.parent
+subprocess.run(['sudo', '-n', 'tee', group + '/io.max'], input=block.joinpath('dev').read_text().strip() + ' riops=100', text=True, stdout=subprocess.DEVNULL, check=True)
+for path in pathlib.Path(root).rglob('*'):
+    if path.is_file():
+        with path.open('rb') as source:
+            os.fsync(source.fileno())
+            os.posix_fadvise(source.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
+`, join(dir, "browser"), group], { timeout: 30_000 });
+
+    writeFileSync(launcher, `
+import os, subprocess, sys
+subprocess.run(['sudo', '-n', 'tee', ${JSON.stringify(join(group, "cgroup.procs"))}], input=str(os.getpid()), text=True, stdout=subprocess.DEVNULL, check=True)
+os.execv(sys.argv[1], sys.argv[1:])
+`);
+    writeFileSync(runner, `
+import { openPage } from ${JSON.stringify(join(process.cwd(), "src/testing/chromePage.ts"))};
+const began = performance.now();
+const pages = await Promise.allSettled([0, 1].map(() => openPage(${JSON.stringify(browser)}, { root: ${JSON.stringify(process.cwd())} })));
+try {
+  const opened = pages.map(page => {
+    if (page.status === 'rejected') throw page.reason;
+    return page.value;
+  });
+  const values = await Promise.all(opened.map(page => page.call('() => 42')));
+  // Includes executable preparation, Vite, spawn and the real DevTools calls.
+  if (performance.now() - began > 20_000) throw new Error('cold startup exceeded the original 20-second budget');
+  console.log(JSON.stringify(values));
+} finally {
+  await Promise.all(pages.map(page => page.status === 'fulfilled' ? page.value.close() : undefined));
+}
+`);
+
+    const output = await new Promise<string>((resolve, reject) => {
+      execFile("python3", [launcher, process.execPath, "--experimental-strip-types", runner], { timeout: 45_000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+        if (error) reject(new Error(`${error.message}\n${stderr}`));
+        else resolve(stdout);
+      });
+    });
+
+    expect(output.trim()).toBe("[42,42]");
+  } finally {
+    // The cgroup contains only the subprocesses this test created.
+    execFileSync("sudo", ["-n", "tee", join(group, "cgroup.kill")], { input: "1", stdio: ["pipe", "ignore", "pipe"] });
+    execFileSync("sudo", ["-n", "rmdir", group]);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 90_000);
 
 it("u26_a_failed_page_start_releases_its_browser", async () => {
   const dir = mkdtempSync(join(tmpdir(), "u26-browser-"));
