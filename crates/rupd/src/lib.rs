@@ -42,8 +42,8 @@ pub struct Daemon {
     pads: Arc<pads::Pads>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     resizes: resize::Resizes,
+    /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
