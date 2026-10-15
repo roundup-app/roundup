@@ -182,7 +182,7 @@ const chrome = chromePath();
 
 const rendered = chrome || process.env.CI ? describe : describe.skip;
 
-rendered("u137 rendered composer focus", () => {
+rendered("u137 rendered focus marks", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
 
   beforeAll(async () => { if (!chrome) throw new Error("U137 requires Chromium"); page = await openPage(chrome); }, 90_000);
@@ -237,6 +237,18 @@ rendered("u137 rendered composer focus", () => {
       });
     }
   }
+
+  it("u137_measures_a_percentage_width_focus_mark_on_an_unnamed_container", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => {
+      document.body.innerHTML = '<div style="width: 240px; height: 80px; background-color: white; background-image: linear-gradient(white, white); background-size: 1% 100%; background-repeat: no-repeat; background-position: left"><textarea style="color: black; background: transparent; outline-width: 0">text</textarea></div>';
+      document.querySelector('textarea').focus();
+    }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: 1 } });
+  });
 
   it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
     await page.load("/harness.html?seed=thread-report", 1280, 800);

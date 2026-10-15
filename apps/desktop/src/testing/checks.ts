@@ -259,6 +259,34 @@ const d4 = ({ doc }: Page): Measure => {
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
 
+const uniformLayer = (page: Page, el: Element): Rgba | null => {
+  const image = resolveAt(page, el, page.style(el).backgroundImage);
+  const wash = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
+
+  return wash ? parseColour(wash) : null;
+};
+
+// U353: one non-repeating uniform layer smaller than the box is a focus mark,
+// whether the focused control or its containing box draws it.
+const focusMark = (page: Page, el: Element): Rgba | null => {
+  if (!el.matches(":focus-visible, :has(:focus-visible)")) return null;
+  const style = page.style(el);
+
+  if (style.backgroundRepeat !== "no-repeat") return null;
+  const size = resolveAt(page, el, style.backgroundSize).trim().split(/\s+/);
+
+  if (size.length !== 2) return null;
+  const box = el.getBoundingClientRect();
+  const extent = (value: string, length: number) => value.endsWith("%") ? Number(value.slice(0, -1)) * length / 100 : px(value);
+  const width = extent(size[0]!, box.width);
+  const height = extent(size[1]!, box.height);
+
+  if (width === null || height === null || !(width > 0 && width <= box.width && height > 0 && height <= box.height)) return null;
+  if (width === box.width && height === box.height) return null;
+
+  return uniformLayer(page, el);
+};
+
 const groundOf = (page: Page, el: Element): Rgba | null => {
   let ground: Rgba = parseColour(page.token("ground") ?? "") ?? { r: 255, g: 255, b: 255, a: 1 };
   const chain: Element[] = [];
@@ -272,21 +300,15 @@ const groundOf = (page: Page, el: Element): Rgba | null => {
 
     // A uniform Token wash paints above the opaque box (U441).
     const image = resolveAt(page, node, page.style(node).backgroundImage);
-    const wash = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
-    const layer = wash ? parseColour(wash) : null;
+    const layer = uniformLayer(page, node);
 
     if (layer) {
       const style = page.style(node);
       const size = resolveAt(page, node, style.backgroundSize);
       const full = !size || size === "auto" || size === "auto auto" || size === "100% 100%";
 
-      const mark = node.matches(".thread-composer:has(textarea:focus-visible)") &&
-        /^100% [\d.]+px$/.test(size) && Number.parseFloat(size.split(" ")[1]!) > 0 &&
-        Number.parseFloat(size.split(" ")[1]!) < node.getBoundingClientRect().height &&
-        style.backgroundRepeat === "no-repeat" && style.backgroundPosition === "50% 100%";
-
       if (full) ground = over(layer, ground);
-      else if (!mark) return null;
+      else if (!focusMark(page, node)) return null;
     } else if (image && image !== "none" && !image.includes("), linear-gradient(")) return null;
   }
 
@@ -320,16 +342,14 @@ const d5 = (page: Page): Measure => {
       if (found !== null && found < 4.5) return { text: found };
     }
 
-    if (el.matches(".thread-composer:has(textarea:focus-visible)")) {
-      const style = page.style(el);
-      const image = resolveAt(page, el, style.backgroundImage);
-      const mark = /^linear-gradient\((rgba?\([^)]+\)),\s*\1\)$/.exec(image)?.[1];
-      const colour = mark ? parseColour(mark) : null;
+    const mark = focusMark(page, el);
+
+    if (mark) {
       const ground = groundOf(page, el);
 
-      if (!colour || !ground) measurable = false;
+      if (!ground) measurable = false;
       else {
-        const found = contrastRgb(over(colour, ground), ground);
+        const found = contrastRgb(over(mark, ground), ground);
 
         if (found < 3) return { focusRing: found };
       }
