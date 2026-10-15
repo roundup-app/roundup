@@ -1069,8 +1069,9 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             Ok(None) => break Ok(()),
             Err(err) => break Err(err),
         };
-        let method = serde_json::from_str::<Value>(&line)
-            .ok()
+        let request = serde_json::from_str::<Value>(&line).ok();
+        let method = request
+            .as_ref()
             .and_then(|request| request["method"].as_str().map(str::to_owned));
         // Actor and subscription changes must commit before the next wire request is read.
         if matches!(
@@ -1082,6 +1083,27 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             }
             continue;
         }
+        let resize_arrival = if method.as_deref() == Some("terminal.resize")
+            && conn.actor.kind == ActorKind::Agent
+        {
+            let params = request
+                .as_ref()
+                .and_then(|r| r.get("params"))
+                .unwrap_or(&Value::Null);
+            match daemon.guard_terminal_read(&conn.actor, params).await {
+                Ok(Some(child)) => Some(daemon.resizes.arrive(child)),
+                Ok(None) => None,
+                Err(error) => {
+                    // Reject the original target; a later Terminal must not revive an invalid call.
+                    if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
+                        let _ = frames.send(failure(id, &error));
+                    }
+                    continue;
+                }
+            }
+        } else {
+            None
+        };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
         if method
@@ -1103,8 +1125,19 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             });
         } else {
             ordinary.spawn(async move {
+                let done = if let Some((before, done)) = resize_arrival {
+                    if let Some(before) = before {
+                        let _ = before.await;
+                    }
+                    Some(done)
+                } else {
+                    None
+                };
                 if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
                     let _ = request_conn.events.send(reply);
+                }
+                if let Some(done) = done {
+                    daemon.resizes.finish_arrival(done);
                 }
             });
         }

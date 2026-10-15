@@ -1,4 +1,5 @@
 //! B6: durable acceptance and outcomes of Door resizes, using the router's per-child exclusion.
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -10,7 +11,10 @@ use serde_json::Value;
 
 use crate::{Conn, Daemon};
 
-pub(crate) struct Resizes(Mutex<Connection>);
+pub(crate) struct Resizes {
+    db: Mutex<Connection>,
+    arrivals: Mutex<HashMap<String, tokio::sync::oneshot::Receiver<()>>>,
+}
 
 struct Accepted {
     action: ResizeAction,
@@ -21,7 +25,10 @@ struct Accepted {
 
 impl Resizes {
     pub(crate) fn open(dir: &Path) -> Result<Self, OpenError> {
-        let store = Self(Mutex::new(Connection::open(dir.join("project.db"))?));
+        let store = Self {
+            db: Mutex::new(Connection::open(dir.join("project.db"))?),
+            arrivals: Mutex::new(HashMap::new()),
+        };
         // Terminals do not survive Daemon restart. Never attach an old action to a reused id.
         for accepted in store
             .accepted(None)
@@ -46,8 +53,43 @@ impl Resizes {
         Ok(store)
     }
 
+    /// Registration precedes task spawning: scheduler order must not become acceptance order.
+    pub(crate) fn arrive(
+        &self,
+        child: String,
+    ) -> (
+        Option<tokio::sync::oneshot::Receiver<()>>,
+        tokio::sync::oneshot::Sender<()>,
+    ) {
+        let mut arrivals = self.arrivals.lock().unwrap_or_else(|e| e.into_inner());
+        arrivals.retain(|_, prior| {
+            matches!(
+                prior.try_recv(),
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+            )
+        });
+        let before = arrivals.remove(&child);
+        let (done, next) = tokio::sync::oneshot::channel();
+        arrivals.insert(child, next);
+        (before, done)
+    }
+
+    pub(crate) fn finish_arrival(&self, done: tokio::sync::oneshot::Sender<()>) {
+        let _ = done.send(());
+        // Completed children retain neither order tokens nor historical map entries.
+        self.arrivals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retain(|_, prior| {
+                matches!(
+                    prior.try_recv(),
+                    Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+                )
+            });
+    }
+
     fn accepted(&self, child: Option<&str>) -> Result<Vec<Accepted>, RpcError> {
-        let db = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let db = self.db.lock().unwrap_or_else(|e| e.into_inner());
         let mut query = db
             .prepare(
                 "SELECT a.id,a.actor,a.agent,a.attempt,a.child_terminal,a.terminal,a.cols,a.rows,
@@ -96,7 +138,7 @@ impl Resizes {
         node: &contracts::agent::RailNode,
         resize: ResizeParams,
     ) -> Result<ResizeAction, RpcError> {
-        let mut db = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut db = self.db.lock().unwrap_or_else(|e| e.into_inner());
         let tx = db.transaction().map_err(RpcError::internal)?;
         tx.execute(
             "INSERT INTO resize_actions(actor,agent,attempt,child_terminal,terminal,cols,rows) VALUES(?,?,?,?,?,?,?)",
@@ -126,7 +168,7 @@ impl Resizes {
     }
 
     fn outcome(&self, id: &str, outcome: ResizeOutcome) -> Result<(), RpcError> {
-        self.0
+        self.db
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .execute(

@@ -3895,6 +3895,7 @@ async fn b6_held_resizes_preserve_wire_arrival_order_before_task_scheduling() {
         batch.push(b'\n');
     }
     client.write_all(&batch).await.unwrap();
+    client.shutdown().await.unwrap();
     let mut replies = BufReader::new(client).lines();
     for _ in 0..33 {
         let line = tokio::time::timeout(BOUND, replies.next_line())
