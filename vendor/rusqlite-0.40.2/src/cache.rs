@@ -279,6 +279,20 @@ mod test {
     }
 
     #[test]
+    fn r16_cached_rows_rebind_and_execute_fresh() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        db.execute_batch("CREATE TABLE owner (id INTEGER); INSERT INTO owner VALUES (7)")?;
+        for expected in [7, 9] {
+            db.execute("UPDATE owner SET id = ?1", [expected])?;
+            let actual = db.with_cached_rows("SELECT id FROM owner WHERE id = ?1", [expected], |rows| {
+                rows.next()?.unwrap().get::<_, i64>(0)
+            })??;
+            assert_eq!(actual, expected);
+        }
+        Ok(())
+    }
+
+    #[test]
     fn test_cache() -> Result<()> {
         let db = Connection::open_in_memory()?;
         let cache = &db.cache;
