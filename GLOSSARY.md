@@ -498,3 +498,14 @@ A Token-styled explanation shown on hover or focus of an App control.
 
 **IconButton**:
 An App button of the icon kind, named for its action for assistive technology.
+
+### Keyboard registration
+
+**KeyScope**:
+The owner of a shortcut: the App, a region containing keyboard focus, or an active layer.
+
+**registerKeys**:
+Register a KeyScope's chords, guards and actions for its owner's lifetime.
+
+**chordsFor**:
+The matching spellings of one displayed Help chord.
