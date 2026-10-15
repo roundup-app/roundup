@@ -1,5 +1,6 @@
 """U26: a kernel file fault, held by libfuse until the observer sees it."""
 from contextlib import contextmanager
+import ctypes
 import json
 import os
 from pathlib import Path
@@ -82,14 +83,57 @@ def held_command(binary, mount, endpoint):
             control.close()
 
 
+
+@contextmanager
+def artifact_watch(path):
+    # Linux inotify acknowledges artifact writes without a polling sleep.
+    libc = ctypes.CDLL(None, use_errno=True)
+    descriptor = libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
+    if descriptor < 0:
+        raise OSError(ctypes.get_errno(), "inotify_init1")
+    try:
+        path.touch()
+        if libc.inotify_add_watch(descriptor, os.fsencode(path), 2) < 0:  # IN_MODIFY
+            raise OSError(ctypes.get_errno(), "inotify_add_watch")
+        yield descriptor
+    finally:
+        os.close(descriptor)
+
+
+def fill_pipe(descriptor):
+    written = 0
+    while True:
+        try:
+            written += os.write(descriptor, b"X" * 4096)
+        except BlockingIOError:
+            assert written > 0
+            return
+
+
 class FaultTest(unittest.TestCase):
     def test_u26_pending_file_fault_survives_until_completed(self):
+        self.held_fault(None)
+
+    def test_u26_full_stdout_at_attachment_preserves_capture_and_exit(self):
+        self.held_fault("attachment")
+
+    def test_u26_full_stdout_during_capture_preserves_fault_completion(self):
+        self.held_fault("capture")
+
+    def test_u26_full_stdout_at_final_reporting_preserves_exit(self):
+        self.held_fault("final")
+
+    def held_fault(self, backpressure):
         with file_fixture() as (root, binary, mount):
-            with socket.socket(socket.AF_UNIX) as listener:
+            with socket.socket(socket.AF_UNIX) as listener, artifact_watch(root / "trace.jsonl") as watch:
                 listener.bind(str(root / "control"))
                 listener.listen(1)
                 listener.settimeout(30)
-                observer = subprocess.Popen([sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--", sys.executable, __file__, "held", str(binary), str(mount), str(root / "control")], stdout=subprocess.PIPE, text=True, bufsize=1)
+                read_fd, write_fd = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)
+                if backpressure == "attachment":
+                    fill_pipe(write_fd)
+                observer = subprocess.Popen([sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--", sys.executable, __file__, "held", str(binary), str(mount), str(root / "control")], stdout=write_fd if backpressure else subprocess.PIPE, text=True, bufsize=1)
+                event = lambda status, tid, address=None: self.artifact_event(root / "trace.jsonl", watch, status, tid, address) if backpressure else self.event(observer.stdout, status, tid, address)
                 outsider = None
                 control = None
                 try:
@@ -100,6 +144,8 @@ class FaultTest(unittest.TestCase):
                         mapped = line(control).split()
                         self.assertEqual(mapped[0], "MAPPED")
                         pid, tid, address = int(mapped[1]), int(mapped[2]), int(mapped[3], 16)
+                        if backpressure == "capture":
+                            fill_pipe(write_fd)
                         outsider = subprocess.Popen([str(binary), "read", str(mount / "held")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
                         outside = line(outsider.stdout).split()
                         outside_pid = int(outside[1])
@@ -107,7 +153,7 @@ class FaultTest(unittest.TestCase):
                         outsider.stdin.flush()
                         send("G\n")
                         self.assertEqual(line(control), "HELD")
-                        pending = self.event(observer.stdout, "pending", tid, address)
+                        pending = event("pending", tid, address)
                         live = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
                         self.assertTrue(any(event.get("status") == "pending" and event.get("tid") == tid for event in live))
                         self.assertEqual(pending["pid"], pid)
@@ -130,23 +176,31 @@ class FaultTest(unittest.TestCase):
                         self.assertEqual(line(control), "VALUE Q")
                         self.assertEqual(line(outsider.stdout), "VALUE Q")
                         self.assertEqual(outsider.wait(timeout=10), 0)
-                        completed = self.event(observer.stdout, "completed", tid, address)
+                        completed = event("completed", tid, address)
                         self.assertEqual(completed["entry_ns"], pending["entry_ns"])
                         self.assertEqual(completed["address"], address)
                         self.assertGreaterEqual(completed["duration_ns"], held_until_ns - pending["entry_ns"])
+                        if backpressure == "final":
+                            fill_pipe(write_fd)
                         send("END\n")
-                        finished = self.event(observer.stdout, "finished", None)
+                        finished = event("finished", None)
                         self.assertEqual(finished["command_status"], 37)
                     self.assertEqual(observer.wait(timeout=30), 37)
                     events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
                     self.assertFalse(any(event.get("pid") == outside_pid for event in events))
                     self.assertEqual(events[-1]["command_status"], 37)
+                    if backpressure:
+                        self.assertTrue(any(item.get("status") == "error" and "stdout" in item.get("detail", "") for item in events))
+                        self.assertFalse(any("tracer stream:" in item.get("detail", "") or "stopped while" in item.get("detail", "") for item in events))
                 finally:
                     if control:
                         control.close()
                     if observer.poll() is None:
                         observer.wait(timeout=30)
-                    observer.stdout.close()
+                    if observer.stdout:
+                        observer.stdout.close()
+                    os.close(read_fd)
+                    os.close(write_fd)
                     if outsider:
                         if outsider.poll() is None:
                             outsider.kill()
@@ -215,6 +269,22 @@ class FaultTest(unittest.TestCase):
                 with self.subTest(signal=signum):
                     result = subprocess.run([sys.executable, str(HERE / "observe.py"), "--", sys.executable, "-c", f"import os; os.kill(os.getpid(),{int(signum)})"], env=dict(os.environ, PATH=directory), capture_output=True, text=True, timeout=10)
                     self.assertEqual(result.returncode, -signum)
+
+    def artifact_event(self, path, watch, status, tid, address=None):
+        deadline = time.monotonic() + 30
+        with selectors.DefaultSelector() as selector:
+            selector.register(watch, selectors.EVENT_READ)
+            while True:
+                # Only newline-terminated records have been flushed by publish.
+                for row in path.read_bytes().splitlines(keepends=True):
+                    if not row.endswith(b"\n"):
+                        continue
+                    item = json.loads(row)
+                    if item.get("status") == status and item.get("tid") == tid and (address is None or item.get("address") == address):
+                        return item
+                if not selector.select(max(0, deadline - time.monotonic())):
+                    self.fail(f"artifact missing {status} for {tid}: {path.read_text()}")
+                os.read(watch, 65536)
 
     def event(self, stream, status, tid, address=None):
         while True:
