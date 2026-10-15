@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import tokenStyles from "../tokens.css?inline";
+import tokenStyles from "../tokens.css?raw";
 import appStyles from "../styles.css?inline";
 import stripStyles from "./strip.styles.css?inline";
 import buttonStyles from "../buttons.css?inline";

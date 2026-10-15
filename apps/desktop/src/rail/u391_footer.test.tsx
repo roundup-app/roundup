@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import railCss from "./styles.css?inline";
 import buttonCss from "../buttons.css?inline";
