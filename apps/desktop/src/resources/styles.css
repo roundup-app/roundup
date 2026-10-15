@@ -32,10 +32,6 @@
   flex: none;
 }
 
-.resource-project {
-  flex: none;
-}
-
 .resource-stale {
   color: var(--text);
 }
@@ -47,11 +43,9 @@
   gap: var(--space-1);
 }
 
-/* U469: tabular figures reserve the densest sample so digits never shift Terminal controls. */
+/* U444: tabular figures keep digits steady without opening the icon gap. */
 .resource-num {
   font-variant-numeric: tabular-nums;
-  min-width: 7ch;
-  text-align: right;
 }
 
 /* The name is for a screen reader; the icon speaks to the eye. */
@@ -64,7 +58,7 @@
   white-space: nowrap;
 }
 
-/* Both resource groups fit beside long Terminal names without changing the bar's height. */
+/* Selected-Agent resources fit beside long Terminal names without changing the bar's height. */
 .terminal-tabs-host {
   grid-column: 1;
   grid-row: 1 / -1;
@@ -72,18 +66,12 @@
 
 .resource-agent {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 1 / -1;
 }
 
 .resource-stale {
   grid-column: 3;
-  grid-row: 1;
-}
-
-.resource-project {
-  grid-column: 2 / -1;
-  grid-row: 2;
-  justify-self: end;
+  grid-row: 1 / -1;
 }
 
 /* A wide Rail and Drawer can leave a narrow centre; units may wrap instead of clipping. */
@@ -100,10 +88,6 @@
 
   .resource-strip > span {
     gap: var(--space-1);
-  }
-
-  .resource-num {
-    min-width: 0;
   }
 }
 
