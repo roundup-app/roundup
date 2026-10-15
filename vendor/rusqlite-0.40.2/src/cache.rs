@@ -1,7 +1,7 @@
 //! Prepared statements cache for faster execution.
 
 use crate::raw_statement::RawStatement;
-use crate::{Connection, PrepFlags, Result, Statement};
+use crate::{Connection, Params, PrepFlags, Result, Rows, Statement};
 use hashlink::LruCache;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
@@ -37,6 +37,95 @@ impl Connection {
     #[inline]
     pub fn prepare_cached(&self, sql: &str) -> Result<CachedStatement<'_>> {
         self.cache.get(self, sql)
+    }
+
+    /// Execute a cached statement and inspect its fresh rows within `read`.
+    ///
+    /// Unlike `prepare_cached`, a warm statement stays in its bounded LRU entry:
+    /// no entry removal or reinsertion is needed. Bindings are cleared and the
+    /// statement is reset on return, callback error, or unwinding. Cache capacity
+    /// zero prepares an uncached statement. Eviction and flushing still apply.
+    /// The exclusive connection borrow prevents reentrant cache access; neither
+    /// rows nor a borrowed statement can escape the callback. Only compiled SQL
+    /// is retained, never query results. Existing `prepare_cached` is unchanged.
+    ///
+    /// Preparation and parameter-binding errors are returned before `read` runs.
+    /// Stepping errors are reported by `Rows::next` inside `read`.
+    ///
+    /// ```
+    /// # use rusqlite::{Connection, Result};
+    /// # fn main() -> Result<()> {
+    /// let mut db = Connection::open_in_memory()?;
+    /// let value = db.with_cached_rows("SELECT ?1", [7], |rows| {
+    ///     rows.next()?.unwrap().get::<_, i64>(0)
+    /// })??;
+    /// assert_eq!(value, 7);
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use rusqlite::Connection;
+    /// let mut db = Connection::open_in_memory().unwrap();
+    /// let rows = db.with_cached_rows("SELECT 1", [], |rows| rows);
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use rusqlite::Connection;
+    /// let mut db = Connection::open_in_memory().unwrap();
+    /// db.with_cached_rows("SELECT 1", [], |_| db.flush_prepared_statement_cache());
+    /// ```
+    ///
+    /// ```compile_fail
+    /// # use rusqlite::Connection;
+    /// let mut db = Connection::open_in_memory().unwrap();
+    /// db.with_cached_rows("SELECT 1", [], |rows| {
+    ///     std::thread::scope(|scope| { scope.spawn(move || { let _ = rows.next(); }); });
+    /// });
+    /// ```
+    pub fn with_cached_rows<T, P: Params>(
+        &mut self,
+        sql: &str,
+        params: P,
+        read: impl FnOnce(&mut Rows<'_>) -> T,
+    ) -> Result<T> {
+        // #1947: checkout/return medians total 721–911 ns on the R16 7763
+        // fixture. Keep the existing bounded entry while executing fresh SQL.
+        let sql = sql.trim();
+        if self.cache.0.borrow().capacity() == 0 {
+            let mut stmt = self.prepare_with_flags(sql, PrepFlags::SQLITE_PREPARE_PERSISTENT)?;
+            return Ok(read(&mut stmt.query(params)?));
+        }
+        if !self.cache.0.borrow().contains_key(sql) {
+            let mut stmt = self.prepare_cached(sql)?;
+            if stmt.stmt.as_ref().unwrap().stmt.is_null() {
+                return Ok(read(&mut stmt.query(params)?));
+            }
+            drop(stmt);
+        }
+        let mut cache = self.cache.0.borrow_mut();
+        let slot = cache
+            .get_mut(sql)
+            .expect("cached statement was just prepared");
+        // SAFETY: the null placeholder owns no SQLite resource. The guard swaps
+        // the real statement back before releasing the cache borrow, even on panic.
+        let mut stmt = Statement::new(self, unsafe { RawStatement::new(std::ptr::null_mut()) });
+        std::mem::swap(&mut stmt.stmt, slot);
+        struct Restore<'a, 'conn> {
+            stmt: Statement<'conn>,
+            slot: &'a mut RawStatement,
+        }
+        impl Drop for Restore<'_, '_> {
+            fn drop(&mut self) {
+                if !self.stmt.stmt.is_null() {
+                    self.stmt.stmt.reset();
+                    self.stmt.clear_bindings();
+                }
+                std::mem::swap(&mut self.stmt.stmt, self.slot);
+            }
+        }
+        let mut guard = Restore { stmt, slot };
+        let mut rows = guard.stmt.query(params)?;
+        Ok(read(&mut rows))
     }
 
     /// Set the maximum number of cached prepared statements this connection
@@ -275,6 +364,194 @@ mod test {
             next.raw_query().next()?.unwrap().get::<_, Option<i64>>(0)?,
             None
         );
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_rebind_and_execute_fresh() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        db.execute_batch("CREATE TABLE owner (id INTEGER); INSERT INTO owner VALUES (7)")?;
+        for expected in [7, 9] {
+            db.execute("UPDATE owner SET id = ?1", [expected])?;
+            let actual =
+                db.with_cached_rows("SELECT id FROM owner WHERE id = ?1", [expected], |rows| {
+                    rows.next()?.unwrap().get::<_, i64>(0)
+                })??;
+            assert_eq!(actual, expected);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_retain_compilation_until_flush() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        for runs in [1, 2] {
+            let actual = db.with_cached_rows("SELECT 7", [], |rows| -> Result<i32> {
+                rows.next()?;
+                Ok(rows
+                    .as_ref()
+                    .unwrap()
+                    .get_status(crate::StatementStatus::Run))
+            })??;
+            assert_eq!(actual, runs);
+        }
+        db.flush_prepared_statement_cache();
+        let actual = db.with_cached_rows("SELECT 7", [], |rows| -> Result<i32> {
+            rows.next()?;
+            Ok(rows
+                .as_ref()
+                .unwrap()
+                .get_status(crate::StatementStatus::Run))
+        })??;
+        assert_eq!(actual, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_clear_bindings_after_callback_error() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        let failed: Result<()> =
+            db.with_cached_rows("SELECT :id", crate::named_params! { ":id": 7 }, |_| {
+                Err(crate::Error::InvalidQuery)
+            })?;
+        assert!(failed.is_err());
+        let value =
+            db.with_cached_rows("SELECT :id", &[] as &[(&str, &dyn crate::ToSql)], |rows| {
+                rows.next()?.unwrap().get::<_, Option<i64>>(0)
+            })??;
+        assert_eq!(value, None);
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_recover_after_binding_failure() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        assert!(db
+            .with_cached_rows(
+                "SELECT :id",
+                crate::named_params! { ":id": 7, ":bad": 8 },
+                |_| { panic!("binding failure must not invoke callback") }
+            )
+            .is_err());
+        let value =
+            db.with_cached_rows("SELECT :id", &[] as &[(&str, &dyn crate::ToSql)], |rows| {
+                rows.next()?.unwrap().get::<_, Option<i64>>(0)
+            })??;
+        assert_eq!(value, None);
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_recover_after_unwind() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = db.with_cached_rows(
+                "SELECT :id UNION ALL SELECT 8",
+                crate::named_params! { ":id": 7 },
+                |rows| {
+                    assert!(rows.next().unwrap().is_some());
+                    panic!("callback failed with an active reader")
+                },
+            );
+        }));
+        assert!(panic.is_err());
+        let value = db.with_cached_rows(
+            "SELECT :id UNION ALL SELECT 8",
+            &[] as &[(&str, &dyn crate::ToSql)],
+            |rows| rows.next()?.unwrap().get::<_, Option<i64>>(0),
+        )??;
+        assert_eq!(value, None);
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_recover_after_schema_error() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        db.execute_batch("CREATE TABLE owner (id INTEGER); INSERT INTO owner VALUES (7)")?;
+        let query = "SELECT id FROM owner";
+        assert_eq!(
+            db.with_cached_rows(query, [], |r| r.next()?.unwrap().get::<_, i64>(0))??,
+            7
+        );
+        db.execute_batch("DROP TABLE owner")?;
+        assert!(db
+            .with_cached_rows(query, [], |r| r.next().map(|_| ()))?
+            .is_err());
+        db.execute_batch("CREATE TABLE owner (id INTEGER); INSERT INTO owner VALUES (9)")?;
+        assert_eq!(
+            db.with_cached_rows(query, [], |r| r.next()?.unwrap().get::<_, i64>(0))??,
+            9
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_empty_sql_does_not_require_a_cache_entry() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        for query in ["", " ", "-- no statement"] {
+            db.with_cached_rows(query, [], |_| ())?;
+        }
+        assert_eq!(
+            db.with_cached_rows("SELECT 7", [], |r| r.next()?.unwrap().get::<_, i64>(0))??,
+            7
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_prepare_failure_does_not_invoke_callback() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        assert!(db
+            .with_cached_rows("SELECT FROM", [], |_| panic!(
+                "invalid SQL must not invoke callback"
+            ))
+            .is_err());
+        assert_eq!(
+            db.with_cached_rows("SELECT 7", [], |r| r.next()?.unwrap().get::<_, i64>(0))??,
+            7
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_connection_remains_send() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        db.with_cached_rows("SELECT ?1", [7], |_| ())?;
+        let db = std::thread::spawn(move || -> Result<Connection> {
+            assert_eq!(
+                db.with_cached_rows("SELECT ?1", [9], |r| r.next()?.unwrap().get::<_, i64>(0))??,
+                9
+            );
+            Ok(db)
+        })
+        .join()
+        .unwrap()?;
+        db.close().unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn r16_cached_rows_obey_capacity_eviction_and_flush() -> Result<()> {
+        let mut db = Connection::open_in_memory()?;
+        for capacity in [0, 1] {
+            db.set_prepared_statement_cache_capacity(capacity);
+            for flush in [false, true] {
+                db.with_cached_rows("SELECT ?1", [7], |_| ())?;
+                if flush {
+                    db.flush_prepared_statement_cache();
+                } else {
+                    db.with_cached_rows("SELECT 2", [], |_| ())?;
+                }
+                assert!(db.cache.len() <= capacity);
+                assert_eq!(
+                    db.with_cached_rows("SELECT ?1", [9], |r| r
+                        .next()?
+                        .unwrap()
+                        .get::<_, i64>(0))??,
+                    9
+                );
+            }
+        }
         Ok(())
     }
 

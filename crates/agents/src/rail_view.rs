@@ -162,7 +162,7 @@ impl Agents {
         terminal: &str,
         record: impl FnOnce(Option<&TerminalOwner>) -> Result<R, RpcError>,
     ) -> Result<R, RpcError> {
-        let rail = self.shared.rail();
+        let mut rail = self.shared.rail();
         let runs = self.shared.runs();
         let owner = rail.terminal_owner(terminal)?.map(|(id, attempt)| {
             let (status_revision, ended) = match runs.get(&id) {
@@ -591,6 +591,32 @@ mod tests {
             })
             .unwrap();
     }
+    #[test]
+    fn r16_owner_read_recovers_after_row_conversion_error() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        shared
+            .rail()
+            .insert(NodeKind::Agent, "receiver", None, Some("terminal"))
+            .unwrap();
+        let agents = owner_agents(shared, dir.path());
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute("UPDATE nodes SET attempt = 'invalid'", [])
+            .unwrap();
+        let error = agents
+            .with_terminal_owner("terminal", |_| -> Result<(), rpc::RpcError> {
+                panic!("a failed owner conversion must not record input")
+            })
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        db.execute("UPDATE nodes SET attempt = 9", []).unwrap();
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert_eq!(owner.unwrap().attempt.as_deref(), Some("9"));
+                Ok(())
+            })
+            .unwrap();
+    }
+
     #[test]
     fn b32_recording_failure_releases_lifecycle_locks() {
         let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));

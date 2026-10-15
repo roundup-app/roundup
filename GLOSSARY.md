@@ -54,6 +54,9 @@ _Avoid_: process, console
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
+**Cached rows** (`Connection::with_cached_rows`):
+A scoped fresh SQL execution using a compiled statement in rusqlite's bounded cache. Its exclusive Connection borrow keeps rows inside the callback; reset and binding cleanup precede return. It retains no owner facts.
+
 **Bubble**:
 How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
 _Avoid_: overlay, popup

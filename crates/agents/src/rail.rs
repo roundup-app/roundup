@@ -147,7 +147,7 @@ impl Rail {
 
     /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
     pub fn terminal_owner(
-        &self,
+        &mut self,
         terminal: &str,
     ) -> Result<Option<(String, Option<String>)>, RpcError> {
         // R16 owner-read attribution: preparation costs 11.0–11.5 µs of 18.7–19.6 µs
@@ -158,28 +158,26 @@ impl Rail {
         // Rust stops at the second row, so SQL needs no limit counter. IS avoids
         // a NULL-parameter branch for bound &str; the explicit predicate keeps
         // the partial covering index and excludes unattached rows.
-        let mut query = self
-            .db
-            .prepare_cached(
+        self.db
+            .with_cached_rows(
                 "SELECT id, attempt FROM nodes WHERE terminal_id IS ? AND terminal_id IS NOT NULL",
+                [terminal],
+                |rows| {
+                    let Some(row) = rows.next().map_err(sql)? else {
+                        return Ok(None);
+                    };
+                    let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
+                    let attempt = match row.get::<_, i64>(1).map_err(sql)? {
+                        0 => None,
+                        n => Some(n.to_string()),
+                    };
+                    if rows.next().map_err(sql)?.is_some() {
+                        return Err(RpcError::conflict("Terminal has more than one receiver"));
+                    }
+                    Ok(Some((id, attempt)))
+                },
             )
-            .map_err(sql)?;
-        // The fixed SQL has one positional parameter. Bind it directly rather than
-        // asking SQLite to recount parameters on every fresh owner read.
-        query.raw_bind_parameter(1, terminal).map_err(sql)?;
-        let mut rows = query.raw_query();
-        let Some(row) = rows.next().map_err(sql)? else {
-            return Ok(None);
-        };
-        let id = row.get::<_, i64>(0).map_err(sql)?.to_string();
-        let attempt = match row.get::<_, i64>(1).map_err(sql)? {
-            0 => None,
-            n => Some(n.to_string()),
-        };
-        if rows.next().map_err(sql)?.is_some() {
-            return Err(RpcError::conflict("Terminal has more than one receiver"));
-        }
-        Ok(Some((id, attempt)))
+            .map_err(sql)?
     }
 
     /// Every node, each parent before its children, siblings by `order`.
