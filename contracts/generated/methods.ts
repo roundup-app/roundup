@@ -62,6 +62,7 @@ import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
 import type { Opened as terminal_Opened } from "./terminal/Opened";
 import type { Read as terminal_Read } from "./terminal/Read";
 import type { ReadParams as terminal_ReadParams } from "./terminal/ReadParams";
+import type { ResizeAction as terminal_ResizeAction } from "./terminal/ResizeAction";
 import type { ResizeParams as terminal_ResizeParams } from "./terminal/ResizeParams";
 import type { Screen as terminal_Screen } from "./terminal/Screen";
 import type { Search as terminal_Search } from "./terminal/Search";
@@ -94,7 +95,8 @@ export type RpcMethods = {
   "terminal.open": { params: terminal_OpenParams; result: terminal_Opened };
   "terminal.close": { params: terminal_TerminalId; result: null };
   "terminal.write": { params: terminal_WriteParams; result: null };
-  "terminal.resize": { params: terminal_ResizeParams; result: null };
+  "terminal.resize": { params: terminal_ResizeParams; result: terminal_ResizeAction | null };
+  "terminal.resizeHistory": { params: terminal_TerminalId; result: terminal_ResizeAction[] };
   "terminal.kill": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
