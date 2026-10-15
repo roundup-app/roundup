@@ -15,7 +15,9 @@
   background-color: var(--hover);
 }
 
+/* Ark copies the content stack level to its portalled positioner; the Drawer layer is 2. */
 .app-tooltip {
+  z-index: 3;
   padding: var(--space-2);
 }
 
