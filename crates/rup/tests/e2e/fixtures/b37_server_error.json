@@ -1,0 +1,62 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "[decision d1]"
+      },
+      "response": {
+        "content": "Received the Decision note after the server error."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_b37_child_ready"
+      },
+      "response": {
+        "content": "B37 child is ready."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "B37 prepare child",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_b37_child_ready",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"B37 child ready\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>"
+      },
+      "response": {
+        "content": "{\"title\":\"B37 recovery\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "B37 scripted server error",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "error": {
+          "message": "B37 scripted server error",
+          "type": "api_error"
+        },
+        "status": 500
+      }
+    },
+    {
+      "match": {},
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}
