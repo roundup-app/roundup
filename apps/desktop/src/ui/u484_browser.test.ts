@@ -148,7 +148,7 @@ it("u484_scroll_and_stop", async () => {
   expect(await read<boolean>(`document.querySelector('[data-id="8"]').getBoundingClientRect().top < document.querySelector('.sortable-fixture').getBoundingClientRect().bottom`)).toBe(true);
   await browser("press", "Escape");
   await browser("mouse", "up");
-  await browser("wait", "--fn", `document.querySelector('[data-id="1"]').dataset.dragging === 'false'`);
+  await browser("wait", "--fn", `document.querySelector('[data-id="1"]').dataset.dragging === 'false' && document.activeElement?.getAttribute('aria-label') === 'Move 1'`);
   expect(await order()).toEqual(initial);
   expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
   const stopped = () => read<number[]>(`new Promise(resolve => { const samples = []; const sample = () => { samples.push(document.querySelector('.sortable-fixture').scrollTop); if (samples.length === 10) resolve(samples); else requestAnimationFrame(sample); }; requestAnimationFrame(sample); })`);
