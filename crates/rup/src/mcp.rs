@@ -392,6 +392,74 @@ fn agent_spawn() -> Offered {
     )
 }
 
+/// M17: only declared unit replies become acknowledgements; nullable data stays JSON.
+fn success_text(method: &str, params: &Value, result: Value) -> String {
+    let unit = contracts::methods::METHODS
+        .iter()
+        .any(|m| m.name == method && m.result == "null");
+    if !unit {
+        return result.to_string();
+    }
+    let field = |key: &str| match &params[key] {
+        Value::String(text) => text.clone(),
+        value => value.to_string(),
+    };
+    let id = field("id");
+    match method {
+        "decision.answer" => {
+            let answer = if params["answer"].is_null() {
+                field("note")
+            } else {
+                field("answer")
+            };
+            format!("answered Decision {id}: {answer}")
+        }
+        "todo.delete" => format!("deleted Todo {id}"),
+        "pad.delete" => format!("deleted Pad {}", field("name")),
+        "pad.export" => format!("exported Pad {} to {}", field("name"), field("path")),
+        "pad.setStorage" => format!(
+            "{} Pad files",
+            if params["files"] == true {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        ),
+        "agent.stop" => format!("stopped Agent {id}"),
+        "agent.interrupt" => format!("interrupted Agent {id}"),
+        "agent.prompt" => format!("sent prompt to Agent {id}"),
+        "agent.discard" => format!("discarded Worktree of Agent {id}"),
+        "rail.move" => format!(
+            "moved {id} to {}",
+            if params["parent"].is_null() {
+                "Project root".into()
+            } else {
+                field("parent")
+            }
+        ),
+        "project.setWorktrees" => format!(
+            "{} Worktrees",
+            if params["on"] == true {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        ),
+        "project.open" => format!("requested opening Project {}", field("path")),
+        "project.rename" => format!("requested renaming Project to {}", field("name")),
+        "terminal.close" => format!("closed Terminal {id}"),
+        "terminal.kill" => format!("stopped Terminal {id}"),
+        "terminal.write" => format!("wrote to Terminal {id}"),
+        "terminal.resize" => format!(
+            "resized Terminal {id} to {} by {}",
+            field("cols"),
+            field("rows")
+        ),
+        "workstream.handoff" => format!("handed off Workstream {id}"),
+        _ => format!("accepted {}", method.replace('.', " ")),
+    }
+}
+
 struct Shim {
     socket: PathBuf,
     actor: Actor,
@@ -479,7 +547,7 @@ impl Shim {
         &self,
         offer: &Offered,
         arguments: Option<JsonObject>,
-    ) -> Result<Result<Value, RpcError>, Gone> {
+    ) -> Result<Result<String, RpcError>, Gone> {
         let params = match (offer.takes_params, offer.own_id, arguments) {
             (false, true, _) => serde_json::json!({ "id": self.actor.id }),
             (true, true, arguments) => {
@@ -492,10 +560,14 @@ impl Shim {
         };
         let client = self.connect().await?;
         if offer.waits_for_user {
-            return Ok(client.request(offer.method, params).await);
+            return Ok(client
+                .request(offer.method, params)
+                .await
+                .map(|result| result.to_string()));
         }
-        tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, params))
+        tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params))
             .await
+            .map(|reply| reply.map(|result| success_text(offer.method, &params, result)))
             .map_err(|_| Gone::Silent)
     }
 }
@@ -535,9 +607,7 @@ impl ServerHandler for Shim {
                 ErrorData::invalid_params(format!("no tool named {}", request.name), None)
             })?;
         match self.call(offer, request.arguments).await {
-            Ok(Ok(result)) => {
-                Ok(CallToolResult::success(vec![ContentBlock::text(result.to_string())]).into())
-            }
+            Ok(Ok(result)) => Ok(CallToolResult::success(vec![ContentBlock::text(result)]).into()),
             Ok(Err(err)) => {
                 let body = serde_json::to_string(&err)
                     .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;

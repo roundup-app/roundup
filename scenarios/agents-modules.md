@@ -2,9 +2,9 @@
 
 **AM1 Agent responsibilities own their implementation and private state.**
 
-Given the `agents` crate after the Agent store (#1617) and Worktree removal
-implementation (#1635), reorganise `crates/agents/src/lib.rs` without changing
-behaviour or its public Rust interface. This is a refactor of existing machinery;
+Given the AM1 specification (#1643), Agent store (#1617) and Worktree removal
+implementation (#1635) prerequisites closed as completed, reorganise
+`crates/agents/src/lib.rs` without changing behaviour or its public Rust interface. This is a refactor of existing machinery;
 it introduces no parser, protocol, store, library dependency or public name.
 
 Then:
