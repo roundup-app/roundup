@@ -61,9 +61,12 @@ export type ChromePage = {
 
 export const openPage = async (
   found: string,
-  { root = process.cwd(), clock, replyMs = 20_000 }: { root?: string; clock?: number; replyMs?: number } = {},
+  { root = process.cwd(), clock, replyMs = 20_000, observe }: { root?: string; clock?: number; replyMs?: number; observe?: (stage: string, elapsedMs: number) => void } = {},
 ): Promise<ChromePage> => {
   const startup = performance.now();
+  const completed = (stage: string) => observe?.(stage, performance.now() - startup);
+
+  completed("executable-reading");
 
   if (process.platform === "linux") {
     // U26's private cold executable at 100 read IOPS exhausts 20 s on
@@ -76,11 +79,15 @@ export const openPage = async (
     await finished(executable);
   }
 
+  completed("executable-read");
+
   // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
   const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
 
   await server.listen();
+
+  completed("server-listening");
 
   const origin = (server.resolvedUrls?.local[0] ?? "").replace(/\/$/, "");
   const profile = mkdtempSync(join(tmpdir(), "chrome-page-"));
@@ -115,6 +122,8 @@ export const openPage = async (
       },
     },
   );
+
+  completed("launched");
 
   let diagnostics = "";
 
@@ -314,7 +323,9 @@ export const openPage = async (
 
   try {
     targetId = (await send<{ targetId: string }>("Target.createTarget", { url: "about:blank" })).targetId;
+    completed("target-created");
     await attach();
+    completed("page-ready");
   } catch (error) {
     // A failed startup must not leave Chromium competing with the next test file.
     await close();
