@@ -53,6 +53,8 @@ lint-web:
     loop/rules.sh scenario-ids
     test -z "$(find .claude/skills -xtype l)"
     pnpm lint
+    pnpm lint:styles
+    pnpm tokens:check
     pnpm typecheck
     pnpm slop
     just packages typecheck
