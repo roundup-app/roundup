@@ -22,7 +22,11 @@ export const Layout = (props: {
   /** U389, U390: the Rail's and Shelf's widths; without them the Tokens' defaults apply and no Resize edge shows. */
   widths?: Widths;
   overlay: JSX.Element;
-  /** U491 / #2003: spread useSplitter().getRootProps() on root and getPanelProps()
+  /** U491 / #2003: an existing edge can find its host with
+   * closest('[data-layout-root]') and its panels with [data-layout-panel].
+   * These markers also exist without splitter props, so a shared adapter needs
+   * no App caller change or App class selector to bind the current Layout.
+   * For declarative binding, spread useSplitter().getRootProps() on root and getPanelProps()
    * on rail/centre/shelf. All three owned panels are descendants of the measured
    * window root, including the absolute Shelf. Do not use an edge as the root.
    * Layout discards library flex styles, refs, classes and children: CSS grid,
@@ -75,14 +79,14 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div {...binding("root")} class="window" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div class="content-actions">{props.contentActions}</div>
     <div class="columns" onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
-      <section {...binding("rail")} class="rail" aria-label={copy.rail}>
+      <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section {...binding("centre")} class="centre" aria-label={copy.centreRegion}>
+      <section {...binding("centre")} class="centre" data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -94,6 +98,7 @@ export const Layout = (props: {
     <section
       {...binding("shelf")}
       class="shelf"
+      data-layout-panel="shelf"
       aria-label={copy.shelfLabel}
       data-open={placement().shown}
       data-animated={placement().animated}

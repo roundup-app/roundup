@@ -108,6 +108,21 @@ export const mount = () => {
   try {
     await server.listen();
     await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+    await browser("set", "viewport", "1280", "800");
+    await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
+
+    const defaultHost = JSON.parse(await browser("--json", "eval", `(() => {
+      const root = document.querySelector('[data-layout-root]');
+      if (!root) return null;
+      return {
+        width: root.getBoundingClientRect().width,
+        panels: [...root.querySelectorAll('[data-layout-panel]')].map(el => el.dataset.layoutPanel),
+        edges: [...root.querySelectorAll('[role=separator]')].filter(el => el.closest('[data-layout-root]') === root).length,
+      };
+    })()`));
+
+    expect(defaultHost.data.result).toEqual({ width: 1280, panels: ["rail", "centre", "shelf"], edges: 2 });
+
     await browser("eval", "(async () => { await document.fonts.ready; (await import('/u491-host.js')).mount(); })()");
 
     for (const width of [1280, 1440]) {
