@@ -619,9 +619,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 
 
 BAR = 'elegant, well designed and tasteful. That is the bar'
-# L103: a reject's finding, either of a check of `docs/design-system.md` or of the bar where no check reaches. What a
-# finding saw may hold commas, as `rgba(0,0,0,0.1)` does, so only the element is comma-free.
-FINDING = re.compile(r'^(rule \S+, scenario \S+, step [^,]+, \S.*|bar, [^,]+, \S.*, \S.*)$')
+# L103: a reject posts as the critic wrote it, up to this many characters.
+CRITIC_CAP = 6000
 
 
 def touches_desktop(pr):
@@ -648,14 +647,19 @@ def critic_task(pr, head):
              'viewports of `.agents/data/harness.md`. Nothing the author wrote counts as intent (rule 5).']
     earlier = [c['body'] for c in orders.marked(pr, 'CRITIC:')]
     if earlier:
-        lines += ['\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
+        last = orders.field(earlier[-1], 'Head', '')
+        lines += ['\nThis is a later round (`.agents/design-critic.md`, Later rounds): judge the earlier findings below and '
+                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only.',
+                  '\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 
 def critic_post(pr, head, critic, answer, ran, run_url):
     """Publish a design critic's answer on `head` (L103): a `CRITIC:` comment and the `critic` status; a reject on a
     Builder PR starts a fix run with cause `critic`. A run whose model did no work (`ran` false) leaves `critic` pending
-    for pick to rerun. False when a run that worked holds no verdict, or a reject with no finding of FINDING's shape."""
+    for pick to rerun. A reject posts its findings text as written, capped at CRITIC_CAP characters, and starts the fix run
+    even when no line has the shape the prompt asks for. False when a run that worked holds no verdict, or a reject with
+    no text."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own critic run')
@@ -667,11 +671,14 @@ def critic_post(pr, head, critic, answer, ran, run_url):
     if verdict not in ('approve', 'reject') and not ran:
         status(head, 'pending', 'The critic run did no model work; the next build pick reruns it', run_url, 'critic')
         return True
-    if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(FINDING.match(line) for line in findings)):
+    if verdict not in ('approve', 'reject') or (verdict == 'reject' and not any(line.strip() for line in findings)):
         status(head, 'error', 'The critic run gave no usable verdict', run_url, 'critic')
         flag(pr, f'The critic run {run_url} gave no usable verdict on {head}; rerun it from that page.')
         return False
-    comment(pr, f'CRITIC: {verdict}\nHead: {head}\n\n' + '\n'.join(findings) + f'\n\nReviewed-by-Agent: {critic}')
+    text = '\n'.join(findings)
+    if len(text) > CRITIC_CAP:
+        text = text[:CRITIC_CAP].rstrip() + '\n[cut: the critic wrote more than ' + str(CRITIC_CAP) + ' characters]'
+    comment(pr, f'CRITIC: {verdict}\nHead: {head}\n\n' + text + f'\n\nReviewed-by-Agent: {critic}')
     status(head, 'success' if verdict == 'approve' else 'failure', f'The critic run answered {verdict}', run_url, 'critic')
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
         dispatch_fix(pr, head, 'critic')

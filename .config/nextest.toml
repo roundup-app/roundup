@@ -17,7 +17,8 @@ filter = '''
 threads-required = 'num-test-threads'
 priority = 100
 
-# L89: the Mac lane runs only the tests that take a macOS path (`target_os = "macos"`); Linux runs the whole suite.
+# L89: the Mac lane runs only the tests that take a macOS path (`target_os = "macos"`) and B6's cleanup_completion
+# tests, whose Terminal exit confirmation differs by host PTY; Linux runs the whole suite.
 [profile.mac]
 default-filter = '''
 (package(pads) & test(=p5_a_code_point_apfs_refuses_is_invalid_params))
@@ -26,6 +27,7 @@ default-filter = '''
 | (package(desktop) & test(/^open::tests::u(365|429)_/))
 | (package(rup) & binary(project_data) & test(=n1_fallback_uses_a_nested_temporary_home))
 | (package(rupd) & test(/::n1_the_default_data_folder_is_the_apps$/))
+| (package(rupd) & binary(b6_prompt_identity) & test(/^cleanup_completion::/))
 '''
 
 # E14: a real Claude uses up to 370 MB; bound the tests sharing these runners.
