@@ -217,7 +217,7 @@ export const openPage = async (
     if (failure !== undefined) return Promise.reject(new Error(`${method}: ${failure}`));
 
     const id = ++next;
-    const started = method === "Target.createTarget" ? startup : Date.now();
+    const started = id === 1 ? startup : Date.now();
     // Preparation consumes the same startup budget; it cannot hide a stall
     // before a fresh 20-second Target.createTarget timer starts.
     const budget = Math.max(0, replyMs - (Date.now() - started));

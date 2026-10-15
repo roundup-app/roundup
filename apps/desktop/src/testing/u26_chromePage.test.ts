@@ -2,7 +2,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 
 // A fake browser that never answers needs no 20 s wait to prove the timeout's report.
@@ -77,6 +77,33 @@ try {
     rmSync(dir, { recursive: true, force: true });
   }
 }, 90_000);
+
+it("u26_later_page_loads_keep_their_own_reply_budget", async () => {
+  const found = chromePath();
+
+  if (!found) throw new Error("U26 requires isolated Chromium");
+
+  const dir = mkdtempSync(join(tmpdir(), "u26-reload-"));
+
+  writeFileSync(join(dir, "index.html"), "<!doctype html><p>fresh document</p>");
+
+  try {
+    const page = await openPage(found, { root: dir });
+    // Advance the host wall clock beyond startup without sleeping or changing
+    // Chrome's document clock. A later load must still create its fresh tab.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+
+    try {
+      await page.load("/", 1280, 800);
+      expect(await page.call<string>("() => document.querySelector('p').textContent")).toBe("fresh document");
+    } finally {
+      clock.mockRestore();
+      await page.close();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 30_000);
 
 it("u26_a_failed_page_start_releases_its_browser", async () => {
   const dir = mkdtempSync(join(tmpdir(), "u26-browser-"));
