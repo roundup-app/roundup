@@ -27,6 +27,7 @@ const Root = (props: RootProps) => {
         // Idle precedes the library replacing its placeholder; focus after that replacement.
         queueMicrotask(() => {
           stopRestoringFocus?.();
+
           if (handle.isConnected) handle.focus();
         });
       });

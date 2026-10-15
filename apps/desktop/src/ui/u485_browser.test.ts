@@ -72,31 +72,41 @@ it("u485_rendered_checks", async () => {
         await browser("wait", "--fn", `document.querySelector('[data-id=Alpha]').getAttribute('aria-expanded') === 'true'`);
         await browser("press", "ArrowRight");
         await browser("wait", "--fn", `document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === 'Beta'`);
-        if (!baseline) expect(await read<string>(`getComputedStyle(document.activeElement).outlineStyle`)).toBe("solid");
+
+        if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineWidth, s.outlineOffset]; })()`)).toEqual(["solid", "2px", "1px"]);
+
         if (surface === "tree-pressed") {
           await browser("click", "button[data-button=quiet]");
           await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').getAttribute('aria-selected') === 'true'`);
           const point = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('#label-Delta').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
           await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
           await browser("mouse", "down");
+
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Alpha]')).backgroundColor`)).toBe("rgba(0, 0, 0, 0)");
+
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Delta]')).backgroundColor`)).toBe(scheme === "light" ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.16)");
         }
       } else {
         await browser("wait", "--fn", `document.querySelectorAll('.sortable-row').length === 40`);
         await browser("focus", '[aria-label="Move 12"]');
         await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 0`);
+
         if (!baseline) expect(await read<boolean>(`(() => { const handle = document.activeElement.getBoundingClientRect(); const box = document.querySelector('.sortable-fixture').getBoundingClientRect(); return handle.left - 3 >= box.left; })()`)).toBe(true);
+
         if (surface === "keyboard-held") await browser("press", "Space");
+
         if (surface === "pointer-held") {
           const point = await read<{ x: number; y: number }>(`(() => { const r = document.activeElement.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
           await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
           await browser("mouse", "down");
           await browser("mouse", "move", String(Math.round(point.x + 20)), String(Math.round(point.y + 16)));
         }
+
         if (surface.endsWith("held")) {
           await browser("wait", "--fn", `!!document.querySelector('[data-dnd-dragging]')`);
+
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundColor`)).toBe(scheme === "light" ? "rgb(255, 255, 255)" : "rgb(28, 28, 30)");
+
           if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth]; })()`)).toEqual(["visible", "solid", "1px"]);
         }
       }
@@ -112,7 +122,9 @@ it("u485_rendered_checks", async () => {
       }
 
       if (surface === "pointer-held" || surface === "tree-pressed") await browser("mouse", "up");
+
       if (surface === "keyboard-held") await browser("press", "Escape");
+
       if (!baseline) for (const id of CHECK_IDS) expect(checks[id], `${surface} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
     }
   }
