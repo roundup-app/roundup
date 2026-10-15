@@ -210,19 +210,38 @@ mod x14_daemon_observer {
         }
 
         async fn finish(&self) -> Result<(), Error> {
-            timeout(BOUND, self.daemon.stop_terminals()).await??;
-            let terminals = self.call("terminal.list", Value::Null).await?;
-            let terminals = terminals.as_array().ok_or("Terminal list is an array")?;
-            for id in &self.terminals {
-                let terminal = terminals
-                    .iter()
-                    .find(|terminal| terminal["id"] == *id)
-                    .ok_or("fixture Terminal missing from shutdown observation")?;
-                if terminal["running"] != false {
-                    return Err(format!("fixture Terminal {id} survived shutdown").into());
+            let (mut exits, _) = self.daemon.subscribe();
+            timeout(BOUND, async {
+                self.daemon.stop_terminals().await?;
+                loop {
+                    let terminals = self.call("terminal.list", Value::Null).await?;
+                    let terminals = terminals.as_array().ok_or("Terminal list is an array")?;
+                    let mut stopped = true;
+                    for id in &self.terminals {
+                        let terminal = terminals
+                            .iter()
+                            .find(|terminal| terminal["id"] == *id)
+                            .ok_or("fixture Terminal missing from shutdown observation")?;
+                        stopped &= terminal["running"] == false;
+                    }
+                    if stopped {
+                        return Ok::<(), Error>(());
+                    }
+                    // Reaping precedes the pump's exit record. Subscribe before stopping so
+                    // that record cannot fall between the list and this wait.
+                    match exits.recv().await {
+                        Ok(_) | Err(RecvError::Lagged(_)) => {}
+                        Err(RecvError::Closed) => return Err("shutdown observation closed".into()),
+                    }
                 }
-            }
-            Ok(())
+            })
+            .await
+            .map_err(|error| {
+                format!(
+                    "fixture Terminal exit metadata was not confirmed for {:?}: {error}",
+                    self.terminals
+                )
+            })?
         }
     }
 
