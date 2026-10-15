@@ -30,7 +30,7 @@ impl Run {
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, time, tty
+import json, os, socket, subprocess, sys, threading, time, tty
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -56,6 +56,16 @@ pending = b''
 while True:
     data = os.read(0, 1)
     if not data: break
+    if data == b'\x02':
+        def call():
+            with socket.socket(socket.AF_UNIX) as client:
+                client.connect('rupd.sock')
+                stream = client.makefile('rwb')
+                stream.write(json.dumps(json.load(open('peer-request'))).encode() + b'\n')
+                stream.flush()
+                with open('peer-result', 'w') as result: result.write(stream.readline().decode())
+        threading.Thread(target=call, daemon=True).start()
+        continue
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
     if data != b'\x00': pending += data
     if data == b'\r' and (os.path.isfile('order-submit') or os.path.isfile('decision-notice-fixture')):
@@ -2601,4 +2611,112 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     assert_eq!(message["status"], "held");
     assert_eq!(message["reason"], "takeover");
     run.finish().await;
+}
+
+async fn answer_takeover_race(kind: &str, guarded: bool) {
+    let (run, _) = order_child().await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let door = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["parent"]
+        .clone();
+    let started = run
+        .user
+        .request("rail.startDoor", json!({"id":door}))
+        .await
+        .unwrap();
+    let terminal = started["terminal_id"].clone();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let output = run
+                .user
+                .request("terminal.read", json!({"id":terminal,"after":0}))
+                .await
+                .unwrap();
+            if output["text"].as_str().unwrap().contains("READY") {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let (decision, waiting) = run.open(kind).await;
+    let identity = run.capture(&decision).await;
+    let gate = run.dir.path().join("effect-gate");
+    std::fs::write(&gate, "before").unwrap();
+    let mut params =
+        json!({"id":decision["id"],"answer":if kind == "permission" { "allow" } else { "Yes" }});
+    if guarded {
+        params["identity"] = identity;
+    }
+    std::fs::write(
+        run.dir.path().join("peer-request"),
+        serde_json::to_vec(&json!({
+            "jsonrpc":"2.0", "id":1,"method":"decision.answer",
+            "params":params
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    // The real Door process calls without identify: connection actor defaults to user.
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":terminal,"data":STANDARD.encode(b"\x02")}),
+        )
+        .await
+        .unwrap();
+    run.paused().await;
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    std::fs::remove_file(&gate).unwrap();
+    let result = tokio::time::timeout(BOUND, async {
+        loop {
+            if let Ok(text) = std::fs::read_to_string(run.dir.path().join("peer-result"))
+                && let Ok(value) = serde_json::from_str::<Value>(&text)
+            {
+                break value;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        early.is_err(),
+        "Takeover acquired before the Door answer: {early:?}; {result}"
+    );
+    assert!(result.get("result").is_some(), "{result}");
+    waiting.await.unwrap().unwrap();
+    tokio::time::timeout(BOUND, begin)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    run.user
+        .request("agent.stop", json!({"id":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
+    for kind in ["permission", "ask_user"] {
+        answer_takeover_race(kind, true).await;
+    }
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
+    for kind in ["permission", "ask_user"] {
+        answer_takeover_race(kind, false).await;
+    }
 }
