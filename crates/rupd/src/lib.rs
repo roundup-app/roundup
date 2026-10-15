@@ -385,7 +385,7 @@ impl Daemon {
         }
         if matches!(
             method,
-            "decision.list" | "decision.answer" | "decision.capture"
+            "decision.list" | "decision.answer" | "decision.capture" | "decision.answers"
         ) {
             return self.decision_call(conn, method, params).await;
         }
