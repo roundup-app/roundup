@@ -526,3 +526,151 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
         "both real Claude programs reached the model boundary"
     );
 }
+
+#[tokio::test]
+async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
+    let mut project = daemon::start_real("b37_server_error", &[]);
+    let user = project.client().await;
+    let mut events = project.subscribed().await;
+    let door = user
+        .request("rail.createWorkstream", json!({"name":"B37 supervisor"}))
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    user.request("rail.startDoor", json!({"id":door}))
+        .await
+        .unwrap();
+    next(&mut events, |data| match data {
+        EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Idle => Some(()),
+        _ => None,
+    })
+    .await;
+    let child = user
+        .request(
+            "agent.spawn",
+            json!({"parent":door,"cwd":project.dir.path(),"name":"B37 child"}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    next(&mut events, |data| match data {
+        EventData::AgentStatus(s) if s.id == child && s.status.kind == Kind::Idle => Some(()),
+        _ => None,
+    })
+    .await;
+    // The push window closes on the child's final idle Digest, not its earlier Rail status.
+    next(&mut events, |data| match data {
+        EventData::MessageDelivered(m)
+            if m.to == door && m.body.contains("[digest] B37 child is idle") =>
+        {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    next(&mut events, |data| match data {
+        EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Idle => Some(()),
+        _ => None,
+    })
+    .await;
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let nodes = rail_tree(&user).await;
+            let node = nodes.iter().find(|n| n.id == door).unwrap();
+            if node.status.as_ref().unwrap().kind == Kind::Idle {
+                match user
+                    .request(
+                        "agent.prompt",
+                        json!({"id":door,"text":"B37 scripted server error"}),
+                    )
+                    .await
+                {
+                    Ok(_) => break,
+                    Err(e) if e.code == rpc::code::BUSY => {}
+                    Err(e) => panic!("{e}"),
+                }
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let failed = next(&mut events, |data| match data {
+        EventData::AgentStatus(s) if s.id == door && s.status.kind == Kind::Error => Some(s),
+        _ => None,
+    })
+    .await;
+    assert_eq!(failed.status.label, "server_error");
+    let nodes = rail_tree(&user).await;
+    let live = nodes.iter().find(|n| n.id == door).unwrap();
+    assert!(live.terminal_id.is_some());
+    assert_eq!(live.attempt.as_deref(), Some(failed.attempt.as_str()));
+    let caller = project.client().await;
+    let child_id = child.clone();
+    let permission = tokio::spawn(async move {
+        caller.request("agent.permission", json!({"id":child_id,"payload":{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"echo B37"}}})).await
+    });
+    let decision = next(&mut events, |data| match data {
+        EventData::DecisionOpened(d) if d.agent == child => Some(d),
+        _ => None,
+    })
+    .await;
+    assert_eq!(decision.id, "d1");
+    user.request(
+        "decision.answer",
+        json!({"id":"d1","answer":"allow","proof":"0".repeat(64)}),
+    )
+    .await
+    .unwrap();
+    assert!(permission.await.unwrap().is_ok());
+    next(&mut events, |data| match data {
+        EventData::MessageDelivered(m) if m.to == door && m.body.starts_with("[decision d1]") => {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    next(&mut events, |data| match data {
+        EventData::AgentStatus(s)
+            if s.id == door
+                && s.status.kind == Kind::Idle
+                && s.status_revision != failed.status_revision =>
+        {
+            assert_eq!(s.attempt, failed.attempt);
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    // This observer expects one failed model request; the shared success-only Drop check does not.
+    let model = project.model.take().unwrap();
+    let journal = model.journal();
+    assert_eq!(
+        journal
+            .iter()
+            .filter(|e| e["response"]["status"] == 500)
+            .count(),
+        1,
+        "{journal:#?}"
+    );
+    assert!(
+        journal.iter().all(|e| !e["response"]["fixture"].is_null()),
+        "{journal:#?}"
+    );
+    assert!(
+        journal
+            .iter()
+            .skip_while(|e| e["response"]["status"] != 500)
+            .skip(1)
+            .any(|e| e["response"]["status"] == 200
+                && e["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
+                        && m["content"].to_string().contains("[decision d1]")))),
+        "{journal:#?}"
+    );
+}
