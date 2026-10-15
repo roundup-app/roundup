@@ -89,9 +89,9 @@ it("u26_later_page_loads_keep_their_own_reply_budget", async () => {
 
   try {
     const page = await openPage(found, { root: dir });
-    // Advance the host wall clock beyond startup without sleeping or changing
+    // Advance the host monotonic clock beyond startup without sleeping or changing
     // Chrome's document clock. A later load must still create its fresh tab.
-    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+    const clock = vi.spyOn(performance, "now").mockReturnValue(performance.now() + 60_000);
 
     try {
       await page.load("/", 1280, 800);
