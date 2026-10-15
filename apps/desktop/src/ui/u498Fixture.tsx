@@ -16,11 +16,11 @@ export const u498Fixture = () => {
   const acknowledge = () => requestAnimationFrame(() => { root.dataset.commit = String(++commit); });
 
   onMount(() => {
-    for (const event of ["click", "keydown", "input"]) document.addEventListener(event, acknowledge);
+    for (const event of ["click", "keydown", "input", "pointerover", "pointermove"]) document.addEventListener(event, acknowledge);
     acknowledge();
   });
   onCleanup(() => {
-    for (const event of ["click", "keydown", "input"]) document.removeEventListener(event, acknowledge);
+    for (const event of ["click", "keydown", "input", "pointerover", "pointermove"]) document.removeEventListener(event, acknowledge);
   });
 
   const Draft = (props: { name: "Todos" | "Pads" }) => {
