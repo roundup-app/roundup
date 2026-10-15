@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -12,6 +13,12 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
+
+const stop = (child: ChildProcess) => new Promise<void>((done) => {
+  if (child.exitCode !== null || child.signalCode !== null) return done();
+  child.once("exit", () => done());
+  child.kill();
+});
 
 const doorReady = async (statusOf: () => Promise<Status | null | undefined>, row: () => HTMLElement) => {
   // SessionStart/Stop publish Idle (claude_code/mod.rs); Working can still be the startup prompt.
@@ -102,11 +109,7 @@ it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
       }
     }, { timeout: 10_000 });
   } finally {
-    await Promise.all([door, ...children].map((child) => new Promise<void>((done) => {
-      if (child.exitCode !== null || child.signalCode !== null) return done();
-      child.once("exit", () => done());
-      child.kill();
-    })));
+    await Promise.all([door, ...children].map(stop));
     await rm(dir, { recursive: true, force: true });
   }
 }, 15_000);
@@ -137,11 +140,7 @@ it("u482_kind_launch_acknowledges_the_typed_startup_prompt", async () => {
       expect(submitted.map((event) => event.prompt)).toEqual(["build deterministic startup"]);
     }, { timeout: 10_000 });
   } finally {
-    await new Promise<void>((done) => {
-      if (child.exitCode !== null || child.signalCode !== null) return done();
-      child.once("exit", () => done());
-      child.kill();
-    });
+    await stop(child);
     await rm(dir, { recursive: true, force: true });
   }
 }, 30_000);

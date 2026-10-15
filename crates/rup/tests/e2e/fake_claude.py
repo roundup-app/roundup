@@ -31,12 +31,13 @@ file. What it does comes from the environment, so one script serves every scenar
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
                            the tool call is made only when the Decision was allowed
   FAKE_CLAUDE_KINDS        JSON list of "working", "error", "needs-you", "idle" or "blocked" (U351, U356): the Nth run started with no
-                           `--tools` in its argv (an Agent, not a Door) plays entry N right after SessionStart:
-                           UserPromptSubmit and then wait for stdin to close (working), StopFailure (error), a
+                           `--tools` in its argv (an Agent, not a Door) acknowledges the typed startup prompt
+                           after SessionStart, then plays entry N: wait for stdin to close (working), StopFailure (error), a
                            PermissionRequest waited on as FAKE_CLAUDE_ON_PROMPT_ASK does (needs-you), or Stop
                            (idle), or, for blocked (U356), a Todo made through the MCP server as a blocker and a
                            second Todo waiting on it, then Stop. A run past the list's end plays nothing. The runs are counted in files under
-                           CLAUDE_CONFIG_DIR, as the runs are separate processes
+                           CLAUDE_CONFIG_DIR, as the runs are separate processes. Claims and exhaustion are
+                           recorded in fake-claude-kind-claims.jsonl there, with pid, parent pid and argv
   FAKE_CLAUDE_GATE         a file path: after the played PermissionRequest hook command (which waits for
                            the user's answer, H9) is started, the next event waits until the file exists,
                            as the user's own act in the Terminal (H7a) happens in its own time
