@@ -8,7 +8,8 @@
     "lint": "oxlint",
     "typecheck": "tsc",
     "slop": "fallow dead-code && fallow dupes",
-    "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs"
+    "postinstall": "node node_modules/@anthropic-ai/claude-code/install.cjs",
+    "test:token-integration": "node --test docs/u478-check-integration.test.mjs"
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.300",
