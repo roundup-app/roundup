@@ -2205,3 +2205,69 @@ async fn b6_direct_user_input_does_not_wait_for_a_door_write() {
     assert_eq!(recorded_bytes(&run).await, b"onceuser");
     run.finish().await;
 }
+
+async fn steering_takeover_race(method: &'static str) {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    if method == "agent.interrupt" {
+        run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"UserPromptSubmit","prompt":"working"}})).await.unwrap();
+    }
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let child = run.child.clone();
+    let action = tokio::spawn(async move {
+        caller.request(method, json!({"id":child,"text":"one prompt","order":{"kind":"work","ask":"one order","limits":[]}})).await
+    });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The physical input observer establishes that the action is inside its effect.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    std::fs::remove_file(&gate).unwrap();
+    let outcome = tokio::time::timeout(BOUND, action).await.unwrap().unwrap();
+    assert!(
+        early.is_err(),
+        "Takeover acquired before {method}'s effect: {early:?}"
+    );
+    if method == "agent.interrupt" {
+        assert_eq!(outcome.unwrap_err().code, rpc::code::NOT_ACKED);
+    } else {
+        outcome.unwrap();
+    }
+    tokio::time::timeout(BOUND, begin)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    let bytes = recorded_bytes(&run).await;
+    match method {
+        "agent.prompt" => assert!(bytes.ends_with(b"one prompt\x1b[201~\r")),
+        "agent.setOrder" => assert!(bytes.ends_with(b"one order\x1b[201~\r")),
+        _ => assert_eq!(bytes, b"\x1b"),
+    }
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_prompt_waits_for_the_child_effect() {
+    steering_takeover_race("agent.prompt").await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_order_waits_for_the_child_effect() {
+    steering_takeover_race("agent.setOrder").await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_interrupt_waits_for_the_child_effect() {
+    steering_takeover_race("agent.interrupt").await;
+}
