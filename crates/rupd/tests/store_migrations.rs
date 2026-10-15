@@ -1,7 +1,180 @@
-//! Project migration acceptance now lives in `storage::tests` in `src/storage.rs`:
-//! N16 checks the complete schema and reopened store behavior, N17 checks that old
-//! per-store files never block the open. Per-store N9/N10 tests
-//! continue to check each store's production migrations.
-//!
-//! Retain this retired integration target while L118 freezes the launch inventory
-//! that names it; duplicating those acceptance tests here would violate rule 10.
+//! N20: current standalone stores still write and reopen; no historical fixtures.
+use std::{path::Path, sync::Arc};
+
+use contracts::{Actor, ActorKind, Verb};
+use rpc::{Bus, Ctx, Module};
+use serde_json::{Value, json};
+
+fn agents(dir: &Path, bus: Bus) -> Arc<agents::Agents> {
+    let terminals = Arc::new(terminal::Terminals::open(dir, bus.clone()).unwrap());
+    Arc::new(
+        agents::Agents::open_in(
+            dir,
+            dir,
+            bus,
+            terminals,
+            agents::claude_code::Launcher::new(
+                "unused",
+                dir.join("claude.json"),
+                dir.join("rup"),
+                None,
+            ),
+            agents::worktree::Git::from_env(),
+        )
+        .unwrap(),
+    )
+}
+
+fn module(name: &str, dir: &Path, ctx: &Ctx) -> Arc<dyn Module> {
+    match name {
+        "agents" => agents(dir, ctx.bus.clone()),
+        "todos" => Arc::new(todos::Todos::open(dir, ctx.bus.clone()).unwrap()),
+        "pads" => Arc::new(pads::Pads::open(dir, ctx.bus.clone()).unwrap()),
+        "messages" => Arc::new(
+            messages::Messages::open_with(
+                dir,
+                ctx.bus.clone(),
+                agents(dir, ctx.bus.clone()),
+                Arc::new(|_, _| Box::pin(async { panic!("no delivery expected") })),
+                messages::Env::system(ctx.touches.clone()),
+            )
+            .unwrap(),
+        ),
+        "checkpoints" => Arc::new(checkpoints::Checkpoints::open(dir).unwrap()),
+        _ => unreachable!(),
+    }
+}
+
+#[tokio::test]
+async fn n20_current_store_opens() {
+    // Each case exercises the real store interface and then reads through a fresh open.
+    for (name, write, input, read, params, field, expected) in [
+        (
+            "agents",
+            "rail.createWorkstream",
+            json!({"name":"kept"}),
+            "rail.tree",
+            Value::Null,
+            "name",
+            "kept",
+        ),
+        (
+            "todos",
+            "todo.create",
+            json!({"title":"kept"}),
+            "todo.list",
+            Value::Null,
+            "title",
+            "kept",
+        ),
+        (
+            "pads",
+            "pad.create",
+            json!({"name":"kept","text":"payload"}),
+            "pad.list",
+            Value::Null,
+            "text",
+            "payload",
+        ),
+        (
+            "messages",
+            "message.send",
+            json!({"to":"you","kind":"note","body":"kept"}),
+            "message.list",
+            json!({}),
+            "body",
+            "kept",
+        ),
+        (
+            "checkpoints",
+            "checkpoint.write",
+            json!({"title":"kept","blocks":[{"kind":"text","text":"facts"}]}),
+            "checkpoint.list",
+            json!({"workstream":"door"}),
+            "title",
+            "kept",
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let ctx = Ctx {
+            actor: if matches!(name, "messages" | "checkpoints") {
+                Actor {
+                    kind: ActorKind::Agent,
+                    id: "door".into(),
+                    parent: None,
+                }
+            } else {
+                Actor::user()
+            },
+            bus: Bus::new(),
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+        };
+        let store = module(name, dir.path(), &ctx);
+        store.call(&ctx, write, input).await.unwrap();
+        drop(store);
+        let reopened = module(name, dir.path(), &ctx);
+        let result = reopened.call(&ctx, read, params).await.unwrap();
+        assert_eq!(result[0][field], expected, "{name}");
+    }
+
+    // Provenance is also used in memory by current callers.
+    for memory in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("provenance.db");
+        let touches = if memory {
+            provenance::Touches::in_memory().unwrap()
+        } else {
+            provenance::Touches::open(&path).unwrap()
+        };
+        touches
+            .record(&Actor::user(), Verb::Wrote, "pad:kept")
+            .unwrap();
+        let touches = if memory {
+            touches
+        } else {
+            drop(touches);
+            provenance::Touches::open(&path).unwrap()
+        };
+        let history = touches.history("pad:kept").unwrap();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].actor, Actor::user());
+        assert_eq!(history[0].verb, Verb::Wrote);
+    }
+
+    // Digest's durable Pad cursor suppresses an already named Pad after reopen.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("digest.db");
+    let nodes = serde_json::from_value::<Vec<contracts::agent::RailNode>>(json!([
+        {"id":"door","kind":"workstream","name":"Door","attempt":"1","order":0,"can_resume":false,"stray":[]},
+        {"id":"child","kind":"agent","name":"Child","parent":"door","status":{"kind":"done","label":"Done","since":0},"order":0,"can_resume":false,"stray":[]}
+    ])).unwrap();
+    let actor = Actor {
+        kind: ActorKind::Agent,
+        id: "door".into(),
+        parent: None,
+    };
+    let pads = [contracts::pad::Pad {
+        name: "kept".into(),
+        owner: Actor {
+            kind: ActorKind::Agent,
+            id: "child".into(),
+            parent: Some("door".into()),
+        },
+        text: "payload".into(),
+        updated_at: 42,
+        home: Some("door".into()),
+    }];
+    let sources = messages::digest::Sources {
+        nodes: &nodes,
+        todos: &[],
+        pads: &pads,
+        messages: &[],
+    };
+    let seen = messages::digest::Seen::open(&path).unwrap();
+    let first = serde_json::to_value(seen.ask(&actor, "door", &sources).unwrap()).unwrap();
+    assert_eq!(first["children"][0]["pads"], json!(["kept"]));
+    drop(seen);
+    let seen = messages::digest::Seen::open(&path).unwrap();
+    let reopened = serde_json::to_value(seen.ask(&actor, "door", &sources).unwrap()).unwrap();
+    assert_eq!(reopened["children"][0]["pads"], json!([]));
+}

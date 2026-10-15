@@ -14,28 +14,13 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn open(
-        path: &Path,
-        before_write: impl Fn(u32) -> rusqlite::Result<i64>,
-    ) -> rusqlite::Result<Self> {
+    pub(crate) fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut db = Connection::open(path)?;
         db.set_transaction_behavior(rusqlite::TransactionBehavior::Immediate);
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "foreign_keys", true)?;
         crate::schema::open(&mut db, path)?;
-        let store = Self { db };
-        let tx = store.db.unchecked_transaction()?;
-        let baselines = store.db.prepare("SELECT id, title, body, done FROM todos WHERE NOT EXISTS (SELECT 1 FROM changes WHERE todo = todos.id)")?
-            .query_map([], |r| Ok((r.get::<_, u32>(0)?, Values { title: r.get(1)?, body: r.get(2)?, done: r.get(3)?, blockers: vec![] })))?
-            .collect::<Result<Vec<_>, _>>()?;
-        for (id, mut after) in baselines {
-            after.blockers = store
-                .blockers_of(id)
-                .map_err(|_| rusqlite::Error::InvalidQuery)?;
-            store.db.execute("INSERT INTO changes(todo, before_values, after_values, after_touch) VALUES (?1, NULL, ?2, ?3)", params![id, serde_json::to_string(&after).map_err(|_| rusqlite::Error::InvalidQuery)?, before_write(id)?])?;
-        }
-        tx.commit()?;
-        Ok(store)
+        Ok(Self { db })
     }
 
     /// A34: apply deletion and Home changes through the Project database.
@@ -428,17 +413,4 @@ fn creator_json(creator: &Actor) -> String {
 
 fn parse_creator(text: &str) -> serde_json::Result<Actor> {
     serde_json::from_str(text)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn legacy_creator_matches_actor_user() {
-        assert_eq!(
-            parse_creator(r#"{"kind":"user","id":"you","parent":null}"#).unwrap(),
-            Actor::user()
-        );
-    }
 }
