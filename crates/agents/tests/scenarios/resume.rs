@@ -52,6 +52,14 @@ impl Fixture {
         tree.iter().find(|n| n.id == id).expect("node").can_resume
     }
 
+    /// Past A22's 10 s acknowledgement deadline, then back to the real clock. The failed resume's
+    /// cleanup waits for the Terminal's exit, which a real thread delivers; a clock left paused
+    /// auto-advances through that wait's bound and reports the cleanup unconfirmed.
+    async fn expire_resume_acknowledgement(&self) {
+        tokio::time::advance(Duration::from_secs(11)).await;
+        tokio::time::resume();
+    }
+
     /// The tree once `id`'s Attempt differs from `old`, for a caller racing a pending
     /// `agent.resume` (which has already allocated and announced the new one before it blocks
     /// on acknowledgement).
@@ -409,7 +417,7 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
         tokio::spawn(async move { f.resume(&id).await })
     };
     f.until_attempt_changed(&id, &old_attempt).await;
-    tokio::time::advance(Duration::from_secs(11)).await;
+    f.expire_resume_acknowledgement().await;
 
     let err = resuming.await.unwrap().unwrap_err();
 
@@ -440,7 +448,7 @@ async fn held_as_not_the_ack(session_id: &str, source: &str) {
     f.until_attempt_changed(&id, &old_attempt).await;
 
     f.session_start(&id, session_id, source).await.unwrap();
-    tokio::time::advance(Duration::from_secs(11)).await;
+    f.expire_resume_acknowledgement().await;
 
     let err = resuming.await.unwrap().unwrap_err();
     assert_eq!(err.code, code::CONFLICT);
@@ -697,7 +705,7 @@ async fn a23_a_restart_without_acknowledgement_fails_with_a22s_error() {
         tokio::spawn(async move { start_door(&f, &id).await })
     };
     f.until_attempt_changed(&door.id, &old_attempt).await;
-    tokio::time::advance(Duration::from_secs(11)).await;
+    f.expire_resume_acknowledgement().await;
 
     let err = starting.await.unwrap().unwrap_err();
 
