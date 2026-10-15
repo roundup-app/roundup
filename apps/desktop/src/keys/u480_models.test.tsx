@@ -44,7 +44,7 @@ it("u480_app_shortcuts_leave_project_tab_rename_in_control", async () => {
 
   await waitFor(() => expect(document.activeElement).toBe(field));
 
-  for (const [key, code] of [[",", "Comma"], ["1", "Digit1"], ["2", "Digit2"]]) {
+  for (const [key, code] of [[",", "Comma"], ["1", "Digit1"], ["2", "Digit2"]] as const) {
     const event = new KeyboardEvent("keydown", { key, code, metaKey: true, bubbles: true, cancelable: true });
 
     field.dispatchEvent(event);
