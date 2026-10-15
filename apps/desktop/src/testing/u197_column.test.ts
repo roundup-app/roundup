@@ -100,3 +100,90 @@ run("u197 the Thread is one page in one column", () => {
     expect(above).toBe(true);
   });
 });
+
+// Q3 and U197 contrast needs painted layout, including the selected Rail row.
+run("Q3 and U197 rendered text contrast", () => {
+  vi.setConfig({ testTimeout: 30_000 });
+
+  const checks = async (...surfaces: string[]) => {
+    const painted = await page.call<boolean>(`(selectors) => selectors.every((selector) => {
+      const element = document.querySelector(selector);
+      const box = element?.getBoundingClientRect();
+      return box && box.width > 0 && box.height > 0;
+    })`, ["[role=treeitem][aria-selected=true] .name", ...surfaces]);
+
+    expect(painted).toBe(true);
+    const result = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
+
+    for (const id of ["D2", "D5"]) expect(result[id], JSON.stringify(result[id])).toMatchObject({ status: "pass" });
+  };
+
+  for (const scheme of ["light", "dark"] as const) {
+    it(`u197_user_and_supervisor_messages_meet_d5_on_painted_layout in ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await load(1280, 800);
+      await page.until(`() => document.querySelector(".thread-run[data-user] .thread-body") && document.querySelector(".thread-run:not([data-user]) .thread-body")`);
+      await checks(".thread-run[data-user] .thread-body", ".thread-run:not([data-user]) .thread-body");
+    });
+
+    it(`q3_thread_text_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await load(1280, 800);
+      await page.call(String.raw`() => window.__fake.emit({ actor: { kind: "agent", id: "r1", parent: null }, name: "message.sent", data: {
+        id: 50, from: { kind: "agent", id: "r1", parent: null }, to: "you", kind: "note",
+        body: "Run \`just check\` first.\n\`\`\`\ncargo test\n\`\`\`\n| Agent | State |\n| --- | --- |\n| alpha | editing |\n| beta | idle |\n| gamma | done |\nNext: wait.",
+        replyTo: null, status: "delivered", reason: null, passedFrom: null, at: Date.now()
+      } })`);
+      await page.until(`() => document.querySelector("[data-message-body] table tbody").children.length === 3 && document.querySelector("[data-message-body] pre")`);
+      await checks("[data-message-body] table", "[data-message-body] pre", "[data-message-body] p code");
+    });
+
+    it(`q3_decision_card_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await load(1280, 800);
+      await page.call(String.raw`() => window.__fake.emit({ actor: { kind: "agent", id: "r1", parent: null }, name: "decision.opened", data: {
+        id: "q3-decision", agent: "r1", tool: "ask_user", args: JSON.stringify({ question: "Which folder should I use?", answers: [{ label: "src", description: "about src" }, { label: "docs", description: "about docs" }] }), opened_at: Date.now(), answerable: true
+      } })`);
+      await page.until(`() => document.querySelector(".decision-question")?.textContent.includes("Which folder")`);
+      await checks(".decision-question");
+    });
+
+    it(`q3_digest_card_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await load(1280, 800);
+      // Render the digest body through the seeded Agent; q2_digest_in_the_thread proves Daemon-to-Door delivery.
+      await page.call(String.raw`() => window.__fake.emit({ actor: { kind: "agent", id: "r1", parent: null }, name: "message.sent", data: {
+        id: 51, from: { kind: "agent", id: "r1", parent: null }, to: "you", kind: "note",
+        body: "[digest] alpha is idle\n  last: " + "Change no file in the repo ".repeat(12).trim() + "\n  open todos: 3\n  pads: notes, plan",
+        replyTo: null, status: "delivered", reason: null, passedFrom: null, at: Date.now()
+      } })`);
+      await page.until(`() => document.querySelector(".digest-card")?.textContent.includes("notes")`);
+      await checks(".digest-card");
+    });
+
+    it(`q3_long_drawer_wraps_and_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
+      await page.scheme(scheme);
+      await load(1280, 800);
+      await page.call(`async () => {
+        const nodes = await window.__fake.app.handlers["rail.tree"]({});
+        nodes.find((node) => node.id === "r1").work = { kind: "work", title: "Keep repo unchanged", ask: "Change no file in the repo ".repeat(12).trim(), limits: [] };
+        window.__fake.app.handlers["rail.tree"] = () => nodes;
+        window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+      }`);
+      await page.until(`() => document.querySelector(".thread-goal")?.textContent.includes("Change no file")`);
+      await page.call(`() => document.querySelector("[aria-label='Order of workstream-1']").click()`);
+      await page.until(`() => document.querySelector(".order-ask")?.textContent.length >= 300`);
+
+      const wraps = await page.call<boolean>(`() => {
+        const ask = document.querySelector(".order-ask");
+        const drawer = document.querySelector("[aria-label='Full order of workstream-1']");
+        const range = document.createRange();
+        range.selectNodeContents(ask);
+        return new Set([...range.getClientRects()].map((rect) => rect.top)).size > 1 && ask.scrollWidth <= ask.clientWidth && drawer.scrollWidth <= drawer.clientWidth;
+      }`);
+
+      expect(wraps).toBe(true);
+      await checks(".order-title", ".order-ask");
+    });
+  }
+});
