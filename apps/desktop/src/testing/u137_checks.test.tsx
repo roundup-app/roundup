@@ -215,6 +215,29 @@ rendered("u137 rendered composer focus", () => {
     expect(checks.D10.status).toBe("fail");
   });
 
+  for (const field of ["title", "ask"]) {
+    for (const lowContrast of [false, true]) {
+      it(`u137_measures_the_order_${field}_focus_mark_${lowContrast ? "below" : "above"}_three_to_one`, async () => {
+        await page.load("/harness.html?seed=thread-report", 1280, 800);
+        await page.until(`() => Boolean(document.querySelector('.thread-order'))`);
+        await page.call(`() => document.querySelector('.thread-order').click()`);
+        await page.until(`() => Boolean(document.querySelector('[aria-label="Edit order"]'))`);
+        await page.call(`() => document.querySelector('[aria-label="Edit order"]').click()`);
+        await page.until(`() => Boolean(document.querySelector('textarea[name="${field}"]'))`);
+        await page.call(`(field, lowContrast) => {
+          const input = document.querySelector('textarea[name="' + field + '"]');
+          input.focus();
+          if (lowContrast) input.style.backgroundImage = 'linear-gradient(var(--ground), var(--ground))';
+        }`, field, lowContrast);
+        const checks = await page.call<Checks>(`() => window.__checks()`);
+
+        expect(checks.D5).toMatchObject(lowContrast
+          ? { status: "fail", value: { focusRing: 1 } }
+          : { status: "pass" });
+      });
+    }
+  }
+
   it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
     await page.load("/harness.html?seed=thread-report", 1280, 800);
     await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
