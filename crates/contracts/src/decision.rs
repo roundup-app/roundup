@@ -21,6 +21,43 @@ pub struct Decision {
     pub answerable: bool,
 }
 
+/// U468: one successful answer, retained in Project data after its live hook ends.
+/// `prompt` is the complete original tool input as JSON (the live Card's args may
+/// be truncated for display). `answer` and `note` retain
+/// exactly the accepted AnswerParams, without Proof. The Actor is authenticated.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct AnsweredDecision {
+    pub decision: Decision,
+    pub kind: RequestKind,
+    pub prompt: String,
+    pub attempt: String,
+    pub answer: Option<String>,
+    pub note: String,
+    pub answered_by: crate::Actor,
+    #[ts(type = "number")]
+    pub answered_at: i64,
+}
+
+/// Whether the original Decision asks a question or requests permission. This is
+/// independent of the tool name: a permission hook can name any tool.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "decision/")]
+pub enum RequestKind {
+    Question,
+    Permission,
+}
+
+/// U468: read one Agent's answered Decisions, oldest first. The user may read any
+/// Agent; an Agent may read only Agents in its Reach, just as with decision.list.
+/// Records remain readable by the user even after the requesting Agent is removed.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct AnswersParams {
+    pub agent: String,
+}
+
 /// B6: a Decision's original prompt, scoped to one Daemon run and Attempt. It is an
 /// identity, not permission: Proof, Reach and Takeover are checked separately.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
@@ -116,6 +153,9 @@ impl Answer {
 /// `proof` is checked against the value the Daemon holds (H4); a missing or wrong one is
 /// `FORBIDDEN`, so the field must deserialize even when the caller sends none. An Agent's call is
 /// judged by Reach instead (H21) and its `proof` is ignored.
+/// U468: success durably retains the original prompt, answer and authenticated Actor.
+/// A storage failure before delivery leaves the request actionable; a failure after
+/// delivery is UNKNOWN_OUTCOME and must not be retried blindly.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct AnswerParams {

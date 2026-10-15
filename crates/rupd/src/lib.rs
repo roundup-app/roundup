@@ -332,7 +332,7 @@ impl Daemon {
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
         let child = if conn.actor.kind == ActorKind::Agent {
             match method {
-                "terminal.write" | "terminal.kill" | "terminal.close" => {
+                "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                     self.guard_terminal_read(&conn.actor, &params).await?
                 }
                 "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
@@ -385,7 +385,7 @@ impl Daemon {
         }
         if matches!(
             method,
-            "decision.list" | "decision.answer" | "decision.capture"
+            "decision.list" | "decision.answer" | "decision.capture" | "decision.answers"
         ) {
             return self.decision_call(conn, method, params).await;
         }
@@ -544,7 +544,9 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "terminal.kill" | "terminal.close" => actor.kind == ActorKind::Agent,
+            "agent.stop" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
+                actor.kind == ActorKind::Agent
+            }
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
             _ => false,
@@ -890,6 +892,14 @@ impl Daemon {
             bus: self.bus.clone(),
             touches: Arc::clone(&self.touches),
         }
+    }
+
+    /// Observe future events directly on this Daemon's global Bus, with its retained-event
+    /// capacity. The caller controls reads: falling behind returns Tokio's structured
+    /// `RecvError::Lagged`, without pausing producers or other subscribers. No forwarding
+    /// queue is created. Dropping the receiver detaches only this observer.
+    pub fn subscribe(&self) -> (tokio::sync::broadcast::Receiver<contracts::Event>, usize) {
+        (self.bus.subscribe(), self.bus.capacity())
     }
 
     /// Stop every running Terminal's program, Agents' included, and return once none is running.

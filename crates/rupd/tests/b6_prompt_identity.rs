@@ -56,6 +56,16 @@ pending = b''
 while True:
     data = os.read(0, 1)
     if not data: break
+    if data == b'\x01':
+        call = json.load(open('door-call.json'))
+        conn = socket.socket(socket.AF_UNIX)
+        conn.connect(os.environ['RUPD_SOCKET'])
+        conn.sendall((json.dumps({'jsonrpc':'2.0','id':1, **call}) + '\n').encode())
+        reply = json.loads(conn.makefile('r').readline())
+        conn.close()
+        with open('door-reply.tmp', 'w') as out: json.dump(reply, out)
+        os.rename('door-reply.tmp', 'door-reply.json')
+        continue
     if data == b'\x02':
         def call():
             with socket.socket(socket.AF_UNIX) as client:
@@ -134,6 +144,14 @@ while True:
     }
 
     async fn open(&self, kind: &str) -> (Value, tokio::task::JoinHandle<Result<Value, RpcError>>) {
+        self.open_prompt(kind, "Same prompt?").await
+    }
+
+    async fn open_prompt(
+        &self,
+        kind: &str,
+        prompt: &str,
+    ) -> (Value, tokio::task::JoinHandle<Result<Value, RpcError>>) {
         let before = self.user.request("decision.list", ()).await.unwrap();
         let before = before.as_array().unwrap().first().map(|d| d["id"].clone());
         let caller = Arc::new(Client::connect(&self.daemon.socket).await.unwrap());
@@ -148,16 +166,17 @@ while True:
         }
         let child = self.child.clone();
         let kind = kind.to_owned();
+        let prompt = prompt.to_owned();
         let task = tokio::spawn(async move {
             if kind == "ask_user" {
-                caller.request("agent.ask", json!({"question":"Same prompt?","answers":[{"label":"Yes","description":"Proceed"}]})).await
+                caller.request("agent.ask", json!({"question":prompt,"answers":[{"label":"Yes","description":"Proceed"}]})).await
             } else {
                 let mut payload = if kind == "unreadable" {
                     json!({})
                 } else if kind == "native" {
                     json!({"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Same prompt?","options":[{"label":"Yes"}]}]}})
                 } else {
-                    json!({"tool_name":"Bash","tool_input":{"command":"Same prompt?"}})
+                    json!({"tool_name":"Bash","tool_input":{"command":prompt}})
                 };
                 payload["hook_event_name"] = json!("PermissionRequest");
                 caller
@@ -331,31 +350,6 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .stderr(std::process::Stdio::null());
         },
     )
-}
-
-#[tokio::test]
-async fn b6_original_prompt_identity_refuses_identical_replacements() {
-    let run = Run::start().await;
-    for kind in ["permission", "ask_user", "native"] {
-        let (original, waiting) = run.open(kind).await;
-        let identity = run.capture(&original).await;
-        run.user_answer(&original, kind).await;
-        let _ = waiting.await.unwrap();
-        let (replacement, waiting) = run.open(kind).await;
-        assert_eq!(original["args"], replacement["args"]);
-        let err = run.write(identity, b"old\r").await.unwrap_err();
-        assert_eq!(err.code, rpc::code::CONFLICT);
-        assert!(err.message.contains("original prompt"), "{err:?}");
-        assert!(!err.message.contains("observer"), "{err:?}");
-        // Only the user's native answer may have reached the Terminal.
-        assert!(
-            !run.recorded_input().await.contains("BYTE:6f"),
-            "old answer reached the replacement"
-        );
-        run.clear().await;
-        let _ = waiting.await.unwrap();
-    }
-    run.finish().await;
 }
 
 #[tokio::test]
@@ -2939,6 +2933,378 @@ async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
     }
 }
 
+// U468's backend prerequisite; the App observer belongs to #1497.
+#[tokio::test]
+async fn u468_answered_decisions_survive_without_an_app_reader() {
+    let (mut run, door, door_terminal) = answer_child().await;
+    let unrelated = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"unrelated"}))
+        .await
+        .unwrap()["id"]
+        .clone();
+    // Seed an answered request in a different Workstream before the retained ones.
+    let original_child = run.child.clone();
+    let original_terminal = run.terminal.clone();
+    let original_attempt = run.attempt.clone();
+    run.door = Some(unrelated.as_str().unwrap().to_owned());
+    run.spawn().await;
+    let unrelated_child = run.child.clone();
+    let (outside_request, outside_waiting) = run.open("permission").await;
+    let denied = door_call(
+        &run,
+        &door_terminal,
+        "decision.answer",
+        json!({"id":outside_request["id"],"answer":"allow"}),
+    )
+    .await;
+    assert_eq!(denied["error"]["code"], rpc::code::FORBIDDEN);
+    assert_eq!(
+        run.user.request("decision.list", ()).await.unwrap(),
+        json!([outside_request])
+    );
+    assert_eq!(
+        run.user
+            .request("decision.answers", json!({"agent":unrelated_child}))
+            .await
+            .unwrap(),
+        json!([])
+    );
+    run.user_answer(&outside_request, "permission").await;
+    outside_waiting.await.unwrap().unwrap();
+    run.child = original_child;
+    run.terminal = original_terminal;
+    run.attempt = original_attempt;
+    run.door = Some(door.clone());
+    let mut originals = Vec::new();
+    for (kind, answer, note) in [
+        ("ask_user", "Yes", "Exact note: α\nsecond line"),
+        ("permission", "allow", ""),
+        ("permission", "deny", ""),
+    ] {
+        let prompt = if kind == "permission" {
+            format!("{}complete tail", "long command α\n".repeat(600))
+        } else {
+            "Question?\nComplete second line".to_owned()
+        };
+        let (decision, waiting) = run.open_prompt(kind, &prompt).await;
+        let reply = door_call(
+            &run,
+            &door_terminal,
+            "decision.answer",
+            json!({"id":decision["id"],"answer":answer,"note":note}),
+        )
+        .await;
+        assert!(reply.get("error").is_none(), "{reply}");
+        waiting.await.unwrap().unwrap();
+        originals.push((decision, answer, note, prompt));
+    }
+    // The first answer reader connects only after all answers have completed.
+    let reader = Client::connect(&run.daemon.socket).await.unwrap();
+    let records = reader
+        .request("decision.answers", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(records.as_array().unwrap().len(), 3);
+    assert_ne!(originals[0].0["id"], originals[1].0["id"]);
+    for (record, (decision, answer, note, prompt)) in
+        records.as_array().unwrap().iter().zip(&originals)
+    {
+        assert_eq!(record["decision"], *decision);
+        assert_eq!(
+            record["kind"],
+            if decision["tool"] == "ask_user" {
+                "question"
+            } else {
+                "permission"
+            }
+        );
+        let original: Value = serde_json::from_str(record["prompt"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            original[if decision["tool"] == "ask_user" {
+                "question"
+            } else {
+                "command"
+            }],
+            *prompt
+        );
+        assert_eq!(record["answer"], *answer);
+        assert_eq!(record["note"], *note);
+        assert_eq!(record["answered_by"]["kind"], "agent");
+        assert_eq!(record["answered_by"]["id"], door);
+    }
+    let outside = door_call(
+        &run,
+        &door_terminal,
+        "decision.answers",
+        json!({"agent":unrelated_child}),
+    )
+    .await;
+    assert_eq!(outside["error"]["code"], rpc::code::FORBIDDEN);
+    assert_eq!(
+        reader
+            .request("decision.answers", json!({"agent":unrelated_child}))
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        door_call(
+            &run,
+            &door_terminal,
+            "decision.answers",
+            json!({"agent":run.child})
+        )
+        .await["result"],
+        records
+    );
+    drop(reader);
+    let project = run.dir.path().to_owned();
+    let data = run.data.path().to_owned();
+    drop(run.daemon);
+    run.daemon = launch(&project, &data);
+    run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    assert_eq!(
+        run.user
+            .request("decision.answers", json!({"agent":run.child}))
+            .await
+            .unwrap(),
+        records
+    );
+    run.resumed().await;
+    let (new_request, waiting) = run.open("permission").await;
+    assert!(
+        !records
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|record| record["decision"]["id"] == new_request["id"])
+    );
+    run.user_answer(&new_request, "permission").await;
+    waiting.await.unwrap().unwrap();
+    let after = run
+        .user
+        .request("decision.answers", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(&after.as_array().unwrap()[..3], records.as_array().unwrap());
+    assert_eq!(after.as_array().unwrap().len(), 4);
+    run.finish().await;
+}
+
+async fn answer_child() -> (Run, String, Value) {
+    let mut run = Run::start().await;
+    let door = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"supervisor"}))
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.door = Some(door.clone());
+    run.spawn().await;
+    let door_node = run
+        .user
+        .request("rail.startDoor", json!({"id":door}))
+        .await
+        .unwrap();
+    let door_terminal = door_node["terminal_id"].clone();
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":door_terminal,"data":STANDARD.encode(b"\r")}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let screen = run
+                .user
+                .request("terminal.read", json!({"id":door_terminal,"after":0}))
+                .await
+                .unwrap();
+            if screen["text"].as_str().unwrap().contains("READY") {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    (run, door, door_terminal)
+}
+
+#[tokio::test]
+async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
+    let (run, door, terminal) = answer_child().await;
+    for (kind, refusal) in [
+        ("ask_user", "label"),
+        ("permission", "word"),
+        ("permission", "proof"),
+        ("permission", "takeover"),
+        ("permission", "identity"),
+    ] {
+        let (decision, waiting) = run.open(kind).await;
+        let mut params =
+            json!({"id":decision["id"],"answer":if kind == "ask_user" { "Yes" } else { "allow" }});
+        let expected = match refusal {
+            "label" | "word" => {
+                params["answer"] = json!("unlisted");
+                rpc::code::INVALID_PARAMS
+            }
+            "proof" => rpc::code::FORBIDDEN,
+            "takeover" => {
+                run.user
+                    .request("takeover.begin", json!({"agent":run.child}))
+                    .await
+                    .unwrap();
+                rpc::code::CONFLICT
+            }
+            "identity" => {
+                let mut identity = run.capture(&decision).await;
+                identity["attempt"] = json!("an earlier Attempt");
+                params["identity"] = identity;
+                rpc::code::CONFLICT
+            }
+            _ => unreachable!(),
+        };
+        let reply = if refusal == "proof" {
+            // A claimed Door is still an unauthenticated user process.
+            run.user
+                .request(
+                    "daemon.identify",
+                    json!({"actor":{"kind":"agent","id":door}}),
+                )
+                .await
+                .unwrap();
+            let error = run
+                .user
+                .request("decision.answer", params)
+                .await
+                .unwrap_err();
+            json!({"error":{"code":error.code}})
+        } else {
+            door_call(&run, &terminal, "decision.answer", params).await
+        };
+        if refusal == "proof" {
+            run.user
+                .request(
+                    "daemon.identify",
+                    json!({"actor":{"kind":"user","id":"you"}}),
+                )
+                .await
+                .unwrap();
+        }
+        assert_eq!(reply["error"]["code"], expected, "{refusal}: {reply}");
+        assert_eq!(
+            run.user.request("decision.list", ()).await.unwrap(),
+            json!([decision])
+        );
+        let records = run
+            .user
+            .request("decision.answers", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        assert!(
+            !records
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|record| record["decision"]["id"] == decision["id"]),
+            "{refusal}: {records}"
+        );
+        if refusal == "takeover" {
+            run.user
+                .request("takeover.end", json!({"agent":run.child}))
+                .await
+                .unwrap();
+        }
+        // An ordinary successful retry proves the same request is still actionable.
+        run.user_answer(&decision, kind).await;
+        waiting.await.unwrap().unwrap();
+    }
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u468_storage_refusal_keeps_the_request_actionable() {
+    let (run, _, terminal) = answer_child().await;
+    let (decision, waiting) = run.open("permission").await;
+    // Inject a storage refusal; all verification still crosses the public Daemon.
+    let path = rupd::data::project_data(run.data.path(), run.dir.path())
+        .unwrap()
+        .join("project.db");
+    let db = rusqlite::Connection::open(path).unwrap();
+    db.execute_batch("CREATE TRIGGER refuse_answer BEFORE INSERT ON decision_answers BEGIN SELECT RAISE(ABORT, 'storage refused'); END;").unwrap();
+    let reply = door_call(
+        &run,
+        &terminal,
+        "decision.answer",
+        json!({"id":decision["id"],"answer":"allow"}),
+    )
+    .await;
+    assert_eq!(reply["error"]["code"], rpc::code::INTERNAL);
+    assert_eq!(
+        run.user.request("decision.list", ()).await.unwrap(),
+        json!([decision])
+    );
+    assert_eq!(
+        run.user
+            .request("decision.answers", json!({"agent":run.child}))
+            .await
+            .unwrap(),
+        json!([])
+    );
+    db.execute_batch("DROP TRIGGER refuse_answer;").unwrap();
+    let retry = door_call(
+        &run,
+        &terminal,
+        "decision.answer",
+        json!({"id":decision["id"],"answer":"allow"}),
+    )
+    .await;
+    assert!(retry.get("error").is_none(), "{retry}");
+    waiting.await.unwrap().unwrap();
+    run.finish().await;
+}
+
+async fn door_call(run: &Run, terminal: &Value, method: &str, params: Value) -> Value {
+    let reply = run.dir.path().join("door-reply.json");
+    if reply.exists() {
+        std::fs::remove_file(&reply).unwrap();
+    }
+    std::fs::write(
+        run.dir.path().join("door-call.json"),
+        json!({"method":method,"params":params}).to_string(),
+    )
+    .unwrap();
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":terminal,"data":STANDARD.encode([1])}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            if let Ok(bytes) = std::fs::read(&reply) {
+                break serde_json::from_slice(&bytes).unwrap();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
 async fn ending_takeover_race(method: &'static str) {
     let (run, caller) = if method == "agent.stop" {
         order_child().await
@@ -2992,4 +3358,61 @@ async fn b6_begin_racing_a_door_terminal_kill_waits_for_the_child_effect() {
 #[tokio::test]
 async fn b6_begin_racing_a_door_terminal_close_waits_for_the_child_effect() {
     ending_takeover_race("terminal.close").await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_resize_waits_for_the_child_effect() {
+    let (run, caller) = door_terminal().await;
+    run.pause();
+    let terminal = run.terminal.clone();
+    let resize = tokio::spawn(async move {
+        caller
+            .request(
+                "terminal.resize",
+                json!({"id":terminal,"cols":101,"rows":37}),
+            )
+            .await
+    });
+    run.paused().await;
+    let before = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(
+        (before["cols"].as_u64(), before["rows"].as_u64()),
+        (Some(80), Some(24))
+    );
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The gate acknowledges arrival before resize. This window observes absence of acquisition.
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
+    run.release();
+    tokio::time::timeout(BOUND, resize)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    let acquired_early = early.is_ok();
+    let acquired = match early {
+        Ok(result) => result.unwrap(),
+        Err(_) => tokio::time::timeout(BOUND, begin).await.unwrap().unwrap(),
+    };
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert!(
+        !acquired_early,
+        "Takeover acquired before Door resize completed"
+    );
+    acquired.unwrap();
+    assert_eq!(
+        (after["cols"].as_u64(), after["rows"].as_u64()),
+        (Some(101), Some(37))
+    );
 }

@@ -53,6 +53,7 @@ pub fn start_in(dir: tempfile::TempDir, data: tempfile::TempDir, fake: &[(&str, 
     // Borrow both folders: a startup panic reaps the harness Daemon before these owners drop.
     let mut daemon = rupd_harness::start(&rupd, dir.path(), true, |command| {
         command
+            .current_dir(dir.path())
             .env("CLAUDE_CONFIG_DIR", dir.path().join("claude-config"))
             .env("ROUNDUP_RUP_BIN", &rup)
             .env(
