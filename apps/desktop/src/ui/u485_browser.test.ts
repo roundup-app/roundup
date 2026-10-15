@@ -56,7 +56,7 @@ it("u485_rendered_checks", async () => {
   for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (const input of ["keyboard", "pointer"]) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
-    await browser("open", new URL("/src/ui/u485.html", origin).href);
+    await browser("open", new URL(new URL("./u485Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
     await browser("wait", "--fn", `document.querySelectorAll('.u485-row').length === 40`);
     const passing = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks(document))`);
     const capture = async (step: string) => {
