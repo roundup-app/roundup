@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
@@ -21,8 +21,20 @@ export const Layout = (props: {
   shelfPlacement?: ShelfPlacement;
   /** U389, U390: the Rail's and Shelf's widths; without them the Tokens' defaults apply and no Resize edge shows. */
   widths?: Widths;
+  /** #2003: bind Ark getRootProps/getPanelProps to the actual measured window and
+   * owned regions. Layout retains styles, classes, visibility and transitions;
+   * the adapter retains identity, ownership, events and element refs. */
+  splitter?: Partial<Record<"root" | "rail" | "centre" | "shelf", JSX.HTMLAttributes<HTMLElement>>>;
   overlay: JSX.Element;
 }) => {
+  const binding = (part: "root" | "rail" | "centre" | "shelf") => {
+    const [, attributes] = splitProps(props.splitter?.[part] ?? {}, ["style", "class", "classList", "children", "ref"]);
+    return attributes;
+  };
+  const attach = (part: "root" | "rail" | "centre" | "shelf", element: HTMLElement) => {
+    const ref = props.splitter?.[part]?.ref;
+    if (typeof ref === "function") ref(element);
+  };
   const placement = () => props.shelfPlacement ?? SETTLED;
 
   let windowElement: HTMLDivElement | undefined;
@@ -60,14 +72,14 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div class="window" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" ref={(element) => { attach("root", element); windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div class="content-actions">{props.contentActions}</div>
     <div class="columns" onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
-      <section class="rail" aria-label={copy.rail}>
+      <section {...binding("rail")} ref={(element) => attach("rail", element)} class="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section class="centre" aria-label={copy.centreRegion}>
+      <section {...binding("centre")} ref={(element) => attach("centre", element)} class="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -77,6 +89,8 @@ export const Layout = (props: {
     </Show>
     <div class="overlay">{props.overlay}</div>
     <section
+      {...binding("shelf")}
+      ref={(element) => attach("shelf", element)}
       class="shelf"
       aria-label={copy.shelfLabel}
       data-open={placement().shown}
