@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
@@ -19,6 +19,11 @@ const mount = (seed: SeedName) => {
 };
 
 const rail = () => screen.findByRole("region", { name: "Rail" });
+
+// This suite checks seed wiring; transform the real lazy editor before timing Drawer interactions.
+beforeAll(async () => {
+  await import("../pads/PadRichEditor");
+});
 
 afterEach(cleanup);
 
