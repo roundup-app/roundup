@@ -61,7 +61,7 @@ for (const args of [[], ['origin/main']]) {
 
     try {
       // #1852 owns the real generator, reference and stale-output observer.
-      writeFileSync(observer, "import { test } from 'node:test';\ntest('u478 freshness hook', () => { throw new Error('U478 freshness observer reached'); });\n", { flag: 'wx' });
+      writeFileSync(observer, "import { test } from 'node:test';\n\ntest('u478 freshness hook', () => { throw new Error('U478 freshness observer reached'); });\n", { flag: 'wx' });
       check(args, 'freshness failure', /U478 freshness observer reached/);
     } finally {
       unlinkSync(observer);
