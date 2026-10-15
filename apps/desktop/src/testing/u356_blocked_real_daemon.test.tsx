@@ -137,7 +137,9 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
     fireEvent.click(row(working).querySelector(".name")!);
     await waitFor(() => expect(selected()).toBe(working));
-    await new Promise((done) => setTimeout(done, 1500));
+    // Observe beyond H12's ten-second STEER_BOUND (crates/agents/src/lib.rs):
+    // an early synthetic acknowledgement must not become a late prompt failure.
+    await new Promise((done) => setTimeout(done, 11_000));
     expect(selected()).toBe(working);
     expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
     expect(await kindOf(working)).toBe("working");

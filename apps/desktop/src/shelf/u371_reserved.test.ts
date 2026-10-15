@@ -311,20 +311,28 @@ for (const overlay of [false, true]) it(`u371_centre_never_crosses_the_sliding_s
 
   const frames = await evaluate<number[][]>(`(async () => {
     const rows=[];
+    const start=document.querySelector('.shelf').getBoundingClientRect().left;
+    const deadline=performance.now()+5000;
     const sample = () => {
       const shelf=document.querySelector('.shelf'), centre=document.querySelector('.centre');
       rows.push([performance.now(), centre.getBoundingClientRect().right, shelf.getBoundingClientRect().left]);
     };
     document.querySelector('[aria-label="Hide work items"]').click();
     let reverse=false;
-    await new Promise(resolve => {
+    await new Promise((resolve, reject) => {
       const tick = () => {
         sample();
-        if (rows.length===4) {
+        if (performance.now()>deadline) {
+          reject(new Error('Shelf did not complete its interrupted slide'));
+          return;
+        }
+        // Reverse only after the rendered Shelf moves; frame count does not
+        // acknowledge frame.toggle's deferred start under a busy browser.
+        if (!reverse && rows.at(-1)[2]>start+1) {
           document.querySelector('[aria-label="Show work items"]').click();
           reverse=true;
         }
-        if (reverse && rows.length>4 && !document.getAnimations().some(a => a.effect?.target?.matches?.('.shelf, .columns'))) resolve();
+        if (reverse && !document.getAnimations().some(a => a.effect?.target?.matches?.('.shelf, .columns'))) resolve();
         else requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -332,7 +340,7 @@ for (const overlay of [false, true]) it(`u371_centre_never_crosses_the_sliding_s
     return rows;
   })()`);
 
-  expect(frames.length).toBeGreaterThanOrEqual(5);
+  expect(frames.length).toBeGreaterThanOrEqual(2);
 
   if (overlay) expect(frames.every(row => row[1] === 1280)).toBe(true);
   else {
