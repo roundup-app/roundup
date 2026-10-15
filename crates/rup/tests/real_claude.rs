@@ -157,14 +157,24 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
     .unwrap();
     assert_eq!(node.channel, Some(Channel::Pending));
 
-    assert_eq!(
-        daemon::next(&mut events, |data| match data {
+    let started = std::time::Instant::now();
+    let mut channels = vec![Channel::Pending];
+    loop {
+        let channel = daemon::next(&mut events, |data| match data {
             EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
             _ => None,
         })
-        .await,
-        Channel::Up
-    );
+        .await;
+        eprintln!(
+            "E6 channel {channel:?} at {:?} after spawn response",
+            started.elapsed()
+        );
+        channels.push(channel);
+        if channel == Channel::Up {
+            break;
+        }
+    }
+    assert_eq!(channels, [Channel::Pending, Channel::Up]);
     tokio::time::sleep(Duration::from_millis(3500)).await;
     assert_eq!(
         daemon::rail_tree(&events)
