@@ -126,6 +126,7 @@ impl Daemon {
                 .with_proof(proof)
                 .with_prompt_effect(prompt_effect_observer())
                 .with_steer_effect(steer_effect_observer())
+                .with_resume_effect(resume_effect_observer())
                 .with_takeover(move |agent| {
                     probe
                         .get()
@@ -1421,6 +1422,32 @@ fn steer_effect_observer() -> impl Fn(&str) -> Result<(), RpcError> + Send + Syn
             }
             if started.elapsed() >= std::time::Duration::from_secs(10) {
                 return Err(RpcError::conflict("Steer observer was not released"));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        Ok(())
+    }
+}
+
+/// B6's isolated observer controls Terminal recording and cleanup without a desktop.
+fn resume_effect_observer() -> impl Fn(&str, &str) -> Result<(), RpcError> + Send + Sync {
+    let gate = std::env::var_os("RUPD_RESUME_EFFECT_GATE").map(std::path::PathBuf::from);
+    move |phase, terminal| {
+        let Some(gate) = &gate else { return Ok(()) };
+        let gate = gate.with_extension(phase);
+        let recording = gate.with_extension(format!("{phase}-recording"));
+        std::fs::write(&recording, terminal).map_err(RpcError::internal)?;
+        std::fs::rename(recording, gate.with_extension(format!("{phase}-arrived")))
+            .map_err(RpcError::internal)?;
+        let started = std::time::Instant::now();
+        while gate.is_file() {
+            if std::fs::read_to_string(&gate).ok().as_deref() == Some("refuse") {
+                return Err(RpcError::conflict("Terminal cleanup refused before kill"));
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(30) {
+                return Err(RpcError::unknown_outcome(
+                    "Resume observer was not released",
+                ));
             }
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
