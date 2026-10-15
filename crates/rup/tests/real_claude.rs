@@ -617,3 +617,69 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
     assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
+    let project = daemon::start_real("f3_child_worktree", &[]);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let client = project.client().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_f3_spawn").await;
+    let spawned: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
+    let worktree = spawned.worktree.expect("the child has a Worktree");
+    assert_eq!(worktree.branch, format!("roundup/agent-{}", spawned.id));
+    let listed = std::process::Command::new("git")
+        .current_dir(path)
+        .args(["worktree", "list"])
+        .output()
+        .unwrap();
+    assert!(listed.status.success());
+    let listed = String::from_utf8(listed.stdout).unwrap();
+    assert!(listed.contains(&worktree.path), "{listed}");
+    model.assert_matched();
+}
