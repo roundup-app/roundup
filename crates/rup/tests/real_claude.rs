@@ -594,6 +594,11 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
         _ => None,
     })
     .await;
+    // Hold the child's Digests as well as its Decision note: otherwise needs-you can
+    // start an intervening turn before tell_doors has queued the note.
+    user.request("takeover.begin", json!({"agent":door}))
+        .await
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let nodes = rail_tree(&user).await;
@@ -637,6 +642,13 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     })
     .await;
     assert_eq!(decision.id, "d1");
+    next(&mut events, |data| match data {
+        EventData::MessageHeld(m) if m.to == door && m.body.starts_with("[decision d1]") => {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
     user.request(
         "decision.answer",
         json!({"id":"d1","answer":"allow","proof":"0".repeat(64)}),
@@ -644,6 +656,9 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     .await
     .unwrap();
     assert!(permission.await.unwrap().is_ok());
+    user.request("takeover.end", json!({"agent":door}))
+        .await
+        .unwrap();
     next(&mut events, |data| match data {
         EventData::MessageDelivered(m) if m.to == door && m.body.starts_with("[decision d1]") => {
             Some(())
@@ -698,7 +713,16 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
             .unwrap()
             .iter()
             .any(|m| { m["role"] == "user" && m["content"].to_string().contains("[decision d1]") }),
-        "{following:#?}"
+        "Door request sequence: {:#?}",
+        journal
+            .iter()
+            .filter(|e| &e["headers"]["x-claude-code-session-id"] == identity)
+            .map(
+                |e| json!({"stream": e["body"]["stream"], "response": e["response"],
+                "users": e["body"]["messages"].as_array().unwrap().iter()
+                    .filter(|m| m["role"] == "user").collect::<Vec<_>>()})
+            )
+            .collect::<Vec<_>>()
     );
 }
 
