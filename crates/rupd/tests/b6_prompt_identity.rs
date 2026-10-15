@@ -2637,6 +2637,14 @@ async fn u468_answered_decisions_survive_without_an_app_reader() {
         .await
         .unwrap();
     let door_terminal = door_node["terminal_id"].clone();
+    run.user.request("terminal.write", json!({"id":door_terminal,"data":STANDARD.encode(b"\r")})).await.unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let screen = run.user.request("terminal.read", json!({"id":door_terminal,"after":0})).await.unwrap();
+            if screen["text"].as_str().unwrap().contains("READY") { break; }
+            tokio::task::yield_now().await;
+        }
+    }).await.unwrap();
     let unrelated = run
         .user
         .request("rail.createWorkstream", json!({"name":"unrelated"}))
