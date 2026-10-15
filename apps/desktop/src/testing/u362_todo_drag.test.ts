@@ -54,6 +54,38 @@ const capture = async (id: string, name: string, evidence: Evidence) => {
   writeFileSync(resolve(dir, `${name}.checks.json`), JSON.stringify(evidence) + '\n');
 };
 
+run('u137 compound selected ground', () => {
+  for (const scheme of ['light', 'dark'] as const) {
+    for (const width of [1280, 1440]) {
+      it(`u137_nested_rail_text_is_measured_on_the_full_size_wash ${scheme} ${width}`, async () => {
+        await page.scheme(scheme);
+        await setup(false, '', width, 800);
+        const checks = await page.call<Checks>(`() => window.__checks()`);
+        expect(checks.D5?.status, JSON.stringify(checks.D5)).toBe('pass');
+        expect(checks.D10?.status, JSON.stringify(checks.D10)).toBe('pass');
+      }, 30_000);
+    }
+  }
+
+  for (const coverage of ['full', 'partial', 'overlapping'] as const) {
+    it(`u137_compound_ground_never_silently_ignores_${coverage}_coverage`, async () => {
+      await setup();
+      await page.call(`coverage => {
+        document.body.innerHTML = '<div class="compound"><button><span>Nested Rail label</span></button></div>';
+        const sheet = document.head.appendChild(document.createElement('style'));
+        sheet.textContent = 'body {background: white} .compound {width: 200px; height: 32px; padding-left: 24px; background-color: white; background-image: linear-gradient(rgb(0, 0, 0), rgb(0, 0, 0)), linear-gradient(rgba(0, 0, 0, .1), rgba(0, 0, 0, .1)); background-size: 2px 100%, auto; background-repeat: no-repeat; background-position: left top} .compound button {background: transparent; color: rgb(112, 112, 112)}';
+        if (coverage === 'partial') document.querySelector('.compound').style.backgroundSize = '2px 100%, 50% 100%';
+        if (coverage === 'overlapping') document.querySelector('.compound').style.backgroundSize = '100% 100%, auto';
+      }`, coverage);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+      expect(checks.D5?.status).toBe('fail');
+      expect(checks.D10?.status).toBe('fail');
+      if (coverage === 'full') expect(checks.D5?.value).toEqual({text: expect.any(Number)});
+      else expect(checks.D5?.value).toBe('not measurable');
+    }, 30_000);
+  }
+});
+
 run('u362 Checks against main', () => {
   // Contrast reads per scheme, so both stay; one window represents every supported width.
   const [width, height] = [1280, 800];
@@ -166,7 +198,7 @@ run('u363 Todo rows in the worst case', () => {
       await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
-      for (const id of ['D2', 'D5', 'D6', 'D12', 'D14']) if (base[id]?.status === 'pass') expect(checks[id]?.status, id).toBe('pass');
+      for (const id of ['D2', 'D5', 'D6', 'D10', 'D12', 'D14']) expect(checks[id]?.status, id).toBe('pass');
       await page.call(`() => {
         document.querySelector('[aria-label="Todo count"]').click();
       }`);
