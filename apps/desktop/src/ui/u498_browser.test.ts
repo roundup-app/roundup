@@ -3,9 +3,6 @@ import { action, browser, click, load, read, selected, wait } from "./tabsBrowse
 
 it("u498_semantics_and_names", async () => {
   await load();
-  await browser("find", "role", "tablist", "hover", "--name", "Shelf views", "--exact");
-  await browser("find", "role", "tab", "hover", "--name", "Todos ·", "--exact");
-  await browser("find", "role", "tab", "hover", "--name", "Pads ·", "--exact");
   await selected("Todos");
   expect(await read<unknown>(`[...document.querySelectorAll('[role=tab]')].map(tab => {
     const panel = document.getElementById(tab.getAttribute('aria-controls'));
@@ -13,6 +10,7 @@ it("u498_semantics_and_names", async () => {
   })`)).toEqual([[0, true, false], [-1, true, true]]);
   const { data: { snapshot } }: { data: { snapshot: string } } = JSON.parse(await browser("snapshot"));
 
+  expect(snapshot).toContain('tablist "Shelf views"');
   expect(snapshot).toContain('tabpanel "Todos"');
   expect(snapshot).toContain('tab "Todos"');
   expect(snapshot).toContain('tab "Pads"');

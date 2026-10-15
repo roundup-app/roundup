@@ -38,10 +38,10 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
       await selected("Todos");
 
       for (const state of ["initial", "hovered", "focused", "switched"]) {
-        if (state === "hovered") await browser("find", "role", "tab", "hover", "--name", "Pads ·", "--exact");
+        if (state === "hovered") await action("find", "role", "tab", "hover", "--name", "Pads ·", "--exact");
 
         if (state === "focused") {
-          await browser("mouse", "move", String(width - 20), "700");
+          await action("mouse", "move", String(width - 20), "700");
           await click("button", "Before");
           await action("press", "Tab");
           await selected("Todos", true);
@@ -62,7 +62,8 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
       await wait(`!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
       await read(`window.__fake.app.closeProject = async () => { throw new Error('could not stop rupd'); }`);
       await browser("hover", ".project-tab");
-      await browser("eval", `document.querySelector('[aria-label^="Close "]').click()`);
+      await wait(`(() => { const close = document.querySelector('[aria-label^="Close "]'); return close?.checkVisibility() && Number(getComputedStyle(close).opacity) > 0; })()`);
+      await browser("click", '[aria-label^="Close "]');
       await wait(`document.activeElement?.textContent === 'Cancel'`);
       await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
       await wait(`document.body.textContent.includes('could not stop rupd')`);
