@@ -340,7 +340,11 @@ def play_kind(kind):
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as in play_prompts
     sys.stdout.flush()
     hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000351", "source": "startup"})
-    hook("UserPromptSubmit", {"prompt": "u351"})
+    # H12 admits the first Steer while Idle; inventing a submission here races that admission.
+    prompt = next(typed_prompts(), None)
+    if prompt is None:
+        return
+    hook("UserPromptSubmit", {"prompt": prompt})
     if kind == "working":
         while os.read(0, 4096):
             pass
