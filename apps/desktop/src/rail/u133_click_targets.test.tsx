@@ -5,7 +5,7 @@ import { App } from "../App";
 import { contrastRatio, resolveToken, tokensFrom } from "../testing/contrast";
 import { driveStates, outlineRulesIn, styleIn, stylesIn } from "../testing/pointerStates";
 import { seedApp } from "../testing/seeds";
-import tokenCss from "../tokens.css?inline";
+import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import buttonsCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
