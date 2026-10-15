@@ -1688,11 +1688,6 @@ if '--resume' not in sys.argv:
             subprocess.run(hook['command'], shell=True, input=payload, text=True, check=True)
     print('SAVED', flush=True)
 else:
-    if os.path.isfile('keep-pty') and os.fork() == 0:
-        signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        open('descendant-ready', 'w').close()
-        while os.path.isfile('keep-pty'): time.sleep(0.01)
-        sys.exit(0)
     print('RESUMED', flush=True)
 while True: time.sleep(60)
 "#).unwrap();
@@ -1710,6 +1705,7 @@ while True: time.sleep(60)
                         .env("ROUNDUP_RUP_BIN", rup)
                         .env("CLAUDE_CONFIG_DIR", dir.path().join("config"))
                         .env("RUPD_RESUME_EFFECT_GATE", dir.path().join("resume"))
+                        .env("RUPD_TERMINAL_EXIT_GATE", dir.path().join("hold-exit"))
                         .stderr(std::process::Stdio::null());
                 },
             );
@@ -1777,7 +1773,7 @@ while True: time.sleep(60)
 
     impl Drop for Run {
         fn drop(&mut self) {
-            let _ = std::fs::remove_file(self.dir.path().join("keep-pty"));
+            let _ = std::fs::remove_file(self.dir.path().join("hold-exit"));
             let _ = std::fs::remove_file(self.gate("cleanup"));
             let _ = std::fs::remove_file(self.gate("claim"));
         }
@@ -1911,7 +1907,7 @@ while True: time.sleep(60)
         let run = Run::start().await;
         run.db.execute_batch("CREATE TRIGGER refuse_resume BEFORE UPDATE OF conversation_id ON nodes BEGIN SELECT RAISE(ABORT, 'resume save fault'); END;").unwrap();
         if uncertain {
-            std::fs::write(run.dir.path().join("keep-pty"), "hold").unwrap();
+            std::fs::write(run.dir.path().join("hold-exit"), "hold").unwrap();
         } else {
             std::fs::write(run.gate("cleanup"), "refuse").unwrap();
         }
@@ -1920,9 +1916,6 @@ while True: time.sleep(60)
         let resume =
             tokio::spawn(async move { caller.request("agent.resume", json!({"id":child})).await });
         arrived(&run.gate("claimed-arrived")).await;
-        if uncertain {
-            arrived(&run.dir.path().join("descendant-ready")).await;
-        }
         assert!(
             run.ack()
                 .await
@@ -1972,7 +1965,7 @@ while True: time.sleep(60)
                 false,
                 "an unconfirmed stop authorized Resume"
             );
-            std::fs::remove_file(run.dir.path().join("keep-pty")).unwrap();
+            std::fs::remove_file(run.dir.path().join("hold-exit")).unwrap();
             tokio::time::timeout(BOUND, async {
                 while run.terminal_running(&terminal).await {
                     tokio::task::yield_now().await;
