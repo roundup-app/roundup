@@ -670,6 +670,16 @@ impl Shared {
                 label: "starting".into(),
                 since: *since,
             }),
+            Some(Slot::ResumeCleanup {
+                terminal_id, error, ..
+            }) => {
+                node.terminal_id = Some(terminal_id.clone());
+                Some(Status {
+                    kind: Kind::Error,
+                    label: error.message.clone(),
+                    since: self.opened,
+                })
+            }
             None | Some(Slot::Closing) => None,
         };
         node.status = Some(live.unwrap_or_else(|| Status {
@@ -680,7 +690,12 @@ impl Shared {
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.ended,
-            Some(Slot::Starting { .. } | Slot::Resuming { .. } | Slot::Closing) => false,
+            Some(
+                Slot::Starting { .. }
+                | Slot::Resuming { .. }
+                | Slot::ResumeCleanup { .. }
+                | Slot::Closing,
+            ) => false,
             None => true,
         };
         node.can_resume &= exited;
@@ -955,7 +970,7 @@ impl Shared {
                     self.finish_resuming(rail.as_deref_mut(), &mut runs, id, actor, payload)?
                 }
                 None => return Err(RpcError::not_found(format!("agent {id}"))),
-                Some(Slot::Closing) => {
+                Some(Slot::Closing | Slot::ResumeCleanup { .. }) => {
                     return Err(RpcError::conflict(format!("agent {id} is stopping")));
                 }
             }
@@ -1284,7 +1299,8 @@ impl Shared {
     /// A22's ack confirmed for `id`: attach the Terminal `agent.resume` started (never before
     /// this moment), re-save the conversation (A21), apply every earlier held Signal in arrival
     /// order and then the ack itself, and wake the pending `agent.resume`. On failure, restore
-    /// `old` and stop the Terminal, same as a failed launch.
+    /// `old` only after the failed Attempt's Terminal is confirmed ended. The completion
+    /// sender follows cleanup, so no Resume result can precede its effect.
     #[allow(clippy::too_many_arguments)]
     fn promote_resuming(
         &self,
@@ -1303,16 +1319,20 @@ impl Shared {
         payload: Value,
     ) -> Result<Applied, RpcError> {
         if let Err(err) = rail.attach_terminal(id, &terminal_id) {
-            if let Some(old) = old {
-                runs.insert(id.to_owned(), Slot::Running(*old));
-            }
-            let _ = done.send(Err(RpcError::conflict(format!("cannot resume: {err}"))));
-            self.spawn_kill(terminal_id);
+            self.fail_resume(
+                runs,
+                id,
+                attempt,
+                old,
+                Some(terminal_id),
+                done,
+                RpcError::conflict(format!("cannot resume: {err}")),
+            );
             return Err(err);
         }
         let clock = Arc::clone(&self.clock);
         let mut run = Run {
-            attempt,
+            attempt: attempt.clone(),
             status_revision: 1,
             closing: false,
             ended: false,
@@ -1344,12 +1364,25 @@ impl Shared {
             }
         }
         if let Err(err) = save_signal_conversation(rail, &run, id, &payload) {
-            let _ = rail.detach_terminal(id);
-            if let Some(old) = old {
-                runs.insert(id.to_owned(), Slot::Running(*old));
-            }
-            let _ = done.send(Err(RpcError::conflict(format!("cannot resume: {err}"))));
-            self.spawn_kill(terminal_id);
+            let err = match rail.detach_terminal(id) {
+                Ok(()) => err,
+                Err(detach) => RpcError::new(
+                    err.code,
+                    format!(
+                        "{}; cannot detach Terminal {terminal_id}: {}",
+                        err.message, detach.message
+                    ),
+                ),
+            };
+            self.fail_resume(
+                runs,
+                id,
+                attempt,
+                old,
+                Some(terminal_id),
+                done,
+                RpcError::conflict(format!("cannot resume: {err}")),
+            );
             return Err(err);
         }
         run.starred = starred;
@@ -1386,23 +1419,26 @@ impl Shared {
             .map_err(RpcError::internal)?
     }
 
+    fn confirm_terminal_exit(&self, terminal_id: &str) -> Result<(), RpcError> {
+        if self
+            .terminals
+            .list()
+            .iter()
+            .any(|t| t.id == terminal_id && t.running)
+        {
+            return Err(RpcError::unknown_outcome(format!(
+                "Terminal {terminal_id} exit not confirmed"
+            )));
+        }
+        Ok(())
+    }
+
     /// A21: stop a Terminal in the background, for a failure that must not block the caller
     /// (`observe`'s own `Err` return) and has no actor to attribute a `rail.changed` to.
     fn spawn_kill(&self, terminal_id: String) {
-        let observer = self.resume_effect.clone();
         let kill = Arc::clone(&self.kill);
         let terminals = Arc::clone(&self.terminals);
         tokio::spawn(async move {
-            if let Some(observer) = observer {
-                let terminal = terminal_id.clone();
-                if tokio::task::spawn_blocking(move || observer("cleanup", &terminal))
-                    .await
-                    .unwrap()
-                    .is_err()
-                {
-                    return;
-                }
-            }
             if let Err(err) = kill_or_already_gone(&*kill, &terminals, &terminal_id).await {
                 eprintln!(
                     "agents: could not stop terminal {terminal_id} after a conversation save \
@@ -1412,46 +1448,106 @@ impl Shared {
         });
     }
 
-    /// A22: give up on `id`'s pending resume of Attempt `attempt`, if it is still the one
-    /// pending (the ack may have already won the race under this same lock, in which case this
-    /// is a no-op: whichever of the two claims the slot first decides the outcome). Stops the
-    /// Terminal it started, if it had, and restores the stashed old Run, or removes the id from
-    /// `runs` entirely when there was none to restore (A12's reopened case).
-    async fn rollback_resume(&self, id: &str, attempt: &str, publication: RailPublication) {
-        let claimed = {
-            let mut runs = self.runs();
-            match runs.get(id) {
-                Some(Slot::Resuming {
-                    attempt: active, ..
-                }) if active == attempt => runs.remove(id),
-                _ => None,
-            }
-        };
+    /// Claim rollback under the same lock as promotion. If promotion won, its completion
+    /// channel owns cleanup; the caller must await it even after the acknowledgement timer.
+    fn rollback_resume(&self, id: &str, attempt: &str, error: RpcError) {
+        let mut runs = self.runs();
+        if !matches!(runs.get(id), Some(Slot::Resuming { attempt: active, .. }) if active == attempt)
+        {
+            return;
+        }
         let Some(Slot::Resuming {
-            old, terminal_id, ..
-        }) = claimed
+            old,
+            terminal_id,
+            done,
+            ..
+        }) = runs.remove(id)
         else {
+            unreachable!("matched under the same lock")
+        };
+        self.fail_resume(
+            &mut runs,
+            id,
+            attempt.to_owned(),
+            old,
+            terminal_id,
+            done,
+            error,
+        );
+    }
+
+    /// Keep the Attempt reserved until its only cleanup effect finishes. The task owns the
+    /// sender, so dropping an RPC receiver cannot detach cleanup from its ownership record.
+    #[allow(clippy::too_many_arguments)]
+    fn fail_resume(
+        &self,
+        runs: &mut HashMap<String, Slot>,
+        id: &str,
+        attempt: String,
+        old: Option<Box<Run>>,
+        terminal_id: Option<String>,
+        done: oneshot::Sender<Result<(), RpcError>>,
+        error: RpcError,
+    ) {
+        let Some(terminal_id) = terminal_id else {
+            if let Some(old) = old {
+                runs.insert(id.to_owned(), Slot::Running(*old));
+            }
+            let _ = done.send(Err(error));
             return;
         };
-        if let Some(terminal_id) = terminal_id {
-            report_undo(
-                "stop a resume's Terminal on rollback",
-                kill_or_already_gone(&*self.kill, &self.terminals, &terminal_id).await,
-            );
-        }
-        let mut runs = self.runs();
-        match old {
-            Some(run) => {
-                runs.insert(id.to_owned(), Slot::Running(*run));
+        runs.insert(
+            id.to_owned(),
+            Slot::ResumeCleanup {
+                attempt,
+                terminal_id: terminal_id.clone(),
+                pending: true,
+                error: RpcError::unknown_outcome(format!(
+                    "{error}; Terminal {terminal_id} cleanup pending; do not retry Resume"
+                )),
+            },
+        );
+        let shared = self
+            .me
+            .upgrade()
+            .expect("Agents owns Shared while resolving Resume");
+        let id = id.to_owned();
+        tokio::spawn(async move {
+            let cleanup = async {
+                shared.resume_effect("cleanup", &terminal_id).await?;
+                kill_or_already_gone(&*shared.kill, &shared.terminals, &terminal_id).await?;
+                shared.confirm_terminal_exit(&terminal_id)
             }
-            None => {
-                runs.remove(id);
-            }
-        }
-        drop(runs);
-        if publication == RailPublication::Immediate {
-            self.bus.emit(Actor::daemon(), EventData::RailChanged);
-        }
+            .await;
+            let result = {
+                let mut runs = shared.runs();
+                match cleanup {
+                    Ok(()) => {
+                        runs.remove(&id);
+                        if let Some(old) = old {
+                            runs.insert(id.clone(), Slot::Running(*old));
+                        }
+                        error
+                    }
+                    Err(cleanup) => {
+                        let error = RpcError::unknown_outcome(format!(
+                            "{error}; Terminal {terminal_id} cleanup failed or outcome uncertain: {cleanup}; do not retry Resume until the Terminal is stopped"
+                        ));
+                        if let Some(Slot::ResumeCleanup {
+                            pending,
+                            error: stored,
+                            ..
+                        }) = runs.get_mut(&id)
+                        {
+                            *pending = false;
+                            *stored = error.clone();
+                        }
+                        error
+                    }
+                }
+            };
+            let _ = done.send(Err(result));
+        });
     }
 
     async fn stop(&self, actor: Actor, id: &str) -> Result<(), RpcError> {
@@ -1771,6 +1867,18 @@ impl Shared {
                 None => {
                     runs.insert(id.to_owned(), Slot::Closing);
                 }
+                Some(Slot::ResumeCleanup {
+                    terminal_id,
+                    pending,
+                    error,
+                    ..
+                }) => {
+                    if *pending {
+                        return Err(error.clone());
+                    }
+                    node.terminal_id = Some(terminal_id.clone());
+                    *pending = true;
+                }
                 Some(Slot::Closing) => {
                     return Err(RpcError::conflict(format!("{id} is being removed")));
                 }
@@ -1787,7 +1895,12 @@ impl Shared {
         }
         let killed = match terminal_id {
             Some(terminal_id) => {
-                kill_or_already_gone(&*self.kill, &self.terminals, &terminal_id).await
+                let killed = kill_or_already_gone(&*self.kill, &self.terminals, &terminal_id).await;
+                if matches!(self.runs().get(id), Some(Slot::ResumeCleanup { .. })) {
+                    killed.and_then(|()| self.confirm_terminal_exit(&terminal_id))
+                } else {
+                    killed
+                }
             }
             None => Ok(()),
         };
@@ -1821,6 +1934,8 @@ impl Shared {
             if let Err(err) = killed {
                 if let Some(Slot::Running(run)) = runs.get_mut(id) {
                     run.closing = false;
+                } else if let Some(Slot::ResumeCleanup { pending, .. }) = runs.get_mut(id) {
+                    *pending = false;
                 } else {
                     runs.remove(id);
                 }
@@ -1911,7 +2026,7 @@ fn channel_in(
     let live = match slot {
         Slot::Running(run) => !run.ended && !run.closing,
         Slot::Starting { .. } | Slot::Resuming { .. } => true,
-        Slot::Closing => false,
+        Slot::Closing | Slot::ResumeCleanup { .. } => false,
     };
     live.then(|| match channels.get(id) {
         Some((attempt, channel)) if attempt == slot.attempt() => *channel,
@@ -1981,24 +2096,34 @@ enum Slot {
         terminal_id: Option<String>,
         /// Signals held exactly as `Starting`'s, awaiting the ack among them (A14).
         held: VecDeque<(Actor, Value)>,
-        /// Signalled once by whichever of the ack or the 10 s timeout resolves this resume
-        /// first; the loser finds the slot already gone and does nothing (A22's serialization).
+        /// Promotion or timeout claims this sender under the runs lock. Failure sends only
+        /// after cleanup finishes; a timer that loses the claim still awaits this sender.
         done: tokio::sync::oneshot::Sender<Result<(), RpcError>>,
     },
     Running(Run),
+    /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
+    ResumeCleanup {
+        attempt: String,
+        terminal_id: String,
+        pending: bool,
+        error: RpcError,
+    },
     Closing,
 }
 
 impl Slot {
     fn attempt(&self) -> &str {
         match self {
-            Self::Starting { attempt, .. } | Self::Resuming { attempt, .. } => attempt,
+            Self::Starting { attempt, .. }
+            | Self::Resuming { attempt, .. }
+            | Self::ResumeCleanup { attempt, .. } => attempt,
             Self::Running(run) => &run.attempt,
             Self::Closing => "",
         }
     }
     fn closing(&self) -> bool {
-        matches!(self, Self::Closing) || matches!(self, Self::Running(run) if run.closing)
+        matches!(self, Self::Closing | Self::ResumeCleanup { .. })
+            || matches!(self, Self::Running(run) if run.closing)
     }
 
     /// The node's name is final: no prompt renames it.
@@ -2006,7 +2131,7 @@ impl Slot {
         match self {
             Self::Running(run) => run.named = true,
             Self::Starting { named, .. } => *named = true,
-            Self::Resuming { .. } | Self::Closing => {}
+            Self::Resuming { .. } | Self::ResumeCleanup { .. } | Self::Closing => {}
         }
     }
 }
@@ -2177,7 +2302,7 @@ impl Agents {
                             .is_none_or(|status| status.kind == Kind::Done),
                 ),
                 Some(Slot::Starting { .. } | Slot::Resuming { .. }) => (Some("1".into()), false),
-                None | Some(Slot::Closing) => (None, true),
+                None | Some(Slot::Closing | Slot::ResumeCleanup { .. }) => (None, true),
             };
             TerminalOwner {
                 id,
@@ -2940,9 +3065,9 @@ impl Agents {
 
     /// A22: resume an exited Agent's saved conversation in a new Attempt. Returns only once the
     /// new Attempt's `SessionStart` has acknowledged it (`finish_resuming`) or the attempt is
-    /// given up on: `rollback_resume` stops its Terminal, if one started, and restores the old
-    /// node. `can_resume` reads false for the whole pending window (A20's Starting/Resuming
-    /// mechanism already keeps `agent.stop` and `rail.remove` from claiming the id meanwhile).
+    /// given up on. Cleanup completes before a failure result; an unconfirmed cleanup keeps
+    /// its Terminal identified and `can_resume` false until explicitly stopped. A20's pending
+    /// Attempt prevents `agent.stop` and `rail.remove` from crossing cleanup in flight.
     async fn resume(&self, ctx: &Ctx, id: &str) -> Result<RailNode, RpcError> {
         {
             let rail = self.shared.rail();
@@ -2955,7 +3080,9 @@ impl Agents {
     }
 
     /// A22's launch, acknowledgement, rollback and serialization for an Agent (`agent.resume`) or
-    /// a Door (A23's `rail.startDoor`) whose kind the caller has checked.
+    /// a Door (A23's `rail.startDoor`) whose kind the caller has checked. A failure completes
+    /// only after Terminal cleanup settles. Unconfirmed cleanup returns UNKNOWN_OUTCOME with
+    /// the original error and remaining Terminal id, and refuses Resume until explicit stop.
     async fn resume_saved(
         &self,
         ctx: &Ctx,
@@ -2989,6 +3116,7 @@ impl Agents {
                 Some(Slot::Closing) => {
                     return Err(RpcError::conflict(format!("{id} is stopping")));
                 }
+                Some(Slot::ResumeCleanup { error, .. }) => return Err(error.clone()),
                 Some(Slot::Running(run)) if !run.ended => {
                     return Err(RpcError::conflict(format!("{id} is running")));
                 }
@@ -3039,13 +3167,16 @@ impl Agents {
                 );
                 tokio::task::spawn_blocking(move || git.verify_resumable(&project, &worktree))
                     .await
-                    .map_err(RpcError::internal)?
+                    .unwrap_or_else(|err| Err(RpcError::internal(err)))
             }
             None if Path::new(&saved_cwd).is_dir() => Ok(()),
             None => Err(RpcError::conflict(format!("worktree_missing: {saved_cwd}"))),
         };
         if let Err(err) = verified {
-            self.shared.rollback_resume(id, &attempt, publication).await;
+            self.shared.rollback_resume(id, &attempt, err.clone());
+            if publication == RailPublication::Immediate {
+                ctx.emit(EventData::RailChanged);
+            }
             return Err(err);
         }
 
@@ -3065,12 +3196,15 @@ impl Agents {
                     "delete the Agent's settings file",
                     Launcher::discard(&self.dir, id),
                 );
-                self.shared.rollback_resume(id, &attempt, publication).await;
+                self.shared.rollback_resume(id, &attempt, err.clone());
+                if publication == RailPublication::Immediate {
+                    ctx.emit(EventData::RailChanged);
+                }
                 return Err(err);
             }
         };
         let terminal_id = spawned.id.clone();
-        self.shared.resume_effect("claim", &terminal_id).await?;
+        let observed = self.shared.resume_effect("claim", &terminal_id).await;
         let claimed = {
             let mut runs = self.shared.runs();
             match runs.get_mut(id) {
@@ -3089,15 +3223,23 @@ impl Agents {
             // A14's attempt check already keeps a stop/remove from claiming a Resuming id;
             // nothing else can have. Kept so this can never leave a Terminal unaccounted for if
             // that ever changes.
-            report_undo(
-                "kill a resume Terminal that lost its race",
-                self.shared.terminals.kill(&terminal_id).await,
-            );
-            return Err(RpcError::conflict(format!(
-                "{id}: resume no longer pending"
-            )));
+            let cleanup =
+                kill_or_already_gone(&*self.shared.kill, &self.shared.terminals, &terminal_id)
+                    .await
+                    .and_then(|()| self.shared.confirm_terminal_exit(&terminal_id));
+            return Err(match cleanup {
+                Ok(()) => RpcError::conflict(format!("{id}: resume no longer pending")),
+                Err(cleanup) => RpcError::unknown_outcome(format!(
+                    "{id}: resume no longer pending; Terminal {terminal_id} cleanup failed or outcome uncertain: {}; do not retry Resume",
+                    cleanup.message
+                )),
+            });
         }
-        self.shared.resume_effect("claimed", &terminal_id).await?;
+        if let Err(err) = observed {
+            self.shared.rollback_resume(id, &attempt, err);
+        } else if let Err(err) = self.shared.resume_effect("claimed", &terminal_id).await {
+            self.shared.rollback_resume(id, &attempt, err);
+        }
         // An ack that raced ahead of this very claim (held because the Terminal id was not yet
         // recorded) is acted on now, rather than left held until the 10 s timeout.
         self.shared.promote_held_resume_ack(id);
@@ -3108,22 +3250,23 @@ impl Agents {
             spawned.events,
         ));
 
+        let mut done_rx = done_rx;
         let outcome = tokio::select! {
-            ack = done_rx => ack.unwrap_or_else(|_| {
-                Err(RpcError::internal(format!("{id}: resume ack channel dropped")))
+            ack = &mut done_rx => ack.unwrap_or_else(|_| {
+                Err(RpcError::unknown_outcome(format!("{id}: resume completion lost; do not retry")))
             }),
             () = tokio::time::sleep(ack_bound) => {
-                self.shared.rollback_resume(id, &attempt, publication).await;
-                Err(RpcError::conflict(format!(
-                    "{id}: no acknowledgement within {}s",
-                    ack_bound.as_secs()
-                )))
+                self.shared.rollback_resume(id, &attempt, RpcError::conflict(format!(
+                    "{id}: no acknowledgement within {}s", ack_bound.as_secs()
+                )));
+                done_rx.await.unwrap_or_else(|_| Err(RpcError::unknown_outcome(
+                    format!("{id}: resume completion lost; do not retry"))))
             }
         };
-        outcome?;
         if publication == RailPublication::Immediate {
             ctx.emit(EventData::RailChanged);
         }
+        outcome?;
         self.shared.node(id)
     }
 
