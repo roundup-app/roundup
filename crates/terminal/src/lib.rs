@@ -66,6 +66,8 @@ struct Handle {
 
 type InputWriter = dyn Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send + Sync;
 
+type ExitHold = dyn Fn() + Send + Sync;
+
 type Effect = Box<dyn FnOnce(&mut dyn Write) -> Result<(), RpcError> + Send>;
 
 enum Input {
@@ -168,6 +170,7 @@ pub struct Terminals {
     shared: Arc<Shared>,
     next: AtomicU64,
     input_writer: Option<Arc<InputWriter>>,
+    exit_hold: Option<Arc<ExitHold>>,
 }
 
 impl Terminals {
@@ -192,6 +195,7 @@ impl Terminals {
             }),
             next: AtomicU64::new(1),
             input_writer: None,
+            exit_hold: None,
         })
     }
 
@@ -201,6 +205,13 @@ impl Terminals {
         adapt: impl Fn(Box<dyn Write + Send>) -> Box<dyn Write + Send> + Send + Sync + 'static,
     ) -> Self {
         self.input_writer = Some(Arc::new(adapt));
+        self
+    }
+
+    /// Run `hold` after a program is reaped and before its Terminal is reported exited, for isolated
+    /// observers that keep an exit unconfirmed on any host, whether or not its PTY reports EOF.
+    pub fn with_exit_hold(mut self, hold: impl Fn() + Send + Sync + 'static) -> Self {
+        self.exit_hold = Some(Arc::new(hold));
         self
     }
 
@@ -372,12 +383,20 @@ impl Terminals {
         let (arrival, child_arrives) = mpsc::channel();
         let shared = Arc::clone(&self.shared);
         let reader_screen = Arc::clone(&screen);
+        let exit_hold = self.exit_hold.clone();
         std::thread::Builder::new()
             .name(format!("terminal-{number}"))
             .spawn(move || {
                 // No child means the program never started: nothing to report.
                 if let Ok(program) = child_arrives.recv() {
-                    pump(&shared, number, reader, &program, &reader_screen);
+                    pump(
+                        &shared,
+                        number,
+                        reader,
+                        &program,
+                        &reader_screen,
+                        exit_hold.as_deref(),
+                    );
                 }
             })
             .map_err(RpcError::internal)?;
@@ -712,6 +731,7 @@ fn pump(
     mut reader: Box<dyn Read + Send>,
     program: &Program,
     screen: &Mutex<ScreenState>,
+    exit_hold: Option<&ExitHold>,
 ) {
     let id = number.to_string();
     let mut chunk = [0u8; READ_CHUNK];
@@ -762,6 +782,9 @@ fn pump(
             Some(-1)
         }
     };
+    if let Some(hold) = exit_hold {
+        hold();
+    }
     shared.finish(number, code);
 }
 
