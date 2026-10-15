@@ -72,6 +72,12 @@ async fn start(f: &Fixture, id: &str) {
     signal(f, id, "SessionStart").await;
     until_typed(f, first().len()).await;
     signal(f, id, "UserPromptSubmit").await;
+    // Idle can precede the first writer's completion; subsequent Steers need that fence.
+    let attempt = f.attempt(id).await;
+    assert_eq!(
+        f.agents.first_steer_completion(id, &attempt).await,
+        Ok(FirstSteerCompletion::Submitted)
+    );
     signal(f, id, "Stop").await;
     f.until(|tree| status_of(tree, id).kind == Kind::Idle).await;
 }
