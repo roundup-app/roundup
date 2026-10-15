@@ -52,13 +52,16 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean) => {
   let dialog: HTMLDivElement | undefined;
   let menu: HTMLDivElement | undefined;
   let origin: HTMLButtonElement | undefined;
+
   const close = () => {
     const restore = drawer?.contains(document.activeElement);
     setDrawerOpen(false);
 
     if (restore) origin?.focus();
   };
+
   const guarded = (event: KeyboardEvent) => !(event.target instanceof Element && event.target.closest("input, textarea, [contenteditable], .xterm"));
+
   const Drawer = () => {
     registerKeys({ kind: "layer", element: () => drawer, active: drawerOpen, modal: false }, [{ chords: ["Escape"], when: guarded, run: close }]);
 
@@ -77,6 +80,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean) => {
       <p>Unchanged Drawer content</p>
     </aside></Show>;
   };
+
   const Top = () => {
     registerKeys({ kind: "layer", element: () => dialog, active: dialogOpen, modal: true }, []);
     registerKeys({ kind: "layer", element: () => menu, active: menuOpen, modal: false }, []);
