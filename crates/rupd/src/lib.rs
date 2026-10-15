@@ -41,7 +41,7 @@ pub struct Daemon {
     pads: Arc<pads::Pads>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    /// B6: Takeover acquisition excludes in-flight Door writes and steering of this child.
+    /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
@@ -65,7 +65,7 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
-    /// B6's isolated observer pauses a Door answer or guarded call before its effect; absent in production.
+    /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
 
@@ -332,10 +332,11 @@ impl Daemon {
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
         let child = if conn.actor.kind == ActorKind::Agent {
             match method {
-                "terminal.write" => self.guard_terminal_read(&conn.actor, &params).await?,
-                "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume" => {
-                    Some(rpc::params::<NodeId>(params.clone())?.id)
+                "terminal.write" | "terminal.kill" | "terminal.close" => {
+                    self.guard_terminal_read(&conn.actor, &params).await?
                 }
+                "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
+                | "agent.stop" => Some(rpc::params::<NodeId>(params.clone())?.id),
                 _ => None,
             }
         } else {
@@ -542,10 +543,13 @@ impl Daemon {
             // The Signal proceeds to its synchronous fold in this same router poll.
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
-        if !matches!(method, "decision.answer" | "terminal.write")
-            || (!params["identity"].is_object()
-                && !(method == "decision.answer" && actor.kind == ActorKind::Agent))
-        {
+        let observed = match method {
+            "agent.stop" | "terminal.kill" | "terminal.close" => actor.kind == ActorKind::Agent,
+            "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
+            "terminal.write" => params["identity"].is_object(),
+            _ => false,
+        };
+        if !observed {
             return Ok(());
         }
         let Some(gate) = &self.prompt_effect_gate else {
