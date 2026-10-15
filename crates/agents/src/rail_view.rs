@@ -301,6 +301,82 @@ mod tests {
 
     use crate::tests::*;
     #[test]
+    fn b32_owner_reads_see_external_attachment_while_a_peer_pins_an_older_snapshot() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "receiver", None, None)
+            .unwrap()
+            .id;
+        let agents = owner_agents(shared, dir.path());
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                assert!(owner.is_none());
+                Ok(())
+            })
+            .unwrap();
+        let peer = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        peer.execute_batch("BEGIN; SELECT rootpage FROM sqlite_schema;")
+            .unwrap();
+        let writer = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        writer
+            .execute(
+                "UPDATE nodes SET terminal_id = 'terminal', attempt = 7 WHERE id = ?",
+                [&id],
+            )
+            .unwrap();
+        agents
+            .with_terminal_owner("terminal", |owner| {
+                let owner = owner.unwrap();
+                assert_eq!(owner.id, id);
+                assert_eq!(owner.attempt.as_deref(), Some("7"));
+                Ok(())
+            })
+            .unwrap();
+        peer.execute_batch("ROLLBACK").unwrap();
+    }
+
+    #[test]
+    fn b32_owner_read_leases_expire_without_more_input() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "receiver", None, None)
+            .unwrap()
+            .id;
+        let agents = owner_agents(shared, dir.path());
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.busy_timeout(std::time::Duration::ZERO).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            agents.with_terminal_owner("unowned", |_| Ok(())).unwrap();
+            db.execute("UPDATE nodes SET attempt = attempt + 1 WHERE id = ?", [&id])
+                .unwrap();
+            let busy: i64 = db
+                .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| row.get(0))
+                .unwrap();
+            if busy != 0 {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "owner reads never shared a bounded WAL read lease"
+            );
+            std::thread::yield_now();
+        }
+        // SQLite's busy result witnesses an active lease; no further input may be needed
+        // to release it and let another connection checkpoint its committed writes.
+        db.busy_timeout(std::time::Duration::from_millis(500))
+            .unwrap();
+        let checkpoint: (i64, i64, i64) = db
+            .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .unwrap();
+        assert_eq!(checkpoint, (0, 0, 0));
+    }
+
+    #[test]
     fn b32_an_unowned_terminal_has_no_receiver() {
         let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let agents = owner_agents(shared, dir.path());
