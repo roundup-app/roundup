@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { finished } from "node:stream/promises";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 
@@ -20,7 +21,7 @@ export const chromePath = (): string | undefined => {
         .flatMap((name) => ["chrome-linux/chrome", "chrome-linux64/chrome", "chrome-mac/Chromium.app/Contents/MacOS/Chromium"].map((sub) => join(root, name, sub)))
     : [];
 
-  return [process.env["CHROME_PATH"], ...bundled, "/usr/bin/google-chrome", "/usr/bin/chromium"].find((path) => path !== undefined && existsSync(path));
+  return [process.env["CHROME_PATH"], ...bundled, "/opt/google/chrome/chrome", "/usr/bin/google-chrome", "/usr/bin/chromium"].find((path) => path !== undefined && existsSync(path));
 };
 
 type Json = string | number | boolean | null | readonly Json[] | { readonly [name: string]: Json };
@@ -62,6 +63,19 @@ export const openPage = async (
   found: string,
   { root = process.cwd(), clock, replyMs = 20_000 }: { root?: string; clock?: number; replyMs?: number } = {},
 ): Promise<ChromePage> => {
+  const startup = performance.now();
+
+  if (process.platform === "linux") {
+    // U26's private cold executable at 100 read IOPS exhausts 20 s on
+    // scattered demand faults. Large sequential reads use fewer disk requests
+    // (3.1 s total at 140 IOPS versus two startup timeouts without them).
+    // Stream rather than retaining Chrome's ~300 MB executable in Node's RSS.
+    const executable = createReadStream(found, { highWaterMark: 4 * 1024 * 1024, signal: AbortSignal.timeout(replyMs) });
+
+    executable.resume();
+    await finished(executable);
+  }
+
   // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
   const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
   const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
@@ -203,13 +217,16 @@ export const openPage = async (
     if (failure !== undefined) return Promise.reject(new Error(`${method}: ${failure}`));
 
     const id = ++next;
-    const started = Date.now();
+    const started = id === 1 ? startup : performance.now();
+    // Preparation consumes the same startup budget; it cannot hide a stall
+    // before a fresh 20-second Target.createTarget timer starts.
+    const budget = Math.max(0, replyMs - (performance.now() - started));
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         waiting.delete(id);
-        reject(new Error(`${method} timed out after ${replyMs} ms; elapsed=${Date.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
-      }, replyMs);
+        reject(new Error(`${method} timed out after ${replyMs} ms; elapsed=${performance.now() - started} ms; Chrome pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode}, received=${received} bytes; stderr:\n${diagnostics}\nthreads:\n${threads()}`));
+      }, budget);
 
       waiting.set(id, (reply) => {
         clearTimeout(timeout);
