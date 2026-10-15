@@ -29,8 +29,10 @@ function check(args, label, expectedFailure) {
     assert.match(output, expectedFailure, log);
 
     // A different failed leaf is an unrelated failure, never proof of rejection.
+    const aggregates = ['just lint-web', `just check-web '${args[0] ?? ''}'`];
+
     const leaves = [...output.matchAll(/^  (.+) \(exit \d+\)$/gm)]
-      .flatMap((match) => match[1].startsWith('just ') ? [] : [match[1]]);
+      .flatMap((match) => aggregates.includes(match[1]) ? [] : [match[1]]);
 
     assert.deepEqual([...new Set(leaves)], [label === 'raw padding' ? 'pnpm lint:styles' : 'pnpm tokens:check'], log);
   } else {
