@@ -200,7 +200,3 @@ CREATE TABLE IF NOT EXISTS marks (
     content TEXT NOT NULL,
     PRIMARY KEY (workstream, checkpoint)
 );
-
-CREATE TABLE project_import(id INTEGER PRIMARY KEY CHECK(id=0), verified INTEGER NOT NULL CHECK(verified IN (0,1)));
-INSERT INTO project_import VALUES(0,0);
-CREATE TABLE project_import_sources(name TEXT PRIMARY KEY);
