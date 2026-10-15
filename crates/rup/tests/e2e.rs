@@ -3360,7 +3360,7 @@ async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_an
     let door_file = root.path().join("door-id");
     let out = root.path().join("out");
     let answer = |gate: &std::path::Path| {
-        json!([{"name": "decision_answer", "arguments": {"id": "d1", "answer": "allow"},
+        json!([{"name": "decision_answer", "arguments": {"id": "$decision", "answer": "allow"},
             "may_fail": true, "after": gate}])
     };
     let process = json!([
@@ -3368,7 +3368,7 @@ async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_an
         h21_script(),
         gate,
         out,
-        "d1",
+        "$decision",
         door_file,
         "",
         "plain"
@@ -3394,9 +3394,9 @@ async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_an
     let other = agent_in(&project, &client, Some(&elsewhere)).await;
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
     let decision = h21_decision(&client, &child, None).await;
-    assert_eq!(decision["id"], "d1");
+    let id = decision["id"].as_str().unwrap();
 
-    std::fs::write(&gate, "").unwrap();
+    h21_release(&gate, id);
     let from_mcp = json_file(&agent_report).await;
     let replies = h21_poll("both processes", async || {
         let found: Vec<Value> = std::fs::read_dir(root.path())
@@ -3419,22 +3419,28 @@ async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_an
     }
     let history = |item: String| client.request("provenance.history", json!({ "item": item }));
     assert!(
-        history("decision:d1".into())
+        history(format!("decision:{id}"))
             .await
             .unwrap()
             .as_array()
             .unwrap()
             .is_empty()
     );
-    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
+    assert_eq!(h21_decision(&client, &child, None).await["id"], id);
 
-    h21_user_answers(&client, "d1", "deny").await.unwrap();
-    std::fs::write(&door_gate, "").unwrap();
+    h21_user_answers(&client, id, "deny").await.unwrap();
+    h21_release(&door_gate, id);
     let late = json_file(&door_report).await;
     assert_eq!(late[0]["error"]["code"], rpc::code::NOT_FOUND);
-    let touches = history("decision:d1".into()).await.unwrap();
+    let touches = history(format!("decision:{id}")).await.unwrap();
     assert_eq!(touches.as_array().unwrap().len(), 1);
     assert_eq!(touches[0]["actor"]["kind"], "user");
+}
+
+fn h21_release(gate: &std::path::Path, decision: &str) {
+    let draft = gate.with_extension("tmp");
+    std::fs::write(&draft, decision).unwrap();
+    std::fs::rename(draft, gate).unwrap();
 }
 
 /// A process below the child's `claude` that does `mode`, then answers the child's own Decision.
@@ -3448,7 +3454,7 @@ async fn h21_below_claude(mode: &str) -> (Value, usize) {
         h21_script(),
         gate,
         out,
-        "d1",
+        "$decision",
         door_file,
         "PLACEHOLDER",
         mode
@@ -3467,9 +3473,10 @@ async fn h21_below_claude(mode: &str) -> (Value, usize) {
     std::fs::write(&door_file, &door).unwrap();
     let child = agent_in(&project, &client, Some(&door)).await;
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
-    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
+    let decision = h21_decision(&client, &child, None).await;
+    let id = decision["id"].as_str().unwrap();
 
-    std::fs::write(&gate, "").unwrap();
+    h21_release(&gate, id);
     let reply = h21_poll("the reply", async || {
         std::fs::read_dir(root.path())
             .unwrap()
@@ -3484,7 +3491,10 @@ async fn h21_below_claude(mode: &str) -> (Value, usize) {
     })
     .await;
     let touches = client
-        .request("provenance.history", json!({ "item": "decision:d1" }))
+        .request(
+            "provenance.history",
+            json!({ "item": format!("decision:{id}") }),
+        )
         .await
         .unwrap();
     let open = client.request("decision.list", Value::Null).await.unwrap();

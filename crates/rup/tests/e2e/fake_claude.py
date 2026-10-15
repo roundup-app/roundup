@@ -403,6 +403,10 @@ def mcp_session(calls, report=None, results_to=None):
             key: [last if each == "$id" else each for each in value] if isinstance(value, list) else last if value == "$id" else asked if value == "$ask" else value
             for key, value in tool.get("arguments", {}).items()
         }
+        # H21's gate carries the actual request id, so authority tests need not
+        # guess a Decision's opaque identity before its hook opens.
+        if arguments.get("id") == "$decision":
+            arguments["id"] = open(tool["after"]).read().strip()
         result = request(10 + n, "tools/call", {"name": tool["name"], "arguments": arguments})
         if result.get("isError") and tool.get("may_fail"):
             # H21: a refusal is the thing observed; its JSON error is what the report holds.
