@@ -176,8 +176,9 @@ describe("u184 overflow", () => {
     await withLayout(async () => {
       const edges = [...document.querySelectorAll(".strip-edge")];
 
-      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["⊗ 2 ▸"]);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["2 ▸"]);
       expect(edges[0]?.classList.contains("strip-edge-right")).toBe(true);
+      expect(edges[0]?.querySelector(".tab-mark")?.getAttribute("data-tone")).toBe("red");
     });
   });
 
@@ -240,7 +241,8 @@ describe("u184 overflow", () => {
 
       const edges = [...document.querySelectorAll(".strip-edge-left")];
 
-      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂ ◉"]);
+      expect(edges.map((edge) => edge.textContent?.replace(/\s+/g, " ").trim())).toEqual(["◂"]);
+      expect(edges[0]?.querySelector(".tab-mark")?.getAttribute("data-tone")).toBe("amber");
     });
   });
 
@@ -259,7 +261,8 @@ describe("u184 overflow", () => {
     const css = readFileSync(resolve(process.cwd(), "src/header/strip.styles.css"), "utf8");
     const rule = (selector: string) => css.match(new RegExp(`${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
 
-    expect(rule(".tab-name")).toContain("min-width: 8ch");
+    // The 8-character floor lives on the tab (U443 keeps the name column as wide as the name, so the dot follows it).
+    expect(rule(".project-tab")).toContain("min-width: calc(8ch");
     expect(rule(".tab-head")).toContain("text-overflow: ellipsis");
     expect(rule(".tablist")).toContain("overflow-x: auto");
   });

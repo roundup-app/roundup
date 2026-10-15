@@ -59,6 +59,130 @@ def capture(name):
     return result
 
 
+def settle():
+    # Flush the strip's measurements even when a headless page holds its scroll and resize frames; a slot that appears needs another to settle.
+    for _ in range(3):
+        evaluate("document.querySelector('.tablist').dispatchEvent(new Event('scroll'))")
+        browser("wait", "200")
+
+
+# U440: the overflow edges beside the tab list, at the widest and the narrowest windows.
+if len(sys.argv) > 5 and sys.argv[5] == "edges":
+    try:
+        browser("open", origin + "harness.html?seed=tabs-8")
+        for width in (1280, 1000, 700):
+            browser("set", "viewport", str(width), "800")
+            browser("set", "media", "light")
+            browser("open", origin + "harness.html?seed=tabs-8")
+            browser("wait", ".strip-add")
+            browser("wait", "--fn", "document.querySelectorAll('.project-tab').length === 8")
+            for pick in ("first", "middle", "last"):
+                index = {"first": "0", "middle": "3", "last": "t.length-1"}[pick]
+                evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + index + "].click()")
+                browser("wait", "--fn", "(() => {const t=[...document.querySelectorAll('.tab-name-button')];return t[" +
+                        index + "].getAttribute('aria-selected') === 'true'})()")
+                settle()
+                browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab').getBoundingClientRect().left >= document.querySelector('.tablist').getBoundingClientRect().left")
+                revealed = evaluate("document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab').getBoundingClientRect().toJSON()")
+                if pick != "middle":
+                    evaluate("const list=document.querySelector('.tablist');list.scrollLeft=" + ("0" if pick == "first" else "list.scrollWidth"))
+                    browser("wait", "--fn", "(() => {const list=document.querySelector('.tablist');return " +
+                            ("list.scrollLeft === 0" if pick == "first" else "Math.abs(list.scrollWidth-list.clientWidth-list.scrollLeft) <= 1") + "})()")
+                    settle()
+                records.append({"case": f"tabs-8-{width}-{pick}", "revealed": revealed, **evaluate(r"""(() => {
+                  const box = e => e.getBoundingClientRect().toJSON();
+                  const cuts = () => { const list=document.querySelector('.tablist'),style=list.style; return {start: parseFloat(style.getPropertyValue('--cut-start')), end: parseFloat(style.getPropertyValue('--cut-end')), mask: getComputedStyle(list).maskImage}; };
+                  const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
+                  return {list: box(document.querySelector('.tablist')), cuts: cuts(), slots: document.querySelectorAll('.strip-slot').length, selected: box(selected),
+                    tabs: [...document.querySelectorAll('.project-tab')].map(box),
+                    edges: [...document.querySelectorAll('.strip-edge')].map(box)};
+                })()""")})
+                if output and width >= 1280:
+                    directory = Path(output) / "edges" / variant
+                    directory.mkdir(parents=True, exist_ok=True)
+                    name = records[-1]["case"]
+                    (directory / (name + ".geometry.json")).write_text(json.dumps(records[-1]) + "\n")
+                    (directory / (name + ".checks.json")).write_text(json.dumps(evaluate("window.__checks()")) + "\n")
+                    browser("screenshot", str(directory / (name + ".png")))
+        # A list one pixel wider than a tab: the open tab can end up cut, and no fade may take it.
+        evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[0].click()")
+        settle()
+        evaluate("document.querySelector('.tablist').style.maxWidth=(document.querySelector('.project-tab').getBoundingClientRect().width+1)+'px'")
+        settle()
+        evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[3].click()")
+        browser("wait", "--fn", "document.querySelectorAll('.tab-name-button')[3].getAttribute('aria-selected') === 'true'")
+        settle()
+        tight = evaluate("(() => { const box = e => e.getBoundingClientRect().toJSON(); const style = document.querySelector('.tablist').style; const cuts = () => ({start: parseFloat(style.getPropertyValue('--cut-start')), end: parseFloat(style.getPropertyValue('--cut-end'))}); return {list: box(document.querySelector('.tablist')), cuts: cuts(), selected: box(document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab'))}; })()")
+        print(json.dumps({"readings": records, "tight": tight}))
+    finally:
+        browser("close")
+    sys.exit(0)
+
+# Reuse the isolated browser driver for the dependent U440–U443 geometry.
+if len(sys.argv) > 5 and sys.argv[5] == "boxes":
+    try:
+        browser("open", origin + "harness.html?seed=first-run")
+        for width, height in ((1280, 800), (1280, 820), (1440, 800)):
+            browser("set", "viewport", str(width), str(height))
+            for scheme in ("light", "dark"):
+                browser("set", "media", scheme)
+                for seed in ("first-run", "agents-10", "two-projects", "three-projects", "tree-40", "tabs-8"):
+                    evaluate("localStorage.clear()")
+                    browser("open", origin + "harness.html?seed=" + ("agents-10" if seed in ("two-projects", "three-projects") else seed))
+                    browser("wait", ".strip-add")
+                    if seed in ("two-projects", "three-projects"):
+                        for index in range(1, 2 if seed == "two-projects" else 3):
+                            evaluate(f"window.__fake.app.chooser.path='/u440/project-{index}';document.querySelector('.strip-add').click()")
+                            browser("wait", "--fn", f"document.querySelectorAll('.project-tab').length === {index + 1}")
+                    if seed != "first-run":
+                        evaluate("document.querySelector('.tab-name-button').focus();document.querySelector('.tab-name-button').click()")
+                        browser("wait", "--fn", "document.querySelector('.tab-name-button').getAttribute('aria-selected') === 'true'")
+                    browser("wait", "--fn", "![...document.querySelectorAll('.tab-name-button')].some(e=>e.getAttribute('aria-busy')==='true')")
+                    prefix = f"{seed}-{width}x{height}-{scheme}"
+                    result = capture(prefix)
+                    result["rule"] = evaluate("(() => {const css=getComputedStyle(document.querySelector('.header'));return {width:css.borderBottomWidth,colour:css.borderBottomColor,token: (()=>{const e=document.createElement('span');e.style.color='var(--hairline)';document.querySelector('.header').append(e);const c=getComputedStyle(e).color;e.remove();return c;})()};})()")
+                    result["tabs"] = evaluate(r"""(() => {
+                      const box=e=>e.getBoundingClientRect().toJSON();
+                      return [...document.querySelectorAll('.project-tab')].map(e=>{
+                        const name=e.querySelector('.tab-name-button'),close=e.querySelector('.tab-close'),mark=e.querySelector('.tab-mark'),css=getComputedStyle(e);
+                        const m=mark&&getComputedStyle(mark);
+                        return {box:box(e),name:box(name),tail:box(e.querySelector('.tab-tail')),close:box(close),border:css.borderTopWidth,bottomBorder:css.borderBottomWidth,
+                          pad:getComputedStyle(name).paddingInlineStart,icons:e.querySelectorAll('.tab-name-button svg').length,
+                          mark:mark?{box:box(mark),radius:m.borderRadius,background:m.backgroundColor,colour:m.color,children:mark.children.length,label:mark.getAttribute('aria-label')}:null};
+                      });
+                    })()""")
+                    if result["tabs"]:
+                        target = ".project-tab:nth-child(2)" if seed == "three-projects" else ".project-tab:first-child"
+                        browser("hover", target)
+                        browser("hover", target + " .tab-close")
+                        if output:
+                            capture(prefix + "-hover")
+                            records.pop()
+                        result["hover"] = evaluate("JSON.stringify([...document.querySelectorAll('.project-tab')].map(e=>e.getBoundingClientRect().toJSON()))")
+                        result["paint"] = evaluate("(() => {const e=document.querySelector('" + target + "'),c=getComputedStyle(e);return {image:c.backgroundImage,background:c.backgroundColor,selected:e.dataset.selected};})()")
+                        result["rest"] = json.dumps([t["box"] for t in result["tabs"]], separators=(",", ":"))
+                        evaluate("const tabs=[...document.querySelectorAll('.tab-name-button')];(tabs.length===3?tabs[1]:tabs[0]).click()")
+                        if output:
+                            capture(prefix + "-selected")
+                            records.pop()
+                        result["selected"] = evaluate("JSON.stringify([...document.querySelectorAll('.project-tab')].map(e=>e.getBoundingClientRect().toJSON()))")
+                        evaluate("document.querySelector('.tab-name-button').focus()")
+                        browser("press", "F2")
+                        browser("wait", ".tab-rename")
+                        result["rename"] = evaluate("(() => {const e=document.querySelector('.tab-rename');return {field:e.getBoundingClientRect().toJSON(),tab:e.closest('.project-tab').getBoundingClientRect().toJSON(),padding:getComputedStyle(e).paddingInlineStart};})()")
+                        browser("press", "Escape")
+                        if seed == "agents-10":
+                            evaluate("for(let i=1;i<=10;i++)window.__fake.setStatus('agent-'+i,'working')")
+                            browser("wait", "--fn", "!document.querySelector('.project-tab .tab-mark')")
+                            result["markChanged"] = evaluate("JSON.stringify([...document.querySelectorAll('.project-tab')].map(e=>e.getBoundingClientRect().toJSON()))")
+                        result["edges"] = evaluate("[...document.querySelectorAll('.strip-edge')].map(e=>({box:e.getBoundingClientRect().toJSON(),mark:e.querySelector('.tab-mark').getBoundingClientRect().toJSON()}))")
+                    if output:
+                        (Path(output) / variant / (prefix + ".geometry.json")).write_text(json.dumps(result) + "\n")
+        print(json.dumps(records))
+    finally:
+        browser("close")
+    sys.exit(0)
+
 slide = r"""async (selector) => {
  const panel=document.querySelector('.drawer');
  const frames=[];
