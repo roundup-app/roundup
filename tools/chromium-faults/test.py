@@ -45,7 +45,7 @@ def file_fixture():
         yield root, binary, mount
 
 
-def held_command(binary, mount, endpoint):
+def held_command(binary, mount, endpoint, pressure=""):
     with socket.socket(socket.AF_UNIX) as connection:
         connection.connect(endpoint)
         control = connection.makefile("r", buffering=1)
@@ -56,6 +56,10 @@ def held_command(binary, mount, endpoint):
             assert line(fuse.stdout) == "MOUNTED"
             reader = subprocess.Popen([binary, "read", mount + "/held"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
             send(line(reader.stdout) + "\n")
+            if pressure:
+                assert line(control) == "B"
+                subprocess.run([binary, "burst", pressure], check=True, timeout=60, stdout=subprocess.DEVNULL)
+                send("BURST\n")
             assert line(control) == "G"
             reader.stdin.write("G\n")
             reader.stdin.flush()
@@ -66,6 +70,10 @@ def held_command(binary, mount, endpoint):
             fuse.stdin.flush()
             send(line(reader.stdout) + "\n")
             assert reader.wait(timeout=10) == 0
+            if pressure:
+                assert line(control) == "B"
+                subprocess.run([binary, "burst", pressure], check=True, timeout=60, stdout=subprocess.DEVNULL)
+                send("BURST\n")
             assert line(control) == "END"
         finally:
             fuse.stdin.write("R\n")
@@ -114,6 +122,68 @@ def fill_pipe(descriptor):
 
 
 class FaultTest(unittest.TestCase):
+    def test_u26_consumer_hold_preserves_fault_identity_and_lifecycle(self):
+        # Both generations run actual filemap_fault probes. Stop only bpftrace's
+        # userspace consumer; its attached kernel programs continue on one CPU.
+        with file_fixture() as (root, binary, mount):
+            with socket.socket(socket.AF_UNIX) as listener, artifact_watch(root / "trace.jsonl") as watch:
+                listener.bind(str(root / "control"))
+                listener.listen(1)
+                listener.settimeout(60)
+                observer = subprocess.Popen(["taskset", "-c", str(min(os.sched_getaffinity(0))), sys.executable, str(HERE / "observe.py"), "--log", str(root / "trace.jsonl"), "--", sys.executable, __file__, "held", str(binary), str(mount), str(root / "control"), str(root / "burst")], stdout=subprocess.DEVNULL)
+                tracer_pid = None
+                try:
+                    connection, _ = listener.accept()
+                    with connection, connection.makefile("r", buffering=1) as control:
+                        send = lambda value: connection.sendall(value.encode())
+                        mapped = line(control).split()
+                        pid, tid, address = int(mapped[1]), int(mapped[2]), int(mapped[3], 16)
+                        descendants = [observer.pid]
+                        for parent in descendants:
+                            children = Path(f"/proc/{parent}/task/{parent}/children").read_text().split()
+                            descendants.extend(map(int, children))
+                        tracer_pid = next(pid for pid in descendants if Path(f"/proc/{pid}/comm").read_text().strip() == "bpftrace")
+
+                        def stop_consumer():
+                            subprocess.run(["sudo", "-n", "kill", "-STOP", str(tracer_pid)], check=True, timeout=5)
+                            # waitid cannot reap a non-child: /proc is the
+                            # independent acknowledgement of the stop signal.
+                            with open(f"/proc/{tracer_pid}/status") as status:
+                                self.assertIn("T (stopped)", status.read())
+
+                        def resume_consumer():
+                            subprocess.run(["sudo", "-n", "kill", "-CONT", str(tracer_pid)], check=True, timeout=5)
+
+                        stop_consumer()
+                        send("B\n")
+                        self.assertEqual(line(control), "BURST")
+                        send("G\n")
+                        self.assertEqual(line(control), "HELD")
+                        resume_consumer()
+                        pending = self.artifact_event(root / "trace.jsonl", watch, "pending", tid, address)
+                        self.assertEqual(pending["pid"], pid)
+                        self.assertEqual(pending["file_basename"], "held")
+                        self.assertEqual(pending["inode"], (mount / "held").stat().st_ino)
+                        self.assertIn("D (disk sleep)", Path(f"/proc/{tid}/status").read_text())
+                        stop_consumer()
+                        send("R\n")
+                        self.assertEqual(line(control), "VALUE Q")
+                        send("B\n")
+                        self.assertEqual(line(control), "BURST")
+                        self.assertFalse(Path(f"/proc/{tid}").exists())
+                        resume_consumer()
+                        send("END\n")
+                        self.assertEqual(observer.wait(timeout=30), 37)
+                        events = [json.loads(row) for row in (root / "trace.jsonl").read_text().splitlines()]
+                        self.assertEqual(events[-1]["still_pending"], 0, events[-1])
+                        self.assertTrue(any(event.get("tid") == tid and event.get("entry_ns") == pending["entry_ns"] and event.get("status") in ("completed", "terminated") for event in events))
+                finally:
+                    if tracer_pid:
+                        subprocess.run(["sudo", "-n", "kill", "-CONT", str(tracer_pid)], timeout=5, check=False)
+                    if observer.poll() is None:
+                        observer.terminate()
+                        observer.wait(timeout=30)
+
     def test_u26_pending_file_fault_survives_until_completed(self):
         self.held_fault(None)
 
