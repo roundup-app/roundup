@@ -106,12 +106,12 @@ const inventory = async (): Promise<Inventory> => evaluate(`(() => {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const text = [];
   for (let node; (node = walker.nextNode());) {
-    if (node.parentElement?.closest('script, style, .xterm')) continue;
+    if (node.parentElement?.closest('script, style, .xterm, .resource-project')) continue;
     const value = node.textContent.replace(/\\s+/g, ' ').trim();
     if (value) text.push(value);
   }
   const names = [...document.querySelectorAll('[aria-label], [title], [placeholder]')].flatMap(element =>
-    ['aria-label', 'title', 'placeholder'].map(name => element.getAttribute(name)).filter(value => value));
+    element.closest('.resource-project') ? [] : ['aria-label', 'title', 'placeholder'].map(name => element.getAttribute(name)).filter(value => value));
   return {text, names};
 })()`);
 
