@@ -381,6 +381,12 @@ The text format an Agent writes; `renderMarkdown` draws it as elements on every 
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 
+**Answered Decision** (`AnsweredDecision`, `AnswersParams`, `decision.answers`):
+The Project's durable record of one accepted Decision answer: the full original Decision,
+complete prompt, request kind (`RequestKind`: question or permission), requesting Attempt, exact answer and note, authenticated answering Actor and answer time.
+Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
+Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
+
 **Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
 The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
 
@@ -501,6 +507,9 @@ A Token-styled list of App actions opened from a control.
 
 **Tooltip**:
 A Token-styled explanation shown on hover or focus of an App control.
+
+**Tabs**:
+A Token-styled set of named App views, with one selected view and its panel visible at a time.
 
 **IconButton**:
 An App button of the icon kind, named for its action for assistive technology.

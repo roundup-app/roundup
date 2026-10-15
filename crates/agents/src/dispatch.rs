@@ -106,6 +106,10 @@ impl Module for Agents {
                 let ask: AskParams = params(value)?;
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
+            "decision.answers" => {
+                let contracts::decision::AnswersParams { agent } = params(value)?;
+                reply(&shared.answers_for(&ctx.actor, &agent)?)
+            }
             "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
             "decision.capture" => {
                 let CaptureParams { id } = params(value)?;
