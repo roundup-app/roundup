@@ -40,11 +40,11 @@ export const u498Fixture = () => {
       get value() { return value(); },
       onValueChange: (details: { value: string }) => { setRequested(details.value); setRequests(requests() + 1); },
     } : {})}>
-      <Tabs.List aria-label="Shelf views" data-caller="list">
-        <Tabs.Trigger value="todos" data-caller="trigger" ref={(element) => { element.dataset.ref = "connected"; }}>Todos<span aria-hidden="true"> ·</span></Tabs.Trigger>
+      <Tabs.List aria-label="Shelf views" data-caller="list" class="caller-list">
+        <Tabs.Trigger value="todos" data-caller="trigger" class="caller-trigger" ref={(element) => { element.dataset.ref = "connected"; }}>Todos<span aria-hidden="true"> ·</span></Tabs.Trigger>
         <Tabs.Trigger value="pads">Pads<span aria-hidden="true"> ·</span></Tabs.Trigger>
       </Tabs.List>
-      <Tabs.Content value="todos" data-caller="panel">{content ? <Draft name="Todos" /> : "Todo content"}</Tabs.Content>
+      <Tabs.Content value="todos" data-caller="panel" class="caller-panel">{content ? <Draft name="Todos" /> : "Todo content"}</Tabs.Content>
       <Tabs.Content value="pads">{content ? <Draft name="Pads" /> : "Pad content"}</Tabs.Content>
     </Tabs.Root>
     <button type="button" data-button="quiet">After</button>
