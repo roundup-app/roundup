@@ -3934,3 +3934,87 @@ async fn b6_held_resizes_preserve_wire_arrival_order_before_task_scheduling() {
     assert_eq!(snapshot["cols"], 151);
     run.finish().await;
 }
+
+#[tokio::test]
+async fn b6_a_new_takeover_does_not_wait_for_an_end_delivering_a_recorded_message() {
+    let (run, caller) = door_terminal().await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    let message = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"legacy recorded cut"}),
+        )
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let end =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    let early = tokio::time::timeout(Duration::from_secs(1), &mut begin).await;
+    std::fs::remove_file(gate).unwrap();
+    end.await.unwrap().unwrap();
+    let acquired_early = early.is_ok();
+    match early {
+        Ok(result) => {
+            result.unwrap().unwrap();
+        }
+        Err(_) => {
+            begin.await.unwrap().unwrap();
+        }
+    }
+    let record = run
+        .user
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(record["status"], "delivered");
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert!(
+        acquired_early,
+        "begin waited for the earlier end's Message typing"
+    );
+    assert_eq!(
+        snapshot["cols"], 80,
+        "the earlier end released a resize into the new Takeover"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 101);
+    run.finish().await;
+}
