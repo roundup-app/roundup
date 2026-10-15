@@ -59,6 +59,32 @@ def capture(name):
     return result
 
 
+# U440: the overflow edges beside the tab list, at the widest and the narrowest windows.
+if len(sys.argv) > 5 and sys.argv[5] == "edges":
+    try:
+        browser("open", origin + "harness.html?seed=tabs-8")
+        for width in (1280, 700):
+            browser("set", "viewport", str(width), "800")
+            browser("set", "media", "light")
+            browser("open", origin + "harness.html?seed=tabs-8")
+            browser("wait", ".strip-add")
+            browser("wait", "--fn", "document.querySelectorAll('.project-tab').length === 8")
+            for pick in ("first", "last"):
+                evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[" + ("0" if pick == "first" else "t.length-1") + "].click()")
+                browser("wait", "--fn", "document.querySelector('.tab-name-button[aria-selected=true]') !== null")
+                browser("wait", "300")
+                records.append({"case": f"tabs-8-{width}-{pick}", **evaluate(r"""(() => {
+                  const box = e => e.getBoundingClientRect().toJSON();
+                  const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
+                  return {list: box(document.querySelector('.tablist')), selected: box(selected),
+                    tabs: [...document.querySelectorAll('.project-tab')].map(box),
+                    edges: [...document.querySelectorAll('.strip-edge')].map(box)};
+                })()""")})
+        print(json.dumps(records))
+    finally:
+        browser("close")
+    sys.exit(0)
+
 # Reuse the isolated browser driver for the dependent U440–U443 geometry.
 if len(sys.argv) > 5 and sys.argv[5] == "boxes":
     try:
