@@ -310,7 +310,7 @@ impl Daemon {
         let child = if conn.actor.kind == ActorKind::Agent {
             match method {
                 "terminal.write" => self.guard_terminal_read(&conn.actor, &params).await?,
-                "agent.prompt" | "agent.setOrder" | "agent.interrupt" => {
+                "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume" => {
                     Some(rpc::params::<NodeId>(params.clone())?.id)
                 }
                 _ => None,
