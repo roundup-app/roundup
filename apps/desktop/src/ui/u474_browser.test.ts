@@ -53,7 +53,7 @@ beforeAll(async () => {
 }, 90_000);
 
 afterAll(async () => {
-  try { await browser("close"); } finally { await server?.close(); await baselineServer?.close(); rmSync(profile, { recursive: true, force: true }); }
+  try { await browser("close"); } finally { await server?.close(); await baselineServer?.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });
 
 
@@ -222,3 +222,122 @@ it("u477_icon_button_preserves_bound_click_handler", async () => {
   await browser("wait", "--fn", `document.querySelector('output').textContent === '2'`);
   expect(await read<string>(`document.querySelector('output').textContent`)).toBe("2");
 }, 60_000);
+
+// App caller inventory: each selector denotes a source occurrence, not one seeded instance.
+// Bubbles seed reveals the floating header and terminal bar; tree-40 reveals Todo deletion.
+const appIcons = [
+  { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Minimise"]' },
+  { seed: "bubbles", selector: '.bubble:not([hidden]) .bubble-header button[aria-label="Close"]' },
+  { seed: "bubbles", selector: '.terminal-tab-pair button[data-button="icon"]' },
+  { seed: "tree-40", selector: '.todo-delete' },
+];
+
+const loadAppIcon = async (base: string, seed: string, selector: string) => {
+  await browser("open", new URL(`/harness.html?seed=${seed}`, base).href);
+  await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+
+  if (seed === "bubbles") {
+    await browser("click", '[data-id="runner"]');
+    await browser("wait", "--fn", `document.querySelectorAll('.terminal-tab').length === 3`);
+
+    if (selector.includes('bubble-header')) {
+      await browser("eval", `document.querySelector('.terminal-tab[aria-pressed="false"]').click()`);
+      await browser("wait", "--fn", `!!document.querySelector('.bubble:not([hidden]) .bubble-header')`);
+    }
+  }
+
+  if (seed === "tree-40") {
+    await browser("eval", `document.querySelector('#shelf-tab-todos').click()`);
+    await browser("wait", "--fn", `!!document.querySelector('.shelf .todo-row-button')`);
+    await browser("eval", `document.querySelector('.shelf .todo-row-button').click()`);
+  }
+
+  await browser("wait", "--fn", `!!document.querySelector(${JSON.stringify(selector)})`);
+};
+
+for (const path of ["hover", "focus"] as const) {
+  it(`u477_app_${path}_shows_each_icon_button_name`, async () => {
+    for (const [index, { seed, selector }] of appIcons.entries()) {
+      const capture = async (step: string) => {
+        if (!art) return;
+        mkdirSync(art, { recursive: true });
+        const name = `caller-${index}-${path}-${step}`;
+        await browser("screenshot", join(art, `${name}.png`));
+        writeFileSync(join(art, `${name}.checks.json`), JSON.stringify(await read<Checks>("window.__checks()")));
+      };
+
+      if (art && baselineOrigin) {
+        await loadAppIcon(baselineOrigin, seed, selector);
+        await capture("before");
+      }
+
+      await loadAppIcon(origin, seed, selector);
+      await browser("eval", `document.querySelector(${JSON.stringify(selector)}).id = "u477-target"`);
+      const query = `document.getElementById("u477-target")`;
+      const name = await read<string>(`${query}.getAttribute('aria-label')`);
+
+      if (path === "hover") await browser("hover", "#u477-target");
+      else {
+        // Start on the preceding tab stop, then use browser keyboard navigation.
+        await browser("eval", `(() => { const button = ${query}; const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); const previous = stops[stops.indexOf(button) - 1]; previous.id = "u477-previous"; previous.focus(); })()`);
+        await browser("wait", "--fn", `document.activeElement?.id === "u477-previous"`);
+        await browser("press", "Tab");
+        await browser("wait", "--fn", `document.activeElement === ${query}`);
+      }
+
+      await browser("wait", "--fn", `${query}.dataset.state === 'open'`);
+      expect(await read<string>(`document.getElementById(${query}.getAttribute('aria-describedby'))?.textContent`), selector).toBe(name);
+      expect(await read<boolean>(`(() => { const tip = document.getElementById(${query}.getAttribute('aria-describedby')); return tip?.getAttribute('role') === 'tooltip' && tip.getClientRects().length > 0 && getComputedStyle(tip).visibility !== 'hidden'; })()`), selector).toBe(true);
+      await capture("after");
+    }
+  }, 120_000);
+}
+
+for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+  it(`u477_tooltip_checks ${scheme}-${width}`, async () => {
+    await browser("set", "media", scheme);
+    await browser("set", "viewport", String(width), "800");
+    const selector = ".todo-delete";
+
+    const rejected = async (base: string) => {
+      await loadAppIcon(base, "tree-40", selector);
+      await browser("eval", `document.querySelector('.todo-delete').click()`);
+      await browser("wait", "--fn", `!!document.querySelector('.todo-delete-confirm')`);
+      await browser("eval", `window.__fake.failNext(-32003, 'Cannot delete this Todo: retained for review'); document.querySelector('.todo-delete-confirm button').click()`);
+      await browser("wait", "--fn", `document.body.textContent.includes('Cannot delete this Todo: retained for review') && !document.querySelector('.todo-delete-confirm button').disabled`);
+    };
+
+    await rejected(baselineOrigin ?? origin);
+    const baseline = await read<Checks>("window.__checks()");
+
+    const capture = async (step: string, checks: Checks) => {
+      if (!art) return;
+      mkdirSync(art, { recursive: true });
+      const name = `app-${scheme}-${width}-${step}`;
+      await browser("screenshot", join(art, `${name}.png`));
+      writeFileSync(join(art, `${name}.checks.json`), JSON.stringify(checks));
+    };
+
+    await capture("before", baseline);
+    await rejected(origin);
+
+    for (const path of ["hover", "focus"]) {
+      if (path === "hover") await browser("hover", selector);
+      else {
+        await browser("mouse", "move", "10", "750");
+        await browser("wait", "--fn", `document.querySelector('.todo-delete').dataset.state === 'closed'`);
+        await browser("eval", `(() => { const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); const previous = stops[stops.indexOf(document.querySelector('.todo-delete')) - 1]; previous.id = 'u477-check-previous'; previous.focus(); })()`);
+        await browser("wait", "--fn", `document.activeElement?.id === 'u477-check-previous'`);
+        await browser("press", "Tab");
+        await browser("wait", "--fn", `document.activeElement === document.querySelector('.todo-delete')`);
+      }
+
+      await browser("wait", "--fn", `document.querySelector('.todo-delete').dataset.state === 'open'`);
+      expect(await read<boolean>(`(() => { const tip = document.getElementById(document.querySelector('.todo-delete').getAttribute('aria-describedby')); const rect = tip.getBoundingClientRect(); const pointer = tip.style.pointerEvents; tip.style.pointerEvents = 'auto'; const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2); tip.style.pointerEvents = pointer; return tip === top || tip.contains(top); })()`), "Tooltip paints above the Drawer").toBe(true);
+      const checks = await read<Checks>("window.__checks()");
+
+      for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, `${scheme}-${width}-${path} ${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
+      await capture(path, checks);
+    }
+  }, 90_000);
+}
