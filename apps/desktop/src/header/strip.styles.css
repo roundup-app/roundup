@@ -2,7 +2,10 @@
 .strip {
   display: flex;
   flex: 1 1 auto;
+  box-sizing: border-box;
   height: 100%;
+  /* The boxes hang a step below the window's top edge and keep their bottoms on the rule; the + shares their centre line. */
+  padding-top: var(--space-2);
   align-items: center;
   min-width: 0;
 }
@@ -22,6 +25,10 @@
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  /* A tab the list cuts at an end fades out across the piece that shows, so the strip leaves a cue that it goes on and no half box stands at its end; the open tab is never cut (Strip.tsx). */
+  --cut-start: 0px;
+  --cut-end: 0px;
+  mask-image: linear-gradient(to right, transparent, var(--ground) var(--cut-start), var(--ground) calc(100% - var(--cut-end)), transparent);
 }
 
 .tablist::-webkit-scrollbar {
@@ -128,31 +135,13 @@
   height: 100%;
 }
 
-/* A tab the list cuts at an end is left out there: the header's own ground covers exactly the piece that shows, and takes clicks so blank ground never reaches the hidden tab under it, so no half box remains. */
-.tablist-frame {
-  position: relative;
-  display: flex;
-  flex: 0 1 auto;
-  height: 100%;
-  min-width: 0;
+/* One --space-1 gap between an edge cap and the tabs, as between two tabs. */
+.strip-slot[data-side="left"] {
+  margin-right: var(--space-1);
 }
 
-.strip-fade {
-  position: absolute;
-  top: 0;
-  /* The header's rule runs along the row's bottom edge: the cover stops above it. */
-  bottom: var(--rule);
-  width: var(--cut);
-}
-
-.strip-fade-start {
-  left: 0;
-  background-color: var(--ground);
-}
-
-.strip-fade-end {
-  right: 0;
-  background-color: var(--ground);
+.strip-slot[data-side="right"] {
+  margin-left: var(--space-1);
 }
 
 .strip-edge {

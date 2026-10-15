@@ -91,8 +91,9 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
                     settle()
                 records.append({"case": f"tabs-8-{width}-{pick}", "revealed": revealed, **evaluate(r"""(() => {
                   const box = e => e.getBoundingClientRect().toJSON();
+                  const cuts = () => { const list=document.querySelector('.tablist'),style=list.style; return {start: parseFloat(style.getPropertyValue('--cut-start')), end: parseFloat(style.getPropertyValue('--cut-end')), mask: getComputedStyle(list).maskImage}; };
                   const selected = document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab');
-                  return {list: box(document.querySelector('.tablist')), fades: [...document.querySelectorAll('.strip-fade')].map(box), fadeImages: [...document.querySelectorAll('.strip-fade')].map(e=>getComputedStyle(e).backgroundImage), slots: document.querySelectorAll('.strip-slot').length, selected: box(selected),
+                  return {list: box(document.querySelector('.tablist')), cuts: cuts(), slots: document.querySelectorAll('.strip-slot').length, selected: box(selected),
                     tabs: [...document.querySelectorAll('.project-tab')].map(box),
                     edges: [...document.querySelectorAll('.strip-edge')].map(box)};
                 })()""")})
@@ -103,7 +104,7 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
                     (directory / (name + ".geometry.json")).write_text(json.dumps(records[-1]) + "\n")
                     (directory / (name + ".checks.json")).write_text(json.dumps(evaluate("window.__checks()")) + "\n")
                     browser("screenshot", str(directory / (name + ".png")))
-        # A list one pixel wider than a tab: the scroll padding cuts the open tab, and no cover may hide it.
+        # A list one pixel wider than a tab: the open tab can end up cut, and no fade may take it.
         evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[0].click()")
         settle()
         evaluate("document.querySelector('.tablist').style.maxWidth=(document.querySelector('.project-tab').getBoundingClientRect().width+1)+'px'")
@@ -111,7 +112,7 @@ if len(sys.argv) > 5 and sys.argv[5] == "edges":
         evaluate("const t=[...document.querySelectorAll('.tab-name-button')];t[3].click()")
         browser("wait", "--fn", "document.querySelectorAll('.tab-name-button')[3].getAttribute('aria-selected') === 'true'")
         settle()
-        tight = evaluate("(() => { const box = e => e.getBoundingClientRect().toJSON(); return {list: box(document.querySelector('.tablist')), fades: [...document.querySelectorAll('.strip-fade')].map(box), selected: box(document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab'))}; })()")
+        tight = evaluate("(() => { const box = e => e.getBoundingClientRect().toJSON(); const style = document.querySelector('.tablist').style; const cuts = () => ({start: parseFloat(style.getPropertyValue('--cut-start')), end: parseFloat(style.getPropertyValue('--cut-end'))}); return {list: box(document.querySelector('.tablist')), cuts: cuts(), selected: box(document.querySelector('.tab-name-button[aria-selected=true]').closest('.project-tab'))}; })()")
         print(json.dumps({"readings": records, "tight": tight}))
     finally:
         browser("close")
