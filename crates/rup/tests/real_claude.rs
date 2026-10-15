@@ -134,10 +134,7 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
     use contracts::agent::{Channel, RailNode};
     use std::time::Duration;
 
-    let project = daemon::start_real(
-        "e6_immediate_shim",
-        &[("ROUNDUP_CHANNEL_DEADLINE_MS", "3000")],
-    );
+    let project = daemon::start_real("e6_immediate_shim", &[]);
     let mut events = project.subscribed().await;
 
     let node: RailNode = serde_json::from_value(
@@ -175,7 +172,22 @@ async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
         }
     }
     assert_eq!(channels, [Channel::Pending, Channel::Up]);
-    tokio::time::sleep(Duration::from_millis(3500)).await;
+    // Observe events across the Daemon's full default deadline: a final tree read
+    // alone would miss a transient Missing followed by Up.
+    assert!(
+        tokio::time::timeout(agents::CHANNEL_DEADLINE, async {
+            loop {
+                let channel = daemon::next(&mut events, |data| match data {
+                    EventData::AgentChannel(event) if event.id == node.id => Some(event.channel),
+                    _ => None,
+                })
+                .await;
+                assert_eq!(channel, Channel::Up, "Channel changed after Up");
+            }
+        })
+        .await
+        .is_err()
+    );
     assert_eq!(
         daemon::rail_tree(&events)
             .await
