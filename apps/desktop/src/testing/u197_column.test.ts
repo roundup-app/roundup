@@ -151,8 +151,9 @@ run("Q3 and U197 rendered text contrast", () => {
     it(`q3_digest_card_meets_d2_d5_on_painted_layout in ${scheme}`, async () => {
       await page.scheme(scheme);
       await load(1280, 800);
-      await page.call(String.raw`() => window.__fake.emit({ actor: { kind: "ext", id: "rupd", parent: null }, name: "message.sent", data: {
-        id: 51, from: { kind: "ext", id: "rupd", parent: null }, to: "r1", kind: "note",
+      // Render the digest body through the seeded Agent; q2_digest_in_the_thread proves Daemon-to-Door delivery.
+      await page.call(String.raw`() => window.__fake.emit({ actor: { kind: "agent", id: "r1", parent: null }, name: "message.sent", data: {
+        id: 51, from: { kind: "agent", id: "r1", parent: null }, to: "you", kind: "note",
         body: "[digest] alpha is idle\n  last: " + "Change no file in the repo ".repeat(12).trim() + "\n  open todos: 3\n  pads: notes, plan",
         replyTo: null, status: "delivered", reason: null, passedFrom: null, at: Date.now()
       } })`);
