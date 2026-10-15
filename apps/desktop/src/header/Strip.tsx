@@ -1,4 +1,3 @@
-import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { CloseDialog } from "./CloseDialog";
@@ -209,7 +208,7 @@ export const Strip = (props: {
         </div>
         {edge(copy.right, right())}
       </div>
-      <IconButton data-button="icon" type="button" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
+      <button data-button="icon" type="button" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</button>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 

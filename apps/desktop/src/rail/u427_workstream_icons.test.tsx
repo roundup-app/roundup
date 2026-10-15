@@ -66,8 +66,8 @@ describe("u427 a Workstream row's icons", () => {
   it("u427_the_clear_icon_opens_the_reason_prompt", async () => {
     const mounted = await mountRail([door("c1", "idle", "i")]);
 
-    expect(icon("c1", "Clear Workstream…").getAttribute("aria-label")).toBe("Clear Workstream…");
-    fireEvent.click(icon("c1", "Clear Workstream…"));
+    expect(icon("c1", "Clear").title).toBe("Clear Workstream…");
+    fireEvent.click(icon("c1", "Clear"));
 
     expect(clearingOf(mounted.app, mounted.connected.events, "c1").phase()).toBe("asking");
     expect(await screen.findByRole("textbox", { name: /Why clear c1/ })).toBeTruthy();
@@ -78,9 +78,9 @@ describe("u427 a Workstream row's icons", () => {
   it("u427_no_clear_icon_while_a_clear_is_pending", async () => {
     await mountRail([workstream("c2")]);
 
-    fireEvent.click(icon("c2", "Clear Workstream…"));
+    fireEvent.click(icon("c2", "Clear"));
 
-    await waitFor(() => expect([...rowOf("c2").querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label"))).not.toContain("Clear Workstream…"));
+    await waitFor(() => expect([...rowOf("c2").querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label"))).not.toContain("Clear"));
   });
 
   it("u427_open_folder_opens_the_doors_directory", async () => {

@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
+import { ScopeControl } from "./ScopeControl";
 import { ShelfToggle } from "./Shelf";
 
 afterEach(() => {
@@ -9,6 +10,10 @@ afterEach(() => {
   localStorage.clear();
 });
 
+it("u471_previous_copy_assertions_are_preserved_shelf_scope_controls_use_sentence_case", () => {
+  render(() => <ScopeControl showAll={false} onChange={() => {}} />);
+  expect(screen.getByRole("button", { name: "Show all Workstreams" }).title).toBe("Show all Workstreams");
+});
 
 it.each([true, false])("u471_previous_copy_assertions_are_preserved_shelf_toggle_uses_sentence_case_%s", (open) => {
   render(() => <ShelfToggle open={open} onToggle={() => {}} />);

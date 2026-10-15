@@ -1,4 +1,3 @@
-import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -642,12 +641,12 @@ export const Bubbles = (props: { screens: Screens }) => {
             aria-valuetext={copy.percent(transparency())}
             onInput={(event) => setLevel(Number(event.currentTarget.value))}
           />
-          <IconButton type="button" class="word" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
+          <button type="button" class="word" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
             <Icon name="down" />
-          </IconButton>
-          <IconButton type="button" class="word" aria-label={copy.close} onClick={() => void close(id)}>
+          </button>
+          <button type="button" class="word" aria-label={copy.close} onClick={() => void close(id)}>
             <Icon name="x" />
-          </IconButton>
+          </button>
         </header>
         <div class="bubble-body" ref={mount} />
         <span class="bubble-corner" aria-hidden="true" onPointerDown={(event) => drag(event, (from, dx, dy) => ({ ...from, w: Math.max(MIN_WIDTH, from.w + dx), h: Math.max(MIN_HEIGHT, from.h + dy) }))} />
@@ -672,7 +671,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                 <span class="terminal-tab-name">{nameOf(terminal())}</span>
                 <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
               </button>
-              <IconButton type="button" data-button="icon" aria-label={copy.closeTerminal(nameOf(terminal()))} onClick={() => void close(id)}><Icon name="x" /></IconButton>
+              <button type="button" data-button="icon" aria-label={copy.closeTerminal(nameOf(terminal()))} onClick={() => void close(id)}><Icon name="x" /></button>
             </span>;
           }}</For>
           <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
