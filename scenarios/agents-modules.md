@@ -15,8 +15,10 @@ Then:
   responsibility may use multiple modules to meet the limit; every new Rust file
   has at most 800 lines, including comments, blank lines and inline tests. Do not
   move implementation into `include!` files or external test files to hide it from
-  this count. Observer: `wc -l crates/agents/src/*.rs`, plus the diff's list of new
-  files; count each new Rust file even if it is in a subdirectory.
+  this count. Observer: run `wc -l crates/agents/src/lib.rs` and `wc -l` with
+  every added Rust path reported by `git diff --name-status --diff-filter=A
+  origin/main -- crates/agents/src/`, including paths in subdirectories. Record
+  each file's count separately; the aggregate total does not decide the limit.
 - **State ownership (policy).** For each state field, list the production modules
   that read it and the functions performing those reads. A read inspects the
   value to make a decision or produce a result; construction, forwarding a
