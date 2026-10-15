@@ -2471,7 +2471,7 @@ async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
     drop(client);
     project.crash();
     // What an earlier Daemon stored: `w2` under `w1`, `w3` under `w2`.
-    let db = rusqlite::Connection::open(project.data_dir().join("agents.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     db.execute(
         "UPDATE nodes SET parent = ?1, ord = 1 WHERE id = ?2",
         (&w1, &w2),
@@ -3145,7 +3145,7 @@ async fn p14_old_scribe_loads_and_is_removed() {
     let old = agent_in(&project, &user, None).await;
     let kept = agent_in(&project, &user, None).await;
     project.crash();
-    let db = rusqlite::Connection::open(project.data_dir().join("pads.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     db.execute_batch("CREATE TABLE scribes (key TEXT PRIMARY KEY, agent TEXT NOT NULL)")
         .unwrap();
     db.execute("INSERT INTO scribes VALUES ('notes', ?1)", [&old])
@@ -3163,7 +3163,7 @@ async fn p14_old_scribe_loads_and_is_removed() {
     let ids: Vec<String> = rail_tree(&user).await.into_iter().map(|n| n.id).collect();
     assert!(!ids.contains(&old));
     assert!(ids.contains(&kept));
-    let db = rusqlite::Connection::open(project.data_dir().join("pads.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     let left: i64 = db
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE name = 'scribes'",

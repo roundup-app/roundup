@@ -39,7 +39,11 @@ impl Agents {
         launcher: Launcher,
         git: worktree::Git,
     ) -> Result<Self, OpenError> {
-        let mut rail = rail::Rail::open(&dir.join("agents.db"))?;
+        let mut rail = rail::Rail::open(&dir.join(if dir.join("project.db").exists() {
+            "project.db"
+        } else {
+            "agents.db"
+        }))?;
         let recovery = git.bounded();
         for (node, plan, ready) in rail.provisioning()? {
             let Some(plan) = plan else {
@@ -102,6 +106,27 @@ impl Agents {
             dir: dir.to_owned(),
             launcher,
         })
+    }
+
+    /// Supply the Terminal shutdown dependency before any Agents are shared.
+    #[must_use]
+    pub fn with_terminal_kills<F, Fut>(self, kill: F) -> Self
+    where
+        F: Fn(String) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<(), RpcError>> + Send,
+    {
+        struct Kills<F>(F);
+        #[async_trait]
+        impl<F, Fut> KillsTerminals for Kills<F>
+        where
+            F: Fn(String) -> Fut + Send + Sync,
+            Fut: std::future::Future<Output = Result<(), RpcError>> + Send,
+        {
+            async fn kill(&self, id: &str) -> Result<(), RpcError> {
+                (self.0)(id.to_owned()).await
+            }
+        }
+        self.configure(|shared| shared.ending.kill = Arc::new(Kills(kill)))
     }
 
     /// B6: observe a Resume's Terminal before recording its id, after recording it, and

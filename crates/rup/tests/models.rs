@@ -743,7 +743,7 @@ async fn p14_scribe_role_is_gone() {
         .unwrap_err();
     assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
     run.project.crash();
-    let db = rusqlite::Connection::open(run.project.data_dir().join("agents.db")).unwrap();
+    let db = rusqlite::Connection::open(run.project.data_dir().join("project.db")).unwrap();
     db.execute(
         "INSERT INTO role_models (role, model, effort) VALUES ('scribe', 'sonnet', 'low')",
         [],
