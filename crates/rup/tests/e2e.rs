@@ -1626,37 +1626,12 @@ async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_conte
     );
 }
 
-async fn channel_of(client: &rpc::Client, id: &str) -> Option<Channel> {
-    rail_tree(client)
-        .await
-        .into_iter()
-        .find(|n| n.id == id)
-        .unwrap()
-        .channel
-}
-
 async fn next_channel(client: &mut rpc::Client, id: &str) -> Channel {
     next(client, |data| match data {
         EventData::AgentChannel(event) if event.id == id => Some(event.channel),
         _ => None,
     })
     .await
-}
-
-#[tokio::test]
-async fn e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing() {
-    let project = start(&[
-        ("FAKE_CLAUDE_TOOLS", "[]"),
-        ("ROUNDUP_CHANNEL_DEADLINE_MS", "3000"),
-    ]);
-    let mut events = project.subscribed().await;
-
-    let node = project.spawn_agent(&events).await;
-    assert_eq!(node.channel, Some(Channel::Pending));
-
-    assert_eq!(next_channel(&mut events, &node.id).await, Channel::Up);
-    tokio::time::sleep(Duration::from_millis(3500)).await;
-    assert_eq!(channel_of(&events, &node.id).await, Some(Channel::Up));
 }
 
 #[tokio::test]

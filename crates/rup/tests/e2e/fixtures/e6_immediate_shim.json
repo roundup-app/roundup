@@ -1,0 +1,21 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: E10 immediate shim"
+      },
+      "response": {
+        "content": "{\"title\":\"Startup check\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E10 immediate shim",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}
