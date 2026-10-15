@@ -70,6 +70,8 @@ type Page = {
   doc: Document;
   view: Window;
   elements: Element[];
+  rules: CSSStyleRule[];
+  states: Map<":hover" | ":active" | ":focus-visible", CSSStyleRule[]>;
   style: (el: Element) => CSSStyleDeclaration;
   token: (name: string) => string | undefined;
   resolve: (value: string) => string;
@@ -89,10 +91,10 @@ const styleRulesOf = (doc: Document): CSSStyleRule[] => {
   });
 };
 
-const rootTokens = (doc: Document): Map<string, string> => {
+const rootTokens = (rules: CSSStyleRule[]): Map<string, string> => {
   const tokens = new Map<string, string>();
 
-  for (const rule of styleRulesOf(doc))
+  for (const rule of rules)
     if (rule.selectorText.trim() === ":root") for (const [, name, value] of rule.cssText.matchAll(/--([\w-]+):\s*([^;}]+)/g)) tokens.set(name!, value!.trim());
 
   return tokens;
@@ -100,7 +102,9 @@ const rootTokens = (doc: Document): Map<string, string> => {
 
 const pageOf = (doc: Document): Page => {
   const view = doc.defaultView!;
-  const tokens = rootTokens(doc);
+  // #2020 measured 186 stylesheet traversals per Check call, with D6/D7 taking 1,292 ms under contention.
+  const rules = styleRulesOf(doc);
+  const tokens = rootTokens(rules);
   const rootStyle = view.getComputedStyle(doc.documentElement);
   const token = (name: string) => rootStyle.getPropertyValue(`--${name}`).trim() || tokens.get(name);
   const resolve = (value: string): string => value.replace(/var\(--([\w-]+)\)/g, (whole, name: string) => token(name) ?? whole);
@@ -120,7 +124,7 @@ const pageOf = (doc: Document): Page => {
 
   const visible = (el: Element) => !el.closest("[hidden], [aria-hidden=true]") && style(el).display !== "none";
 
-  return { doc, view, elements: [...doc.body.querySelectorAll("*")].filter((el) => !/^(SCRIPT|STYLE)$/.test(el.tagName) && visible(el)), style, token, resolve };
+  return { doc, view, rules, states: new Map(), elements: [...doc.body.querySelectorAll("*")].filter((el) => !/^(SCRIPT|STYLE)$/.test(el.tagName) && visible(el)), style, token, resolve };
 };
 
 const inTerminal = (el: Element) => el.closest(".xterm, [data-terminal]") !== null;
@@ -160,10 +164,10 @@ const terminalRule = (selectorText: string) => {
 const colourProperties = ["color", "background-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"] as const;
 
 // D1: nothing but a Token read supplies a colour, font size, radius, shadow or duration.
-const d1 = ({ doc, elements }: Page): Measure => {
+const d1 = ({ doc, elements, rules }: Page): Measure => {
   const tokenSheets = new Set([...doc.querySelectorAll<HTMLStyleElement>('style[data-vite-dev-id$="/src/tokens.css"]')].map(el => el.sheet));
 
-  const found = styleRulesOf(doc)
+  const found = rules
     .filter((rule) => !tokenSheets.has(rule.parentStyleSheet) && !terminalRule(rule.selectorText))
     .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{"))).map((literal) => ({ selector: rule.selectorText, literal })));
 
@@ -343,8 +347,15 @@ const d5 = (page: Page): Measure => {
 };
 
 // A rule that applies to `el` once its state pseudo-class is true: the selector without the pseudo-class matches it.
-const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active" | ":focus-visible") =>
-  styleRulesOf(page.doc).filter((rule) =>
+const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active" | ":focus-visible") => {
+  let rules = page.states.get(pseudo);
+
+  if (!rules) {
+    rules = page.rules.filter((rule) => rule.selectorText.includes(pseudo));
+    page.states.set(pseudo, rules);
+  }
+
+  return rules.filter((rule) =>
     rule.selectorText.split(",").some((selector) => {
       if (!selector.includes(pseudo)) return false;
 
@@ -357,6 +368,7 @@ const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active" | ":fo
       }
     }),
   );
+};
 
 const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some((rule) => properties.some((property) => rule.style.getPropertyValue(property) !== ""));
 
