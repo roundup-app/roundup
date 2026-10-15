@@ -42,6 +42,9 @@ beforeAll(async () => {
   if (layerArt) mkdirSync(layerArt, { recursive: true });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!;
+  const ready = await fetch(new URL("/__roundup_ready", origin));
+
+  if (!ready.ok) throw new Error(await ready.text());
   await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
 }, 90_000);
 
