@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
@@ -22,7 +22,26 @@ export const Layout = (props: {
   /** U389, U390: the Rail's and Shelf's widths; without them the Tokens' defaults apply and no Resize edge shows. */
   widths?: Widths;
   overlay: JSX.Element;
+  /** U491 / #2003: an existing edge can find its host with
+   * closest('[data-layout-root]') and its panels with [data-layout-panel].
+   * These markers also exist without splitter props, so a shared adapter needs
+   * no App caller change or App class selector to bind the current Layout.
+   * For declarative binding, spread useSplitter().getRootProps() on root and getPanelProps()
+   * on rail/centre/shelf. All three owned panels are descendants of the measured
+   * window root, including the absolute Shelf. Do not use an edge as the root.
+   * Layout discards library flex styles, refs, classes and children: CSS grid,
+   * Shelf placement and widths.style() retain geometry ownership. Map controlled
+   * pixel widths to percentages of root.getBoundingClientRect().width in the
+   * shared ui/ adapter; it also handles the hidden/overlay Shelf allocation.
+   * Bind triggers through the existing ResizeEdge callers in #2003, never add
+   * another drag/key machine here. IDs let Ark resolve hosts without selectors
+   * for App classes; ownership attributes let it discover the real panels.
+   */
+  splitter?: Partial<Record<"root" | "rail" | "centre" | "shelf", JSX.HTMLAttributes<HTMLElement>>>;
 }) => {
+  const binding = (part: "root" | "rail" | "centre" | "shelf") =>
+    splitProps(props.splitter?.[part] ?? {}, ["style", "ref", "class", "classList", "children"])[1];
+
   const placement = () => props.shelfPlacement ?? SETTLED;
 
   let windowElement: HTMLDivElement | undefined;
@@ -60,14 +79,14 @@ export const Layout = (props: {
   onCleanup(() => setShelfSliding(false));
 
   return (
-  <div class="window" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
+  <div {...binding("root")} class="window" data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div class="content-actions">{props.contentActions}</div>
     <div class="columns" onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
-      <section class="rail" aria-label={copy.rail}>
+      <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
-      <section class="centre" aria-label={copy.centreRegion}>
+      <section {...binding("centre")} class="centre" data-layout-panel="centre" aria-label={copy.centreRegion}>
         {props.centre}
       </section>
       <Show when={props.widths}>{(widths) => <ResizeEdge class="rail-edge" side={widths().rail} onDragging={setResizeDragging} />}</Show>
@@ -77,7 +96,9 @@ export const Layout = (props: {
     </Show>
     <div class="overlay">{props.overlay}</div>
     <section
+      {...binding("shelf")}
       class="shelf"
+      data-layout-panel="shelf"
       aria-label={copy.shelfLabel}
       data-open={placement().shown}
       data-animated={placement().animated}

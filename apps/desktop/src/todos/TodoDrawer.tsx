@@ -1,3 +1,4 @@
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -223,11 +224,11 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
           </Show>
       </div>
       <Show when={todo()}>
-        <button data-button="icon" type="button" class="word todo-delete" aria-label={copy.deleteTodo}
+        <IconButton class="todo-delete" aria-label={copy.deleteTodo}
           ref={(button) => { deleteButton = button; }}
           onClick={() => { setFailure(null); setAsking(true); }}>
           <Icon name="trash" />
-        </button>
+        </IconButton>
       </Show>
     </>
   );
