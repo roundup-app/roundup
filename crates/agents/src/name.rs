@@ -3,7 +3,7 @@
 /// What an Agent is called until its first prompt names it.
 pub const UNNAMED: &str = "new-agent";
 
-use crate::claude_code::LEAD_IN;
+use crate::claude_code::{CONTEXT_START, LEAD_IN};
 
 const FILLER: [&str; 10] = [
     "a", "an", "the", "to", "of", "in", "on", "for", "and", "please",
@@ -16,6 +16,9 @@ const MAX_CHARS: usize = 32;
 /// when no word is left.
 pub fn from_prompt(prompt: &str) -> Option<String> {
     let prompt = prompt.strip_prefix(LEAD_IN).unwrap_or(prompt);
+    let prompt = prompt
+        .split_once(CONTEXT_START)
+        .map_or(prompt, |(work, _)| work);
     let lower = strip_tags(prompt).to_lowercase();
     let words: Vec<_> = lower
         .split(|c: char| !c.is_alphanumeric())

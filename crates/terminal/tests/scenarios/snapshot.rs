@@ -4,7 +4,7 @@ use contracts::EventData;
 use contracts::terminal::{Snapshot, TerminalId};
 use rpc::{Module, code};
 
-use crate::common::{PATIENCE, ctx, open, sh, until_exit, until_printed};
+use crate::common::{PATIENCE, ctx, open, sh, until_exit, until_exit_code, until_printed};
 
 #[tokio::test]
 async fn u104_snapshot_restores_the_visible_screen_and_input_modes() {
@@ -265,7 +265,7 @@ async fn u104_oversized_visible_screen_is_conflict_instead_of_internal() {
     );
     (params.cols, params.rows) = (300, 200);
     let mut spawned = terminals.spawn(params).await.unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit_code(&mut spawned.events).await;
     assert_eq!(
         terminals.snapshot(&spawned.id).unwrap_err().code,
         code::CONFLICT

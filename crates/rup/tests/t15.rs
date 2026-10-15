@@ -81,7 +81,7 @@ async fn t15_list_and_rail_do_not_load_history() {
             .unwrap();
     }
     // A broken history table makes any query to it fail; both list paths must still answer.
-    let db = rusqlite::Connection::open(project.data_dir().join("todos.db")).unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     db.execute_batch("ALTER TABLE changes RENAME TO unavailable_changes")
         .unwrap();
     let list = client
