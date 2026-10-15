@@ -1116,14 +1116,20 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
                 .unwrap();
         }
         if failure == "full" {
-            for _ in 0..32 {
-                run.user
+            // Setup may already have queued a Digest. Fill the actual remaining capacity.
+            for _ in 0..=32 {
+                if let Err(err) = run
+                    .user
                     .request(
                         "message.send",
                         json!({"to":door,"kind":"note","body":"queued"}),
                     )
                     .await
-                    .unwrap();
+                {
+                    assert_eq!(err.code, rpc::code::CONFLICT);
+                    assert!(err.message.contains("32 pending or held"), "{err}");
+                    break;
+                }
             }
         }
         if failure == "send" {
@@ -1137,7 +1143,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             loop {
                 let listed = run
                     .user
-                    .request("message.list", json!({"to":"user"}))
+                    .request("message.list", json!({"to":contracts::Actor::user().id}))
                     .await
                     .unwrap();
                 if let Some(message) = listed.as_array().unwrap().iter().find(|m| {
@@ -1152,9 +1158,30 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             }
         })
         .await
-        .expect("failed Decision notice is visible to the user");
+        .unwrap_or_else(|err| {
+            panic!("{failure}: failed Decision notice is visible to the user: {err}")
+        });
         assert!(notice["body"].as_str().unwrap().contains("delivery failed"));
         assert_eq!(notice["status"], "delivered");
+        if failure == "full" {
+            assert!(
+                notice["body"]
+                    .as_str()
+                    .unwrap()
+                    .contains("32 pending or held"),
+                "{notice}"
+            );
+        }
+        if failure == "terminal" {
+            let refused = run
+                .user
+                .request("message.get", json!({"id":notice["replyTo"]}))
+                .await
+                .unwrap();
+            assert_eq!(refused["status"], "dropped");
+            assert_eq!(refused["reason"], "not accepted");
+            assert_eq!(refused["to"], door);
+        }
         assert_eq!(
             run.user
                 .request("message.get", json!({"id":notice["id"]}))
@@ -1212,10 +1239,7 @@ async fn b37_decision_note_exclusions_still_hold() {
         waiting.await.unwrap().unwrap();
         // A later eligible Decision's Message acknowledges the serial note consumer has
         // passed the excluded Decision; no duration stands in for that ordering boundary.
-        run.user
-            .request("agent.stop", json!({"id":run.child}))
-            .await
-            .unwrap();
+        let excluded_child = run.child.clone();
         run.door = Some(door.clone());
         run.spawn().await;
         let (witness, waiting) = run.open("permission").await;
@@ -1244,6 +1268,10 @@ async fn b37_decision_note_exclusions_still_hold() {
         );
         run.user_answer(&witness, "permission").await;
         waiting.await.unwrap().unwrap();
+        run.user
+            .request("agent.stop", json!({"id":excluded_child}))
+            .await
+            .unwrap();
         run.finish().await;
     }
 }
