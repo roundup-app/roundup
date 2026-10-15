@@ -65,22 +65,27 @@ it("u482_kind_wait_failure_reports_claims_and_preserves_the_assertion", async ()
 it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
   const dir = await mkdtemp(join(tmpdir(), "u482-"));
   const settings = join(dir, "settings.json");
-  const hooks = Object.fromEntries(["SessionStart", "UserPromptSubmit", "Stop"].map((event) => [event, [{ hooks: [{ command: "true" }] }]]));
+  const hooks = Object.fromEntries(["SessionStart", "UserPromptSubmit", "Stop", "StopFailure", "PermissionRequest"].map((event) => [event, [{ hooks: [{ command: "true" }] }]]));
 
   await writeFile(settings, JSON.stringify({ hooks }));
   const executable = resolve("../../crates/rup/tests/e2e/fake_claude.py");
   const launch = (door: boolean) => spawn(executable, ["--settings", settings, ...(door ? ["--tools", ""] : [])], {
-    env: { ...process.env, CLAUDE_CONFIG_DIR: dir, FAKE_CLAUDE_KINDS: '["idle","idle","idle","idle"]', FAKE_CLAUDE_ON_PROMPT: "[]" },
+    env: { ...process.env, CLAUDE_CONFIG_DIR: dir, FAKE_CLAUDE_KINDS: '["working","idle","error","needs-you"]', FAKE_CLAUDE_ON_PROMPT: "[]" },
     stdio: "pipe",
   });
   const door = launch(true);
+  let doorReady = false;
+
+  door.stdout.on("data", () => { doorReady = true; });
   const children = Array.from({ length: 7 }, () => launch(false));
 
   try {
     await waitFor(async () => {
       const records = (await readFile(join(dir, "fake-claude-kind-claims.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
 
+      expect(doorReady).toBe(true);
       expect(records).toHaveLength(7);
+      expect(records.filter((record) => record.index !== null).sort((a, b) => a.index - b.index).map((record) => record.kind)).toEqual(["working", "idle", "error", "needs-you"]);
       expect(records.filter((record) => record.index !== null).map((record) => record.index).sort()).toEqual([0, 1, 2, 3]);
       expect(records.filter((record) => record.index === null)).toHaveLength(3);
       expect(new Set(records.map((record) => record.pid))).toEqual(new Set(children.map((child) => child.pid)));
@@ -88,7 +93,7 @@ it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
       for (const record of records) {
         expect(record.ppid).toBe(process.pid);
         expect(record.argv).toEqual([executable, "--settings", settings]);
-        expect(record.kind).toBe(record.index === null ? null : "idle");
+        if (record.index === null) expect(record.kind).toBeNull();
       }
     }, { timeout: 10_000 });
   } finally {
@@ -100,6 +105,39 @@ it("u482_claims_identify_each_launch_without_duplicate_entries", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 }, 15_000);
+
+it("u482_kind_launch_acknowledges_the_typed_startup_prompt", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "u482-startup-"));
+  const settings = join(dir, "settings.json");
+  const events = join(dir, "hooks.jsonl");
+  const command = `python3 -c 'import os,sys; open(os.environ["U482_HOOK_LOG"], "a").write(sys.stdin.read()+"\\n")'`;
+  const hooks = Object.fromEntries(["SessionStart", "UserPromptSubmit"].map((event) => [event, [{ hooks: [{ command }] }]]));
+
+  await writeFile(settings, JSON.stringify({ hooks }));
+  const child = spawn(resolve("../../crates/rup/tests/e2e/fake_claude.py"), ["--settings", settings], {
+    env: { ...process.env, CLAUDE_CONFIG_DIR: dir, FAKE_CLAUDE_KINDS: '["working"]', U482_HOOK_LOG: events },
+    stdio: "pipe",
+  });
+  const observed = async () => (await readFile(events, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+
+  try {
+    await waitFor(async () => expect((await observed())[0]?.hook_event_name).toBe("SessionStart"));
+    // H12 acknowledges the bytes actually submitted, not an invented startup prompt.
+    child.stdin.write("build deterministic startup\n");
+    await waitFor(async () => {
+      const submitted = (await observed()).filter((event) => event.hook_event_name === "UserPromptSubmit");
+
+      expect(submitted.map((event) => event.prompt)).toEqual(["build deterministic startup"]);
+    });
+  } finally {
+    await new Promise<void>((done) => {
+      if (child.exitCode !== null || child.signalCode !== null) return done();
+      child.once("exit", () => done());
+      child.kill();
+    });
+    await rm(dir, { recursive: true, force: true });
+  }
+}, 30_000);
 
 let real: StartedDaemon;
 
@@ -115,6 +153,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       FAKE_CLAUDE_KINDS: JSON.stringify([...FIRST, ...SECOND]),
       FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
     });
+    real.daemon.stderr!.on("data", (chunk: Buffer) => console.error("U482 Daemon", real.daemon.pid, chunk.toString()));
   }, 120_000);
 
   afterAll(async () => {
