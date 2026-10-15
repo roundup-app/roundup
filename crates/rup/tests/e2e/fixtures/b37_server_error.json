@@ -10,6 +10,29 @@
     },
     {
       "match": {
+        "toolCallId": "toolu_b37_child_ready"
+      },
+      "response": {
+        "content": "B37 child is ready."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "B37 prepare child",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_b37_child_ready",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"B37 child ready\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "userMessage": "<session>"
       },
       "response": {

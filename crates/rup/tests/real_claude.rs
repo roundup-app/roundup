@@ -550,13 +550,28 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     let child = user
         .request(
             "agent.spawn",
-            json!({"parent":door,"cwd":project.dir.path(),"name":"B37 child"}),
+            json!({"parent":door,"cwd":project.dir.path(),"name":"B37 child","prompt":"B37 prepare child"}),
         )
         .await
         .unwrap()["id"]
         .as_str()
         .unwrap()
         .to_owned();
+    project
+        .model
+        .as_ref()
+        .unwrap()
+        .tool_result("toolu_b37_child_ready")
+        .await;
+    next(&mut events, |data| match data {
+        EventData::AgentStatus(s)
+            if s.id == child && s.status.kind == Kind::Working && s.status.label == "working" =>
+        {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
     next(&mut events, |data| match data {
         EventData::AgentStatus(s) if s.id == child && s.status.kind == Kind::Idle => Some(()),
         _ => None,
@@ -565,7 +580,9 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     // The push window closes on the child's final idle Digest, not its earlier Rail status.
     next(&mut events, |data| match data {
         EventData::MessageDelivered(m)
-            if m.to == door && m.body.contains("[digest] B37 child is idle") =>
+            if m.to == door
+                && m.body.contains("[digest] B37 child is idle")
+                && m.body.contains("open todos: 1") =>
         {
             Some(())
         }
@@ -661,16 +678,26 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
         journal.iter().all(|e| !e["response"]["fixture"].is_null()),
         "{journal:#?}"
     );
+    let failed_request = journal
+        .iter()
+        .position(|e| e["response"]["status"] == 500)
+        .unwrap();
+    let identity = &journal[failed_request]["headers"]["x-claude-code-session-id"];
+    assert!(identity.is_string());
+    let following = journal
+        .iter()
+        .skip(failed_request + 1)
+        .find(|e| {
+            &e["headers"]["x-claude-code-session-id"] == identity && e["body"]["stream"] == true
+        })
+        .expect("the Door makes its next model request");
+    assert_eq!(following["response"]["status"], 200);
     assert!(
-        journal
+        following["body"]["messages"]
+            .as_array()
+            .unwrap()
             .iter()
-            .skip_while(|e| e["response"]["status"] != 500)
-            .skip(1)
-            .any(|e| e["response"]["status"] == 200
-                && e["body"]["messages"]
-                    .as_array()
-                    .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
-                        && m["content"].to_string().contains("[decision d1]")))),
-        "{journal:#?}"
+            .any(|m| { m["role"] == "user" && m["content"].to_string().contains("[decision d1]") }),
+        "{following:#?}"
     );
 }
