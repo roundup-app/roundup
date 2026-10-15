@@ -30,6 +30,8 @@ const depth = (scope: KeyScope): number => {
 const rank = (scope: KeyScope) => scope.kind === "layer" ? 2 : scope.kind === "region" ? 1 : 0;
 
 const dispatch = (event: KeyboardEvent): void => {
+  if (!(event instanceof KeyboardEvent)) return;
+
   const focus = document.activeElement;
 
   const eligible = [...registrations].filter(({ scope }) => {
