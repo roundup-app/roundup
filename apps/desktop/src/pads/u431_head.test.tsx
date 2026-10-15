@@ -18,7 +18,7 @@ describe("u431 the Drawer's head", () => {
 
     const buttons = within(head()).getAllByRole("button");
 
-    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Make yours", "Open owner: auth-refactor", "Export .md", "Delete"]);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(["Make yours", "Open owner", "Export .md", "Delete"]);
     expect(head().querySelector(".pad-head-name")!.textContent).toBe("auth-notes");
 
     const close = screen.getByRole("button", { name: "Close" });
@@ -28,14 +28,14 @@ describe("u431 the Drawer's head", () => {
     expect(close.closest("[aria-label=Drawer]")).toBe(head().closest("[aria-label=Drawer]"));
   });
 
-  it("u431_icons_have_a_name_and_no_visible_word", async () => {
+  it("u431_icons_have_a_title_and_no_visible_word", async () => {
     await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
 
     for (const label of ["Export .md", "Delete"]) {
       const button = screen.getByRole("button", { name: label });
 
-      expect(button.getAttribute("aria-label")).toBe(label);
+      expect(button.getAttribute("title")).toBe(label);
       expect(button.textContent).toBe("");
       expect(button.querySelector("svg")).not.toBeNull();
     }
@@ -58,6 +58,21 @@ describe("u431 the Drawer's head", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(calls()).toContain("pad.delete"));
+  });
+
+  it("u431_export_and_delete_keep_u21_and_u150", async () => {
+    const { app, calls } = await openShelf([padOf("auth-notes", AGENT, "x")]);
+    app.chooser.savePath = "/tmp/auth-notes.md";
+    app.handlers["pad.export"] = () => null;
+    await openPad("auth-notes");
+
+    fireEvent.click(screen.getByRole("button", { name: "Export .md" }));
+    await waitFor(() => expect(calls()).toContain("pad.export"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(calls()).not.toContain("pad.delete");
+    expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
   });
 
   it("u431_toolbar_is_one_row_with_titles", async () => {

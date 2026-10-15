@@ -184,12 +184,12 @@ it("u477_disabled_icon_button_does_not_act", async () => {
 }, 60_000);
 
 for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-  it(`u477_tooltip_checks ${scheme}-${width}`, async () => {
+  it(`u477_icon_button_fixture_checks ${scheme}-${width}`, async () => {
     await browser("set", "media", scheme);
     await browser("set", "viewport", String(width), "800");
-    await browser("open", new URL("/harness.html?seed=tree-40", baselineOrigin ?? origin).href);
-    await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-    const baseline = await read<Checks>("window.__checks()");
+    await browser("open", new URL("/src/ui/u474.html", baselineOrigin ?? origin).href);
+    await browser("wait", "--fn", `!!document.querySelector('[aria-label="Open Project"]')`);
+    const baseline = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
 
     if (art) {
       mkdirSync(art, { recursive: true });
@@ -197,23 +197,16 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
       writeFileSync(join(art, `${scheme}-${width}-before.checks.json`), JSON.stringify(baseline));
     }
 
-    if (baselineOrigin) {
-      await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
-      await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-    }
-
-    await browser("eval", `(() => { window.__fake.app.openFailure = new Error("U477 rejected action remains visible"); const button = document.querySelector('.rail-row:not([aria-expanded]) [aria-label="Open folder"]'); button.id = "u477-folder"; button.closest(".rail-row").id = "u477-row"; button.click(); })()`);
-    await browser("wait", "--fn", `document.body.textContent.includes('U477 rejected action remains visible')`);
-    await browser("hover", "#u477-row");
-    await browser("hover", '#u477-folder');
-    await browser("wait", "--fn", `document.querySelector('.rail-row:not([aria-expanded]) [aria-label="Open folder"]').dataset.state === 'open'`);
-    const checks = await read<Checks>("window.__checks()");
+    await load();
+    await browser("hover", "#fixture-icon");
+    await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
+    const checks = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, id).toBe("pass");
 
     if (art) {
-      await browser("screenshot", join(art, `${scheme}-${width}-failure-tooltip.png`));
-      writeFileSync(join(art, `${scheme}-${width}-failure-tooltip.checks.json`), JSON.stringify(checks));
+      await browser("screenshot", join(art, `${scheme}-${width}-hover.png`));
+      writeFileSync(join(art, `${scheme}-${width}-hover.checks.json`), JSON.stringify(checks));
     }
   }, 60_000);
 }

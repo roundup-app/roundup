@@ -1,4 +1,3 @@
-import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { createNear } from "../ink/near";
@@ -197,9 +196,9 @@ export const ProjectTab = (props: {
             )}
           </Show>
         </button>
-        <IconButton data-button="icon" type="button" class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
+        <button data-button="icon" type="button" class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
           <Icon name="x" />
-        </IconButton>
+        </button>
       </Show>
       <Show when={menu()}>
         {(at) => <TabMenu x={at().x} y={at().y} onModels={props.onModels} onClose={() => setMenu(null)} />}

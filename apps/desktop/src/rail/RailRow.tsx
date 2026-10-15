@@ -1,4 +1,3 @@
-import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -116,7 +115,7 @@ export const RailRowView = (props: {
           when={workstream()}
           fallback={<KindGlyph kind={kind() ?? "idle"} />}
         >
-          <IconButton data-button="icon"
+          <button data-button="icon"
             class="word rail-chevron"
             aria-label={copy.collapse}
             onClick={(click) => {
@@ -125,7 +124,7 @@ export const RailRowView = (props: {
             }}
           >
             <Icon name={props.row.collapsed ? "right" : "down"} />
-          </IconButton>
+          </button>
         </Show>
         <Show
           when={editing()}
@@ -156,9 +155,10 @@ export const RailRowView = (props: {
           <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
           <RowIcons actions={props.actions}>
             <Show when={showsAction()}>
-              <IconButton data-button="icon"
+              <button data-button="icon"
                 class="door-action"
                 aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
+                title={props.doorFailure ? copy.retryDoor : copy.startDoor}
                 aria-disabled={props.doorPending ? true : undefined}
                 onClick={(click) => {
                   click.stopPropagation();
@@ -168,7 +168,7 @@ export const RailRowView = (props: {
               >
                 <Icon name="play" />
                 <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
-              </IconButton>
+              </button>
             </Show>
           </RowIcons>
         </span>

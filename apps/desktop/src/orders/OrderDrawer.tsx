@@ -1,4 +1,3 @@
-import { IconButton } from "../ui";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
 import { Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
@@ -120,9 +119,9 @@ export const OrderDrawer = (props: { id: string }) => {
     <>
       <div class="order-head">
         <Markdown class="order-title" body={each.title ?? each.ask} />
-        <IconButton ref={editButton} data-button="icon" type="button" aria-label={copy.editOrder} onClick={() => setEditing(true)}>
+        <button ref={editButton} data-button="icon" type="button" aria-label={copy.editOrder} title={copy.editOrder} onClick={() => setEditing(true)}>
           <Icon name="edit" />
-        </IconButton>
+        </button>
       </div>
       <Show when={each.title}>
         <Markdown class="order-ask" body={each.ask} />
