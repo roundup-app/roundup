@@ -294,16 +294,17 @@ def play_prompts(tool):
             hook("Stop")
             continue
         # H21: "$decision" is the id of the `[decision <id>]` note the prompt is.
-        noted = re.match(r"\[decision (\w+)\]", prompt)
-        decision = noted.group(1) if noted else ""
-        if "$decision" in json.dumps(tool) and not noted:
+        decisions = re.findall(r"^(?:\[from [^\]]+\] )?\[decision (\w+)\]", prompt, re.MULTILINE)
+        answers_decisions = "$decision" in json.dumps(tool)
+        if answers_decisions and not decisions:
             hook("Stop")
             continue
         calls = [call for call in (tool if isinstance(tool, list) else [tool]) if not re.match(call.get("skip_prompt", "(?!)"), prompt)]
         if not calls:
             hook("Stop")
             continue
-        mcp_session([{**call, "arguments": {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
+        for decision in decisions if answers_decisions else [""]:
+            mcp_session([{**call, "arguments": {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
         log_marked(marked, ready=True)
 
