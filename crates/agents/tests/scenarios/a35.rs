@@ -511,11 +511,19 @@ async fn reserved_prompt(star_before_ack: bool) {
     )
     .await;
     signal(&f, &before.id, json!({"hook_event_name": "Stop"})).await;
-    let delivery = {
+    let mut delivery = Box::pin({
         let f = Arc::clone(&f);
         let id = before.id.clone();
-        tokio::spawn(async move { f.agents.prompt(&id, "pending Message").await })
-    };
+        async move { f.agents.prompt(&id, "pending Message").await }
+    });
+    // Poll in the idle Signal's turn, before the first Steer's awakened task can clear
+    // its reservation. Busy here would strand a Message with no later idle to wake it.
+    std::future::poll_fn(|cx| {
+        assert!(delivery.as_mut().poll(cx).is_pending());
+        std::task::Poll::Ready(())
+    })
+    .await;
+    let delivery = tokio::spawn(delivery);
     let both = format!("{first}{}", paste("pending Message"));
     assert_eq!(typed(&f, &both).await, both);
     signal(
