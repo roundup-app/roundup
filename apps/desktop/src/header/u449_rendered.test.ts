@@ -313,7 +313,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 describe("u440 overflow edges sit beside the tab list", () => {
   type Rect = { left: number; right: number };
 
-  type Reading = { case: string; mask: string; list: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
+  type Reading = { case: string; fades: Rect[]; slots: number; list: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
   let server: ViteDevServer;
   let readings: Reading[];
@@ -345,24 +345,31 @@ describe("u440 overflow edges sit beside the tab list", () => {
     for (const reading of readings) expect(reading.selected.left, reading.case).toBeGreaterThanOrEqual(reading.list.left);
   });
 
-  it("u440_only_a_cut_side_fades", () => {
+  it("u440_a_slot_exists_only_beside_a_cap", () => {
+    for (const reading of readings) expect(reading.slots, reading.case).toBe(reading.edges.length);
+  });
+
+  it("u440_only_a_cut_side_fades_over_the_whole_piece", () => {
     const cuts = (reading: Reading) => ({
-      start: reading.tabs.some((tab) => tab.left < reading.list.left - 0.5 && tab.right > reading.list.left + 0.5),
-      end: reading.tabs.some((tab) => tab.left < reading.list.right - 0.5 && tab.right > reading.list.right + 0.5),
+      start: reading.tabs.filter((tab) => tab.left < reading.list.left - 0.5 && tab.right > reading.list.left + 0.5),
+      end: reading.tabs.filter((tab) => tab.left < reading.list.right - 0.5 && tab.right > reading.list.right + 0.5),
     });
 
-    expect(readings.some((reading) => cuts(reading).start)).toBe(true);
-    expect(readings.some((reading) => cuts(reading).end)).toBe(true);
+    expect(readings.some((reading) => cuts(reading).start.length > 0)).toBe(true);
+    expect(readings.some((reading) => cuts(reading).end.length > 0)).toBe(true);
 
     for (const reading of readings) {
       const { start, end } = cuts(reading);
-      const fades = reading.mask.split("rgba(0, 0, 0, 0)").length - 1;
 
-      // An uncut end keeps its border unmasked; a cut one fades into its slot.
-      expect(fades, reading.case).toBe(Number(start) + Number(end));
+      // An uncut end keeps its border; a cut one is covered from the list's edge past the whole piece of the tab that shows.
+      expect(reading.fades.length, reading.case).toBe(Number(start.length > 0) + Number(end.length > 0));
 
-      // Chromium serialises a leftward gradient as an angle, so only the rightward one is named.
-      expect(reading.mask.includes("to right"), reading.case).toBe(start);
+      for (const fade of reading.fades) {
+        const atStart = Math.abs(fade.left - reading.list.left) < 1;
+        const piece = atStart ? start[0]!.right - reading.list.left : reading.list.right - end[0]!.left;
+
+        expect(fade.right - fade.left, reading.case).toBeGreaterThanOrEqual(piece);
+      }
     }
   });
 });
