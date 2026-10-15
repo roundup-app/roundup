@@ -3313,6 +3313,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn b37_a_live_error_accepts_and_delivers_a_new_message() {
+        let dir = tempfile::tempdir().unwrap();
+        let (deliver, typed) = recording_deliver();
+        let mut receiver = agent_node("b", Kind::Error);
+        receiver.terminal_id = Some("live-terminal".into());
+        let h = Harness::with_deliver(dir.path(), vec![receiver], deliver);
+        let sent = h
+            .call_as(
+                agent("a"),
+                "message.send",
+                json!({"to":"b", "kind":"note", "body":"try again"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            *typed.lock().unwrap(),
+            [("b".into(), "[from a, note] try again".into())]
+        );
+        assert_eq!(
+            h.call("message.get", json!({"id":sent["id"]}))
+                .await
+                .unwrap()["status"],
+            "delivered"
+        );
+    }
+
+    #[tokio::test]
     async fn b2_a_message_to_an_idle_door_is_typed_without_a_later_status_event() {
         let dir = tempfile::tempdir().unwrap();
         let (deliver, typed) = recording_deliver();
