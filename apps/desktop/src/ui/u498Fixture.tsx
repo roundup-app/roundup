@@ -34,7 +34,7 @@ export const u498Fixture = () => {
     </div>;
   };
 
-  return <div ref={root!} data-fixture="tabs">
+  return <div ref={(element) => { root = element; }} data-fixture="tabs">
     <button type="button" data-button="quiet">Before</button>
     <Tabs.Root defaultValue="todos" activationMode="automatic" {...(controlled ? {
       get value() { return value(); },
