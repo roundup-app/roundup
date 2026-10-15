@@ -69,7 +69,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean) => {
       <button data-registry-modal-trigger data-button="quiet" onClick={() => setDialogOpen(true)}>Open modal</button>
       <Menu.Root open={menuOpen()} onOpenChange={(details) => setMenuOpen(details.open)}>
         <Menu.Trigger data-registry-menu-trigger data-button="quiet">Project menu</Menu.Trigger>
-        <Portal><Menu.Positioner><Menu.Content ref={menu}>
+        <Portal><Menu.Positioner><Menu.Content ref={menu} style={{ "z-index": "3" }}>
           <Menu.Item value="project">Project action</Menu.Item>
         </Menu.Content></Menu.Positioner></Portal>
       </Menu.Root>
@@ -86,7 +86,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean) => {
     registerKeys({ kind: "layer", element: () => menu, active: menuOpen, modal: false }, []);
 
     return <Dialog.Root open={dialogOpen()} onOpenChange={(details) => setDialogOpen(details.open)} restoreFocus>
-      <Portal><Dialog.Backdrop /><Dialog.Positioner><Dialog.Content ref={dialog}>
+      <Portal><Dialog.Backdrop /><Dialog.Positioner><Dialog.Content ref={dialog} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "var(--space-4)", width: "var(--shelf-width)", "z-index": "3" }}>
         <Dialog.Title>Registry modal</Dialog.Title><Dialog.Description>Top layer owns Escape</Dialog.Description>
         <Dialog.CloseTrigger data-button="quiet">Close modal</Dialog.CloseTrigger>
       </Dialog.Content></Dialog.Positioner></Portal>
