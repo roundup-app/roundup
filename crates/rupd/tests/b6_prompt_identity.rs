@@ -1736,7 +1736,7 @@ while True: time.sleep(60)
                 .await
                 .unwrap();
             let folder = rupd::data::project_data(data.path(), dir.path()).unwrap();
-            let db = rusqlite::Connection::open(folder.join("agents.db")).unwrap();
+            let db = rusqlite::Connection::open(folder.join("project.db")).unwrap();
             Self {
                 _daemon: daemon,
                 dir,
