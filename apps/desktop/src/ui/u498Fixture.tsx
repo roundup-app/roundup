@@ -1,10 +1,14 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
-import { Tabs } from "./index";
+import { Tabs as SharedTabs } from "./index";
+import { Tabs as ArkTabs } from "@ark-ui/solid/tabs";
+import { runChecks } from "../testing/checks";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
 
 export const u498Fixture = () => {
+  const Tabs = new URLSearchParams(location.search).has("base") ? ArkTabs : SharedTabs;
+  window.__checks = () => runChecks();
   const content = new URLSearchParams(location.search).has("content");
   const controlled = new URLSearchParams(location.search).has("controlled");
   const [value, setValue] = createSignal("todos");

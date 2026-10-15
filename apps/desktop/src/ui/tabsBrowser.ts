@@ -7,9 +7,13 @@ import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect } from "vitest";
 
 const exec = promisify(execFile);
+
 const profile = mkdtempSync(join(tmpdir(), "tabs-"));
+
 const session = `tabs-${process.pid}-${profile.split("/").at(-1)}`;
+
 let server: ViteDevServer;
+
 let origin: string;
 
 export const browser = async (...args: string[]) => {
@@ -26,6 +30,13 @@ export const read = async <T,>(expression: string): Promise<T> => {
   const reply = JSON.parse(await browser("eval", expression)) as { data: { result: T } };
 
   return reply.data.result;
+};
+
+export const snapshot = async () => {
+  // SAFETY: agent-browser's snapshot envelope has a string accessibility tree.
+  const reply = JSON.parse(await browser("snapshot")) as { data: { snapshot: string } };
+
+  return reply.data.snapshot;
 };
 
 export const wait = async (expression: string) => browser("wait", "--fn", expression);
@@ -54,7 +65,7 @@ export const action = async (...args: string[]) => {
   await wait(`Number(document.querySelector('[data-fixture=tabs]').dataset.commit) > ${commit}`);
 };
 
-export const click = async (role: string, name: string) => action("find", "role", role, "click", "--name", name, "--exact");
+export const click = async (role: string, name: string) => action("find", "role", role, "click", "--name", name, ...(role === "tab" ? [] : ["--exact"]));
 
 export const selected = async (name: "Todos" | "Pads", focused = false) => {
   await wait(`document.querySelector('[role=tab][aria-selected=true]')?.textContent.startsWith('${name}') ${focused ? "&& document.activeElement === document.querySelector('[role=tab][aria-selected=true]')" : ""}`);
