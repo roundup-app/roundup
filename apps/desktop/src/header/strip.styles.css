@@ -204,6 +204,8 @@
   grid-column: 3;
   min-width: 0;
   padding-inline: var(--space-4);
+  /* The tabs hang a step below the window top (.strip): the title keeps their centre line. */
+  margin-top: var(--space-2);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

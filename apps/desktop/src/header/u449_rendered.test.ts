@@ -236,6 +236,9 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
   it("u440_name_close_and_plus_share_a_centre_line", () => {
     for (const row of rows) for (const tab of row.tabs) for (const control of [tab.name, tab.close, row.plus]) expect(Math.abs(centre(control) - centre(tab.box)), row.case).toBeLessThanOrEqual(1);
   });
+  it("u440_the_window_title_shares_the_tabs_centre_line", () => {
+    for (const row of rows) expect(Math.abs(centre(row.title) - centre(row.plus)), row.case).toBeLessThanOrEqual(1);
+  });
   it("u440_tabs_hang_a_step_below_the_window_top", () => {
     for (const row of rows) for (const tab of row.tabs) expect(tab.box.top - row.bar.top, row.case).toBeGreaterThanOrEqual(8);
   });
