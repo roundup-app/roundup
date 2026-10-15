@@ -38,8 +38,8 @@ Then:
   visibility adjustments needed to compile them. No new behaviour, test
   retirement or unrelated cleanup. Observer: review each commit separately,
   using `git show --color-moved` for moves.
-- **Regression.** Every pre-existing `agents` test passes unchanged, including
-  the crate's unit, integration and documentation tests. Run `cargo test -p
+- **Regression (policy).** Every pre-existing `agents` test passes unchanged,
+  including the crate's unit, integration and documentation tests. Run `cargo test -p
   agents` and `just check origin/main`; preserve the existing scenario assertions,
   rather than adding tests that reread module layout. Existing assertions include
   `a6_move_reorders_and_keeps_orders_contiguous_from_zero` and
@@ -62,6 +62,17 @@ Then:
 ## Observer results
 
 The implementation PR records one row per command with its exit code and any
-failure, and includes the line counts and state-reader table. A nonzero command
-or a violated policy clause fails AM1. The specification PR establishes this
-acceptance only; it does not claim the refactor or the size guard is delivered.
+failure, including failures caused by the environment. Record each command's
+literal invocation; a failed invocation remains a row even when a later retry
+passes.
+
+The line-count table has one row for `lib.rs` and each new Rust file, with its
+path and total line count. The state-reader table has one row for every
+ungrouped `Shared` field and every field inside a module-owned holder, with the
+field's qualified name, owning type and module, and production reader functions
+qualified by module. List holder fields individually rather than counting the
+holder itself as a second reader. These tables are policy evidence inspected
+against the implementation, not new tests of source text.
+
+A nonzero command or a violated policy clause fails AM1. The specification PR
+establishes this acceptance only; it does not claim the refactor or the size guard is delivered.
