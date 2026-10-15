@@ -1,5 +1,10 @@
 use super::*;
 
+pub(super) struct State {
+    /// Since when an Agent without a Terminal has been `done`.
+    pub(super) opened: i64,
+}
+
 impl Shared {
     pub(super) fn rail(&self) -> MutexGuard<'_, rail::Rail> {
         agent_lock(&self.rail).expect("rail lock")
@@ -83,7 +88,7 @@ impl Shared {
         node.status = Some(live.unwrap_or_else(|| Status {
             kind: Kind::Done,
             label: "terminal gone".into(),
-            since: self.opened,
+            since: self.rail_view.opened,
         }));
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
@@ -95,8 +100,7 @@ impl Shared {
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.stray = self
-            .scan
-            .found
+            .strays
             .lock()
             .expect("scan found lock")
             .get(&node.id)

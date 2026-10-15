@@ -1,5 +1,12 @@
 use super::*;
 
+pub(super) struct State {
+    /// The same Terminals, behind the seam `stop` and `remove` kill through: real in production,
+    /// a fake in the one test that proves a failed kill deletes nothing (A16), since `Terminals`
+    /// is a concrete type a test cannot otherwise make fail on demand.
+    pub(super) kill: Arc<dyn KillsTerminals>,
+}
+
 impl Shared {
     pub(super) fn release_closing(&self, id: &str, ended: bool) {
         let mut runs = self.runs();
@@ -14,7 +21,7 @@ impl Shared {
     /// A21: stop a Terminal in the background, for a failure that must not block the caller
     /// (`observe`'s own `Err` return) and has no actor to attribute a `rail.changed` to.
     pub(super) fn spawn_kill(&self, terminal_id: String) {
-        let kill = Arc::clone(&self.kill);
+        let kill = Arc::clone(&self.ending.kill);
         let terminals = Arc::clone(&self.terminals);
         tokio::spawn(async move {
             if let Err(err) = kill_or_already_gone(&*kill, &terminals, &terminal_id).await {
@@ -55,7 +62,7 @@ impl Shared {
         if let Some(terminal_id) = terminal_id {
             report_undo(
                 "stop a resume's Terminal on rollback",
-                kill_or_already_gone(&*self.kill, &self.terminals, &terminal_id).await,
+                kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await,
             );
         }
         let mut runs = self.runs();
@@ -172,7 +179,7 @@ impl Shared {
         }
         let killed = match terminal_id {
             Some(terminal_id) => {
-                kill_or_already_gone(&*self.kill, &self.terminals, &terminal_id).await
+                kill_or_already_gone(&*self.ending.kill, &self.terminals, &terminal_id).await
             }
             None => Ok(()),
         };
