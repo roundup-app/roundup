@@ -1,6 +1,6 @@
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
-import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
+import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -29,6 +29,18 @@ export const Tooltip = {
   Content: (props: ArkTooltip.ContentProps) => <ArkTooltip.Content {...props} class={`app-tooltip ${props.class ?? ""}`} />,
 };
 
+export const Tabs = {
+  ...ArkTabs,
+  List: (props: ArkTabs.ListProps) => <ArkTabs.List {...props} class={`app-tabs-list ${props.class ?? ""}`} />,
+  Trigger: (props: ArkTabs.TriggerProps) => {
+    const tabs = useTabsContext();
+
+    // Ark omits inactive controls links; keep every mounted panel linked using Ark's own content id.
+    return <ArkTabs.Trigger aria-controls={tabs().getContentProps({ value: props.value }).id} data-button="quiet" {...props} class={`app-tabs-trigger ${props.class ?? ""}`} />;
+  },
+  Content: (props: ArkTabs.ContentProps) => <ArkTabs.Content {...props} class={`app-tabs-content ${props.class ?? ""}`} />,
+};
+
 export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & { "aria-label": string }) => {
   const [local, rest] = splitProps(props, ["class", "onClick"]);
 
@@ -53,16 +65,4 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
-};
-
-export const Tabs = {
-  ...ArkTabs,
-  Root: (props: ArkTabs.RootProps) => <ArkTabs.Root lazyMount={false} unmountOnExit={false} {...props} />,
-  List: (props: ArkTabs.ListProps) => <ArkTabs.List {...props} class={`app-tabs ${props.class ?? ""}`} />,
-  Trigger: (props: ArkTabs.TriggerProps) => {
-    const api = useTabsContext();
-
-    // Ark omits inactive controls; retain its panel id so every tab stays linked.
-    return <ArkTabs.Trigger data-button="quiet" {...props} aria-controls={api().getContentProps({ value: props.value }).id} />;
-  },
 };

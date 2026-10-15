@@ -2,16 +2,13 @@
   "entry": [
     "contracts/**/*.ts",
     "apps/*/harness.html",
-    "docs/u478-contrast-observer.test.mjs",
-    "apps/*/src/ui/*Fixture.tsx"
+    "docs/u478-contrast-observer.test.mjs"
   ],
   "ignorePatterns": [
     "tools/oxlint/anti-slop/**",
     "spikes/**"
   ],
   "ignoreDependencies": [
-    "@oxlint/plugins",
-    "@anthropic-ai/claude-code",
-    "@copilotkit/aimock"
+    "@oxlint/plugins"
   ]
 }

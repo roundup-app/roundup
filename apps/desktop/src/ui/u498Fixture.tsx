@@ -1,14 +1,10 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
-import { Tabs as SharedTabs } from "./index";
-import { Tabs as ArkTabs } from "@ark-ui/solid/tabs";
-import { runChecks } from "../testing/checks";
+import { Tabs } from "./index";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
 
 export const u498Fixture = () => {
-  const Tabs = new URLSearchParams(location.search).has("base") ? ArkTabs : SharedTabs;
-  window.__checks = () => runChecks();
   const content = new URLSearchParams(location.search).has("content");
   const controlled = new URLSearchParams(location.search).has("controlled");
   const [value, setValue] = createSignal("todos");
@@ -20,11 +16,11 @@ export const u498Fixture = () => {
   const acknowledge = () => requestAnimationFrame(() => { root.dataset.commit = String(++commit); });
 
   onMount(() => {
-    for (const event of ["click", "keydown", "input"]) document.addEventListener(event, acknowledge);
+    for (const event of ["click", "keydown", "input", "pointerover", "pointermove"]) document.addEventListener(event, acknowledge);
     acknowledge();
   });
   onCleanup(() => {
-    for (const event of ["click", "keydown", "input"]) document.removeEventListener(event, acknowledge);
+    for (const event of ["click", "keydown", "input", "pointerover", "pointermove"]) document.removeEventListener(event, acknowledge);
   });
 
   const Draft = (props: { name: "Todos" | "Pads" }) => {
@@ -38,17 +34,17 @@ export const u498Fixture = () => {
     </div>;
   };
 
-  return <div ref={root!} data-fixture="tabs">
+  return <div ref={(element) => { root = element; }} data-fixture="tabs">
     <button type="button" data-button="quiet">Before</button>
     <Tabs.Root defaultValue="todos" activationMode="automatic" {...(controlled ? {
       get value() { return value(); },
       onValueChange: (details: { value: string }) => { setRequested(details.value); setRequests(requests() + 1); },
     } : {})}>
-      <Tabs.List aria-label="Shelf views" data-caller="list">
-        <Tabs.Trigger value="todos" data-caller="trigger" ref={(element) => { element.dataset.ref = "connected"; }}>Todos<span aria-hidden="true"> ·</span></Tabs.Trigger>
+      <Tabs.List aria-label="Shelf views" data-caller="list" class="caller-list">
+        <Tabs.Trigger value="todos" data-caller="trigger" class="caller-trigger" ref={(element) => { element.dataset.ref = "connected"; }}>Todos<span aria-hidden="true"> ·</span></Tabs.Trigger>
         <Tabs.Trigger value="pads">Pads<span aria-hidden="true"> ·</span></Tabs.Trigger>
       </Tabs.List>
-      <Tabs.Content value="todos" data-caller="panel">{content ? <Draft name="Todos" /> : "Todo content"}</Tabs.Content>
+      <Tabs.Content value="todos" data-caller="panel" class="caller-panel">{content ? <Draft name="Todos" /> : "Todo content"}</Tabs.Content>
       <Tabs.Content value="pads">{content ? <Draft name="Pads" /> : "Pad content"}</Tabs.Content>
     </Tabs.Root>
     <button type="button" data-button="quiet">After</button>
