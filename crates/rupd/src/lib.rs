@@ -127,7 +127,8 @@ impl Daemon {
         let bus = Bus::new();
         let terminals = Arc::new(
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
-                .with_input_writer(terminal_input_observer()),
+                .with_input_writer(terminal_input_observer())
+                .with_exit_hold(terminal_exit_observer()),
         );
         // O4: the Agents ask whether a Takeover is active before they Steer a changed order; the
         // Messages that know are made after them.
@@ -1569,6 +1570,18 @@ fn resume_effect_observer() -> impl Fn(&str, &str) -> Result<(), RpcError> + Sen
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         Ok(())
+    }
+}
+
+/// B6's isolated exit observer keeps a Terminal's exit unconfirmed while its gate file exists.
+fn terminal_exit_observer() -> impl Fn() + Send + Sync {
+    let gate = std::env::var_os("RUPD_TERMINAL_EXIT_GATE").map(std::path::PathBuf::from);
+    move || {
+        let Some(gate) = &gate else { return };
+        let started = std::time::Instant::now();
+        while gate.is_file() && started.elapsed() < std::time::Duration::from_secs(30) {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
     }
 }
 

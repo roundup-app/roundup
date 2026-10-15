@@ -3,12 +3,13 @@
 mod rupd_harness;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
+use contracts::EventData;
 use rpc::{Client, RpcError};
 use serde_json::{Value, json};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const BOUND: Duration = Duration::from_secs(15);
 
@@ -29,7 +30,7 @@ impl Run {
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, tty
+import json, os, subprocess, sys, time, tty
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -57,9 +58,15 @@ while True:
     if not data: break
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
     if data != b'\x00': pending += data
-    if data == b'\r' and os.path.isfile('order-submit'):
+    if data == b'\r' and (os.path.isfile('order-submit') or os.path.isfile('decision-notice-fixture')):
         text = pending.decode().replace('\x1b[200~','').replace('\x1b[201~','').removeprefix('Follow this instruction: ').strip()
         pending = b''
+        if os.path.isfile('decision-notice-fixture') and '[decision ' in text:
+            continue
+        deadline = time.monotonic() + 10
+        while 'occupying steer' in text and os.path.isfile('background-gate'):
+            if time.monotonic() >= deadline: raise RuntimeError('background Steer was not released')
+            time.sleep(0.005)
         hook('UserPromptSubmit', {'prompt':text})
         hook('Stop', {})
         print('SUBMITTED', flush=True)
@@ -1088,6 +1095,101 @@ async fn b6_a_refused_prompt_effect_does_not_submit_the_users_input() {
     run.finish().await;
 }
 
+async fn notice_events(run: &Run) -> Client {
+    let client = Client::connect(&run.daemon.socket).await.unwrap();
+    tokio::time::timeout(BOUND, client.request("events.subscribe", ()))
+        .await
+        .unwrap()
+        .unwrap();
+    client
+}
+
+async fn failed_notice(
+    run: &Run,
+    events: &mut Client,
+    decision: &Value,
+    failure: &str,
+    sent: Option<&contracts::message::Message>,
+    bound: Duration,
+) -> Result<Value, String> {
+    let started = Instant::now();
+    let marker = format!("[decision {}]", decision["id"].as_str().unwrap());
+    let mut stage = sent.map_or_else(
+        || "Decision opened (decision.list)".to_owned(),
+        |message| format!("message.sent: {}", serde_json::to_value(message).unwrap()),
+    );
+    let observed = tokio::time::timeout(bound, async {
+        loop {
+            let event = events
+                .next_event()
+                .await
+                .ok_or("subscription closed".to_owned())?;
+            let (name, message) = match event.data {
+                EventData::MessageSent(m) => ("message.sent", m),
+                EventData::MessageHeld(m) => ("message.held", m),
+                EventData::MessageDropped(m) => ("message.dropped", m),
+                EventData::MessageDelivered(m) => ("message.delivered", m),
+                _ => continue,
+            };
+            if !message.body.contains(&marker) {
+                continue;
+            }
+            stage = format!("{name}: {}", serde_json::to_value(&message).unwrap());
+            eprintln!("{failure}: {:?}; {stage}", started.elapsed());
+            if name == "message.delivered" && message.to == contracts::Actor::user().id {
+                let stored = run
+                    .user
+                    .request("message.get", json!({"id":message.id}))
+                    .await
+                    .map_err(|err| format!("durable read-back unavailable: {err}"))?;
+                if stored["status"] != "delivered" || stored["body"] != message.body {
+                    return Err(format!(
+                        "delivery event disagrees with durable record: {stored}"
+                    ));
+                }
+                return Ok(stored);
+            }
+        }
+    })
+    .await;
+    let error = match observed {
+        Ok(Ok(message)) => {
+            eprintln!(
+                "{failure}: {} observed and read back after {:?}",
+                decision["id"],
+                started.elapsed()
+            );
+            return Ok(message);
+        }
+        Ok(Err(err)) => err,
+        Err(err) => format!("notice observation expired: {err}"),
+    };
+    // Diagnostics get their own finite bound, including an unresponsive Daemon.
+    let mailbox = match tokio::time::timeout(
+        Duration::from_secs(2),
+        run.user.request("message.list", json!({})),
+    )
+    .await
+    {
+        Ok(Ok(messages)) => {
+            let relevant: Vec<_> = messages
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|m| m["body"].as_str().unwrap().contains(&marker))
+                .collect();
+            serde_json::to_string(&relevant).unwrap()
+        }
+        Ok(Err(err)) => format!("unavailable: {err}"),
+        Err(err) => format!("unavailable: diagnostic read expired: {err}"),
+    };
+    Err(format!(
+        "{failure}: Decision {}; elapsed {:?}; {error}; last stage {stage}; stored Messages {mailbox}",
+        decision["id"],
+        started.elapsed()
+    ))
+}
+
 #[tokio::test]
 async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
     for failure in ["send", "full", "terminal"] {
@@ -1106,6 +1208,11 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             .unwrap();
         run.door = Some(door.clone());
         run.spawn().await;
+        let mut events = notice_events(&run).await;
+        let mut monitor = notice_events(&run).await;
+        if failure == "terminal" {
+            std::fs::write(run.dir.path().join("decision-notice-fixture"), "").unwrap();
+        }
         run.user
             .request("rail.startDoor", json!({"id":door}))
             .await
@@ -1139,29 +1246,85 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
                 .await
                 .unwrap();
         }
-        let (decision, waiting) = run.open("permission").await;
-        let notice = tokio::time::timeout(Duration::from_secs(40), async {
-            loop {
-                let listed = run
-                    .user
-                    .request("message.list", json!({"to":contracts::Actor::user().id}))
-                    .await
-                    .unwrap();
-                if let Some(message) = listed.as_array().unwrap().iter().find(|m| {
-                    m["body"]
-                        .as_str()
-                        .unwrap()
-                        .contains(&format!("[decision {}]", decision["id"].as_str().unwrap()))
-                }) {
-                    break message.clone();
+        // A background Steer must submit before refusal of the Decision note can be isolated.
+        let occupying = if failure == "terminal" {
+            tokio::time::timeout(BOUND, async {
+                loop {
+                    if matches!(monitor.next_event().await.unwrap().data,
+                        EventData::MessageDropped(ref m) | EventData::MessageDelivered(ref m)
+                        if m.to == door && m.body.starts_with("[digest]"))
+                    {
+                        break;
+                    }
                 }
-                tokio::task::yield_now().await;
-            }
-        })
+            })
+            .await
+            .unwrap();
+            std::fs::write(run.dir.path().join("background-gate"), "").unwrap();
+            let sender = Arc::clone(&run.user);
+            let receiver = door.clone();
+            let task = tokio::spawn(async move {
+                sender
+                    .request(
+                        "message.send",
+                        json!({"to":receiver,"kind":"note","body":"occupying steer"}),
+                    )
+                    .await
+            });
+            tokio::time::timeout(BOUND, async {
+                let mut output = String::new();
+                let expected: String = b"occupying steer\x1b[201~\r"
+                    .iter()
+                    .map(|byte| format!("BYTE:{byte:02x}\n"))
+                    .collect();
+                loop {
+                    if let EventData::TerminalOutput(out) = monitor.next_event().await.unwrap().data
+                    {
+                        output.push_str(&String::from_utf8_lossy(
+                            &STANDARD.decode(out.data).unwrap(),
+                        ));
+                        if output.contains(&expected) {
+                            break;
+                        }
+                    }
+                }
+            })
+            .await
+            .unwrap();
+            Some(task)
+        } else {
+            None
+        };
+        let (decision, waiting) = run.open("permission").await;
+        if failure == "terminal" {
+            tokio::time::timeout(BOUND, async {
+                loop {
+                    if matches!(monitor.next_event().await.unwrap().data, EventData::MessageSent(ref m)
+                        if m.body.contains(&format!("[decision {}]", decision["id"].as_str().unwrap()))) { break; }
+                }
+            }).await.unwrap();
+            std::fs::remove_file(run.dir.path().join("background-gate")).unwrap();
+        }
+        let notice = failed_notice(
+            &run,
+            &mut events,
+            &decision,
+            failure,
+            None,
+            Duration::from_secs(40),
+        )
         .await
-        .unwrap_or_else(|err| {
-            panic!("{failure}: failed Decision notice is visible to the user: {err}")
-        });
+        .unwrap_or_else(|err| panic!("{err}"));
+        if let Some(task) = occupying {
+            let background = task.await.unwrap().unwrap();
+            assert_eq!(
+                run.user
+                    .request("message.get", json!({"id":background["id"]}))
+                    .await
+                    .unwrap()["status"],
+                "delivered"
+            );
+        }
         assert!(notice["body"].as_str().unwrap().contains("delivery failed"));
         assert_eq!(notice["status"], "delivered");
         if failure == "full" {
@@ -1199,6 +1362,121 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
         assert!(
             outcome["output"].as_str().unwrap().contains("allow"),
             "{outcome}"
+        );
+        run.finish().await;
+    }
+}
+
+#[tokio::test]
+async fn b38_a_missing_notice_fails_with_bounded_delivery_evidence() {
+    for stopped in [false, true] {
+        let mut run = Run::start().await;
+        let door = run
+            .user
+            .request("rail.createWorkstream", json!({"name":"supervisor"}))
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        run.user
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap();
+        run.door = Some(door.clone());
+        run.spawn().await;
+        std::fs::write(run.dir.path().join("decision-notice-fixture"), "").unwrap();
+        let mut events = notice_events(&run).await;
+        let mut monitor = notice_events(&run).await;
+        run.user
+            .request("rail.startDoor", json!({"id":door}))
+            .await
+            .unwrap();
+        tokio::time::timeout(BOUND, async {
+            loop {
+                if matches!(monitor.next_event().await.unwrap().data,
+                    EventData::MessageDelivered(ref m) | EventData::MessageDropped(ref m)
+                    if m.to == door && m.body.starts_with("[digest]"))
+                {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        // The real Terminal writer acknowledges arrival but cannot complete or refuse yet.
+        let gate = run.dir.path().join("input-gate");
+        std::fs::write(&gate, "pause").unwrap();
+        let (decision, waiting) = run.open("permission").await;
+        let marker = format!("[decision {}]", decision["id"].as_str().unwrap());
+        let sent = tokio::time::timeout(BOUND, async {
+            loop {
+                if let EventData::MessageSent(m) = events.next_event().await.unwrap().data
+                    && m.body.contains(&marker)
+                {
+                    break m;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        let signal = |name: &str| {
+            assert!(
+                std::process::Command::new("kill")
+                    .args([name, &run.daemon.child.id().to_string()])
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        };
+        if stopped {
+            signal("-STOP");
+        }
+        let observed = tokio::time::timeout(
+            Duration::from_secs(8),
+            failed_notice(
+                &run,
+                &mut events,
+                &decision,
+                "terminal",
+                Some(&sent),
+                Duration::from_millis(300),
+            ),
+        )
+        .await;
+        if stopped {
+            signal("-CONT");
+        }
+        std::fs::remove_file(gate).unwrap();
+        let error = observed
+            .expect("observation and diagnostic reads are bounded")
+            .unwrap_err();
+        assert!(error.contains("terminal: Decision"), "{error}");
+        assert!(error.contains(decision["id"].as_str().unwrap()), "{error}");
+        assert!(
+            error.contains("elapsed") && error.contains("last stage message.sent"),
+            "{error}"
+        );
+        assert!(error.contains(&format!("\"id\":{}", sent.id)), "{error}");
+        assert!(
+            error.contains("\"status\":\"pending\"") && error.contains("\"reason\":null"),
+            "{error}"
+        );
+        if stopped {
+            assert!(
+                error.contains("stored Messages unavailable: diagnostic read expired"),
+                "{error}"
+            );
+        } else {
+            assert!(!error.contains("unavailable"), "{error}");
+            assert!(error.contains("stored Messages [{"), "{error}");
+        }
+        run.user_answer(&decision, "permission").await;
+        assert!(
+            waiting.await.unwrap().unwrap()["output"]
+                .as_str()
+                .unwrap()
+                .contains("allow")
         );
         run.finish().await;
     }
@@ -1688,11 +1966,6 @@ if '--resume' not in sys.argv:
             subprocess.run(hook['command'], shell=True, input=payload, text=True, check=True)
     print('SAVED', flush=True)
 else:
-    if os.path.isfile('keep-pty') and os.fork() == 0:
-        signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        open('descendant-ready', 'w').close()
-        while os.path.isfile('keep-pty'): time.sleep(0.01)
-        sys.exit(0)
     print('RESUMED', flush=True)
 while True: time.sleep(60)
 "#).unwrap();
@@ -1710,6 +1983,7 @@ while True: time.sleep(60)
                         .env("ROUNDUP_RUP_BIN", rup)
                         .env("CLAUDE_CONFIG_DIR", dir.path().join("config"))
                         .env("RUPD_RESUME_EFFECT_GATE", dir.path().join("resume"))
+                        .env("RUPD_TERMINAL_EXIT_GATE", dir.path().join("hold-exit"))
                         .stderr(std::process::Stdio::null());
                 },
             );
@@ -1777,7 +2051,7 @@ while True: time.sleep(60)
 
     impl Drop for Run {
         fn drop(&mut self) {
-            let _ = std::fs::remove_file(self.dir.path().join("keep-pty"));
+            let _ = std::fs::remove_file(self.dir.path().join("hold-exit"));
             let _ = std::fs::remove_file(self.gate("cleanup"));
             let _ = std::fs::remove_file(self.gate("claim"));
         }
@@ -1911,7 +2185,7 @@ while True: time.sleep(60)
         let run = Run::start().await;
         run.db.execute_batch("CREATE TRIGGER refuse_resume BEFORE UPDATE OF conversation_id ON nodes BEGIN SELECT RAISE(ABORT, 'resume save fault'); END;").unwrap();
         if uncertain {
-            std::fs::write(run.dir.path().join("keep-pty"), "hold").unwrap();
+            std::fs::write(run.dir.path().join("hold-exit"), "hold").unwrap();
         } else {
             std::fs::write(run.gate("cleanup"), "refuse").unwrap();
         }
@@ -1920,9 +2194,6 @@ while True: time.sleep(60)
         let resume =
             tokio::spawn(async move { caller.request("agent.resume", json!({"id":child})).await });
         arrived(&run.gate("claimed-arrived")).await;
-        if uncertain {
-            arrived(&run.dir.path().join("descendant-ready")).await;
-        }
         assert!(
             run.ack()
                 .await
@@ -1972,7 +2243,7 @@ while True: time.sleep(60)
                 false,
                 "an unconfirmed stop authorized Resume"
             );
-            std::fs::remove_file(run.dir.path().join("keep-pty")).unwrap();
+            std::fs::remove_file(run.dir.path().join("hold-exit")).unwrap();
             tokio::time::timeout(BOUND, async {
                 while run.terminal_running(&terminal).await {
                     tokio::task::yield_now().await;
