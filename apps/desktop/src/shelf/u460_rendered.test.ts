@@ -6,12 +6,15 @@ import { promisify } from "node:util";
 import { createServer } from "vite";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
+import { contrastRgb } from "../testing/contrast";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 
 const exec = promisify(execFile);
 
-it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () => {
+it.each([
+  ["light", 1280], ["light", 1440], ["dark", 1280], ["dark", 1440],
+] as const)("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible %s %i", async (scheme, width) => {
   const profile = mkdtempSync(join(tmpdir(), "u460-browser-"));
   const cacheDir = mkdtempSync(join(tmpdir(), "u460-vite-"));
   const server = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, hmr: false }, logLevel: "silent" });
@@ -32,9 +35,9 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
   };
 
   try {
-    // One representative case: 1280 by 800, light, normal contrast.
-    await browser("set", "viewport", "1280", "800");
-    await browser("set", "media", "light");
+    // U135: both schemes and Shelf viewport widths must keep the selected metadata readable.
+    await browser("set", "viewport", String(width), "800");
+    await browser("set", "media", scheme);
     await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
     await browser("wait", ".shelf-tabs");
     await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Todos')).click(); return true; })()`);
@@ -56,11 +59,11 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
     })()`);
     await settle();
     const baseline = await evaluate<Checks>("window.__checks()");
-    await capture("U458", "1280x800-light-baseline", baseline);
+    await capture("U458", `${width}x800-${scheme}-baseline`, baseline);
     await evaluate(`(() => { const rows = document.querySelectorAll('.todo-row-button[aria-pressed]'); rows[2].dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true })); rows[3].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); return true; })()`);
     await settle();
     const before = await evaluate<number>("document.querySelector('.shelf-bulk-line').getBoundingClientRect().height");
-    const tag = "1280x800-light";
+    const tag = `${width}x800-${scheme}`;
     await capture("U458", `${tag}-selection`, await evaluate<Checks>("window.__checks()"));
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);
     await settle();
@@ -105,6 +108,39 @@ it("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible", async () 
     await browser("wait", "--text", "Pad deletion failure");
     await settle();
 
+    const metadata = await evaluate<{ text: { r: number; g: number; b: number }; ground: { r: number; g: number; b: number } }[]>(`(() => {
+      const rgb = value => {
+        const channels = value.match(/[\\d.]+/g).map(Number);
+        return { r: channels[0], g: channels[1], b: channels[2], a: channels[3] ?? 1 };
+      };
+      const over = (ink, ground) => ({
+        r: ink.r * ink.a + ground.r * (1 - ink.a),
+        g: ink.g * ink.a + ground.g * (1 - ink.a),
+        b: ink.b * ink.a + ground.b * (1 - ink.a), a: 1,
+      });
+      return [...document.querySelectorAll('.shelf-row[data-selected="true"] .shelf-meta')].map(el => {
+        let ground = { r: 255, g: 255, b: 255, a: 1 };
+        const chain = [];
+        for (let node = el; node; node = node.parentElement) chain.unshift(node);
+        for (const node of chain) {
+          const css = getComputedStyle(node);
+          ground = over(rgb(css.backgroundColor), ground);
+          const layers = [...css.backgroundImage.matchAll(/linear-gradient\\((rgba?\\([^)]+\\)),\\s*\\1\\)/g)];
+          if (node.matches('.shelf-row')) {
+            if (layers.length !== 2 || css.backgroundSize !== '2px 100%, auto') throw new Error('Expected leading mark and full-size wash');
+            if (el.getBoundingClientRect().left < node.getBoundingClientRect().left + 2) throw new Error('Metadata overlaps leading mark');
+            ground = over(rgb(layers[1][1]), ground);
+          } else {
+            for (const layer of layers.reverse()) ground = over(rgb(layer[1]), ground);
+          }
+        }
+        return { text: over(rgb(getComputedStyle(el).color), ground), ground };
+      });
+    })()`);
+
+    expect(metadata.length).toBeGreaterThan(0);
+    for (const { text, ground } of metadata) expect(contrastRgb(text, ground), `${tag} selected Pad metadata`).toBeGreaterThanOrEqual(4.5);
+    expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain('p'.repeat(120));
     const padChecks = await evaluate<Checks>("window.__checks()");
 
     for (const id of CHECK_IDS) if (baseline[id].status === 'pass') expect(padChecks[id].status, id).toBe('pass');
