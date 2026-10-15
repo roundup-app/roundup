@@ -13,7 +13,7 @@ messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
-rusqlite = { workspace = true, features = ["backup"] }
+rusqlite = { workspace = true }
 rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
