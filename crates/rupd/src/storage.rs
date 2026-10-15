@@ -49,10 +49,9 @@ fn open_with(dir: &Path, observe: Observer) -> rusqlite::Result<()> {
                     before("before_copy", tx)?;
                     for name in STORES {
                         let source = source_dir.join(format!("{name}.db"));
-                        if !source
-                            .try_exists()
-                            .map_err(|e| HookError::Hook(e.to_string()))?
-                        {
+                        if !source.try_exists().map_err(|e| {
+                            HookError::Hook(format!("source {}: {e}", source.display()))
+                        })? {
                             continue;
                         }
                         let snapshot = snapshot(&source, name)?;
@@ -415,7 +414,7 @@ mod tests {
 
     #[test]
     fn n17_failed_import_keeps_sources() {
-        for failure in ["copy", "mismatch", "invalid", "conflict"] {
+        for failure in ["copy", "mismatch", "invalid", "conflict", "metadata"] {
             let dir = fixtures();
             let pads = dir.path().join("pads.db");
             if failure == "invalid" {
@@ -438,6 +437,10 @@ mod tests {
                     )
                 })
                 .collect();
+            if failure == "metadata" {
+                std::fs::rename(&pads, dir.path().join("retained-pads")).unwrap();
+                std::os::unix::fs::symlink("pads.db", &pads).unwrap();
+            }
             let err = open_with(dir.path(), Arc::new(move |phase, db| {
                 if failure == "copy" && phase == "before_copy" { db.execute_batch("CREATE TRIGGER fail_copy BEFORE INSERT ON pads BEGIN SELECT RAISE(FAIL,'copy refused'); END;")?; }
                 if failure == "mismatch" && phase == "after_commit" { db.execute("UPDATE pads SET text='wrong'", [])?; }
@@ -448,17 +451,19 @@ mod tests {
                 match failure {
                     "copy" => err.contains("copy refused"),
                     "mismatch" => err.contains("pads.db") && err.contains("verification failed"),
-                    "invalid" => err.contains("pads.db"),
+                    "invalid" | "metadata" => err.contains("pads.db"),
                     _ => err.contains("conflicting unmarked"),
                 },
                 "{failure}: {err}"
             );
             for (name, bytes) in sources {
-                assert_eq!(
-                    std::fs::read(dir.path().join(format!("{name}.db"))).unwrap(),
-                    bytes,
-                    "{failure}: {name}"
-                );
+                let source = if failure == "metadata" && *name == "pads" {
+                    assert_eq!(std::fs::read_link(&pads).unwrap(), Path::new("pads.db"));
+                    dir.path().join("retained-pads")
+                } else {
+                    dir.path().join(format!("{name}.db"))
+                };
+                assert_eq!(std::fs::read(source).unwrap(), bytes, "{failure}: {name}");
             }
             if failure == "copy" {
                 open(dir.path()).unwrap();
