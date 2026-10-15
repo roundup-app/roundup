@@ -183,18 +183,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           merge=$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest.mergeMethod // empty')
-          python3 - <<'PY'
-          import os, sys
-          sys.path.insert(0, 'loop')
-          import builder
-          with open(os.environ['GITHUB_ENV'], 'a') as env:
-              env.write(f"APP_TOKEN={builder.app_token()}\n")
-          PY
+          # `app_token` prints its own `::add-mask::` line before returning the token; the last line is the token.
+          APP_TOKEN=$(python3 -c 'import sys; sys.path.insert(0, "loop"); import builder; print(builder.app_token())' | tail -n 1)
+          echo "::add-mask::$APP_TOKEN"
           export GH_TOKEN=$APP_TOKEN
           trap 'gh api -X DELETE /installation/token' EXIT
           gh pr ready "$PR" --undo
           gh pr ready "$PR"
-          [ -z "$merge" ] || gh pr merge "$PR" --auto "--${merge,,}"
+          [ -z "$merge" ] || gh pr merge "$PR" --auto "--$(tr "[:upper:]" "[:lower:]" <<<"$merge")"
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
