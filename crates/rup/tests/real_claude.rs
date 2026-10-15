@@ -830,7 +830,7 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
             "HOME" => Some(dir.path().as_os_str().to_owned()),
             _ => None,
         },
-        &dir.path().join("rupd"),
+        &std::env::current_exe().unwrap(),
     )
     .unwrap();
     let rail = serde_json::from_value(json!({"id":"work", "kind":"workstream", "name":"Repair", "parent":null, "order":0, "status":null, "attempt":null, "status_revision":null, "terminal_id":null, "worktree":null, "can_resume":false, "channel":null, "work":{"kind":"work", "title":"Repair café", "ask":"Repair the café", "limits":[]}, "stray":[], "model":null, "effort":null})).unwrap();
