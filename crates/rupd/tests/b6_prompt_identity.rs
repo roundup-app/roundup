@@ -30,7 +30,7 @@ impl Run {
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, time, tty
+import json, os, socket, subprocess, sys, time, tty
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -56,6 +56,16 @@ pending = b''
 while True:
     data = os.read(0, 1)
     if not data: break
+    if data == b'\x01':
+        call = json.load(open('door-call.json'))
+        conn = socket.socket(socket.AF_UNIX)
+        conn.connect(os.environ['RUPD_SOCKET'])
+        conn.sendall((json.dumps({'jsonrpc':'2.0','id':1, **call}) + '\n').encode())
+        reply = json.loads(conn.makefile('r').readline())
+        conn.close()
+        with open('door-reply.tmp', 'w') as out: json.dump(reply, out)
+        os.rename('door-reply.tmp', 'door-reply.json')
+        continue
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
     if data != b'\x00': pending += data
     if data == b'\r' and (os.path.isfile('order-submit') or os.path.isfile('decision-notice-fixture')):
@@ -2601,4 +2611,125 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     assert_eq!(message["status"], "held");
     assert_eq!(message["reason"], "takeover");
     run.finish().await;
+}
+
+// U468's backend prerequisite; the App observer belongs to #1497.
+#[tokio::test]
+async fn u468_answered_decisions_survive_without_an_app_reader() {
+    let mut run = Run::start().await;
+    let door = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"supervisor"}))
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.door = Some(door.clone());
+    run.spawn().await;
+    let door_node = run
+        .user
+        .request("rail.startDoor", json!({"id":door}))
+        .await
+        .unwrap();
+    let door_terminal = door_node["terminal_id"].clone();
+    let unrelated = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"unrelated"}))
+        .await
+        .unwrap()["id"]
+        .clone();
+    let mut originals = Vec::new();
+    for (kind, answer, note) in [
+        ("ask_user", "Yes", "Exact note: α\nsecond line"),
+        ("permission", "deny", ""),
+    ] {
+        let (decision, waiting) = run.open(kind).await;
+        let reply = door_call(
+            &run,
+            &door_terminal,
+            "decision.answer",
+            json!({"id":decision["id"],"answer":answer,"note":note}),
+        )
+        .await;
+        assert!(reply.get("error").is_none(), "{reply}");
+        waiting.await.unwrap().unwrap();
+        originals.push((decision, answer, note));
+    }
+    // The first answer reader connects only after both answers have completed.
+    let reader = Client::connect(&run.daemon.socket).await.unwrap();
+    let records = reader
+        .request("decision.answers", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(records.as_array().unwrap().len(), 2);
+    assert_ne!(originals[0].0["id"], originals[1].0["id"]);
+    for (record, (decision, answer, note)) in records.as_array().unwrap().iter().zip(&originals) {
+        assert_eq!(record["decision"], *decision);
+        assert_eq!(record["answer"], *answer);
+        assert_eq!(record["note"], *note);
+        assert_eq!(record["answered_by"]["kind"], "agent");
+        assert_eq!(record["answered_by"]["id"], door);
+    }
+    let outside = door_call(
+        &run,
+        &door_terminal,
+        "decision.answers",
+        json!({"agent":unrelated}),
+    )
+    .await;
+    assert_eq!(outside["error"]["code"], rpc::code::FORBIDDEN);
+    assert_eq!(
+        reader
+            .request("decision.answers", json!({"agent":unrelated}))
+            .await
+            .unwrap(),
+        json!([])
+    );
+    drop(reader);
+    let project = run.dir.path().to_owned();
+    let data = run.data.path().to_owned();
+    drop(run.daemon);
+    let reopened = launch(&project, &data);
+    let reader = Client::connect(&reopened.socket).await.unwrap();
+    assert_eq!(
+        reader
+            .request("decision.answers", json!({"agent":run.child}))
+            .await
+            .unwrap(),
+        records
+    );
+}
+
+async fn door_call(run: &Run, terminal: &Value, method: &str, params: Value) -> Value {
+    let reply = run.dir.path().join("door-reply.json");
+    if reply.exists() {
+        std::fs::remove_file(&reply).unwrap();
+    }
+    std::fs::write(
+        run.dir.path().join("door-call.json"),
+        json!({"method":method,"params":params}).to_string(),
+    )
+    .unwrap();
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":terminal,"data":STANDARD.encode([1])}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            if let Ok(bytes) = std::fs::read(&reply) {
+                break serde_json::from_slice(&bytes).unwrap();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
 }
