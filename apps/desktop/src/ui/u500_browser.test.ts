@@ -48,12 +48,12 @@ for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
       await capture(side, "switched");
       await browser("open", url("/harness.html?seed=tree-40"));
       await wait(`!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-      await browser("eval", `window.__fake.app.closeProject = async () => { throw new Error('could not stop rupd'); }`);
+      await browser("eval", `window.__fake.app.closeProject = async () => { throw new Error('could not close project'); }`);
       await browser("hover", ".project-tab");
       await browser("eval", `(() => { const opener = document.querySelector('[aria-label^="Close "]'); opener.focus(); opener.click(); })()`);
       await wait(`document.activeElement?.textContent === 'Cancel'`);
       await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
-      await wait(`document.body.textContent.includes('could not stop rupd')`);
+      await wait(`document.body.textContent.includes('could not close project')`);
       await capture(side, "failure");
     }
   }, 120_000);
