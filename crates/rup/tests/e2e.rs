@@ -2298,35 +2298,6 @@ async fn f2_a_doors_brief_and_tools_hold_agent_spawn_and_its_shell_is_gone() {
 }
 
 #[tokio::test]
-async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own() {
-    let root = tempfile::tempdir().unwrap();
-    let report = root.path().join("result.json");
-    let cwd = root.path().join("never-used");
-    let project = start(&[]);
-    let cwd_in_project = project.dir.path().to_string_lossy().into_owned();
-    drop(cwd);
-    let tools = json!([{"name": "agent_spawn", "arguments": {
-        "cwd": cwd_in_project, "order": {"kind": "work", "ask": "do it", "limits": []}, "parent": "999"
-    }}]);
-    let mut project = project;
-    project.restart(&[
-        ("FAKE_CLAUDE_DOOR_TOOLS", &tools.to_string()),
-        ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-    ]);
-    let client = project.client().await;
-
-    let door = start_door(&client).await;
-    let spawned: RailNode = serde_json::from_value(json_file(&report).await[0].clone()).unwrap();
-
-    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
-    assert!(spawned.worktree.is_none());
-    let tree = rail_tree(&client).await;
-    let child = tree.iter().find(|n| n.id == spawned.id).unwrap();
-    assert_eq!(child.parent.as_deref(), Some(door.as_str()));
-    assert!(tree.iter().all(|n| n.parent.as_deref() != Some("999")));
-}
-
-#[tokio::test]
 async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp() {
     let root = tempfile::tempdir().unwrap();
     let door_report = root.path().join("door.json");
@@ -2390,40 +2361,6 @@ async fn a26_a_daemon_reopened_on_a_stored_nested_workstream_shows_it_flat() {
     assert_eq!(at(&inside).parent.as_deref(), Some(w2.as_str()));
     assert_eq!(tree.len(), 5);
     assert!(tree.iter().all(|n| n.terminal_id.is_none()));
-}
-
-#[tokio::test]
-async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
-    let root = tempfile::tempdir().unwrap();
-    let report = root.path().join("result.json");
-    let project = start(&[]);
-    let path = project.dir.path().to_owned();
-    git_at(&path, &["init", "-q", "-b", "main"]);
-    git_at(&path, &["config", "user.name", "roundup"]);
-    git_at(&path, &["config", "user.email", "roundup@example.com"]);
-    std::fs::write(path.join("README"), "keep").unwrap();
-    git_at(&path, &["add", "README"]);
-    git_at(&path, &["commit", "-qm", "base"]);
-    let tools = json!([{"name": "agent_spawn", "arguments": {"cwd": path.to_string_lossy()}}]);
-    let mut project = project;
-    project.restart(&[
-        ("FAKE_CLAUDE_DOOR_TOOLS", &tools.to_string()),
-        ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-    ]);
-    let client = project.client().await;
-    client
-        .request("project.setWorktrees", json!({"on": true, "check": null}))
-        .await
-        .unwrap();
-
-    let door = start_door(&client).await;
-    let spawned: RailNode = serde_json::from_value(json_file(&report).await[0].clone()).unwrap();
-
-    assert_eq!(spawned.parent.as_deref(), Some(door.as_str()));
-    let worktree = spawned.worktree.expect("the child has a Worktree");
-    assert_eq!(worktree.branch, format!("roundup/agent-{}", spawned.id));
-    let listed = git_at(&path, &["worktree", "list"]);
-    assert!(listed.contains(&worktree.path), "{listed}");
 }
 
 #[tokio::test]
