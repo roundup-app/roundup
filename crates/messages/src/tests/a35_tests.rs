@@ -926,11 +926,14 @@ async fn a35_retirement_ends_only_an_authorized_takeover_without_changing_record
 
 #[test]
 fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
+    // This tests event ordering across runtimes, not elapsed time. Paused time keeps
+    // synchronous SQLite reconciliation under CI load outside the drop hang guard.
     for stage in 0..3 {
         let dir = tempfile::tempdir().unwrap();
         let h = RestartHarness::new(dir.path());
         let first = tokio::runtime::Builder::new_current_thread()
             .enable_all()
+            .start_paused(true)
             .build()
             .unwrap();
         first.block_on(async {
@@ -967,6 +970,7 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
         }
         let second = tokio::runtime::Builder::new_current_thread()
             .enable_all()
+            .start_paused(true)
             .build()
             .unwrap();
         second.block_on(async {
