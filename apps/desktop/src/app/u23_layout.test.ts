@@ -121,11 +121,11 @@ beforeAll(async () => {
       // No App, Layout or Project-content replacement is involved.
       transform: { order: "pre", handler(source, id) {
         if (id.endsWith("/header/Strip.tsx")) return source
-          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst TabList = (props) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
+          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst TabList = (props: Parameters<typeof Tabs.List>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
           .replace('<div class="tablist"', '<TabList class="tablist"')
           .replace('        </div>\n        {edge(copy.right', '        </TabList>\n        {edge(copy.right');
         if (id.endsWith("/header/ProjectTab.tsx")) return source
-          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst ProjectTrigger = (props) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
+          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst ProjectTrigger = (props: Parameters<typeof Tabs.Trigger>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
           .replace('<button data-button="quiet"\n          type="button"\n          role="tab"', '<ProjectTrigger value={props.tab.path} data-button="quiet"\n          type="button"\n          role="tab"')
           .replace('        </button>\n        <button data-button="icon"', '        </ProjectTrigger>\n        <button data-button="icon"');
       } },
@@ -312,7 +312,7 @@ it("u507_bindings_preserve_resize_state", async () => {
 }, 180_000);
 
 it("u507_layout_checks", async () => {
-  const captures = captureDir("U507");
+  const captures = captureDir("U495") ?? captureDir("U507");
   const baseline = new Map<string, Record<string, { status: string }>>();
 
   for (const side of main ? ["base", "head"] : ["head"]) {
@@ -360,10 +360,11 @@ it("u507_layout_checks", async () => {
   }
 }, 180_000);
 
-
 it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tabs-8&tabs=1`);
-  await browser("wait", "--fn", "Boolean(window.__fake)");
+  await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab][aria-busy=false]').length === 8");
+  await evaluate(`document.querySelector('[data-path="/Users/you/harness"] [role=tab]').click()`);
+  await browser("wait", "--fn", "Boolean(document.querySelector('.rail [data-id=agent-1]'))");
   await settle();
   const linked = () => evaluate(`(() => {
     const tab = document.querySelector('.header [role=tab][aria-selected=true]');
@@ -377,8 +378,46 @@ it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
   await browser("click", '.header [role=tab][aria-selected=true]');
   await browser("press", "ArrowRight");
   await browser("wait", "--fn", "document.activeElement?.getAttribute('data-value') !== document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('data-value')");
+  expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/harness");
   await browser("press", "Enter");
-  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]')");
+  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]') && Boolean(document.querySelector('.rail [data-id=p2-agent]'))");
   expect(await linked()).toBe(true);
-  expect(await evaluate(`document.querySelector('.header button button') === null`)).toBe(true);
+}, 90_000);
+
+it("u495_composed_header_preserves_project_actions", async () => {
+  await browser("set", "viewport", "1280", "800");
+  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tabs-8&tabs=1`);
+  await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab][aria-busy=false]').length === 8");
+  await settle();
+  // A background Daemon still updates its mark under the common Tabs root.
+  await evaluate(`window.__fake.app.of('/Users/you/project-number-3').emit({actor:{kind:'user',id:'you',parent:null},name:'agent.status',data:{id:'p3-agent',attempt:'1',status_revision:'9999',status:{kind:'error',label:'Background failure 雪',since:Date.now()}}})`);
+  await browser("wait", "--fn", "Boolean(document.querySelector('[data-path=\"/Users/you/project-number-3\"] .tab-mark[data-kind=error]'))");
+  await evaluate(`document.querySelector('[data-path="/Users/you/project-number-3"] .tab-mark').click()`);
+  await browser("wait", "--fn", "document.querySelector('.rail [aria-selected=true]')?.dataset.id === 'p3-agent'");
+  expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-3");
+
+  await browser("dblclick", '[data-path="/Users/you/project-number-3"] .tab-name');
+  await browser("wait", ".tab-rename");
+  await browser("fill", ".tab-rename", "Authored 雪 name");
+  await browser("press", "Enter");
+  await browser("wait", "--fn", "document.querySelector('.window-title')?.textContent === 'Authored 雪 name'");
+  expect(await evaluate(`window.__fake.app.windowOperations.at(-1)`)).toEqual({kind:"title",title:"Authored 雪 name"});
+
+  // Reach and select the overflowing error Project using the real Strip edge.
+  await browser("wait", "--fn", "Boolean(document.querySelector('.strip-edge-right'))");
+  await browser("click", ".strip-edge-right");
+  await settle();
+  await browser("click", '[data-path="/Users/you/project-number-8"] [role=tab]');
+  await browser("wait", "--fn", "Boolean(document.querySelector('.rail [data-id=p8-agent]'))");
+  await evaluate(`document.querySelector('[data-path="/Users/you/project-number-3"] [role=tab]').click()`);
+  await browser("wait", "--fn", "document.querySelector('.rail [aria-selected=true]')?.dataset.id === 'p3-agent'");
+
+  // Close a visible sibling through the real confirmation and App close call.
+  await evaluate(`document.querySelector('[data-path="/Users/you/project-number-4"] [role=tab]').focus()`);
+  await browser("click", '[data-path="/Users/you/project-number-4"] .tab-close');
+  await browser("wait", "[role=alertdialog]");
+  await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
+  await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab]').length === 7");
+  expect(await evaluate("window.__fake.app.closed")).toEqual(["/Users/you/project-number-4"]);
+  expect(await evaluate("document.querySelector('.header button button')")).toBeNull();
 }, 90_000);
