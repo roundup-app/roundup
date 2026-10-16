@@ -1,0 +1,23 @@
+.u485-fixture {
+  max-height: var(--order-field-max-height);
+  overflow: auto;
+  padding: var(--space-1);
+}
+
+.u485-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-6);
+}
+
+/* The library live region remains clipped without an off-scale negative margin. */
+[id^="dnd-kit-announcement-"] {
+  margin: 0 !important;
+}
+
+[data-dnd-dragging] {
+  background-color: var(--ground);
+  outline: 1px solid var(--hairline);
+  border-radius: var(--radius-row);
+}

@@ -71,9 +71,20 @@ while True:
             with socket.socket(socket.AF_UNIX) as client:
                 client.connect('rupd.sock')
                 stream = client.makefile('rwb')
-                stream.write(json.dumps(json.load(open('peer-request'))).encode() + b'\n')
-                stream.flush()
-                with open('peer-result', 'w') as result: result.write(stream.readline().decode())
+                request = json.load(open('peer-request'))
+                if isinstance(request, list):
+                    for frame in request: stream.write(json.dumps(frame).encode() + b'\n')
+                    stream.flush()
+                    replies = []
+                    for frame in request:
+                        reply = json.loads(stream.readline())
+                        replies.append(reply)
+                        if reply.get('id') == 111: open('peer-barrier', 'w').write('scheduled')
+                    with open('peer-result', 'w') as result: json.dump(replies, result)
+                else:
+                    stream.write(json.dumps(request).encode() + b'\n')
+                    stream.flush()
+                    with open('peer-result', 'w') as result: result.write(stream.readline().decode())
         threading.Thread(target=call, daemon=True).start()
         continue
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
@@ -2793,8 +2804,7 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     run.finish().await;
 }
 
-async fn answer_takeover_race(kind: &str, guarded: bool) {
-    let (run, _) = order_child().await;
+async fn start_answer_door(run: &Run) -> (Value, Value) {
     let tree = run.user.request("rail.tree", ()).await.unwrap();
     let door = tree
         .as_array()
@@ -2824,6 +2834,12 @@ async fn answer_takeover_race(kind: &str, guarded: bool) {
     })
     .await
     .unwrap();
+    (door, terminal)
+}
+
+async fn answer_takeover_race(kind: &str, guarded: bool) {
+    let (run, _) = order_child().await;
+    let (door, terminal) = start_answer_door(&run).await;
     let (decision, waiting) = run.open(kind).await;
     let identity = run.capture(&decision).await;
     let gate = run.dir.path().join("effect-gate");
@@ -2898,6 +2914,88 @@ async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
 async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
     for kind in ["permission", "ask_user"] {
         answer_takeover_race(kind, false).await;
+    }
+}
+
+#[tokio::test]
+async fn b6_wire_door_answers_wait_for_all_earlier_resizes() {
+    for kind in ["permission", "ask_user"] {
+        let (run, caller) = door_terminal().await;
+        let (door, terminal) = start_answer_door(&run).await;
+        let (decision, waiting) = run.open(kind).await;
+        let identity = run.capture(&decision).await;
+        run.pause();
+        let id = run.terminal.clone();
+        let first = tokio::spawn(async move {
+            caller
+                .request("terminal.resize", json!({"id":id,"cols":101,"rows":37}))
+                .await
+        });
+        run.paused().await;
+        let mut frames = vec![
+            json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}}),
+        ];
+        for cols in 102..110 {
+            frames.push(json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}}));
+        }
+        frames.push(json!({"id":110,"method":"decision.answer","params":{
+            "id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }
+        }}));
+        frames.push(json!({"id":111,"method":"rail.tree"}));
+        std::fs::write(
+            run.dir.path().join("peer-request"),
+            serde_json::to_vec(&frames).unwrap(),
+        )
+        .unwrap();
+        // The real Door sends the batch, retaining H21's authenticated process identity.
+        run.user
+            .request(
+                "terminal.write",
+                json!({"id":terminal,"data":STANDARD.encode(b"\x02")}),
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(BOUND, async {
+            while !run.dir.path().join("peer-barrier").is_file() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        run.release();
+        let replies: Value = tokio::time::timeout(BOUND, async {
+            loop {
+                if let Ok(text) = std::fs::read_to_string(run.dir.path().join("peer-result"))
+                    && let Ok(value) = serde_json::from_str::<Value>(&text)
+                {
+                    break value;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        first.await.unwrap().unwrap();
+        waiting.await.unwrap().unwrap();
+        for reply in replies.as_array().unwrap() {
+            assert!(reply.get("result").is_some(), "{reply}");
+        }
+        let order: Vec<_> = replies
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["id"].as_u64().unwrap())
+            .collect();
+        run.user
+            .request("agent.stop", json!({"id":door}))
+            .await
+            .unwrap();
+        run.finish().await;
+        assert_eq!(
+            order,
+            [1, 111, 102, 103, 104, 105, 106, 107, 108, 109, 110],
+            "{kind}: answer overtook an earlier wire resize"
+        );
     }
 }
 
@@ -3111,7 +3209,7 @@ async fn answer_child() -> (Run, String, Value) {
 }
 
 #[tokio::test]
-async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
+async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() {
     let (run, door, terminal) = answer_child().await;
     for (kind, refusal) in [
         ("ask_user", "label"),
@@ -3172,10 +3270,36 @@ async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
                 .unwrap();
         }
         assert_eq!(reply["error"]["code"], expected, "{refusal}: {reply}");
-        assert_eq!(
-            run.user.request("decision.list", ()).await.unwrap(),
-            json!([decision])
-        );
+        let mut listed = run.user.request("decision.list", ()).await.unwrap();
+        if matches!(refusal, "label" | "word" | "takeover") {
+            let failure = listed[0]
+                .as_object_mut()
+                .unwrap()
+                .remove("failure")
+                .unwrap();
+            assert_eq!(failure["error_code"], expected);
+            assert_eq!(failure["message"], reply["error"]["message"]);
+            assert_eq!(
+                failure["message"],
+                match refusal {
+                    "label" => format!(
+                        "decision {} takes one of its listed answers, or a note as your own",
+                        decision["id"].as_str().unwrap()
+                    ),
+                    "word" => "answer is allow or deny, with no note".to_owned(),
+                    "takeover" => format!(
+                        "{} is under a Takeover; the user decides at its Terminal",
+                        run.child
+                    ),
+                    _ => unreachable!(),
+                }
+            );
+            assert_eq!(failure["answered_by"]["kind"], "agent");
+            assert_eq!(failure["answered_by"]["id"], door);
+            assert_eq!(failure["attempt"], run.attempt);
+            assert!(failure["failed_at"].as_i64().unwrap() > 0);
+        }
+        assert_eq!(listed, json!([decision]));
         let records = run
             .user
             .request("decision.answers", json!({"agent":run.child}))
@@ -3198,6 +3322,15 @@ async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
         // An ordinary successful retry proves the same request is still actionable.
         run.user_answer(&decision, kind).await;
         waiting.await.unwrap().unwrap();
+        let accepted = run
+            .user
+            .request("decision.answers", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        assert_eq!(
+            accepted.as_array().unwrap().last().unwrap()["decision"],
+            decision
+        );
     }
     run.finish().await;
 }
@@ -3220,10 +3353,15 @@ async fn u468_storage_refusal_keeps_the_request_actionable() {
     )
     .await;
     assert_eq!(reply["error"]["code"], rpc::code::INTERNAL);
-    assert_eq!(
-        run.user.request("decision.list", ()).await.unwrap(),
-        json!([decision])
-    );
+    let mut listed = run.user.request("decision.list", ()).await.unwrap();
+    let failure = listed[0]
+        .as_object_mut()
+        .unwrap()
+        .remove("failure")
+        .unwrap();
+    assert_eq!(failure["error_code"], rpc::code::INTERNAL);
+    assert_eq!(failure["message"], reply["error"]["message"]);
+    assert_eq!(listed, json!([decision]));
     assert_eq!(
         run.user
             .request("decision.answers", json!({"agent":run.child}))
@@ -4063,114 +4201,144 @@ async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
 }
 
 #[tokio::test]
-async fn b6_a_later_door_rename_cannot_overtake_a_released_resize() {
-    let (run, caller) = door_terminal().await;
-    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
-    run.user
-        .request("takeover.begin", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    caller
-        .request(
-            "terminal.resize",
-            json!({"id":run.terminal,"cols":101,"rows":37}),
-        )
-        .await
-        .unwrap();
-    run.user
-        .request(
-            "message.send",
-            json!({"to":run.child,"kind":"note","body":"release ordering"}),
-        )
-        .await
-        .unwrap();
-    let gate = run.dir.path().join("input-gate");
-    std::fs::write(&gate, "pause").unwrap();
-    let user = Arc::clone(&run.user);
-    let child = run.child.clone();
-    let end =
-        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
-    // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
-    tokio::time::timeout(BOUND, async {
-        while !gate.with_extension("arrived").is_file() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    let renamed = tokio::time::timeout(
-        BOUND,
-        caller.request("rail.rename", json!({"id":run.child,"name":"after resize"})),
-    )
-    .await;
-    let history = tokio::time::timeout(
-        BOUND,
+async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
+    for method in [
+        "rail.rename",
+        "rail.move",
+        "rail.remove",
+        "agent.discard",
+        "agent.land",
+        "agent.worktreeState",
+        "agent.run",
+        "agent.spawnPrompt",
+        "terminal.kill",
+        "terminal.snapshot",
+        "terminal.screen",
+        "terminal.read",
+        "terminal.search",
+    ] {
+        let (run, caller) = door_terminal().await;
+        std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
         run.user
-            .request("terminal.resizeHistory", json!({"id":run.terminal})),
-    )
-    .await;
-    std::fs::remove_file(gate).unwrap();
-    end.await.unwrap().unwrap();
-    run.finish().await;
-    renamed.unwrap().unwrap();
-    assert_eq!(
-        history.unwrap().unwrap()[0]["outcome"]["status"],
-        "completed",
-        "a later Door rename returned before the older resize ran"
-    );
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        caller
+            .request(
+                "terminal.resize",
+                json!({"id":run.terminal,"cols":101,"rows":37}),
+            )
+            .await
+            .unwrap();
+        run.user
+            .request(
+                "message.send",
+                json!({"to":run.child,"kind":"note","body":"release ordering"}),
+            )
+            .await
+            .unwrap();
+        let gate = run.dir.path().join("input-gate");
+        std::fs::write(&gate, "pause").unwrap();
+        let user = Arc::clone(&run.user);
+        let child = run.child.clone();
+        let end =
+            tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+        // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
+        tokio::time::timeout(BOUND, async {
+            while !gate.with_extension("arrived").is_file() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let params = match method {
+            "rail.rename" => json!({"id":run.child,"name":"after resize"}),
+            "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
+            "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
+            "rail.remove"
+            | "agent.discard"
+            | "agent.land"
+            | "agent.worktreeState"
+            | "agent.spawnPrompt" => {
+                json!({"id":run.child})
+            }
+            "terminal.read" => json!({"id":run.terminal,"after":0}),
+            "terminal.search" => json!({"id":run.terminal,"pattern":"READY"}),
+            _ => json!({"id":run.terminal}),
+        };
+        let effect = tokio::time::timeout(BOUND, caller.request(method, params)).await;
+        let history = tokio::time::timeout(
+            BOUND,
+            run.user
+                .request("terminal.resizeHistory", json!({"id":run.terminal})),
+        )
+        .await;
+        std::fs::remove_file(gate).unwrap();
+        end.await.unwrap().unwrap();
+        if method == "rail.remove" {
+            drop(run);
+        } else {
+            run.finish().await;
+        }
+        let effect = effect.unwrap();
+        if matches!(
+            method,
+            "agent.discard" | "agent.land" | "agent.worktreeState"
+        ) {
+            assert_eq!(effect.unwrap_err().code, rpc::code::NOT_FOUND);
+        } else {
+            effect.unwrap();
+        }
+        assert_eq!(
+            history.unwrap().unwrap()[0]["outcome"]["status"],
+            "completed",
+            "{method} returned before the older resize ran"
+        );
+    }
 }
 
 #[tokio::test]
-async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
+async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-    let (run, _) = door_terminal().await;
-    let tree = run.user.request("rail.tree", ()).await.unwrap();
-    let door = tree
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|n| n["id"] == run.child)
-        .unwrap()["parent"]
-        .clone();
-    let client = tokio::net::UnixStream::connect(&run.daemon.socket)
-        .await
-        .unwrap();
-    let (read, mut write) = client.into_split();
-    let mut replies = BufReader::new(read).lines();
-    write.write_all(format!("{}\n", json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).as_bytes()).await.unwrap();
-    let identified: Value = serde_json::from_str(
-        &tokio::time::timeout(BOUND, replies.next_line())
+    for method in [
+        "terminal.snapshot",
+        "terminal.screen",
+        "terminal.read",
+        "terminal.search",
+        "terminal.write",
+        "agent.prompt",
+        "agent.setOrder",
+        "agent.interrupt",
+        "agent.resume",
+        "agent.stop",
+        "terminal.kill",
+        "terminal.close",
+        "rail.rename",
+        "rail.move",
+        "rail.remove",
+        "agent.discard",
+        "agent.land",
+        "agent.worktreeState",
+        "agent.run",
+        "agent.spawnPrompt",
+    ] {
+        let (run, _) = door_terminal().await;
+        std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        let door = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap()["parent"]
+            .clone();
+        let client = tokio::net::UnixStream::connect(&run.daemon.socket)
             .await
-            .unwrap()
-            .unwrap()
-            .unwrap(),
-    )
-    .unwrap();
-    assert!(identified.get("result").is_some(), "{identified}");
-    run.pause();
-    write.write_all(format!("{}\n", json!({"id":2,"method":"terminal.resize","params":{"id":run.terminal,"cols":101,"rows":37}})).as_bytes()).await.unwrap();
-    run.paused().await;
-    let mut batch = Vec::new();
-    for cols in 102..110 {
-        batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
-    }
-    batch.extend(format!("{}\n", json!({"id":110,"method":"rail.rename","params":{"id":run.child,"name":"after every resize"}})).as_bytes());
-    // This reply acknowledges that the reader has scheduled every earlier wire frame.
-    batch.extend(format!("{}\n", json!({"id":111,"method":"rail.tree"})).as_bytes());
-    write.write_all(&batch).await.unwrap();
-    let barrier: Value = serde_json::from_str(
-        &tokio::time::timeout(BOUND, replies.next_line())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(barrier["id"], 111, "{barrier}");
-    run.release();
-    let mut order = Vec::new();
-    for _ in 0..10 {
-        let reply: Value = serde_json::from_str(
+            .unwrap();
+        let (read, mut write) = client.into_split();
+        let mut replies = BufReader::new(read).lines();
+        write.write_all(format!("{}\n", json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).as_bytes()).await.unwrap();
+        let identified: Value = serde_json::from_str(
             &tokio::time::timeout(BOUND, replies.next_line())
                 .await
                 .unwrap()
@@ -4178,13 +4346,130 @@ async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
                 .unwrap(),
         )
         .unwrap();
-        assert!(reply.get("result").is_some(), "{reply}");
-        order.push(reply["id"].as_u64().unwrap());
+        assert!(identified.get("result").is_some(), "{identified}");
+        run.pause();
+        write.write_all(format!("{}\n", json!({"id":2,"method":"terminal.resize","params":{"id":run.terminal,"cols":101,"rows":37}})).as_bytes()).await.unwrap();
+        run.paused().await;
+        let mut batch = Vec::new();
+        for cols in 102..110 {
+            batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
+        }
+        let params = match method {
+            "terminal.snapshot" | "terminal.screen" => json!({"id":run.terminal}),
+            "terminal.read" => json!({"id":run.terminal,"after":0}),
+            "terminal.search" => json!({"id":run.terminal,"pattern":"READY"}),
+            "terminal.write" => json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
+            "terminal.kill" | "terminal.close" => json!({"id":run.terminal}),
+            "agent.prompt" => json!({"id":run.child,"text":"later prompt"}),
+            "agent.setOrder" => {
+                json!({"id":run.child,"order":{"kind":"work","ask":"later order","limits":[]}})
+            }
+            "rail.rename" => json!({"id":run.child,"name":"after every resize"}),
+            "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
+            "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
+            _ => json!({"id":run.child}),
+        };
+        batch.extend(format!("{}\n", json!({"id":110,"method":method,"params":params})).as_bytes());
+        // This reply acknowledges that the reader has scheduled every earlier wire frame.
+        batch.extend(format!("{}\n", json!({"id":111,"method":"rail.tree"})).as_bytes());
+        write.write_all(&batch).await.unwrap();
+        let barrier: Value = serde_json::from_str(
+            &tokio::time::timeout(BOUND, replies.next_line())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        if barrier["id"] != 111 {
+            run.release();
+            if method == "rail.remove" {
+                drop(run);
+            } else {
+                run.finish().await;
+            }
+            panic!("{method} overtook earlier resizes before the wire barrier: {barrier}");
+        }
+        run.release();
+        let mut order = Vec::new();
+        for _ in 0..10 {
+            let reply: Value = serde_json::from_str(
+                &tokio::time::timeout(BOUND, replies.next_line())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap(),
+            )
+            .unwrap();
+            if reply["id"] == 110
+                && matches!(
+                    method,
+                    "agent.discard" | "agent.land" | "agent.worktreeState"
+                )
+            {
+                assert_eq!(reply["error"]["code"], rpc::code::NOT_FOUND, "{reply}");
+            } else if reply["id"] == 110 && method == "agent.resume" {
+                assert_eq!(reply["error"]["code"], rpc::code::CONFLICT, "{reply}");
+            } else if reply["id"] == 110 && method == "agent.interrupt" {
+                // A fake Claude need not acknowledge Escape; its accounted unknown is final.
+                assert!(
+                    reply.get("result").is_some()
+                        || (reply["error"]["code"] == rpc::code::UNKNOWN_OUTCOME
+                            || reply["error"]["code"] == rpc::code::NOT_RUNNING),
+                    "{reply}"
+                );
+            } else {
+                assert!(reply.get("result").is_some(), "{method}: {reply}");
+            }
+            if reply["id"] == 110 && matches!(method, "terminal.snapshot" | "terminal.screen") {
+                assert_eq!(
+                    reply["result"]["cols"], 109,
+                    "read observed stale dimensions"
+                );
+                assert_eq!(reply["result"]["rows"], 37);
+            }
+            order.push(reply["id"].as_u64().unwrap());
+        }
+        if method == "rail.remove" {
+            drop(run);
+        } else {
+            run.finish().await;
+        }
+        assert_eq!(
+            order,
+            [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
+            "{method} overtook an already-arrived resize"
+        );
     }
+}
+
+#[tokio::test]
+async fn b6_child_snapshots_keep_reach_restrictions() {
+    let (run, door) = door_terminal().await;
+    let foreign = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"unrelated"}))
+        .await
+        .unwrap();
+    let unrelated = Client::connect(&run.daemon.socket).await.unwrap();
+    unrelated
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":foreign["id"]}}),
+        )
+        .await
+        .unwrap();
+    let allowed = door
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await;
+    let denied = unrelated
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await;
+    let absent = door
+        .request("terminal.snapshot", json!({"id":"999999"}))
+        .await;
     run.finish().await;
-    assert_eq!(
-        order,
-        [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
-        "rename overtook an already-arrived resize"
-    );
+    assert_eq!(allowed.unwrap()["cols"], 80);
+    assert_eq!(denied.unwrap_err().code, rpc::code::FORBIDDEN);
+    assert_eq!(absent.unwrap_err().code, rpc::code::NOT_FOUND);
 }
