@@ -2518,7 +2518,7 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     let text = archive["text"].as_str().unwrap();
     assert!(
         text.contains(&format!(
-            "## refactor everything (todo {fluff_id}, owner {owner}"
+            "## refactor everything (todo {fluff_id}, owner {owner})"
         )),
         "{text}"
     );
