@@ -2454,6 +2454,9 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
         )
         .await
         .unwrap();
+    // The restarted Door can emit Working before workstream.cleared (clear::apply).
+    // Keep those statuses while the other subscription waits for the clear result.
+    let mut restarted = project.subscribed().await;
     actor
         .request(
             "workstream.handoff",
@@ -2469,7 +2472,7 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     assert_eq!(cleared.iteration, 2);
     let mut working = false;
     loop {
-        let status = next(&mut client, |event| match event {
+        let status = next(&mut restarted, |event| match event {
             EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
                 Some(status)
             }
