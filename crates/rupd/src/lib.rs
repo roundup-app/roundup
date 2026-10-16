@@ -321,7 +321,10 @@ impl Daemon {
         if method.starts_with("decision.") {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
-        } else if matches!(method, "rail.rename" | "agent.stop" | "agent.actionHistory") {
+        } else if matches!(
+            method,
+            "rail.rename" | "agent.stop" | "agent.interrupt" | "agent.actionHistory"
+        ) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = self.route(conn, method, params).await;
@@ -405,6 +408,22 @@ impl Daemon {
                 } else {
                     // With no older queue, Interrupt must still reach an in-flight Steer.
                     self.child_effects(child).read_owned().await
+                };
+                // Begin needs the write lock, so this check under the read guard is final.
+                let guard = if method == "agent.interrupt"
+                    && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                {
+                    drop(guard);
+                    let write = self.child_effects(child).write_owned().await;
+                    if let Some(receipt) = self
+                        .hold_child_action(conn, child, method, params.clone())
+                        .await?
+                    {
+                        return Ok(receipt);
+                    }
+                    write.downgrade()
+                } else {
+                    guard
                 };
                 door_effects.push(guard);
             }
@@ -748,8 +767,8 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "rail.rename" | "terminal.kill" | "terminal.close"
-            | "terminal.resize" => actor.kind == ActorKind::Agent,
+            "agent.stop" | "agent.interrupt" | "rail.rename" | "terminal.kill"
+            | "terminal.close" | "terminal.resize" => actor.kind == ActorKind::Agent,
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
             _ => false,
@@ -1284,7 +1303,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             daemon.decision_actor(&conn)
         } else if matches!(
             method.as_deref(),
-            Some("rail.rename" | "agent.stop" | "agent.actionHistory")
+            Some("rail.rename" | "agent.stop" | "agent.interrupt" | "agent.actionHistory")
         ) {
             daemon.action_actor(&conn)
         } else {
@@ -1306,7 +1325,12 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                         child,
                         matches!(
                             method.as_deref(),
-                            Some("terminal.resize" | "rail.rename" | "agent.stop")
+                            Some(
+                                "terminal.resize"
+                                    | "rail.rename"
+                                    | "agent.stop"
+                                    | "agent.interrupt"
+                            )
                         ),
                     )
                 })

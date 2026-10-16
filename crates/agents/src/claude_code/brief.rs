@@ -131,7 +131,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_interrupt",
-        "interrupt the turn of an Agent in your Reach",
+        "interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
         "agent_prompt",
