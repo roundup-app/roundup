@@ -138,15 +138,10 @@ impl RestartHarness {
     }
 
     async fn status(&self, attempt: &str, revision: &str, kind: Kind) {
-        // A later receiver-gone event acknowledges that the listener processed this Status.
-        let fence = format!("fence-{attempt}-{revision}");
-        self.rail
-            .0
-            .lock()
-            .unwrap()
-            .push(agent_node(&fence, Kind::Working));
-        let message = self.send(Actor::daemon(), &fence, "fence").await;
-        let mut events = self.ctx.bus.subscribe();
+        // Reopened harnesses have no runtime at open; start their listener before emitting.
+        start_listener(&self.messages.inner);
+        // on_status completion includes reconciliation and settling, without a synthetic receiver.
+        let mut completed = self.messages.inner.completed.subscribe();
         self.ctx.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
@@ -160,30 +155,11 @@ impl RestartHarness {
                 },
             })),
         );
-        self.ctx.bus.emit(
-            Actor::daemon(),
-            EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
-                id: fence,
-                attempt: "1".into(),
-                status_revision: "2".into(),
-                status: Status {
-                    kind: Kind::Done,
-                    label: "fence".into(),
-                    since: 0,
-                },
-            })),
-        );
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
-            loop {
-                if let EventData::MessageDropped(m) = events.recv().await.unwrap().data
-                    && m.id == message.id
-                {
-                    break;
-                }
-            }
+            while completed.recv().await.unwrap() != "on_status" {}
         })
         .await
-        .unwrap();
+        .expect("status reconciliation completed");
     }
 }
 
@@ -315,7 +291,8 @@ async fn a35_first_prompt_recording_retries_without_a_second_note_or_steer() {
     assert!(h.typed.lock().unwrap().is_empty());
 }
 
-#[tokio::test]
+// Event ordering is the subject; SQLite work after overflow must not consume the hang guard.
+#[tokio::test(start_paused = true)]
 async fn a35_lag_resync_preserves_reserved_messages() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
@@ -926,11 +903,14 @@ async fn a35_retirement_ends_only_an_authorized_takeover_without_changing_record
 
 #[test]
 fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
+    // This tests event ordering across runtimes, not elapsed time. Paused time keeps
+    // synchronous SQLite reconciliation under CI load outside the drop hang guard.
     for stage in 0..3 {
         let dir = tempfile::tempdir().unwrap();
         let h = RestartHarness::new(dir.path());
         let first = tokio::runtime::Builder::new_current_thread()
             .enable_all()
+            .start_paused(true)
             .build()
             .unwrap();
         first.block_on(async {
@@ -967,6 +947,7 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
         }
         let second = tokio::runtime::Builder::new_current_thread()
             .enable_all()
+            .start_paused(true)
             .build()
             .unwrap();
         second.block_on(async {

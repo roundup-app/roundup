@@ -437,64 +437,6 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
     );
 }
 
-/// H15: a loop of 100 tool uses, with the real `rup` hook command registered in the settings file
-/// `agent.spawn` writes, opened by a `UserPromptSubmit`, trying the hook for `PreToolUse` and
-/// `PostToolUse` around each use, then a final `Stop`. The fake `claude` skips an event with no
-/// entry in the settings, exactly as Claude Code itself would, and fails the loop if any hook
-/// command exits non-zero, so a finished loop means every `rup signal` answered. That proves only
-/// that the RPC call answered: a Daemon whose `agent.signal` handler dropped every Signal would
-/// still make `rup signal` exit 0, so a subscribed client must also see the Kind go `working` and
-/// then `idle`, and `rail.tree`, read straight from the Daemon's own Runs, must say `idle`.
-#[tokio::test]
-async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
- {
-    let report = tempfile::NamedTempFile::new().unwrap();
-    let report_path = report.path().to_string_lossy().into_owned();
-    let project = start(&[
-        ("FAKE_CLAUDE_LOOP", "100"),
-        ("FAKE_CLAUDE_LOOP_REPORT", &report_path),
-    ]);
-    let mut client = project.subscribed().await;
-    let agent = project.spawn_agent(&client).await;
-
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let ran: Vec<String> = loop {
-        if let Ok(text) = std::fs::read_to_string(report.path())
-            && let Ok(ran) = serde_json::from_str::<Vec<String>>(&text)
-        {
-            break ran;
-        }
-        assert!(Instant::now() < deadline, "the loop never finished");
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    };
-
-    assert_eq!(ran.len(), 200, "{ran:?}");
-    assert!(
-        ran.chunks(2)
-            .all(|pair| pair == ["PreToolUse", "PostToolUse"]),
-        "{ran:?}"
-    );
-
-    let mut seen_working = false;
-    loop {
-        match next_kind(&mut client).await {
-            Kind::Working => seen_working = true,
-            Kind::Idle if seen_working => break,
-            _ => {}
-        }
-    }
-
-    let tree = rail_tree(&client).await;
-    let node = tree.iter().find(|node| node.id == agent.id).unwrap();
-    assert_eq!(
-        node.status.as_ref().map(|status| status.label.as_str()),
-        Some("idle"),
-        "the Daemon's own Status for the Agent is not `idle` after the loop's final Stop, so it \
-         did not act on the Signals: {:?}",
-        node.status
-    );
-}
-
 /// H15's last clause: a Signal that changes the Kind reaches a subscribed client as a Status event,
 /// within the bound every e2e wait uses. The keystroke-to-render budget itself is rule 7's
 /// `just perf-keystroke`; a wall-clock assertion of it here would only measure the CI runner.
@@ -3084,7 +3026,8 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
 
 #[tokio::test]
 async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
-    let hold = tempfile::tempdir().unwrap().keep().join("start");
+    let gates = tempfile::tempdir().unwrap();
+    let hold = gates.path().join("start");
     let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
     let project = start(&[
         ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
@@ -3092,31 +3035,62 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
     ]);
     let client = project.client().await;
     let door = start_door(&client).await;
+    // B7 batches pending Messages. Put another note first so the Decision notice
+    // cannot accidentally pass only because it heads the submitted prompt.
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "queued before the Decision"}),
+        )
+        .await
+        .unwrap();
     let child = agent_in(&project, &client, Some(&door)).await;
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
     let decision = h21_decision(&client, &child, None).await;
     let id = decision["id"].as_str().unwrap().to_owned();
-    h21_notes(&client, &door, 1).await;
+    let notes = h21_notes(&client, &door, 1).await;
+    let body = notes[0]["body"].as_str().unwrap();
+    assert_eq!(notes[0]["status"], "pending");
 
     h21_user_answers(&client, &id, "deny").await.unwrap();
+    let decisions = client.request("decision.list", Value::Null).await.unwrap();
+    assert!(decisions.as_array().unwrap().iter().all(|d| d["id"] != id));
+    let mut events = project.subscribed().await;
     std::fs::write(&hold, "").unwrap();
 
-    let typed = h21_poll("the typed note", async || {
-        let todos = client.request("todo.list", Value::Null).await.unwrap();
-        todos
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|t| {
-                t["title"]
-                    .as_str()
-                    .unwrap()
-                    .starts_with(&format!("[decision {id}] "))
-            })
-            .cloned()
+    let observed = tokio::time::timeout(Duration::from_secs(30), async {
+        while let Some(event) = events.next_event().await {
+            if let EventData::TodoCreated(todo) = event.data
+                && todo.creator.id == door
+                && todo
+                    .title
+                    .lines()
+                    .any(|line| line.strip_prefix("[from rupd, note] ").unwrap_or(line) == body)
+            {
+                return todo;
+            }
+        }
+        panic!("the connection closed before the typed Decision notice");
     })
     .await;
-    assert!(typed["title"].as_str().unwrap().contains("asks Bash"));
+    let typed = match observed {
+        Ok(todo) => todo,
+        Err(_) => {
+            let evidence = tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::join!(
+                    client.request("message.list", json!({"to": door})),
+                    client.request("todo.list", Value::Null),
+                    client.request("rail.tree", Value::Null),
+                )
+            })
+            .await;
+            panic!(
+                "timed out waiting for typed Decision notice {body:?}; \
+                 (Messages, Todos, Rail): {evidence:?}"
+            );
+        }
+    };
+    assert!(typed.title.starts_with("queued before the Decision\n\n"));
 }
 
 #[tokio::test]

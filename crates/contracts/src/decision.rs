@@ -19,6 +19,27 @@ pub struct Decision {
     /// `false` when the Daemon opened it without a live hook to reply to (H2's `AskUserQuestion`,
     /// H7(c), H8's unreadable payload): `decision.answer` is then `INVALID_PARAMS`.
     pub answerable: bool,
+    /// U468: the latest refused Agent answer to this live request. Read through
+    /// decision.list with its usual Reach filtering; no history entry is created.
+    /// Replacement, clearing and successful delivery discard this observation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub failure: Option<FailedAnswer>,
+}
+
+/// A refused answer, never an accepted AnsweredDecision. Only the latest failure
+/// is retained, in memory with its original Decision. No Proof or submitted text
+/// is retained. The App may refresh decision.list to read it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct FailedAnswer {
+    pub attempt: String,
+    pub answered_by: crate::Actor,
+    #[ts(type = "number")]
+    pub failed_at: i64,
+    #[ts(type = "number")]
+    pub error_code: i64,
+    pub message: String,
 }
 
 /// U468: one successful answer, retained in Project data after its live hook ends.
@@ -228,6 +249,7 @@ mod tests {
             args: "touch spike_out.txt".into(),
             opened_at: 1_700_000_000_000,
             answerable: true,
+            failure: None,
         }
     }
 
