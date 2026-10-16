@@ -1,6 +1,6 @@
 # Todos and Pads over MCP
 
-Module: `crates/rup` (the `rup mcp` subcommand), with `crates/rupd` (Reach, M7; `project.open`, M8) and `crates/contracts`. Ids: M1–M11, M13–M15, M17.
+Module: `crates/rup` (the `rup mcp` subcommand), with `crates/rupd` (Reach, M7; `project.open`, M8) and `crates/contracts`. Ids: M1–M11, M13–M15, M17, M2219.
 
 ADR 0007: the Daemon serves MCP to Agents through a stdio shim, so every call is a Touch by the calling Agent. The shim is `rup mcp <agent-id>` in `crates/rup`. Build it on the official Rust MCP SDK (`rmcp`), not a hand-rolled protocol. Tests start the built `rup` (`CARGO_BIN_EXE_rup`) against an in-process Daemon on a temp socket, as `crates/rup/tests/ping.rs` does, and speak MCP to it over stdio. No `claude` is involved.
 
@@ -139,3 +139,19 @@ Given an Agent calling an offered tool through the built `rup mcp <agent-id>` ov
 4. Project requests mean asked, not done: `scenarios/mcp.md`, heading M8; forwarding and result formatting: `crates/rup/src/mcp.rs`, `Shim::call` and `Shim::call_tool`.
 
 **Observer (policy).** Run H21's permission flow with real Claude and aimock in an isolated temporary config and Project. In aimock's request log, find the model request after the Door's `decision_answer` tool use and match its `tool_result` by tool-use id: the text names `d1` and `allow`, says the Decision was answered and is not `null`. Record the command, tested commit, pinned Claude/aimock versions and matching log excerpt in the implementation PR. This observer complements the stdio regression; a fake `claude` alone does not satisfy it. The MCP and Decision scenario regressions and Checks 1–4 pass before implementation is ready.
+
+**M2219 an Agent can run with no roundup MCP server.** Amends A11, E1 and M11; contract change (rule 4, the Contract recipe of `.agents/builder.md`). Found by the owner: "MCP is not allowed at work". After #2214, every tool `rup mcp` offers is also a `rup` command. Ownership: `crates/agents/src/claude_code/launch.rs` and `brief.rs`, `crates/contracts` (`ProjectSettings`), `crates/rupd`.
+
+Given the MCP setting resolves to off for an Agent's Project, when the Adapter prepares that Agent (a Door, a Subagent or a root Agent), then:
+
+- **Setting.** `ProjectSettings` gains `mcp: {on: bool}`, set by `project.setMcp {on}` (returns `null`) and read by `project.get`; a Project that never set it reads `on: true`, and the value survives a Daemon restart. The Daemon environment `ROUNDUP_MCP=off` turns it off for every Project and wins over the Project's value; any other value, or none, leaves the Project's value in force. Test: `m2219_the_setting_resolves_from_the_environment_then_the_project` in `crates/rupd`.
+- **Launch.** The argv has no `--mcp-config`, no MCP config file is written, and the settings file's `permissions.allow` holds no `mcp__roundup__*` rule. Everything else A11 and F2 require stays: the hooks, a Door's `--tools` list, and the user's own MCP servers (the launch is still not `--strict-mcp-config`). A Door's `--tools` list drops `ToolSearch` only when the Brief no longer tells it to load tools. Tests: `m2219_off_launches_without_a_roundup_server_or_allow_rule` and `m2219_off_keeps_the_users_own_servers_and_the_hooks` in `crates/agents/tests/launch.rs`.
+- **Brief.** The Brief names no `mcp__roundup__` tool, no `ToolSearch` and no "MCP server". It tells the Agent to run `rup help` to learn the commands, lists the commands by their `rup <noun> <verb>` names, and its first-turn line tells it to run `rup agent context` and `rup todo list` (a Door: `rup agent context`, `rup message list`, `rup agent digest` and `rup ask-user`, each by the name #2214 gives it). Every command the Brief names exists in `rup help`. The Brief is still the same bytes for every Agent of a role (E9) and holds no id. With the setting on, the Brief is byte-for-byte what E1 and M11 give today. Tests: `m2219_off_brief_names_rup_commands_and_no_mcp_tool`, `m2219_every_command_the_off_brief_names_is_in_rup_help` and `m2219_on_brief_is_unchanged` in `crates/agents/tests/launch.rs`.
+- **Reach.** A call by `rup <noun> <verb>` is judged by Reach (M7) and recorded as a Touch by the calling Agent exactly as the same call over MCP; `rup mcp <id>` keeps working when started by hand. Test: `m2219_a_rup_command_is_judged_and_touched_like_the_tool` in `crates/rup/tests/`.
+- **App.** The Project's settings show the toggle with the label "Roundup tools over MCP"; off changes only Agents started afterward, and a running Agent keeps what it launched with. Policy (no test): the App's change follows U4's tokens and the settings pattern the `worktrees` toggle uses.
+
+**Checks on main.** Implementation preserves these numbered anchors:
+
+1. The MCP config and the user's own servers with MCP on: `crates/agents/tests/launch.rs`, `a11_the_mcp_config_declares_one_stdio_server_that_runs_rup_mcp_for_the_agent` and `a11_the_users_own_mcp_servers_stay_because_the_config_is_not_strict`.
+2. Brief bytes: `crates/agents/tests/launch.rs`, `e9_two_agents_of_one_role_get_equal_brief_bytes` and `e9_the_brief_holds_no_id`.
+3. Deferred tools with MCP on: `crates/agents/tests/launch.rs`, `m11_the_roundup_server_is_not_always_loaded`.
