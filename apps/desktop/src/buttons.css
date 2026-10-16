@@ -70,6 +70,12 @@ button {
   color: var(--text);
 }
 
+/* U137: the Add Agent icon and label share stronger ink on the selected wash to keep D5. */
+.rail-row[data-selected="true"] button:has(.rail-add-label):not([aria-disabled="true"]),
+.rail-row[data-selected="true"] .rail-split-add [data-button="icon"]:not([aria-disabled="true"]) {
+  color: var(--text);
+}
+
 /* The Ink tones of U132 on a button (a strip edge). */
 [data-button][data-tone="amber"] {
   color: var(--amber);
@@ -115,6 +121,11 @@ button[data-pressed="true"]:not([aria-disabled="true"]) {
 button[aria-disabled="true"] {
   color: var(--disabled);
   cursor: default;
+}
+
+/* U137: disabled split actions keep one distinct ink with D5 contrast on the selected wash. */
+.rail-row[data-selected="true"] .rail-split-add > button[aria-disabled="true"] {
+  color: var(--grey);
 }
 
 /* An opaque surface stays below its local wash; replacing it would expose the parent's ground. */
