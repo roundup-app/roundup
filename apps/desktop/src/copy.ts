@@ -205,6 +205,7 @@ export const copy = {
   doorStoppedWithExit: (value1: CopyValue) => `Supervisor stopped, ${value1}`,
   resizeRail: "Resize Rail",
   resizeShelf: "Resize work items",
+  resizeUnavailable: "Resizing is unavailable in this view.",
   notUpdating: "Not updating",
   project: "Project",
   kilobyteUnit: "KB",
