@@ -119,8 +119,8 @@ jobs:
         run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
 
   # L89: the web tests in six shards; vitest's `--shard` sorts the test files by their path's hash and gives each shard
-  # an equal count. The whole suite is about 18 runner-minutes of tests (a PR's diff usually reaches far fewer), so six
-  # shards of about 3 minutes plus 100 s of setup end inside five minutes.
+  # an equal count. A full run is about 24 runner-minutes of tests, 110 to 340 s a shard; a PR's diff
+  # usually reaches far fewer, and each shard then ends in about two and a half minutes.
   web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: web ${{ matrix.partition }}
