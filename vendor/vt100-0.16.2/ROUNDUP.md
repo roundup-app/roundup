@@ -83,3 +83,46 @@ The initial unpatched retention probe exited **101**: 4016 KiB at 1 MiB,
 exited **101**, E0599. Final command exits and observations are recorded on #2121
 and in the PR. No selected-stream, transport, migration, flood, or matched
 performance acceptance is claimed.
+
+## Replacement rendering (X14 prerequisite, #2144)
+
+The MIT-licensed vt100 0.16.2 patch also removes U+FFFD from
+`WrappedScreen::print`'s unhandled-character filter. Both a literal U+FFFD and
+vte's malformed-UTF-8 replacement enter the existing `Screen::text` path,
+advance the cursor and invoke the handled-text callback after the screen write.
+No decoder, escape recognition or production caller is added. Exact dependency
+pins, archive hashes and licences above are unchanged; vte 0.15.0 needs no
+additional patch.
+
+The installed-library tests `x14_library_renders_replacement_characters` and
+`x14_library_replacement_replay_preserves_cursor_and_offsets` assert literal
+screen/cursor/callback results, malformed continuation and truncated sequences
+completed by subsequent input, valid split UTF-8, and repeated clones at every
+byte cut through UTF-8, CSI and BEL/ST OSC. OSC replacements stay hidden.
+A pending incomplete UTF-8 sequence waits for subsequent input; it is not flushed
+at an arbitrary chunk boundary. Invalidity becomes observable at the byte that
+establishes it, so that byte can complete both a replacement and a following
+ASCII write.
+
+C1 controls retain the library's intentional distinction: raw 80–9F bytes are
+executed as terminal controls by vte; UTF-8-encoded U+0080–U+009F is reported as
+unhandled by vt100. Neither is printable text. This does not discard malformed
+text replacements: every U+FFFD emitted by the decoder is rendered, including
+when malformed multibyte text is interrupted by a control sequence. The
+redraw/erase replay fixture therefore expects `new�!`, replacing `new!`;
+all its other assertions remain.
+
+Reuse was rechecked on 2026-10-16 against the upstream repositories linked
+above: vt100 main remains `fc26fd9c3d72f9af8a214741c100920734500de7`
+(2025-07-12), vte master remains
+`abeae765dd546dfff60b278f0757dcc71beb8ab1` (2026-02-28).
+Selected: the pinned vt100 screen emulator with this minimal licensed correction.
+Unmodified vt100 specifically rejects U+FFFD in `WrappedScreen::print`;
+vte alone supplies recognition/decoding but no screen or cursor/erase emulator.
+Replacing the screen library cannot preserve the required existing vt100
+semantics as directly as removing its erroneous character filter.
+
+The rendering test before the correction exited 101 (`AB` versus `A�B`).
+Both new tests and the four existing library prerequisite tests pass after it.
+This is library-only evidence, not selected streams, raw Tauri transport,
+production parser migration, flood journey or matched performance acceptance.
