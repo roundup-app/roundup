@@ -2454,6 +2454,9 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
         )
         .await
         .unwrap();
+    // The restarted Door can emit Working before workstream.cleared (clear::apply).
+    // Keep those statuses while the other subscription waits for the clear result.
+    let mut restarted = project.subscribed().await;
     actor
         .request(
             "workstream.handoff",
@@ -2469,7 +2472,7 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     assert_eq!(cleared.iteration, 2);
     let mut working = false;
     loop {
-        let status = next(&mut client, |event| match event {
+        let status = next(&mut restarted, |event| match event {
             EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
                 Some(status)
             }
@@ -2994,4 +2997,118 @@ async fn a32_iteration_advances_once() {
     })
     .await
     .expect("Iteration observer did not complete");
+}
+
+#[tokio::test]
+async fn a32_without_handoff_archives_everything() {
+    let (project, mut client, door) = clear_fixture(
+        "a32_without_handoff",
+        &[("ROUNDUP_HANDOFF_BOUND_MS", "10000")],
+    )
+    .await;
+    let model = project.model.as_ref().unwrap();
+    let child = rail_tree(&client)
+        .await
+        .into_iter()
+        .find(|node| node.parent.as_deref() == Some(&door))
+        .unwrap()
+        .id;
+    assert_eq!(
+        client
+            .request("workstream.clear", json!({"id": door, "reason": "bloat"}))
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let failed = next(&mut client, |event| match event {
+        EventData::WorkstreamClearFailed(failed) if failed.id == door => Some(failed),
+        _ => None,
+    })
+    .await;
+    assert_eq!(failed.code, rpc::code::NOT_ACKED as i32);
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({
+                    "id": door, "reason": "bloat", "without_handoff": true
+                })
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        assert_ne!(
+            status.status.kind,
+            Kind::Error,
+            "real Door failed: {:#?}",
+            model.journal()
+        );
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        client
+            .request("todo.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    let pads = pads.as_array().unwrap();
+    assert_eq!(
+        pads.iter()
+            .map(|pad| pad["name"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["archive-1"]
+    );
+    let text = pads[0]["text"].as_str().unwrap();
+    for lost in [
+        "build the login page",
+        "refactor everything",
+        "## notes",
+        "## scratch",
+    ] {
+        assert!(text.contains(lost), "{lost} is lost: {text}");
+    }
+    assert!(rail_tree(&client).await.iter().all(|node| node.id != child));
+    for expected in [
+        "workstream_handoff",
+        "No Handoff was written, so every Todo and Pad was archived.",
+    ] {
+        assert!(
+            model.journal().iter().any(|entry| entry["body"]["tools"]
+                .as_array()
+                .is_some_and(|tools| !tools.is_empty())
+                && entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| messages.iter().any(|message| message["role"]
+                        == "user"
+                        && message["content"].as_str().is_some_and(|text| text
+                            .contains("bloat")
+                            && text.contains(expected))))),
+            "real Claude must receive {expected}: {:#?}",
+            model.journal()
+        );
+    }
+    model.assert_matched();
 }
