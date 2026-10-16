@@ -4,6 +4,7 @@
 //! returns the new Terminal's id together with a [`broadcast::Receiver`] of its events. The receiver
 //! exists before the reader thread reads any output, so none is missed.
 
+mod integration;
 mod output;
 
 use std::collections::BTreeMap;
@@ -168,6 +169,8 @@ impl Shared {
 
 pub struct Terminals {
     shared: Arc<Shared>,
+    /// Where X15's shell integration files are written.
+    integration_dir: std::path::PathBuf,
     next: AtomicU64,
     input_writer: Option<Arc<InputWriter>>,
     exit_hold: Option<Arc<ExitHold>>,
@@ -183,7 +186,7 @@ impl Terminals {
     /// As [`Terminals::open`], but `clean_env` names env vars that must never reach a spawned
     /// program's environment, however they arrived (the Daemon's own environment or a caller's
     /// `params.env`): the caller owns the list and what it means.
-    pub fn open_with(_dir: &Path, bus: Bus, clean_env: &[&str]) -> Result<Self, OpenError> {
+    pub fn open_with(dir: &Path, bus: Bus, clean_env: &[&str]) -> Result<Self, OpenError> {
         Ok(Self {
             shared: Arc::new(Shared {
                 bus,
@@ -193,6 +196,7 @@ impl Terminals {
                     .map(|marker| (*marker).to_owned())
                     .collect(),
             }),
+            integration_dir: dir.join("shell-integration"),
             next: AtomicU64::new(1),
             input_writer: None,
             exit_hold: None,
@@ -243,6 +247,32 @@ impl Terminals {
                 .emit(Actor::daemon(), EventData::TerminalChanged);
         }
         spawned
+    }
+
+    /// X12, X15: the login shell at `shell` in `cwd`, owned by `owner`, with `env` over the Daemon's. A zsh, bash or fish prints
+    /// shell marks; any other shell starts as `shell -l` with no change. Emits `terminal.changed`.
+    pub async fn spawn_shell_owned(
+        &self,
+        cwd: &str,
+        shell: &str,
+        owner: &str,
+        env: BTreeMap<String, String>,
+    ) -> Result<Spawned, RpcError> {
+        let start =
+            integration::start(&self.integration_dir, shell, &env).map_err(RpcError::internal)?;
+        let mut command = vec![shell.to_owned()];
+        command.extend(start.args);
+        self.spawn_owned(
+            SpawnParams {
+                cwd: cwd.to_owned(),
+                command: Some(command),
+                env: start.env,
+                cols: 80,
+                rows: 24,
+            },
+            owner,
+        )
+        .await
     }
 
     /// X12: stop Terminal `id` if it runs and forget it. `INVALID_PARAMS` for one with no owner.
