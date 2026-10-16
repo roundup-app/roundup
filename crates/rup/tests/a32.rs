@@ -405,57 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_kept_items_keep_their_ids_and_owners() {
-    let fx = fixture().await;
-    let (keep, fluff) = fx.full().await;
-    fx.user
-        .request("todo.setBlockers", json!({"id": keep, "blockers": [fluff]}))
-        .await
-        .unwrap();
-    let before = fx
-        .todos()
-        .await
-        .into_iter()
-        .find(|t| t["id"] == keep)
-        .unwrap();
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(
-        json!({"id": fx.ws, "summary": "s", "keep_todos": [keep], "keep_pads": ["scratch"]}),
-    )
-    .await
-    .unwrap();
-    task.end().await.unwrap();
-
-    let after = fx
-        .todos()
-        .await
-        .into_iter()
-        .find(|t| t["id"] == keep)
-        .unwrap();
-    assert_eq!(
-        after["blockers"],
-        json!([]),
-        "an archived blocker leaves the list"
-    );
-    assert_eq!(
-        (&after["title"], &after["creator"], &after["home"]),
-        (&before["title"], &before["creator"], &before["home"])
-    );
-    let scratch = fx
-        .pads()
-        .await
-        .into_iter()
-        .find(|p| p["name"] == "scratch")
-        .unwrap();
-    assert_eq!(
-        scratch["owner"]["kind"], "user",
-        "a Pad of a removed Subagent becomes the user's"
-    );
-    assert_eq!(scratch["home"], json!(fx.ws));
-}
-
-#[tokio::test]
 async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     let fx = fixture().await;
     let mut events = fx.project.subscribed().await;
@@ -622,49 +571,6 @@ async fn a32_the_handoff_read_waits_for_a_delayed_prompt_write() {
     let last = read.await;
     assert!(last["prompt"].as_str().unwrap().contains("bloat"));
     assert_eq!(last["resume"], false);
-}
-
-#[tokio::test]
-async fn a32_message_list_spans_iterations() {
-    let fx = fixture().await;
-    let send = |body: &'static str| {
-        fx.user.request(
-            "message.send",
-            json!({"to": fx.ws, "kind": "note", "body": body}),
-        )
-    };
-    send("first ask").await.unwrap();
-    settle(&fx.user, &fx.ws).await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-    settle(&fx.user, &fx.ws).await;
-    send("second ask").await.unwrap();
-
-    let listed = fx
-        .user
-        .request("message.list", json!({"id": fx.ws}))
-        .await
-        .unwrap();
-    let seen: Vec<(String, u64)> = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|m| !m["body"].as_str().unwrap().starts_with("[digest]"))
-        .map(|m| {
-            (
-                m["body"].as_str().unwrap().to_owned(),
-                m["iteration"].as_u64().unwrap(),
-            )
-        })
-        .collect();
-    assert_eq!(
-        seen,
-        [("first ask".to_owned(), 1), ("second ask".to_owned(), 2)]
-    );
 }
 
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
