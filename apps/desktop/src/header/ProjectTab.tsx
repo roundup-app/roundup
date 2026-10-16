@@ -75,7 +75,7 @@ export const ProjectTab = (props: {
           <Menu.ContextTrigger asChild={(context) =>
             <Tooltip.Trigger asChild={(tooltip) =>
               <Tabs.Trigger {...context(tooltip({}))} value={props.tab.path} class="tab-name-button"
-                aria-busy={props.tab.busy} ref={(element) => (button = element)}
+                data-selected={props.selected} aria-busy={props.tab.busy} ref={(element) => (button = element)}
                 onClick={(click) => {
                   if (click.target instanceof Element && click.target.closest('.tab-mark')) {
                     click.preventDefault();
@@ -87,14 +87,14 @@ export const ProjectTab = (props: {
               </Tabs.Trigger>
             } />
           } />
-          <Portal><Tooltip.Positioner><Tooltip.Content>
+          <Portal><Tooltip.Positioner><Tooltip.Content class="tab-tip">
             {props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show>
           </Tooltip.Content></Tooltip.Positioner></Portal>
         </Tooltip.Root>
         <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
       </Show>
     </div>
-    <Portal><Menu.Positioner><Menu.Content class="tab-menu" ref={content}>
+    <Portal><Menu.Positioner><Menu.Content class="tab-menu" aria-label={copy.projectActions} aria-labelledby="" ref={content}>
       <Menu.Item value="models">{copy.models}</Menu.Item>
     </Menu.Content></Menu.Positioner></Portal>
   </Menu.Root>}</Tabs.Context>;
