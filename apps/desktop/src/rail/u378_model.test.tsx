@@ -18,6 +18,20 @@ const mountAdd = async () => {
   return mounted;
 };
 
+const picker = (name: string) => screen.findByRole("combobox", { name });
+
+const openList = (trigger: HTMLElement) => {
+  fireEvent.pointerDown(trigger, { button: 0, pointerType: "mouse" });
+  fireEvent.click(trigger);
+};
+
+const pickOption = async (name: string, label: string) => {
+  openList(await picker(name));
+  fireEvent.click(await screen.findByRole("option", { name: label }));
+};
+
+const pickerShows = async (name: string, text: string) => expect((await picker(name)).textContent).toContain(text);
+
 const pick = (select: HTMLSelectElement, value: string) => {
   select.value = value;
   fireEvent.change(select);
@@ -44,8 +58,8 @@ describe("u378 the Model at the add", () => {
     const mounted = await mountAdd();
 
     fireEvent.click(await screen.findByLabelText("Choose Model and Effort"));
-    pick(await selectNamed("Model"), "m-sonnet");
-    pick(await selectNamed("Effort"), "e-high");
+    await pickOption("Model", "Sonnet");
+    await pickOption("Effort", "High");
     fireEvent.click(screen.getByRole("button", { name: "Add agent" }));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: "m-sonnet", effort: "e-high" }]));
@@ -65,6 +79,7 @@ describe("u378 the Model at the add", () => {
 
     mounted.app.handlers["project.get"] = () => { throw new RpcError(-32603, "Project defaults unavailable"); };
 
+
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     await screen.findByText("Project defaults unavailable");
     expect(screen.getByRole("button", { name: "Add agent" }).getAttribute("aria-disabled")).toBe("true");
@@ -79,18 +94,62 @@ describe("u378 the Model at the add", () => {
     const mounted = await mountAdd();
     mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-high"}], allowed: [] } });
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    await waitFor(() => expect(screen.getByText("Default (Sonnet)")).toBeTruthy());
-    expect(screen.getByText("Default (High)")).toBeTruthy();
-    expect((await selectNamed("Model")).value).toBe("");
-    expect((await selectNamed("Effort")).value).toBe("");
+        await pickerShows("Model", "Default (Sonnet)");
+    await pickerShows("Effort", "Default (High)");
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
-  it("u378_unset_project_defaults_name_claude_code", async () => {
+  it("u509_known_defaults_show_labels_or_ids", async () => {
+    const mounted = await mountAdd();
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-unlisted"}], allowed: [] } });
+    fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
+    await pickerShows("Model", "Default (Sonnet)");
+    await pickerShows("Effort", "Default (e-unlisted)");
+    expect(screen.queryByText("Claude Code default")).toBeNull();
+  });
+
+  it("u509_unknown_defaults_have_one_explanation", async () => {
     await mountAdd();
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    await selectNamed("Model");
-    expect(screen.getAllByText("Default (Claude Code)")).toHaveLength(2);
+    await pickerShows("Model", "Default");
+    await waitFor(() => expect(screen.getAllByText("Claude Code default")).toHaveLength(1));
+    openList(await picker("Model"));
+    await screen.findByRole("option", { name: "Default" });
+    expect(screen.getAllByText("Claude Code default")).toHaveLength(1);
+    expect(document.body.textContent).not.toContain("Default (Claude Code)");
+  });
+
+  it("u509_one_unresolved_default_names_its_field", async () => {
+    const mounted = await mountAdd();
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: null}], allowed: [] } });
+    fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
+    await waitFor(() => expect(screen.getByText("Effort: Claude Code default")).toBeTruthy());
+  });
+
+  it("u509_reopening_reads_current_defaults", async () => {
+    const mounted = await mountAdd();
+    const toggle = screen.getByLabelText("Choose Model and Effort");
+    fireEvent.click(toggle);
+    await pickerShows("Model", "Default");
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-high"}], allowed: [] } });
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    await pickerShows("Model", "Default (Sonnet)");
+  });
+
+  it("u509_loading_failure_and_retry_keep_choices", async () => {
+    const mounted = await mountAdd();
+    mounted.app.handlers["project.get"] = () => { throw new RpcError(-32603, "Project defaults unavailable"); };
+
+    fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
+    await screen.findByText("Project defaults unavailable");
+    await pickOption("Model", "Sonnet");
+    mounted.app.handlers["project.get"] = () => settings(["subagent"]);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add agent" }).hasAttribute("aria-disabled")).toBe(false));
+    await pickerShows("Model", "Sonnet");
+    fireEvent.click(screen.getByRole("button", { name: "Add agent" }));
+    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")[0]).toMatchObject({ model: "m-sonnet", effort: null }));
   });
 
   it("u378_the_picker_defaults_spawn_nulls", async () => {
@@ -106,7 +165,7 @@ describe("u378 the Model at the add", () => {
   it("u378_one_picked_field_leaves_the_other_null", async () => {
     const mounted = await mountAdd();
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    pick(await selectNamed("Model"), "m-sonnet");
+    await pickOption("Model", "Sonnet");
     await waitFor(() => expect(screen.getByRole("button", {name: "Add agent"}).getAttribute("aria-disabled")).toBeNull());
     fireEvent.click(screen.getByRole("button", {name: "Add agent"}));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")[0]).toMatchObject({model: "m-sonnet", effort: null}));
@@ -115,7 +174,7 @@ describe("u378 the Model at the add", () => {
   it("u378_the_immediate_add_ignores_a_previous_pick", async () => {
     const mounted = await mountAdd();
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    pick(await selectNamed("Model"), "m-sonnet");
+    await pickOption("Model", "Sonnet");
     fireEvent.click(screen.getByLabelText("Add Agent"));
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")[0]).toMatchObject({model: null, effort: null}));
   });
@@ -124,13 +183,13 @@ describe("u378 the Model at the add", () => {
     const mounted = await mountAdd();
     const trigger = screen.getByLabelText("Choose Model and Effort");
     fireEvent.click(trigger);
-    pick(await selectNamed("Model"), "m-sonnet");
-    fireEvent.keyDown(await selectNamed("Model"), {key: "Escape"});
+    await pickOption("Model", "Sonnet");
+    fireEvent.keyDown(await picker("Model"), {key: "Escape"});
     expect(document.activeElement).toBe(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
     fireEvent.click(trigger);
-    expect((await selectNamed("Model")).value).toBe("");
+    await pickerShows("Model", "Default");
   });
 
   it("u378_a_failed_picker_add_keeps_the_pair_and_shows_the_error", async () => {
@@ -138,11 +197,11 @@ describe("u378 the Model at the add", () => {
     mounted.app.handlers["agent.spawn"] = () => { throw new RpcError(-32602, "cannot start agent"); };
 
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    pick(await selectNamed("Model"), "m-sonnet");
+    await pickOption("Model", "Sonnet");
     await waitFor(() => expect(screen.getByRole("button", {name: "Add agent"}).getAttribute("aria-disabled")).toBeNull());
     fireEvent.click(screen.getByRole("button", {name: "Add agent"}));
     expect((await screen.findByRole("alert")).textContent).toContain("cannot start agent");
-    expect((await selectNamed("Model")).value).toBe("m-sonnet");
+    await pickerShows("Model", "Sonnet");
     expect(screen.getByLabelText("Choose Model and Effort").getAttribute("aria-expanded")).toBe("true");
   });
 
@@ -156,7 +215,7 @@ describe("u378 the Model at the add", () => {
     }
 
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    await selectNamed("Model");
+    await picker("Model");
     expect(screen.getByLabelText("Choose Model and Effort").getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("button", {name: "Add agent"}).tabIndex).toBe(0);
   });
@@ -192,7 +251,7 @@ describe("u378 the Model at the add", () => {
   it("u378_command_n_keeps_composing_and_default_add_behaviour", async () => {
     const mounted = await mountAdd();
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
-    pick(await selectNamed("Model"), "m-sonnet");
+    await pickOption("Model", "Sonnet");
     fireEvent.keyDown(document, {key: "n", metaKey: true});
     await waitFor(() => expect(screen.queryByLabelText("Model")).toBeNull());
     expect(railCallsTo(mounted.app, "agent.spawn")[0]).toMatchObject({model: null, effort: null});
