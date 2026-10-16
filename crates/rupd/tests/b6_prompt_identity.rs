@@ -5732,3 +5732,161 @@ async fn b6_a_stop_accepted_before_terminal_attachment_keeps_the_same_attempt() 
     run.finish().await;
     assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
 }
+
+#[tokio::test]
+async fn b6_a_stop_accepted_during_user_resume_follows_the_resuming_attempt() {
+    let (mut run, caller) = order_child().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let fake = run.dir.path().join("claude");
+    let script = std::fs::read_to_string(&fake).unwrap().replace(
+        "hook('SessionStart',",
+        "if '--resume' in sys.argv:\n    open('resume-arrived', 'w').close()\n    deadline = time.monotonic() + 10\n    while os.path.isfile('resume-gate'):\n        if time.monotonic() > deadline: raise RuntimeError('resume observer was not released')\n        time.sleep(0.005)\nhook('SessionStart',",
+    );
+    std::fs::write(fake, script).unwrap();
+    let gate = run.dir.path().join("resume-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let resume =
+        tokio::spawn(async move { user.request("agent.resume", json!({"id":child})).await });
+    tokio::time::timeout(BOUND, async {
+        while !run.dir.path().join("resume-arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    // Direct user Resume must not hold Takeover acquisition behind SessionStart.
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        run.user
+            .request("takeover.begin", json!({"agent":run.child})),
+    )
+    .await
+    .expect("Takeover is available before user Resume acknowledges")
+    .unwrap();
+    let receipt = caller
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let waiting = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    std::fs::remove_file(gate).unwrap();
+    let attached = resume.await.unwrap().unwrap();
+    run.terminal = attached["terminal_id"].clone();
+    assert_ne!(attached["attempt"], run.attempt);
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let terminals = run.user.request("terminal.list", ()).await.unwrap();
+    let stopped = !terminals
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["id"] == run.terminal && t["running"] == true);
+    run.finish().await;
+    assert_eq!(waiting[0]["outcome"]["status"], "waiting", "{waiting}");
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert!(stopped);
+}
+
+#[tokio::test]
+async fn b6_a_failed_launch_accounts_for_a_held_stop_without_terminal_exit() {
+    let mut run = Run::start().await;
+    let fake = run.dir.path().join("claude");
+    let source = std::fs::read_to_string(&fake).unwrap();
+    std::fs::write(
+        &fake,
+        source.replace(
+            "if sys.argv[1:3] == ['plugin', 'test']:\n    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)",
+            r#"if sys.argv[1:3] == ['plugin', 'test']:
+    gate = os.path.join(os.path.dirname(__file__), 'launch-gate')
+    if os.path.isfile(gate):
+        open(gate + '.arrived', 'w').write('plugin test requested')
+        deadline = time.monotonic() + 10
+        while os.path.isfile(gate):
+            if time.monotonic() > deadline: raise RuntimeError('launch probe was not released')
+            time.sleep(0.005)
+    print('unsupported runtime'); sys.exit(1)"#,
+        ),
+    )
+    .unwrap();
+    // Reopen with an empty runtime admission cache; the probe precedes Terminal creation.
+    run.daemon.child.kill().unwrap();
+    run.daemon.child.wait().unwrap();
+    run.daemon = launch(run.dir.path(), run.data.path());
+    run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    let door = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"starting child"}))
+        .await
+        .unwrap();
+    let caller = Client::connect(&run.daemon.socket).await.unwrap();
+    caller
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":door["id"]}}),
+        )
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("launch-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let cwd = run.dir.path().to_owned();
+    let parent = door["id"].clone();
+    let spawning = tokio::spawn(async move {
+        user.request("agent.spawn", json!({"cwd":cwd,"parent":parent}))
+            .await
+    });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let starting = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["parent"] == door["id"])
+        .unwrap();
+    run.child = starting["id"].as_str().unwrap().to_owned();
+    assert!(starting["terminal_id"].is_null());
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(receipt["outcome"]["status"], "waiting");
+    std::fs::remove_file(gate).unwrap();
+    assert!(spawning.await.unwrap().is_err());
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+    assert!(
+        history[0]["outcome"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("removed"),
+        "{history}"
+    );
+}

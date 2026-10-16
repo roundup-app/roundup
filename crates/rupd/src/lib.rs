@@ -409,16 +409,6 @@ impl Daemon {
                 door_effects.push(guard);
             }
         }
-        // A released Stop names the original Attempt. Direct Stop/Resume may run alongside
-        // ordinary steering, but cannot replace that Attempt between its check and effect.
-        let _direct_attempt = if conn.actor.kind != ActorKind::Agent
-            && matches!(method, "agent.stop" | "agent.resume")
-        {
-            let NodeId { id } = rpc::params(params.clone())?;
-            Some(self.child_effects(&id).read_owned().await)
-        } else {
-            None
-        };
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             Some(self.child_effects(&agent).write_owned().await)
