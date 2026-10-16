@@ -14,6 +14,12 @@ const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, anima
 /** Rail left, centre right; nesting and columns are never drawn as boxes. The Shelf reserves the centre when it has room; the overlay floats over both; every region starts below the window bar. */
 export const Layout = (props: {
   header: JSX.Element;
+  /** U495 / #1997: bind the common Tabs context's getContentProps({ value: activePath })
+   * here. The panel contains the real Project regions, never the header triggers.
+   * Only the selected Project is rendered; connections and saved state stay in App.
+   * header/ consumes that context's List and Trigger without creating another Root.
+   */
+  tabs?: JSX.HTMLAttributes<HTMLDivElement>;
   contentActions?: JSX.Element;
   rail: JSX.Element;
   centre: JSX.Element;
@@ -81,8 +87,9 @@ export const Layout = (props: {
   return (
   <div {...binding("root")} class="window" data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
+    <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
     <div class="content-actions">{props.contentActions}</div>
-    <div class="columns" onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
+    <div class="columns" style={{ "grid-area": "1 / 1" }} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
       <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}
       </section>
@@ -123,6 +130,7 @@ export const Layout = (props: {
         </div>
       )}
     </Show>
+    </div>
   </div>
   );
 };
