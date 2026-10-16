@@ -26,6 +26,21 @@ pub struct Params {
 }
 
 impl Params {
+    // A trailing colon must keep subsequent input in the same subparameter group.
+    pub(crate) fn pending(&self, emit: &mut impl FnMut(u8)) {
+        let mut index = 0;
+        while index < self.len {
+            let count = self.subparams[index] as usize;
+            for offset in 0..count {
+                super::emit_decimal(self.params[index + offset], emit);
+                let continuing = offset + 1 < count
+                    || (index + count == self.len && self.current_subparams != 0);
+                emit(if continuing { b':' } else { b';' });
+            }
+            index += count;
+        }
+    }
+
     /// Returns the number of parameters.
     #[inline]
     pub fn len(&self) -> usize {

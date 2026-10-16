@@ -160,3 +160,52 @@ installed vte recognizer. Exact dependency pins, archive hashes and licence
 texts are unchanged. Actual command exits are recorded on #2150 and its PR.
 This supplies no production projection/migration, selected streams, transport,
 flood/journey or matched performance evidence; those remain with #1930.
+
+## Portable pending recognition (X14 prerequisite, #2156)
+
+`Parser::pending_formatted()` emits a bounded ANSI prefix. A fresh emulator of
+matching dimensions receives the formatted screen, this prefix, then only raw
+bytes after the snapshot offset. This supplies a library capability; #1930 still
+owns snapshot/offset integration, scrollback projection and exact xterm evidence.
+Screen formatting and pending recognition are separate so callers can place
+scrollback and screen restoration before entering a pending escape sequence.
+
+The licensed source delta adds vt100's forwarding method, vte's read-only state
+exporter and a private Params emitter. No input-path transition or decoder changes.
+The exporter uses the recognizer's existing state, saturated numeric parameters,
+intermediates, inline OSC buffer/parameter indexes and partial UTF-8 bytes. It
+omits controls already executed. OSC separators are reconstructed from indexes;
+bytes discarded by the installed OSC cap stay discarded. It emits no cancellation
+bytes and stores no raw history. Export does not invoke callbacks or clone them.
+
+Retained attach storage added to Parser: **zero bytes**. Existing pending storage
+is inline: 1024 OSC bytes, 16 OSC indexes, 32 numeric parameters, 2 intermediates
+and 4 partial UTF-8 bytes plus fixed metadata. The emitted prefix is at most
+**1280 bytes** (1024 + 256); OSC specifically is at most **1042 bytes** (1024
+payload/command bytes, 16 separators, ESC ]). Size is independent of original
+payload length. The installed observer reports a 1688-byte Parser including its
+screen/callback holders on Linux x86_64; screen/history and caller callbacks have
+separate caller-selected bounds. DCS payload is ignored by vt100 and not retained;
+vte's exporter is not a serialization of arbitrary Perform implementations with
+external DCS effects. Previously dispatched callbacks are never replayed by an
+export on the live parser; restoring a screen/prefix in a new parser can invoke
+that new parser's callbacks as usual.
+
+Reuse rechecked 2026-10-16 with `gh api` (both exits 0): vt100 main remains
+`fc26fd9c3d72f9af8a214741c100920734500de7` (2025-07-12), vte master remains
+`abeae765dd546dfff60b278f0757dcc71beb8ab1` (2026-02-28). Sources, licences,
+archive hashes and exact dependency pins above are unchanged. Selected: extend
+the already installed recognizer rather than introduce another. Neither upstream
+Parser exposes a pending byte representation; vt100 formatting alone omits it,
+and vte alone lacks a screen emulator.
+
+`cargo test -p terminal --test library_attach -- --nocapture` initially exited
+101 (missing method). The implementation exits 0: every-cut fresh restoration
+covers BEL/ST OSC, cursor/erase CSI, parameter/subparameter/intermediate states,
+valid/invalid UTF-8 and live callback isolation. No existing test is removed;
+clone tests prove in-process checkpoint replay, while these prove fresh byte
+restoration. The bounded observer feeds fixed 8192-byte chunks to 1 MiB and
+64 MiB for each terminator, observes identical 1027-byte representations and
+literal retained titles/later text, and on Linux checks isolated-process RSS
+within 1024 KiB of its 1 MiB reading. `cargo test -p terminal` exits 0, retaining
+bounded-state, replacement, handled-write and executed-control observers.
