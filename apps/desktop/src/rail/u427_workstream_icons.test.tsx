@@ -59,7 +59,7 @@ describe("u427 a Workstream row's icons", () => {
 
     fireEvent.click(icon("g", "Choose Model and Effort"));
 
-    expect(await selectNamed("Model")).toBeTruthy();
+    expect(await screen.findByRole("combobox", { name: "Model" })).toBeTruthy();
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
