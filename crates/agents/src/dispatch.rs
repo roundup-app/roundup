@@ -103,7 +103,7 @@ impl Module for Agents {
                 reply(&shared.permission(ctx.actor.clone(), &id, payload).await?)
             }
             "agent.ask" => {
-                let ask: AskParams = params(value)?;
+                let ask: contracts::decision::AskCall = params(value)?;
                 reply(&shared.ask(ctx.actor.clone(), ask).await?)
             }
             "decision.answers" => {

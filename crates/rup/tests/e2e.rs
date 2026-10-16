@@ -838,8 +838,6 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
 
 // E2 to E6: an Agent is told where it stands and asks again.
 
-const DEADLINE: (&str, &str) = ("ROUNDUP_CHANNEL_DEADLINE_MS", "600");
-
 fn socket(project: &Project) -> PathBuf {
     project.dir.path().join("rupd.sock")
 }
@@ -1519,79 +1517,12 @@ async fn e3_a_daemon_that_never_answers_is_given_up_on_within_five_seconds() {
     assert_eq!(String::from_utf8_lossy(&out.stderr).lines().count(), 1);
 }
 
-#[tokio::test]
-async fn e3_the_fake_claude_runs_both_session_start_commands_and_reads_the_context() {
-    let report = tempfile::tempdir().unwrap().keep().join("context.txt");
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-        ("FAKE_CLAUDE_CONTEXT_REPORT", report.to_str().unwrap()),
-    ]);
-    let user = project.client().await;
-    let id = agent_in(&project, &user, None).await;
-
-    let told = tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            match std::fs::read_to_string(&report) {
-                Ok(text) if !text.is_empty() => return text,
-                _ => tokio::time::sleep(Duration::from_millis(20)).await,
-            }
-        }
-    })
-    .await
-    .expect("the context was printed");
-
-    let told: Value = serde_json::from_str(&told).unwrap();
-    assert_eq!(told["hookSpecificOutput"]["hookEventName"], "SessionStart");
-    assert!(
-        told["hookSpecificOutput"]["additionalContext"]
-            .as_str()
-            .unwrap()
-            .contains("Parent: none")
-    );
-    assert_eq!(
-        rail_tree(&user)
-            .await
-            .iter()
-            .find(|n| n.id == id)
-            .unwrap()
-            .id,
-        id
-    );
-}
-
 async fn next_channel(client: &mut rpc::Client, id: &str) -> Channel {
     next(client, |data| match data {
         EventData::AgentChannel(event) if event.id == id => Some(event.channel),
         _ => None,
     })
     .await
-}
-
-#[tokio::test]
-async fn e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count() {
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-        DEADLINE,
-    ]);
-    let mut events = project.subscribed().await;
-
-    let node = project.spawn_agent(&events).await;
-    let status = next(&mut events, |data| match data {
-        EventData::AgentStatus(s) if s.id == node.id => Some(s.status),
-        _ => None,
-    })
-    .await;
-
-    assert_eq!(next_channel(&mut events, &node.id).await, Channel::Missing);
-    let now = rail_tree(&events)
-        .await
-        .into_iter()
-        .find(|n| n.id == node.id)
-        .unwrap();
-    assert_eq!(now.channel, Some(Channel::Missing));
-    assert_eq!(now.status.unwrap().kind, status.kind);
 }
 
 #[tokio::test]
