@@ -23,7 +23,7 @@ const RECOMMENDED = " (recommended)";
 const NOTE_MAX = 2000;
 
 /** U423: the position after an arrow key among `count` answers and none (`null`), or `undefined` when the key moves nothing. */
-const moved = (count: number, focus: number | null, key: string): number | null | undefined => {
+export const moved = (count: number, focus: number | null, key: string): number | null | undefined => {
   if (count === 0 || (key !== "ArrowDown" && key !== "ArrowUp")) return undefined;
 
   // The positions are the rows, then none.
@@ -33,7 +33,7 @@ const moved = (count: number, focus: number | null, key: string): number | null 
 };
 
 /** U406: the answers of an `ask_user` Decision with their tradeoffs, and the focused answer's preview. `focus` is the focused row; `null` is none: the user's own answer. */
-const AskAnswers = (props: { question: Question; stuck: () => boolean; focus: () => number | null; setFocus: (at: number | null) => void; onKeyDown?: (key: KeyboardEvent) => void }) => {
+export const AskAnswers = (props: { question: Question; stuck: () => boolean; focus: () => number | null; setFocus: (at: number | null) => void; onKeyDown?: (key: KeyboardEvent) => void }) => {
   const answers = () => props.question.answers;
 
   const focused = () => {
