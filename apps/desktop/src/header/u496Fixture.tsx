@@ -24,7 +24,7 @@ const Fixture = () => {
   const [marks, setMarks] = createSignal(0);
   const reverse = new URLSearchParams(location.search).has('reverse');
   const Top = () => <>
-    <div style={{ height: 'var(--space-9)', width: 'calc(var(--space-9) * 8)' }}>
+    <div style={{ height: 'calc(var(--space-6) * 2)', width: 'calc(var(--space-6) * 10)' }}>
       <Strip tabs={tabs()} active={active()} onSelect={setActive}
         onMark={(path) => { setActive(path); setMarks(marks() + 1); }}
         onRename={(path, name) => setTabs(tabs().map(tab => tab.path === path ? { ...tab, name } : tab))}

@@ -3,6 +3,8 @@ import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
+import { Tooltip } from "../ui";
+import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 
 /** U449–U451: the Project strip and selected Workstream share the native window bar. */
@@ -74,7 +76,10 @@ export const WindowBar = (props: {
     }}>
       <div class="traffic-lights" aria-hidden="true" />
       {props.children}
-      <div class="window-title" role="heading" aria-level="1" title={title()} aria-label={title()}>{title()}</div>
+      <Tooltip.Root closeOnEscape={false} positioning={{ strategy: "fixed" }}>
+        <Tooltip.Trigger asChild={(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()}>{title()}</div>} />
+        <Portal><Tooltip.Positioner><Tooltip.Content>{title()}</Tooltip.Content></Tooltip.Positioner></Portal>
+      </Tooltip.Root>
     </div>
   );
 };

@@ -115,8 +115,6 @@
 }
 
 .tab-tip {
-  position: fixed;
-  z-index: 1;
   padding: var(--space-1) var(--space-2);
   color: var(--grey);
   white-space: nowrap;
@@ -229,4 +227,8 @@
 .project-tab[data-selected="true"] .tab-name-button {
   --button-surface: transparent;
   --button-hover: var(--selected-hover);
+}
+
+.tab-menu {
+  z-index: 3;
 }

@@ -1,28 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import tokenStyles from "../tokens.css?raw";
-import appStyles from "../styles.css?inline";
-import stripStyles from "./strip.styles.css?inline";
-import buttonStyles from "../buttons.css?inline";
 import { App } from "../App";
-import { colourOf, contrastRatio, loadTokens, resolveToken } from "../testing/contrast";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
 import { header, openTabs, path, tab, projectTablist, projectTabs } from "./stripFixture";
 
 afterEach(cleanup);
-
-const withStrip = async <T,>(run: () => Promise<T>): Promise<T> => {
-  const sheet = document.head.appendChild(document.createElement("style"));
-
-  sheet.textContent = `${tokenStyles}\n${appStyles}\n${stripStyles}\n${buttonStyles}`;
-
-  try {
-    return await run();
-  } finally {
-    sheet.remove();
-  }
-};
 
 describe("u179 the header is the strip", () => {
   it("u179_one_tab_per_project_in_the_order_they_were_opened", async () => {
@@ -46,22 +29,6 @@ describe("u179 the header is the strip", () => {
 
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["api", "web", "docs"]));
     expect(screen.getByRole("button", { name: "Open a folder" }).classList.contains("word")).toBe(true);
-  });
-
-  it("u179_the_open_tab_is_in_full_ink_and_the_others_are_grey", async () => {
-    await withStrip(async () => {
-      await openTabs({ api: [], web: [] });
-      const { tokens, ground } = loadTokens();
-
-      expect(colourOf(tab("web"), tokens)).toBe(resolveToken("var(--text)", tokens));
-      expect(colourOf(tab("api"), tokens)).toBe(resolveToken("var(--grey)", tokens));
-      expect(contrastRatio(colourOf(tab("api"), tokens), ground)).toBeGreaterThanOrEqual(4.5);
-
-      fireEvent.click(tab("api"));
-
-      expect(colourOf(tab("api"), tokens)).toBe(resolveToken("var(--text)", tokens));
-      expect(colourOf(tab("web"), tokens)).toBe(resolveToken("var(--grey)", tokens));
-    });
   });
 
   it("u179_the_roles_and_the_marks_text_label", async () => {

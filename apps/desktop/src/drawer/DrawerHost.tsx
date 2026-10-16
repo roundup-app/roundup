@@ -1,3 +1,5 @@
+import { registerKeys } from "../keys/registry";
+import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -38,7 +40,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
         heldFocus = null;
 
-        if (stayedInDrawer) toRefocus?.focus({ preventScroll: true });
+        if (stayedInDrawer && toRefocus?.isConnected) toRefocus.focus({ preventScroll: true });
       }
     }),
   );
@@ -63,15 +65,11 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
   onCleanup(endSlide);
 
-  // A field or the terminal owns Esc: it cancels the field or reaches the program.
-  const closeOnEsc = (key: KeyboardEvent) => {
-    const editing = key.target instanceof HTMLElement && key.target.matches("input, textarea, [contenteditable]");
-
-    if (key.key === "Escape" && isOpen() && !editing) props.drawer.close();
-  };
-
-  document.addEventListener("keydown", closeOnEsc);
-  onCleanup(() => document.removeEventListener("keydown", closeOnEsc));
+  registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
+    chords: ["Escape"],
+    when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
+    run: () => props.drawer.close(),
+  }]);
 
   return (
     <aside
@@ -95,9 +93,9 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         if (!isOpen()) setMounted(null);
       }}
     >
-      <button data-button="icon" type="button" class="word close" aria-label={copy.close} onClick={() => props.drawer.close()}>
+      <IconButton class="close" aria-label={copy.close} onClick={() => props.drawer.close()}>
         <Icon name="x" />
-      </button>
+      </IconButton>
       <Show when={mounted()} keyed>
         {(content) => content()}
       </Show>
