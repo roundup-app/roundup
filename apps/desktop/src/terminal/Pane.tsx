@@ -205,6 +205,17 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (failure === null) focusTerminal();
   };
 
+  const giveBack = async (): Promise<void> => {
+    const id = selected()?.id;
+
+    if (id === undefined) return;
+
+    setTakeFailure(null);
+    const failure = await connected.takeover.end(id);
+
+    if (selected()?.id === id) setTakeFailure(failure);
+  };
+
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
 
   // U423: in Thread mode the Thread draws an `ask_user` question it can.
@@ -338,6 +349,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={taken()}>
         <p class="pane-takeover" role="status">{copy.takeoverTypingGoesStraightTo}{selected()?.name}
+          <Show when={selected()?.kind === "agent"}>
+            <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void giveBack(); }}>{copy.endTheTakeover}</button>
+          </Show>
         </p>
       </Show>
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
