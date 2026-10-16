@@ -94,6 +94,32 @@
   transition-duration: 0s;
 }
 
+.app-tree :is([data-part="branch-control"], [data-part="item"])[data-selected] {
+  background-color: transparent;
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
+  background-position: left top;
+  background-size: 2px 100%, auto;
+  background-repeat: no-repeat;
+  border-radius: var(--radius-row);
+}
+
+.app-tree :is([data-part="branch-control"], [data-part="item"])[data-selected]:hover {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
+}
+
+.app-tree :is([data-part="branch-control"], [data-part="item"])[data-selected]:active {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
+}
+
+/* A nested button owns its press; the row keeps its rest selection wash. */
+.app-tree :is([data-part="branch-control"], [data-part="item"]):has(button:active) {
+  background-color: transparent;
+}
+
+.app-tree :is([data-part="branch-control"], [data-part="item"])[data-selected]:has(button:active) {
+  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
+}
+
 .app-tree [data-part="branch"]:hover {
   color: var(--text);
 }
@@ -105,7 +131,7 @@
 
 [data-dnd-dragging] {
   background-color: var(--ground);
-  outline: 1px solid var(--hairline);
+  background-image: linear-gradient(var(--selected-hover), var(--selected-hover));
   border-radius: var(--radius-row);
 }
 
@@ -113,6 +139,7 @@
   visibility: visible !important;
   outline: 1px solid var(--hairline);
   outline-offset: -1px;
+  border-radius: var(--radius-row);
 }
 
 [data-dnd-placeholder] > * {

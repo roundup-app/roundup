@@ -49,7 +49,7 @@ afterAll(async () => {
 const baseline = process.env.ROUNDUP_CAPTURE_BASE === "1";
 
 it("u485_rendered_checks", async () => {
-  for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
+  for (const width of [1280, 700]) for (const scheme of ["light", "dark"]) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
 
@@ -81,13 +81,24 @@ it("u485_rendered_checks", async () => {
         if (surface === "tree-pressed") {
           await browser("click", "button[data-button=quiet]");
           await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').getAttribute('aria-selected') === 'true'`);
+
+          if (!baseline) {
+            expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Cedar]')).backgroundImage`)).toContain(scheme === "light" ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.1)");
+            await browser("hover", '[data-id=Cedar]');
+            expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Cedar]')).backgroundImage`)).toContain(scheme === "light" ? "rgba(0, 0, 0, 0.07)" : "rgba(255, 255, 255, 0.13)");
+            await browser("hover", '[aria-label="Inspect Alpha"]');
+            await browser("mouse", "down");
+            expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Alpha] [data-part=branch-control]')).backgroundColor`)).toBe("rgba(0, 0, 0, 0)");
+            await browser("mouse", "up");
+          }
+
           const point = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('#label-Delta').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
           await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
           await browser("mouse", "down");
 
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Alpha]')).backgroundColor`)).toBe("rgba(0, 0, 0, 0)");
 
-          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Delta]')).backgroundColor`)).toBe(scheme === "light" ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.16)");
+          if (!baseline) expect(await read<string>(`(() => { const s = getComputedStyle(document.querySelector('[data-id=Delta]')); return s.backgroundColor + s.backgroundImage; })()`)).toContain(scheme === "light" ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.16)");
         }
       } else {
         await browser("wait", "--fn", `document.querySelectorAll('.sortable-row').length === 40`);
@@ -115,7 +126,11 @@ it("u485_rendered_checks", async () => {
 
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundColor`)).toBe(scheme === "light" ? "rgb(255, 255, 255)" : "rgb(28, 28, 30)");
 
-          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth]; })()`)).toEqual(["visible", "solid", "1px"]);
+          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundImage`)).toContain(scheme === "light" ? "rgba(0, 0, 0, 0.07)" : "rgba(255, 255, 255, 0.13)");
+
+          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).outlineStyle`)).toBe("none");
+
+          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth, s.borderRadius]; })()`)).toEqual(["visible", "solid", "1px", "6px"]);
         }
       }
 
