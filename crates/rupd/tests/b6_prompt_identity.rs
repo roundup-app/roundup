@@ -4107,6 +4107,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
     for method in [
         "rail.rename",
         "terminal.kill",
+        "terminal.snapshot",
         "terminal.screen",
         "terminal.read",
         "terminal.search",
@@ -4174,6 +4175,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
 async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     for method in [
+        "terminal.snapshot",
         "terminal.screen",
         "terminal.read",
         "terminal.search",
@@ -4220,7 +4222,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
         }
         let params = match method {
-            "terminal.screen" => json!({"id":run.terminal}),
+            "terminal.snapshot" | "terminal.screen" => json!({"id":run.terminal}),
             "terminal.read" => json!({"id":run.terminal,"after":0}),
             "terminal.search" => json!({"id":run.terminal,"pattern":"READY"}),
             "terminal.write" => json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
@@ -4273,7 +4275,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             } else {
                 assert!(reply.get("result").is_some(), "{method}: {reply}");
             }
-            if reply["id"] == 110 && method == "terminal.screen" {
+            if reply["id"] == 110 && matches!(method, "terminal.snapshot" | "terminal.screen") {
                 assert_eq!(
                     reply["result"]["cols"], 109,
                     "read observed stale dimensions"
@@ -4289,4 +4291,35 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             "{method} overtook an already-arrived resize"
         );
     }
+}
+
+#[tokio::test]
+async fn b6_child_snapshots_keep_reach_restrictions() {
+    let (run, door) = door_terminal().await;
+    let foreign = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"unrelated"}))
+        .await
+        .unwrap();
+    let unrelated = Client::connect(&run.daemon.socket).await.unwrap();
+    unrelated
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":foreign["id"]}}),
+        )
+        .await
+        .unwrap();
+    let allowed = door
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await;
+    let denied = unrelated
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await;
+    let absent = door
+        .request("terminal.snapshot", json!({"id":"999999"}))
+        .await;
+    run.finish().await;
+    assert_eq!(allowed.unwrap()["cols"], 80);
+    assert_eq!(denied.unwrap_err().code, rpc::code::FORBIDDEN);
+    assert_eq!(absent.unwrap_err().code, rpc::code::NOT_FOUND);
 }
