@@ -397,13 +397,6 @@ impl Fix {
     }
 }
 
-fn names(items: &[Value], key: &str) -> Vec<String> {
-    items
-        .iter()
-        .map(|i| i[key].to_string().trim_matches('"').to_owned())
-        .collect()
-}
-
 #[tokio::test]
 async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     let fx = fixture().await;
@@ -465,32 +458,6 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let text = last["prompt"].as_str().unwrap();
     assert!(text.starts_with("Build the login page."), "{text}");
     assert!(text.contains("archived in the Pad archive-1"), "{text}");
-}
-
-#[tokio::test]
-async fn a32_without_handoff_archives_everything() {
-    let fx = fixture_with("600").await;
-    fx.full().await;
-    let mut events = fx.project.subscribed().await;
-    let (code, _) = fx.clear("bloat", false).await.end().await.unwrap_err();
-    assert_eq!(code, rpc::code::NOT_ACKED as i32);
-    assert_eq!(fx.clear("bloat", true).await.end().await.unwrap(), 2);
-
-    assert!(fx.todos().await.is_empty());
-    let pads = fx.pads().await;
-    assert_eq!(names(&pads, "name"), ["archive-1"]);
-    let text = pads[0]["text"].as_str().unwrap();
-    for lost in [
-        "build the login page",
-        "refactor everything",
-        "## notes",
-        "## scratch",
-    ] {
-        assert!(text.contains(lost), "{lost} is lost: {text}");
-    }
-    let last = fx.handoff_prompt(&mut events).await;
-    assert!(last["prompt"].as_str().unwrap().contains("bloat"));
-    assert!(rail_tree(&fx.user).await.iter().all(|n| n.id != fx.a));
 }
 
 #[tokio::test]

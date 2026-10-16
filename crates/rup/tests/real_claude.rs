@@ -3050,6 +3050,12 @@ async fn a32_without_handoff_archives_everything() {
             _ => None,
         })
         .await;
+        assert_ne!(
+            status.status.kind,
+            Kind::Error,
+            "real Door failed: {:#?}",
+            model.journal()
+        );
         working |= status.status.kind == Kind::Working;
         if working && status.status.kind == Kind::Idle {
             break;
@@ -3087,10 +3093,10 @@ async fn a32_without_handoff_archives_everything() {
         "No Handoff was written, so every Todo and Pad was archived.",
     ] {
         assert!(
-            model
-                .journal()
-                .iter()
-                .any(|entry| entry["body"]["messages"]
+            model.journal().iter().any(|entry| entry["body"]["tools"]
+                .as_array()
+                .is_some_and(|tools| !tools.is_empty())
+                && entry["body"]["messages"]
                     .as_array()
                     .is_some_and(|messages| messages.iter().any(|message| message["role"]
                         == "user"
