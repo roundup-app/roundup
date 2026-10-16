@@ -70,6 +70,15 @@ test-web-since base *args:
         *) exec pnpm --filter desktop exec vitest related --run {{args}} $files ;;
     esac
 
+# L89: rewrites the web shard durations from the vitest reports in the logs of the `web` jobs of a `main` run of check.yml (pick one with `gh run list --branch main --workflow check.yml`).
+web-durations run:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for job in $(gh run view {{run}} --json jobs --jq '.jobs[] | select(.name | startswith("web ")) | .databaseId'); do
+        gh api --allow-escape-sequences "repos/{owner}/{repo}/actions/jobs/$job/logs"
+    done | loop/web-durations.py > apps/desktop/src/testing/shardDurations.json.new
+    mv apps/desktop/src/testing/shardDurations.json.new apps/desktop/src/testing/shardDurations.json
+
 # Fails when the generated TypeScript differs from the Rust contract (tests regenerate it).
 contracts-fresh:
     git diff --exit-code -- contracts/generated
