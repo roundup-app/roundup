@@ -757,3 +757,8 @@
   align-items: center;
   column-gap: var(--space-2);
 }
+
+/* Quiet words paint no box, so they drop the menu's inline pad: with it, `Keep` no longer fits beside the action on the 288 px Rail's card. */
+.clear-words button {
+  --button-inline: 0;
+}
