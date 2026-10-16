@@ -1390,6 +1390,25 @@ fn q11_every_role_gets_plain_for_every_reply() {
 }
 
 #[tokio::test]
+async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
+    let s = setup();
+    let launcher = plugin_launcher(&s);
+    let (_, env) = launcher
+        .launch_on(
+            folders(&s.dir),
+            "7",
+            "1",
+            &s.cwd,
+            None,
+            Role::Agent,
+            &Default::default(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(env["ROUNDUP_AGENT"], "7");
+}
+
+#[tokio::test]
 async fn q11_each_launch_loads_all_three_pinned_plugins() {
     let s = setup();
     let launcher = plugin_launcher(&s);

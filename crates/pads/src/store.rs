@@ -41,7 +41,7 @@ impl Store {
     /// False when a Pad with this name already exists.
     pub fn insert(&self, pad: &Pad) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
-            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at, home) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT OR IGNORE INTO pads (key, name, owner, text, updated_at, home, revision) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
             params![
                 key(&pad.name),
                 pad.name,
@@ -57,7 +57,7 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT name, owner, text, updated_at, home FROM pads WHERE key = ?1",
+                "SELECT name, owner, text, updated_at, home, revision FROM pads WHERE key = ?1",
                 [key(name)],
                 row_to_pad,
             )
@@ -66,15 +66,17 @@ impl Store {
 
     /// Ordered by name.
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
-        let mut stmt = self
-            .db
-            .prepare("SELECT name, owner, text, updated_at, home FROM pads ORDER BY name")?;
+        let mut stmt = self.db.prepare(
+            "SELECT name, owner, text, updated_at, home, revision FROM pads ORDER BY name",
+        )?;
         stmt.query_map([], row_to_pad)?.collect()
     }
 
     pub fn set_text(&self, name: &str, text: &str, at: i64) -> rusqlite::Result<bool> {
         let changed = self.db.execute(
-            "UPDATE pads SET text = ?2, updated_at = ?3 WHERE key = ?1",
+            "UPDATE pads SET revision = revision + (text <> ?2),
+                 updated_at = CASE WHEN text = ?2 THEN updated_at ELSE ?3 END,
+                 text = ?2 WHERE key = ?1",
             params![key(name), text, at],
         )?;
         Ok(changed == 1)
@@ -150,6 +152,7 @@ fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
         text: row.get(2)?,
         updated_at: row.get(3)?,
         home: row.get(4)?,
+        revision: u64::try_from(row.get::<_, i64>(5)?).unwrap_or(1),
     })
 }
 
@@ -169,6 +172,7 @@ mod tests {
             owner: Actor::user(),
             text: String::new(),
             updated_at: 0,
+            revision: 1,
             home: None,
         };
         one.insert(&pad).unwrap();
