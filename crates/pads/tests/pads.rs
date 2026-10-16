@@ -1163,7 +1163,7 @@ async fn p15_deeper_heading_stays_inside_section() {
         inner["text"]
             .as_str()
             .unwrap()
-            .contains("more\ndeep\n- two")
+            .contains("more\n- two\ndeep\n\n## Done")
     );
 }
 
@@ -1294,7 +1294,7 @@ async fn p15_stale_revision_conflicts() {
     assert!(stale.message.contains("revision 2"));
     assert_eq!(ahead.code, code::CONFLICT);
     assert_eq!(current["revision"], 3);
-    assert_eq!(current["text"].as_str().unwrap().matches("x\n").count(), 2);
+    assert!(current["text"].as_str().unwrap().contains("more\nx\nx\n"));
 }
 
 #[tokio::test]
