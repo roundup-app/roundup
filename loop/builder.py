@@ -2,6 +2,8 @@
 """L23, L24, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
 ended, when a PR gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub could not be read or
 written."""
+import base64
+import binascii
 import json
 import os
 import re
@@ -21,6 +23,7 @@ NEEDS_MAC = orders.NEEDS_MAC
 # L79: the model that screens a build run's `ask` (`.agents/screen.md`), and the verdicts it gives.
 SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
+SCREEN_TRIES = 2
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 # L23: where claude-code-action trades the job's OIDC token for a Claude App token (its `src/github/token.ts`), and the
@@ -147,25 +150,54 @@ def question(answer, branch):
 
 def screen(ask):
     """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    `reason` and `preview`, or None when Claude Code gave no valid one in `SCREEN_TRIES` tries. Each failed try is logged."""
+    for attempt in range(1, SCREEN_TRIES + 1):
+        try:
+            out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                                  '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
+                                 input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                                 timeout=300, check=True)
+            verdict = json.loads(out.stdout).get('structured_output')
+        except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
+            print(f'screen: try {attempt} gave no verdict: {error}', file=sys.stderr)
+            continue
+        if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS:
+            return verdict
+        print(f'screen: try {attempt} gave no valid verdict: {verdict!r}', file=sys.stderr)
+    return None
+
+
+def encode(verdict):
+    """A screen `verdict` as a step output: base64, because GitHub drops an output holding a masked value and the
+    Codex login's `{` and `}` lines are masked, so a JSON object never arrived (L79). '' for no verdict."""
+    return base64.b64encode(json.dumps(verdict).encode()).decode() if verdict else ''
+
+
+def decode(text):
+    """The screen verdict `encode` wrote, or None when `text` is empty or holds no valid one."""
     try:
-        out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
-                              '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
-                             timeout=300, check=True)
-        verdict = json.loads(out.stdout).get('structured_output')
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
-        print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
+        verdict = json.loads(base64.b64decode(text, validate=True))
+    except (binascii.Error, ValueError):
         return None
     return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+
+
+def summarise(line):
+    """Say `line` as a workflow warning and in the job's run summary, so a failure of the loop shows."""
+    print(f'::warning::{line}')
+    if path := os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(path, 'a') as out:
+            out.write(f'{line}\n')
 
 
 def put(number, ask, verdict, run_url, back):
     """Send what a run asked the user where `screen`'s verdict says (L79): `loop` calls `back` with the screen's reason,
     `mac` holds Issue or PR `number` for an agent on the user's Mac, and `user` asks the user, preview first. With no
-    verdict the user gets the ask, told it went unscreened."""
+    verdict the question goes back to the loop like a `loop` verdict, and the run summary says so: the user is never
+    asked unscreened."""
     if verdict is None:
-        flag(number, f'{ask}\n\nThe screen gave no verdict, so this reached you unscreened: {run_url}')
+        summarise(f'The screen gave no verdict after {SCREEN_TRIES} tries on #{number}, so the question went back to the loop: {run_url}')
+        back('The screen gave no verdict, so a Builder settles the question itself.')
     elif verdict['verdict'] == 'loop':
         back(verdict['reason'])
     elif verdict['verdict'] == 'mac':
@@ -889,9 +921,9 @@ def main(args):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
-                print(json.dumps(screen(ask)))
+                print(encode(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
-            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
+            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
@@ -900,7 +932,7 @@ def main(args):
             return task_or_nothing(fix_task(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID']), os.environ['GITHUB_OUTPUT']))
         case ['fixed', pr, cause, ran, verdict, plumbing] if pr.isdigit() and ran in ('true', 'false') and \
                 plumbing in ('true', 'false'):
-            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'), plumbing == 'true')
+            fixed(int(pr), cause, ran == 'true', run_url, decode(verdict), plumbing == 'true')
         case ['review-task', pr, head] if pr.isdigit():
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
