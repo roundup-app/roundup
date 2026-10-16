@@ -6,7 +6,8 @@ const duration = 5000;
 
 const removeDelay = 150;
 
-const cardSelector = '[data-scope="toast"][data-part="root"]';
+// Toaster owns a persistent live region; Toast.Root/Title DOM must be gone.
+const cardSelector = '[data-scope="toast"][data-part="root"], [data-scope="toast"][data-part="title"]';
 
 afterEach(() => {
   cleanup();
@@ -125,8 +126,9 @@ it("u492_public_update_supports_caller_full_duration_restart", async () => {
   expect(card.hasAttribute("data-paused")).toBe(false);
   await vi.advanceTimersByTimeAsync(duration - 1);
   expect(card.dataset.state).toBe("open");
-  await vi.advanceTimersToNextFrame();
+  await vi.advanceTimersByTimeAsync(1);
   expect(card.dataset.state).toBe("closed");
+  expect(probe.status).toHaveBeenLastCalledWith({ status: "dismissing", src: "timer" });
   await vi.advanceTimersByTimeAsync(removeDelay);
   await vi.advanceTimersToNextFrame();
   await expectIdle(probe);
