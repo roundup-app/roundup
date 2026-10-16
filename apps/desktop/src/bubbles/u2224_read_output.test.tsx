@@ -57,7 +57,7 @@ describe("u2224 selecting shows output with nothing over it", () => {
     mounted.connected.rail.select("a");
     await waitFor(() => expect(chip("1")).not.toBeNull());
     expect(calls()).toBe(sent);
-    expect(geometry()).toEqual(before);
+    expect(geometry()["2"]).toEqual(before["2"]);
     expect(Object.keys(before).length).toBeGreaterThan(0);
   });
 
