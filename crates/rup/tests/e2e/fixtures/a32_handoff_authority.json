@@ -6,7 +6,13 @@
         "hasToolResult": false
       },
       "response": {
-        "content": "Waiting for the authorized Handoff."
+        "toolCalls": [
+          {
+            "id": "toolu_a32_child",
+            "name": "mcp__roundup__agent_spawn",
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"do it\", \"done\": \"the work is complete\", \"limits\": []}}"
+          }
+        ]
       }
     },
     {
@@ -40,13 +46,7 @@
         "hasToolResult": false
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "toolu_a32_child",
-            "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"do it\", \"done\": \"the work is complete\", \"limits\": []}}"
-          }
-        ]
+        "content": "Waiting for the authorized Handoff."
       }
     },
     {

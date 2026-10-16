@@ -1543,24 +1543,16 @@ async fn a32_only_the_door_may_hand_off() {
         .await
         .unwrap();
     let model = project.model.as_ref().unwrap();
-    let result = model.tool_result("toolu_a32_child").await;
-    let child: contracts::agent::RailNode =
-        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
-    let mut working = std::collections::BTreeSet::new();
-    let mut idle = std::collections::BTreeSet::new();
-    while idle.len() < 2 {
+    let mut working = false;
+    loop {
         let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if [&door, &child.id].contains(&&status.id) => {
-                Some(status)
-            }
+            EventData::AgentStatus(status) if status.id == door => Some(status),
             _ => None,
         })
         .await;
-        if status.status.kind == Kind::Working {
-            working.insert(status.id.clone());
-        }
-        if status.status.kind == Kind::Idle && working.contains(&status.id) {
-            idle.insert(status.id);
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
         }
     }
     let actor = |id: String| async {
@@ -1622,6 +1614,10 @@ async fn a32_only_the_door_may_hand_off() {
             model.journal()
         )
     });
+    // Spawn the child during Clear, so its startup digests cannot race Clear's Steer.
+    let result = model.tool_result("toolu_a32_child").await;
+    let child: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
     for who in [actor(child.id).await, project.client().await] {
         let error = who
             .request("workstream.handoff", params.clone())
