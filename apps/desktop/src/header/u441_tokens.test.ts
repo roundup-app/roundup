@@ -277,11 +277,13 @@ it("u441_token_surfaces_keep_contrast", async () => {
       await page.down(p.x, p.y);
       const pressed = await paint(selector);
       // U510: a covered icon button answers a press with dimmed ink and no fill; the tab name keeps its surface.
+
       if (selector === '.tab-name-button') expect(pressed.background, selector + ' distinct press').not.toBe(before.background);
       else {
         expect(pressed.colour, selector + ' distinct press').not.toBe(before.colour);
         expect(pressed.background, selector + ' press paints no fill').toBe(before.background);
       }
+
       expect(pressed.duration).toBe('0s');
       await save(`${capture}-${selector.slice(1)}-pressed`, { pressed, textRatio: ratio(pressed.ink, pressed.ground) });
       expect(ratio(pressed.ink, pressed.ground), selector + ' pressed').toBeGreaterThanOrEqual(4.5);
@@ -413,6 +415,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
         expect(pressed.background, name).toBe(rest.background);
         expect(pressed.colour).not.toBe(hovered.colour);
       }
+
       expect(pressed.duration).toBe('0s');
 
       const channels = pressed.ground.slice(0, 3).map(c => c / 255);
