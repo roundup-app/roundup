@@ -46,6 +46,8 @@ export type ChromePage = {
   pointer(type: "down" | "move" | "up", x: number, y: number): Promise<void>;
   /** One real left click (press, then release) at the page point (x, y). */
   click(x: number, y: number): Promise<void>;
+  /** Two real left clicks at the page point (x, y), the second with a click count of 2, so the page receives `dblclick`. */
+  doubleClick(x: number, y: number): Promise<void>;
   /** Presses the left button down at the page point (x, y) and holds it; `release` lets go. */
   down(x: number, y: number): Promise<void>;
   release(x: number, y: number): Promise<void>;
@@ -381,6 +383,14 @@ export const openPage = async (
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
       await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
+    },
+    doubleClick: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+
+      for (const clickCount of [1, 2]) {
+        await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount }, session);
+        await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount }, session);
+      }
     },
     down: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
