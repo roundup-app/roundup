@@ -86,13 +86,16 @@
   justify-content: flex-end;
 }
 
-.bubble-corner {
+/* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */
+.bubble-zone {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: var(--space-5);
-  height: var(--space-5);
-  cursor: nwse-resize;
+  box-sizing: border-box;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.bubble-zone[hidden] {
+  display: none;
 }
 
 /* U469: every Terminal keeps a pair of separate keyboard controls in the last line. */
