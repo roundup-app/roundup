@@ -185,12 +185,10 @@ class Codex(unittest.TestCase):
             tool.chmod(0o755)
         Path(path, 'temp').mkdir()
         output, out = Path(path, 'output'), io.StringIO()
-        with patch.dict(os.environ, CODEX_AUTH=login, RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', EXIT=str(code),
+        with patch.dict(os.environ, RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', EXIT=str(code),
                         PATH=f"{bin}:{os.environ['PATH']}"), \
                 patch.object(builder, 'app_token', return_value='fresh') as token, redirect_stdout(out):
-            exit_code = builder.codex('Build U1.', 'gpt-6.1-sol', schema, output)
-            left = 'CODEX_AUTH' in os.environ
-        self.assertFalse(left)
+            exit_code = builder.codex(login, 'Build U1.', 'gpt-6.1-sol', schema, output)
         seen = json.loads(Path(path, 'seen').read_text())
         return seen, output.read_text(), out.getvalue(), Path(path, 'calls').read_text(), token.call_args, exit_code
 
@@ -233,9 +231,60 @@ class Codex(unittest.TestCase):
         for login in ('', json.dumps(dict(auth_mode='apikey', tokens=dict(access_token='a'))),
                       json.dumps(dict(auth_mode='chatgpt'))):
             with self.subTest(login=login), tempfile.TemporaryDirectory() as path, \
-                    patch.dict(os.environ, CODEX_AUTH=login, RUNNER_TEMP=path), \
-                    self.assertRaisesRegex(ValueError, 'CODEX_AUTH_JSON'):
-                builder.codex('Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
+                    patch.dict(os.environ, RUNNER_TEMP=path), self.assertRaisesRegex(ValueError, 'CODEX_AUTH_JSON'):
+                builder.codex(login, 'Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
+
+
+FAKE_CLAUDE = '''#!/usr/bin/env python3
+import json, os, sys
+json.dump(dict(args=sys.argv[1:], prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
+    'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_AUTH', 'GH_TOKEN', 'GIT_AUTHOR_NAME')}), open(os.environ['SEEN_CLAUDE'], 'w'))
+if os.environ['CLAUDE_MODE'] == 'works':
+    print(json.dumps(dict(type='assistant', message=dict(content=[dict(type='tool_use')]))))
+    print(json.dumps(dict(type='result', is_error=False, structured_output=dict(ask='from claude'))))
+else:
+    print(json.dumps(dict(type='result', is_error=True, result='Claude usage limit reached')))
+    sys.exit(1)
+'''
+
+
+class Engine(unittest.TestCase):
+    def run_engine(self, path, mode):
+        """`builder.engine` with fake `claude`, `codex` and `gh` on PATH: the step outputs and what each engine saw."""
+        bin = Path(path, 'bin')
+        bin.mkdir()
+        (bin / 'claude').write_text(FAKE_CLAUDE)
+        (bin / 'codex').write_text(FAKE_CODEX)
+        (bin / 'gh').write_text('#!/usr/bin/env bash\n')
+        for tool in bin.iterdir():
+            tool.chmod(0o755)
+        Path(path, 'temp').mkdir()
+        output = Path(path, 'output')
+        with patch.dict(os.environ, CODEX_AUTH=Codex.LOGIN, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=mode,
+                        RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
+                        PATH=f"{bin}:{os.environ['PATH']}"), \
+                patch.object(builder, 'app_token', return_value='fresh'), redirect_stdout(io.StringIO()), \
+                redirect_stderr(io.StringIO()):
+            builder.engine('Build U1.', '{"type":"object"}', output)
+        seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None
+        return output.read_text(), seen('seen-claude'), seen('seen')
+
+    def test_l23_claude_code_runs_sonnet_first_and_codex_runs_only_when_it_did_no_work(self):
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 'works')
+        self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
+        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh',
+                                             GIT_AUTHOR_NAME='claude[bot]'))
+        self.assertIsNone(codex)
+        self.assertIn('{"ask": "from claude"}', output)
+        self.assertEqual(output.count('execution_file='), 1)
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 'limit')
+        self.assertEqual(codex['args'][:4], ['exec', '--json', '--model', 'gpt-6.1-sol'])
+        self.assertEqual(codex['prompt'], 'Build U1.')
+        self.assertEqual(output.count('execution_file='), 2)
+        self.assertIn('{"ask":""}', output)
+        self.assertNotIn('from claude', output)
 
 
 def invalid_row(number, **changes):
