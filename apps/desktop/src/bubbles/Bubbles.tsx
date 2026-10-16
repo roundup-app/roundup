@@ -705,7 +705,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                     <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
                   </button>
                 }>
-                  <div class="terminal-tab terminal-tab-editor" data-bubble={id}>
+                  <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
                     <Editable.Root defaultValue={name()} activationMode="none" submitMode="both" finalFocusEl={tab}
                       onValueCommit={({ value }) => rename(terminal(), value)}
                       onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
