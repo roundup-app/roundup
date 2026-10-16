@@ -6042,3 +6042,77 @@ async fn b6_a_held_prompt_is_dropped_when_the_child_exits() {
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
 }
+
+async fn terminal_running(run: &Run) -> bool {
+    let listed = run.user.request("terminal.list", json!({})).await.unwrap();
+    listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["id"] == run.terminal && t["running"] == true)
+}
+
+async fn idle_child_with_held_terminal_call(method: &str) -> (Run, Arc<Client>, Value) {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request(method, json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    (run, caller, receipt)
+}
+
+async fn held_terminal_call_waits_for_release(method: &str) {
+    let (run, caller, receipt) = idle_child_with_held_terminal_call(method).await;
+    assert_eq!(receipt["method"], method);
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert!(
+        terminal_running(&run).await,
+        "Door {method} reached the Terminal during Takeover"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let running = terminal_running(&run).await;
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert!(!running, "released {method} left the Terminal running");
+}
+
+#[tokio::test]
+async fn b6_a_door_terminal_kill_waits_for_takeover_release() {
+    held_terminal_call_waits_for_release("terminal.kill").await;
+}
+
+#[tokio::test]
+async fn b6_a_door_terminal_close_waits_for_takeover_release() {
+    held_terminal_call_waits_for_release("terminal.close").await;
+}
+
+#[tokio::test]
+async fn b6_a_held_terminal_kill_is_dropped_when_the_child_exits() {
+    let (run, caller, receipt) = idle_child_with_held_terminal_call("terminal.kill").await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
