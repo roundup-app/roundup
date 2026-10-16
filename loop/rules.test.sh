@@ -397,6 +397,8 @@ expect pass 'y3_a_law_with_no_check_prints_unchecked' bash -c "loop/rules.sh law
 laws_repo 'Law: Things hold. Check: z9_'
 expect fail 'y3_a_check_naming_a_prefix_no_test_has_exits_1' loop/rules.sh laws
 expect pass 'y3_that_exit_names_the_id' bash -c "loop/rules.sh laws 2>&1 | grep -q 'A1 names'"
+laws_repo $'**A2176a two.** t\nLaw: Things hold. Check: a2176a_'; echo 'it("a2176a_works", () => {});' >tests/a.test.ts; commit y
+expect pass 'y3_a_lettered_heading_owns_its_law' bash -c "[ \"\$(loop/rules.sh laws)\" = 'A2176a | Things hold | a2176a_' ]"
 new_repo
 expect_exit 4 'y3_a_missing_scenarios_directory_exits_4' loop/rules.sh laws
 
@@ -410,7 +412,7 @@ ids_repo
 printf '**X1 one.** a\n\n**X1 two.** b\n' >scenarios/a.md
 expect fail 'l97_two_headings_in_one_file_fail' loop/rules.sh scenario-ids
 ids_repo
-printf '**X1 one.** a\n**X1a part.** b\n' >scenarios/a.md; printf '**X2 two.** see **X1 \nX1 (amended)\n- **X2 not a heading start\n' >scenarios/b.md
+printf '**X1 one.** a\n**X1a part.** b\n**X2176a one.** c\n' >scenarios/a.md; printf '**X2 two.** see **X1 \n**X2176b two.** d\nX1 (amended)\n- **X2 not a heading start\n' >scenarios/b.md
 expect pass 'l97_distinct_ids_pass' loop/rules.sh scenario-ids
 ids_repo
 printf '**X1 one.** a, and X1 again\nX1 (amended clause)\n' >scenarios/a.md
