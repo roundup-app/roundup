@@ -72,6 +72,11 @@ it("u491_existing_layout_binding", async () => {
   await wait(`document.querySelector('[data-layout-panel=shelf]').getBoundingClientRect().width === 544`);
   expect(await read<string>(`getComputedStyle(document.querySelector('[data-layout-root]')).display`)).toBe("grid");
   expect(await read<string>(`getComputedStyle(document.querySelector('.columns')).display`)).toBe("grid");
+  await browser("find", "role", "button", "click", "--name", "Shelf", "--exact");
+  await wait(`document.querySelector('[data-layout-panel=shelf]').hidden && !document.querySelector('[aria-label="Resize work items"]')`);
+  await key("Resize Rail", "ArrowLeft");
+  await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 464`);
+  expect(await widths()).toEqual({ rail: 464, shelf: 0 });
 }, 90_000);
 
 
