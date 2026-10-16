@@ -199,6 +199,7 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
           expect(pressed.geometry, `${name} pressed geometry`).toBe(rest.geometry);
           expect(rest.radius, `${name} radius`).toBe("0px");
           expect(rest.height, `${name} minimum target height`).toBeGreaterThanOrEqual(24);
+
           if (rest.disclosure) expect(rest.padding, `${name} inline padding`).toBe("0px|0px");
         });
       }, 120_000);
@@ -207,6 +208,7 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
   it("u510_targets_remain_reachable", async () => {
     await open("tree-40", "light");
     const names = await page.call<string[]>(INVENTORY);
+
     const overlaps = await page.call<string[]>(`() => {
       const boxes = window.__covered.map(el => [el, el.getBoundingClientRect()]);
       const bad = [];
@@ -250,6 +252,7 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
 
   it("u510_disabled_behavior_is_preserved", async () => {
     await open("tree-40", "light");
+
     const result = await page.call<{ found: boolean; same: boolean; named: boolean; focusable: boolean; centre: [number, number] }>(`() => {
       const el = document.querySelector('[data-button="quiet"][aria-disabled="true"], [data-button="icon"][aria-disabled="true"]');
 
@@ -282,6 +285,7 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
 
     for (const seed of SEEDS) {
       await open(seed, "light");
+
       for (const name of await page.call<string[]>(INVENTORY)) callers.add(name.replace(/#\d$/, ''));
     }
 

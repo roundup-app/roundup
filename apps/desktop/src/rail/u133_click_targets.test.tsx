@@ -126,6 +126,7 @@ describe("u133 click targets", () => {
         expect(hover.getPropertyValue("background-color"), `${name} hover paints no fill`).toBe(rest.getPropertyValue("background-color"));
         expect(pressed.getPropertyValue("background-color"), `${name} press paints no fill`).toBe(rest.getPropertyValue("background-color"));
       }
+
       expect(pressed.getPropertyValue("transition-duration"), name).toBe("0s");
       expect(px(rest.getPropertyValue("min-height")), `${name} hit area`).toBeGreaterThanOrEqual(24);
     }

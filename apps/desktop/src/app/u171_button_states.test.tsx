@@ -74,6 +74,7 @@ describe("u171 every kind shows every state", () => {
           expect(styleIn(el, state).getPropertyValue("background-color"), `${kind} ${state} paints no fill`).toBe(styleIn(el, "rest").getPropertyValue("background-color"));
           expect(styleIn(el, state).getPropertyValue("color"), `${kind} ${state} ink`).not.toBe(styleIn(el, "rest").getPropertyValue("color"));
         }
+
       expect(styleIn(el, "pressed").getPropertyValue("transition-duration"), kind).toBe("0s");
       expect(styleIn(el, "hover").getPropertyValue("cursor"), kind).toBe("pointer");
     }
