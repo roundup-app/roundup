@@ -636,6 +636,7 @@ impl Daemon {
             | "agent.discard"
             | "agent.land"
             | "agent.worktreeState"
+            | "agent.run"
             | "rail.rename"
             | "rail.move"
             | "rail.remove" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
