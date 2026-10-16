@@ -64,16 +64,6 @@ export const placesStorage = (path: string) => {
   };
 };
 
-export const DEFAULT_TRANSPARENCY = 8;
-
-export const MAX_TRANSPARENCY = 60;
-
-export const TRANSPARENCY_STEP = 5;
-
-const transparencySchema = v.pipe(v.number(), v.minValue(0), v.maxValue(MAX_TRANSPARENCY));
-
-export const transparencyStorage = (path: string) => storedValue(`roundup:bubble-transparency:${path}`, transparencySchema);
-
 /** The Terminals the selection shows (engineering call 3): its own, and those of every Workstream above it. */
 export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly RailNode[], selected: string | null): TerminalInfo[] => {
   if (selected === null) return [];

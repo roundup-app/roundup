@@ -9,7 +9,7 @@ import { resolvedWorkstream } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, DEFAULT_TRANSPARENCY, MAX_TRANSPARENCY, MIN_HEIGHT, MIN_WIDTH, nameOf, placesStorage, shownFor, STEP, TRANSPARENCY_STEP, transparencyStorage,
+  clamped, defaultPlace, MIN_HEIGHT, MIN_WIDTH, nameOf, placesStorage, shownFor, STEP,
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
@@ -36,14 +36,12 @@ export const Bubbles = (props: { screens: Screens }) => {
   const { rail, app } = connected;
   const path = connected.project.path;
   const store = placesStorage(path);
-  const transparencyStore = transparencyStorage(path);
 
   const persistPlaces = (value: Record<string, Place>): void => {
     if (connected.daemonExit() === null) store.write(value);
   };
 
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
-  const [transparency, setTransparency] = createSignal(transparencyStore.read() ?? DEFAULT_TRANSPARENCY);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [opening, setOpening] = createSignal(false);
   const [wanted, setWanted] = createSignal<string | null>(null);
@@ -163,11 +161,6 @@ export const Bubbles = (props: { screens: Screens }) => {
   });
 
   const readOnly = () => connected.daemonExit() !== null;
-
-  const setLevel = (value: number): void => {
-    setTransparency(value);
-    setFailure(transparencyStore.write(value));
-  };
 
   const running = (terminal: TerminalInfo): boolean => terminal.running && rail.terminalExit(terminal.id) === null;
 
@@ -624,24 +617,14 @@ export const Bubbles = (props: { screens: Screens }) => {
         role="group"
         aria-label={nameOf(terminal()!)}
         hidden={place().min}
-        style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px`, "--bubble-ground": `${(100 - transparency()) / 100}` }}
+        style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}
       >
         <header class="bubble-header" tabindex="0" onPointerDown={(event) => {
             // SAFETY: a pointer event on the header always targets an Element.
-            if (!(event.target as Element).closest("button, input")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
+            if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
           }} onKeyDown={onHeaderKey}>
           <span class="bubble-name">{nameOf(terminal()!)}</span>
           <span class="bubble-state">{stateText(terminal()!)}</span>
-          <input
-            type="range"
-            aria-label={copy.transparency}
-            min="0"
-            max={MAX_TRANSPARENCY}
-            step={TRANSPARENCY_STEP}
-            value={transparency()}
-            aria-valuetext={copy.percent(transparency())}
-            onInput={(event) => setLevel(Number(event.currentTarget.value))}
-          />
           <IconButton aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
             <Icon name="down" />
           </IconButton>
