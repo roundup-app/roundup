@@ -107,7 +107,9 @@ describe("u26 the harness seeds", () => {
     showShelfTab("Pads");
     fireEvent.click((await screen.findAllByText("pad-0"))[0]!);
 
-    expect(await screen.findByRole("button", { name: "Export .md" })).toBeTruthy();
+    const drawer = within(await screen.findByLabelText("Drawer"));
+
+    expect(await drawer.findByRole("button", { name: "Export .md" })).toBeTruthy();
   });
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
