@@ -4777,7 +4777,7 @@ async fn b6_a_rename_losing_reach_drops_and_the_new_doors_rename_proceeds() {
         history[0]["outcome"]["reason"]
             .as_str()
             .unwrap()
-            .contains("not one of")
+            .contains("not in the Reach")
     );
     assert_eq!(history[1]["outcome"]["status"], "completed");
     let tree = run.user.request("rail.tree", ()).await.unwrap();
