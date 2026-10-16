@@ -3,7 +3,6 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::{Output, Stdio};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use rmcp::ServiceExt;
@@ -11,6 +10,11 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixListener;
 use tokio::sync::mpsc;
+
+#[path = "common/served.rs"]
+mod common;
+
+use common::Served;
 
 const BOUND: Duration = Duration::from_secs(30);
 
@@ -82,16 +86,17 @@ fn code(output: &Output) -> i32 {
 }
 
 struct Project {
-    _dir: tempfile::TempDir,
+    _served: Served,
     socket: PathBuf,
 }
 
-fn start_daemon() -> Project {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("rupd.sock");
-    let daemon = Arc::new(rupd::Daemon::open(&dir.path().join(".roundup")).unwrap());
-    tokio::spawn(rupd::serve(UnixListener::bind(&socket).unwrap(), daemon));
-    Project { _dir: dir, socket }
+async fn start_daemon() -> Project {
+    let served = Served::start("#!/bin/sh\nexit 0\n", &[]).await;
+    let socket = served.socket();
+    Project {
+        _served: served,
+        socket,
+    }
 }
 
 /// A stand-in Daemon: `rail.tree` shows a Door `a1` when `door`, `replies` answer by method and
@@ -387,7 +392,7 @@ async fn i2_help_alone_teaches_every_command() {
 
 #[tokio::test]
 async fn i3_stdout_is_the_text_the_mcp_tool_returns() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let run = on(&project.socket);
     assert_eq!(
         code(
@@ -419,7 +424,7 @@ async fn i3_stdout_is_the_text_the_mcp_tool_returns() {
 
 #[tokio::test]
 async fn i3_json_prints_the_result_alone() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let run = on(&project.socket);
     run.rup(&["pad", "create", "notes", "--text", "hi"]).await;
     let output = run.rup(&["pad", "read", "notes", "--json"]).await;
@@ -434,7 +439,7 @@ async fn i3_json_prints_the_result_alone() {
 
 #[tokio::test]
 async fn i3_a_daemon_error_is_on_stderr_with_what_to_do_next_and_exits_1() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let failed = on(&project.socket).rup(&["pad", "read", "missing"]).await;
     assert_eq!(code(&failed), 1);
     assert!(out(&failed).is_empty());
@@ -462,7 +467,7 @@ async fn i3_no_daemon_names_the_socket_and_exits_1() {
 
 #[tokio::test]
 async fn i4_exit_codes_are_0_1_and_2_as_the_help_lists() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let run = on(&project.socket);
     assert_eq!(code(&run.rup(&["pad", "list"]).await), 0);
     assert_eq!(code(&run.rup(&["pad", "read", "missing"]).await), 1);
@@ -492,7 +497,7 @@ async fn i4_a_hook_command_with_bad_usage_exits_1_not_2() {
 
 #[tokio::test]
 async fn i5_a_call_is_the_touch_of_the_agent_named() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let by = on(&project.socket).acting_as(Some("a7"));
     assert_eq!(code(&by.rup(&["pad", "create", "notes"]).await), 0);
     let history = out(&by
@@ -504,7 +509,7 @@ async fn i5_a_call_is_the_touch_of_the_agent_named() {
 
 #[tokio::test]
 async fn i5_the_agent_flag_overrides_the_variable() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let run = on(&project.socket).acting_as(Some("a8"));
     run.rup(&["pad", "create", "notes", "--agent", "a9"]).await;
     let history = out(&run
@@ -516,7 +521,7 @@ async fn i5_the_agent_flag_overrides_the_variable() {
 
 #[tokio::test]
 async fn i5_no_agent_id_says_so_and_exits_2() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let output = on(&project.socket)
         .acting_as(None)
         .rup(&["pad", "list"])
@@ -733,7 +738,7 @@ async fn i7_read_json_has_next_in_the_result() {
 /// A real Terminal that prints 40 000 bytes: each read is cut at the 16 384-byte cap as over MCP, and a loop from `next` misses and repeats nothing.
 #[tokio::test(flavor = "multi_thread")]
 async fn i7_a_loop_of_reads_from_next_misses_and_repeats_nothing() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let run = on(&project.socket);
     let spawned = run
         .rup(&[
@@ -787,7 +792,7 @@ async fn i7_a_loop_of_reads_from_next_misses_and_repeats_nothing() {
 
 #[tokio::test]
 async fn i7_a_reply_over_the_cap_is_cut_as_over_mcp() {
-    let project = start_daemon();
+    let project = start_daemon().await;
     let run = on(&project.socket);
     let spawned = run
         .rup(&[
