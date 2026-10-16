@@ -552,6 +552,7 @@
   margin: 0;
   color: var(--grey);
   font-size: var(--text-caption);
+  text-wrap: balance;
 }
 
 .rail-agent-actions {
@@ -561,9 +562,8 @@
 }
 
 .rail-agent-actions > button {
-  --button-surface: var(--sunken);
+  --button-surface: var(--ground);
   --button-inline: var(--space-3);
-  border: 1px solid var(--hairline);
 }
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
