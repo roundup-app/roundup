@@ -3112,3 +3112,212 @@ async fn a32_without_handoff_archives_everything() {
     }
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn a32_the_door_restarts_fresh_from_the_handoff() {
+    tokio::time::timeout(Duration::from_secs(60), async {
+        let (project, mut client, door) = clear_fixture("a32_fresh_handoff", &[]).await;
+        let model = project.model.as_ref().unwrap();
+        let before = rail_tree(&client).await;
+        let first = before.iter().find(|node| node.id == door).unwrap();
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "bloat"}),
+            )
+            .await
+            .unwrap();
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door => Some(status),
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: door.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "workstream.handoff",
+                json!({"id": door, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
+            )
+            .await
+            .unwrap();
+        let cleared = next(&mut client, |event| match event {
+            EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+            _ => None,
+        })
+        .await;
+        assert_eq!((cleared.id.as_str(), cleared.iteration), (door.as_str(), 2));
+        assert_eq!(
+            rail_tree(&client)
+                .await
+                .iter()
+                .find(|node| node.id == door)
+                .unwrap()
+                .iteration,
+            Some(2)
+        );
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                    Some(status)
+                }
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        let tree = rail_tree(&client).await;
+        let after = tree.iter().find(|node| node.id == door).unwrap();
+        assert_eq!(after.attempt.as_deref(), Some("2"));
+        assert_ne!(after.terminal_id, first.terminal_id);
+        let journal = model.journal();
+        let restarted = journal.iter().find(|entry| entry["body"]["tools"].is_array()
+            && entry["body"]["messages"].as_array().is_some_and(|messages|
+                messages.iter().any(|message| message["role"] == "user"
+                    && message["content"].as_str().is_some_and(|text|
+                        text.contains("Follow this instruction: Build the login page.")
+                        && text.contains("archived in the Pad archive-1")))))
+            .unwrap_or_else(|| panic!("real Door receives the Handoff and archive pointer: {journal:#?}"));
+        // A resumed conversation would retain the earlier Clear and child-spawn turns.
+        let messages = restarted["body"]["messages"].as_array().unwrap();
+        assert!(!messages.iter().any(|message| message["role"] == "tool"));
+        assert!(!messages.iter().any(|message| message["role"] == "user" && message["content"].as_str()
+            .is_some_and(|text| text.contains("workstream_handoff") || text.contains("What is this Workstream for?"))));
+        assert!(journal.iter().any(|entry| entry["body"]["tools"].is_array()
+            && entry["body"]["messages"].as_array().is_some_and(|messages|
+                messages.iter().any(|message| message["role"] == "user"
+                    && message["content"].as_str().is_some_and(|text|
+                        text.contains("bloat") && text.contains("workstream_handoff"))))));
+        model.assert_matched();
+    })
+    .await
+    .expect("fresh Door Handoff observer did not complete");
+}
+
+#[tokio::test]
+async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
+    tokio::time::timeout(Duration::from_secs(60), async {
+        let (project, mut client, door) = clear_fixture("a32_stop_deepest", &[]).await;
+        let model = project.model.as_ref().unwrap();
+        let before = rail_tree(&client).await;
+        let child = before.iter().find(|node| node.parent.as_deref() == Some(&door)).unwrap();
+        let grandchild = before.iter().find(|node| node.parent.as_deref() == Some(&child.id)).unwrap();
+        let children = [&child.id, &grandchild.id];
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "bloat"}),
+            )
+            .await
+            .unwrap();
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door => Some(status),
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: door.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "workstream.handoff",
+                json!({"id": door, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
+            )
+            .await
+            .unwrap();
+        let cleared = next(&mut client, |event| match event {
+            EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+            _ => None,
+        })
+        .await;
+        assert_eq!((cleared.id.as_str(), cleared.iteration), (door.as_str(), 2));
+        assert_eq!(
+            rail_tree(&client)
+                .await
+                .iter()
+                .find(|node| node.id == door)
+                .unwrap()
+                .iteration,
+            Some(2)
+        );
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                    Some(status)
+                }
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        let tree = rail_tree(&client).await;
+        assert!(tree.iter().any(|node| node.id == door));
+        assert!(tree.iter().all(|node| !children.contains(&&node.id)));
+        let journal = model.journal();
+        let restarted = journal.iter().find(|entry| entry["body"]["tools"].is_array()
+            && entry["body"]["messages"].as_array().is_some_and(|messages|
+                messages.iter().any(|message| message["role"] == "user"
+                    && message["content"].as_str().is_some_and(|text|
+                        text.contains("Follow this instruction: Build the login page.")
+                        && text.contains("archived in the Pad archive-1")))))
+            .unwrap_or_else(|| panic!("real Door receives the Handoff and archive pointer: {journal:#?}"));
+        let messages = restarted["body"]["messages"].as_array().unwrap();
+        let handoff = messages.iter().filter(|message| message["role"] == "user")
+            .filter_map(|message| message["content"].as_str())
+            .find(|text| text.contains("Follow this instruction: Build the login page."))
+            .unwrap();
+        let child_branch = format!("branch roundup/agent-{}", child.id);
+        let grandchild_branch = format!("branch roundup/agent-{}", grandchild.id);
+        let shallow = handoff.find(&child_branch).expect("child Worktree in Handoff");
+        let deep = handoff.find(&grandchild_branch).expect("grandchild Worktree in Handoff");
+        assert!(deep < shallow, "deepest Subagent is handed off first: {handoff}");
+        model.assert_matched();
+    })
+    .await
+    .expect("fresh Door Handoff observer did not complete");
+}
