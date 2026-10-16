@@ -5128,3 +5128,152 @@ async fn b6_a_child_cannot_queue_a_parent_rename_during_the_parents_takeover() {
         "a forbidden action must never be accepted"
     );
 }
+
+async fn door_peer_request(run: &Run, terminal: &Value, request: Value) -> Value {
+    let result = run.dir.path().join("peer-result");
+    if result.exists() {
+        std::fs::remove_file(&result).unwrap();
+    }
+    std::fs::write(
+        run.dir.path().join("peer-request"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":terminal,"data":STANDARD.encode(b"\x02")}),
+        )
+        .await
+        .unwrap();
+    // Fake Claude writes this only after reading the real Daemon's RPC replies.
+    tokio::time::timeout(BOUND, async {
+        loop {
+            if let Ok(text) = std::fs::read_to_string(&result)
+                && let Ok(reply) = serde_json::from_str(&text)
+            {
+                return reply;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn b6_a_door_process_cannot_claim_user_to_bypass_a_held_rename() {
+    let (run, _) = door_terminal().await;
+    let (door, terminal) = start_answer_door(&run).await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let replies = door_peer_request(
+        &run,
+        &terminal,
+        json!([
+            {"id":1,"method":"daemon.identify","params":{"actor":{"kind":"user","id":"you"}}},
+            {"id":2,"method":"rail.rename","params":{"id":run.child,"name":"process rename"}}
+        ]),
+    )
+    .await;
+    let reply = replies
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == 2)
+        .unwrap()
+        .clone();
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let before = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["name"]
+        .clone();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let after = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["name"]
+        .clone();
+    run.user
+        .request("agent.stop", json!({"id":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(
+        reply["result"]["outcome"],
+        json!({"status":"waiting","reason":"takeover"}),
+        "{reply}"
+    );
+    assert_ne!(before, "process rename");
+    assert_eq!(after, "process rename");
+}
+
+#[tokio::test]
+async fn b6_action_history_uses_the_door_process_identity_despite_a_user_claim() {
+    let (run, caller) = door_terminal().await;
+    let (door, terminal) = start_answer_door(&run).await;
+    let child = Client::connect(&run.daemon.socket).await.unwrap();
+    child
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    child
+        .request(
+            "rail.rename",
+            json!({"id":run.child,"name":"childs rename"}),
+        )
+        .await
+        .unwrap();
+    let own = caller
+        .request("rail.rename", json!({"id":run.child,"name":"doors rename"}))
+        .await
+        .unwrap();
+    let replies = door_peer_request(
+        &run,
+        &terminal,
+        json!([
+            {"id":1,"method":"daemon.identify","params":{"actor":{"kind":"user","id":"you"}}},
+            {"id":2,"method":"agent.actionHistory","params":{"id":run.child}}
+        ]),
+    )
+    .await;
+    let reply = replies
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == 2)
+        .unwrap()
+        .clone();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    run.user
+        .request("agent.stop", json!({"id":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(
+        reply["result"],
+        json!([own]),
+        "the Door read another Actor's receipt: {reply}"
+    );
+}
