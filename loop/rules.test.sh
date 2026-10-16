@@ -188,6 +188,18 @@ git merge -q --no-ff --allow-unrelated-histories --no-edit origin/main -m "Merge
 clean_code 1 "L54 a merge of unrelated history fails closed in merge-tree" "merge-tree"
 expect_exit 2 "L54 clean-merge needs a commit" loop/rules.sh clean-merge
 
+# L120 merge-loss: own files come from the branch's non-merge commits, never from a PR body.
+loss_code() {
+  local want=$1 name=$2 why=${3:-} got=0 out
+  out=$(loop/rules.sh merge-loss 2>&1) || got=$?
+  if [ "$got" -eq "$want" ] && [[ $out == *"$why"* ]]; then echo "ok:   $name"; else echo "FAIL: $name (wanted exit $want, got $got: $out)"; failures=$((failures + 1)); fi
+}
+merge_repo; loss_code 0 "L120 a branch whose changed files are all its own commits' passes"
+merge_repo; git rm -q scenarios/loop.md; commit "remove it" 'Author-Agent: t'
+loss_code 0 "L120 a deletion made in an own commit passes"
+merge_repo; main_commit scenarios/loop.md changed; merge_main; echo a >scenarios/loop.md; finish_merge
+loss_code 1 "L120 a merge that drops a main hunk in an untouched file fails, listing it" "scenarios/loop.md"
+
 # L2, L33, L37 read only fake GitHub data, with real commit trees.
 gate_repo() {
   new_repo
@@ -397,6 +409,8 @@ expect pass 'y3_a_law_with_no_check_prints_unchecked' bash -c "loop/rules.sh law
 laws_repo 'Law: Things hold. Check: z9_'
 expect fail 'y3_a_check_naming_a_prefix_no_test_has_exits_1' loop/rules.sh laws
 expect pass 'y3_that_exit_names_the_id' bash -c "loop/rules.sh laws 2>&1 | grep -q 'A1 names'"
+laws_repo $'**A2176a two.** t\nLaw: Things hold. Check: a2176a_'; echo 'it("a2176a_works", () => {});' >tests/a.test.ts; commit y
+expect pass 'y3_a_lettered_heading_owns_its_law' bash -c "[ \"\$(loop/rules.sh laws)\" = 'A2176a | Things hold | a2176a_' ]"
 new_repo
 expect_exit 4 'y3_a_missing_scenarios_directory_exits_4' loop/rules.sh laws
 
@@ -410,7 +424,7 @@ ids_repo
 printf '**X1 one.** a\n\n**X1 two.** b\n' >scenarios/a.md
 expect fail 'l97_two_headings_in_one_file_fail' loop/rules.sh scenario-ids
 ids_repo
-printf '**X1 one.** a\n**X1a part.** b\n' >scenarios/a.md; printf '**X2 two.** see **X1 \nX1 (amended)\n- **X2 not a heading start\n' >scenarios/b.md
+printf '**X1 one.** a\n**X1a part.** b\n**X2176a one.** c\n' >scenarios/a.md; printf '**X2 two.** see **X1 \n**X2176b two.** d\nX1 (amended)\n- **X2 not a heading start\n' >scenarios/b.md
 expect pass 'l97_distinct_ids_pass' loop/rules.sh scenario-ids
 ids_repo
 printf '**X1 one.** a, and X1 again\nX1 (amended clause)\n' >scenarios/a.md

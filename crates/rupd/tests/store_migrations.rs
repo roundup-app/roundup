@@ -176,6 +176,7 @@ async fn n20_current_store_opens() {
         },
         text: "payload".into(),
         updated_at: 42,
+        revision: 1,
         home: Some("door".into()),
     }];
     let sources = messages::digest::Sources {

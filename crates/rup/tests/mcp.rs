@@ -224,7 +224,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 61] = [
+const TOOL_METHODS: [&str; 62] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -239,6 +239,7 @@ const TOOL_METHODS: [&str; 61] = [
     "pad.list",
     "pad.write",
     "pad.append",
+    "pad.appendSection",
     "pad.setOwner",
     "pad.delete",
     "pad.export",
@@ -514,6 +515,10 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             derived(schemars::schema_for!(pad::AppendParams)),
         ),
         (
+            "pad_appendSection",
+            derived(schemars::schema_for!(pad::AppendSectionParams)),
+        ),
+        (
             "pad_setOwner",
             derived(schemars::schema_for!(pad::SetOwnerParams)),
         ),
@@ -620,6 +625,51 @@ async fn b12_a_call_is_made_as_the_agent_and_returns_the_daemons_result() {
     assert_eq!(text(&refused)["code"], rpc::code::FORBIDDEN);
     let pass = shim.call("message_pass", json!({"id": 1})).await;
     assert_eq!(text(&pass)["code"], rpc::code::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn p15_tool_offered_and_touch_by_agent() {
+    let project = start_daemon();
+    let owner = client_as(&project.socket, agent("owner")).await;
+    owner
+        .request(
+            "pad.create",
+            json!({ "name": "notes", "text": "# Notes\n## Plan\n- one\n" }),
+        )
+        .await
+        .unwrap();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let appended = shim
+        .call(
+            "pad_appendSection",
+            json!({ "name": "notes", "heading": "plan", "text": "- two", "expectedRevision": 1 }),
+        )
+        .await;
+    let stale = shim
+        .call(
+            "pad_appendSection",
+            json!({ "name": "notes", "heading": "plan", "text": "- three", "expectedRevision": 1 }),
+        )
+        .await;
+
+    assert!(tools.iter().any(|t| t.name == "pad_appendSection"));
+    assert_eq!(appended.is_error, Some(false));
+    assert_eq!(text(&appended)["text"], "# Notes\n## Plan\n- one\n- two\n");
+    assert_eq!(text(&appended)["revision"], 2);
+    assert_eq!(stale.is_error, Some(true));
+    assert_eq!(text(&stale)["code"], rpc::code::CONFLICT);
+    let history = owner
+        .request("provenance.history", json!({ "item": "pad:notes" }))
+        .await
+        .unwrap();
+    let touches: Vec<Touch> = serde_json::from_value(history).unwrap();
+    assert!(
+        touches
+            .iter()
+            .any(|t| t.verb == Verb::Wrote && t.actor == agent("a1"))
+    );
 }
 
 #[tokio::test]

@@ -11,6 +11,7 @@
   height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
+  padding-inline: var(--space-4);
   border-top-width: 1px;
   border-top-style: solid;
   border-top-color: var(--hairline);
@@ -20,8 +21,8 @@
   flex: 1;
   justify-content: flex-start;
   min-height: 28px;
-  --button-lead: var(--space-4);
-  --button-inline: var(--space-4);
+  --button-lead: 0;
+  --button-inline: 0;
 }
 
 .rail-row {
@@ -405,9 +406,9 @@
 /* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
 .rail-row .rail-pads-control {
   --button-inline: 0;
-  --button-lead: var(--space-1);
+  --button-lead: 0;
   flex: 0 0 auto;
-  gap: 0;
+  gap: var(--space-1);
   font-size: var(--text-caption);
 }
 
@@ -541,16 +542,29 @@
   min-width: 0;
 }
 
-.rail-agent-picker label {
+.rail-agent-fields {
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
   min-width: 0;
 }
 
-.rail-agent-picker .choice-select {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
+.rail-agent-note {
+  margin: 0;
+  color: var(--grey);
+  font-size: var(--text-caption);
+  text-wrap: balance;
+}
+
+.rail-agent-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.rail-agent-actions > button {
+  --button-surface: var(--ground);
+  --button-inline: var(--space-3);
 }
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
@@ -595,36 +609,6 @@
 .rail p.ink[role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;
-}
-
-.rail-agent-picker select {
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-  box-sizing: border-box;
-  min-height: var(--space-5);
-  font: inherit;
-  color: var(--text);
-  background-color: var(--ground);
-  border: 0;
-  border-radius: var(--radius-control);
-  padding-inline: var(--space-1);
-  cursor: pointer;
-}
-
-.rail-agent-picker select:hover {
-  background-color: var(--hover);
-}
-
-.rail-agent-picker select:active {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
-.rail-agent-picker option {
-  padding: 0;
-  margin: 0;
-  gap: 0;
 }
 
 /* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
