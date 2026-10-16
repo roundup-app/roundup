@@ -356,7 +356,8 @@ it("u441_token_surfaces_keep_contrast", async () => {
     await page.down(cap.x, cap.y);
     const edgePress = await paint('.strip-edge');
     expect(edgePress.background).toBe(edgeHover.background);
-    expect(edgePress.image).not.toBe(edgeHover.image);
+    expect(edgePress.image).toBe(edgeHover.image);
+    expect(edgePress.ink).not.toBe(edgeHover.ink);
     expect(edgePress.duration).toBe('0s');
     expect(ratio(edgePress.ink, edgePress.ground)).toBeGreaterThanOrEqual(4.5);
     const pressMark = await paint('.strip-edge .tab-mark');

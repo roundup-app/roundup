@@ -30,10 +30,9 @@ const INVENTORY = `() => {
     const box = el.getBoundingClientRect();
 
     if (box.width === 0 || box.height === 0 || box.left < 0 || box.right > innerWidth || !el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) || el.getAttribute('aria-disabled') === 'true' || el.disabled) continue;
-    // A button with an opaque local surface (the strip's edge caps) is a tab-strip surface, which U510 leaves as it is.
-    if (el.hasAttribute('data-button-surface') || el.hasAttribute('aria-pressed') || el.closest('[role="tab"]') || el.matches('.tab-name-button, [role="tab"]')) continue;
+    if (el.closest('[role="tab"]') || el.matches('.tab-name-button, .todo-project-root, [role="tab"]')) continue;
 
-    const key = [el.dataset.button, el.className, (el.getAttribute('aria-label') ?? '').replace(/[0-9#].*$/, '')].join('|');
+    const key = [el.dataset.button, el.className, (el.getAttribute('aria-label') ?? '').replace(/[0-9#].*$/, ''), el.closest('[data-selected="true"]') ? 'selected' : ''].join('|');
 
     // Up to three instances per caller: a row's counts yield while the pointer is near the row, so a later row may be the one that can be reached.
     for (let n = 0; n < 3; n++) if (!seen.has(key + '#' + n)) { seen.set(key + '#' + n, el); break; }
@@ -56,6 +55,7 @@ const LOOK = `index => {
     ink: style.color,
     grey: probe('grey'),
     text: probe('text'),
+    selectedRest: probe('ink-rest-selected'),
     surface: [style.backgroundColor, style.backgroundImage, style.boxShadow, style.borderTopWidth, style.borderTopStyle, style.outlineStyle].join('|'),
     layers: layer('::before') + '/' + layer('::after'),
     ring: [style.outlineStyle, style.outlineWidth].join('|'),
@@ -75,6 +75,7 @@ type Look = {
   ink: string;
   grey: string;
   text: string;
+  selectedRest: string;
   surface: string;
   layers: string;
   ring: string;
@@ -173,8 +174,8 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
       it(`u510_hover_changes_only_ink_${seed}_${label}`, async () => {
         await open(seed, scheme, contrast);
         await eachCaller((name, { rest, hover }) => {
-          // Ink moves from the resolved grey to the resolved text; a control that already reads text keeps it.
-          expect([rest.grey, rest.text], name).toContain(rest.ink);
+          // Ink moves from the resolved grey (or the selected-wash rest ink) to the resolved text; only increased contrast, where grey is text, rests at text.
+          expect(rest.grey === rest.text ? [rest.text, rest.selectedRest] : [rest.grey, rest.selectedRest], name).toContain(rest.ink);
           expect(hover.ink, `${name} hover ink`).toBe(hover.text);
           expect(hover.surface, `${name} hover paints no box`).toBe(rest.surface);
           expect(hover.layers, `${name} hover paints no pseudo-element box`).toBe(rest.layers);

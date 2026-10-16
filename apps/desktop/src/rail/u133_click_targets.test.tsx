@@ -122,7 +122,7 @@ describe("u133 click targets", () => {
       expect(paint(pressed), `${name} pressed`).not.toBe(paint(hover));
 
       // U510: a ghost, icon or disclosure target answers hover and press with ink and paints no fill.
-      if (/^(quiet|add|row-action|icon)$/.test(el.getAttribute("data-button") ?? "") && !el.hasAttribute("aria-pressed") && !el.hasAttribute("data-button-surface") && !el.matches('[role="tab"], .tab-name-button')) {
+      if (/^(quiet|add|row-action|icon)$/.test(el.getAttribute("data-button") ?? "") && !el.matches('[role="tab"], .tab-name-button, .todo-project-root')) {
         expect(hover.getPropertyValue("background-color"), `${name} hover paints no fill`).toBe(rest.getPropertyValue("background-color"));
         expect(pressed.getPropertyValue("background-color"), `${name} press paints no fill`).toBe(rest.getPropertyValue("background-color"));
       }
