@@ -15,7 +15,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const mount = () => render(u501Fixture);
+const mount = () => render(() => u501Fixture({ listbox: Listbox }));
 
 it("u501_arrows_visit_supplied_answers_and_null_in_both_directions", async () => {
   mount();
@@ -105,4 +105,19 @@ it("u501_disposal_removes_navigation_and_callbacks", async () => {
   expect(vi.getTimerCount()).toBe(0);
   expect(changes).toEqual([]);
   expect(screen.queryByRole("listbox")).toBe(null);
+});
+
+it("u501_disabled_answer_is_named_but_skipped_by_ark", async () => {
+  const items = answers.map(item => ({ ...item, disabled: item.value === "detail" }));
+  render(() => {
+    const [value, setValue] = createSignal<string | null>("brief");
+
+    return <Listbox.Root answers={items} value={value()} highlightedValue={value()} onValueChange={setValue} onHighlightChange={setValue}>
+      <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{items.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
+      <Listbox.NoteInput aria-label="Note" />
+    </Listbox.Root>;
+  });
+  expect(screen.getByRole("option", { name: "Detail" }).getAttribute("aria-disabled")).toBe("true");
+  fireEvent.keyDown(screen.getByRole("textbox"), { key: "ArrowDown" });
+  await waitFor(() => expect(screen.getByRole("option", { name: "Full" }).getAttribute("aria-selected")).toBe("true"));
 });

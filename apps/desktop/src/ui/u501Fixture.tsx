@@ -1,5 +1,6 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import { Listbox } from "./index";
+import type { Listbox } from "./index";
+import { AskAnswers, moved } from "../decisions/AskCard";
 import { Markdown } from "../plain/Markdown";
 import { copy } from "../copy";
 import "../tokens.css";
@@ -7,7 +8,7 @@ import "../styles.css";
 import "../buttons.css";
 import "../decisions/styles.css";
 
-export const u501Fixture = () => {
+export const u501Fixture = (props: { listbox?: typeof Listbox } = {}) => {
   const answers = [
     { value: "brief", label: "A · Brief", description: "Keep the summary short", preview: "**Brief**\n\nKeep `these bytes`." },
     { value: "detail", label: "B · Detailed explanation with a long supplied answer name", description: "Include the reasoning and the tradeoffs\nwithout losing the supplied text", preview: "## Details\n\n- First\n- Second" },
@@ -40,20 +41,48 @@ export const u501Fixture = () => {
   });
   const send = () => { if (!pending() && (value() !== null || note().trim())) setRequests(requests() + 1); };
 
+  const Answers = () => {
+    const Controls = props.listbox;
+
+    // The baseline observer mounts main's existing surface; production never takes this fixture branch.
+    if (!Controls) return <>
+      <span>{copy.answers}</span>
+      <AskAnswers question={{ question: "Choose an answer", answers }} stuck={pending}
+        focus={() => {
+          const at = answers.findIndex(item => item.value === value());
+
+          return at < 0 ? null : at;
+        }}
+        setFocus={at => setValue(at === null ? null : answers[at]!.value)}
+        onKeyDown={event => {
+          const at = answers.findIndex(item => item.value === value());
+          const next = moved(answers.length, at < 0 ? null : at, event.key);
+
+          if (next !== undefined) { event.preventDefault(); setValue(next === null ? null : answers[next]!.value); }
+        }} />
+      <div class="ask-note">
+        <input type="text" aria-label={copy.note} value={note()} readOnly={pending()} onInput={event => setNote(event.currentTarget.value)} />
+        <button type="button" data-button="quiet" onClick={send}>{copy.send}</button>
+      </div>
+    </>;
+
+    return <Controls.Root answers={answers} value={value()} highlightedValue={value()} onValueChange={setValue} onHighlightChange={setValue} pending={pending()}>
+          <Controls.Label>{copy.answers}</Controls.Label>
+          <Controls.Content><For each={answers}>{item => <Controls.Item item={item} />}</For></Controls.Content>
+          <Show when={focused()}>{item => <div class="ask-preview"><Markdown body={item().preview} /></div>}</Show>
+          <div class="ask-note">
+            <Controls.NoteInput aria-label={copy.note} value={note()} placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
+              onInput={event => setNote(event.currentTarget.value)} onKeyDown={event => { if (event.key === "Enter") send(); }} />
+            <button type="button" data-button="quiet" onClick={send} aria-disabled={pending() || (value() === null && !note().trim()) || undefined}>{copy.send}</button>
+          </div>
+        </Controls.Root>;
+  };
+
   return <div ref={root} data-fixture="listbox">
     <button type="button" data-button="quiet">Before</button>
     <div class="decision-card">
       <Show when={mounted()}>
-        <Listbox.Root answers={answers} value={value()} highlightedValue={value()} onValueChange={setValue} onHighlightChange={setValue} pending={pending()}>
-          <Listbox.Label>{copy.answers}</Listbox.Label>
-          <Listbox.Content><For each={answers}>{item => <Listbox.Item item={item} />}</For></Listbox.Content>
-          <Show when={focused()}>{item => <div class="ask-preview"><Markdown body={item().preview} /></div>}</Show>
-          <div class="ask-note">
-            <Listbox.NoteInput aria-label={copy.note} value={note()} placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
-              onInput={event => setNote(event.currentTarget.value)} onKeyDown={event => { if (event.key === "Enter") send(); }} />
-            <button type="button" data-button="quiet" onClick={send} aria-disabled={pending() || (value() === null && !note().trim()) || undefined}>{copy.send}</button>
-          </div>
-        </Listbox.Root>
+        <Answers />
       </Show>
     </div>
     <button type="button" data-button="quiet" onClick={() => setPending(!pending())}>Toggle pending</button>

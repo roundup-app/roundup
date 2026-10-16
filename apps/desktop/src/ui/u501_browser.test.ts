@@ -1,9 +1,24 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { beforeAll, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { browser, read, url, wait } from "./tabsBrowser";
+
+// Overlay only this observer on main; its controls, styles and application remain main's own files.
+beforeAll(() => {
+  const base = process.env.U500_BASE_ROOT;
+
+  if (!base) return;
+  const fixture = readFileSync(join(process.cwd(), "src/ui/u501Fixture.tsx"), "utf8");
+
+  const html = readFileSync(join(process.cwd(), "src/ui/u501.html"), "utf8")
+    .replace('import { Listbox } from "./index.tsx";\n', "")
+    .replace('u501Fixture({ listbox: Listbox })', 'u501Fixture()');
+
+  writeFileSync(join(base, "src/ui/u501Fixture.tsx"), fixture);
+  writeFileSync(join(base, "src/ui/u501.html"), html);
+});
 
 const load = async (base = false) => {
   await browser("open", url("/src/ui/u501.html", base));
@@ -104,8 +119,8 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
       await browser("click", '[aria-label^="Close "]');
       await wait(`document.activeElement?.textContent === 'Cancel'`);
       await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
-      await wait(`document.body.textContent.includes('Try again after saving the draft')`);
-      expect(await read<boolean>(`[...document.querySelectorAll('*')].some(el => el.textContent === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
+      await wait(`document.querySelector('[role=alert]')?.textContent.includes('Could not close project')`);
+      expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('Could not close project') && el.getAttribute('title') === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
       const checks = await capture(side, `${scheme}-${width}-${contrast}-tree-40-failure`);
 
       if (side === "base") baseline.failure = checks;
