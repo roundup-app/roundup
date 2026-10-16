@@ -3111,7 +3111,7 @@ async fn answer_child() -> (Run, String, Value) {
 }
 
 #[tokio::test]
-async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
+async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() {
     let (run, door, terminal) = answer_child().await;
     for (kind, refusal) in [
         ("ask_user", "label"),
@@ -3172,10 +3172,36 @@ async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
                 .unwrap();
         }
         assert_eq!(reply["error"]["code"], expected, "{refusal}: {reply}");
-        assert_eq!(
-            run.user.request("decision.list", ()).await.unwrap(),
-            json!([decision])
-        );
+        let mut listed = run.user.request("decision.list", ()).await.unwrap();
+        if matches!(refusal, "label" | "word" | "takeover") {
+            let failure = listed[0]
+                .as_object_mut()
+                .unwrap()
+                .remove("failure")
+                .unwrap();
+            assert_eq!(failure["error_code"], expected);
+            assert_eq!(failure["message"], reply["error"]["message"]);
+            assert_eq!(
+                failure["message"],
+                match refusal {
+                    "label" => format!(
+                        "decision {} takes one of its listed answers, or a note as your own",
+                        decision["id"].as_str().unwrap()
+                    ),
+                    "word" => "answer is allow or deny, with no note".to_owned(),
+                    "takeover" => format!(
+                        "{} is under a Takeover; the user decides at its Terminal",
+                        run.child
+                    ),
+                    _ => unreachable!(),
+                }
+            );
+            assert_eq!(failure["answered_by"]["kind"], "agent");
+            assert_eq!(failure["answered_by"]["id"], door);
+            assert_eq!(failure["attempt"], run.attempt);
+            assert!(failure["failed_at"].as_i64().unwrap() > 0);
+        }
+        assert_eq!(listed, json!([decision]));
         let records = run
             .user
             .request("decision.answers", json!({"agent":run.child}))
@@ -3198,6 +3224,15 @@ async fn u468_refused_answers_keep_the_request_actionable_without_a_record() {
         // An ordinary successful retry proves the same request is still actionable.
         run.user_answer(&decision, kind).await;
         waiting.await.unwrap().unwrap();
+        let accepted = run
+            .user
+            .request("decision.answers", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        assert_eq!(
+            accepted.as_array().unwrap().last().unwrap()["decision"],
+            decision
+        );
     }
     run.finish().await;
 }
@@ -3220,10 +3255,15 @@ async fn u468_storage_refusal_keeps_the_request_actionable() {
     )
     .await;
     assert_eq!(reply["error"]["code"], rpc::code::INTERNAL);
-    assert_eq!(
-        run.user.request("decision.list", ()).await.unwrap(),
-        json!([decision])
-    );
+    let mut listed = run.user.request("decision.list", ()).await.unwrap();
+    let failure = listed[0]
+        .as_object_mut()
+        .unwrap()
+        .remove("failure")
+        .unwrap();
+    assert_eq!(failure["error_code"], rpc::code::INTERNAL);
+    assert_eq!(failure["message"], reply["error"]["message"]);
+    assert_eq!(listed, json!([decision]));
     assert_eq!(
         run.user
             .request("decision.answers", json!({"agent":run.child}))
