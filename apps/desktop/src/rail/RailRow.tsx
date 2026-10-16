@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -71,6 +71,27 @@ export const RailRowView = (props: {
   const pads = createAgentPads(() => props.row.node);
 
   const workstream = () => isWorkstream(props.row.node);
+
+  // U2228a: a name cut to `…` carries its full text as the native tooltip; one that fits carries none.
+  const [cut, setCut] = createSignal(false);
+  let nameBox: HTMLSpanElement | undefined;
+  const measure = () => setCut(!!nameBox && nameBox.scrollWidth > nameBox.clientWidth);
+
+  createEffect(() => {
+    props.row.node.name;
+    props.runs;
+    queueMicrotask(measure);
+  });
+
+  createEffect(() => {
+    const row = nameBox?.closest(".rail-row");
+
+    if (!row || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    onCleanup(() => observer.disconnect());
+  });
   const kind = (): Kind | null => props.row.node.status?.kind ?? null;
 
   const inkTone = () => {
@@ -131,6 +152,8 @@ export const RailRowView = (props: {
           fallback={
             <span
               class="name"
+              ref={nameBox}
+              title={cut() ? props.row.node.name : undefined}
               classList={{ ink: inkTone() !== undefined }}
               data-tone={inkTone()}
               onDblClick={() => setEditing(true)}
