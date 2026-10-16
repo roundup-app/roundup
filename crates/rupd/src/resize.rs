@@ -41,6 +41,11 @@ impl HeldActions {
                 {
                     continue;
                 }
+                ResizeOutcome::Waiting { .. }
+                    if matches!(accepted.action.call, HeldCall::Stop(_)) =>
+                {
+                    "original Attempt did not survive Daemon restart"
+                }
                 ResizeOutcome::Waiting { .. } => "original Terminal did not survive Daemon restart",
                 ResizeOutcome::InProgress => {
                     "action effect may have happened before Daemon restart; not retried"
@@ -294,7 +299,8 @@ impl Daemon {
                 Some(n)
                     if !matches!(action.call, HeldCall::Rename(_))
                         && (n.attempt != accepted.attempt
-                            || n.terminal_id != accepted.child_terminal) =>
+                            || matches!(action.call, HeldCall::Resize(_))
+                                && n.terminal_id != accepted.child_terminal) =>
                 {
                     Some("child Attempt changed before action release")
                 }
