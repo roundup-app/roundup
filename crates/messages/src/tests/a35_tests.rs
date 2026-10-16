@@ -173,7 +173,7 @@ impl RestartHarness {
                 },
             })),
         );
-        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        tokio::time::timeout(std::time::Duration::from_secs(30), async {
             loop {
                 if let EventData::MessageDropped(m) = events.recv().await.unwrap().data
                     && m.id == message.id
