@@ -2,7 +2,7 @@ import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
 import { MIN_HEIGHT, MIN_WIDTH, placesStorage, resizedAbout, toggledFill, ZONES } from "./places";
-import type { Place } from "./places";
+import type { Extent, Place } from "./places";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -37,6 +37,8 @@ const drag = async (name: string, dx: number, dy: number) => {
   await frame();
   fireEvent(window, new MouseEvent("pointerup"));
 };
+
+const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 describe("u2236 any edge or corner resizes the bubble", () => {
   it("u2236_each_edge_and_corner_resizes_about_the_centre", async () => {
@@ -104,7 +106,7 @@ describe("u2236 any edge or corner resizes the bubble", () => {
     expect(grown.x).toBeGreaterThanOrEqual(0);
     expect(grown.x + grown.w).toBeLessThanOrEqual(800);
     expect(grown.w).toBe(800);
-    expect(resizedAbout({ x: 500, y: 0, w: 300, h: 100, min: false }, { sx: 1, sy: 0 }, 50, 0, { width: 800, height: 600 })).toMatchObject({ x: 400, w: 400 });
+    expect(resizedAbout({ x: 500, y: 0, w: 300, h: 100, min: false }, { sx: 1, sy: 0 }, 50, 0, FALLBACK_EXTENT)).toMatchObject({ x: 400, w: 400 });
   });
 
   it("u2236_the_zones_have_native_cursors_and_draw_nothing", async () => {
