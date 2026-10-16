@@ -1,3 +1,4 @@
+import { render } from "solid-js/web";
 import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Layout } from "../app/Layout";
@@ -7,7 +8,7 @@ import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
 
-export function u491Fixture() {
+function u491Fixture() {
   const widths = createWidths(() => null);
   const [open, setOpen] = createSignal(true);
   const [activations, setActivations] = createSignal(0);
@@ -42,3 +43,5 @@ export function u491Fixture() {
     shelfPlacement={{ get open() { return open(); }, get rendered() { return open(); }, get shown() { return open(); }, animated: false, onSettle() {} }}
     overlay={<ToastProvider toast={toast} label="Updates" />} />;
 }
+
+render(u491Fixture, document.getElementById("root")!);
