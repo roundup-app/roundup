@@ -6,7 +6,7 @@ version.workspace = true
 
 [dependencies]
 contracts = { path = "../contracts" }
-rmcp = { version = "3.5.0", default-features = false, features = ["server", "transport-io"] }
+rmcp = { version = "3.5.1", default-features = false, features = ["server", "transport-io", "elicitation"] }
 rpc = { path = "../rpc" }
 schemars = "1"
 serde_json.workspace = true
@@ -16,7 +16,7 @@ tokio.workspace = true
 agents = { path = "../agents" }
 checkpoints = { path = "../checkpoints" }
 base64.workspace = true
-rmcp = { version = "3.5.0", default-features = false, features = ["client"] }
+rmcp = { version = "3.5.1", default-features = false, features = ["client"] }
 rupd = { path = "../rupd" }
 rusqlite.workspace = true
 tempfile.workspace = true

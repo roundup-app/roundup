@@ -10,8 +10,10 @@ mod decision_notes;
 mod digest;
 mod handshake;
 mod removal;
+mod resize;
 mod resources;
 mod storage;
+mod terminal_question;
 mod waits;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
@@ -41,6 +43,7 @@ pub struct Daemon {
     pads: Arc<pads::Pads>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
+    resizes: resize::Resizes,
     /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
@@ -176,6 +179,7 @@ impl Daemon {
             pads: Arc::clone(&pads),
             door_first_steers: Default::default(),
             child_effects: Default::default(),
+            resizes: resize::Resizes::open(dir)?,
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -323,10 +327,34 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        // A child may not turn its Terminal keystrokes into a user's answer by
+        // claiming `user`; H21's process identity applies to this input path too.
+        let input_actor = if method == "terminal.write" {
+            Some(
+                match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+                    Some(agent) => {
+                        let actor = Actor {
+                            kind: ActorKind::Agent,
+                            id: agent,
+                            parent: None,
+                        };
+                        conn.actor = actor.clone();
+                        actor
+                    }
+                    None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
+                    None => Actor::user(),
+                },
+            )
+        } else {
+            None
+        };
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
+        }
+        if method == "terminal.resizeHistory" {
+            return self.resize_history(conn, params).await;
         }
         // These Door calls account for their physical effects before returning, including
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
@@ -336,15 +364,30 @@ impl Daemon {
                     self.guard_terminal_read(&conn.actor, &params).await?
                 }
                 "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
-                | "agent.stop" => Some(rpc::params::<NodeId>(params.clone())?.id),
+                | "agent.stop" | "rail.rename" => Some(rpc::params::<NodeId>(params.clone())?.id),
                 _ => None,
             }
         } else {
             None
         };
+        let _resize = if method == "terminal.resize" {
+            if let Some(child) = &child {
+                let guard = self.child_effects(child).write_owned().await;
+                if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
+                    return Ok(receipt);
+                }
+                Some(guard)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let _door_effect = match child {
-            Some(child) => Some(self.child_effects(&child).read_owned().await),
-            None => None,
+            Some(child) if method != "terminal.resize" => {
+                Some(self.child_effects(&child).read_owned().await)
+            }
+            _ => None,
         };
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
@@ -450,7 +493,7 @@ impl Daemon {
         }
         if method == "terminal.write" {
             let write: contracts::terminal::WriteParams = rpc::params(params.clone())?;
-            if write.identity.is_some() || conn.actor.kind == ActorKind::User {
+            {
                 use base64::Engine;
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(&write.data)
@@ -462,7 +505,15 @@ impl Daemon {
                     self.note_user_input(&params).await;
                 }
                 self.agents
-                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
+                    .write_terminal(
+                        &conn.actor,
+                        input_actor
+                            .as_ref()
+                            .expect("Terminal input has an authenticated source"),
+                        &write.id,
+                        bytes,
+                        write.identity,
+                    )
                     .await?;
                 // A refused guarded submit wrote no bytes and cannot release Messages
                 // waiting behind the user's input. Ordinary writes retain their queued cut.
@@ -484,8 +535,21 @@ impl Daemon {
             }
         }
         let outcome = module
-            .call(&self.ctx(conn.actor.clone()), method, params)
+            .call(&self.ctx(conn.actor.clone()), method, params.clone())
             .await;
+        if method == "takeover.end" && outcome.is_ok() {
+            let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
+            // Message release can await an already-recorded prompt. A new Takeover must
+            // remain independent of that typing, and it wins over this older release.
+            let _release = self.child_effects(&agent).write_owned().await;
+            if !self
+                .sender
+                .get()
+                .is_some_and(|messages| messages.takeover_active(&agent))
+            {
+                self.release_resizes(&agent).await?;
+            }
+        }
         if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
             && let (Some(id), Some(attempt)) = (node["id"].as_str(), node["attempt"].as_str())
         {
@@ -544,9 +608,8 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                actor.kind == ActorKind::Agent
-            }
+            "agent.stop" | "rail.rename" | "terminal.kill" | "terminal.close"
+            | "terminal.resize" => actor.kind == ActorKind::Agent,
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
             _ => false,
@@ -957,6 +1020,32 @@ fn failure(id: &Value, err: &RpcError) -> Value {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
+    let mut exits = daemon.bus.subscribe();
+    let weak = Arc::downgrade(&daemon);
+    tokio::spawn(async move {
+        loop {
+            match exits.recv().await {
+                Ok(event) => {
+                    if let contracts::EventData::TerminalExited(exit) = event.data {
+                        let Some(daemon) = weak.upgrade() else { return };
+                        if let Err(e) = daemon.resize_exit(&exit.id).await {
+                            eprintln!("rupd: resize exit accounting failed: {}", e.message);
+                            return;
+                        }
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                    // A missed exit must not silently strand an accepted resize.
+                    let Some(daemon) = weak.upgrade() else { return };
+                    if let Err(e) = daemon.reconcile_resizes().await {
+                        eprintln!("rupd: resize exit reconciliation failed: {}", e.message);
+                        return;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+            }
+        }
+    });
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);
@@ -979,7 +1068,14 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         .ok()
         .and_then(|cred| cred.pid())
         .and_then(|pid| u32::try_from(pid).ok());
-    let (read, mut write) = stream.into_split();
+    let mut stream = BufReader::new(stream);
+    let first = tokio::time::timeout(std::time::Duration::from_secs(10), stream.fill_buf())
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "connection sent no request"))??;
+    if first.first() == Some(&b'P') {
+        return terminal_question::serve(stream, daemon, stream_pid).await;
+    }
+    let (read, mut write) = tokio::io::split(stream);
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
     let (finished, mut finish) = tokio::sync::oneshot::channel();
     let writer = tokio::spawn(async move {
@@ -1016,8 +1112,9 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             Ok(None) => break Ok(()),
             Err(err) => break Err(err),
         };
-        let method = serde_json::from_str::<Value>(&line)
-            .ok()
+        let request = serde_json::from_str::<Value>(&line).ok();
+        let method = request
+            .as_ref()
             .and_then(|request| request["method"].as_str().map(str::to_owned));
         // Actor and subscription changes must commit before the next wire request is read.
         if matches!(
@@ -1029,6 +1126,27 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             }
             continue;
         }
+        let resize_arrival = if method.as_deref() == Some("terminal.resize")
+            && conn.actor.kind == ActorKind::Agent
+        {
+            let params = request
+                .as_ref()
+                .and_then(|r| r.get("params"))
+                .unwrap_or(&Value::Null);
+            match daemon.guard_terminal_read(&conn.actor, params).await {
+                Ok(Some(child)) => Some(daemon.resizes.arrive(child)),
+                Ok(None) => None,
+                Err(error) => {
+                    // Reject the original target; a later Terminal must not revive an invalid call.
+                    if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
+                        let _ = frames.send(failure(id, &error));
+                    }
+                    continue;
+                }
+            }
+        } else {
+            None
+        };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
         if method
@@ -1050,8 +1168,19 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             });
         } else {
             ordinary.spawn(async move {
+                let done = if let Some((before, done)) = resize_arrival {
+                    if let Some(before) = before {
+                        let _ = before.await;
+                    }
+                    Some(done)
+                } else {
+                    None
+                };
                 if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
                     let _ = request_conn.events.send(reply);
+                }
+                if let Some(done) = done {
+                    daemon.resizes.finish_arrival(done);
                 }
             });
         }
