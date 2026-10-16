@@ -4,13 +4,13 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use contracts::Event;
+use contracts::{Event, EventData};
 use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::net::unix::OwnedWriteHalf;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::error::{RpcError, code};
 
@@ -25,6 +25,7 @@ type Waiter = oneshot::Sender<Result<Value, RpcError>>;
 struct Shared {
     pending: HashMap<u64, Waiter>,
     closed: bool,
+    output: Option<broadcast::Sender<Event>>,
 }
 
 type State = Arc<Mutex<Shared>>;
@@ -35,6 +36,7 @@ pub struct Client {
     state: State,
     next_id: AtomicU64,
     events: mpsc::UnboundedReceiver<Event>,
+    reader: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl Client {
@@ -42,7 +44,7 @@ impl Client {
         let (read, writer) = UnixStream::connect(socket).await?.into_split();
         let state = State::default();
         let (event_tx, events) = mpsc::unbounded_channel();
-        tokio::spawn(read_loop(
+        let reader = tokio::spawn(read_loop(
             BufReader::new(read),
             Arc::clone(&state),
             event_tx,
@@ -52,7 +54,33 @@ impl Client {
             state,
             next_id: AtomicU64::new(1),
             events,
+            reader: Some(reader),
         })
+    }
+
+    /// Divert future Terminal output from `next_event` into a bounded receiver.
+    ///
+    /// Call once, before sending any subscription request. Returns `None` if already
+    /// taken or the connection closed. Existing event subscriptions are not changed.
+    /// Retains at most 64 output events (an item bound, not a byte/RSS bound);
+    /// output is never also queued in `next_event` after this call.
+    ///
+    /// Saturation evicts oldest output and reports Tokio's `RecvError::Lagged`.
+    /// On lag, callers must recover by snapshot, reconciling the existing Terminal
+    /// ids and byte offsets rather than concatenating discontinuous output.
+    /// Replies and control events continue independently and are never evicted.
+    ///
+    /// Dropping the receiver releases retained output; future output is discarded.
+    /// Drop the Client as well to release its socket and reader task. This does not
+    /// unsubscribe at the Daemon or select a Terminal: #1930 owns that contract.
+    pub fn take_output(&mut self) -> Option<broadcast::Receiver<Event>> {
+        let mut state = self.state.lock().ok()?;
+        if state.closed || state.output.is_some() {
+            return None;
+        }
+        let (sender, receiver) = broadcast::channel(64);
+        state.output = Some(sender);
+        Some(receiver)
     }
 
     pub async fn request(&self, method: &str, params: impl Serialize) -> Result<Value, RpcError> {
@@ -90,6 +118,15 @@ impl Client {
     }
 }
 
+impl Drop for Client {
+    fn drop(&mut self) {
+        if let Some(reader) = self.reader.take() {
+            reader.abort();
+        }
+        mark_closed(&self.state);
+    }
+}
+
 /// Reserves `id` in `pending` unless `mark_closed` already ran. Holding the lock across the
 /// check and the insert is what makes the two mutually exclusive with `mark_closed`'s own
 /// lock-held clear: a reservation always either completes before the clear (and is woken by
@@ -112,6 +149,7 @@ fn mark_closed(state: &State) {
     if let Ok(mut state) = state.lock() {
         state.closed = true;
         state.pending.clear();
+        state.output.take();
     }
 }
 
@@ -131,7 +169,14 @@ async fn read_loop(
                 frame.get_mut("params").map_or(Value::Null, Value::take),
             ) {
                 Ok(event) => {
-                    let _ = events.send(event);
+                    let state = state.lock().expect("Client state poisoned");
+                    if let (EventData::TerminalOutput(_), Some(output)) =
+                        (&event.data, &state.output)
+                    {
+                        let _ = output.send(event);
+                    } else {
+                        let _ = events.send(event);
+                    }
                 }
                 Err(err) => {
                     eprintln!("rpc: dropped an event that does not match the contract: {err}")
@@ -200,6 +245,7 @@ mod tests {
             state: State::default(),
             next_id: AtomicU64::new(1),
             events,
+            reader: None,
         };
 
         let err = client
