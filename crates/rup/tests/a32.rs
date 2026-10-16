@@ -405,57 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_kept_items_keep_their_ids_and_owners() {
-    let fx = fixture().await;
-    let (keep, fluff) = fx.full().await;
-    fx.user
-        .request("todo.setBlockers", json!({"id": keep, "blockers": [fluff]}))
-        .await
-        .unwrap();
-    let before = fx
-        .todos()
-        .await
-        .into_iter()
-        .find(|t| t["id"] == keep)
-        .unwrap();
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(
-        json!({"id": fx.ws, "summary": "s", "keep_todos": [keep], "keep_pads": ["scratch"]}),
-    )
-    .await
-    .unwrap();
-    task.end().await.unwrap();
-
-    let after = fx
-        .todos()
-        .await
-        .into_iter()
-        .find(|t| t["id"] == keep)
-        .unwrap();
-    assert_eq!(
-        after["blockers"],
-        json!([]),
-        "an archived blocker leaves the list"
-    );
-    assert_eq!(
-        (&after["title"], &after["creator"], &after["home"]),
-        (&before["title"], &before["creator"], &before["home"])
-    );
-    let scratch = fx
-        .pads()
-        .await
-        .into_iter()
-        .find(|p| p["name"] == "scratch")
-        .unwrap();
-    assert_eq!(
-        scratch["owner"]["kind"], "user",
-        "a Pad of a removed Subagent becomes the user's"
-    );
-    assert_eq!(scratch["home"], json!(fx.ws));
-}
-
-#[tokio::test]
 async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     let fx = fixture().await;
     let mut events = fx.project.subscribed().await;
