@@ -117,3 +117,107 @@ fn x14_library_replay_preserves_pending_state() {
         }
     }
 }
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Writes {
+    after: usize,
+    text: Vec<(usize, char, (u16, u16))>,
+    titles: Vec<Vec<u8>>,
+}
+
+impl vt100::Callbacks for Writes {
+    fn text(&mut self, screen: &mut vt100::Screen, c: char) {
+        self.text.push((self.after, c, screen.cursor_position()));
+    }
+
+    fn set_window_title(&mut self, _: &mut vt100::Screen, title: &[u8]) {
+        self.titles.push(title.to_vec());
+    }
+}
+
+fn observe(parser: &mut vt100::Parser<Writes>, bytes: &[u8]) {
+    for byte in bytes {
+        parser.callbacks_mut().after += 1;
+        parser.process(std::slice::from_ref(byte));
+    }
+}
+
+#[test]
+fn x14_library_reports_handled_text_at_raw_byte_offsets() {
+    let mut literal = vt100::Parser::new_with_callbacks(2, 8, 0, Writes::default());
+    let mut csi = literal.clone();
+    observe(&mut literal, b"CB\r");
+    observe(&mut csi, b"CB\r\x1b[");
+    assert_eq!(
+        literal.screen().state_formatted(),
+        csi.screen().state_formatted()
+    );
+    observe(&mut literal, b"C");
+    observe(&mut csi, b"C");
+    assert_eq!(
+        literal.screen().state_formatted(),
+        csi.screen().state_formatted()
+    );
+    assert_eq!(
+        literal.callbacks().text,
+        [(1, 'C', (0, 1)), (2, 'B', (0, 2)), (4, 'C', (0, 1))]
+    );
+    assert_eq!(csi.callbacks().text, [(1, 'C', (0, 1)), (2, 'B', (0, 2))]);
+}
+
+#[test]
+fn x14_library_write_observation_survives_checkpoint_replay() {
+    let input = "CB\rCé🦀\x1b]2;hidden\x1b\\\x1b[2DC".as_bytes();
+    let mut continuous = vt100::Parser::new_with_callbacks(3, 80, 0, Writes::default());
+    observe(&mut continuous, input);
+    assert_eq!(
+        continuous.callbacks().text,
+        [
+            (1, 'C', (0, 1)),
+            (2, 'B', (0, 2)),
+            (4, 'C', (0, 1)),
+            (6, 'é', (0, 2)),
+            (10, '🦀', (0, 4)),
+            (27, 'C', (0, 3)),
+        ]
+    );
+    assert_eq!(continuous.callbacks().titles, [b"hidden".to_vec()]);
+    let mut batched = vt100::Parser::new_with_callbacks(3, 80, 0, Writes::default());
+    batched.process(input);
+    assert_eq!(
+        batched
+            .callbacks()
+            .text
+            .iter()
+            .map(|(_, c, pos)| (*c, *pos))
+            .collect::<Vec<_>>(),
+        continuous
+            .callbacks()
+            .text
+            .iter()
+            .map(|(_, c, pos)| (*c, *pos))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(batched.callbacks().titles, continuous.callbacks().titles);
+    // Every cut includes pending UTF-8, CSI parameters, OSC payload and ST.
+    for cut in 0..=input.len() {
+        let mut live = vt100::Parser::new_with_callbacks(3, 80, 0, Writes::default());
+        observe(&mut live, &input[..cut]);
+        let checkpoint = live.clone();
+        let before_screen = live.screen().state_formatted();
+        let before_callbacks = live.callbacks().clone();
+        for _ in 0..2 {
+            let mut replay = checkpoint.clone();
+            observe(&mut replay, &input[cut..]);
+            assert_eq!(replay.callbacks(), continuous.callbacks(), "cut={cut}");
+            assert_eq!(
+                replay.screen().state_formatted(),
+                continuous.screen().state_formatted()
+            );
+        }
+        assert_eq!(live.callbacks(), &before_callbacks, "live cut={cut}");
+        assert_eq!(live.screen().state_formatted(), before_screen);
+        observe(&mut live, &input[cut..]);
+        assert_eq!(live.callbacks(), continuous.callbacks());
+    }
+}
