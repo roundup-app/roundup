@@ -28,7 +28,7 @@ impl Shared {
                 }
             }
             let result = shared
-                .prompt(&id, &prompt, Some(&attempt), !startup_context)
+                .prompt(&id, &prompt, Some(&attempt), None, !startup_context)
                 .await;
             if let Err(err) = &result {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
@@ -151,7 +151,7 @@ impl Agents {
             Steer::User(text) => (text, true),
         };
         self.shared
-            .prompt(id, text, None, verbatim)
+            .prompt(id, text, None, None, verbatim)
             .await
             .map_err(PromptError::from)
     }
