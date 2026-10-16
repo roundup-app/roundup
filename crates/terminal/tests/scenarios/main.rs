@@ -5,6 +5,7 @@ mod common;
 mod control;
 mod in_process;
 mod owned;
+mod plain_text;
 mod read;
 mod snapshot;
 mod spawn;
