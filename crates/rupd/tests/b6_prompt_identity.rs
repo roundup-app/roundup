@@ -5579,50 +5579,65 @@ async fn b6_stop_crashes_explain_waiting_and_uncertain_effects_without_repeating
 
 #[tokio::test]
 async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
-    let (run, caller) = order_child().await;
-    run.user
-        .request("takeover.begin", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    caller
-        .request("agent.stop", json!({"id":run.child}))
-        .await
-        .unwrap();
-    run.pause();
-    let user = Arc::clone(&run.user);
-    let child = run.child.clone();
-    let end =
-        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
-    run.paused().await;
-    let mut mutations = Vec::new();
-    for method in ["agent.stop", "agent.resume"] {
+    for kind in ["user", "ext", "daemon"] {
+        let (run, caller) = order_child().await;
+        let direct = if kind == "user" {
+            Arc::clone(&run.user)
+        } else {
+            let direct = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+            direct
+                .request(
+                    "daemon.identify",
+                    json!({"actor":{"kind":kind,"id":"direct-observer"}}),
+                )
+                .await
+                .unwrap();
+            direct
+        };
+        run.user
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        caller
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap();
+        run.pause();
         let user = Arc::clone(&run.user);
         let child = run.child.clone();
-        mutations.push(tokio::spawn(async move {
-            user.request(method, json!({"id":child})).await
-        }));
-    }
-    for mutation in &mut mutations {
-        // The observer acknowledges the original Stop's pre-effect cut. This is an
-        // absence window: neither user mutation may replace the Attempt at that cut.
-        assert!(
-            tokio::time::timeout(Duration::from_millis(200), mutation)
+        let end =
+            tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+        run.paused().await;
+        let mut mutations = Vec::new();
+        for method in ["agent.stop", "agent.resume"] {
+            let user = Arc::clone(&direct);
+            let child = run.child.clone();
+            mutations.push(tokio::spawn(async move {
+                user.request(method, json!({"id":child})).await
+            }));
+        }
+        for mutation in &mut mutations {
+            // The observer acknowledges the original Stop's pre-effect cut. This is an
+            // absence window: neither user mutation may replace the Attempt at that cut.
+            assert!(
+                tokio::time::timeout(Duration::from_millis(200), mutation)
+                    .await
+                    .is_err()
+            );
+        }
+        run.release();
+        end.await.unwrap().unwrap();
+        for mutation in mutations {
+            let _ = tokio::time::timeout(BOUND, mutation)
                 .await
-                .is_err()
-        );
-    }
-    run.release();
-    end.await.unwrap().unwrap();
-    for mutation in mutations {
-        let _ = tokio::time::timeout(BOUND, mutation)
+                .unwrap()
+                .unwrap();
+        }
+        let history = caller
+            .request("agent.actionHistory", json!({"id":run.child}))
             .await
-            .unwrap()
             .unwrap();
+        assert_eq!(history[0]["outcome"]["status"], "completed");
+        run.finish().await;
     }
-    let history = caller
-        .request("agent.actionHistory", json!({"id":run.child}))
-        .await
-        .unwrap();
-    assert_eq!(history[0]["outcome"]["status"], "completed");
-    run.finish().await;
 }
