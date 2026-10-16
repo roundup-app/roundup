@@ -25,12 +25,15 @@ function mount(controlled = false) {
     width: 1280, height: 800, toJSON() {},
   });
   const [size, setSize] = createSignal([22.5, 77.5]);
+
   const preview = vi.fn((details: { size: number[] }) => {
     if (controlled) setSize(details.size);
   });
+
   const start = vi.fn();
   const end = vi.fn();
   let api!: UseSplitterReturn;
+
   const mounted = render(() => {
     api = useSplitter({
       panels: [{ id: "rail", minSize: "252px", maxSize: "480px" }, { id: "centre" }],
@@ -38,25 +41,31 @@ function mount(controlled = false) {
       get size() { return controlled ? size() : undefined; },
       onResize: preview, onResizeStart: start, onResizeEnd: end,
     });
+
     return <Splitter.RootProvider value={api}>
       <Splitter.Panel id="rail">Rail</Splitter.Panel>
       <Splitter.ResizeTrigger id="rail:centre" aria-label="Rail width" />
       <Splitter.Panel id="centre">Centre</Splitter.Panel>
     </Splitter.RootProvider>;
   });
+
   const trigger = screen.getByRole("separator", { name: "Rail width" });
   let captured = false;
   trigger.setPointerCapture = () => { captured = true; };
+
   trigger.hasPointerCapture = () => captured;
   trigger.releasePointerCapture = () => { captured = false; };
+
   const down = async () => {
     fireEvent.pointerDown(trigger, { button: 0, clientX: 288, clientY: 100 });
     await settle();
   };
+
   const move = async (clientX: number) => {
     fireEvent.pointerMove(document, { buttons: 1, clientX, clientY: 100 });
     await settle();
   };
+
   return { ...mounted, api, trigger, preview, start, end, down, move, setSize, captured: () => captured };
 }
 
@@ -79,11 +88,13 @@ it("u491_escape_restores_preview_without_committing_or_later_drag_events", async
   expect(probe.preview).toHaveBeenLastCalledWith(expect.objectContaining({ size: [22.5, 77.5] }));
   expect(probe.captured()).toBe(false);
   expect(document.querySelector('[id$=":global-cursor"]')).toBeNull();
+
   for (const [type, listener, options] of add.mock.calls) {
     if (["pointermove", "pointerup", "pointercancel", "contextmenu"].includes(type)) {
       expect(remove).toHaveBeenCalledWith(type, listener, options);
     }
   }
+
   expect(vi.getTimerCount()).toBe(0);
   const previews = probe.preview.mock.calls.length;
   fireEvent.keyDown(probe.trigger, { key: "Escape" });
@@ -139,17 +150,21 @@ it.each(["queued", "started", "moved"])("u491_%s_drag_disposal_leaves_no_work_or
   const add = vi.spyOn(document, "addEventListener");
   const remove = vi.spyOn(document, "removeEventListener");
   fireEvent.pointerDown(probe.trigger, { button: 0, clientX: 288, clientY: 100 });
+
   if (stage !== "queued") await settle();
+
   if (stage === "moved") await probe.move(352);
   probe.unmount();
   expect(vi.getTimerCount()).toBe(0);
   expect(probe.captured()).toBe(false);
   expect(document.querySelector('[id$=":global-cursor"]')).toBeNull();
+
   for (const [type, listener, options] of add.mock.calls) {
     if (["pointermove", "pointerup", "pointercancel", "contextmenu"].includes(type)) {
       expect(remove).toHaveBeenCalledWith(type, listener, options);
     }
   }
+
   const previews = probe.preview.mock.calls.length;
   const starts = probe.start.mock.calls.length;
   await probe.move(416);
