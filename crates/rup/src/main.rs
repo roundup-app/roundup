@@ -16,6 +16,7 @@ const CONTEXT_DEADLINE: Duration = Duration::from_secs(4);
 /// What `rup signal` says when it cannot know whether the Daemon took the Signal.
 const MAYBE_ARRIVED: &str = "the Signal may or may not have arrived";
 
+mod cli;
 mod mcp;
 
 /// H15: `rup` never runs more than one task at a time, so one OS thread is enough; the thread test in
@@ -25,7 +26,7 @@ async fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let outcome = match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["ping"] => ping().await,
-        ["signal", agent_id] => match signal(agent_id).await {
+        ["signal", agent_id] if !agent_id.starts_with('-') => match signal(agent_id).await {
             // B39: the one reason to exit 2, which blocks a prompt that repeats delivered Messages.
             Ok(true) => {
                 eprintln!("rup: this prompt repeats Messages already delivered; dropped");
@@ -36,19 +37,15 @@ async fn main() -> ExitCode {
         },
         // Exit 2 would tell Claude Code to block its tool call or prompt; `signal` fails only with 1.
         ["signal", ..] => Err("usage: rup signal <agent-id>".into()),
-        ["context", agent_id] => return context(agent_id).await,
+        ["context", agent_id] if !agent_id.starts_with('-') => return context(agent_id).await,
         // As for `signal`: only exit 1, never 2.
         ["context", ..] => Err("usage: rup context <agent-id>".into()),
-        ["permission", agent_id] => permission(agent_id).await,
+        ["permission", agent_id] if !agent_id.starts_with('-') => permission(agent_id).await,
         // As for `signal`: exit 2 would block the tool call.
         ["permission", ..] => Err("usage: rup permission <agent-id>".into()),
         ["mcp"] => return mcp::run(None).await,
         ["mcp", agent_id] => return mcp::run(Some(agent_id.to_owned())).await,
-        [] => return usage(),
-        [other, ..] => {
-            eprintln!("rup: unknown command {other:?}");
-            return ExitCode::from(2);
-        }
+        _ => return cli::run(args).await,
     };
     match outcome {
         Ok(()) => ExitCode::SUCCESS,
@@ -57,13 +54,6 @@ async fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-fn usage() -> ExitCode {
-    eprintln!(
-        "usage: rup ping | rup signal <agent-id> | rup context <agent-id> | rup permission <agent-id> | rup mcp <agent-id>"
-    );
-    ExitCode::from(2)
 }
 
 async fn connect() -> Result<rpc::Client, String> {
