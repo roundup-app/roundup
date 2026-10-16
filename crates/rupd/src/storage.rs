@@ -148,7 +148,7 @@ mod tests {
             ])
             .current_version(&db)
             .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(6).unwrap())
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(7).unwrap())
         );
         standalone::write_ask(&db);
         let ws = call(
