@@ -26,7 +26,7 @@ pub const METHODS: &[Method] = &[
         "{ pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } }",
     ),
     m("daemon.identify", "common_IdentifyParams", "null"),
-    m("events.subscribe", "null", "null"),
+    m("events.subscribe", "common_SubscribeParams | null", "null"),
     m(
         "provenance.history",
         "common_HistoryParams",
@@ -409,6 +409,7 @@ mod tests {
                 "NOT_ACCEPTED",
                 "NOT_RUNNING",
                 "NOT_ACKED",
+                "EVENTS_EXPIRED",
             ]
         );
     }

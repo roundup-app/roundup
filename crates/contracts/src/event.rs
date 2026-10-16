@@ -69,6 +69,10 @@ pub enum EventData {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Event {
+    /// The Event number: set on every saved Event, absent on Terminal output (D10).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub seq: Option<u64>,
     pub actor: Actor,
     #[serde(flatten)]
     pub data: EventData,
