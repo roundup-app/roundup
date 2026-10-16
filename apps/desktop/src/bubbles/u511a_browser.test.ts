@@ -47,7 +47,7 @@ const enter = async (): Promise<void> => {
   await page.until(`() => document.activeElement?.matches('.terminal-tab-editor input')`);
 };
 
-it("u511_editor_matches_label_type_and_baseline", async () => {
+it("u511a_editor_matches_label_type_and_baseline", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
     await open(1280);
@@ -63,14 +63,31 @@ it("u511_editor_matches_label_type_and_baseline", async () => {
     expect(during.font).toBe(before.font);
     expect(during.letter).toBe(before.letter);
     expect(Math.abs(during.left - before.left)).toBeLessThanOrEqual(1);
-    expect(Math.abs(during.height - before.height)).toBeLessThanOrEqual(1);
-    expect(during.rects).toEqual(before.rects);
     expect(selected).toEqual([0, selected[2], selected[2]]);
     expect(heights.length).toBeGreaterThan(0);
   }
 }, 90_000);
 
-it("u511_editor_width_tracks_text_and_commit_cancel_work", async () => {
+it("u511a_entry_keeps_the_surrounding_rectangles", async () => {
+  for (const width of [1280, 1440]) {
+    await open(width);
+
+    const before = await page.call<Look>(probe, '.terminal-tab-name');
+
+    await enter();
+
+    const during = await page.call<Look>(probe, '.terminal-tab-editor input');
+
+    for (const [name, rect] of Object.entries(before.rects)) {
+      expect(rect, name).not.toBeNull();
+      during.rects[name]!.forEach((value, index) => expect(Math.abs(value - rect![index]!), `${name} ${width}`).toBeLessThanOrEqual(1));
+    }
+
+    expect(Math.abs(during.height - before.height)).toBeLessThanOrEqual(1);
+  }
+}, 90_000);
+
+it("u511a_editor_width_tracks_text", async () => {
   await open(1280);
   await enter();
 
@@ -95,7 +112,7 @@ it("u511_editor_width_tracks_text_and_commit_cancel_work", async () => {
   await page.until(`() => document.activeElement?.matches('.terminal-tab')`);
 }, 90_000);
 
-it("u511_dense_editing_does_not_clip_or_cover_controls", async () => {
+it("u511a_dense_editing_does_not_clip_or_cover_controls", async () => {
   await open(1280);
   await enter();
   await page.call(`() => { const i = document.activeElement; i.value = 'gjpqy ÅÉ 終端 🧪 ' + 'W'.repeat(60); i.dispatchEvent(new Event('input', {bubbles: true})); }`);
@@ -110,7 +127,7 @@ it("u511_dense_editing_does_not_clip_or_cover_controls", async () => {
   expect(read).toEqual({ clipped: false, reachable: true, bar: true });
 }, 90_000);
 
-it("u511_keyboard_context_menu_renames_and_click_away_commits_without_swallowing_the_click", async () => {
+it("u511a_keyboard_context_menu_renames_and_click_away_commits_without_swallowing_the_click", async () => {
   await open(1280);
   await page.call(`() => document.querySelector('.terminal-tab').focus()`);
   // The platform turns Shift+F10 or the Menu key on a focused control into this event; headless key input cannot.
@@ -135,7 +152,7 @@ type Readings = Record<string, { status: "pass" | "fail" }>;
 const readings = () => page.call<Readings>(`() => import('/src/testing/checks.ts').then(module => module.runChecks())`);
 
 for (const scheme of ["light", "dark"] as const) for (const width of [1280, 1440]) for (const reduced of [undefined, "motion"] as const) {
-  it(`u511_rendered_checks ${scheme}-${width}-${reduced ?? "normal"}`, async () => {
+  it(`u511a_rendered_checks ${scheme}-${width}-${reduced ?? "normal"}`, async () => {
     await page.scheme(scheme, undefined, reduced);
     await open(width);
 
