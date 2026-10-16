@@ -521,32 +521,96 @@ async fn b6_prompt_identity_keeps_reach_proof_and_takeover_authority() {
     assert_eq!(hook.await.unwrap().unwrap(), json!({"output":ALLOW}));
 }
 
-/// Backend observation only; #1497 owns the rendered App observer.
+/// Backend lifecycle observation only; #1497 owns the rendered App observer.
 #[tokio::test]
-async fn u468_backend_refused_permission_is_readable_on_the_original_request() {
+async fn u468_backend_failure_stays_with_its_original_request() {
     let w = World::new().await;
-    let (hook, id) = w.asks(&w.child).await;
-    let original = w.listed(Actor::user()).await.remove(0);
-    let error = w
-        .answer(agent(&w.door), &id, "invalid-choice")
+    let (old_hook, id) = w.asks(&w.child).await;
+    w.answer(agent(&w.door), &id, "invalid-choice")
         .await
         .unwrap_err();
-    let listed = w
-        .call(Actor::user(), "decision.list", Value::Null)
+    assert!(w.listed(Actor::user()).await[0].failure.is_some());
+    let identity = w
+        .call(agent(&w.door), "decision.capture", json!({"id": id}))
         .await
         .unwrap();
-    assert_eq!(listed[0]["id"], original.id);
-    assert_eq!(listed[0]["failure"]["error_code"], code::INVALID_PARAMS);
+    let mut events = w.f.bus.subscribe();
+    let (f, child) = (Arc::clone(&w.f), w.child.clone());
+    let replacement_hook = tokio::spawn(async move {
+        f.call(
+            "agent.permission",
+            json!({"id": child, "payload": {
+                "hook_event_name": "PermissionRequest", "tool_name": "Bash",
+                "tool_input": {"command": "ls"}
+            }}),
+        )
+        .await
+    });
+    let replacement = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let event = events.recv().await.unwrap();
+            if let EventData::DecisionOpened(decision) = event.data {
+                break decision;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_ne!(replacement.id, id);
+    assert_eq!(old_hook.await.unwrap().unwrap_err().code, code::CONFLICT);
+    assert!(replacement.failure.is_none());
+    // Neither a stale id nor a stale captured identity can annotate its successor.
     assert_eq!(
-        listed[0]["failure"]["message"],
-        "answer is allow or deny, with no note"
+        w.answer(agent(&w.door), &id, "invalid-choice")
+            .await
+            .unwrap_err()
+            .code,
+        code::NOT_FOUND
     );
-    assert_eq!(listed[0]["failure"]["message"], error.message);
     assert_eq!(
-        listed[0]["failure"]["answered_by"],
-        serde_json::to_value(agent(&w.door)).unwrap()
+        w.call(
+            agent(&w.door),
+            "decision.answer",
+            json!({
+                "id": replacement.id, "identity": identity, "answer": "invalid-choice"
+            })
+        )
+        .await
+        .unwrap_err()
+        .code,
+        code::CONFLICT
     );
+    assert!(w.listed(Actor::user()).await[0].failure.is_none());
+    w.user_answer(&replacement.id, "allow").await.unwrap();
+    replacement_hook.await.unwrap().unwrap();
+    let (later_hook, later_id) = w.asks(&w.child).await;
+    assert_ne!(later_id, replacement.id);
+    assert!(w.listed(Actor::user()).await[0].failure.is_none());
+    w.user_answer(&later_id, "allow").await.unwrap();
+    later_hook.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn u468_backend_failed_answers_are_hidden_outside_reach() {
+    let w = World::new().await;
+    let (hook, id) = w.asks(&w.child).await;
+    w.answer(agent(&w.door), &id, "invalid-choice")
+        .await
+        .unwrap_err();
+    let original = w.listed(Actor::user()).await;
+    assert!(original[0].failure.is_some());
     assert!(w.listed(agent(&w.other)).await.is_empty());
+    assert_eq!(
+        w.call(
+            agent(&w.other),
+            "decision.answers",
+            json!({"agent": w.child})
+        )
+        .await
+        .unwrap_err()
+        .code,
+        code::FORBIDDEN
+    );
     assert_eq!(
         w.answer(agent(&w.other), &id, "deny")
             .await
@@ -554,26 +618,7 @@ async fn u468_backend_refused_permission_is_readable_on_the_original_request() {
             .code,
         code::FORBIDDEN
     );
-    let unchanged = w
-        .call(Actor::user(), "decision.list", Value::Null)
-        .await
-        .unwrap();
-    assert_eq!(unchanged, listed);
-    assert_eq!(
-        w.call(Actor::user(), "decision.answers", json!({"agent": w.child}))
-            .await
-            .unwrap(),
-        json!([])
-    );
+    assert_eq!(w.listed(Actor::user()).await, original);
     w.user_answer(&id, "allow").await.unwrap();
-    assert_eq!(hook.await.unwrap().unwrap(), json!({"output": ALLOW}));
-    let (later, later_id) = w.asks(&w.child).await;
-    let listed = w
-        .call(Actor::user(), "decision.list", Value::Null)
-        .await
-        .unwrap();
-    assert_ne!(later_id, id);
-    assert!(listed[0].get("failure").is_none());
-    w.user_answer(&later_id, "deny").await.unwrap();
-    later.await.unwrap().unwrap();
+    hook.await.unwrap().unwrap();
 }
