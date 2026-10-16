@@ -1,4 +1,4 @@
-/* U414: the Toasts rest at the overlay's bottom-right, lifted by --toast-lift above the Thread's input; the layer takes no pointer, each Toast does. */
+/* U414: the Toasts rest at the overlay's bottom-right, lifted by --toast-lift above the resource strip; the layer takes no pointer, each Toast does. */
 .toasts {
   position: absolute;
   right: var(--space-3);

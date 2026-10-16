@@ -11,13 +11,10 @@ export type TakeoverState = {
   begin(agent: string): Promise<string | null>;
   /** Ends the Takeover of `agent`, or of whoever is taken when `agent` is omitted; nothing to end is not a failure. */
   end(agent?: string): Promise<string | null>;
-  /** U187: a reloaded webview cannot list a live Takeover, so the first time a Door shows it ends one it may hold; the answer is ignored. */
-  release(agent: string): Promise<void>;
 };
 
 export const createTakeover = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>): TakeoverState => {
   const [raw, setRaw] = createSignal<string | null>(null);
-  const released = new Set<string>();
   let last: Promise<unknown> = Promise.resolve();
 
   // A Takeover ends by itself when its Agent exits (B6): the Daemon's word is the truth.
@@ -72,12 +69,5 @@ export const createTakeover = (app: AppSeam, events: Events, daemonExit: Accesso
         return failure ?? call("takeover.begin", agent);
       }),
     end: (agent) => queue(() => endNow(agent)),
-    release: (agent) =>
-      queue(async () => {
-        if (released.has(agent) || daemonExit() !== null) return;
-
-        released.add(agent);
-        await app.rpc("takeover.end", { agent }).catch(() => undefined);
-      }),
   };
 };

@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
-import { clearingOf } from "../../thread/clear";
+import { clearingOf } from "../clear";
 import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
 import { createChoices } from "../../models/choices";
@@ -131,7 +131,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (current) void resume(current.node.id);
   };
 
-  /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
+  /** U350: the same word as the former Thread header's, only for a Workstream and not while its clear is pending. */
   const isClearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
 
   const canClear = (current: MenuState) => isClearable(current.node);

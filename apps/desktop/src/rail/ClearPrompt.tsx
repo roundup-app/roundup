@@ -38,7 +38,7 @@ export const ClearPrompt = (props: { node: RailNode }) => {
   return (
     <Show when={clearing().phase() !== "closed"}>
       <form
-        class="thread-clear-prompt"
+        class="clear-prompt"
         data-clear-prompt
         onSubmit={(submit) => {
           submit.preventDefault();
@@ -51,9 +51,9 @@ export const ClearPrompt = (props: { node: RailNode }) => {
           }
         }}
       >
-        <label class="thread-clear-title">{copy.whyClear}{props.node.name}{copy.questionMark}<textarea
+        <label class="clear-title">{copy.whyClear}{props.node.name}{copy.questionMark}<textarea
             ref={(element) => (field = element)}
-            class="thread-clear-reason"
+            class="clear-reason"
             rows={1}
             wrap="off"
             value={clearing().reason()}
@@ -67,20 +67,20 @@ export const ClearPrompt = (props: { node: RailNode }) => {
             }}
           />
         </label>
-        <p class="thread-clear-line light">
+        <p class="clear-line light">
           {pending()
             ? copy.theDoorIsWritingTheHandoff
             : copy.theDoorWritesAHandoffKeepsWhatYou(subagents())}
         </p>
         <Show when={clearing().failure()}>
           {(failed) => (
-            <p class="ink thread-clear-failure" data-tone="red" role="alert">
+            <p class="ink clear-failure" data-tone="red" role="alert">
               <Icon name="x" />
               {failed().message}
             </p>
           )}
         </Show>
-        <p class="thread-clear-words">
+        <p class="clear-words">
           <button type="submit" class="word" data-button="quiet" disabled={empty() || pending()}>{copy.clearWithHandoff}</button>{" "}
           <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={() => clearing().keep()}>{copy.keep}</button>
           <Show when={clearing().offersWithoutHandoff()}>

@@ -22,8 +22,8 @@ import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { createChoices } from "../models/choices";
 import { AddAgentPicker } from "./AddAgentPicker";
-import { ClearPrompt } from "../thread/ClearPrompt";
-import { clearingOf } from "../thread/clear";
+import { ClearPrompt } from "./ClearPrompt";
+import { clearingOf } from "./clear";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -42,7 +42,7 @@ export const Rail = () => {
   const clearPrompt = createMemo(() => {
     const node = clearTarget();
 
-    return node !== null && rail.selected() !== node.id && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
+    return node !== null && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
   });
 
   const [wanted, setWanted] = createSignal<string | null>(null);

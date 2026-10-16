@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
 import { LIST, selectNamed } from "../models/modelsFixture";
-import { clearingOf } from "../thread/clear";
+import { clearingOf } from "../rail/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 // jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.

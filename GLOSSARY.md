@@ -132,7 +132,7 @@ How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, a
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
 
 **Resource use**:
-The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows only the selected running Agent’s values at the right of the shared bottom bar below the Thread’s composer, never on the Rail (U408, U444, U469).
+The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows only the selected running Agent’s values at the right of the shared bottom bar below the Terminal, never on the Rail (U408, U444, U469).
 
 **Landing**:
 Rebasing an Agent's branch onto its Base, running the Project's check, then fast-forwarding the Base (`agent.land`, which returns `Landed`: the Base's new commit).
@@ -205,14 +205,14 @@ _Avoid_: scratchpad
 A Pad's single formatted Markdown surface the user reads and types in.
 
 **Attachment**:
-An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
+An image pasted or dropped into a Message's draft, shown inline as its name and size with a hover preview; not a Chip. (U467 removed the Thread's input, so the App has no such draft today.)
 
 **Attachment file**:
 The copy of a pasted image the Daemon keeps under its data folder (`attachment.save`) so a path can name it in a Message; a native-dropped Attachment needs none.
 _Avoid_: upload, temp image
 
 **Pasted image**:
-An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is the Thread's input.
+An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is a Message's draft.
 
 **Paste placeholder**:
 The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste; the full text is what the Door receives.
