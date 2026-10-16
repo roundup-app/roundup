@@ -84,6 +84,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     for (const terminal of missing) next[terminal.id] = { ...defaultPlace(Object.keys(next).length, untrack(extent)), min: terminal.id !== latest };
 
     for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
+
     if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
 
     if (JSON.stringify(next) === JSON.stringify(held)) return;

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
+import type { Place } from "./places";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -10,6 +11,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const chip = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
+
 const pressed = (id: string): boolean => chip(id).getAttribute("aria-pressed") === "true";
 
 describe("u2224 selecting shows output with nothing over it", () => {
@@ -48,10 +50,20 @@ describe("u2224 selecting shows output with nothing over it", () => {
 
   it("u2224_the_fold_closes_nothing_writes_nothing_and_keeps_place_and_size", async () => {
     const mounted = await mountBubbles("w");
+
     await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
+
     const calls = (): number => ["terminal.close"].flatMap((method) => bubbleCalls(mounted.app, method)).length;
+
+
     const sent = calls();
-    const geometry = (): Record<string, unknown> => Object.fromEntries(Object.entries(JSON.parse(window.sessionStorage.getItem("roundup:bubble-places:/p") ?? "{}") as Record<string, Record<string, unknown>>).map(([id, place]) => [id, { ...place, min: 0 }]));
+    const geometry = (): Record<string, Place> => {
+      // SAFETY: the bubble store writes this key as a map of Place records.
+      const stored = JSON.parse(window.sessionStorage.getItem("roundup:bubble-places:/p") ?? "{}") as Record<string, Place>;
+
+      return Object.fromEntries(Object.entries(stored).map(([id, place]) => [id, { ...place, min: false }]));
+    };
+
     const before = geometry();
 
     mounted.connected.rail.select("a");
