@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
-use contracts::EventData;
 use contracts::terminal::{Read, ReadParams, SearchParams};
 use rpc::{Module, code};
 use serde_json::json;
-use terminal::Terminals;
-use tokio::sync::broadcast::Receiver;
-use tokio::sync::broadcast::error::RecvError;
+use terminal::{Output, OutputStream, Terminals};
 
-use crate::common::{PATIENCE, ctx, decode, open, sh, until_exit, until_printed};
+use crate::common::{PATIENCE, ctx, open, sh, until_exit, until_printed};
 
 fn read(id: &str, after: u64, max: Option<u32>) -> ReadParams {
     ReadParams {
@@ -22,7 +19,7 @@ fn read(id: &str, after: u64, max: Option<u32>) -> ReadParams {
 /// than its text, as on Linux.
 async fn read_to_a_line_end(
     terminals: &Terminals,
-    events: &mut Receiver<EventData>,
+    events: &mut OutputStream,
     id: &str,
     after: u64,
 ) -> Read {
@@ -55,7 +52,7 @@ async fn x13_screen_returns_the_visible_rows_as_plain_text_and_the_offset() {
         ))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "@").await;
+    until_printed(&mut spawned.output, "@").await;
     let screen = terminals.read_screen(&spawned.id, None).unwrap();
     assert_eq!((screen.cols, screen.rows), (80, 24));
     assert_eq!(screen.lines, ["red", "se@ond"]);
@@ -73,7 +70,7 @@ async fn x13_screen_over_the_cap_is_cut_and_says_so() {
     params.cols = 100;
     params.rows = 50;
     let mut spawned = terminals.spawn(params).await.unwrap();
-    until_printed(&mut spawned.events, &"0123456789\r\n".repeat(20)).await;
+    until_printed(&mut spawned.output, &"0123456789\r\n".repeat(20)).await;
     let screen = terminals.read_screen(&spawned.id, Some(50)).unwrap();
     assert!(screen.truncated);
     assert_eq!(screen.lines.len(), 4);
@@ -92,13 +89,13 @@ async fn x13_read_from_next_returns_only_what_is_new() {
         ))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "one").await;
-    let first = read_to_a_line_end(&terminals, &mut spawned.events, &spawned.id, 0).await;
+    until_printed(&mut spawned.output, "one").await;
+    let first = read_to_a_line_end(&terminals, &mut spawned.output, &spawned.id, 0).await;
     assert_eq!((first.from, first.text.as_str()), (0, "one\n"));
     assert!(!first.truncated);
     terminals.write(&spawned.id, b"x\n").await.unwrap();
-    until_printed(&mut spawned.events, "two").await;
-    let second = read_to_a_line_end(&terminals, &mut spawned.events, &spawned.id, first.next).await;
+    until_printed(&mut spawned.output, "two").await;
+    let second = read_to_a_line_end(&terminals, &mut spawned.output, &spawned.id, first.next).await;
     assert!(second.text.ends_with("two\n"), "{:?}", second.text);
     assert!(!second.text.contains("one"));
     terminals.kill(&spawned.id).await.unwrap();
@@ -112,7 +109,7 @@ async fn x13_read_at_the_end_is_empty() {
         .spawn(sh(dir.path(), "printf 'abc\\n'"))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let all = terminals.read(&read(&spawned.id, 0, None)).unwrap();
     let again = terminals.read(&read(&spawned.id, all.next, None)).unwrap();
     assert_eq!((again.text.as_str(), again.next), ("", all.next));
@@ -130,7 +127,7 @@ async fn x13_read_never_splits_a_character_or_repeats_a_byte() {
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let whole = terminals.read(&read(&spawned.id, 0, None)).unwrap();
     let mut joined = String::new();
     let mut after = 0;
@@ -159,7 +156,7 @@ async fn x13_read_older_than_the_log_starts_at_the_log_start() {
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let read = terminals.read(&read(&spawned.id, 0, None)).unwrap();
     assert!(read.from > 0, "{}", read.from);
     assert!(read.from >= 1_200_000 + 5 - 1_048_576);
@@ -173,7 +170,7 @@ async fn x13_read_past_the_end_is_refused() {
         .spawn(sh(dir.path(), "printf 'abc'"))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let error = terminals.read(&read(&spawned.id, 4, None)).unwrap_err();
     assert_eq!(error.code, code::INVALID_PARAMS);
     for max in [0, 16_385] {
@@ -195,7 +192,7 @@ async fn x13_a_carriage_return_redraw_keeps_the_final_line() {
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let read = terminals.read(&read(&spawned.id, 0, None)).unwrap();
     assert_eq!(read.text, "100%\ndone\n");
 }
@@ -211,7 +208,7 @@ async fn x13_search_returns_only_matching_lines_with_their_offsets() {
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let found = terminals
         .search(&search(&spawned.id, "^FAIL", None))
         .unwrap();
@@ -237,7 +234,7 @@ async fn x13_search_resumes_from_next_without_a_repeat() {
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let mut seen = Vec::new();
     let mut after = None;
     loop {
@@ -265,7 +262,7 @@ async fn x13_search_caps_matches_and_line_length() {
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let found = terminals.search(&search(&spawned.id, "x", None)).unwrap();
     assert_eq!(found.matches.len(), 50);
     assert_eq!(found.matches[0].text.chars().count(), 400);
@@ -277,7 +274,7 @@ async fn x13_an_invalid_pattern_is_refused_and_a_match_free_log_gives_none() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
     let mut spawned = terminals.spawn(sh(dir.path(), "echo hi")).await.unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     for pattern in ["(", "a{1000}{1000}{1000}"] {
         let error = terminals
             .search(&search(&spawned.id, pattern, None))
@@ -300,24 +297,7 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
         ))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "shown\r\n").await;
-    // The bus gets each chunk after the Terminal's own channel, and the output printed above is
-    // not a read's event: drain the bus up to its end.
-    let end = terminals.snapshot(&spawned.id).unwrap().after;
-    tokio::time::timeout(PATIENCE, async {
-        loop {
-            match seen.recv().await.expect("the bus stays open").data {
-                EventData::TerminalOutput(out)
-                    if out.offset + decode(&out.data).len() as u64 >= end =>
-                {
-                    break;
-                }
-                _ => {}
-            }
-        }
-    })
-    .await
-    .expect("the bus delivers the printed output");
+    until_printed(&mut spawned.output, "shown\r\n").await;
     while seen.try_recv().is_ok() {}
     let before = terminals.snapshot(&spawned.id).unwrap();
     let info = terminals.list();
@@ -339,7 +319,7 @@ async fn x13_reading_writes_nothing_and_changes_no_screen_state_or_event() {
     assert!(late.is_err(), "a read emitted an event: {late:?}");
     // Nothing was typed: the program still waits and prints only what is typed next.
     terminals.write(&spawned.id, b"typed\n").await.unwrap();
-    let (printed, code) = tokio::time::timeout(PATIENCE, until_exit(&mut spawned.events))
+    let (printed, code) = tokio::time::timeout(PATIENCE, until_exit(&mut spawned))
         .await
         .unwrap();
     assert!(printed.contains("got:typed"), "{printed:?}");
@@ -380,12 +360,11 @@ async fn x13_searching_a_full_log_does_not_block_output_or_kill() {
     tokio::time::timeout(PATIENCE, async {
         let mut end = 0;
         while end < 2_000_000 {
-            match spawned.events.recv().await {
-                Ok(EventData::TerminalOutput(out)) => {
-                    end = out.offset + decode(&out.data).len() as u64;
-                }
-                Err(RecvError::Closed) => panic!("the Terminal's events closed"),
-                _ => {}
+            match spawned.output.next().await {
+                Some(Output::Bytes { offset, bytes }) => end = offset + bytes.len() as u64,
+                // A lagging subscriber skips chunks; the next one still says where the output ends.
+                Some(Output::Gap { to, .. }) => end = to,
+                None => panic!("the Terminal's output ended"),
             }
         }
     })

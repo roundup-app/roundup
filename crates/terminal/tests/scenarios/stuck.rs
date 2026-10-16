@@ -25,7 +25,7 @@ fn x9_kill_returns_while_writes_are_stuck() {
         let dir = tempfile::tempdir().unwrap();
         let (terminals, _) = open(&dir);
         let mut spawned = terminals.spawn(sh(dir.path(), STUCK)).await.unwrap();
-        until_printed(&mut spawned.events, "ready").await;
+        until_printed(&mut spawned.output, "ready").await;
         tokio::time::timeout(PATIENCE, async {
             for _ in 0..4 {
                 terminals.write(&spawned.id, &[0; CHUNK]).await.unwrap();
@@ -43,7 +43,7 @@ fn x9_a_write_that_cannot_be_queued_is_conflict() {
         let dir = tempfile::tempdir().unwrap();
         let (terminals, _) = open(&dir);
         let mut spawned = terminals.spawn(sh(dir.path(), STUCK)).await.unwrap();
-        until_printed(&mut spawned.events, "ready").await;
+        until_printed(&mut spawned.output, "ready").await;
         let refused = tokio::time::timeout(PATIENCE, async {
             loop {
                 if let Err(err) = terminals.write(&spawned.id, &[0; CHUNK]).await {
@@ -66,7 +66,7 @@ async fn x9_a_killed_program_is_gone_and_a_second_kill_is_not_found() {
         .spawn(sh(dir.path(), "trap '' HUP; echo ready; exec cat"))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "ready").await;
+    until_printed(&mut spawned.output, "ready").await;
     terminals.kill(&spawned.id).await.unwrap();
     let again = terminals.kill(&spawned.id).await.unwrap_err();
     assert_eq!(again.code, code::NOT_FOUND);

@@ -22,7 +22,7 @@ async fn x2_input_is_echoed_back_by_cat() {
         .call(&ctx, "terminal.write", serde_json::to_value(write).unwrap())
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "ping").await;
+    until_printed(&mut spawned.output, "ping").await;
     terminals.kill(&spawned.id).await.unwrap();
 }
 
@@ -63,7 +63,7 @@ async fn x5_resize_changes_what_the_program_sees() {
         .await
         .unwrap();
     terminals.write(&spawned.id, b"\n").await.unwrap();
-    let (printed, _) = until_exit(&mut spawned.events).await;
+    let (printed, _) = until_exit(&mut spawned).await;
     assert!(printed.contains("30 100"), "{printed}");
 }
 
@@ -81,7 +81,7 @@ async fn x6_kill_stops_the_program_and_keeps_it_listed() {
         .call(&ctx, "terminal.kill", id.clone())
         .await
         .unwrap();
-    let (_, exit) = until_exit(&mut spawned.events).await;
+    let (_, exit) = until_exit(&mut spawned).await;
     assert_eq!(exit, None);
     let listed = terminals.list();
     assert!(listed.iter().any(|t| t.id == spawned.id && !t.running));
@@ -97,9 +97,9 @@ async fn x6_kill_stops_a_program_that_ignores_hangup() {
         .spawn(sh(dir.path(), "trap '' HUP; echo ready; exec cat"))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "ready").await;
+    until_printed(&mut spawned.output, "ready").await;
     terminals.kill(&spawned.id).await.unwrap();
-    let (_, exit) = until_exit(&mut spawned.events).await;
+    let (_, exit) = until_exit(&mut spawned).await;
     assert_eq!(exit, None);
 }
 

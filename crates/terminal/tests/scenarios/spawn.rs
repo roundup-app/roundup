@@ -1,7 +1,6 @@
 //! X1 output, X3 exit, X7 cwd and env, X10 spawn errors.
 
-use crate::common::{PATIENCE, ctx, decode, open, sh, until_exit};
-use contracts::EventData;
+use crate::common::{ctx, drain, open, sh, until_exit};
 use contracts::terminal::{SpawnParams, TerminalId, TerminalInfo};
 use rpc::Module;
 
@@ -9,25 +8,16 @@ use rpc::Module;
 async fn x1_output_reaches_a_subscribed_client() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, bus) = open(&dir);
-    let mut events = bus.subscribe();
     let ctx = ctx(&dir, &bus);
-    let params = serde_json::to_value(sh(dir.path(), "echo hi")).unwrap();
+    let params = serde_json::to_value(sh(dir.path(), "read go; echo hi")).unwrap();
     let spawned = terminals
         .call(&ctx, "terminal.spawn", params)
         .await
         .unwrap();
     let id = serde_json::from_value::<TerminalId>(spawned).unwrap().id;
-    let mut printed = String::new();
-    while !printed.contains("hi") {
-        let event = tokio::time::timeout(PATIENCE, events.recv())
-            .await
-            .expect("output in time")
-            .unwrap();
-        if let EventData::TerminalOutput(out) = event.data {
-            assert_eq!(out.id, id);
-            printed.push_str(&decode(&out.data));
-        }
-    }
+    let mut output = terminals.subscribe_output(&id).unwrap();
+    terminals.write(&id, b"\n").await.unwrap();
+    assert!(drain(&mut output).await.contains("hi"));
 }
 
 #[tokio::test]
@@ -35,7 +25,7 @@ async fn x3_exit_code_is_reported_and_listed() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
     let mut spawned = terminals.spawn(sh(dir.path(), "exit 3")).await.unwrap();
-    let (_, code) = until_exit(&mut spawned.events).await;
+    let (_, code) = until_exit(&mut spawned).await;
     assert_eq!(code, Some(3));
     let listed = terminals.list();
     let info: &TerminalInfo = listed.iter().find(|t| t.id == spawned.id).unwrap();
@@ -49,7 +39,7 @@ async fn x3_terminal_list_over_rpc_shows_the_exit_code() {
     let (terminals, bus) = open(&dir);
     let ctx = ctx(&dir, &bus);
     let mut spawned = terminals.spawn(sh(dir.path(), "exit 3")).await.unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let listed = terminals
         .call(&ctx, "terminal.list", serde_json::Value::Null)
         .await
@@ -63,7 +53,7 @@ async fn x3_a_program_killed_by_a_signal_has_no_code() {
     let dir = tempfile::tempdir().unwrap();
     let (terminals, _) = open(&dir);
     let mut spawned = terminals.spawn(sh(dir.path(), "kill -9 $$")).await.unwrap();
-    let (_, code) = until_exit(&mut spawned.events).await;
+    let (_, code) = until_exit(&mut spawned).await;
     assert_eq!(code, None);
 }
 
@@ -77,7 +67,7 @@ async fn x7_program_runs_in_cwd_with_env_and_inherits_the_rest() {
     );
     params.env.insert("ROUNDUP_X7".into(), "set".into());
     let mut spawned = terminals.spawn(params).await.unwrap();
-    let (printed, _) = until_exit(&mut spawned.events).await;
+    let (printed, _) = until_exit(&mut spawned).await;
     let cwd = dir.path().canonicalize().unwrap();
     assert!(printed.contains(cwd.to_str().unwrap()), "{printed}");
     assert!(printed.contains("v=set"), "{printed}");
