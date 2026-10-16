@@ -3,8 +3,8 @@ import { promisify } from "node:util";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
@@ -12,7 +12,7 @@ const profile = mkdtempSync(join(tmpdir(), "u484-"));
 
 const session = `u484-${process.pid}`;
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -28,9 +28,8 @@ const read = async <T,>(expression: string): Promise<T> => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   await browser("--profile", profile, "open", new URL(new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
 
 }, 90_000);
