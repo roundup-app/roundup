@@ -177,13 +177,31 @@ fn x14_library_attach_state_is_bounded() {
 
 #[test]
 fn x14_library_screen_restore_preserves_saved_cursor_and_margins() {
+    let last_column = [vec![b'a'; 80], b"\x1b7\r".to_vec()].concat();
+    let wrapped = format!("{}X", "a".repeat(80));
     for (prefix, suffix, expected, cursor) in [
-        (b"abc\x1b7\r".as_slice(), b"\x1b8X".as_slice(), "abcX", (0, 4)),
+        (
+            b"abc\x1b7\r".as_slice(),
+            b"\x1b8X".as_slice(),
+            "abcX",
+            (0, 4),
+        ),
+        (last_column.as_slice(), b"\x1b8X", wrapped.as_str(), (1, 1)),
         (b"\x1b[2;3r\x1b[3;1H", b"A\r\nB", "\nA\nB", (2, 1)),
         (b"\x1b[r\x1b[3;1H", b"A\r\nB", "\n\nA\nB", (3, 1)),
         (b"\x1b[1;31mabc\x1b7\x1b[m\r", b"\x1b8X", "abcX", (0, 4)),
-        (b"\x1b[2;3r\x1b[?6h\x1b[2;1H\x1b7\x1b[?6l", b"\x1b8A\r\nB", "\nA\nB", (2, 1)),
-        (b"\x1b[2;3r\x1b[?6h\x1b[2;1H\x1b7\x1b[?6l\x1b[r", b"\x1b8A\r\nB", "\n\nA\nB", (3, 1)),
+        (
+            b"\x1b[2;3r\x1b[?6h\x1b[2;1H\x1b7\x1b[?6l",
+            b"\x1b8A\r\nB",
+            "\nA\nB",
+            (2, 1),
+        ),
+        (
+            b"\x1b[2;3r\x1b[?6h\x1b[2;1H\x1b7\x1b[?6l\x1b[r",
+            b"\x1b8A\r\nB",
+            "\n\nA\nB",
+            (3, 1),
+        ),
     ] {
         let input = [prefix, suffix].concat();
         let mut continuous = vt100::Parser::new(4, 80, 8);
@@ -200,7 +218,11 @@ fn x14_library_screen_restore_preserves_saved_cursor_and_margins() {
             live.process(&input[..cut]);
             let before = live.screen().state_formatted();
             let pending = live.pending_formatted();
-            let callbacks = (live.callbacks().0.clone(), live.callbacks().1, live.callbacks().2);
+            let callbacks = (
+                live.callbacks().0.clone(),
+                live.callbacks().1,
+                live.callbacks().2,
+            );
             if cut == prefix.len() {
                 assert!(pending.is_empty());
             }
@@ -209,9 +231,16 @@ fn x14_library_screen_restore_preserves_saved_cursor_and_margins() {
                 restored.process(&live.screen().state_formatted());
                 restored.process(&live.pending_formatted());
                 restored.process(&input[cut..]);
-                assert_eq!(restored.screen().contents(), expected, "cut={cut} input={input:?}");
+                assert_eq!(
+                    restored.screen().contents(),
+                    expected,
+                    "cut={cut} input={input:?}"
+                );
                 assert_eq!(restored.screen().cursor_position(), cursor);
-                assert_eq!(restored.screen().state_formatted(), continuous.screen().state_formatted());
+                assert_eq!(
+                    restored.screen().state_formatted(),
+                    continuous.screen().state_formatted()
+                );
                 // Movement/erase and a second restore expose latent saved state,
                 // rather than only the pixels immediately after attach.
                 let later = b"\x1b8\x1b[2DX\x1b[K\r\nZ";
@@ -219,13 +248,120 @@ fn x14_library_screen_restore_preserves_saved_cursor_and_margins() {
                 continued.process(later);
                 restored.process(later);
                 assert_eq!(restored.screen().contents(), continued.screen().contents());
-                assert_eq!(restored.screen().state_formatted(), continued.screen().state_formatted());
+                assert_eq!(
+                    restored.screen().state_formatted(),
+                    continued.screen().state_formatted()
+                );
             }
             assert_eq!(live.screen().state_formatted(), before);
             assert_eq!(live.pending_formatted(), pending);
-            assert_eq!((live.callbacks().0.clone(), live.callbacks().1, live.callbacks().2), callbacks);
+            assert_eq!(
+                (
+                    live.callbacks().0.clone(),
+                    live.callbacks().1,
+                    live.callbacks().2
+                ),
+                callbacks
+            );
             live.process(&input[cut..]);
-            assert_eq!(live.screen().state_formatted(), continuous.screen().state_formatted());
+            assert_eq!(
+                live.screen().state_formatted(),
+                continuous.screen().state_formatted()
+            );
+        }
+    }
+}
+
+#[test]
+fn x14_library_screen_restore_state_is_bounded() {
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("ROUNDUP_SCREEN_RESTORE_CHILD").is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "x14_library_screen_restore_state_is_bounded",
+                "--nocapture",
+            ])
+            .env("ROUNDUP_SCREEN_RESTORE_CHILD", "1")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        print!("{}", String::from_utf8_lossy(&output.stdout));
+        return;
+    }
+    #[cfg(target_os = "linux")]
+    fn rss() -> usize {
+        std::fs::read_to_string("/proc/self/status")
+            .unwrap()
+            .lines()
+            .find_map(|line| line.strip_prefix("VmRSS:"))
+            .unwrap()
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+    for (rows, cols, history) in [(4, 80, 8), (12, 40, 16)] {
+        let mut live = vt100::Parser::new(rows, cols, history);
+        // Fill the configured history before installing restricted margins.
+        live.process(&b"old\r\n".repeat(history + usize::from(rows)));
+        live.process(b"\x1b[1;31m\x1b[2;3H\x1b7\x1b[m\x1b[2;3r");
+        let chunk = b"flood!\r\n".repeat(1024);
+        let mut first = Vec::new();
+        #[cfg(target_os = "linux")]
+        let mut first_rss = 0;
+        for count in 1..=8192 {
+            live.process(&chunk);
+            if count != 128 && count != 8192 {
+                continue;
+            }
+            let screen = live.screen().state_formatted();
+            let pending = live.pending_formatted();
+            assert!(screen.len() <= usize::from(rows) * usize::from(cols) * 128 + 512);
+            assert!(pending.len() <= 1280);
+            #[cfg(target_os = "linux")]
+            {
+                let current = rss();
+                if count == 128 {
+                    first_rss = current;
+                }
+                assert!(
+                    current <= first_rss + 1024,
+                    "RSS {current} > {first_rss} + 1024 KiB"
+                );
+                println!(
+                    "bytes={} rss_kib={current} screen={} pending={}",
+                    count * chunk.len(),
+                    screen.len(),
+                    pending.len()
+                );
+            }
+            if count == 128 {
+                first = screen.clone();
+            } else {
+                assert_eq!(screen, first);
+            }
+            let mut restored = vt100::Parser::new(rows, cols, history);
+            restored.process(&screen);
+            restored.process(&pending);
+            let suffix = b"\x1b8X";
+            restored.process(suffix);
+            let mut continuous = live.clone();
+            continuous.process(suffix);
+            assert_eq!(restored.screen().contents(), continuous.screen().contents());
+            assert_eq!(restored.screen().cursor_position(), (1, 3));
+            assert_eq!(restored.screen().cell(1, 2).unwrap().contents(), "X");
+            assert!(restored.screen().cell(1, 2).unwrap().bold());
+            assert_eq!(
+                restored.screen().cell(1, 2).unwrap().fgcolor(),
+                vt100::Color::Idx(1)
+            );
+            assert_eq!(
+                restored.screen().state_formatted(),
+                continuous.screen().state_formatted()
+            );
+            assert_eq!(live.screen().state_formatted(), screen);
         }
     }
 }
