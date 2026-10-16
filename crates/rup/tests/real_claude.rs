@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, A32, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1521,5 +1521,109 @@ async fn a32_an_empty_reason_changes_nothing() {
         asked,
         "invalid clear sends no prompt to Claude"
     );
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_only_the_door_may_hand_off() {
+    let project = daemon::start_real("a32_handoff_authority", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    let actor = |id: String| async {
+        let who = project.client().await;
+        who.request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id,
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+        who
+    };
+    let owner = actor(door.clone()).await;
+    let params = json!({"id": door, "summary": "s", "keep_todos": [], "keep_pads": []});
+    let error = owner
+        .request("workstream.handoff", params.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "authority check"}),
+        )
+        .await
+        .unwrap();
+    // Digest turns also emit Working/Idle, so only the request proves Clear arrived.
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            model.assert_matched();
+            if model.journal().iter().any(|entry| {
+                entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("authority check")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+            }) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "clear prompt missing from aimock journal: {:#?}",
+            model.journal()
+        )
+    });
+    // Spawn the child during Clear, so its startup digests cannot race Clear's Steer.
+    let result = model.tool_result("toolu_a32_child").await;
+    let child: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    for who in [actor(child.id).await, project.client().await] {
+        let error = who
+            .request("workstream.handoff", params.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::FORBIDDEN);
+    }
     model.assert_matched();
 }
