@@ -1,7 +1,8 @@
 import { onCleanup } from "solid-js";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
-/** Regions follow focus; active layers precede regions. Nested elements precede their ancestors; a portalled layer names its parent scope.
+/** Regions follow focus; active layers precede regions. Nested layers precede their ancestors; among independent layers, the one containing focus owns shortcuts.
+ * A portalled child may name its parent scope; independent surfaces need no fabricated ancestry.
  * A modal also suppresses unbound shortcuts; Escape and Tab remain the Dialog's responsibility. */
 export type KeyScope =
   | { kind: "app" }
@@ -27,6 +28,17 @@ const depth = (scope: KeyScope): number => {
   return count;
 };
 
+const containsScope = (outer: KeyScope, inner: KeyScope): boolean => {
+  if (inner.kind === "layer" && inner.parent) {
+    if (inner.parent === outer || containsScope(outer, inner.parent)) return true;
+  }
+
+  const outerRoot = rootOf(outer);
+  const innerRoot = rootOf(inner);
+
+  return !!outerRoot && !!innerRoot && outerRoot !== innerRoot && outerRoot.contains(innerRoot);
+};
+
 const rank = (scope: KeyScope) => scope.kind === "layer" ? 2 : scope.kind === "region" ? 1 : 0;
 
 const dispatch = (event: KeyboardEvent): void => {
@@ -40,7 +52,20 @@ const dispatch = (event: KeyboardEvent): void => {
     if (scope.kind === "layer") return scope.active();
 
     return !!focus && !!scope.element()?.contains(focus);
-  }).sort((a, b) => rank(b.scope) - rank(a.scope) || depth(b.scope) - depth(a.scope));
+  }).sort((a, b) => {
+    if (a.scope.kind === "layer" && b.scope.kind === "layer") {
+      if (containsScope(a.scope, b.scope)) return 1;
+
+      if (containsScope(b.scope, a.scope)) return -1;
+
+      const focused = (scope: KeyScope) => !!focus && !!rootOf(scope)?.contains(focus);
+      const ownership = Number(focused(b.scope)) - Number(focused(a.scope));
+
+      if (ownership) return ownership;
+    }
+
+    return rank(b.scope) - rank(a.scope) || depth(b.scope) - depth(a.scope);
+  });
 
   const layer = eligible.find(({ scope }) => scope.kind === "layer");
   const modal = eligible.some(({ scope }) => scope.kind === "layer" && scope.modal);
