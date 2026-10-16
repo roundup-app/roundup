@@ -1,6 +1,6 @@
 # U501 shared answer Listbox
 
-Source: `faa8743e2f9b0313d7d03983e7ee71dc8530ff7b`; main baseline: `32198b7297869ddc237030cf14b754fb8084206f`. Scope is `ui/`; #2004 owns lane adoption. No lane, App, contracts, Tokens, package or loop file changes.
+Source: `faa8743e2f9b0313d7d03983e7ee71dc8530ff7b`; main baseline: `32198b7297869ddc237030cf14b754fb8084206f`. Scope is `ui/`; #2004 owns lane adoption. No lane, App, contracts, Tokens, package or loop file changes. The final branch includes main’s test-only #2163 merge (`5882ad851`); its UI and Rust release inputs match this captured/measured baseline.
 
 ```text
 controlled answer/highlight → Ark collection + Root → supplied options
