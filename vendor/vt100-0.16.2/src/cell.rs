@@ -1,6 +1,6 @@
 use unicode_width::UnicodeWidthChar as _;
 
-// chosen to make the size of the cell struct 32 bytes
+// Fixed text storage keeps cell retention independent of input length.
 const CONTENT_BYTES: usize = 22;
 
 const IS_WIDE: u8 = 0b1000_0000;
@@ -13,8 +13,9 @@ pub struct Cell {
     contents: [u8; CONTENT_BYTES],
     len: u8,
     attrs: crate::attrs::Attrs,
+    pub(crate) source: Option<u64>,
 }
-const _: () = assert!(std::mem::size_of::<Cell>() == 32);
+const _: () = assert!(std::mem::size_of::<Cell>() == 48);
 
 impl PartialEq<Self> for Cell {
     fn eq(&self, other: &Self) -> bool {
@@ -34,6 +35,7 @@ impl Cell {
         Self {
             contents: Default::default(),
             len: 0,
+            source: None,
             attrs: crate::attrs::Attrs::default(),
         }
     }
@@ -43,6 +45,7 @@ impl Cell {
     }
 
     pub(crate) fn set(&mut self, c: char, a: crate::attrs::Attrs) {
+        self.source = None;
         self.len = 0;
         self.append_char(0, c);
         // strings in this context should always be an arbitrary character
@@ -74,8 +77,18 @@ impl Cell {
     }
 
     pub(crate) fn clear(&mut self, attrs: crate::attrs::Attrs) {
+        self.source = None;
         self.len = 0;
         self.attrs = attrs;
+    }
+
+    /// Caller-supplied source annotation, moved with this cell by screen edits.
+    /// New, replaced and erased cells have no annotation. Combining characters
+    /// retain the base cell's annotation. It does not affect visual equality or
+    /// ANSI formatting and is preserved by Clone, not by formatted restoration.
+    #[must_use]
+    pub fn source(&self) -> Option<u64> {
+        self.source
     }
 
     /// Returns the text contents of the cell.

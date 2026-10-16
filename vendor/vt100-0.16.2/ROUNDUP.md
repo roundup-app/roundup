@@ -276,3 +276,81 @@ Actual final command exits are retained on #2160 and its PR. Production snapshot
 integration, selected transport, parser projection, Contract callers, raw Tauri
 bytes, exact xterm observation, flood/journey and matched performance remain #1930.
 This prerequisite does not claim full X14 acceptance.
+
+## Screen edit provenance (X14 prerequisite, #2167)
+
+The additional MIT-licensed source delta adds opaque `Option<u64>` source
+annotations to the existing `Cell` and `Row` holders. `Screen::set_cell_source`
+and `Screen::set_row_source` annotate the active drawing grid and return false
+out of bounds. `Cell::source` and `Screen::row_source` read the visible viewport,
+including retained history when scrollback is selected. Set scrollback to zero
+when reading drawing coordinates. Annotation changes trigger no callback and
+change no text, attributes, cursor, visual equality or ANSI formatting.
+
+```text
+caller offset → cell/row annotation → vt100's existing grid edits → surviving offset
+```
+
+Existing cell/row moves carry annotations, including insertion, deletion,
+scrolling, restricted margins and movement into scrollback. New cells/rows start
+unannotated. Cell replacement/erasure invalidates that cell's annotation; a full
+`Row::clear` also invalidates the row annotation. Partial cell edits preserve
+the row marker. Combining codepoints retain the base glyph's origin; wide-cell
+cleanup reuses the existing clear paths. The caller owns annotation meaning
+and assigns source offsets through the existing handled-text/control callbacks
+or explicit screen initialization. No source offset is inferred from an escape
+sequence or from equality of rendered text. There is no new recognizer, grid
+edit implementation, callback, vte patch or production caller.
+
+Clone preserves annotations with cells/rows and pending recognition, including
+inside CSI, OSC and UTF-8. Formatted ANSI export deliberately omits annotations;
+this facility supplies in-memory source tracking, not a provenance wire format.
+Existing callbacks remain unchanged and default to no-op.
+
+Storage is exactly one `Option<u64>` per allocated cell and row, including both
+normal and alternate grids and configured retained history. On Linux x86_64,
+Cell grows from 32 to 48 bytes; the row annotation adds 16 bytes. No annotation
+list, raw byte history, edit queue or per-input allocation is retained. Thus
+storage is bounded by configured screen/history dimensions plus the existing
+fixed recognizer state. Caller callback storage has its own policy; the test's
+callback retains only three u64 values. Its scan for newly written unannotated
+cells demonstrates a bounded strategy, not a production projection or latency
+claim. #1930 retains production projection, selected streams, full Contract and
+caller migration, raw Tauri bytes, flood/journey and matched performance evidence.
+
+`x14_library_observes_screen_edits_for_source_offsets` crosses the installed
+interface and asserts the literal blank-row relocation 0/2 → 2/None despite
+identical screen/cursor, and repeated-glyph survivors 2 and 3. Table fixtures
+assert insertion, deletion, erasure, scrolling, relative cursor movement,
+default/restricted margins and hidden OSC finals. Additional observations cover
+scrollback viewport versus drawing setters and combining-glyph origin.
+`x14_library_screen_edit_observation_survives_checkpoint_replay` compares
+bytewise uninterrupted parsing with three independent replays at every cut
+through CSI, BEL/ST OSC and UTF-8. It checks source associations, formatted
+screen, callbacks, history and original isolation. Literal source assertions
+anchor replay comparisons. Its isolated Linux child feeds more than 1 MiB and
+64 MiB of writes/edits with 4×16 cells and 8 history rows, checking unchanged
+source state, the history bound, 48-byte cells and RSS within 1024 KiB of the
+1 MiB reading. The focused run observed 3044 KiB at both samples (exit 0).
+
+Exact pins and archive hashes above are unchanged: vt100 0.16.2 (MIT), vte
+0.15.0 (Apache-2.0 OR MIT). Maintenance rechecked 2026-10-16 via `gh api`
+(both exit 0): vt100 main `fc26fd9c3d72f9af8a214741c100920734500de7`,
+2025-07-12; vte master `abeae765dd546dfff60b278f0757dcc71beb8ab1`,
+2026-02-28. Source anchors are the pinned upstream
+[Cell](https://github.com/doy/vt100-rust/blob/fc26fd9c3d72f9af8a214741c100920734500de7/src/cell.rs),
+[Grid](https://github.com/doy/vt100-rust/blob/fc26fd9c3d72f9af8a214741c100920734500de7/src/grid.rs),
+and [vte Perform](https://github.com/alacritty/vte/blob/abeae765dd546dfff60b278f0757dcc71beb8ab1/src/lib.rs).
+Selected: extend the installed vt100 holders so its own implementation moves
+source metadata. Upstream vt100's text/attribute-only cells and handled-CSI
+callback gap cannot distinguish equal cells/rows; vte's Perform recognizes CSI
+but lacks vt100's screen/grid and cannot track those moves. Direct docs.rs
+opens were unavailable; installed source and primary GitHub API checks supplied
+the evidence. No maintained library supplies the missing seam into this pinned
+emulator without a local extension. No new dependency is added.
+
+The initial installed-interface tracer exited 101 (missing annotation methods);
+the implemented focused observers exit 0. No existing tests were removed or
+edited: prior bounded-OSC, pending attach, replacement, handled text/control
+and screen continuation observers prove separate clauses. Final Terminal and
+`just check origin/main` exits are recorded on #2167 and its PR.
