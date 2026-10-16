@@ -2465,8 +2465,12 @@ async fn m10_only_a_door_is_offered_checkpoint_write() {
 async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
     let project = start(&[]);
     let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut door = Shim::start(&project, &rail.m).await;
+    // No children: startup Digests must not race the checkpoint-only Message assertion.
+    let workstream = workstream(&user, "m").await;
+    user.request("rail.startDoor", json!({"id":workstream}))
+        .await
+        .unwrap();
+    let mut door = Shim::start(&project, &workstream).await;
     let before = user.request("message.list", json!({})).await.unwrap();
 
     let first = door.call("checkpoint_write", card("login merged")).await;
@@ -2476,7 +2480,7 @@ async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
         (first["id"].as_u64(), second["id"].as_u64()),
         (Some(1), Some(2))
     );
-    assert_eq!(first["workstream"], rail.m.as_str());
+    assert_eq!(first["workstream"], workstream.as_str());
     assert_eq!(first["title"], "login merged");
     assert_eq!(first["blocks"], card("")["blocks"]);
     assert!(first["at"].as_i64().unwrap() > 0);
