@@ -5579,7 +5579,7 @@ async fn b6_stop_crashes_explain_waiting_and_uncertain_effects_without_repeating
 
 #[tokio::test]
 async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
-    for kind in ["user", "ext", "daemon"] {
+    for kind in ["user", "ext"] {
         let (run, caller) = order_child().await;
         let direct = if kind == "user" {
             Arc::clone(&run.user)
@@ -5618,7 +5618,7 @@ async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
         }
         for mutation in &mut mutations {
             // The observer acknowledges the original Stop's pre-effect cut. This is an
-            // absence window: neither user mutation may replace the Attempt at that cut.
+            // absence window: no direct mutation may replace the Attempt at that cut.
             assert!(
                 tokio::time::timeout(Duration::from_millis(200), mutation)
                     .await
@@ -5640,4 +5640,93 @@ async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
         assert_eq!(history[0]["outcome"]["status"], "completed");
         run.finish().await;
     }
+}
+
+#[tokio::test]
+async fn b6_a_stop_accepted_before_terminal_attachment_keeps_the_same_attempt() {
+    let mut run = Run::start().await;
+    let fake = run.dir.path().join("claude");
+    let source = std::fs::read_to_string(&fake).unwrap();
+    std::fs::write(
+        &fake,
+        source.replace(
+            "if sys.argv[1:3] == ['plugin', 'test']:\n    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)",
+            r#"if sys.argv[1:3] == ['plugin', 'test']:
+    gate = os.path.join(os.path.dirname(__file__), 'launch-gate')
+    if os.path.isfile(gate):
+        open(gate + '.arrived', 'w').write('plugin test requested')
+        deadline = time.monotonic() + 10
+        while os.path.isfile(gate):
+            if time.monotonic() > deadline: raise RuntimeError('launch probe was not released')
+            time.sleep(0.005)
+    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)"#,
+        ),
+    )
+    .unwrap();
+    // Reopen with an empty runtime admission cache; the probe precedes Terminal creation.
+    run.daemon.child.kill().unwrap();
+    run.daemon.child.wait().unwrap();
+    run.daemon = launch(run.dir.path(), run.data.path());
+    run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    let door = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"starting child"}))
+        .await
+        .unwrap();
+    let caller = Client::connect(&run.daemon.socket).await.unwrap();
+    caller
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":door["id"]}}),
+        )
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("launch-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let cwd = run.dir.path().to_owned();
+    let parent = door["id"].clone();
+    let spawning = tokio::spawn(async move {
+        user.request("agent.spawn", json!({"cwd":cwd,"parent":parent}))
+            .await
+    });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let starting = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["parent"] == door["id"])
+        .unwrap();
+    run.child = starting["id"].as_str().unwrap().to_owned();
+    assert!(starting["terminal_id"].is_null());
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(receipt["outcome"]["status"], "waiting");
+    std::fs::remove_file(gate).unwrap();
+    let attached = spawning.await.unwrap().unwrap();
+    assert_eq!(attached["attempt"], starting["attempt"]);
+    assert!(attached["terminal_id"].is_string());
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
 }
