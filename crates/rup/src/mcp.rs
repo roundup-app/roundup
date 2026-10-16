@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use contracts::{
@@ -11,8 +12,8 @@ use contracts::{
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
-    Implementation, JsonObject, ListToolsResult, PaginatedRequestParams, ServerCapabilities,
-    ServerConfig, Tool,
+    ElicitRequestParams, ElicitationSchema, Implementation, JsonObject, ListToolsResult,
+    PaginatedRequestParams, ServerCapabilities, ServerConfig, ServerRequest, Tool,
 };
 use rmcp::service::{RequestContext, RoleServer};
 use rmcp::{ErrorData, ServerHandler, ServiceExt};
@@ -370,7 +371,11 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
-            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
+            "Resize a Terminal you or your Reach own to `cols` by `rows`. During Takeover, a durable waiting receipt means accepted, not executed; read terminal_resizeHistory for its outcome.",
+        ),
+        offered::<terminal::TerminalId>(
+            "terminal.resizeHistory",
+            "Read your accepted resize actions and their outcomes, even after the Terminal is gone. Waiting means the user holds Takeover; a dropped reason explains why no retry was made.",
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
@@ -450,11 +455,6 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
         "terminal.close" => format!("closed Terminal {id}"),
         "terminal.kill" => format!("stopped Terminal {id}"),
         "terminal.write" => format!("wrote to Terminal {id}"),
-        "terminal.resize" => format!(
-            "resized Terminal {id} to {} by {}",
-            field("cols"),
-            field("rows")
-        ),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
     }
@@ -543,6 +543,119 @@ impl Shim {
         }
     }
 
+    /// U468: keep agent.ask as the waiting call. The vendor renders a standard
+    /// MCP form; its in-process callback, not this Agent's shim, delivers the answer.
+    async fn terminal_question(
+        &self,
+        arguments: Option<JsonObject>,
+        context: &RequestContext<RoleServer>,
+    ) -> Result<Result<String, RpcError>, Gone> {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let question: decision::AskParams =
+            match rpc::params(Value::Object(arguments.unwrap_or_default())) {
+                Ok(question) => question,
+                Err(error) => return Ok(Err(error)),
+            };
+        let terminal = format!(
+            "{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        );
+        let mut client = self.connect().await?;
+        tokio::time::timeout(CALL_TIMEOUT, client.request("events.subscribe", ()))
+            .await
+            .map_err(|_| Gone::Silent)?
+            .map_err(|error| Gone::Unreachable(error.to_string()))?;
+        let caller = self.connect().await?;
+        let call = caller.request(
+            "agent.ask",
+            decision::AskCall {
+                question: question.clone(),
+                terminal: Some(terminal.clone()),
+            },
+        );
+        tokio::pin!(call);
+        let opened = tokio::time::timeout(CALL_TIMEOUT, async {
+            loop {
+                tokio::select! {
+                    reply = &mut call => return Err(reply),
+                    event = client.next_event() => {
+                        let Some(event) = event else { return Err(Err(RpcError::internal("question event connection closed"))); };
+                        if let contracts::EventData::DecisionOpened(opened) = event.data {
+                            let decision = *opened;
+                            if decision.agent == self.actor.id
+                                && serde_json::from_str::<decision::AskCall>(&decision.args)
+                                    .is_ok_and(|input| input.terminal.as_deref() == Some(terminal.as_str()))
+                            { return Ok(decision); }
+                        }
+                    }
+                }
+            }
+        }).await.map_err(|_| Gone::Silent)?;
+        let opened = match opened {
+            Ok(opened) => opened,
+            Err(reply) => return Ok(reply.map(|value| value.to_string())),
+        };
+        let field = format!("roundup_{}", opened.id);
+        let schema = serde_json::json!({
+            "type":"object", "properties": {
+                field.clone(): {"type":"string","title":"Answer", "description":"Type a listed answer, or your own words.", "minLength":1, "maxLength":2000},
+                "note": {"type":"string","title":"Note", "maxLength":2000}
+            }, "required":[field]
+        });
+        let schema = ElicitationSchema::from_json_schema(
+            schema
+                .as_object()
+                .expect("the form schema is an object")
+                .clone(),
+        )
+        .map_err(|error| Gone::Unreachable(error.to_string()))?;
+        let mut message = question.question;
+        for answer in question.answers {
+            use std::fmt::Write;
+            let _ = write!(message, "\n{} — {}", answer.label, answer.description);
+            if let Some(preview) = answer.preview {
+                let _ = write!(message, "\n{preview}");
+            }
+        }
+        let request = ElicitRequestParams::FormElicitationParams {
+            meta: None,
+            message,
+            requested_schema: schema,
+        };
+        let mut form = tokio::time::timeout(
+            CALL_TIMEOUT,
+            context.peer.send_cancellable_request(
+                ServerRequest::ElicitRequest(rmcp::model::Request::new(request)),
+                rmcp::service::PeerRequestOptions::no_options(),
+            ),
+        )
+        .await
+        .map_err(|_| Gone::Silent)?
+        .map_err(|error| Gone::Unreachable(error.to_string()))?;
+        tokio::select! {
+            reply = &mut call => {
+                match tokio::time::timeout(CALL_TIMEOUT, form.cancel(Some("the original question ended".into()))).await {
+                    Ok(Ok(())) => {},
+                    Ok(Err(error)) => eprintln!("rup: native question cancellation failed after the original ended: {error}"),
+                    Err(_) => eprintln!("rup: the original question ended; native form cancellation is uncertain"),
+                }
+                Ok(reply.map(|value| value.to_string()))
+            }
+            reply = &mut form.rx => {
+                match reply {
+                    Ok(Ok(rmcp::model::ClientResult::ElicitResult(result))) if result.action == rmcp::model::ElicitationAction::Accept => {
+                        // The result hook must have authenticated and delivered it first.
+                        // Never turn an Agent-origin form reply into decision.answer.
+                        tokio::time::timeout(CALL_TIMEOUT, &mut call).await
+                            .map(|reply| reply.map(|value| value.to_string())).map_err(|_| Gone::Silent)
+                    }
+                    _ => Ok(Err(RpcError::conflict("the Terminal question was dismissed or its native callback failed"))),
+                }
+            }
+        }
+    }
+
     async fn call(
         &self,
         offer: &Offered,
@@ -573,6 +686,17 @@ impl Shim {
 }
 
 impl ServerHandler for Shim {
+    // U468 keeps one live tools/call while the native form is open. Claude's
+    // modern protocol rejects server-initiated elicitation/create; negotiate the
+    // SDK's supported 2025 revision rather than advertising that unimplemented era.
+    fn supported_protocol_versions(
+        &self,
+    ) -> std::borrow::Cow<'static, [rmcp::model::ProtocolVersion]> {
+        std::borrow::Cow::Borrowed(rmcp::model::ProtocolVersion::known_up_to(
+            &rmcp::model::ProtocolVersion::V_2025_11_25,
+        ))
+    }
+
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("roundup", env!("CARGO_PKG_VERSION")))
@@ -597,8 +721,17 @@ impl ServerHandler for Shim {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
+        if matches!(request.name.as_ref(), "ask_send" | "ask_list" | "ask_pick") {
+            return Err(ErrorData::new(
+                rmcp::model::ErrorCode(
+                    rpc::code::FORBIDDEN.try_into().expect("FORBIDDEN fits i32"),
+                ),
+                format!("{} is user-only", request.name),
+                None,
+            ));
+        }
         let offer = self
             .tools
             .iter()
@@ -606,7 +739,17 @@ impl ServerHandler for Shim {
             .ok_or_else(|| {
                 ErrorData::invalid_params(format!("no tool named {}", request.name), None)
             })?;
-        match self.call(offer, request.arguments).await {
+        let result = if offer.waits_for_user
+            && context
+                .client_capabilities()
+                .and_then(|capabilities| capabilities.elicitation)
+                .is_some_and(|capability| capability.form.is_some() || capability.url.is_none())
+        {
+            self.terminal_question(request.arguments, &context).await
+        } else {
+            self.call(offer, request.arguments).await
+        };
+        match result {
             Ok(Ok(result)) => Ok(CallToolResult::success(vec![ContentBlock::text(result)]).into()),
             Ok(Err(err)) => {
                 let body = serde_json::to_string(&err)
