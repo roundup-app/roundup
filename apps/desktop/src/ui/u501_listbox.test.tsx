@@ -137,3 +137,17 @@ it("u501_own_answer_callbacks_report_null_to_the_owner", async () => {
   fireEvent.keyDown(screen.getByRole("textbox"), { key: "ArrowUp" });
   await waitFor(() => expect([selected, highlighted]).toEqual([[null], [null]]));
 });
+
+
+it("u501_supplied_metadata_keeps_the_option_name_and_description", () => {
+  render(() => <Listbox.Root answers={answers} value="brief" highlightedValue="brief" onValueChange={() => undefined} onHighlightChange={() => undefined}>
+    <Listbox.Label>Answers</Listbox.Label><Listbox.Content>
+      <Listbox.Item item={answers[0]!} class="caller-answer"><span>Recommended</span></Listbox.Item>
+    </Listbox.Content>
+  </Listbox.Root>);
+  const row = screen.getByRole("option", { name: "Brief" });
+
+  expect(row.textContent).toContain("Recommended");
+  expect(row.classList.contains("caller-answer")).toBe(true);
+  expect(document.getElementById(row.getAttribute("aria-describedby")!)?.textContent).toBe("Keep the summary short");
+});
