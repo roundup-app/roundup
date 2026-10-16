@@ -8,15 +8,6 @@ import { mountBubbles } from "./bubblesFixture";
 
 afterEach(cleanup);
 
-const hex = (value: number): string => Math.round(value).toString(16).padStart(2, "0");
-
-/** `top` laid over `bottom` at `alpha`, as the bubble's ground over what the pane holds. */
-const over = (top: string, bottom: string, alpha: number): string => {
-  const channel = (colour: string, at: number) => Number.parseInt(colour.slice(1 + at * 2, 3 + at * 2), 16);
-
-  return `#${[0, 1, 2].map((at) => hex(channel(top, at) * alpha + channel(bottom, at) * (1 - alpha))).join("")}`;
-};
-
 const darkTokens = (): Map<string, string> => {
   const dark = /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(tokenCss)![1]!;
 
@@ -24,33 +15,20 @@ const darkTokens = (): Map<string, string> => {
 };
 
 describe("u164 surfaces and contrast", () => {
-  it("u164_u134_allows_the_bubble_border_and_translucent_ground_and_nothing_else", () => {
+  it("u511_panel_uses_radius_shadow_and_opaque_ground", () => {
     expect(lookLiterals(bubbleCss)).toEqual([]);
-    expect(bubbleCss).not.toMatch(/box-shadow|backdrop-filter/);
-    expect(bubbleCss).toMatch(/\.bubble\s*\{[^}]*border:\s*1px solid var\(--hairline\)/);
-    expect(bubbleCss).toMatch(/\.bubble::before\s*\{[^}]*background:\s*var\(--ground\)[^}]*opacity:\s*var\(--bubble-ground\)/);
-    expect(bubbleCss.match(/border:/g)).toHaveLength(2);
+    expect(bubbleCss).not.toMatch(/backdrop-filter|opacity:/);
+    expect(bubbleCss).toMatch(/\.bubble\s*\{[^}]*background:\s*var\(--ground\)[^}]*border-radius:\s*var\(--radius-drawer\)[^}]*box-shadow:\s*var\(--shadow-drawer\)/);
   });
 
   it.each([
     ["light", tokensOf(tokenCss)],
     ["dark", darkTokens()],
-  ])("u164_text_reads_at_4_5_to_1_at_the_default_over_ink_and_paper (%s)", (_scheme, tokens) => {
-    const text = tokens.get("text")!;
-    const ground = tokens.get("ground")!;
-
-    for (const behind of [text, ground]) expect(contrastRatio(text, over(ground, behind, 0.92))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it.each([
-    ["light", tokensOf(tokenCss)],
-    ["dark", darkTokens()],
-  ])("u164_the_header_slider_and_tab_keep_4_5_to_1_at_every_setting (%s)", (_scheme, tokens) => {
+  ])("u511_text_reads_at_4_5_to_1_on_the_opaque_panel (%s)", (_scheme, tokens) => {
     const text = tokens.get("text")!;
     const grey = tokens.get("grey")!;
     const ground = tokens.get("ground")!;
 
-    // The header, slider and tab paint `--ground` opaque under their own text, whatever the bubble's ground opacity.
     expect(contrastRatio(text, ground)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(grey, ground)).toBeGreaterThanOrEqual(4.5);
     expect(bubbleCss).toMatch(/\.terminal-tab\s*\{[^}]*--button-surface:\s*var\(--ground\)/);
