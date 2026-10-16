@@ -1,0 +1,6 @@
+# roundup shell marks (X15): read the user's own file, then hand ZDOTDIR back to ours for the next one.
+__rup_dir=$ZDOTDIR
+ZDOTDIR=${ROUNDUP_USER_ZDOTDIR:-$HOME}
+[[ -f $ZDOTDIR/.zshenv ]] && source $ZDOTDIR/.zshenv
+ZDOTDIR=$__rup_dir
+unset __rup_dir
