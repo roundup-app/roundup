@@ -152,6 +152,7 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
       expect(shown.bar, `${width} ${scheme} bar`).toEqual(before.bar);
       expect(shown.pane, `${width} ${scheme} pane`).toEqual(before.pane);
       expect(shown.composer, `${width} ${scheme} composer`).toEqual(before.composer);
+
       for (const id of ['D2', 'D5', 'D6']) expect(shown.checks[id]?.status, `${width} ${scheme} ${id}`).toBe('pass');
     }
   }

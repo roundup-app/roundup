@@ -122,6 +122,7 @@ it("u524_the_message_clears_on_open_selection_or_creation", async () => {
   const failing = await mountBubbles(null);
 
   failing.app.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
+
   plus();
   await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot open"));
   expect(note()).toBeNull();
