@@ -227,6 +227,13 @@ impl Daemon {
         )?);
         let _ = messages.set(Arc::clone(&opened));
         daemon.register(opened);
+        let placement = Arc::new(agents.placement_call());
+        daemon.register(Arc::new(agents::Asks::open(
+            dir,
+            daemon.bus.clone(),
+            Arc::clone(&agents),
+            placement,
+        )?));
         daemon.register(agents);
         daemon.register(terminals);
         daemon.start_pushes();

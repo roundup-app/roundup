@@ -27,11 +27,13 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::oneshot;
 use tokio::time::{Instant, sleep_until};
 
+mod asks;
 pub mod claude_code;
 mod decision;
 pub mod marks;
 mod models;
 pub mod placement;
+pub use asks::Asks;
 pub use models::labelled as model_choices;
 mod name;
 mod order;
@@ -354,6 +356,8 @@ enum FirstPrompt {
 }
 
 struct Run {
+    /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
+    startup_context: bool,
     attempt: String,
     status_revision: i64,
     closing: bool,

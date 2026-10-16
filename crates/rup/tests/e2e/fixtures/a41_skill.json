@@ -1,0 +1,6 @@
+{
+  "fixtures": [
+    {"match":{"userMessage":"A41_SKILL_MARKER","hasToolResult":false},"response":{"content":"Skill received."}},
+    {"match":{"userMessage":"A41 initial","hasToolResult":false},"response":{"content":"Ready."}}
+  ]
+}

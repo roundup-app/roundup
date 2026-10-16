@@ -7,14 +7,16 @@ impl Shared {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
-        let completion = match self.runs().get(id) {
-            Some(Slot::Running(run)) if run.attempt == attempt => run.first_completion.clone(),
+        let (completion, startup_context) = match self.runs().get(id) {
+            Some(Slot::Running(run)) if run.attempt == attempt => {
+                (run.first_completion.clone(), run.startup_context)
+            }
             _ => return,
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
             let mut prompt = prompt;
-            if let Some(read) = &shared.context {
+            if startup_context && let Some(read) = &shared.context {
                 let context = async { read(shared.tree()?, id.clone()).await };
                 match tokio::time::timeout(Duration::from_secs(4), context).await {
                     Ok(Ok(text)) => prompt.push_str(&format!(
