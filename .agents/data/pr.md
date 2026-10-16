@@ -1,6 +1,6 @@
 # PR
 
-Data for Builder runs: a build or fix run writing a PR, a review run judging its body.
+Data for Builder runs: a build or fix run writing a PR.
 
 ## Title and body
 
