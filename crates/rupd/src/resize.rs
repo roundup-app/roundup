@@ -436,10 +436,43 @@ impl Daemon {
             if !matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. }) {
                 continue;
             }
-            if matches!(
-                accepted.action.call,
-                HeldCall::Rename(_) | HeldCall::Stop(_)
-            ) {
+            if matches!(accepted.action.call, HeldCall::Stop(_)) {
+                let child = &accepted.action.agent;
+                let _child = self.child_effects(child).write_owned().await;
+                if !self.held_actions.accepted(Some(child))?.iter().any(|a| {
+                    a.action.id == accepted.action.id
+                        && matches!(a.action.outcome, ResizeOutcome::Waiting { .. })
+                }) {
+                    continue;
+                }
+                let node = self.rail().await?.into_iter().find(|n| &n.id == child);
+                let reason = match node {
+                    None => Some("child was removed before Stop"),
+                    Some(n) if n.attempt != accepted.attempt => {
+                        Some("original Attempt changed before Stop")
+                    }
+                    Some(n)
+                        if n.status
+                            .as_ref()
+                            .is_some_and(|s| s.kind == contracts::Kind::Done) =>
+                    {
+                        Some("original Attempt is stopped or stopping")
+                    }
+                    _ => None,
+                };
+                if let Some(reason) = reason {
+                    self.held_actions.outcome(
+                        &accepted.action.id,
+                        ResizeOutcome::Dropped {
+                            reason: reason.into(),
+                        },
+                    )?;
+                } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                    self.release_actions(child).await?;
+                }
+                continue;
+            }
+            if matches!(accepted.action.call, HeldCall::Rename(_)) {
                 if !self
                     .sender
                     .get()
