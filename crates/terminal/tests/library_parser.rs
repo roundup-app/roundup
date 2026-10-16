@@ -1,6 +1,17 @@
 //! Library-only prerequisites for X14; these do not exercise selected output streams.
 
 #[cfg(target_os = "linux")]
+#[derive(Clone, Default)]
+struct Titles(Vec<Vec<u8>>);
+
+#[cfg(target_os = "linux")]
+impl vt100::Callbacks for Titles {
+    fn set_window_title(&mut self, _: &mut vt100::Screen, title: &[u8]) {
+        self.0.push(title.to_vec());
+    }
+}
+
+#[cfg(target_os = "linux")]
 #[test]
 fn x14_library_parser_bounds_pending_osc() {
     const CHILD: &str = "ROUNDUP_X14_OSC_PROBE";
@@ -35,7 +46,7 @@ fn x14_library_parser_bounds_pending_osc() {
             .parse()
             .unwrap()
     }
-    let mut parser = vt100::Parser::new(3, 80, 0);
+    let mut parser = vt100::Parser::new_with_callbacks(3, 80, 0, Titles::default());
     parser.process(b"\x1b]2;");
     let chunk = [b'x'; 8192];
     for _ in 0..128 {
@@ -46,6 +57,13 @@ fn x14_library_parser_bounds_pending_osc() {
         parser.process(&chunk);
     }
     let sixty_four_mib = rss_kib();
+    // A checkpoint made after more than the Output-log cap retains the pending
+    // over-cap OSC; replay consumes its suffix without changing the live parser.
+    let mut replay = parser.clone();
+    replay.process(b"hidden\x1b\\visible");
+    assert_eq!(replay.screen().contents(), "visible");
+    assert!(parser.screen().contents().is_empty());
+    assert!(parser.callbacks().0.is_empty());
     parser.process(b"hidden\x07visible");
     let completed = rss_kib();
     println!("1MiB={one_mib}KiB 64MiB={sixty_four_mib}KiB terminated={completed}KiB");
@@ -53,8 +71,11 @@ fn x14_library_parser_bounds_pending_osc() {
     assert!(sixty_four_mib <= one_mib + 1024);
     assert!(completed <= one_mib + 1024);
     assert_eq!(parser.screen().contents(), "visible");
+    // The 1024-byte fixed buffer includes the one-byte OSC command ("2").
+    assert_eq!(parser.callbacks().0, [vec![b'x'; 1023]]);
     parser.process(b"\x1b]2;short\x1b\\later");
     assert_eq!(parser.screen().contents(), "visiblelater");
+    assert_eq!(parser.callbacks().0.last().unwrap(), b"short");
 }
 
 #[test]
@@ -67,6 +88,9 @@ fn x14_library_replay_preserves_pending_state() {
         ("é🦀".as_bytes(), "é🦀"),
         (b"old\rnew\x1b[K\xff!".as_slice(), "new!"),
     ] {
+        let mut continuous = vt100::Parser::new(3, 80, 0);
+        continuous.process(input);
+        assert_eq!(continuous.screen().contents(), expected);
         for cut in 0..=input.len() {
             let mut live = vt100::Parser::new(3, 80, 0);
             let raw_prefix = input[..cut].to_vec();
@@ -77,6 +101,10 @@ fn x14_library_replay_preserves_pending_state() {
             for _ in 0..3 {
                 let mut replay = checkpoint.clone();
                 replay.process(&input[cut..]);
+                assert_eq!(
+                    replay.screen().state_formatted(),
+                    continuous.screen().state_formatted()
+                );
                 assert_eq!(
                     replay.screen().contents(),
                     expected,

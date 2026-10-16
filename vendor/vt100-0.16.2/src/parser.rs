@@ -1,5 +1,9 @@
 /// A parser for terminal output which produces an in-memory representation of
 /// the terminal contents.
+/// Cloning preserves the screen, callbacks and pending CSI, OSC and UTF-8 state.
+/// Replay into the clone leaves the original parser unchanged. Callbacks use
+/// their own Clone implementation; shared external effects are not isolated.
+#[derive(Clone)]
 pub struct Parser<CB: crate::callbacks::Callbacks = ()> {
     parser: vte::Parser,
     screen: crate::perform::WrappedScreen<CB>,
