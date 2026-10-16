@@ -367,6 +367,7 @@ const d5 = (page: Page): Measure => {
 
   const ratio = (el: Element, property: string) => {
     const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
+
     if (!colour) return null;
 
     const ground = groundOf(page, el, property === "outline-color");
