@@ -1,3 +1,4 @@
+import type { mountRegistryLayers } from "./keysFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -13,6 +14,8 @@ const exec = promisify(execFile);
 const profile = mkdtempSync(join(tmpdir(), "u481-"));
 
 const art = captureDir("U481");
+
+const layerArt = captureDir("U496");
 
 const session = `u481-${process.pid}`;
 
@@ -32,11 +35,16 @@ const read = async <T,>(expression: string): Promise<T> => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
+  server = await createServer({ optimizeDeps: { include: ["@solidjs/testing-library"] }, cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
 
   if (art) mkdirSync(art, { recursive: true });
+
+  if (layerArt) mkdirSync(layerArt, { recursive: true });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!;
+  const ready = await fetch(new URL("/__roundup_ready", origin));
+
+  if (!ready.ok) throw new Error(await ready.text());
   await browser("--profile", profile, "open", new URL("/harness.html?seed=tree-40", origin).href);
 }, 90_000);
 
@@ -167,3 +175,66 @@ it("u481_help_preserves_rendered_checks_and_failure", async () => {
     }
   }
 }, 180_000);
+
+
+const mountLayers = (...args: Parameters<typeof mountRegistryLayers>) => read(`(async () => {
+  const fixture = await import('/src/keys/keysFixture.tsx');
+  window.__registryFixture = fixture.mountRegistryLayers(...${JSON.stringify(args)});
+  window.__terminalCalls = window.__fake.app.calls.filter(c => c.method === 'terminal.write').length;
+})()`);
+
+it("u496_top_layer_escape_is_order_independent", async () => {
+  for (const reverse of [false, true]) for (const nested of [false, true]) for (const top of ["modal", "menu"]) {
+    await browser("set", "viewport", reverse ? "1440" : "1280", "800");
+    await load();
+    await browser("click", ".terminal-new");
+    await wait(`!!document.querySelector(".bubble .xterm-screen")`);
+    await mountLayers(reverse, nested);
+    await browser("click", top === "modal" ? '[data-registry-modal-trigger]' : '[data-registry-menu-trigger]');
+    const selector = top === "modal" ? '[role=dialog]' : '[role=menu]';
+    await wait(`document.querySelector('${selector}')?.contains(document.activeElement)`);
+
+    const depths = await read<{drawer: number; top: number}>(`(() => {
+      const depth = node => { let count = 0; for (; node; node = node.parentElement) count++; return count; };
+      const drawer = depth(document.querySelector('[data-registry-drawer]'));
+      const top = depth(document.querySelector('${selector}'));
+      return {drawer, top};
+    })()`);
+
+    expect(nested ? depths.drawer > depths.top : depths.drawer === depths.top, JSON.stringify(depths)).toBe(true);
+
+    if (layerArt) {
+      await browser("screenshot", join(layerArt, `${reverse}-${nested}-${top}-open.png`));
+      writeFileSync(join(layerArt, `${reverse}-${nested}-${top}-open.checks.json`), JSON.stringify(await read<Checks>(`window.__checks()`)));
+    }
+
+    await read(`window.__drawerContent = document.querySelector('[data-registry-drawer]').textContent`);
+    await browser("press", "Escape");
+    await wait(`!document.querySelector('${selector}')`);
+    await wait(`document.activeElement === document.querySelector(${JSON.stringify(top === "modal" ? '[data-registry-modal-trigger]' : '[data-registry-menu-trigger]')})`);
+    expect(await read(`document.querySelector('[data-registry-drawer]').textContent === window.__drawerContent`)).toBe(true);
+    await read(`document.querySelector('[data-registry-drawer]').focus()`);
+    await browser("press", "Escape");
+    await wait(`!document.querySelector('[data-registry-drawer]')`);
+    expect(await read(`({focus: document.activeElement === document.querySelector('[data-registry-origin]'),
+      writes: window.__fake.app.calls.filter(c => c.method === 'terminal.write').length - window.__terminalCalls})`)).toEqual({focus: true, writes: 0});
+    await read(`window.__registryFixture.unmount()`);
+  }
+}, 180_000);
+
+it("u496_editor_and_terminal_keep_escape", async () => {
+  await load();
+  await mountLayers(false, true, true);
+
+  for (const selector of ["input", "textarea", "[contenteditable]", ".xterm"]) {
+    await read(`document.querySelector('[data-registry-drawer] ${selector}').focus()`);
+    await browser("press", "Escape");
+    expect(await read(`!!document.querySelector('[data-registry-drawer]')`)).toBe(true);
+  }
+
+  await read(`document.querySelector('[data-registry-origin]').focus()`);
+  await browser("press", "Escape");
+  await wait(`!document.querySelector('[data-registry-drawer]')`);
+  expect(await read(`document.activeElement === document.querySelector('[data-registry-origin]')`)).toBe(true);
+  await read(`window.__registryFixture.unmount()`);
+}, 60_000);

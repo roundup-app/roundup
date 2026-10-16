@@ -32,7 +32,7 @@ Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
 | New Message while already delivery-ready | `Send` with the current Route and sender; the ready state permits delivery immediately. |
 | Route `ask-first` or `drop` | `Send` retains the ask-first hold or drops respectively; readiness bypasses neither Route. `UserDeliver` / `UserDrop` retain their existing guards. |
 | Existing Takeover or unsent input | `TakeoverBegin` / `UserInput` keeps automatic delivery held, including Messages from the user (B32). `TakeoverEnd`, `UserSubmit` or `UserClear` releases only its own holds in B7 order; ask-first holds remain. Explicit `UserDeliver` still wins. B37 grants no new `takeover.begin` eligibility. |
-| Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending, or takeover-held if a Takeover began meanwhile. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A later readiness observation supplies `Idle` again. |
+| Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending, or takeover-held if a Takeover began meanwhile. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A newer readiness revision supplies `Idle` again, including when its handler ran before the Busy completion: Rust re-reads authoritative readiness after rollback and retries only at a strictly newer revision of the same Attempt. An unchanged revision does not retry. |
 | Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `Exit`: drop pending and takeover-held Messages as receiver-gone in id order, retain ask-first holds, refuse later sends and manual delivery. A later `Idle` cannot clear `gone`. |
 | Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `Exit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
 
@@ -259,3 +259,11 @@ refusal), M7 (ended Attempt) and M9 (old Daemon identities cannot replay).
 M3's acquisition, M4's per-child release order and M10's release progress belong
 to #1581. `proofs/messages` models Messages, not Door actions: none of its laws
 or transitions changes or weakens here.
+
+## B6 Door resize actions
+
+Door `terminal.resize` calls during Takeover are stored in the Daemon's Project database before their receipts return. `terminal.resizeHistory` (MCP `terminal_resizeHistory`) exposes the accepting Agent's own receipts; the user sees all receipts for that Terminal, including after it is gone. The receipt's `ResizeOutcome` distinguishes waiting for Takeover, an effect in progress, completion and a drop reason. Direct user resizing retains its null result and remains available during Takeover.
+
+The socket reader registers each authorized resize’s child order with Tokio oneshot channels before spawning its request, so pipelined frames cannot acquire durable ids in scheduler order. Completed requests release those channels and retire their entries. Release serializes accepted resizes for one child before any later Door resize. Before each physical effect, its in-progress outcome is committed; a crash after that cut never retries it. A restarted Daemon has no surviving Terminals or Takeovers, so unfinished resizes receive a durable drop reason, distinguishing an unavailable original Terminal from an uncertain prior effect. Completed outcomes remain completed. Terminal exit or child Attempt replacement also drops unavailable resizes; later valid resizes proceed.
+
+This is an integration-tested B6 slice for resize only, touching M1, M3, M4, M6, M7, M9 and M10. The Message model in `proofs/messages` still models Messages, not Door resizes; none of its laws or Message exceptions changes. #1581 retains the other action paths and full B6 acceptance.

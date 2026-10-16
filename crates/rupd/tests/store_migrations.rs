@@ -5,6 +5,10 @@ use contracts::{Actor, ActorKind, Verb};
 use rpc::{Bus, Ctx, Module};
 use serde_json::{Value, json};
 
+mod storage {
+    include!("support/store_migrations.rs");
+}
+
 fn agents(dir: &Path, bus: Bus) -> Arc<agents::Agents> {
     let terminals = Arc::new(terminal::Terminals::open(dir, bus.clone()).unwrap());
     Arc::new(
@@ -111,10 +115,20 @@ async fn n20_current_store_opens() {
         };
         let store = module(name, dir.path(), &ctx);
         store.call(&ctx, write, input).await.unwrap();
+        if name == "agents" {
+            storage::write_ask(&rusqlite::Connection::open(dir.path().join("agents.db")).unwrap());
+        }
         drop(store);
         let reopened = module(name, dir.path(), &ctx);
         let result = reopened.call(&ctx, read, params).await.unwrap();
         assert_eq!(result[0][field], expected, "{name}");
+        if name == "agents" {
+            let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+            storage::read_ask(&db);
+            let mut memory = rusqlite::Connection::open_in_memory().unwrap();
+            agents::schema::open(&mut memory, Path::new("agents")).unwrap();
+            assert_eq!(storage::schema(&db), storage::schema(&memory));
+        }
     }
 
     // Provenance is also used in memory by current callers.

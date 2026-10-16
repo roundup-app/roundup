@@ -5,6 +5,8 @@ use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
 
 const ANSWERS: &str = include_str!("../../agents/migrations/003/up.sql");
+const ASKS: &str = include_str!("../../agents/migrations/004/up.sql");
+const RESIZES: &str = include_str!("../migrations/003/up.sql");
 
 const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
@@ -13,7 +15,10 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(&mut db, vec![M::up(SCHEMA), M::up(ANSWERS)])
+        apply(
+            &mut db,
+            vec![M::up(SCHEMA), M::up(ANSWERS), M::up(RESIZES), M::up(ASKS)],
+        )
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
 }
@@ -110,15 +115,24 @@ mod tests {
                 expected.insert(table, sql);
             }
         }
+        let resize_schema = Connection::open_in_memory().unwrap();
+        resize_schema.execute_batch(RESIZES).unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
         assert_eq!(
-            Migrations::new(vec![M::up(SCHEMA), M::up(ANSWERS)])
-                .current_version(&db)
-                .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(2).unwrap())
+            Migrations::new(vec![
+                M::up(SCHEMA),
+                M::up(ANSWERS),
+                M::up(RESIZES),
+                M::up(ASKS)
+            ])
+            .current_version(&db)
+            .unwrap(),
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(4).unwrap())
         );
+        standalone::write_ask(&db);
         let ws = call(
             &daemon,
             "rail.createWorkstream",
@@ -241,6 +255,7 @@ mod tests {
         );
         assert_eq!(daemon.touches.sequence().unwrap(), touch_sequence);
         let db = Connection::open(dir.path().join("project.db")).unwrap();
+        standalone::read_ask(&db);
         assert_eq!(
             db.query_row("SELECT newest FROM pad_cursors WHERE door=?", [&ws], |r| {
                 r.get::<_, i64>(0)
