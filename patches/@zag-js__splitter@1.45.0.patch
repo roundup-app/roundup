@@ -1,0 +1,304 @@
+diff --git a/dist/splitter.connect.js b/dist/splitter.connect.js
+index c3344fe70037310f47610b4b8f02cd0914c606db..069423b4653442cca54a248b17302b348b4fae52 100644
+--- a/dist/splitter.connect.js
++++ b/dist/splitter.connect.js
+@@ -254,8 +254,7 @@ function connect(service, normalize) {
+             return;
+           }
+           const point = (0, import_dom_query.getEventPoint)(event);
+-          send({ type: "POINTER_DOWN", id, point });
+-          event.currentTarget.setPointerCapture(event.pointerId);
++          send({ type: "POINTER_DOWN", id, point, pointerId: event.pointerId });
+           event.preventDefault();
+           event.stopPropagation();
+         },
+@@ -294,6 +293,9 @@ function connect(service, normalize) {
+             delta = 1;
+           }
+           const keyMap = {
++            Escape() {
++              if (dragging) send({ type: "DRAG.CANCEL" });
++            },
+             Enter() {
+               send({ type: "ENTER", id });
+             },
+diff --git a/dist/splitter.connect.mjs b/dist/splitter.connect.mjs
+index 402871ffc803ea0eded45339cfa46e8952ae07bf..71cdfebf640c0080cd3fe771e304edc1828783a3 100644
+--- a/dist/splitter.connect.mjs
++++ b/dist/splitter.connect.mjs
+@@ -222,8 +222,7 @@ function connect(service, normalize) {
+             return;
+           }
+           const point = getEventPoint(event);
+-          send({ type: "POINTER_DOWN", id, point });
+-          event.currentTarget.setPointerCapture(event.pointerId);
++          send({ type: "POINTER_DOWN", id, point, pointerId: event.pointerId });
+           event.preventDefault();
+           event.stopPropagation();
+         },
+@@ -262,6 +261,9 @@ function connect(service, normalize) {
+             delta = 1;
+           }
+           const keyMap = {
++            Escape() {
++              if (dragging) send({ type: "DRAG.CANCEL" });
++            },
+             Enter() {
+               send({ type: "ENTER", id });
+             },
+diff --git a/dist/splitter.machine.js b/dist/splitter.machine.js
+index 878ef72176561806e471a3edadd81a5baf315b53..1eb88c72b94dfcba35d0801cf23eee88c8aab808 100644
+--- a/dist/splitter.machine.js
++++ b/dist/splitter.machine.js
+@@ -113,7 +113,8 @@ var machine = (0, import_core.createMachine)({
+       prevInitialLayout: null,
+       prevGroupSize: null,
+       lastRequestedSize: null,
+-      suppressOnResize: false
++      suppressOnResize: false,
++      disposed: false
+     };
+   },
+   computed: {
+@@ -142,7 +143,7 @@ var machine = (0, import_core.createMachine)({
+     }
+   },
+   entry: ["syncSize"],
+-  exit: ["clearGlobalCursor"],
++  exit: ["markDisposed", "releasePointerCapture", "clearGlobalCursor"],
+   effects: ["trackResizeHandles", "trackRootResize"],
+   states: {
+     idle: {
+@@ -221,8 +222,13 @@ var machine = (0, import_core.createMachine)({
+     dragging: {
+       tags: ["focus"],
+       effects: ["trackPointerMove"],
++      exit: ["releasePointerCapture"],
+       entry: ["invokeOnResizeStart"],
+       on: {
++        "DRAG.CANCEL": {
++          target: "focused",
++          actions: ["restoreDragSize", "setKeyboardState", "clearDraggingState", "clearGlobalCursor"]
++        },
+         POINTER_MOVE: {
+           actions: ["setPointerValue", "setGlobalCursor"]
+         },
+@@ -394,8 +400,34 @@ var machine = (0, import_core.createMachine)({
+           resolvedResizeTriggerId,
+           resizeTriggerRect: handleElement.getBoundingClientRect(),
+           initialCursorPosition,
+-          initialSize: size
++          initialSize: size,
++          pointerId: event.pointerId
+         });
++        if (event.pointerId != null) handleElement.setPointerCapture(event.pointerId);
++      },
++      restoreDragSize(params) {
++        const { context, prop, refs } = params;
++        const dragState = context.get("dragState");
++        if (!dragState) return;
++        const unchanged = (0, import_utils.isEqual)(context.get("size"), dragState.initialSize);
++        setSize(params, dragState.initialSize);
++        if (unchanged && prop("size") == null) {
++          prop("onResize")?.({
++            size: dragState.initialSize,
++            layout: (0, import_panel.getPanelLayout)(prop("panels")),
++            resizeTriggerId: dragState.resizeTriggerId,
++            expandToSizes: Object.fromEntries(refs.get("panelSizeBeforeCollapse").entries())
++          });
++        }
++      },
++      markDisposed({ refs }) {
++        refs.set("disposed", true);
++      },
++      releasePointerCapture({ context, scope }) {
++        const dragState = context.get("dragState");
++        const el = dom.getResizeTriggerEl(scope, dragState?.resizeTriggerId);
++        const pointerId = dragState?.pointerId;
++        if (pointerId != null && el?.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
+       },
+       clearDraggingState({ context }) {
+         context.set("dragState", null);
+@@ -543,6 +575,7 @@ var machine = (0, import_core.createMachine)({
+       },
+       invokeOnResizeEnd({ context, prop, refs }) {
+         queueMicrotask(() => {
++          if (refs.get("disposed")) return;
+           const dragState = context.get("dragState");
+           prop("onResizeEnd")?.({
+             size: refs.get("lastRequestedSize") ?? context.get("size"),
+@@ -550,8 +583,9 @@ var machine = (0, import_core.createMachine)({
+           });
+         });
+       },
+-      invokeOnResizeStart({ prop }) {
++      invokeOnResizeStart({ prop, refs }) {
+         queueMicrotask(() => {
++          if (refs.get("disposed")) return;
+           prop("onResizeStart")?.();
+         });
+       },
+@@ -629,6 +663,7 @@ function setSize(params, sizes) {
+   refs.set("lastRequestedSize", sizes);
+   if (isProgrammatic && onResizeStart) {
+     queueMicrotask(() => {
++      if (refs.get("disposed")) return;
+       onResizeStart();
+     });
+   }
+@@ -665,6 +700,7 @@ function setSize(params, sizes) {
+   });
+   if (isProgrammatic && onResizeEnd) {
+     queueMicrotask(() => {
++      if (refs.get("disposed")) return;
+       onResizeEnd({
+         size: sizes,
+         resizeTriggerId: null
+diff --git a/dist/splitter.machine.mjs b/dist/splitter.machine.mjs
+index 4fdd08f873ac85ecc53137d90a1090ba738de595..8985759a1065e8afcff09489f754e97ca1d510db 100644
+--- a/dist/splitter.machine.mjs
++++ b/dist/splitter.machine.mjs
+@@ -88,7 +88,8 @@ var machine = createMachine({
+       prevInitialLayout: null,
+       prevGroupSize: null,
+       lastRequestedSize: null,
+-      suppressOnResize: false
++      suppressOnResize: false,
++      disposed: false
+     };
+   },
+   computed: {
+@@ -117,7 +118,7 @@ var machine = createMachine({
+     }
+   },
+   entry: ["syncSize"],
+-  exit: ["clearGlobalCursor"],
++  exit: ["markDisposed", "releasePointerCapture", "clearGlobalCursor"],
+   effects: ["trackResizeHandles", "trackRootResize"],
+   states: {
+     idle: {
+@@ -196,8 +197,13 @@ var machine = createMachine({
+     dragging: {
+       tags: ["focus"],
+       effects: ["trackPointerMove"],
++      exit: ["releasePointerCapture"],
+       entry: ["invokeOnResizeStart"],
+       on: {
++        "DRAG.CANCEL": {
++          target: "focused",
++          actions: ["restoreDragSize", "setKeyboardState", "clearDraggingState", "clearGlobalCursor"]
++        },
+         POINTER_MOVE: {
+           actions: ["setPointerValue", "setGlobalCursor"]
+         },
+@@ -369,8 +375,34 @@ var machine = createMachine({
+           resolvedResizeTriggerId,
+           resizeTriggerRect: handleElement.getBoundingClientRect(),
+           initialCursorPosition,
+-          initialSize: size
++          initialSize: size,
++          pointerId: event.pointerId
+         });
++        if (event.pointerId != null) handleElement.setPointerCapture(event.pointerId);
++      },
++      restoreDragSize(params) {
++        const { context, prop, refs } = params;
++        const dragState = context.get("dragState");
++        if (!dragState) return;
++        const unchanged = isEqual(context.get("size"), dragState.initialSize);
++        setSize(params, dragState.initialSize);
++        if (unchanged && prop("size") == null) {
++          prop("onResize")?.({
++            size: dragState.initialSize,
++            layout: getPanelLayout(prop("panels")),
++            resizeTriggerId: dragState.resizeTriggerId,
++            expandToSizes: Object.fromEntries(refs.get("panelSizeBeforeCollapse").entries())
++          });
++        }
++      },
++      markDisposed({ refs }) {
++        refs.set("disposed", true);
++      },
++      releasePointerCapture({ context, scope }) {
++        const dragState = context.get("dragState");
++        const el = dom.getResizeTriggerEl(scope, dragState?.resizeTriggerId);
++        const pointerId = dragState?.pointerId;
++        if (pointerId != null && el?.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
+       },
+       clearDraggingState({ context }) {
+         context.set("dragState", null);
+@@ -518,6 +550,7 @@ var machine = createMachine({
+       },
+       invokeOnResizeEnd({ context, prop, refs }) {
+         queueMicrotask(() => {
++          if (refs.get("disposed")) return;
+           const dragState = context.get("dragState");
+           prop("onResizeEnd")?.({
+             size: refs.get("lastRequestedSize") ?? context.get("size"),
+@@ -525,8 +558,9 @@ var machine = createMachine({
+           });
+         });
+       },
+-      invokeOnResizeStart({ prop }) {
++      invokeOnResizeStart({ prop, refs }) {
+         queueMicrotask(() => {
++          if (refs.get("disposed")) return;
+           prop("onResizeStart")?.();
+         });
+       },
+@@ -604,6 +638,7 @@ function setSize(params, sizes) {
+   refs.set("lastRequestedSize", sizes);
+   if (isProgrammatic && onResizeStart) {
+     queueMicrotask(() => {
++      if (refs.get("disposed")) return;
+       onResizeStart();
+     });
+   }
+@@ -640,6 +675,7 @@ function setSize(params, sizes) {
+   });
+   if (isProgrammatic && onResizeEnd) {
+     queueMicrotask(() => {
++      if (refs.get("disposed")) return;
+       onResizeEnd({
+         size: sizes,
+         resizeTriggerId: null
+diff --git a/dist/splitter.types.d.mts b/dist/splitter.types.d.mts
+index 00e63147cbafba96869020a9a2d0d8956e585c6f..a7fa29020efc3faf3cde1d4bde30992abcd93958 100644
+--- a/dist/splitter.types.d.mts
++++ b/dist/splitter.types.d.mts
+@@ -129,6 +129,7 @@ interface DragState {
+     resolvedResizeTriggerId: `${PanelId}:${PanelId}`;
+     resizeTriggerRect: DOMRect;
+     initialCursorPosition: number;
++    pointerId?: number;
+     initialSize: number[];
+ }
+ interface KeyboardState {
+@@ -150,6 +151,7 @@ interface Refs {
+     prevGroupSize: number | null;
+     lastRequestedSize: number[] | null;
+     suppressOnResize: boolean;
++    disposed: boolean;
+ }
+ interface SplitterSchema {
+     state: "idle" | "hover:temp" | "hover" | "dragging" | "focused";
+diff --git a/dist/splitter.types.d.ts b/dist/splitter.types.d.ts
+index ae9933a363ec846973624bac3dfa71b745d2b38c..55af49b9a2e90043456f2d446e7f1b8b5aec9534 100644
+--- a/dist/splitter.types.d.ts
++++ b/dist/splitter.types.d.ts
+@@ -129,6 +129,7 @@ interface DragState {
+     resolvedResizeTriggerId: `${PanelId}:${PanelId}`;
+     resizeTriggerRect: DOMRect;
+     initialCursorPosition: number;
++    pointerId?: number;
+     initialSize: number[];
+ }
+ interface KeyboardState {
+@@ -150,6 +151,7 @@ interface Refs {
+     prevGroupSize: number | null;
+     lastRequestedSize: number[] | null;
+     suppressOnResize: boolean;
++    disposed: boolean;
+ }
+ interface SplitterSchema {
+     state: "idle" | "hover:temp" | "hover" | "dragging" | "focused";
