@@ -105,3 +105,7 @@ export const ScrollShadow = (props: { children: JSX.Element }) => {
     </div>
   );
 };
+
+export { Splitter } from "./Splitter";
+
+export { createToast, ToastProvider } from "./Toast";

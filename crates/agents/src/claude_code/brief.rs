@@ -112,7 +112,14 @@ const TOOLS: &[(&str, &str)] = &[
         "rail_startDoor",
         "start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for",
     ),
-    ("rail_rename", "rename yourself or a node in your Reach"),
+    (
+        "rail_rename",
+        "rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+    ),
+    (
+        "agent_actionHistory",
+        "read your durably accepted child actions and their outcomes; never resubmit a waiting action",
+    ),
     (
         "rail_move",
         "move a node in your Reach; a Workstream moves only to the root",
