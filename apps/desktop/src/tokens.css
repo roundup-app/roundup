@@ -27,6 +27,7 @@
   --root-pressed: var(--pressed);
   --root-text: var(--text);
   --root-grey: var(--grey);
+  --ink-rest-selected: color-mix(in srgb, var(--root-grey) 50%, var(--root-text));
   --root-disabled: var(--disabled);
   --root-accent: var(--accent);
   --root-amber: var(--amber);
