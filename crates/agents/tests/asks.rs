@@ -538,8 +538,12 @@ async fn a41_the_door_gets_the_users_words_byte_for_byte() {
     let mut f = DoorHarness::open(dir.path());
     let id = f.workstream().await;
     f.start(&id).await;
+    f.h.agents
+        .call(&f.h.ctx, "rail.rename", json!({"id":id,"name":"Café Work"}))
+        .await
+        .unwrap();
     let mut events = f.h.ctx.bus.subscribe();
-    let ask = f.h.send("@wOrK /skill café\n  🚀  ").await;
+    let ask = f.h.send("@CAFÉ WORK /skill café\n  🚀  ").await;
     assert_eq!(f.read().await, paste("/skill café\n  🚀  "));
     f.signal(&id, "UserPromptSubmit").await;
     f.changed(&mut events, &ask["id"], "typed").await;

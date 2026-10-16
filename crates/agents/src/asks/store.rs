@@ -1,5 +1,5 @@
 use super::*;
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 pub(super) struct Store(pub(super) Connection);
 
@@ -76,11 +76,27 @@ impl Store {
         .collect()
     }
 
+    pub(super) fn next_placing(&self) -> Result<Option<Ask>, RpcError> {
+        let id: Option<String> = self.0.query_row("SELECT asks.id FROM asks JOIN ask_parts ON ask_parts.ask=asks.id WHERE state='placing' AND json_extract(placement,'$.kind')='unclear' ORDER BY asks.seq LIMIT 1", [], |row|row.get(0)).optional().map_err(sql)?;
+        id.map(|id| self.get(&id)).transpose()
+    }
+
     pub(super) fn get(&self, id: &str) -> Result<Ask, RpcError> {
-        self.list()?
-            .into_iter()
-            .find(|ask| ask.id == id)
-            .ok_or_else(|| RpcError::not_found(format!("Ask {id}")))
+        let mut ask = self
+            .0
+            .query_row("SELECT id,text,at FROM asks WHERE id=?", [id], |row| {
+                Ok(Ask {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    at: row.get(2)?,
+                    parts: vec![],
+                })
+            })
+            .optional()
+            .map_err(sql)?
+            .ok_or_else(|| RpcError::not_found(format!("Ask {id}")))?;
+        ask.parts = self.parts(id)?;
+        Ok(ask)
     }
 
     pub(super) fn insert(&mut self, text: String, at: i64) -> Result<Ask, RpcError> {
