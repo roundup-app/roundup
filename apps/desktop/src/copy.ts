@@ -241,7 +241,7 @@ export const copy = {
   doesNotExist: (value1: CopyValue) => `${value1} does not exist`,
   whyClear: "Why clear ",
   theDoorIsWritingTheHandoff: "The supervisor is writing the summary",
-  theDoorWritesAHandoffKeepsWhatYou: (value1: CopyValue) => `The supervisor writes a summary, keeps what you asked for, archives the rest, and stops ${value1} Subagents; their files stay`,
+  theDoorWritesAHandoffKeepsWhatYou: (value1: CopyValue) => `The supervisor writes a summary, keeps what you asked for, archives the rest, and stops ${value1} ${value1 === 1 ? "Subagent" : "Subagents"}; their files stay`,
   clearWithHandoff: "Clear and keep a summary",
   clearWithoutHandoff: "Clear without a summary",
 
