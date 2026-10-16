@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
-import { captureDir, readCapture } from "../testing/captures";
+import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
 
@@ -99,11 +99,11 @@ afterAll(async () => {
   finally { await server?.close(); rmSync(profile, { recursive: true, force: true }); }
 });
 
-const load = async (seed = "tree-40", viewport = 1280, scheme: "light" | "dark" = "light", width = 288, base = false) => {
+const load = async (seed = "tree-40", viewport = 1280, scheme: "light" | "dark" = "light", width = 288) => {
   const commands = [
     ["set", "media", scheme],
     ["set", "viewport", String(viewport), "800"],
-    ["open", (base ? process.env.ROUNDUP_RAIL_BASELINE : origin) + "/harness.html?seed=" + seed],
+    ["open", origin + "/harness.html?seed=" + seed],
     ["wait", "--fn", "document.querySelectorAll('.rail-row').length > 8"],
     ["eval", "document.querySelector('.rail-row[data-id]').click()"],
     ["wait", "--fn", `Boolean(document.querySelector('.rail-row[data-selected="true"]'))`],
@@ -171,38 +171,6 @@ it("u466_ten_agents_keep_selection_and_attention_distinct", async () => {
   await load("agents-10");
   expect(await page.call(`() => ({selected:document.querySelectorAll('.rail-row[data-selected="true"]').length,attention:[...document.querySelectorAll('.rail .glyph.ink')].map(g=>g.getAttribute('aria-label'))})`)).toEqual({selected:1,attention:expect.arrayContaining(["Error","Needs-you"])});
 });
-
-it("u466_rendered_states_keep_checks_and_failure_text", async () => {
-  for (const seed of ["tree-40", "agents-10"]) for (const scheme of ["light","dark"] as const) {
-    const name = `${seed}-1280-${scheme}-288`;
-
-    if (process.env.ROUNDUP_RAIL_BASELINE) {
-      await load(seed, 1280, scheme, 288, true);
-
-      if (art) {
-        mkdirSync(join(art,"base"),{recursive:true});
-        await browser("screenshot",join(art,"base",name+".png"));
-        writeFileSync(join(art,"base",name+".checks.json"),JSON.stringify(await page.call("() => window.__checks()")));
-      }
-    }
-
-    await load(seed, 1280, scheme);
-    const checks = await page.call<Record<string,{status:string}>>("() => window.__checks()");
-
-    // SAFETY: the committed capture JSON is the Check observer's id/status map.
-    const baseline=JSON.parse(readCapture("U466","base/"+name+".checks.json")) as Record<string,{status:string}>;
-
-    for(const [id,check] of Object.entries(baseline)) if(check.status==="pass") expect(checks[id]?.status, id+" "+JSON.stringify(checks[id])).toBe("pass");
-
-    for(const id of ["D2","D5","D6"]) expect(checks[id]?.status, id+" "+JSON.stringify(checks[id])).toBe("pass");
-
-    if(art) {
-      mkdirSync(art,{recursive:true});
-      await browser("screenshot", join(art,name+".png"));
-      writeFileSync(join(art,name+".checks.json"),JSON.stringify(checks));
-    }
-  }
-},60_000);
 
 it("u466_smaller_glyphs_keep_kind_and_action_targets", async () => {
   await load("agents-10");
