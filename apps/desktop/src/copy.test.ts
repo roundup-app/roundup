@@ -267,6 +267,7 @@ const FORMAT_SAMPLES = {
   stopQuestion: () => copy.stopQuestion("authored"),
   stopAndRemoveQuestion: () => copy.stopAndRemoveQuestion("authored"),
   removeQuestion: () => copy.removeQuestion("authored"),
+  answerRefused: (count: number) => copy.answerRefused(count, "Unavailable"),
 } satisfies { [Key in keyof typeof copy as typeof copy[Key] extends (...args: never[]) => string ? Key : never]: (count: number) => string };
 
 it("u471_catalogue_uses_sentence_case_and_user_labels", () => {

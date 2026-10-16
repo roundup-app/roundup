@@ -2920,6 +2920,8 @@ async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
 #[tokio::test]
 async fn b6_wire_door_decision_calls_wait_for_all_earlier_resizes() {
     for (kind, method) in [
+        ("permission", "decision.list"),
+        ("ask_user", "decision.list"),
         ("permission", "decision.capture"),
         ("ask_user", "decision.capture"),
         ("permission", "decision.answers"),
@@ -2946,6 +2948,7 @@ async fn b6_wire_door_decision_calls_wait_for_all_earlier_resizes() {
             frames.push(json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}}));
         }
         let params = match method {
+            "decision.list" => Value::Null,
             "decision.capture" => json!({"id":decision["id"]}),
             "decision.answers" => json!({"agent":run.child}),
             _ => {
@@ -4226,6 +4229,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         "agent.worktreeState",
         "agent.run",
         "agent.spawnPrompt",
+        "agent.digest",
         "terminal.kill",
         "terminal.snapshot",
         "terminal.screen",
@@ -4234,6 +4238,26 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
     ] {
         let (run, caller) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+        let digest_door = if method == "agent.digest" {
+            let door = start_answer_door(&run).await.0;
+            let tree = run.user.request("rail.tree", ()).await.unwrap();
+            let stopped = tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["kind"] == "agent" && n["parent"].is_null())
+                .unwrap();
+            run.user
+                .request(
+                    "rail.move",
+                    json!({"id":stopped["id"],"parent":door,"index":0}),
+                )
+                .await
+                .unwrap();
+            Some(door)
+        } else {
+            None
+        };
         run.user
             .request("takeover.begin", json!({"agent":run.child}))
             .await
@@ -4267,6 +4291,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         .await
         .unwrap();
         let params = match method {
+            "agent.digest" => json!({"id":digest_door}),
             "rail.rename" => json!({"id":run.child,"name":"after resize"}),
             "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
             "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
@@ -4336,9 +4361,13 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
         "agent.worktreeState",
         "agent.run",
         "agent.spawnPrompt",
+        "agent.digest",
     ] {
         let (run, _) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+        if method == "agent.digest" {
+            start_answer_door(&run).await;
+        }
         let tree = run.user.request("rail.tree", ()).await.unwrap();
         let door = tree
             .as_array()
@@ -4347,6 +4376,21 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             .find(|n| n["id"] == run.child)
             .unwrap()["parent"]
             .clone();
+        if method == "agent.digest" {
+            let stopped = tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["kind"] == "agent" && n["parent"].is_null())
+                .unwrap();
+            run.user
+                .request(
+                    "rail.move",
+                    json!({"id":stopped["id"],"parent":door,"index":0}),
+                )
+                .await
+                .unwrap();
+        }
         let client = tokio::net::UnixStream::connect(&run.daemon.socket)
             .await
             .unwrap();
@@ -4379,6 +4423,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             "agent.setOrder" => {
                 json!({"id":run.child,"order":{"kind":"work","ask":"later order","limits":[]}})
             }
+            "agent.digest" => json!({"id":door}),
             "rail.rename" => json!({"id":run.child,"name":"after every resize"}),
             "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
             "rail.move" => json!({"id":run.child,"parent":null,"index":0}),

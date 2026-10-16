@@ -364,9 +364,12 @@ impl Daemon {
         }
         // These Door calls account for their physical effects before returning, including
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
-        let child = self.door_effect_child(&conn.actor, method, &params).await?;
+        let children = self
+            .door_effect_children(&conn.actor, method, &params)
+            .await?;
+        let child = children.first();
         let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename") {
-            if let Some(child) = &child {
+            if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
                 if method == "terminal.resize" {
                     if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
@@ -382,24 +385,26 @@ impl Daemon {
         } else {
             None
         };
-        let _door_effect = match child {
-            Some(child) if !matches!(method, "terminal.resize" | "rail.rename") => {
-                if !self.sender.get().is_some_and(|m| m.takeover_active(&child))
-                    && self.resizes.waiting(&child)?
+        let mut door_effects = Vec::new();
+        if !matches!(method, "terminal.resize" | "rail.rename") {
+            // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
+            for child in &children {
+                let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
+                    && self.resizes.waiting(child)?
                 {
-                    let guard = self.child_effects(&child).write_owned().await;
+                    let guard = self.child_effects(child).write_owned().await;
                     // A newer begin may have won while this call waited for exclusion.
-                    if !self.sender.get().is_some_and(|m| m.takeover_active(&child)) {
-                        self.release_resizes(&child).await?;
+                    if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                        self.release_resizes(child).await?;
                     }
-                    Some(guard.downgrade())
+                    guard.downgrade()
                 } else {
                     // With no older queue, Interrupt must still reach an in-flight Steer.
-                    Some(self.child_effects(&child).read_owned().await)
-                }
+                    self.child_effects(child).read_owned().await
+                };
+                door_effects.push(guard);
             }
-            _ => None,
-        };
+        }
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             Some(self.child_effects(&agent).write_owned().await)
@@ -599,6 +604,53 @@ impl Daemon {
             None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
             None => Actor::user(),
         }
+    }
+
+    /// Aggregate reads must respect each child's prior calls, not only the Door's own id.
+    async fn door_effect_children(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<Vec<String>, RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(Vec::new());
+        }
+        let mut children: Vec<String> = match method {
+            "agent.digest" => {
+                let NodeId { id } = rpc::params(params.clone())?;
+                // The Digest module still owns its permission and node-kind checks.
+                if actor.id != id {
+                    return Err(RpcError::forbidden(format!(
+                        "{} may not read the digest of agent {id}",
+                        actor.id
+                    )));
+                }
+                self.rail()
+                    .await?
+                    .into_iter()
+                    .filter(|n| n.parent.as_deref() == Some(&id) && n.status.is_some())
+                    .map(|n| n.id)
+                    .collect()
+            }
+            "decision.list" => {
+                // Use the Agent's Reach filtering; never wait on an unrelated Workstream.
+                let listed = self.modules["decision"]
+                    .call(&self.ctx(actor.clone()), method, Value::Null)
+                    .await?;
+                let decisions: Vec<contracts::decision::Decision> =
+                    serde_json::from_value(listed).map_err(RpcError::internal)?;
+                decisions.into_iter().map(|d| d.agent).collect()
+            }
+            _ => self
+                .door_effect_child(actor, method, params)
+                .await?
+                .into_iter()
+                .collect(),
+        };
+        children.sort();
+        children.dedup();
+        Ok(children)
     }
 
     /// The wire reader and router must agree which effects share a child's arrival order.
@@ -1205,14 +1257,18 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .unwrap_or(&Value::Null);
         // Register before spawning so scheduler order cannot overtake wire arrival.
         let child_arrival = match daemon
-            .door_effect_child(&actor, method.as_deref().unwrap_or_default(), params)
+            .door_effect_children(&actor, method.as_deref().unwrap_or_default(), params)
             .await
         {
-            Ok(Some(child)) => Some(daemon.resizes.arrive(
-                child,
-                matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
-            )),
-            Ok(None) => None,
+            Ok(children) => children
+                .into_iter()
+                .map(|child| {
+                    daemon.resizes.arrive(
+                        child,
+                        matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
+                    )
+                })
+                .collect::<Vec<_>>(),
             Err(error) => {
                 // Reject the original target; a later target must not revive an invalid call.
                 if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
@@ -1242,18 +1298,19 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             });
         } else {
             ordinary.spawn(async move {
-                let done = if let Some((before, done)) = child_arrival {
+                let mut completed = Vec::new();
+                for (before, done) in child_arrival {
                     if let Some(mut before) = before {
                         let _ = before.wait_for(|done| *done).await;
                     }
-                    done
-                } else {
-                    None
-                };
+                    if let Some(done) = done {
+                        completed.push(done);
+                    }
+                }
                 if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
                 }
-                if let Some(done) = done {
+                for done in completed {
                     daemon.resizes.finish_arrival(done);
                 }
             });
