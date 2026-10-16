@@ -131,3 +131,25 @@ async fn u174_a_write_reaches_the_pty_within_a_frame() {
         terminals.kill(&spawned.id).await.unwrap();
     }
 }
+
+/// X14: selected subscribers retain output; the global receiver retains control only.
+#[tokio::test]
+async fn x14_output_is_isolated_from_other_terminals_and_the_bus() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, bus) = open(&dir);
+    let mut global = bus.subscribe();
+    let mut a = terminals.spawn(sh(dir.path(), "printf 'alpha'; read go")).await.unwrap();
+    let mut b = terminals.spawn(sh(dir.path(), "printf 'beta'; read go")).await.unwrap();
+    crate::common::until_printed(&mut a.events, "alpha").await;
+    crate::common::until_printed(&mut b.events, "beta").await;
+    terminals.kill(&a.id).await.unwrap();
+    terminals.kill(&b.id).await.unwrap();
+    crate::common::until_exit(&mut a.events).await;
+    crate::common::until_exit(&mut b.events).await;
+    let mut exits = 0;
+    while let Ok(event) = global.try_recv() {
+        assert!(!matches!(event.data, EventData::TerminalOutput(_)), "output reached the global Bus");
+        if matches!(event.data, EventData::TerminalExited(_)) { exits += 1; }
+    }
+    assert_eq!(exits, 2);
+}
