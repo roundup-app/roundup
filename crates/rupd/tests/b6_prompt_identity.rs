@@ -4101,3 +4101,61 @@ async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
     );
     assert_eq!(renamed["name"], "renamed before Takeover");
 }
+
+#[tokio::test]
+async fn b6_a_later_door_rename_cannot_overtake_a_released_resize() {
+    let (run, caller) = door_terminal().await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"release ordering"}),
+        )
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let end =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let renamed = tokio::time::timeout(
+        BOUND,
+        caller.request("rail.rename", json!({"id":run.child,"name":"after resize"})),
+    )
+    .await;
+    let history = tokio::time::timeout(
+        BOUND,
+        run.user
+            .request("terminal.resizeHistory", json!({"id":run.terminal})),
+    )
+    .await;
+    std::fs::remove_file(gate).unwrap();
+    end.await.unwrap().unwrap();
+    run.finish().await;
+    renamed.unwrap().unwrap();
+    assert_eq!(
+        history.unwrap().unwrap()[0]["outcome"]["status"],
+        "completed",
+        "a later Door rename returned before the older resize ran"
+    );
+}
