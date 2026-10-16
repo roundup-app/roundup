@@ -137,7 +137,8 @@
 }
 
 /* U453: a failed answer stays fully readable within the supported window. */
-.decision-card > p.ink[role="alert"] {
+.decision-card > p.ink[role="alert"],
+.decision-history > p.ink[role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;
   text-overflow: clip;
@@ -146,4 +147,22 @@
 /* Only an overlay Shelf covers the pane. Keep at least a readable measure when it leaves no room. */
 .window[data-shelf="open"][data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])) .decision-card > p.ink[role="alert"] {
   max-width: max(var(--measure), calc(100% - var(--shelf-span)));
+}
+
+
+/* Keep retained answers readable without displacing the primary Terminal. */
+.decision-history {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 35%;
+  overflow: auto;
+  padding: var(--space-2);
+  background: var(--sunken);
+  overflow-wrap: anywhere;
+}
+
+.decision-record + .decision-record {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hairline);
 }

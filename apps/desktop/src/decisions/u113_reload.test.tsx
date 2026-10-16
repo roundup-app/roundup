@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import type { FakeApp } from "../testing/fakeApp";
 import type { AnsweredDecision } from "@contracts/decision/AnsweredDecision";
+import { RpcError } from "../app/seam";
 import { NOW_TICK_MS } from "../state/clock";
-import { asking, card, cleared, decision, opened, mountApp, rpcCalls, select } from "./decisionsFixture";
+import { asking, card, cleared, decision, gate, opened, mountApp, rpcCalls, select } from "./decisionsFixture";
 
 describe("u113 a reload and a Reopen", () => {
   it("u113_a_webview_reload_restores_the_live_decisions", async () => {
@@ -114,25 +116,31 @@ describe("u468 refused Door answers", () => {
 
 });
 
-
 describe("u468 retained answers", () => {
   it.each(["permission", "question"])("u468_a_door_answer_remains_visible_with_its_identity (%s)", async (kind) => {
     const original = kind === "permission" ? decision("d1", "a") : asking("d1", "a", "keep v1 routes?", ["keep", "drop"]);
+
     const record: AnsweredDecision = {
-      decision: original, kind: kind === "permission" ? "permission" : "question",
+      decision: { ...original, args: "truncated live arguments" }, kind: kind === "permission" ? "permission" : "question",
       prompt: original.args, attempt: "attempt-a", answer: kind === "permission" ? "allow" : "keep",
-      note: "preserve compatibility", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 2,
+      note: kind === "question" ? "preserve compatibility" : "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 2,
     };
-    const prepare = (app: Parameters<Parameters<typeof mountApp>[1]>[0]) => {
+
+    const prepare = (app: FakeApp) => {
       app.handlers["decision.answers"] = ({ agent }) => agent === "a" ? [record] : [];
     };
+
     await mountApp([], prepare);
     select("alpha");
     const answers = await screen.findByRole("region", { name: "Answered requests for alpha" });
     expect(answers.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
-    expect(answers.textContent).toContain(kind === "permission" ? "allow" : "keep");
-    expect(answers.textContent).toContain("preserve compatibility");
+    expect(within(answers).getByLabelText("Accepted answer").textContent).toBe(kind === "permission" ? "allow" : "keep");
+
+    if (kind === "question") expect(answers.textContent).toContain("preserve compatibility");
     expect(answers.textContent).toContain("harbor");
+
+    if (kind === "permission") expect(answers.textContent).toContain("clean");
+    else expect(answers.textContent).toContain("about drop");
     expect(within(answers).queryByRole("button", { name: "Allow" })).toBeNull();
 
     cleanup();
@@ -142,4 +150,70 @@ describe("u468 retained answers", () => {
     expect(reopened.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
     expect(reopened.textContent).toContain("harbor");
   });
+  it("u468_an_answer_appears_when_the_live_request_clears_without_moving_focus", async () => {
+    const original = decision("d1", "a");
+    let records: AnsweredDecision[] = [];
+    const { app } = await mountApp([original], (app) => { app.handlers["decision.answers"] = () => records; });
+    select("alpha");
+    await waitFor(() => expect(card()).not.toBeNull());
+    const terminal = document.querySelector<HTMLElement>('[data-terminal="t-a"]')!;
+    terminal.focus();
+    records = [{ decision: original, kind: "permission", prompt: original.args, attempt: "attempt-a", answer: "deny", note: "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 3 }];
+    // The clear event is sent after the accepted answer is stored.
+    app.emit(cleared("d1", "deny"));
+    const history = await screen.findByRole("region", { name: "Answered requests for alpha" });
+    expect(history.textContent).toContain("deny");
+    expect(card()).toBeNull();
+    expect(document.activeElement).toBe(terminal);
+  });
+
+  it("u468_an_answer_read_failure_is_visible_and_retryable", async () => {
+    const { app } = await mountApp([], (app) => {
+      app.handlers["decision.answers"] = () => { throw new RpcError(-32003, "answers unavailable"); };
+    });
+
+    select("alpha");
+    const history = await screen.findByRole("region", { name: "Answered requests for alpha" });
+    expect(within(history).getByRole("alert").textContent).toContain("answers unavailable");
+    app.handlers["decision.answers"] = () => [{ decision: decision("d1", "a"), kind: "permission", prompt: '{"command":"run tests"}', attempt: "attempt-a", answer: "allow", note: "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 3 }];
+    fireEvent.click(within(history).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(history.textContent).toContain("run tests"));
+    expect(within(history).queryByRole("alert")).toBeNull();
+  });
+
+  it("u468_a_late_answer_read_cannot_replace_the_selected_child", async () => {
+    const late = gate<AnsweredDecision[]>();
+
+    const { app } = await mountApp([], (app) => {
+      app.handlers["decision.answers"] = ({ agent }) => agent === "a" ? late.promise : [{ decision: decision("d2", "b"), kind: "permission", prompt: '{"command":"beta command"}', attempt: "attempt-b", answer: "deny", note: "", answered_by: { kind: "agent", id: "gone-door", parent: null }, answered_at: 4 }];
+    });
+
+    select("alpha");
+    await waitFor(() => expect(rpcCalls(app, "decision.answers")).toContainEqual({ agent: "a" }));
+    select("beta");
+    const history = await screen.findByRole("region", { name: "Answered requests for beta" });
+    late.resolve([{ decision: decision("d1", "a"), kind: "permission", prompt: '{"command":"alpha command"}', attempt: "attempt-a", answer: "allow", note: "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 3 }]);
+    await late.promise;
+    expect(history.textContent).toContain("beta command");
+    expect(history.textContent).toContain("gone-door");
+    expect(history.textContent).not.toContain("alpha command");
+  });
+
+  it("u468_the_previous_childs_answer_is_hidden_while_the_next_child_loads", async () => {
+    const waiting = gate<AnsweredDecision[]>();
+
+    const { app } = await mountApp([], (app) => {
+      app.handlers["decision.answers"] = ({ agent }) => agent === "b" ? waiting.promise : [{ decision: decision("d1", "a"), kind: "permission", prompt: '{"command":"alpha command"}', attempt: "attempt-a", answer: "allow", note: "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 3 }];
+    });
+
+    select("alpha");
+    await screen.findByRole("region", { name: "Answered requests for alpha" });
+    select("beta");
+    await waitFor(() => expect(rpcCalls(app, "decision.answers")).toContainEqual({ agent: "b" }));
+    expect(screen.queryByRole("region", { name: "Answered requests for beta" })).toBeNull();
+    expect(document.querySelector(".pane")?.textContent).not.toContain("alpha command");
+    waiting.resolve([]);
+    await waiting.promise;
+  });
+
 });

@@ -4,7 +4,7 @@ import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { askedOf } from "../decisions/AskCard";
-import { DecisionCard } from "../decisions/DecisionCard";
+import { AnsweredDecisions, DecisionCard } from "../decisions/DecisionCard";
 import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
@@ -352,6 +352,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             />
         )}
       </Show>
+      <AnsweredDecisions agent={selected()?.kind === "agent" || selected()?.kind === "workstream" ? selected()!.id : null} name={selected()?.name ?? ""} />
       <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={taken()}>
         <p class="pane-takeover" role="status"><span>{copy.takeoverTypingGoesStraightTo}{selected()?.name}</span>

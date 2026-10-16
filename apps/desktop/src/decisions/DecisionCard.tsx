@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createMemo, For, on, Show } from "solid-js";
+import { createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -87,5 +87,68 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         </Show>
       </div>
     </section>
+  );
+};
+
+/** U468: accepted answers remain readable when the live request and its hook are gone. */
+export const AnsweredDecisions = (props: { agent: string | null; name: string }) => {
+  const { app, events, rail, daemonExit } = useConnectedProject();
+  const [revision, setRevision] = createSignal(0);
+
+  const stop = events.subscribe((event) => {
+    if (event.name === "decision.cleared") setRevision((current) => current + 1);
+  });
+
+  onCleanup(stop);
+
+  const [records, { refetch }] = createResource(
+    () => props.agent === null || daemonExit() !== null ? null : { agent: props.agent, revision: revision() },
+    async ({ agent }) => {
+      try {
+        return { agent, answers: await app.rpc("decision.answers", { agent }), failure: null };
+      } catch (failure) {
+        if (!(failure instanceof Error)) throw failure;
+
+        return { agent, answers: [], failure: failure.message };
+      }
+    },
+  );
+
+  // A late read for another selection must never label its answers as the current Agent's.
+  const current = () => records()?.agent === props.agent ? records() : undefined;
+
+  return (
+    <Show when={current()}>
+      {(loaded) => <Show when={loaded().failure !== null || loaded().answers.length > 0}>
+        <section class="decision-history" aria-label={`Answered requests for ${props.name}`}>
+          <Show when={loaded().failure}>
+            {(message) => <><ErrorLine message={message()} /><button data-button="quiet" type="button" class="word" aria-disabled={daemonExit() !== null ? true : undefined} onClick={() => { if (daemonExit() === null) void refetch(); }}>{copy.retry}</button></>}
+          </Show>
+          <For each={loaded().answers}>
+            {(record) => {
+              const parsed = v.safeParse(json, record.prompt);
+              const prompt = parsed.success ? JSON.stringify(parsed.output, null, 2) : record.prompt;
+
+              return <article class="decision-record">
+                <p class="decision-title">{props.name} <span class="light">{record.decision.tool}</span></p>
+                <Show when={record.kind === "question" ? questionOf(record.prompt) : null} fallback={<pre class="decision-args">{prompt}</pre>}>
+                  {(question) => <>
+                    <Markdown class="decision-question" body={question().question} />
+                    <For each={question().answers}>{(answer) => <div>
+                      <p>{answer.label}</p>
+                      <Markdown class="decision-question" body={answer.description} />
+                      <Show when={answer.preview}>{(preview) => <Markdown class="decision-question" body={preview()} />}</Show>
+                    </div>}</For>
+                  </>}
+                </Show>
+                <p>Answered by {rail.nodes.find((node) => node.id === record.answered_by.id)?.name ?? record.answered_by.id}</p>
+                <Show when={record.answer !== null}><pre class="decision-args" aria-label="Accepted answer">{record.answer}</pre></Show>
+                <Show when={record.note !== ""}><pre class="decision-args">{record.note}</pre></Show>
+            </article>;
+            }}
+          </For>
+        </section>
+      </Show>}
+    </Show>
   );
 };
