@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
-import { LIST, selectNamed } from "../models/modelsFixture";
+import { LIST } from "../models/modelsFixture";
 import { clearingOf } from "../rail/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
