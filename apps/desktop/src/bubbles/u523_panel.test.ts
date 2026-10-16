@@ -68,7 +68,11 @@ it("u523_header_and_terminal_share_one_inset", async () => {
 
     for (const size of ["default", "minimum"]) {
       if (size === "minimum") {
-        for (let step = 0; step < 40; step++) { await page.press("ArrowLeft", "ArrowLeft", 8); await page.press("ArrowUp", "ArrowUp", 8); }
+        for (let step = 0; step < 40; step++) {
+          await page.press("ArrowLeft", "ArrowLeft", 8);
+          await page.press("ArrowUp", "ArrowUp", 8);
+        }
+
         await page.call(`() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))`);
       }
 
