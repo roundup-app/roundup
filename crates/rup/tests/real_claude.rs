@@ -1301,3 +1301,105 @@ async fn a41_a_leading_slash_runs_the_skill() {
         "named routing made a Placement call"
     );
 }
+
+#[tokio::test]
+async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
+ {
+    use std::os::unix::fs::PermissionsExt;
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-hook-observer");
+    let log = probe.path().join("hooks.jsonl");
+    std::fs::write(&wrapper, r##"#!/usr/bin/env python3
+import json, os, subprocess, sys
+if sys.argv[1] != "signal":
+    os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
+payload = sys.stdin.buffer.read()
+result = subprocess.run([os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]], input=payload, stdout=subprocess.PIPE)
+with open(os.environ["REAL_CLAUDE_HOOK_LOG"], "a") as log:
+    log.write(json.dumps({"event": json.loads(payload)["hook_event_name"], "exit": result.returncode}) + "\n")
+sys.stdout.buffer.write(result.stdout)
+sys.exit(result.returncode)
+"##).unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "h15_hundred_tools",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("REAL_CLAUDE_HOOK_LOG", log.to_str().unwrap()),
+        ],
+    );
+    std::fs::write(project.dir.path().join("h15.txt"), "H15 hook round\n").unwrap();
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        client
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "H15 exercise one hundred tools"}),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(180), async {
+        for kind in [Kind::Working, Kind::Idle] {
+            next(&mut client, |event| match event {
+                EventData::AgentStatus(status)
+                    if status.id == agent.id && status.status.kind == kind =>
+                {
+                    Some(())
+                }
+                _ => None,
+            })
+            .await;
+        }
+    })
+    .await
+    .expect("the hundred-tool turn completes");
+    let model = project.model.as_ref().unwrap();
+    model.tool_result("toolu_h15_099").await;
+    model.assert_matched();
+    let journal = model.journal();
+    for index in 0..100 {
+        let id = format!("toolu_h15_{index:03}");
+        assert!(
+            journal
+                .iter()
+                .any(|entry| entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| messages.iter().any(|message| message["role"]
+                        == "tool"
+                        && message["tool_call_id"] == id
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("H15 hook round"))))),
+            "missing successful tool result {id}"
+        );
+    }
+    let hooks: Vec<Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let uses: Vec<_> = hooks
+        .iter()
+        .filter(|hook| matches!(hook["event"].as_str(), Some("PreToolUse" | "PostToolUse")))
+        .collect();
+    assert_eq!(uses.len(), 200, "{hooks:#?}");
+    assert!(
+        uses.chunks(2).all(|pair| pair[0]["event"] == "PreToolUse"
+            && pair[1]["event"] == "PostToolUse"
+            && pair.iter().all(|hook| hook["exit"] == 0)),
+        "{hooks:#?}"
+    );
+    let tree = rail_tree(&client).await;
+    assert_eq!(
+        tree.iter()
+            .find(|node| node.id == agent.id)
+            .unwrap()
+            .status
+            .as_ref()
+            .map(|status| status.label.as_str()),
+        Some("idle")
+    );
+}
