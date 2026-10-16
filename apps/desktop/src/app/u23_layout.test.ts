@@ -116,6 +116,19 @@ beforeAll(async () => {
       // Supply the public Layout props at the App composition site without
       // replacing Layout, its children, width controls or Terminal implementation.
       enforce: "pre",
+      // Prospective #1997 consumer: use the installed shared List/Trigger,
+      // retaining the actual Strip's rename, marks, close, overflow and chords.
+      // No App, Layout or Project-content replacement is involved.
+      transform: { order: "pre", handler(source, id) {
+        if (id.endsWith("/header/Strip.tsx")) return source
+          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst TabList = (props) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
+          .replace('<div class="tablist"', '<TabList class="tablist"')
+          .replace('        </div>\n        {edge(copy.right', '        </TabList>\n        {edge(copy.right');
+        if (id.endsWith("/header/ProjectTab.tsx")) return source
+          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst ProjectTrigger = (props) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
+          .replace('<button data-button="quiet"\n          type="button"\n          role="tab"', '<ProjectTrigger value={props.tab.path} data-button="quiet"\n          type="button"\n          role="tab"')
+          .replace('        </button>\n        <button data-button="icon"', '        </ProjectTrigger>\n        <button data-button="icon"');
+      } },
       resolveId: (id, importer) => id === "./app/Layout" && importer?.endsWith("/src/App.tsx") ? "/u507-bound-layout.js" : id === "/u507-host.js" ? id : undefined,
       load: (id) => id === "/u507-host.js" ? fixture : id === "/u507-bound-layout.js" ? `
 import { createComponent, mergeProps } from 'solid-js';
@@ -346,3 +359,26 @@ it("u507_layout_checks", async () => {
     }
   }
 }, 180_000);
+
+
+it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
+  await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tabs-8&tabs=1`);
+  await browser("wait", "--fn", "Boolean(window.__fake)");
+  await settle();
+  const linked = () => evaluate(`(() => {
+    const tab = document.querySelector('.header [role=tab][aria-selected=true]');
+    const panel = document.getElementById(tab?.getAttribute('aria-controls'));
+    return Boolean(panel?.isConnected && panel.getAttribute('role') === 'tabpanel'
+      && panel.getAttribute('aria-labelledby') === tab.id
+      && ['rail','centre','shelf'].every(part => panel.contains(document.querySelector('[data-layout-panel='+part+']')))
+      && !panel.contains(tab) && !panel.hidden);
+  })()`);
+  expect(await linked()).toBe(true);
+  await browser("click", '.header [role=tab][aria-selected=true]');
+  await browser("press", "ArrowRight");
+  await browser("wait", "--fn", "document.activeElement?.getAttribute('data-value') !== document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('data-value')");
+  await browser("press", "Enter");
+  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]')");
+  expect(await linked()).toBe(true);
+  expect(await evaluate(`document.querySelector('.header button button') === null`)).toBe(true);
+}, 90_000);
