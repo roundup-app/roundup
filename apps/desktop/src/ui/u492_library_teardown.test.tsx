@@ -6,7 +6,7 @@ const duration = 5000;
 
 const removeDelay = 150;
 
-const cardSelector = '[data-scope="toast"][data-part="root"]';
+const toastSelector = '[data-scope="toast"]';
 
 afterEach(() => {
   cleanup();
@@ -35,13 +35,13 @@ async function expectIdle(probe: ReturnType<typeof mount>) {
   const calls = probe.status.mock.calls.length;
   const observations = probe.observe.mock.calls.length;
   await vi.advanceTimersByTimeAsync(0);
-  expect(document.querySelector(cardSelector)).toBeNull();
+  expect(document.querySelector(toastSelector)).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
   // Observation window: disposed/empty actors must never publish or observe later.
   await vi.advanceTimersByTimeAsync(duration * 2);
   expect(probe.status).toHaveBeenCalledTimes(calls);
   expect(probe.observe).toHaveBeenCalledTimes(observations);
-  expect(document.querySelector(cardSelector)).toBeNull();
+  expect(document.querySelector(toastSelector)).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
 }
 
