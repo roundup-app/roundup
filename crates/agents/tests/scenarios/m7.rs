@@ -386,3 +386,78 @@ async fn m7_run_validation_keeps_x11_errors_for_an_agent() {
         assert_eq!(err.code, expected);
     }
 }
+
+impl World {
+    async fn prompt_child(&self) -> String {
+        let node = self.call(agent(&self.door), "agent.spawn", json!({
+            "cwd": self.f.dir.path(),
+            "prompt": "  private instructions\nfor this Workstream only\n",
+            "order": {"kind": "work", "ask": "read the instructions", "done": "instructions read", "limits": []}
+        })).await.unwrap();
+        node["id"].as_str().unwrap().to_owned()
+    }
+}
+
+#[tokio::test]
+async fn m7_a_spawn_prompt_outside_reach_is_refused_without_effects() {
+    let w = World::new().await;
+    let target = w.prompt_child().await;
+    let foreign = w.f.workstream("foreign", None).await;
+    for caller in [&foreign, &w.other, &w.sibling] {
+        let before = w.touches.sequence().unwrap();
+        let mut events = w.f.bus.subscribe();
+        let err = w
+            .call(agent(caller), "agent.spawnPrompt", json!({"id": target}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::FORBIDDEN);
+        assert!(err.message.contains(&target));
+        assert_eq!(w.touches.sequence().unwrap(), before);
+        assert!(events.try_recv().is_err());
+    }
+}
+
+#[tokio::test]
+async fn m7_a_spawn_prompt_is_readable_by_self_reach_user_or_extension() {
+    let w = World::new().await;
+    let target = w.prompt_child().await;
+    for caller in [
+        agent(&target),
+        agent(&w.door),
+        Actor::user(),
+        Actor {
+            kind: ActorKind::Ext,
+            id: "extension".into(),
+            parent: None,
+        },
+    ] {
+        let prompt = w
+            .call(caller, "agent.spawnPrompt", json!({"id": target}))
+            .await
+            .unwrap();
+        assert_eq!(
+            prompt,
+            json!({"prompt": "  private instructions\nfor this Workstream only\n"})
+        );
+    }
+}
+
+#[tokio::test]
+async fn m7_an_unknown_spawn_prompt_is_not_found() {
+    let w = World::new().await;
+    let err = w
+        .call(agent(&w.child), "agent.spawnPrompt", json!({"id": "9999"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn m7_an_authorized_absent_spawn_prompt_is_null() {
+    let w = World::new().await;
+    let prompt = w
+        .call(agent(&w.door), "agent.spawnPrompt", json!({"id": w.child}))
+        .await
+        .unwrap();
+    assert_eq!(prompt, json!({"prompt": null}));
+}

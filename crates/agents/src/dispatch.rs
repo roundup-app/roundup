@@ -135,6 +135,7 @@ impl Module for Agents {
             "rail.tree" => reply(&shared.tree()?),
             "agent.spawnPrompt" => {
                 let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, true)?;
                 reply(&serde_json::json!({ "prompt": shared.rail().spawn_prompt(&id)? }))
             }
             "rail.createWorkstream" => {
