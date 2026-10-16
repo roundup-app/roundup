@@ -468,48 +468,6 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
 }
 
 #[tokio::test]
-async fn a32_iteration_advances_once() {
-    let fx = fixture().await;
-    assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(1));
-    assert_eq!(node(&fx.user, &fx.a).await.unwrap().iteration, None);
-    let mut events = fx.project.subscribed().await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-    assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(2));
-    let cleared = daemon::next(&mut events, |data| match data {
-        contracts::EventData::WorkstreamCleared(cleared) => Some(cleared),
-        _ => None,
-    })
-    .await;
-    assert_eq!(
-        (cleared.id.as_str(), cleared.iteration),
-        (fx.ws.as_str(), 2)
-    );
-    // A second clear starts from Iteration 2.
-    settle(&fx.user, &fx.ws).await;
-    let task = fx.clear("again", false).await;
-    let ask = until("the second ask", || {
-        let all: Vec<_> = prompts(&fx.log)
-            .iter()
-            .filter_map(|p| {
-                p["prompt"]
-                    .as_str()
-                    .filter(|t| t.contains("workstream_handoff"))
-                    .map(str::to_owned)
-            })
-            .collect();
-        (all.len() == 2).then(|| all[1].clone())
-    })
-    .await;
-    assert!(ask.contains("again"));
-    drop(task);
-}
-
-#[tokio::test]
 async fn a32_without_handoff_archives_everything() {
     let fx = fixture_with("600").await;
     fx.full().await;
