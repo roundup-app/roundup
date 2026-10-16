@@ -105,11 +105,11 @@ export type RpcMethods = {
   "provenance.touched": { params: common_TouchedParams; result: common_Touch[] };
   "terminal.spawn": { params: terminal_SpawnParams; result: terminal_TerminalId };
   "terminal.open": { params: terminal_OpenParams; result: terminal_Opened };
-  "terminal.close": { params: terminal_TerminalId; result: null };
+  "terminal.close": { params: terminal_TerminalId; result: null | agent_HeldAction };
   "terminal.write": { params: terminal_WriteParams; result: null };
   "terminal.resize": { params: terminal_ResizeParams; result: terminal_ResizeAction | null };
   "terminal.resizeHistory": { params: terminal_TerminalId; result: terminal_ResizeAction[] };
-  "terminal.kill": { params: terminal_TerminalId; result: null };
+  "terminal.kill": { params: terminal_TerminalId; result: null | agent_HeldAction };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
   "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };

@@ -432,7 +432,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
-            "Stop a Terminal you or your Reach own and forget it.",
+            "Stop a Terminal you or your Reach own and forget it. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
@@ -448,7 +448,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
-            "Stop the program of a Terminal you or your Reach own.",
+            "Stop the program of a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<agent::NodeId>(
             "agent.actionHistory",
@@ -522,8 +522,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
         ),
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
-        "terminal.close" => format!("closed Terminal {id}"),
-        "terminal.kill" => format!("stopped Terminal {id}"),
         "terminal.write" => format!("wrote to Terminal {id}"),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
