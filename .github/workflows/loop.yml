@@ -30,6 +30,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
+      - run: loop/rules.sh merge-loss
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
       - run: loop/rules.sh vocab
         if: ${{ !cancelled() }}
       - run: loop/rules.sh architect-words

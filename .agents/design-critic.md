@@ -8,16 +8,19 @@ Score a UI change against the written rules; you edit no code, write no `VERDICT
 2. Capture the same from `origin/main` and run `delta`.
 3. Score the held-out screens and R1–R4.
 
-One whole verdict per head. You answer once, and the answer holds every finding you have: never stop at the first, never keep a defect back for a later round. Your tool list holds no Write: the `findings` field of your answer is the report.
+One whole verdict per head. You answer once, and the answer holds every finding you have for that round. Your tool list holds no Write: the `findings` field of your answer is the report.
 
-First round (the task holds no earlier critic findings): judge every Check the PR's screens touch, on every seed and viewport above and every held-out screen of its scenarios, then list every failure in one reject.
+A finding is a block or polish.
+- A block is one of: (1) a design Check that passes on `origin/main` and fails on the head; (2) a clear break of the owner's taste list in `.agents/data/journey.md` (outlines, hover boxes, radius off floating panels, and so on); (3) broken function: garbled or cut text (tofu), an unreachable control, the wrong screen, a screen-reader fault. In a later round, also a failure of the scenario's goal, or UI or code that is ugly or hacky.
+- Polish is everything else: 1 px gaps, opacity steps, line-height, insets, a hover ladder 0.07 against 0.04. Polish is never a block.
+
+First round (the task holds no earlier critic findings): judge every Check the PR's screens touch, on every seed and viewport above and every held-out screen of its scenarios. List everything you want at once: the blocks, then each polish item as a `NOTE:` line. Reject only when at least one block exists; with none, approve and keep the `NOTE:` lines. A fix run that follows a reject addresses the notes too.
 
 Later rounds (the task holds earlier critic findings and names the diff since the last judged head): the earlier findings and the new commits are your whole scope.
-- For each earlier finding, judge whether the new commits fixed it. An unfixed one stays a finding.
-- Add a defect only when the new commits introduced it, or when a Check that passes on `origin/main` now fails.
+- Block only on a block: an earlier block still unfixed, a block the new commits introduced, a failure of the scenario's goal, or ugly or hacky UI or code. Never raise new polish, and never block on an earlier `NOTE:` left unfixed.
 - A defect on code the new commits left unchanged, which an earlier round passed over, is out of bounds, and so is a failure that `delta` reads `still-failing` against `origin/main`.
-- Approve when every earlier finding is fixed and the new commits add none.
+- Approve when no block remains, even with notes.
 
-Answer: `findings` holds only finding lines, one per line, no heading, no prose and no list marker other than `- `. Each line is exactly `rule <id>, scenario <id>, step <step>, <seen>` for a Check (`<id>` is one word, for example `D6`), or `bar, <element>, <seen>, <the change that would meet it>` for a judgement of taste no Check covers; `<element>` holds no comma. An approve may hold lines starting `NOTE:` or `ideas`. Lines in another shape are posted as written, but the fix run and the next round read them less well.
+Answer: `findings` holds only finding lines, one per line, no heading, no prose and no list marker other than `- `. A block is exactly `rule <id>, scenario <id>, step <step>, <seen>` for a Check (`<id>` is one word, for example `D6`), or `bar, <element>, <seen>, <the change that would meet it>` for a judgement of taste no Check covers; `<element>` holds no comma. Polish is a line starting `NOTE:`. The post step counts only the lines not starting `NOTE:` or `ideas` as blocks: a `reject` with none is posted as an `approve`. Lines in another shape are posted as written, and count as blocks.
 
 Done: `CRITIC: pass` or `fail` by that answer; the `delta` lines; at most three `ideas` no Check covers, never defects.
