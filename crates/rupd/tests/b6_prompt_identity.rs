@@ -71,9 +71,20 @@ while True:
             with socket.socket(socket.AF_UNIX) as client:
                 client.connect('rupd.sock')
                 stream = client.makefile('rwb')
-                stream.write(json.dumps(json.load(open('peer-request'))).encode() + b'\n')
-                stream.flush()
-                with open('peer-result', 'w') as result: result.write(stream.readline().decode())
+                request = json.load(open('peer-request'))
+                if isinstance(request, list):
+                    for frame in request: stream.write(json.dumps(frame).encode() + b'\n')
+                    stream.flush()
+                    replies = []
+                    for frame in request:
+                        reply = json.loads(stream.readline())
+                        replies.append(reply)
+                        if reply.get('id') == 111: open('peer-barrier', 'w').write('scheduled')
+                    with open('peer-result', 'w') as result: json.dump(replies, result)
+                else:
+                    stream.write(json.dumps(request).encode() + b'\n')
+                    stream.flush()
+                    with open('peer-result', 'w') as result: result.write(stream.readline().decode())
         threading.Thread(target=call, daemon=True).start()
         continue
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
@@ -2793,8 +2804,7 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     run.finish().await;
 }
 
-async fn answer_takeover_race(kind: &str, guarded: bool) {
-    let (run, _) = order_child().await;
+async fn start_answer_door(run: &Run) -> (Value, Value) {
     let tree = run.user.request("rail.tree", ()).await.unwrap();
     let door = tree
         .as_array()
@@ -2824,6 +2834,12 @@ async fn answer_takeover_race(kind: &str, guarded: bool) {
     })
     .await
     .unwrap();
+    (door, terminal)
+}
+
+async fn answer_takeover_race(kind: &str, guarded: bool) {
+    let (run, _) = order_child().await;
+    let (door, terminal) = start_answer_door(&run).await;
     let (decision, waiting) = run.open(kind).await;
     let identity = run.capture(&decision).await;
     let gate = run.dir.path().join("effect-gate");
@@ -2898,6 +2914,88 @@ async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
 async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
     for kind in ["permission", "ask_user"] {
         answer_takeover_race(kind, false).await;
+    }
+}
+
+#[tokio::test]
+async fn b6_wire_door_answers_wait_for_all_earlier_resizes() {
+    for kind in ["permission", "ask_user"] {
+        let (run, caller) = door_terminal().await;
+        let (door, terminal) = start_answer_door(&run).await;
+        let (decision, waiting) = run.open(kind).await;
+        let identity = run.capture(&decision).await;
+        run.pause();
+        let id = run.terminal.clone();
+        let first = tokio::spawn(async move {
+            caller
+                .request("terminal.resize", json!({"id":id,"cols":101,"rows":37}))
+                .await
+        });
+        run.paused().await;
+        let mut frames = vec![
+            json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}}),
+        ];
+        for cols in 102..110 {
+            frames.push(json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}}));
+        }
+        frames.push(json!({"id":110,"method":"decision.answer","params":{
+            "id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }
+        }}));
+        frames.push(json!({"id":111,"method":"rail.tree"}));
+        std::fs::write(
+            run.dir.path().join("peer-request"),
+            serde_json::to_vec(&frames).unwrap(),
+        )
+        .unwrap();
+        // The real Door sends the batch, retaining H21's authenticated process identity.
+        run.user
+            .request(
+                "terminal.write",
+                json!({"id":terminal,"data":STANDARD.encode(b"\x02")}),
+            )
+            .await
+            .unwrap();
+        tokio::time::timeout(BOUND, async {
+            while !run.dir.path().join("peer-barrier").is_file() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        run.release();
+        let replies: Value = tokio::time::timeout(BOUND, async {
+            loop {
+                if let Ok(text) = std::fs::read_to_string(run.dir.path().join("peer-result"))
+                    && let Ok(value) = serde_json::from_str::<Value>(&text)
+                {
+                    break value;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        first.await.unwrap().unwrap();
+        waiting.await.unwrap().unwrap();
+        for reply in replies.as_array().unwrap() {
+            assert!(reply.get("result").is_some(), "{reply}");
+        }
+        let order: Vec<_> = replies
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["id"].as_u64().unwrap())
+            .collect();
+        run.user
+            .request("agent.stop", json!({"id":door}))
+            .await
+            .unwrap();
+        run.finish().await;
+        assert_eq!(
+            order,
+            [1, 111, 102, 103, 104, 105, 106, 107, 108, 109, 110],
+            "{kind}: answer overtook an earlier wire resize"
+        );
     }
 }
 
