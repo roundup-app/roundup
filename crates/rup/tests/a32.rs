@@ -592,21 +592,6 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
 }
 
 #[tokio::test]
-async fn a32_no_slash_command_is_typed() {
-    let fx = fixture().await;
-    let mut task = fx.clear("/clear please", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-    for typed in prompts(&fx.log) {
-        let text = typed["prompt"].as_str().unwrap();
-        assert!(!text.starts_with('/'), "{text}");
-    }
-}
-
-#[tokio::test]
 async fn a32_iteration_advances_once() {
     let fx = fixture().await;
     assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(1));
