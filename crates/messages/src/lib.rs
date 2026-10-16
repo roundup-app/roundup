@@ -1135,121 +1135,144 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
 /// `Pick::Fresh` is for work that became deliverable while its receiver was already `idle` (a
 /// Message just sent, released, or passed on to it): no `idle` event will follow for it, so the
 /// batch the next `idle` would pick is typed now, though its Status revision is the current one.
-async fn on_idle(inner: &Arc<Inner>, agent: &str, at: store::Binding, pick: Pick) {
+async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pick: Pick) {
     let _delivery = inner.delivery.read().await;
-    let found = {
-        let store = lock(&inner.store);
-        if matches!(
-            step::retirement_event(
-                store.retirement(agent).expect("message store").is_some(),
-                step::restart_event(
-                    store.is_reserved(agent).expect("message store"),
-                    Event::Idle
-                )
-            ),
-            Event::Busy
-        ) || store.require_generation(agent, at).is_err()
-        {
-            return;
-        }
-        // A just-sent Message is bound to the current revision, which the queue excludes.
-        let upto = (at.0, at.1.saturating_add(i64::from(pick == Pick::Fresh)));
-        let pending = store.pending_queue(agent, upto).expect("message store");
-        let ids = idle_batch(&pending);
-        pending
-            .into_iter()
-            .filter(|m| ids.contains(&m.id))
-            .collect::<Vec<_>>()
-    };
-    if found.is_empty() {
-        return;
-    }
-    // The names are read before the record: a Rail that cannot answer leaves the Messages
-    // `pending` for the next `idle`, where a read after the record would strand them `delivered`
-    // and untyped.
-    let mut lines = Vec::new();
-    let mut size = 0;
-    let mut batch = Vec::new();
-    let texts = pushes::bodies_of(&found);
-    for (message, text) in found.into_iter().zip(texts) {
-        let Ok(from) = sender_name(inner, &message.from).await else {
-            return;
-        };
-        // B34: a digest whose children a newer one names has nothing left to say.
-        if text.is_empty() {
-            batch.push(message);
-            continue;
-        }
-        let line = format!("[from {from}, {}] {text}", kind_label(message.kind));
-        let added = line.len() + if lines.is_empty() { 0 } else { 2 };
-        if !lines.is_empty() && size + added > BATCH_BYTES {
-            break;
-        }
-        size += added;
-        lines.push(line);
-        batch.push(message);
-    }
-    let recorded = {
-        let mut store = lock(&inner.store);
-        if store.require_generation(agent, at).is_err() {
-            return;
-        }
-        for m in &batch {
-            let bound = store.bound(m.id).expect("message store");
-            if bound.0 != at.0 || (pick == Pick::Next && bound.1 >= at.1) {
+    loop {
+        let found = {
+            let store = lock(&inner.store);
+            if matches!(
+                step::retirement_event(
+                    store.retirement(agent).expect("message store").is_some(),
+                    step::restart_event(
+                        store.is_reserved(agent).expect("message store"),
+                        Event::Idle
+                    )
+                ),
+                Event::Busy
+            ) || store.require_generation(agent, at).is_err()
+            {
                 return;
             }
-        }
-        let ids: Vec<u32> = batch.iter().map(|m| m.id).collect();
-        store.mark_delivered_all(&ids).expect("message store")
-    };
-    let Some(messages) = recorded else {
-        return;
-    };
-    let refusal = (inner.deliver)(agent.to_owned(), lines.join("\n\n"))
-        .await
-        .err();
-    // B2: `NotAccepted` and `NotFound` will never take the Messages, so they are `dropped` and
-    // nothing is sent again.
-    if let Some(reason @ (Refusal::NotAccepted | Refusal::NotFound)) = refusal {
-        let reason = if reason == Refusal::NotAccepted {
-            Reason::NotAccepted
-        } else {
-            Reason::ReceiverGone
+            // A just-sent Message is bound to the current revision, which the queue excludes.
+            let upto = (at.0, at.1.saturating_add(i64::from(pick == Pick::Fresh)));
+            let pending = store.pending_queue(agent, upto).expect("message store");
+            let ids = idle_batch(&pending);
+            pending
+                .into_iter()
+                .filter(|m| ids.contains(&m.id))
+                .collect::<Vec<_>>()
         };
-        for message in &messages {
-            let dropped = lock(&inner.store)
-                .drop_delivered(message.id, reason)
-                .expect("message store");
-            if let Some(dropped) = dropped {
-                inner
-                    .bus
-                    .emit(Actor::daemon(), EventData::MessageDropped(dropped.into()));
+        if found.is_empty() {
+            return;
+        }
+        // The names are read before the record: a Rail that cannot answer leaves the Messages
+        // `pending` for the next `idle`, where a read after the record would strand them `delivered`
+        // and untyped.
+        let mut lines = Vec::new();
+        let mut size = 0;
+        let mut batch = Vec::new();
+        let texts = pushes::bodies_of(&found);
+        for (message, text) in found.into_iter().zip(texts) {
+            let Ok(from) = sender_name(inner, &message.from).await else {
+                return;
+            };
+            // B34: a digest whose children a newer one names has nothing left to say.
+            if text.is_empty() {
+                batch.push(message);
+                continue;
             }
+            let line = format!("[from {from}, {}] {text}", kind_label(message.kind));
+            let added = line.len() + if lines.is_empty() { 0 } else { 2 };
+            if !lines.is_empty() && size + added > BATCH_BYTES {
+                break;
+            }
+            size += added;
+            lines.push(line);
+            batch.push(message);
+        }
+        let recorded = {
+            let mut store = lock(&inner.store);
+            if store.require_generation(agent, at).is_err() {
+                return;
+            }
+            for m in &batch {
+                let bound = store.bound(m.id).expect("message store");
+                if bound.0 != at.0 || (pick == Pick::Next && bound.1 >= at.1) {
+                    return;
+                }
+            }
+            let ids: Vec<u32> = batch.iter().map(|m| m.id).collect();
+            store.mark_delivered_all(&ids).expect("message store")
+        };
+        let Some(messages) = recorded else {
+            return;
+        };
+        let refusal = (inner.deliver)(agent.to_owned(), lines.join("\n\n"))
+            .await
+            .err();
+        // B2: `NotAccepted` and `NotFound` will never take the Messages, so they are `dropped` and
+        // nothing is sent again.
+        if let Some(reason @ (Refusal::NotAccepted | Refusal::NotFound)) = refusal {
+            let reason = if reason == Refusal::NotAccepted {
+                Reason::NotAccepted
+            } else {
+                Reason::ReceiverGone
+            };
+            for message in &messages {
+                let dropped = lock(&inner.store)
+                    .drop_delivered(message.id, reason)
+                    .expect("message store");
+                if let Some(dropped) = dropped {
+                    inner
+                        .bus
+                        .emit(Actor::daemon(), EventData::MessageDropped(dropped.into()));
+                }
+            }
+            return;
+        }
+        if refusal.is_some() {
+            // `Busy`: nothing was typed, so the record is undone, back to `pending`, or `held` for `takeover` if one began meanwhile (B6).
+            for message in &messages {
+                let reverted = lock(&inner.store)
+                    .unmark_delivered(message.id)
+                    .expect("message store");
+                if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
+                    inner
+                        .bus
+                        .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
+                }
+            }
+            // The next idle may already have run while this batch was marked delivered.
+            // Only a newer ready revision can authorize another try: Busy at the same
+            // revision must wait, and a new Attempt cannot inherit this delivery.
+            let Ok(nodes) = rail_nodes(inner).await else {
+                return;
+            };
+            let Some(node) = nodes.iter().find(|node| {
+                node.id == agent
+                    && !ended(node)
+                    && binding(node).0 == at.0
+                    && binding(node).1 > at.1
+                    && node
+                        .status
+                        .as_ref()
+                        .is_some_and(|status| matches!(status.kind, Kind::Idle | Kind::Error))
+            }) else {
+                return;
+            };
+            at = binding(node);
+            pick = Pick::Next;
+            continue;
+        }
+        // B30(a): `message.delivered` goes out in id order, whatever order B7 typed the batch in.
+        let mut messages = messages;
+        messages.sort_by_key(|m| m.id);
+        for message in messages {
+            inner
+                .bus
+                .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
         }
         return;
-    }
-    if refusal.is_some() {
-        // `Busy`: nothing was typed, so the record is undone, back to `pending`, or `held` for `takeover` if one began meanwhile (B6).
-        for message in &messages {
-            let reverted = lock(&inner.store)
-                .unmark_delivered(message.id)
-                .expect("message store");
-            if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
-                inner
-                    .bus
-                    .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
-            }
-        }
-        return;
-    }
-    // B30(a): `message.delivered` goes out in id order, whatever order B7 typed the batch in.
-    let mut messages = messages;
-    messages.sort_by_key(|m| m.id);
-    for message in messages {
-        inner
-            .bus
-            .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
     }
 }
 

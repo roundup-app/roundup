@@ -11,9 +11,9 @@ overrides:
   katex@<0.18.2: ^0.18.10
 
 patchedDependencies:
-  '@dnd-kit/dom@0.5.1':
-    hash: 02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2
-    path: patches/@dnd-kit__dom@0.5.1.patch
+  '@zag-js/toast@1.45.0':
+    hash: a39891f11edb05d3f14b224b0d8fac7263fd42c1af7ad573ef8cb12b96fffbdf
+    path: patches/@zag-js__toast@1.45.0.patch
 
 importers:
 
@@ -49,12 +49,6 @@ importers:
       '@ark-ui/solid':
         specifier: ^5.39.3
         version: 5.39.3(solid-js@1.9.17)
-      '@dnd-kit/dom':
-        specifier: 0.5.1
-        version: 0.5.1(patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2)
-      '@dnd-kit/solid':
-        specifier: 0.5.0
-        version: 0.5.0(solid-js@1.9.17)
       '@excalidraw/excalidraw':
         specifier: ^0.18.1
         version: 0.18.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -505,26 +499,6 @@ packages:
     peerDependencies:
       postcss-selector-parser: ^7.1.1
 
-  '@dnd-kit/abstract@0.5.1':
-    resolution: {integrity: sha512-XI13sUYRvRgggMocjHlQhLRgENm/2GF94KF7mk+c0uxse7sbn75r0BgxoNPDlzLTDPWx6PkS0YHoeXN9JWhnOA==}
-
-  '@dnd-kit/collision@0.5.1':
-    resolution: {integrity: sha512-exQmBlWWQ6calIup4KNQudiEF8Do61Lpzw/F0M3UOhqdKi9dx0ZXGf+qfdfmew8rJzPMj3MzKeGqNMEbCKA22g==}
-
-  '@dnd-kit/dom@0.5.1':
-    resolution: {integrity: sha512-r7/l4D+nsH1mFXWkplXCkZC9JlY7UjxsVuTu4yCqzC00XgX+SXiK3Oazp42KKG3mshfBNVtm15BI9rKNlkw2fA==}
-
-  '@dnd-kit/geometry@0.5.1':
-    resolution: {integrity: sha512-7X/Ro2U5qW96SihIukMitnc3pYc5n/PmHmJ28oApLBIJRfLxPLgrL6X0ZbQT7qUEfdUIqXnehobJ3jXAc4hdAA==}
-
-  '@dnd-kit/solid@0.5.0':
-    resolution: {integrity: sha512-IKDqVZICS0jEeUzpJMIIF61w0WA4zisyx9U7K7Skbmkb/kQSDa3lB0cOc0947RwSO+ALoxytRNOuoNfyOIm3lQ==}
-    peerDependencies:
-      solid-js: ^1.8.0
-
-  '@dnd-kit/state@0.5.1':
-    resolution: {integrity: sha512-SN0BZ0d/ob9dK8sTqk/0z3eNBWV6xPSrLbHUBbiCo9Sj3xfhPFk6ej2oZpDcqk7LWaujT57ocgdtznY7wQ2yFw==}
-
   '@excalidraw/excalidraw@0.18.1':
     resolution: {integrity: sha512-6i5Gt7IDTOH//qa0Z315Ly5iVRhjWpu2whrlQFqkuwrkKUWgRsMk0P5qdE7bpyDpai7jeLeWYkyj1eVAfni1lw==}
     peerDependencies:
@@ -917,9 +891,6 @@ packages:
   '@oxlint/plugins@1.86.0':
     resolution: {integrity: sha512-JeAiaaRMyUiUEQHQ7zBsJn1aEdbLyt1HJsOs4XKIIlATNxcvWRrRxneZA+RF4G03cQobq3IhTqSfyLhOFv03qA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
-
-  '@preact/signals-core@1.14.4':
-    resolution: {integrity: sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA==}
 
   '@radix-ui/colors@3.0.0':
     resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
@@ -4175,7 +4146,7 @@ snapshots:
       '@zag-js/tabs': 1.45.0
       '@zag-js/tags-input': 1.45.0
       '@zag-js/timer': 1.45.0
-      '@zag-js/toast': 1.45.0
+      '@zag-js/toast': 1.45.0(patch_hash=a39891f11edb05d3f14b224b0d8fac7263fd42c1af7ad573ef8cb12b96fffbdf)
       '@zag-js/toc': 1.45.0
       '@zag-js/toggle': 1.45.0
       '@zag-js/toggle-group': 1.45.0
@@ -4666,44 +4637,6 @@ snapshots:
   '@csstools/selector-specificity@6.0.1(postcss-selector-parser@7.1.6)':
     dependencies:
       postcss-selector-parser: 7.1.6
-
-  '@dnd-kit/abstract@0.5.1':
-    dependencies:
-      '@dnd-kit/geometry': 0.5.1
-      '@dnd-kit/state': 0.5.1
-      tslib: 2.8.1
-
-  '@dnd-kit/collision@0.5.1':
-    dependencies:
-      '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/geometry': 0.5.1
-      tslib: 2.8.1
-
-  '@dnd-kit/dom@0.5.1(patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2)':
-    dependencies:
-      '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/collision': 0.5.1
-      '@dnd-kit/geometry': 0.5.1
-      '@dnd-kit/state': 0.5.1
-      tslib: 2.8.1
-
-  '@dnd-kit/geometry@0.5.1':
-    dependencies:
-      '@dnd-kit/state': 0.5.1
-      tslib: 2.8.1
-
-  '@dnd-kit/solid@0.5.0(solid-js@1.9.17)':
-    dependencies:
-      '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/dom': 0.5.1(patch_hash=02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2)
-      '@dnd-kit/state': 0.5.1
-      solid-js: 1.9.17
-      tslib: 2.8.1
-
-  '@dnd-kit/state@0.5.1':
-    dependencies:
-      '@preact/signals-core': 1.14.4
-      tslib: 2.8.1
 
   '@excalidraw/excalidraw@0.18.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
@@ -5308,8 +5241,6 @@ snapshots:
     optional: true
 
   '@oxlint/plugins@1.86.0': {}
-
-  '@preact/signals-core@1.14.4': {}
 
   '@radix-ui/colors@3.0.0': {}
 
@@ -6508,7 +6439,7 @@ snapshots:
       '@zag-js/types': 1.45.0
       '@zag-js/utils': 1.45.0
 
-  '@zag-js/toast@1.45.0':
+  '@zag-js/toast@1.45.0(patch_hash=a39891f11edb05d3f14b224b0d8fac7263fd42c1af7ad573ef8cb12b96fffbdf)':
     dependencies:
       '@zag-js/anatomy': 1.45.0
       '@zag-js/core': 1.45.0
