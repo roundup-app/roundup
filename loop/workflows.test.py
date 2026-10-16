@@ -250,6 +250,16 @@ class L89(unittest.TestCase):
                           'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
                           'crates/rupd/src/data.rs'], files.split())
 
+    def test_l89_every_setup_input_a_step_reads_or_a_job_passes_is_declared(self):
+        # An undeclared input reads as an empty string: `inputs.node != 'false'` stays true and the step runs anyway.
+        action = (ROOT / '.github/actions/setup/action.yml').read_text()
+        declared = set(re.findall(r'^  ([a-z-]+):\n    description:', action.split('\nruns:', 1)[0], re.M))
+        self.assertEqual(declared, set(re.findall(r'inputs\.([a-z-]+)', action)))
+        for workflow in (ROOT / '.github/workflows').glob('*.yml'):
+            for uses in re.finditer(r'uses: \./\.github/actions/setup\n(?:\s+with:\n((?:\s+[a-z-]+: .*\n)+))?', workflow.read_text()):
+                passed = set(re.findall(r'^\s+([a-z-]+): ', uses[1] or '', re.M))
+                self.assertLessEqual(passed, declared, workflow.name)
+
     def test_l89_a_check_recipe_runs_every_line_and_names_each_failed_one(self):
         with tempfile.TemporaryDirectory() as path:
             (Path(path) / 'justfile').write_text(f"[script('{ROOT}/loop/keep-going.sh')]\nlines:\n"
