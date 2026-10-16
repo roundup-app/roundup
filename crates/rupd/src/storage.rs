@@ -10,6 +10,8 @@ const RESIZES: &str = include_str!("../migrations/003/up.sql");
 
 const ACTIONS: &str = include_str!("../migrations/005/up.sql");
 
+const FLIGHT: &str = include_str!("../../messages/migrations/002/up.sql");
+
 const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
@@ -25,6 +27,7 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
                 M::up(RESIZES),
                 M::up(ASKS),
                 M::up(ACTIONS),
+                M::up(FLIGHT),
             ],
         )
     };
@@ -137,11 +140,12 @@ mod tests {
                 M::up(ANSWERS),
                 M::up(RESIZES),
                 M::up(ASKS),
-                M::up(ACTIONS)
+                M::up(ACTIONS),
+                M::up(FLIGHT)
             ])
             .current_version(&db)
             .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(5).unwrap())
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(6).unwrap())
         );
         standalone::write_ask(&db);
         let ws = call(
