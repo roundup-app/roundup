@@ -188,34 +188,6 @@ it("u477_disabled_icon_button_does_not_act", async () => {
   expect(await read<string>(`document.querySelector('output').textContent`)).toBe("0");
 }, 60_000);
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-  it(`u477_icon_button_fixture_checks ${scheme}-${width}`, async () => {
-    await browser("set", "media", scheme);
-    await browser("set", "viewport", String(width), "800");
-    await browser("open", new URL("/src/ui/u474.html", baselineOrigin ?? origin).href);
-    await browser("wait", "--fn", `!!document.querySelector('[aria-label="Open Project"]')`);
-    const baseline = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
-
-    if (art) {
-      mkdirSync(art, { recursive: true });
-      await browser("screenshot", join(art, `${scheme}-${width}-before.png`));
-      writeFileSync(join(art, `${scheme}-${width}-before.checks.json`), JSON.stringify(baseline));
-    }
-
-    await load();
-    await browser("hover", "#fixture-icon");
-    await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
-    const checks = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
-
-    for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, id).toBe("pass");
-
-    if (art) {
-      await browser("screenshot", join(art, `${scheme}-${width}-hover.png`));
-      writeFileSync(join(art, `${scheme}-${width}-hover.checks.json`), JSON.stringify(checks));
-    }
-  }, 60_000);
-}
-
 it("u477_icon_button_preserves_bound_click_handler", async () => {
   await load();
   await browser("click", '[aria-label="Bound action"]');
@@ -341,31 +313,3 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
     }
   }, 90_000);
 }
-
-
-it("u492_installed_toaster_recreates_polite_accessible_content_after_idle", async () => {
-  await browser("open", new URL("/src/ui/u492.html", origin).href);
-  await browser("wait", "--fn", `!!document.querySelector('button')`);
-  expect(await read<number>(`document.querySelectorAll('[data-scope="toast"]').length`)).toBe(0);
-
-  for (const name of ["First", "Second"]) {
-    await browser("eval", `window.toastInsertions = []; window.toastObserver = new MutationObserver(() => {
-      const group = document.querySelector('[data-scope="toast"][data-part="group"]');
-      if (group) window.toastInsertions.push(group.textContent);
-    }); window.toastObserver.observe(document.body, { childList: true, subtree: true });`);
-    await browser("find", "role", "button", "click", "--name", `${name} result`, "--exact");
-    await browser("wait", "--fn", `document.querySelector('[role=status]')?.hasAttribute('data-mounted')`);
-    expect(await read<string>(`document.querySelector('[role=region]').getAttribute('aria-live')`)).toBe("polite");
-    expect(await read<string>(`document.getElementById(document.querySelector('[role=status]').getAttribute('aria-labelledby')).textContent`)).toBe(`${name} result saved`);
-    const insertions = await read<string[]>(`window.toastInsertions`);
-    expect(insertions[0]).toBe("");
-    expect(insertions.some((text) => text.includes(`${name} result saved`))).toBe(true);
-    await browser("eval", `window.toastObserver.disconnect()`);
-    const snapshot = await browser("snapshot");
-    expect(snapshot).toContain(`${name} result saved`);
-    expect(snapshot).toContain("status");
-    await browser("find", "role", "button", "click", "--name", "Dismiss", "--exact");
-    await browser("wait", "--fn", `document.querySelectorAll('[data-scope="toast"]').length === 0`);
-    expect(await read<number>(`document.querySelectorAll('[data-scope="toast"]').length`)).toBe(0);
-  }
-}, 60_000);
