@@ -3,10 +3,9 @@ import type { ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, headlessChromeArgs } from "../testing/chromePage";
+import { appServer, type AppServer } from "../testing/appServer";
 
 /** U112 in a real Chromium: Vite serves the U26 harness and Chrome is driven over its DevTools pipe, so no package beyond a Chrome binary is needed. */
 
@@ -21,13 +20,12 @@ const found = chromePath();
 // A missing browser skips only off CI: on CI the claim must be checked, never silently dropped.
 const run = found || process.env["CI"] ? describe : describe.skip;
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let child: ChildProcess;
 
 let profile = "";
 
-let cacheDir = "";
 
 let origin = "";
 
@@ -81,10 +79,7 @@ const until = async (predicate: string) => {
 beforeAll(async () => {
   if (!found) throw new Error("U112 needs a Chrome binary: set CHROME_PATH");
 
-  // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
-  cacheDir = mkdtempSync(join(tmpdir(), "u112-vite-"));
-  server = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
-  await server.listen();
+  server = await appServer();
   origin = (server.resolvedUrls?.local[0] ?? "").replace(/\/$/, "");
   profile = mkdtempSync(join(tmpdir(), "u112-"));
   child = spawn(
@@ -131,7 +126,6 @@ afterAll(async () => {
 
   await server?.close();
 
-  if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
   if (profile) rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });

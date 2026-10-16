@@ -131,6 +131,8 @@ mod tests {
         expected.extend(standalone::schema(&resize_schema));
         resize_schema.execute_batch(ACTIONS).unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        resize_schema.execute_batch(EVENTS).unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
