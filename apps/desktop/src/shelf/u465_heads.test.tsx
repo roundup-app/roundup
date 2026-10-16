@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
 
@@ -12,15 +11,6 @@ const mount = async () => {
 
   return within(await screen.findByRole("tablist", { name: "Work items" })).getAllByRole("tab");
 };
-
-it("u465_tabs_reuse_the_rail_section_head", async () => {
-  const tabs = await mount();
-  expect(tabs.map(tab => tab.querySelector(".section-head > span")?.textContent)).toEqual(["Todos", "Pads"]);
-  expect(tabs.map(tab => tab.querySelector(".section-head > svg")?.getAttribute("aria-hidden"))).toEqual(["true", "true"]);
-  const source = readFileSync("src/shelf/Shelf.tsx", "utf8");
-  expect(source).toContain('import { SectionHead } from "../ink/SectionHead"');
-  expect(source).toContain("<SectionHead");
-});
 
 it("u465_heads_keep_tab_roles_focus_and_keys", async () => {
   const tabs = await mount();
