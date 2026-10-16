@@ -1,0 +1,74 @@
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { bubbleCalls, mountBubbles } from "./bubblesFixture";
+
+beforeEach(() => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+});
+
+afterEach(cleanup);
+
+const chip = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
+const pressed = (id: string): boolean => chip(id).getAttribute("aria-pressed") === "true";
+
+describe("u2224 selecting shows output with nothing over it", () => {
+  it("u2224_selecting_an_agent_minimises_every_shown_bubble", async () => {
+    const mounted = await mountBubbles("w");
+    await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
+
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(chip("1")).not.toBeNull());
+    expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(0);
+    expect(document.querySelectorAll(".bubble:not([hidden])")).toHaveLength(0);
+  });
+
+  it("u2224_a_bubble_restored_after_the_selection_stays_shown", async () => {
+    const mounted = await mountBubbles("w");
+    await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
+
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(chip("1")).not.toBeNull());
+    fireEvent.click(chip("1"));
+    await waitFor(() => expect(pressed("1")).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(pressed("1")).toBe(true);
+  });
+
+  it("u2224_activating_a_chip_shows_that_bubble_alone", async () => {
+    const mounted = await mountBubbles("w");
+    await waitFor(() => expect(chip("2")).not.toBeNull());
+
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(chip("1")).not.toBeNull());
+    fireEvent.click(chip("1"));
+    await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
+    expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1);
+  });
+
+  it("u2224_the_fold_closes_nothing_writes_nothing_and_keeps_place_and_size", async () => {
+    const mounted = await mountBubbles("w");
+    await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
+    const calls = (): number => ["terminal.close"].flatMap((method) => bubbleCalls(mounted.app, method)).length;
+    const sent = calls();
+    const geometry = (): Record<string, unknown> => Object.fromEntries(Object.entries(JSON.parse(window.sessionStorage.getItem("roundup:bubble-places:/p") ?? "{}") as Record<string, Record<string, unknown>>).map(([id, place]) => [id, { ...place, min: 0 }]));
+    const before = geometry();
+
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(chip("1")).not.toBeNull());
+    expect(calls()).toBe(sent);
+    expect(geometry()).toEqual(before);
+    expect(Object.keys(before).length).toBeGreaterThan(0);
+  });
+
+  it("u2224_a_new_run_bubble_does_not_fold_on_its_own", async () => {
+    const mounted = await mountBubbles("w");
+    await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
+
+    document.querySelector<HTMLElement>(".terminal-new")!.click();
+    await waitFor(() => expect(chip("9")).not.toBeNull());
+    expect(pressed("9")).toBe(true);
+    expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1);
+    expect(mounted.connected.rail.selected()).toBe("w");
+  });
+});

@@ -65,17 +65,26 @@ export const Bubbles = (props: { screens: Screens }) => {
   const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
 
   // A bubble's default place is stored when it first shows, so hiding it, moving another or resizing the window never shifts it (U164).
+  // U2224: selecting an Agent row folds every bubble to its chip, so none covers the output it selects.
+  let lastSelected: string | null | undefined;
+
   createEffect(() => {
     const eligible = shown();
+    const chosen = rail.selected();
+    const folds = lastSelected !== undefined && chosen !== lastSelected && rail.nodes.some((candidate) => candidate.id === chosen && candidate.kind === "agent");
+
+    lastSelected = chosen;
+
     const held = untrack(places);
     const missing = eligible.filter((terminal) => held[terminal.id] === undefined);
     const visible = eligible.filter((terminal) => held[terminal.id] && !held[terminal.id]!.min);
     const next = { ...held };
-    const latest = visible.at(-1)?.id ?? missing.at(-1)?.id;
+    const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
     for (const terminal of missing) next[terminal.id] = { ...defaultPlace(Object.keys(next).length, untrack(extent)), min: terminal.id !== latest };
 
     for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
+    if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
 
     if (JSON.stringify(next) === JSON.stringify(held)) return;
     setPlaces(next);
