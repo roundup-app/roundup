@@ -149,7 +149,7 @@
   cursor: pointer;
 }
 
-.app-listbox-item:hover {
+.app-listbox-item:not([data-disabled]):hover {
   background-color: var(--hover);
 }
 
@@ -157,8 +157,14 @@
   background-color: var(--selected);
 }
 
-.app-listbox-item[data-disabled] {
+.app-listbox-item[data-disabled],
+.app-listbox-note[aria-disabled="true"] {
+  color: var(--disabled);
   cursor: default;
+}
+
+.app-listbox-item[data-disabled] .app-listbox-description {
+  color: var(--disabled);
 }
 
 .app-listbox-description {
@@ -171,11 +177,11 @@
   cursor: pointer;
 }
 
-.app-listbox-note:hover {
+.app-listbox-note:not([aria-disabled="true"]):hover {
   background-color: var(--hover);
 }
 
-.app-listbox-note:active {
+.app-listbox-note:not([aria-disabled="true"]):active {
   background-color: var(--selected);
   transition-duration: 0s;
 }

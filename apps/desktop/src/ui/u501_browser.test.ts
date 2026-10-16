@@ -71,6 +71,19 @@ it("u501_browser_pointer_never_submits_and_enter_stays_with_note_owner", async (
   expect(await read<string>("document.querySelector('output').textContent")).toBe("1");
 }, 60_000);
 
+it("u501_browser_pending_keeps_note_focus_and_blocks_repeat_enter", async () => {
+  await load();
+  await action("click", "input");
+  await action("eval", `[...document.querySelectorAll('button')].find(el => el.textContent === 'Toggle pending').click()`);
+  await action("press", "ArrowDown");
+  await action("press", "Enter");
+  await choice(0);
+  expect(await read<unknown>(`(() => { const input = document.querySelector('input'); return [document.activeElement === input, input.readOnly, input.disabled]; })()`)).toEqual([true, true, false]);
+  await action("eval", `[...document.querySelectorAll('button')].find(el => el.textContent === 'Toggle pending').click()`);
+  await action("press", "Enter");
+  expect(await read<string>("document.querySelector('output').textContent")).toBe("1");
+}, 60_000);
+
 const art = captureDir("U501");
 
 const capture = async (side: string, name: string) => {
@@ -96,7 +109,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
       await load(side === "base");
       expect(await read<boolean>(`matchMedia('(prefers-contrast: more)').matches`)).toBe(contrast);
 
-      for (const state of ["initial", "hover", "focus", "own-answer"]) {
+      for (const state of ["initial", "hover", "focus", "own-answer", "pending"]) {
         if (state === "hover") await action("hover", "[role=option]:nth-child(2)");
 
         if (state === "focus") {
@@ -105,6 +118,8 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
         }
 
         if (state === "own-answer") await action("press", "ArrowUp");
+
+        if (state === "pending") await action("eval", `[...document.querySelectorAll('button')].find(el => el.textContent === 'Toggle pending').click()`);
         const checks = await capture(side, `${scheme}-${width}-${contrast}-${state}`);
 
         if (side === "base") baseline[state] = checks;

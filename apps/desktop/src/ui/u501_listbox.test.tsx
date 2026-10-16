@@ -49,6 +49,8 @@ it("u501_owner_controls_selection_and_highlight_independently", async () => {
   render(() => <Listbox.Root answers={answers} value={value()} highlightedValue={highlight()} onValueChange={value => requests.push(value)} onHighlightChange={value => requests.push(value)}>
     <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{answers.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
   </Listbox.Root>);
+  const detail = screen.getByRole("option", { name: "Detail" });
+  expect(screen.getByRole("listbox").getAttribute("aria-activedescendant")).toBe(detail.id);
   fireEvent.click(screen.getByRole("option", { name: "Full" }));
   await waitFor(() => expect(requests).toContain("full"));
   expect(screen.getByRole("option", { name: "Brief" }).getAttribute("aria-selected")).toBe("true");
@@ -63,17 +65,19 @@ for (const state of ["disabled", "pending"] as const) it(`u501_${state}_blocks_a
   const changes: (string | null)[] = [];
   render(() => <Listbox.Root answers={answers} value="brief" highlightedValue="brief" onValueChange={value => changes.push(value)} onHighlightChange={value => changes.push(value)} {...{ get [state]() { return blocked(); } }}>
     <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{answers.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
-    <Listbox.NoteInput aria-label="Note" value="keep this draft" />
+    <Listbox.NoteInput aria-label="Note" value="keep this draft" onKeyDown={event => { if (event.key === "Enter") changes.push("submitted"); }} />
   </Listbox.Root>);
   const note = screen.getByRole("textbox");
   note.focus();
   setBlocked(true);
   fireEvent.click(screen.getByRole("option", { name: "Full" }));
   fireEvent.keyDown(note, { key: "ArrowDown" });
+  fireEvent.keyDown(note, { key: "Enter" });
   await Promise.resolve();
   expect(changes).toEqual([]);
   expect(document.activeElement).toBe(note);
   expect(note).toHaveProperty("readOnly", true);
+  expect(note).toHaveProperty("disabled", false);
   expect(note).toHaveProperty("value", "keep this draft");
   expect(screen.getByRole("listbox").getAttribute("aria-disabled")).toBe("true");
 });
