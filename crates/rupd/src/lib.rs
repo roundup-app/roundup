@@ -345,6 +345,10 @@ impl Daemon {
         } else {
             None
         };
+        if method.starts_with("decision.") {
+            // H21's peer identity must govern arrival, release and the final answer alike.
+            conn.actor = self.decision_actor(conn);
+        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -607,6 +611,18 @@ impl Daemon {
             | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                 self.guard_terminal_read(actor, params).await
             }
+            "decision.answer" => {
+                let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
+                let listed = self.modules["decision"]
+                    .call(&self.ctx(actor.clone()), "decision.list", Value::Null)
+                    .await?;
+                let decisions: Vec<contracts::decision::Decision> =
+                    serde_json::from_value(listed).map_err(RpcError::internal)?;
+                Ok(decisions
+                    .into_iter()
+                    .find(|d| d.id == answer.id)
+                    .map(|d| d.agent))
+            }
             "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
             | "agent.stop" | "rail.rename" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
             _ => Ok(None),
@@ -670,46 +686,31 @@ impl Daemon {
         Ok(())
     }
 
-    /// H21: `decision.list` and `decision.answer` are judged by the caller's process, never by
-    /// the actor it claimed: the Agent whose `claude` it descends from, else a non-Agent, which
-    /// is the user's path (H4's `proof`).
-    async fn decision_call(
-        &self,
-        conn: &Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let actor = match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+    /// H21: a Decision caller is the Agent owning its peer process, else the user.
+    fn decision_actor(&self, conn: &Conn) -> Actor {
+        match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
             Some(id) => Actor {
                 kind: ActorKind::Agent,
                 id,
                 parent: None,
             },
             None => Actor::user(),
-        };
+        }
+    }
+
+    async fn decision_call(
+        &self,
+        conn: &Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
         let module = self
             .modules
             .get("decision")
             .ok_or_else(|| RpcError::method_not_found(method))?;
-        let ctx = self.ctx(actor);
-        // H21 derives identity from the peer, so the connection's claimed role must
-        // never decide whether this child effect excludes Takeover acquisition.
-        let child = if method == "decision.answer" && ctx.actor.kind == ActorKind::Agent {
-            let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
-            let listed = module.call(&ctx, "decision.list", Value::Null).await?;
-            let decisions: Vec<contracts::decision::Decision> =
-                serde_json::from_value(listed).map_err(RpcError::internal)?;
-            decisions
-                .into_iter()
-                .find(|d| d.id == answer.id)
-                .map(|d| d.agent)
-        } else {
-            None
-        };
-        let _door_effect = match child {
-            Some(child) => Some(self.child_effects(&child).read_owned().await),
-            None => None,
-        };
+        // The router holds the child's effect guard; taking it again could deadlock
+        // behind a waiting Takeover writer. Identity was fixed before that guard.
+        let ctx = self.ctx(conn.actor.clone());
         self.before_prompt_effect(&ctx.actor, method, &params)
             .await?;
         module.call(&ctx, method, params).await
@@ -1169,6 +1170,11 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             } else {
                 conn.actor.clone()
             }
+        } else if method
+            .as_deref()
+            .is_some_and(|m| m.starts_with("decision."))
+        {
+            daemon.decision_actor(&conn)
         } else {
             conn.actor.clone()
         };
