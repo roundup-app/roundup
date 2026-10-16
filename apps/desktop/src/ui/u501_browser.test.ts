@@ -109,7 +109,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
       await load(side === "base");
       expect(await read<boolean>(`matchMedia('(prefers-contrast: more)').matches`)).toBe(contrast);
 
-      for (const state of ["initial", "hover", "focus", "own-answer", "pending"]) {
+      for (const state of ["initial", "hover", "focus", "own-answer", "pending", "selected-pending"]) {
         if (state === "hover") await action("hover", "[role=option]:nth-child(2)");
 
         if (state === "focus") {
@@ -120,6 +120,12 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
         if (state === "own-answer") await action("press", "ArrowUp");
 
         if (state === "pending") await action("eval", `[...document.querySelectorAll('button')].find(el => el.textContent === 'Toggle pending').click()`);
+
+        if (state === "selected-pending") await action("eval", `(() => {
+          const buttons = [...document.querySelectorAll('button')];
+          if (!document.querySelector('input').readOnly) buttons.find(el => el.textContent === 'Toggle pending').click();
+          buttons.find(el => el.textContent === 'External Full').click();
+        })()`);
         const checks = await capture(side, `${scheme}-${width}-${contrast}-${state}`);
 
         if (side === "base") baseline[state] = checks;
