@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1299,5 +1299,117 @@ async fn a41_a_leading_slash_runs_the_skill() {
             .as_str()
             .is_some_and(|model| model.starts_with("claude-haiku"))),
         "named routing made a Placement call"
+    );
+}
+
+#[tokio::test]
+async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
+ {
+    use std::os::unix::fs::PermissionsExt;
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-hook-observer");
+    let log = probe.path().join("hooks.jsonl");
+    std::fs::write(&wrapper, r##"#!/usr/bin/env python3
+import json, os, subprocess, sys
+if sys.argv[1] != "signal":
+    os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
+payload = sys.stdin.buffer.read()
+result = subprocess.run([os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]], input=payload, stdout=subprocess.PIPE, timeout=5)
+with open(os.environ["REAL_CLAUDE_HOOK_LOG"], "a") as log:
+    log.write(json.dumps({"event": json.loads(payload)["hook_event_name"], "exit": result.returncode}) + "\n")
+sys.stdout.buffer.write(result.stdout)
+sys.exit(result.returncode)
+"##).unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "h15_hundred_tools",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("REAL_CLAUDE_HOOK_LOG", log.to_str().unwrap()),
+        ],
+    );
+    for index in 0..100 {
+        std::fs::write(
+            project.dir.path().join(format!("h15-{index:03}.txt")),
+            "H15 hook round\n",
+        )
+        .unwrap();
+    }
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "H15 exercise one hundred tools"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(180), async {
+        let mut working = false;
+        loop {
+            let event = client
+                .next_event()
+                .await
+                .expect("the connection stays open");
+            if let EventData::AgentStatus(status) = event.data
+                && status.id == agent.id
+            {
+                if status.status.kind == Kind::Working {
+                    working = true;
+                } else if status.status.kind == Kind::Idle && working {
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .expect("the hundred-tool turn completes");
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    let journal = model.journal();
+    // Aimock truncates long request bodies at 64 KB. Its selected fixture records the
+    // last-result ID and content constraints that actually matched even after that cap.
+    for index in 0..100 {
+        let id = format!("toolu_h15_{index:03}");
+        assert!(
+            journal.iter().any(|entry| {
+                let matched = &entry["response"]["fixture"]["match"];
+                matched["toolCallId"] == id && matched["toolResultContains"] == "H15 hook round"
+            }),
+            "missing successful tool result {id}"
+        );
+    }
+    let hooks: Vec<Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert!(hooks.iter().all(|hook| hook["exit"] == 0), "{hooks:#?}");
+    let uses: Vec<_> = hooks
+        .iter()
+        .filter(|hook| matches!(hook["event"].as_str(), Some("PreToolUse" | "PostToolUse")))
+        .collect();
+    assert_eq!(uses.len(), 200, "{hooks:#?}");
+    assert!(
+        uses.chunks(2).all(|pair| pair[0]["event"] == "PreToolUse"
+            && pair[1]["event"] == "PostToolUse"
+            && pair.iter().all(|hook| hook["exit"] == 0)),
+        "{hooks:#?}"
+    );
+    let tree = rail_tree(&client).await;
+    assert_eq!(
+        tree.iter()
+            .find(|node| node.id == agent.id)
+            .unwrap()
+            .status
+            .as_ref()
+            .map(|status| status.label.as_str()),
+        Some("idle")
     );
 }
