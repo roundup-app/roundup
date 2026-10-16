@@ -31,7 +31,7 @@ it("u465_heads_keep_tab_roles_focus_and_keys", async () => {
     await Promise.resolve(); // Shelf.select queues focus; observing after its microtask preserves keyboard order.
     expect(document.activeElement).toBe(tabs[selected]);
     expect(tabs.map(tab => tab.tabIndex)).toEqual(selected === 0 ? [0, -1] : [-1, 0]);
-    const panel = screen.getByRole("tabpanel");
+    const panel = within(screen.getByRole("region", { name: "Work items" })).getByRole("tabpanel");
     expect(panel.getAttribute("aria-labelledby")).toBe(tabs[selected]!.id);
     expect(panel.querySelector(`section[aria-label="${selected === 0 ? "Todos" : "Pads"}"]`)).not.toBeNull();
     expect(tabs[selected]!.querySelectorAll("button, [tabindex]")).toHaveLength(0);

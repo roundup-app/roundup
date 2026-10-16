@@ -7,14 +7,16 @@ impl Shared {
         let Some(shared) = self.me.upgrade() else {
             return;
         };
-        let completion = match self.runs().get(id) {
-            Some(Slot::Running(run)) if run.attempt == attempt => run.first_completion.clone(),
+        let (completion, startup_context) = match self.runs().get(id) {
+            Some(Slot::Running(run)) if run.attempt == attempt => {
+                (run.first_completion.clone(), run.startup_context)
+            }
             _ => return,
         };
         let (id, attempt) = (id.to_owned(), attempt.to_owned());
         tokio::spawn(async move {
             let mut prompt = prompt;
-            if let Some(read) = &shared.context {
+            if startup_context && let Some(read) = &shared.context {
                 let context = async { read(shared.tree()?, id.clone()).await };
                 match tokio::time::timeout(Duration::from_secs(4), context).await {
                     Ok(Ok(text)) => prompt.push_str(&format!(
@@ -25,7 +27,9 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
-            let result = shared.prompt(&id, &prompt, Some(&attempt)).await;
+            let result = shared
+                .prompt(&id, &prompt, Some(&attempt), !startup_context)
+                .await;
             if let Err(err) = &result {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
                 shared.refuse_prompt(&id, &attempt);
@@ -137,9 +141,17 @@ impl Agents {
         }
     }
 
-    pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
+    pub async fn prompt<'a>(
+        &self,
+        id: &str,
+        text: impl Into<Steer<'a>>,
+    ) -> Result<(), PromptError> {
+        let (text, verbatim) = match text.into() {
+            Steer::Instruction(text) => (text, false),
+            Steer::User(text) => (text, true),
+        };
         self.shared
-            .prompt(id, text, None)
+            .prompt(id, text, None, verbatim)
             .await
             .map_err(PromptError::from)
     }
