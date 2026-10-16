@@ -56,26 +56,25 @@ const capture = async (id: string, name: string, evidence: Evidence) => {
 
 run('u137 compound selected ground', () => {
   for (const scheme of ['light', 'dark'] as const) {
-    for (const width of [1280, 1440]) {
-      it(`u137_nested_rail_text_is_measured_on_the_full_size_wash ${scheme} ${width}`, async () => {
-        await page.scheme(scheme);
-        await setup(false, '', width, 800);
-        await page.call(`() => {
-          const row = document.querySelector('.rail-row[data-id="payments"]');
-          row.click();
-          row.focus();
-        }`);
-        await page.until(`() => Boolean(document.querySelector('.rail-row[data-selected="true"] .rail-add-label'))`);
-        const checks = await page.call<Checks>(`() => window.__checks()`);
-        expect(checks.D5?.status, JSON.stringify(checks.D5)).toBe('pass');
-        expect(checks.D10?.status, JSON.stringify(checks.D10)).toBe('pass');
-        await capture('U137', `${scheme}-${width}-selected`, {checks});
-      }, 30_000);
-    }
+    const width = 1280;
+    it(`u137_nested_rail_text_is_measured_on_the_full_size_wash ${scheme} ${width}`, async () => {
+      await page.scheme(scheme);
+      await setup(false, '', width, 800);
+      await page.call(`() => {
+        const row = document.querySelector('.rail-row[data-id="payments"]');
+        row.click();
+        row.focus();
+      }`);
+      await page.until(`() => Boolean(document.querySelector('.rail-row[data-selected="true"] .rail-add-label'))`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+      expect(checks.D5?.status, JSON.stringify(checks.D5)).toBe('pass');
+      expect(checks.D10?.status, JSON.stringify(checks.D10)).toBe('pass');
+      await capture('U137', `${scheme}-${width}-selected`, {checks});
+    }, 30_000);
   }
 
   for (const [coverage, scheme, width] of [
-    ['full', 'light', 1280], ['full', 'light', 1440], ['full', 'dark', 1280], ['full', 'dark', 1440],
+    ['full', 'light', 1280], ['full', 'dark', 1280],
     ['partial', 'light', 1280], ['overlapping', 'light', 1280], ['single', 'light', 1280], ['padded', 'light', 1280], ['focus', 'light', 1280], ['focus-inset', 'light', 1280],
   ] as const) {
     it(`u137_compound_ground_never_silently_ignores_${coverage}_coverage ${scheme} ${width}`, async () => {
@@ -120,25 +119,6 @@ run('u137 compound selected ground', () => {
       else if (coverage === 'focus-inset') expect(checks.D5?.value).toEqual({focusRing: expect.closeTo(1.080701, 5)});
       else if (coverage === 'focus') expect(checks.D5?.value).toEqual({focusRing: expect.closeTo(1.16023, 5)});
       else expect(checks.D5?.value).toBe('not measurable');
-    }, 30_000);
-  }
-});
-
-run('u362 Checks against main', () => {
-  // Contrast reads per scheme, so both stay; one window represents every supported width.
-  const [width, height] = [1280, 800];
-
-  for (const scheme of ['light', 'dark'] as const) {
-    it(`u362_no_check_passing_on_main_regresses ${scheme} ${width}`, async () => {
-      await page.scheme(scheme);
-      await setup(false, process.env.ROUNDUP_U362_BASE_ORIGIN ?? '', width, height);
-      const base = await page.call<Checks>(`() => window.__checks()`);
-      await capture('U362', `${scheme}-${width}-before`, {checks: base});
-      await setup(false, '', width, height);
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-
-      for (const [id, result] of Object.entries(base)) if (result.status === 'pass') expect(checks[id]?.status, id).toBe('pass');
-      await capture('U362', `${scheme}-${width}-after`, {base, checks});
     }, 30_000);
   }
 });

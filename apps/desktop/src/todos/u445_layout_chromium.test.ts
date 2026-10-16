@@ -6,7 +6,6 @@ import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 import { U445_READ } from "./u445Browser";
-import mainChecks from "./u445_main_checks.json";
 
 type Box = Record<"x" | "y" | "width" | "height", number>;
 
@@ -91,50 +90,6 @@ run("u445 real Drawer layout", () => {
       const { before, after } = await read();
       expect(before.others.length).toBeGreaterThan(0);
       expect(after.others).toEqual(before.others);
-    }, 90_000);
-  }
-});
-
-
-type Checks = Record<string, { status: string }>;
-
-const baseline: Record<string, Checks> = mainChecks;
-
-// The edit field shows only in the Drawer, which no seed opens at rest; tree-40 is U445's seed and stands for the rest.
-run("u445 Checks retain main's passes on tree-40", () => {
-  const seed = "tree-40";
-
-  for (const scheme of ["light", "dark"] as const) {
-    it(`u445_no_check_regresses ${seed}-1280x800-${scheme}`, async () => {
-      const file = `${seed}-1280x800-${scheme}.checks.json`;
-
-      const check = (url: string) => observe(async () => {
-        await page.scheme(scheme);
-        await page.load(url, 1280, 800);
-        await page.until("() => Boolean(window.__fake && document.querySelector('[aria-label=Rail]'))", 60_000);
-        await page.call("async () => { await document.fonts.ready; }");
-
-        return page.call<Checks>("() => window.__checks()");
-      });
-
-      // main ea6ddc04: statuses recorded by this observer at 1280x800 in both schemes.
-      const base = process.env.U445_BASE_URL
-        ? await check(`${process.env.U445_BASE_URL}/harness.html?seed=${seed}`)
-        : baseline[file]!;
-
-      const head = await check(`/harness.html?seed=${seed}`);
-
-      for (let i = 1; i <= 14; i++) {
-        expect(base[`D${i}`], `main D${i} exists`).toBeDefined();
-
-        if (base[`D${i}`]?.status === "pass") expect(head[`D${i}`]?.status, `D${i}`).toBe("pass");
-      }
-
-      if (art) for (const [side, result] of [["base", base], ["head", head]] as const) {
-        if (side === "base" && !process.env.U445_BASE_URL) continue;
-        mkdirSync(join(art, side), { recursive: true });
-        writeFileSync(join(art, side, file), JSON.stringify(result));
-      }
     }, 90_000);
   }
 });

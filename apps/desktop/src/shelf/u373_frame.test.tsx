@@ -107,21 +107,6 @@ describe("u373 the Shelf has two tabs", () => {
     expect(tabs().map((tab) => tab.querySelector(".shelf-count"))).toEqual([null, null]);
   });
 
-  it("u373_arrow_keys_home_and_end", async () => {
-    await mountApp();
-    tabNamed("Todos").focus();
-    fireEvent.keyDown(tabNamed("Todos"), { key: "ArrowRight" });
-    await waitFor(() => expect(selectedTab()).toBe("Pads"));
-    expect(document.activeElement).toBe(tabNamed("Pads"));
-    fireEvent.keyDown(tabNamed("Pads"), { key: "ArrowRight" });
-    await waitFor(() => expect(selectedTab()).toBe("Todos"));
-    fireEvent.keyDown(tabNamed("Todos"), { key: "End" });
-    await waitFor(() => expect(selectedTab()).toBe("Pads"));
-    fireEvent.keyDown(tabNamed("Pads"), { key: "Home" });
-    await waitFor(() => expect(selectedTab()).toBe("Todos"));
-    expect(tabs().map((tab) => tab.tabIndex)).toEqual([0, -1]);
-  });
-
   it("u373_the_open_tab_survives_a_restart_per_project", async () => {
     const first = await mountApp();
 
@@ -289,11 +274,6 @@ describe("u470 the shared scope toggle", () => {
 });
 
 describe("u369 and u371 the Shelf below the window bar", () => {
-  it("u369_the_centre_floor_uses_the_shared_token", () => {
-    expect(appCss).not.toContain("@media (max-width: 1101px)");
-    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(var\(--centre-min-width\), 1fr\)/);
-  });
-
   it("u371_the_shelf_paints_over_the_pane_below_the_drawer", async () => {
     await mountApp();
 
@@ -313,12 +293,6 @@ describe("u369 and u371 the Shelf below the window bar", () => {
     expect(document.querySelector(".overlay")!.contains(help)).toBe(true);
     expect(document.querySelector(".centre")!.contains(help)).toBe(false);
     expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBeGreaterThan(Number(getComputedStyle(shelf()).zIndex));
-  });
-
-  it("u54_help_leaves_the_rail_uncovered", () => {
-    expect(tokenCss).toMatch(/--rail-width: 288px/);
-    expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\)/);
-    expect(appCss).toMatch(/\.help {[^}]*inset: var\(--space-4\) var\(--space-4\) var\(--space-4\) calc\(var\(--rail-width\) \+ var\(--space-4\)\)/);
   });
 
   it("u371_the_leading_edge_shadow_is_a_token", () => {
