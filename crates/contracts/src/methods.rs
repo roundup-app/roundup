@@ -26,7 +26,11 @@ pub const METHODS: &[Method] = &[
         "{ pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } }",
     ),
     m("daemon.identify", "common_IdentifyParams", "null"),
-    m("events.subscribe", "common_SubscribeParams | null", "null"),
+    m(
+        "events.subscribe",
+        "common_SubscribeParams | null",
+        "common_SubscribeResult",
+    ),
     m(
         "provenance.history",
         "common_HistoryParams",
