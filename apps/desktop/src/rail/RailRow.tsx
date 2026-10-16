@@ -1,5 +1,7 @@
 import { copy } from "../copy";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
+import { Tooltip } from "../ui";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -42,6 +44,10 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 );
 
 
+const call = (handler: unknown, event: Event) => {
+  if (typeof handler === "function") handler(event);
+};
+
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
@@ -72,7 +78,7 @@ export const RailRowView = (props: {
 
   const workstream = () => isWorkstream(props.row.node);
 
-  // U2228a: a name cut to `…` carries its full text as the native tooltip; one that fits carries none.
+  // U2228a: a name cut to `…` in the layout it has now (hovered, focused or selected included) shows in full in the row's Tooltip.
   const [cut, setCut] = createSignal(false);
   let nameBox: HTMLSpanElement | undefined;
   const measure = () => setCut(!!nameBox && nameBox.scrollWidth > nameBox.clientWidth);
@@ -80,18 +86,23 @@ export const RailRowView = (props: {
   createEffect(() => {
     props.row.node.name;
     props.runs;
+    near();
+    props.selected;
+    editing();
     queueMicrotask(measure);
   });
 
   createEffect(() => {
     const row = nameBox?.closest(".rail-row");
 
-    if (!row || typeof ResizeObserver === "undefined") return;
+    if (!nameBox || !row || typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(measure);
     observer.observe(row);
+    observer.observe(nameBox);
     onCleanup(() => observer.disconnect());
   });
+
   const kind = (): Kind | null => props.row.node.status?.kind ?? null;
 
   const inkTone = () => {
@@ -105,7 +116,11 @@ export const RailRowView = (props: {
 
   return (
     <>
+    <Tooltip.Root disabled={!cut()} positioning={{ placement: "bottom-start" }}>
+    <Tooltip.Trigger
+      asChild={(trigger) => (
     <div
+      {...trigger()}
       class="rail-row"
       role="treeitem"
       aria-level={props.row.depth + 1}
@@ -120,12 +135,17 @@ export const RailRowView = (props: {
       title={workstream() ? undefined : props.row.node.status?.label}
       tabIndex={props.tabbable ? 0 : -1}
       style={{ "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` }}
-      onClick={props.onSelect}
+      onClick={(click) => {
+        call(trigger().onClick, click);
+        props.onSelect();
+      }}
       onContextMenu={(press) => {
         press.preventDefault();
         props.onOpenMenu(press);
       }}
       onPointerDown={(press) => {
+        call(trigger().onPointerDown, press);
+
         if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
       }}
       {...handlers}
@@ -153,7 +173,6 @@ export const RailRowView = (props: {
             <span
               class="name"
               ref={nameBox}
-              title={cut() ? props.row.node.name : undefined}
               classList={{ ink: inkTone() !== undefined }}
               data-tone={inkTone()}
               onDblClick={() => setEditing(true)}
@@ -218,6 +237,14 @@ export const RailRowView = (props: {
         <PadsControl pads={pads} />
       </p>
     </div>
+      )}
+    />
+    <Portal>
+      <Tooltip.Positioner>
+        <Tooltip.Content>{props.row.node.name}</Tooltip.Content>
+      </Tooltip.Positioner>
+    </Portal>
+    </Tooltip.Root>
     <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
   );
