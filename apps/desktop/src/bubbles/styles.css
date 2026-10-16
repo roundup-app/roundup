@@ -112,8 +112,10 @@
 @keyframes tabs-fade-end { from { --tabs-fade-end: var(--space-5); } to { --tabs-fade-end: 0px; } }
 
 .terminal-tabs {
-  mask-image: linear-gradient(to right, transparent, #000 var(--tabs-fade-start), #000 calc(100% - var(--tabs-fade-end)), transparent);
-  animation: tabs-fade-start linear both, tabs-fade-end linear both;
+  mask-image: linear-gradient(to right, transparent, var(--ground) var(--tabs-fade-start), var(--ground) calc(100% - var(--tabs-fade-end)), transparent);
+  animation-name: tabs-fade-start, tabs-fade-end;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
   animation-timeline: scroll(self inline);
   animation-range: 0 var(--space-5), calc(100% - var(--space-5)) 100%;
   box-sizing: border-box;
