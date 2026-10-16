@@ -120,7 +120,9 @@ impl Bus {
                 Some(after) if after + 1 < oldest => {
                     return Err(RpcError::new(
                         crate::error::code::EVENTS_EXPIRED,
-                        format!("after {after} is older than the log keeps; the oldest kept Event number is {oldest}"),
+                        format!(
+                            "after {after} is older than the log keeps; the oldest kept Event number is {oldest}"
+                        ),
                     ));
                 }
                 Some(after) => after,

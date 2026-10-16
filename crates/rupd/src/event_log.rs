@@ -125,8 +125,15 @@ mod tests {
         let seen: Vec<_> = (0..3).map(|_| live.try_recv().unwrap().seq).collect();
         assert_eq!(seen, [Some(1), None, Some(2)]);
         let saved = SqliteLog::open(dir.path()).unwrap().read(0, 10).unwrap();
-        assert_eq!(saved.iter().map(|e| e.seq).collect::<Vec<_>>(), [Some(1), Some(2)]);
-        assert!(saved.iter().all(|e| matches!(e.data, EventData::RailChanged)));
+        assert_eq!(
+            saved.iter().map(|e| e.seq).collect::<Vec<_>>(),
+            [Some(1), Some(2)]
+        );
+        assert!(
+            saved
+                .iter()
+                .all(|e| matches!(e.data, EventData::RailChanged))
+        );
     }
 
     #[test]
