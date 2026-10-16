@@ -3018,6 +3018,7 @@ dependencies = [
  "agents",
  "base64 0.23.1",
  "checkpoints",
+ "clap",
  "contracts",
  "rmcp",
  "rpc",
