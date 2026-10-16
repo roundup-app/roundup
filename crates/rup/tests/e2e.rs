@@ -3093,6 +3093,15 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
     let client = project.client().await;
     let door = start_door(&client).await;
     let child = agent_in(&project, &client, Some(&door)).await;
+    // B7 batches pending Messages. Put another note first so the Decision notice
+    // cannot accidentally pass only because it heads the submitted prompt.
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "queued before the Decision"}),
+        )
+        .await
+        .unwrap();
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
     let decision = h21_decision(&client, &child, None).await;
     let id = decision["id"].as_str().unwrap().to_owned();
