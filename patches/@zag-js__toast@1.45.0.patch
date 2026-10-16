@@ -1,0 +1,224 @@
+diff --git a/dist/toast-group.machine.js b/dist/toast-group.machine.js
+index 8b31b8c0d82f35e5bc6b58bdde147dbb68bdeb65..f25fa270a1742317af575e49e33d56b553fb32f1 100644
+--- a/dist/toast-group.machine.js
++++ b/dist/toast-group.machine.js
+@@ -54,6 +54,7 @@ var groupMachine = createMachine({
+   },
+   refs() {
+     return {
++      disposed: false,
+       lastFocusedEl: null,
+       isFocusWithin: false,
+       isPointerWithin: false,
+@@ -80,14 +81,14 @@ var groupMachine = createMachine({
+     placement: ({ prop }) => prop("store").attrs.placement
+   },
+   effects: ["subscribeToStore", "trackDocumentVisibility", "trackHotKeyPress"],
+-  watch({ track, context, action }) {
++  watch({ track, context, action, refs }) {
+     track([() => context.hash("toasts")], () => {
+       queueMicrotask(() => {
+-        action(["collapsedIfEmpty", "setDismissableBranch"]);
++        if (!refs.get("disposed")) action(["collapsedIfEmpty", "setDismissableBranch"]);
+       });
+     });
+   },
+-  exit: ["clearDismissableBranch", "clearLastFocusedEl", "clearMouseEventTimer"],
++  exit: ["markDisposed", "clearDismissableBranch", "clearLastFocusedEl", "clearMouseEventTimer"],
+   on: {
+     "DOC.HOTKEY": {
+       actions: ["focusRegionEl"]
+@@ -199,6 +200,9 @@ var groupMachine = createMachine({
+       }
+     },
+     actions: {
++      markDisposed({ refs }) {
++        refs.set("disposed", true);
++      },
+       setDismissableBranch({ refs, context, computed, scope }) {
+         const toasts = context.get("toasts");
+         const placement = computed("placement");
+@@ -277,8 +281,9 @@ var groupMachine = createMachine({
+         refs.set("lastFocusedEl", null);
+         refs.set("isFocusWithin", false);
+       },
+-      ignoreMouseEventsTemporarily({ refs }) {
+-        refs.get("ignoreMouseTimer").request();
++      ignoreMouseEventsTemporarily({ refs, computed }) {
++        if (computed("count") === 0) refs.get("ignoreMouseTimer").cancel();
++        else refs.get("ignoreMouseTimer").request();
+       },
+       clearMouseEventTimer({ refs }) {
+         refs.get("ignoreMouseTimer").cancel();
+diff --git a/dist/toast-group.machine.mjs b/dist/toast-group.machine.mjs
+index 3c07601b97c0ffa11ddee572728f31d840307c56..3811f65eaab887a2ca4266db4e83df090e899d0a 100644
+--- a/dist/toast-group.machine.mjs
++++ b/dist/toast-group.machine.mjs
+@@ -20,6 +20,7 @@ var groupMachine = createMachine({
+   },
+   refs() {
+     return {
++      disposed: false,
+       lastFocusedEl: null,
+       isFocusWithin: false,
+       isPointerWithin: false,
+@@ -46,14 +47,14 @@ var groupMachine = createMachine({
+     placement: ({ prop }) => prop("store").attrs.placement
+   },
+   effects: ["subscribeToStore", "trackDocumentVisibility", "trackHotKeyPress"],
+-  watch({ track, context, action }) {
++  watch({ track, context, action, refs }) {
+     track([() => context.hash("toasts")], () => {
+       queueMicrotask(() => {
+-        action(["collapsedIfEmpty", "setDismissableBranch"]);
++        if (!refs.get("disposed")) action(["collapsedIfEmpty", "setDismissableBranch"]);
+       });
+     });
+   },
+-  exit: ["clearDismissableBranch", "clearLastFocusedEl", "clearMouseEventTimer"],
++  exit: ["markDisposed", "clearDismissableBranch", "clearLastFocusedEl", "clearMouseEventTimer"],
+   on: {
+     "DOC.HOTKEY": {
+       actions: ["focusRegionEl"]
+@@ -165,6 +166,9 @@ var groupMachine = createMachine({
+       }
+     },
+     actions: {
++      markDisposed({ refs }) {
++        refs.set("disposed", true);
++      },
+       setDismissableBranch({ refs, context, computed, scope }) {
+         const toasts = context.get("toasts");
+         const placement = computed("placement");
+@@ -243,8 +247,9 @@ var groupMachine = createMachine({
+         refs.set("lastFocusedEl", null);
+         refs.set("isFocusWithin", false);
+       },
+-      ignoreMouseEventsTemporarily({ refs }) {
+-        refs.get("ignoreMouseTimer").request();
++      ignoreMouseEventsTemporarily({ refs, computed }) {
++        if (computed("count") === 0) refs.get("ignoreMouseTimer").cancel();
++        else refs.get("ignoreMouseTimer").request();
+       },
+       clearMouseEventTimer({ refs }) {
+         refs.get("ignoreMouseTimer").cancel();
+diff --git a/dist/toast.machine.js b/dist/toast.machine.js
+index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..c76e7bb119227dea94f10ff270f24f6e6aed4b07 100644
+--- a/dist/toast.machine.js
++++ b/dist/toast.machine.js
+@@ -125,8 +125,8 @@ var machine = (0, import_core.createMachine)({
+       actions: ["measureHeight"]
+     }
+   },
+-  entry: ["setMounted", "measureHeight", "invokeOnVisible"],
+-  effects: ["trackHeight"],
++  entry: ["measureHeight", "invokeOnVisible"],
++  effects: ["setMounted", "trackHeight"],
+   states: {
+     "visible:updating": {
+       tags: ["visible", "updating"],
+@@ -179,6 +179,11 @@ var machine = (0, import_core.createMachine)({
+   },
+   implementations: {
+     effects: {
++      setMounted({ context }) {
++        return (0, import_dom_query.raf)(() => {
++          context.set("mounted", true);
++        });
++      },
+       waitForRemoveDelay({ prop, send }) {
+         return (0, import_utils.setRafTimeout)(() => {
+           send({ type: "REMOVE", src: "timer" });
+@@ -196,8 +201,7 @@ var machine = (0, import_core.createMachine)({
+         }, 0);
+       },
+       trackHeight({ scope, prop }) {
+-        let cleanup;
+-        (0, import_dom_query.raf)(() => {
++        return (0, import_dom_query.raf)(() => {
+           const rootEl = dom.getRootEl(scope);
+           if (!rootEl) return;
+           const syncHeight = () => {
+@@ -212,9 +216,8 @@ var machine = (0, import_core.createMachine)({
+             subtree: true,
+             characterData: true
+           });
+-          cleanup = () => observer.disconnect();
++          return () => observer.disconnect();
+         });
+-        return () => cleanup?.();
+       }
+     },
+     guards: {
+@@ -222,11 +225,6 @@ var machine = (0, import_core.createMachine)({
+       shouldPersist: ({ computed }) => computed("shouldPersist")
+     },
+     actions: {
+-      setMounted({ context }) {
+-        (0, import_dom_query.raf)(() => {
+-          context.set("mounted", true);
+-        });
+-      },
+       measureHeight({ scope, prop, context }) {
+         queueMicrotask(() => {
+           const rootEl = dom.getRootEl(scope);
+diff --git a/dist/toast.machine.mjs b/dist/toast.machine.mjs
+index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..dab81fed9845242a1049ca5772616c86f3cc73b0 100644
+--- a/dist/toast.machine.mjs
++++ b/dist/toast.machine.mjs
+@@ -91,8 +91,8 @@ var machine = createMachine({
+       actions: ["measureHeight"]
+     }
+   },
+-  entry: ["setMounted", "measureHeight", "invokeOnVisible"],
+-  effects: ["trackHeight"],
++  entry: ["measureHeight", "invokeOnVisible"],
++  effects: ["setMounted", "trackHeight"],
+   states: {
+     "visible:updating": {
+       tags: ["visible", "updating"],
+@@ -145,6 +145,11 @@ var machine = createMachine({
+   },
+   implementations: {
+     effects: {
++      setMounted({ context }) {
++        return raf(() => {
++          context.set("mounted", true);
++        });
++      },
+       waitForRemoveDelay({ prop, send }) {
+         return setRafTimeout(() => {
+           send({ type: "REMOVE", src: "timer" });
+@@ -162,8 +167,7 @@ var machine = createMachine({
+         }, 0);
+       },
+       trackHeight({ scope, prop }) {
+-        let cleanup;
+-        raf(() => {
++        return raf(() => {
+           const rootEl = dom.getRootEl(scope);
+           if (!rootEl) return;
+           const syncHeight = () => {
+@@ -178,9 +182,8 @@ var machine = createMachine({
+             subtree: true,
+             characterData: true
+           });
+-          cleanup = () => observer.disconnect();
++          return () => observer.disconnect();
+         });
+-        return () => cleanup?.();
+       }
+     },
+     guards: {
+@@ -188,11 +191,6 @@ var machine = createMachine({
+       shouldPersist: ({ computed }) => computed("shouldPersist")
+     },
+     actions: {
+-      setMounted({ context }) {
+-        raf(() => {
+-          context.set("mounted", true);
+-        });
+-      },
+       measureHeight({ scope, prop, context }) {
+         queueMicrotask(() => {
+           const rootEl = dom.getRootEl(scope);
