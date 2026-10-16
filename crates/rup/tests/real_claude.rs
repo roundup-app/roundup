@@ -1628,9 +1628,11 @@ async fn a32_only_the_door_may_hand_off() {
     model.assert_matched();
 }
 
-#[tokio::test]
-async fn a32_no_handoff_times_out_and_changes_nothing() {
-    let project = daemon::start_real("a32_no_handoff", &[("ROUNDUP_HANDOFF_BOUND_MS", "10000")]);
+async fn clear_fixture(
+    fixture: &str,
+    env: &[(&str, &str)],
+) -> (daemon::Project, rpc::Client, String) {
+    let project = daemon::start_real(fixture, env);
     let path = project.dir.path();
     for args in [
         vec!["init", "-q", "-b", "main"],
@@ -1741,6 +1743,14 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
             .await
             .unwrap();
     }
+    (project, client, door)
+}
+
+#[tokio::test]
+async fn a32_no_handoff_times_out_and_changes_nothing() {
+    let (project, mut client, door) =
+        clear_fixture("a32_no_handoff", &[("ROUNDUP_HANDOFF_BOUND_MS", "10000")]).await;
+    let model = project.model.as_ref().unwrap();
     let before = rail_tree(&client).await;
     let todos = client.request("todo.list", Value::Null).await.unwrap();
     let pads = client.request("pad.list", Value::Null).await.unwrap();
@@ -1796,5 +1806,97 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
         .await
         .unwrap_err();
     assert_eq!(stopped.code, rpc::code::CONFLICT);
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_a_valid_clear_only_asks_the_door() {
+    let (project, mut client, door) = clear_fixture("a32_valid_clear", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let before = rail_tree(&client).await;
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "I want a login page"}),
+        )
+        .await
+        .unwrap();
+    let reply = client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "too much fluff"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply, json!({"pending": true}));
+    let ask = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            model.assert_matched();
+            for entry in model.journal() {
+                if let Some(messages) = entry["body"]["messages"].as_array() {
+                    for message in messages {
+                        if message["role"] == "user"
+                            && let Some(text) = message["content"].as_str()
+                            && text.contains("too much fluff")
+                            && text.contains("workstream_handoff")
+                        {
+                            return text.to_owned();
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("Clear missing from aimock journal");
+    assert!(ask.contains("1. I want a login page"), "{ask}");
+    for todo in todos.as_array().unwrap() {
+        assert!(
+            ask.contains(&format!(
+                "{} \"{}\"",
+                todo["id"],
+                todo["title"].as_str().unwrap()
+            )),
+            "{ask}"
+        );
+    }
+    assert!(ask.contains("scratch (owner "), "{ask}");
+    let shape = |nodes: Vec<contracts::agent::RailNode>| {
+        nodes
+            .into_iter()
+            .map(|node| (node.id, node.parent, node.iteration, node.worktree))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        shape(rail_tree(&client).await),
+        shape(before),
+        "nothing leaves the Rail before Handoff"
+    );
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos
+    );
+    assert_eq!(client.request("pad.list", Value::Null).await.unwrap(), pads);
+    let second = client
+        .request("workstream.clear", json!({"id": door, "reason": "again"}))
+        .await
+        .unwrap_err();
+    assert_eq!(second.code, rpc::code::CONFLICT);
+    // Finish the real Clear turn before checking the complete request journal.
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
     model.assert_matched();
 }
