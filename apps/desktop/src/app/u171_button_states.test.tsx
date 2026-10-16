@@ -67,6 +67,13 @@ describe("u171 every kind shows every state", () => {
 
       expect(paint(styleIn(el, "hover")), `${kind} hover`).not.toBe(paint(styleIn(el, "rest")));
       expect(paint(styleIn(el, "pressed")), `${kind} pressed`).not.toBe(paint(styleIn(el, "hover")));
+
+      // U510: the ghost, icon and disclosure kinds answer with ink; only the primary kind keeps a fill.
+      if (kind !== "primary")
+        for (const state of ["hover", "pressed"] as const) {
+          expect(styleIn(el, state).getPropertyValue("background-color"), `${kind} ${state} paints no fill`).toBe(styleIn(el, "rest").getPropertyValue("background-color"));
+          expect(styleIn(el, state).getPropertyValue("color"), `${kind} ${state} ink`).not.toBe(styleIn(el, "rest").getPropertyValue("color"));
+        }
       expect(styleIn(el, "pressed").getPropertyValue("transition-duration"), kind).toBe("0s");
       expect(styleIn(el, "hover").getPropertyValue("cursor"), kind).toBe("pointer");
     }

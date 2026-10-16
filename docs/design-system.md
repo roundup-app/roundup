@@ -78,7 +78,7 @@ Three hues exist in the whole App: `--red`, `--amber`, `--accent`. Surfaces are 
 
 ## Click targets
 
-**Ghost, icon and disclosure buttons (U510)**: quiet, add, row-action and icon buttons draw no fill, border, radius or inline padding on hover or press. Hover moves the ink from `--grey` to `--text`; press dims it to `--ink-pressed`; a label and its chevron sit `--space-1` apart. Keyboard focus keeps the shared `--accent` ring (U133). A toggled icon keeps its selected surface.
+**Ghost, icon and disclosure buttons (U510)**: quiet, add, row-action and icon buttons draw no fill, border, radius or inline padding on hover or press. Hover moves the ink from `--grey` to `--text`; press dims it to `--ink-pressed`; a label and its chevron sit `--space-1` apart. Keyboard focus keeps the shared `--accent` ring (U133). A toggled icon keeps its selected surface. Tabs, the strip's opaque edge caps (`data-button-surface`) and a row's pads count (`display: none` while the pointer is near its row) keep their existing behaviour; `apps/desktop/src/app/u510_ink_feedback.test.ts` inventories every other caller on `tree-40`, `thread-report`, `tabs-8` and `door-stopped`.
 
 A click target is any element with a click, press or key handler, a `button`, `a` or `[role=button|row|tab]`, or `cursor: pointer`. Each has these states, and each state differs from the one before it in a computed colour, background or outline:
 
