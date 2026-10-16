@@ -1,7 +1,7 @@
 //! Methods the Daemon answers itself: `daemon.*`, `events.*`, `provenance.*`.
 
 use contracts::methods;
-use contracts::{HistoryParams, IdentifyParams, TouchedParams};
+use contracts::{HistoryParams, IdentifyParams, SubscribeParams, TouchedParams};
 use rpc::{RpcError, params, reply};
 use serde_json::{Value, json};
 
@@ -24,10 +24,7 @@ pub(crate) fn call(
             conn.actor = p.actor;
             Value::Null
         }),
-        (_, "events.subscribe") => {
-            subscribe(daemon, conn);
-            Ok(Value::Null)
-        }
+        (_, "events.subscribe") => subscribe(daemon, conn, args).map(|()| Value::Null),
         (_, "provenance.history") => params::<HistoryParams>(args.clone())
             .and_then(|p| daemon.touches.history(&p.item).map_err(RpcError::internal))
             .and_then(|touches| reply(&touches)),
@@ -44,27 +41,27 @@ pub(crate) fn call(
     })
 }
 
-fn subscribe(daemon: &Daemon, conn: &Conn) {
-    let mut events = daemon.bus.subscribe();
+/// D11: a bad `after` fails here, before any Event is sent.
+fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<(), RpcError> {
+    let SubscribeParams { after } = if args.is_null() {
+        SubscribeParams::default()
+    } else {
+        params(args.clone())?
+    };
+    let mut events = daemon.bus.subscribe_after(after)?;
     let frames = conn.events.clone();
     tokio::spawn(async move {
         loop {
             let event = tokio::select! {
                 _ = frames.closed() => return,
-                event = events.recv() => event,
+                event = events.next() => event,
             };
-            match event {
-                Ok(event) => {
-                    let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
-                    if frames.send(frame).is_err() {
-                        return;
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(missed)) => {
-                    eprintln!("rupd: a subscriber fell behind and missed {missed} events");
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+            let Some(event) = event else { return };
+            let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
+            if frames.send(frame).is_err() {
+                return;
             }
         }
     });
+    Ok(())
 }
