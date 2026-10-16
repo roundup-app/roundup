@@ -2,7 +2,7 @@ name: setup
 description: The toolchain `just check` needs on a macOS or Linux runner, with the workspace's packages installed.
 inputs:
   rust:
-    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain and restores the Rust cache, enough to build `rupd` and `rup`.
+    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain, restores the Rust cache and builds `rupd` and `rup` while Node installs.
     default: 'true'
   browser:
     description: Install the browser used to inspect the rendered App.
@@ -31,11 +31,20 @@ runs:
         setsid bash -c 'npm install -g --prefix "$1" agent-browser@0.27.0 && PATH="$1/bin:$PATH" agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}; echo $? >"$2"' _ "$prefix" "$RUNNER_TEMP/browser.status" >"$RUNNER_TEMP/browser.log" 2>&1 </dev/null &
     # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
+    # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives, one per runner image,
+    # leaves only the unpacking. apt keeps the archives of the version it installs; a newer package downloads anew.
+    - if: inputs.rust == 'true' && runner.os == 'Linux'
+      id: apt-archives
+      uses: actions/cache@v5
+      with:
+        path: ~/apt-archives
+        key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ env.ImageVersion }}
     - if: inputs.rust == 'true' && runner.os == 'Linux'
       name: Start Tauri packages
       shell: bash
       run: |
-        setsid sudo bash -c 'apt-get update && apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
+        mkdir -p "$HOME/apt-archives/partial"
+        setsid sudo bash -c 'apt-get update && apt-get install -y -o Dir::Cache::archives="$2" libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" "$HOME/apt-archives" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
     - if: inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
@@ -49,6 +58,13 @@ runs:
       with:
         shared-key: check-${{ runner.os }}
         save-if: ${{ inputs.save-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
+    # daemon build` joins it.
+    - if: inputs.rust == 'build'
+      name: Start daemon build
+      shell: bash
+      run: |
+        setsid bash -c 'cargo build -p rupd -p rup; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
     - if: inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
     - if: inputs.rust == 'true'
@@ -80,6 +96,13 @@ runs:
         until [ -s "$RUNNER_TEMP/apt.status" ]; do sleep 1; done
         cat "$RUNNER_TEMP/apt.log"
         [ "$(cat "$RUNNER_TEMP/apt.status")" = 0 ]
+    - if: inputs.rust == 'build'
+      name: Wait for daemon build
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/daemon.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/daemon.log"
+        [ "$(cat "$RUNNER_TEMP/daemon.status")" = 0 ]
     - if: inputs.browser == 'true' && inputs.rust == 'true'
       shell: bash
       run: |
