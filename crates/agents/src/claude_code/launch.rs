@@ -138,6 +138,13 @@ pub struct Folders<'a> {
 }
 
 impl Launcher {
+    /// A39 uses the same binary as every launch, through its own Placement seam.
+    pub fn placement(&self) -> super::PlacementCall {
+        super::PlacementCall {
+            bin: self.bin.clone(),
+        }
+    }
+
     pub fn new(
         bin: impl Into<String>,
         claude_json: PathBuf,
