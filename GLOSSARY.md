@@ -270,8 +270,8 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
 _Avoid_: notification
 
-**Steer** (`Steer`):
-Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard. `Steer::User` preserves an Ask verbatim; `Steer::Instruction` keeps H20's instruction lead.
+**Steer**:
+Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
 _Avoid_: inject, nudge
 
 **First Steer completion** (`FirstSteerCompletion`, `Agents::first_steer_completion`):
@@ -537,9 +537,9 @@ The matching spellings of one displayed Help chord.
 ### Ask placement
 
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
-One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination.
+One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
-**Ask part** (`AskPart`):
+**Ask part** (`AskPart`, `ask::State`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 
 **Placement** (`Placement`, `Destination`, `Target`):
