@@ -11,6 +11,7 @@
   height: var(--rail-actions-height);
   box-sizing: border-box;
   background: var(--sunken);
+  padding-inline: var(--space-4);
   border-top-width: 1px;
   border-top-style: solid;
   border-top-color: var(--hairline);
@@ -20,8 +21,8 @@
   flex: 1;
   justify-content: flex-start;
   min-height: 28px;
-  --button-lead: var(--space-4);
-  --button-inline: var(--space-4);
+  --button-lead: 0;
+  --button-inline: 0;
 }
 
 .rail-row {
@@ -405,9 +406,9 @@
 /* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
 .rail-row .rail-pads-control {
   --button-inline: 0;
-  --button-lead: var(--space-1);
+  --button-lead: 0;
   flex: 0 0 auto;
-  gap: 0;
+  gap: var(--space-1);
   font-size: var(--text-caption);
 }
 
