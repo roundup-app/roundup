@@ -142,3 +142,45 @@
     transform: none;
   }
 }
+
+.app-listbox-item {
+  padding: var(--space-2);
+  border-radius: var(--radius-row);
+  cursor: pointer;
+}
+
+.app-listbox-item:hover {
+  background-color: var(--hover);
+}
+
+.app-listbox-item[data-selected] {
+  background-color: var(--selected);
+}
+
+.app-listbox-item[data-disabled] {
+  cursor: default;
+}
+
+.app-listbox-description {
+  display: block;
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.app-listbox-note {
+  cursor: pointer;
+}
+
+.app-listbox-note:hover {
+  background-color: var(--hover);
+}
+
+.app-listbox-note:active {
+  background-color: var(--selected);
+  transition-duration: 0s;
+}
+
+.app-listbox-item [data-part="item-text"] {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
