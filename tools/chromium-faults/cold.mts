@@ -39,7 +39,7 @@ const results = await Promise.allSettled([0, 1].map(async (call) => {
   const began = performance.now();
 
   try {
-    const page = await openPage(executable, { root: fileURLToPath(new URL("../../apps/desktop/", import.meta.url)), startupMs: 60_000, observe: (stage, duration_ms) => record({ call, status: "stage", stage, duration_ms }) });
+    const page = await openPage(executable, { root: fileURLToPath(new URL("../../apps/desktop/", import.meta.url)), observe: (stage, duration_ms) => record({ call, status: "stage", stage, duration_ms }) });
 
     try {
       const value = await page.call<number>("() => 42");
