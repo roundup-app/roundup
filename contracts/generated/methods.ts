@@ -58,6 +58,7 @@ import type { PadName as pad_PadName } from "./pad/PadName";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
 import type { SetStorageParams as pad_SetStorageParams } from "./pad/SetStorageParams";
 import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
+import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { ProjectModels as project_ProjectModels } from "./project/ProjectModels";
@@ -164,6 +165,7 @@ export type RpcMethods = {
   "rail.startDoor": { params: agent_StartDoorParams; result: agent_RailNode };
   "agent.run": { params: agent_RunParams; result: terminal_Opened };
   "project.setWorktrees": { params: project_Worktrees; result: null };
+  "project.setMcp": { params: project_Mcp; result: null };
   "project.get": { params: null; result: project_ProjectSettings };
   "project.setModels": { params: project_ProjectModels; result: null };
   "models.list": { params: null; result: project_ModelList };

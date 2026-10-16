@@ -13,6 +13,7 @@ export const LIST: ModelList = {
 
 export const settings = (roles: string[], allowed: string[] = []): ProjectSettings => ({
   worktrees: { on: false, check: null },
+  mcp: { on: true },
   models: { roles: roles.map((role) => ({ role, model: null, effort: null })), allowed },
 });
 
@@ -22,6 +23,7 @@ export const mountSheet = async (get: ProjectSettings, list: ModelList = LIST, o
   app.handlers["project.get"] = () => get;
   app.handlers["models.list"] = () => list;
   app.handlers["project.setModels"] = () => null;
+  app.handlers["project.setMcp"] = () => null;
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => NOW);
 

@@ -40,7 +40,7 @@ describe("u377 the Models sheet", () => {
     await mountSheet(settings(["door"]));
     await select("Model for door");
 
-    const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+    const boxes = [...document.querySelectorAll<HTMLInputElement>('.models-allowed input[type="checkbox"]')];
 
     expect(screen.getByText("Supervisors may use")).toBeTruthy();
     expect(screen.getByText("A supervisor can start a child only on a checked Model.")).toBeTruthy();
@@ -103,12 +103,12 @@ describe("u377 the Models sheet", () => {
 
     const order = [document.activeElement];
 
-    for (let step = 0; step < 4; step += 1) {
+    for (let step = 0; step < 5; step += 1) {
       fireEvent.keyDown(document.activeElement!, { key: "Tab" });
       order.push(document.activeElement);
     }
 
-    expect(order.map((each) => each?.getAttribute("aria-label") ?? each?.nextElementSibling?.textContent)).toEqual(["Model for door", "Effort for door", "Opus", "Sonnet", "Model for door"]);
+    expect(order.map((each) => each?.getAttribute("aria-label") ?? each?.nextElementSibling?.textContent)).toEqual(["Model for door", "Effort for door", "Opus", "Sonnet", "Roundup tools over MCP", "Model for door"]);
     expect(screen.getByRole("dialog").getAttribute("aria-label")).toBe("Models");
 
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
@@ -130,7 +130,18 @@ describe("u377 the Models sheet", () => {
 
     expect(style.overflowWrap).toBe("anywhere");
     expect(style.overflowY).toBe("auto");
-    expect(document.querySelectorAll(".models-check")).toHaveLength(20);
+    expect(document.querySelectorAll(".models-allowed .models-check")).toHaveLength(20);
     expect(getComputedStyle(document.querySelector<HTMLElement>(".choice-select")!).maxWidth).toBe("100%");
+  });
+
+  it("m2219_the_mcp_toggle_reads_project_get_and_calls_set_mcp_once", async () => {
+    const { app } = await mountSheet({ ...settings(["door"]), mcp: { on: false } });
+    await select("Model for door");
+
+    const box = checkboxNamed("Roundup tools over MCP");
+
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "project.setMcp").map((call) => call.params)).toEqual([{ on: true }]));
   });
 });
