@@ -165,6 +165,28 @@
   text-overflow: ellipsis;
 }
 
+/* U511: the name's editor takes the button's place with the button's padding and the label's type; only the native focus ring is new. */
+.terminal-tab-editor {
+  padding-inline: var(--button-inline);
+  color: var(--grey);
+}
+
+.terminal-tab-editor [data-part="input"] {
+  box-sizing: content-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border-width: 0;
+}
+
+.terminal-tab-editor [data-part="preview"] {
+  text-overflow: clip;
+}
+
 .terminal-tab[aria-pressed="true"] {
   --button-surface: var(--selected);
 }
