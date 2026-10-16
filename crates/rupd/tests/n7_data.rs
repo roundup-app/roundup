@@ -318,7 +318,7 @@ mod x14_daemon_observer {
                 .to_owned();
             self.terminals.push(id.clone());
             timeout(BOUND, output.request("terminal.output", json!({"id": id}))).await??;
-            self.write(&id, "").await?;
+            self.write(&id, "go\n").await?;
             Ok(id)
         }
 

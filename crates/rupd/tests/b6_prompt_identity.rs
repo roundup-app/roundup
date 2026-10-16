@@ -940,7 +940,8 @@ async fn recorded_bytes(run: &Run) -> Vec<u8> {
         .await
         .lines()
         .filter_map(|line| {
-            line.strip_prefix("BYTE:")
+            line.trim_start()
+                .strip_prefix("BYTE:")
                 .and_then(|hex| u8::from_str_radix(hex.trim(), 16).ok())
         })
         .collect()
@@ -1273,7 +1274,12 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             let mut selector = Client::connect(&run.daemon.socket).await.unwrap();
             let mut selected = selector.take_output().unwrap();
             let terminals = run.user.request("terminal.list", ()).await.unwrap();
-            for terminal in terminals.as_array().unwrap() {
+            for terminal in terminals
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|terminal| terminal["running"] == true)
+            {
                 selector
                     .request("terminal.output", json!({"id":terminal["id"]}))
                     .await
@@ -2659,7 +2665,7 @@ async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
             // Terminal output can lag the hook event; wait for the note's actual bytes.
             let bytes: Vec<_> = screen
                 .lines()
-                .filter_map(|line| line.strip_prefix("BYTE:"))
+                .filter_map(|line| line.trim_start().strip_prefix("BYTE:"))
                 .map(|hex| u8::from_str_radix(hex.trim(), 16).unwrap())
                 .collect();
             let text = String::from_utf8(bytes).unwrap();

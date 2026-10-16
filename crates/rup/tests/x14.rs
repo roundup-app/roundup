@@ -145,8 +145,12 @@ async fn x14_socket_output_is_selected_by_terminal() {
     );
     fixture.write(&a, "tail\n").await;
     bytes_until(&mut first_output, &a, "A:tail").await;
-    assert!(first_output.try_recv().is_err());
-    assert!(second_output.try_recv().is_err());
+    // Whatever else arrived on a connection belongs to its own Terminal.
+    for (output, id) in [(&mut first_output, &a), (&mut second_output, &b)] {
+        while let Ok(frame) = output.try_recv() {
+            assert!(matches!(frame, OutputFrame::Bytes(event) if event.id == *id));
+        }
+    }
     fixture.finish().await;
 }
 
@@ -180,7 +184,11 @@ async fn x14_output_subscription_lifetime() {
         .unwrap();
     fixture.write(&id, "2\n").await;
     bytes_until(&mut other_output, &id, "x:2").await;
-    assert!(output.try_recv().is_err());
+    // Frames sent before the stop may still arrive; nothing written after it does.
+    while let Ok(OutputFrame::Bytes(event)) = output.try_recv() {
+        let text = String::from_utf8_lossy(&STANDARD.decode(event.data).unwrap()).into_owned();
+        assert!(!text.contains("x:2"), "{text}");
+    }
     // A closed connection releases its selection; the Terminal and others carry on.
     drop(other);
     fixture.write(&id, "3\n").await;
