@@ -27,11 +27,13 @@ use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::oneshot;
 use tokio::time::{Instant, sleep_until};
 
+mod asks;
 pub mod claude_code;
 mod decision;
 pub mod marks;
 mod models;
 pub mod placement;
+pub use asks::Asks;
 pub use models::labelled as model_choices;
 mod name;
 mod order;
@@ -112,6 +114,8 @@ struct Shared {
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
     /// that creates or reserves it, so `agent.stop` never finds a starting node unmarked.
     runs: Mutex<HashMap<String, Slot>>,
+    /// A41: removal excludes Door starts until its Rail transaction has committed.
+    door_lifecycle: tokio::sync::RwLock<()>,
     bus: Bus,
     terminals: Arc<Terminals>,
     /// Milliseconds since the Unix epoch. Adapters stamp Statuses with it and the watchers time
@@ -138,7 +142,7 @@ struct Shared {
     strays: Mutex<HashMap<String, Vec<Stray>>>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
-    steer: Steer,
+    steer: SteerSettings,
     events: events::State,
     rail_view: rail_view::State,
     ending: ending::State,
@@ -354,6 +358,8 @@ enum FirstPrompt {
 }
 
 struct Run {
+    /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
+    startup_context: bool,
     attempt: String,
     status_revision: i64,
     closing: bool,
@@ -399,6 +405,17 @@ pub struct TerminalOwner {
     pub ended: bool,
 }
 
+/// The user's exact Ask preserves command position; ordinary instructions keep H20's lead.
+pub enum Steer<'a> {
+    Instruction(&'a str),
+    User(&'a str),
+}
+impl<'a, T: AsRef<str> + ?Sized> From<&'a T> for Steer<'a> {
+    fn from(text: &'a T) -> Self {
+        Self::Instruction(text.as_ref())
+    }
+}
+
 pub struct Agents {
     shared: Arc<Shared>,
     dir: PathBuf,
@@ -430,7 +447,7 @@ use worktree_wiring::report_undo;
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
 const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
 
-struct Steer {
+struct SteerSettings {
     before_steer: Option<SteerEffect>,
     /// H13: how long an Interrupt waits for the title to change.
     interrupt_bound: Duration,
@@ -442,7 +459,13 @@ impl Shared {
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. `first` binds the initial Steer to its Attempt.
     /// Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str, first: Option<&str>) -> Result<(), SteerError> {
+    async fn prompt(
+        &self,
+        id: &str,
+        text: &str,
+        first: Option<&str>,
+        verbatim: bool,
+    ) -> Result<(), SteerError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
         let (terminal_id, submitted) = loop {
             let mut completion = {
@@ -500,7 +523,11 @@ impl Shared {
                 .await
                 .map_err(|_| SteerError::Refused(not_found()))?;
         };
-        let bytes = claude_code::steer_bytes(text);
+        let bytes = if verbatim {
+            claude_code::verbatim_bytes(text)
+        } else {
+            claude_code::steer_bytes(text)
+        };
         let before = self.steer.before_steer.clone();
         let agent = id.to_owned();
         // B6: await the physical effect before starting the submit timeout. An enqueue
