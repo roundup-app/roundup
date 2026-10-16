@@ -6,6 +6,7 @@ import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { captureDir, readCapture } from "../testing/captures";
 import type { Box, Observation } from "./u449Observation";
+import { appServer, type AppServer } from "../testing/appServer";
 
 // The scenario's existing rendered-page seam also observes the boxed tabs.
 describe("u440 to u443 boxed tabs in isolated Chromium", () => {
@@ -15,7 +16,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 
   type Row = Observation & { rule: { width: string; colour: string; token: string }; tabs: Tab[]; rest?: string; markChanged?: string; hover?: string; selected?: string; paint?: { image: string; background: string; selected: string }; rename?: { field: Rect; tab: Rect; padding: string }; edges?: { box: Rect; mark: Rect }[] };
 
-  let server: ViteDevServer;
+  let server: AppServer;
   let rows: Row[];
   let baseRows: Row[] = [];
   let baseServer: ViteDevServer | undefined;
@@ -28,9 +29,8 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
   };
 
   beforeAll(async () => {
-    server = await createServer({ server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
-    await server.listen();
-    rows = await readBoxes(server.resolvedUrls!.local[0]!, "head");
+    server = await appServer();
+    rows = await readBoxes(server.resolvedUrls.local[0]!, "head");
     expect(rows.length).toBe(36);
     const baseRoot = process.env.U440_BASE_ROOT;
 
