@@ -55,6 +55,9 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
             14 | 15 => {}
             _ => self.callbacks.unhandled_control(&mut self.screen, b),
         }
+        if (8..=13).contains(&b) {
+            self.callbacks.control(&mut self.screen, b);
+        }
     }
 
     fn esc_dispatch(&mut self, intermediates: &[u8], _ignore: bool, b: u8) {
