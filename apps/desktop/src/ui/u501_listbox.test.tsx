@@ -45,14 +45,15 @@ it("u501_names_and_descriptions_come_from_the_caller", () => {
 it("u501_owner_controls_selection_and_highlight_independently", async () => {
   const [value, setValue] = createSignal<string | null>("brief");
   const [highlight, setHighlight] = createSignal<string | null>("detail");
-  const requests: (string | null)[] = [];
-  render(() => <Listbox.Root answers={answers} value={value()} highlightedValue={highlight()} onValueChange={value => requests.push(value)} onHighlightChange={value => requests.push(value)}>
+  const selected: (string | null)[] = [];
+  const highlighted: (string | null)[] = [];
+  render(() => <Listbox.Root answers={answers} value={value()} highlightedValue={highlight()} onValueChange={value => selected.push(value)} onHighlightChange={value => highlighted.push(value)}>
     <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{answers.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
   </Listbox.Root>);
   const detail = screen.getByRole("option", { name: "Detail" });
   expect(screen.getByRole("listbox").getAttribute("aria-activedescendant")).toBe(detail.id);
   fireEvent.click(screen.getByRole("option", { name: "Full" }));
-  await waitFor(() => expect(requests).toContain("full"));
+  await waitFor(() => expect([selected, highlighted]).toEqual([["full"], ["full"]]));
   expect(screen.getByRole("option", { name: "Brief" }).getAttribute("aria-selected")).toBe("true");
   setValue("full");
   setHighlight(null);
@@ -124,4 +125,15 @@ it("u501_disabled_answer_is_named_but_skipped_by_ark", async () => {
   expect(screen.getByRole("option", { name: "Detail" }).getAttribute("aria-disabled")).toBe("true");
   fireEvent.keyDown(screen.getByRole("textbox"), { key: "ArrowDown" });
   await waitFor(() => expect(screen.getByRole("option", { name: "Full" }).getAttribute("aria-selected")).toBe("true"));
+});
+
+it("u501_own_answer_callbacks_report_null_to_the_owner", async () => {
+  const selected: (string | null)[] = [];
+  const highlighted: (string | null)[] = [];
+  render(() => <Listbox.Root answers={answers} value="brief" highlightedValue="brief" onValueChange={value => selected.push(value)} onHighlightChange={value => highlighted.push(value)}>
+    <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{answers.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
+    <Listbox.NoteInput aria-label="Note" />
+  </Listbox.Root>);
+  fireEvent.keyDown(screen.getByRole("textbox"), { key: "ArrowUp" });
+  await waitFor(() => expect([selected, highlighted]).toEqual([[null], [null]]));
 });

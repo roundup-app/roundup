@@ -13,7 +13,7 @@ Installed `@ark-ui/solid` 5.39.3 and Zag Listbox 1.45.0 are mounted without mock
 
 | Acceptance | Observer |
 | --- | --- |
-| First-answer default; all supplied answers and null; wrap both ways; unchanged note | `u501_arrows_visit_supplied_answers_and_null_in_both_directions`; `u501_browser_navigation_keeps_note_focus_and_text` exercises both list and note |
+| First-answer default; all supplied answers and null; wrap both ways; unchanged note | `u501_arrows_visit_supplied_answers_and_null_in_both_directions`, `u501_own_answer_callbacks_report_null_to_the_owner`; `u501_browser_navigation_keeps_note_focus_and_text` exercises both list and note |
 | Controlled selection and highlight; names, descriptions, disabled items | `u501_owner_controls_selection_and_highlight_independently`, `u501_names_and_descriptions_come_from_the_caller`, `u501_disabled_answer_is_named_but_skipped_by_ark` |
 | Pending/disabled retain text and focus; repeated Enter blocked; recovery | `u501_disabled_blocks_answer_changes_and_preserves_the_note`, `u501_pending_blocks_answer_changes_and_preserves_the_note`, `u501_browser_pending_keeps_note_focus_and_blocks_repeat_enter` |
 | Pointer selects without submitting; note Enter stays with caller | `u501_browser_pointer_never_submits_and_enter_stays_with_note_owner` |
