@@ -80,3 +80,5 @@ export { Splitter } from "./Splitter";
 export { createToast, ToastProvider } from "./Toast";
 
 export { Listbox } from "./Listbox";
+
+export { Combobox } from "./Combobox";
