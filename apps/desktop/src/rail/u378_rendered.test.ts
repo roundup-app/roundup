@@ -106,18 +106,25 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
         window.__fake.app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},models:{roles:[{role:'subagent',model:'m0',effort:'high'}],allowed:[]}});
         document.querySelector('[aria-label="Choose Model and Effort"]').click();
       }`);
-      await page.until(`() => document.querySelector('[aria-label="Model"]') && !document.querySelector('.rail-agent-picker button').hasAttribute('aria-disabled')`);
-      expect(await page.call(`() => getComputedStyle(document.querySelector('[aria-label="Model"]')).textOverflow`)).toBe("ellipsis");
+      await page.until(`() => document.querySelector('[aria-label="Model"]') && !document.querySelector('.rail-agent-actions > button').hasAttribute('aria-disabled')`);
+      expect(await page.call(`() => getComputedStyle(document.querySelector('[aria-label="Model"] [data-part="value-text"]')).textOverflow`)).toBe("ellipsis");
       await capture(`${name}-open`);
-      await page.call(`() => { for (const [label,value] of [['Model','m19'],['Effort','high']]) {const select=document.querySelector('[aria-label="'+label+'"]');select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));} }`);
+
+      for (const [label, option] of [["Model", "Model 19"], ["Effort", "High"]]) {
+        await page.call(`() => { const t=document.querySelector('[aria-label="${label}"]'); t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'})); t.click(); }`);
+        await page.until(`() => document.querySelector('[role="listbox"]')`);
+        await page.call(`() => [...document.querySelectorAll('[role="option"]')].find(o=>o.textContent.startsWith('${option}')).click()`);
+        await page.until(`() => !document.querySelector('[role="listbox"]')`);
+      }
+
       await capture(`${name}-changed`);
-      await page.call(`() => { window.__fake.failNext(-32602,'Cannot start Agent: retry with another Model'); document.querySelector('.rail-agent-picker button').click(); }`);
+      await page.call(`() => { window.__fake.failNext(-32602,'Cannot start Agent: retry with another Model'); document.querySelector('.rail-agent-actions > button').click(); }`);
       await page.until(`() => [...document.querySelectorAll('[role="alert"]')].some(e=>e.textContent.includes('Cannot start Agent'))`);
       await capture(`${name}-failed`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
       for (const id of ["D1", "D2", "D5", "D6"] as const) expect(checks[id].status, `${name} failed ${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
-      expect(await page.call(`() => [...document.querySelectorAll('.rail-agent-picker select,.rail-agent-picker button,.rail-agent-picker label')].every(e=>{const b=e.getBoundingClientRect();const rail=document.querySelector('.rail').getBoundingClientRect();return b.left>=rail.left && b.right<=rail.right && b.width>0;})`)).toBe(true);
+      expect(await page.call(`() => [...document.querySelectorAll('.rail-agent-picker [role="combobox"],.rail-agent-picker button,.rail-agent-picker label')].every(e=>{const b=e.getBoundingClientRect();const rail=document.querySelector('.rail').getBoundingClientRect();return b.left>=rail.left && b.right<=rail.right && b.width>0;})`)).toBe(true);
       expect(await page.call(`() => {const e=[...document.querySelectorAll('[role="alert"]')].find(e=>e.textContent.includes('Cannot start Agent'));const b=e.getBoundingClientRect();return b.top>=0 && b.bottom<=innerHeight && e.scrollWidth<=e.clientWidth;}`)).toBe(true);
     }, 90_000);
   }

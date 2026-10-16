@@ -16,7 +16,7 @@ export type Handlers = {
 
 /** Reads the regions make once a Project is open answer empty; any other method fails with METHOD_NOT_FOUND until a test installs a handler. */
 const emptyReads: Handlers = {
-  "daemon.ping": () => ({ pong: true, contract: { fingerprint: CONTRACT.fingerprint, methods: [...CONTRACT.methods] } }),
+  "daemon.ping": () => ({ pong: true, pid: 1, project: "/project", contract: { fingerprint: CONTRACT.fingerprint, methods: [...CONTRACT.methods] } }),
   "rail.tree": () => [],
   "terminal.list": () => [],
   "todo.list": () => [],
