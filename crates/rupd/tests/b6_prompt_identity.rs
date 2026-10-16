@@ -4104,7 +4104,13 @@ async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
 
 #[tokio::test]
 async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
-    for method in ["rail.rename", "terminal.kill"] {
+    for method in [
+        "rail.rename",
+        "terminal.kill",
+        "terminal.screen",
+        "terminal.read",
+        "terminal.search",
+    ] {
         let (run, caller) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
         run.user
@@ -4139,10 +4145,11 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         })
         .await
         .unwrap();
-        let params = if method == "rail.rename" {
-            json!({"id":run.child,"name":"after resize"})
-        } else {
-            json!({"id":run.terminal})
+        let params = match method {
+            "rail.rename" => json!({"id":run.child,"name":"after resize"}),
+            "terminal.read" => json!({"id":run.terminal,"after":0}),
+            "terminal.search" => json!({"id":run.terminal,"pattern":"READY"}),
+            _ => json!({"id":run.terminal}),
         };
         let effect = tokio::time::timeout(BOUND, caller.request(method, params)).await;
         let history = tokio::time::timeout(
@@ -4167,6 +4174,9 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
 async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     for method in [
+        "terminal.screen",
+        "terminal.read",
+        "terminal.search",
         "terminal.write",
         "agent.prompt",
         "agent.setOrder",
@@ -4210,6 +4220,9 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
         }
         let params = match method {
+            "terminal.screen" => json!({"id":run.terminal}),
+            "terminal.read" => json!({"id":run.terminal,"after":0}),
+            "terminal.search" => json!({"id":run.terminal,"pattern":"READY"}),
             "terminal.write" => json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
             "terminal.kill" | "terminal.close" => json!({"id":run.terminal}),
             "agent.prompt" => json!({"id":run.child,"text":"later prompt"}),
@@ -4259,6 +4272,13 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
                 );
             } else {
                 assert!(reply.get("result").is_some(), "{method}: {reply}");
+            }
+            if reply["id"] == 110 && method == "terminal.screen" {
+                assert_eq!(
+                    reply["result"]["cols"], 109,
+                    "read observed stale dimensions"
+                );
+                assert_eq!(reply["result"]["rows"], 37);
             }
             order.push(reply["id"].as_u64().unwrap());
         }
