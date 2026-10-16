@@ -402,6 +402,7 @@ impl Shared {
                 args: request.args,
                 opened_at: started,
                 answerable: request.answerable,
+                failure: None,
             };
             let (tx, rx) = oneshot::channel();
             let waiter = decision.answerable.then_some(tx);
@@ -652,6 +653,46 @@ impl Shared {
     /// H3, H14, H21: the `answer` for Decision `id`: the user's, which needs `proof`, or an
     /// Agent's, which needs the Decision's Agent in its Reach and ignores `proof`.
     pub(crate) fn answer(&self, ctx: &rpc::Ctx, params: AnswerParams) -> Result<(), RpcError> {
+        // Capture only an authenticated, in-Reach original. A refusal after a
+        // concurrent replacement must never annotate the replacement request.
+        let original = if ctx.actor.kind == contracts::ActorKind::Agent {
+            let reach = self.reach(&ctx.actor.id)?;
+            let open = self.decisions.open();
+            open.values()
+                .find(|entry| {
+                    entry.decision.id == params.id && reach.contains(&entry.decision.agent)
+                })
+                .filter(|entry| {
+                    params
+                        .identity
+                        .as_ref()
+                        .is_none_or(|identity| self.decisions.guard(entry, identity).is_ok())
+                })
+                .map(|entry| (entry.decision.agent.clone(), entry.attempt.clone()))
+        } else {
+            None
+        };
+        let id = params.id.clone();
+        let result = self.answer_checked(ctx, params);
+        if let (Err(error), Some((agent, attempt))) = (&result, original) {
+            let mut open = self.decisions.open();
+            if let Some(entry) = open
+                .get_mut(&agent)
+                .filter(|entry| entry.decision.id == id && entry.attempt == attempt)
+            {
+                entry.decision.failure = Some(contracts::decision::FailedAnswer {
+                    attempt,
+                    answered_by: ctx.actor.clone(),
+                    failed_at: (self.clock)(),
+                    error_code: error.code,
+                    message: error.message.clone(),
+                });
+            }
+        }
+        result
+    }
+
+    fn answer_checked(&self, ctx: &rpc::Ctx, params: AnswerParams) -> Result<(), RpcError> {
         let AnswerParams {
             id,
             answer,
@@ -828,7 +869,10 @@ impl Shared {
                 return Err(RpcError::not_found(format!("decision {id}")));
             }
             let record = contracts::decision::AnsweredDecision {
-                decision: entry.decision.clone(),
+                decision: Decision {
+                    failure: None,
+                    ..entry.decision.clone()
+                },
                 kind: if entry.choices.is_some() {
                     contracts::decision::RequestKind::Question
                 } else {

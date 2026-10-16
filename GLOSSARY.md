@@ -387,6 +387,12 @@ complete prompt, request kind (`RequestKind`: question or permission), requestin
 Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
 Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
 
+**Failed answer** (`FailedAnswer`, `Decision.failure`):
+The latest refused authenticated Agent answer on one original live Decision,
+read through `decision.list` with its Reach filtering: requesting Attempt,
+answering Actor, failure time and exact RPC error code and message. It is not a
+successful answer record; replacement, clearing or successful delivery discards it.
+
 **Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
 An `ask_user` question the user reads and answers in its Agent's primary Terminal.
 The answer belongs to the original Decision and Attempt and retains its authenticated
@@ -542,17 +548,17 @@ The matching spellings of one displayed Help chord.
 
 ### Ask placement
 
-**Ask**:
-One message the user sends from the Ask bar; distinct from an Agent's Decision.
+**Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
+One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
-**Ask part** (`AskPart`):
+**Ask part** (`AskPart`, `ask::State`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 
-**Placement** (`Placement`, `Destination`):
+**Placement** (`Placement`, `Destination`, `Target`):
 An Ask part's proposed destination: routed to a Workstream, new with an Order title, or unclear with a question and up to three candidate Workstreams.
 
 **Placement request** (`placement::Request`, `EarlierAsk`):
 An Ask's text and its context: the five newest earlier Asks' parts and destinations, and every Workstream's name, Order and Status Kind.
 
-**Placement call** (`PlacementCall`):
+**Placement call** (`PlacementCall`, `Agents::placement_call`):
 The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.

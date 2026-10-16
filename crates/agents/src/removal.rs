@@ -24,6 +24,7 @@ impl Shared {
         id: &str,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
+        let _lifecycle = self.door_lifecycle.write().await;
         let door = self.rail().node(id)?;
         if let Some(worktree) = &door.worktree {
             let git = self.git.bounded();
@@ -321,6 +322,7 @@ mod tests {
         shared.runs().insert(
             group.clone(),
             Slot::Running(Run {
+                startup_context: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,

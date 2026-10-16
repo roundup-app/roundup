@@ -102,7 +102,8 @@ let warmed = false;
 const warm = warmChrome().then(() => { warmed = true; });
 const started = performance.now();
 try {
-  const page = await openPage(chromePath());
+  // Pin the superseded budget to preserve the independent warmup counterexample.
+  const page = await openPage(chromePath(), { startupMs: 20_000 });
   await page.close();
   throw new Error('held cold startup unexpectedly succeeded');
 } catch (error) {

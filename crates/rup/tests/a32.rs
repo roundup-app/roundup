@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use contracts::agent::RailNode;
+use contracts::agent::{Channel, RailNode};
 use contracts::{Actor, ActorKind, IdentifyParams, Kind};
 use daemon::{Project, rail_tree};
 use serde_json::{Value, json};
@@ -205,14 +205,30 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
     let spawn = |parent: Value, client: rpc::Client| {
         let cwd = project.dir.path().to_owned();
         async move {
-            let node = client
+            let spawned = client
                 .request(
                     "agent.spawn",
                     json!({"cwd": cwd, "prompt": null, "parent": parent}),
                 )
                 .await
                 .unwrap();
-            serde_json::from_value::<RailNode>(node).unwrap().id
+            let id = serde_json::from_value::<RailNode>(spawned).unwrap().id;
+            // The fake opens its Channel after SessionStart; without this acknowledgement,
+            // closing the shared start gate can hold an initial launch instead of a resume.
+            tokio::time::timeout(Duration::from_secs(30), async {
+                loop {
+                    if node(&client, &id)
+                        .await
+                        .is_some_and(|n| n.channel == Some(Channel::Up))
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                }
+            })
+            .await
+            .expect("initial Agent did not acknowledge SessionStart through its Channel");
+            id
         }
     };
     let a = spawn(json!(ws), project.client().await).await;
@@ -918,6 +934,10 @@ async fn a32_message_list_spans_iterations() {
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
 async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
+    // Spawn returns before SessionStart: a needs a saved conversation, and b must clear the
+    // shared start gate so only a's resumed Attempt can create the held-start marker.
+    idle(&fx.user, &fx.a).await;
+    idle(&fx.user, &fx.b).await;
     fx.user
         .request("agent.stop", json!({"id": fx.a}))
         .await
@@ -931,10 +951,9 @@ async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::R
         fx.held.is_file().then_some(())
     })
     .await;
-    assert!(
-        !resume.is_finished(),
-        "resume completed without SessionStart"
-    );
+    if resume.is_finished() {
+        panic!("resume completed without SessionStart: {:?}", resume.await);
+    }
     resume
 }
 
