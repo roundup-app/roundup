@@ -1,5 +1,6 @@
 import { connect } from "node:net";
 import type { Socket } from "node:net";
+import { pipeline } from "node:stream";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -156,11 +157,92 @@ const stream = (daemon: RealDaemon, response: ServerResponse) => {
   );
 };
 
+/** Harness-only selection of today's Event envelopes. #1930 replaces the socket
+ * subscription and envelope adapter together with its production callers.
+ * Each request owns its connection; pipeline backpressure cannot hold an RPC.
+ * See realDaemonOutput.md for bounds and the browser recovery contract. */
+const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, after: number) => {
+  const socket = connect({ path: daemon.socket, highWaterMark: 16_384 });
+  const maxLine = 262_144;
+  let next = after;
+
+  response.writeHead(200, {
+    "Content-Type": "application/octet-stream",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Terminal": encodeURIComponent(terminal),
+    "X-Output-After": String(after),
+  });
+  response.flushHeaders();
+  response.on("close", () => socket.destroy());
+  socket.on("connect", () => socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "events.subscribe", params: null })}\n`));
+
+  // A generator yields only when downstream requests bytes. No event callback
+  // keeps writing after response.write() has signalled backpressure.
+  pipeline(socket, async function* (source: AsyncIterable<Buffer>) {
+    let pending = Buffer.alloc(0);
+
+    for await (const chunk of source) {
+      if (chunk.length > 65_536) throw new Error("output socket chunk exceeds bound");
+      pending = Buffer.concat([pending, chunk]);
+
+      for (let end = pending.indexOf(10); end >= 0; end = pending.indexOf(10)) {
+        if (end > maxLine) throw new Error("output envelope exceeds bound");
+        const line = pending.subarray(0, end);
+
+        pending = pending.subarray(end + 1);
+        if (!line.length) continue;
+        const frame = v.parse(replySchema, JSON.parse(line.toString("utf8")));
+
+        if (frame.error) throw new Error(frame.error.message);
+        if (frame.method !== "event") continue;
+        const event = v.parse(v.object({ name: v.string(), data: v.optional(v.unknown()) }), frame.params);
+
+        if (event.name !== "terminal.output") continue;
+        const data = v.parse(v.object({ id: v.string(), data: v.string(), offset: v.pipe(v.number(), v.safeInteger(), v.minValue(0)) }), event.data);
+
+        if (data.id !== terminal) continue;
+        if (data.offset !== next) throw new Error("output offset gap; obtain a fresh snapshot");
+        const bytes = Buffer.from(data.data, "base64");
+
+        if (bytes.toString("base64") !== data.data) throw new Error("invalid output base64");
+        next += bytes.length;
+        if (!Number.isSafeInteger(next)) throw new Error("output offset exceeds safe integer");
+        yield bytes;
+      }
+
+      if (pending.length > maxLine) throw new Error("output envelope exceeds bound");
+    }
+
+    if (pending.length) throw new Error("incomplete output envelope");
+  }, response, () => {
+    // pipeline destroys both ends on failure, making fetch's reader reject.
+    // No clean EOF or later selection can hide a dropped or malformed frame.
+    socket.destroy();
+  });
+};
+
 /** The Daemon routes of U144: loopback requests only, and only JSON `POST`s, which a web page on another origin cannot send without a preflight. */
 const serve = (daemon: RealDaemon, request: IncomingMessage, response: ServerResponse, path: string) => {
   const host = (request.headers.host ?? "").replace(/:\d+$/, "");
 
   if (!LOOPBACK.has(request.socket.remoteAddress ?? "") || !LOCAL_HOSTS.has(host)) return json(response, 403, { error: "loopback only" });
+
+  const origin = request.headers.origin;
+
+  if (origin && origin !== `http://${request.headers.host}`) return json(response, 403, { error: "same origin only" });
+
+  if (path === "output" && request.method === "GET") {
+    const query = new URL(request.url ?? "/", "http://localhost").searchParams;
+    const terminal = query.get("terminal");
+    const after = query.get("after");
+
+    if (!terminal || terminal.length > 256 || after === null || !/^(0|[1-9][0-9]*)$/.test(after) || !Number.isSafeInteger(Number(after))) {
+      return json(response, 400, { error: "terminal and nonnegative safe integer after required" });
+    }
+
+    return output(daemon, response, terminal, Number(after));
+  }
 
   if (path === "open" && request.method === "GET") return json(response, 200, { project: { name: basename(daemon.project), path: daemon.project }, proof: daemon.proof });
 
