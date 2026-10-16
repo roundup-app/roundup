@@ -148,10 +148,19 @@ fn x14_library_reports_handled_text_at_raw_byte_offsets() {
     let mut csi = literal.clone();
     observe(&mut literal, b"CB\r");
     observe(&mut csi, b"CB\r\x1b[");
-    assert_eq!(literal.screen().state_formatted(), csi.screen().state_formatted());
+    assert_eq!(
+        literal.screen().state_formatted(),
+        csi.screen().state_formatted()
+    );
     observe(&mut literal, b"C");
     observe(&mut csi, b"C");
-    assert_eq!(literal.screen().state_formatted(), csi.screen().state_formatted());
-    assert_eq!(literal.callbacks().text, [(1, 'C', (0, 1)), (2, 'B', (0, 2)), (4, 'C', (0, 1))]);
+    assert_eq!(
+        literal.screen().state_formatted(),
+        csi.screen().state_formatted()
+    );
+    assert_eq!(
+        literal.callbacks().text,
+        [(1, 'C', (0, 1)), (2, 'B', (0, 2)), (4, 'C', (0, 1))]
+    );
     assert_eq!(csi.callbacks().text, [(1, 'C', (0, 1)), (2, 'B', (0, 2))]);
 }

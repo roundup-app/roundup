@@ -37,6 +37,7 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
             self.callbacks.unhandled_char(&mut self.screen, c);
         } else {
             self.screen.text(c);
+            self.callbacks.text(&mut self.screen, c);
         }
     }
 
