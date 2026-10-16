@@ -73,7 +73,10 @@ it("u485_rendered_checks", async () => {
         await browser("press", "ArrowRight");
         await browser("wait", "--fn", `document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === 'Beta'`);
 
-        if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineWidth, s.outlineOffset]; })()`)).toEqual(["solid", "2px", "1px"]);
+        if (!baseline) {
+          expect(await read<string[]>(`(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineWidth, s.outlineOffset]; })()`)).toEqual(["solid", "2px", "1px"]);
+          expect(await read<boolean>(`(() => { const row = document.activeElement.getBoundingClientRect(); const tree = document.querySelector('[role=tree]').getBoundingClientRect(); return row.left - 3 >= tree.left && row.right + 3 <= tree.right && row.top - 3 >= tree.top && row.bottom + 3 <= tree.bottom; })()`)).toBe(true);
+        }
 
         if (surface === "tree-pressed") {
           await browser("click", "button[data-button=quiet]");

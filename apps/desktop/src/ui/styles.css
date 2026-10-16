@@ -44,6 +44,10 @@
   padding: var(--space-2);
 }
 
+.app-tree {
+  padding: var(--space-1);
+}
+
 .app-tree [data-part="branch-control"],
 .app-tree [data-part="item"] {
   display: flex;
