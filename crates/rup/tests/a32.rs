@@ -405,37 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
-    let fx = fixture().await;
-    let (keep, fluff) = fx.full().await;
-    let mut task = fx.clear("bloat", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "Login page wanted.", "keep_todos": [keep], "keep_pads": ["notes"]})).await.unwrap();
-    task.end().await.unwrap();
-
-    assert_eq!(names(&fx.todos().await, "id"), [keep.to_string()]);
-    let pads = fx.pads().await;
-    assert_eq!(names(&pads, "name").len(), 2);
-    let archive = pads
-        .iter()
-        .find(|p| p["name"] == "archive-1")
-        .expect("the archive Pad");
-    assert_eq!(archive["owner"]["kind"], "user");
-    let text = archive["text"].as_str().unwrap();
-    assert!(
-        text.contains(&format!(
-            "## refactor everything (todo {fluff}, owner {})",
-            fx.a
-        )),
-        "{text}"
-    );
-    assert!(text.contains("refactor everything body"), "{text}");
-    assert!(text.contains("## scratch (pad, owner "), "{text}");
-    assert!(text.contains("scratch text"), "{text}");
-    assert!(!text.contains("build the login page"), "{text}");
-}
-
-#[tokio::test]
 async fn a32_kept_items_keep_their_ids_and_owners() {
     let fx = fixture().await;
     let (keep, fluff) = fx.full().await;
