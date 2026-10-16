@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { useSplitter } from "@ark-ui/solid/splitter";
 import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, type JSX } from "solid-js";
 import type { Side } from "../resize/widths";
@@ -69,7 +70,7 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   onMount(() => {
     const root = edge.closest<HTMLElement>("[data-layout-root]");
 
-    if (!root) throw new Error("Splitter requires a Layout host");
+    if (!root) throw new Error(copy.resizeUnavailable);
 
     if (!root.id) root.id = id;
     setHost(root);
@@ -128,6 +129,8 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     }
   };
 
+  const boundaryKeys = Object.keys({ Home: true, End: true });
+
   const keyDown: JSX.EventHandler<HTMLDivElement, KeyboardEvent> = (event) => {
     if (event.defaultPrevented) return;
 
@@ -141,9 +144,13 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
 
     // Ark's Shift delta is hard-coded to 10%; normalize the modifier while its
     // own key map, limits, direction and keyboard state still perform the action.
+    const key = props.side.direction === -1 && boundaryKeys.includes(event.key)
+      ? boundaryKeys.find((value) => value !== event.key) ?? event.key
+      : event.key;
+
     const adapted = new KeyboardEvent("keydown", {
-      key: props.side.direction === -1 && event.key === "Home" ? "End" : props.side.direction === -1 && event.key === "End" ? "Home" : event.key,
-      shiftKey: event.key.startsWith("Arrow") ? false : event.shiftKey,
+      key,
+      shiftKey: /^Arrow(?:Left|Right|Up|Down)$/.test(event.key) ? false : event.shiftKey,
       ctrlKey: event.ctrlKey, altKey: event.altKey, metaKey: event.metaKey, cancelable: true,
     });
 
