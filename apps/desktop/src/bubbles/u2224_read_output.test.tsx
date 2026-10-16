@@ -55,8 +55,8 @@ describe("u2224 selecting shows output with nothing over it", () => {
 
     const calls = (): number => ["terminal.close"].flatMap((method) => bubbleCalls(mounted.app, method)).length;
 
-
     const sent = calls();
+
     const geometry = (): Record<string, Place> => {
       // SAFETY: the bubble store writes this key as a map of Place records.
       const stored = JSON.parse(window.sessionStorage.getItem("roundup:bubble-places:/p") ?? "{}") as Record<string, Place>;
