@@ -1265,7 +1265,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "exported Pad notes to /tmp/notes.md",
             ),
             "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
-            "agent.stop" => (json!({"id":"child"}), "stopped Agent child"),
             "agent.interrupt" => (json!({"id":"child"}), "interrupted Agent child"),
             "agent.prompt" => (
                 json!({"id":"child","prompt":"hello"}),
@@ -1357,6 +1356,12 @@ async fn m17_data_results_keep_their_json_text() {
 #[tokio::test]
 async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed_data() {
     for (name, args, value) in [
+        (
+            "agent_stop",
+            json!({"id":"child"}),
+            json!({"id":"3","agent":"child","method":"agent.stop","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("agent_stop", json!({"id":"child"}), Value::Null),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),

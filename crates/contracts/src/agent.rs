@@ -549,4 +549,6 @@ pub enum HeldCall {
     Resize(crate::terminal::ResizeParams),
     #[serde(rename = "rail.rename")]
     Rename(RenameParams),
+    #[serde(rename = "agent.stop")]
+    Stop(NodeId),
 }
