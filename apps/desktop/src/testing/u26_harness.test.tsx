@@ -99,6 +99,7 @@ describe("u26 the harness seeds", () => {
     await expect(app.rpc("rail.createWorkstream", { name: "x", parent: null })).resolves.toMatchObject({ name: "x" });
   });
 
+  // The real editor and tree-40 took 5.18s in the shared shard; this is seed wiring, not a latency check.
   it("u26_a_pad_the_agent_owns_opens_in_its_drawer", async () => {
     mount("tree-40");
 
@@ -110,7 +111,7 @@ describe("u26 the harness seeds", () => {
     const drawer = within(await screen.findByLabelText("Drawer"));
 
     expect(await drawer.findByRole("button", { name: "Export .md" })).toBeTruthy();
-  });
+  }, 15_000);
 
   it("u26_set_status_moves_the_row_to_the_new_label", async () => {
     const { setStatus } = mount("tree-40");

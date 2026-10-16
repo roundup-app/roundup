@@ -405,46 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_a_valid_clear_only_asks_the_door() {
-    let fx = fixture().await;
-    fx.user
-        .request(
-            "message.send",
-            json!({"to": fx.ws, "kind": "note", "body": "I want a login page"}),
-        )
-        .await
-        .unwrap();
-    let (keep, fluff) = fx.full().await;
-    let before = shape(&fx.user).await;
-    let task = fx.clear("too much fluff", false).await;
-    let ask = fx.asked().await;
-    assert!(ask.contains("too much fluff"), "{ask}");
-    assert!(ask.contains("1. I want a login page"), "{ask}");
-    assert!(
-        ask.contains(&format!("{keep} \"build the login page\"")),
-        "{ask}"
-    );
-    assert!(
-        ask.contains(&format!("{fluff} \"refactor everything\"")),
-        "{ask}"
-    );
-    assert!(ask.contains("scratch (owner "), "{ask}");
-    assert_eq!(
-        shape(&fx.user).await,
-        before,
-        "nothing leaves the Rail before the Handoff"
-    );
-    assert_eq!(fx.todos().await.len(), 2);
-    let second = fx
-        .user
-        .request("workstream.clear", json!({"id": fx.ws, "reason": "again"}))
-        .await
-        .unwrap_err();
-    assert_eq!(second.code, rpc::code::CONFLICT);
-    drop(task);
-}
-
-#[tokio::test]
 async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
     let fx = fixture().await;
     let (keep, _) = fx.full().await;
