@@ -27,7 +27,8 @@
   "pnpm": {
     "patchedDependencies": {
       "@zag-js/toast@1.45.0": "patches/@zag-js__toast@1.45.0.patch",
-      "@zag-js/splitter@1.45.0": "patches/@zag-js__splitter@1.45.0.patch"
+      "@zag-js/splitter@1.45.0": "patches/@zag-js__splitter@1.45.0.patch",
+      "@ark-ui/solid@5.39.3": "patches/@ark-ui__solid@5.39.3.patch"
     }
   }
 }

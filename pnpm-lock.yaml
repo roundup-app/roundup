@@ -11,6 +11,9 @@ overrides:
   katex@<0.18.2: ^0.18.10
 
 patchedDependencies:
+  '@ark-ui/solid@5.39.3':
+    hash: 79aae7b8ddd1f853581ab3380edb9b473733a9e131460c0afad04910cc93fe4f
+    path: patches/@ark-ui__solid@5.39.3.patch
   '@zag-js/splitter@1.45.0':
     hash: cacf85211b395ef8d3d3b897229898e9ed82acc338ca576ca4a63d33fe16e88e
     path: patches/@zag-js__splitter@1.45.0.patch
@@ -51,7 +54,7 @@ importers:
     dependencies:
       '@ark-ui/solid':
         specifier: ^5.39.3
-        version: 5.39.3(solid-js@1.9.17)
+        version: 5.39.3(patch_hash=79aae7b8ddd1f853581ab3380edb9b473733a9e131460c0afad04910cc93fe4f)(solid-js@1.9.17)
       '@excalidraw/excalidraw':
         specifier: ^0.18.1
         version: 0.18.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -4087,7 +4090,7 @@ snapshots:
       '@anthropic-ai/claude-code-win32-arm64': 2.1.300
       '@anthropic-ai/claude-code-win32-x64': 2.1.300
 
-  '@ark-ui/solid@5.39.3(solid-js@1.9.17)':
+  '@ark-ui/solid@5.39.3(patch_hash=79aae7b8ddd1f853581ab3380edb9b473733a9e131460c0afad04910cc93fe4f)(solid-js@1.9.17)':
     dependencies:
       '@internationalized/date': 3.12.4
       '@zag-js/accordion': 1.45.0
