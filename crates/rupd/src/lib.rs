@@ -337,21 +337,11 @@ impl Daemon {
         // A child may not turn its Terminal keystrokes into a user's answer by
         // claiming `user`; H21's process identity applies to this input path too.
         let input_actor = if method == "terminal.write" {
-            Some(
-                match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
-                    Some(agent) => {
-                        let actor = Actor {
-                            kind: ActorKind::Agent,
-                            id: agent,
-                            parent: None,
-                        };
-                        conn.actor = actor.clone();
-                        actor
-                    }
-                    None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
-                    None => Actor::user(),
-                },
-            )
+            let actor = self.terminal_writer(conn);
+            if actor.kind == ActorKind::Agent {
+                conn.actor = actor.clone();
+            }
+            Some(actor)
         } else {
             None
         };
@@ -365,18 +355,7 @@ impl Daemon {
         }
         // These Door calls account for their physical effects before returning, including
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
-        let child = if conn.actor.kind == ActorKind::Agent {
-            match method {
-                "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                    self.guard_terminal_read(&conn.actor, &params).await?
-                }
-                "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
-                | "agent.stop" | "rail.rename" => Some(rpc::params::<NodeId>(params.clone())?.id),
-                _ => None,
-            }
-        } else {
-            None
-        };
+        let child = self.door_effect_child(&conn.actor, method, &params).await?;
         let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename") {
             if let Some(child) = &child {
                 let guard = self.child_effects(child).write_owned().await;
@@ -385,8 +364,6 @@ impl Daemon {
                         return Ok(receipt);
                     }
                 } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                    // End may still be delivering a recorded Message. Its older actions
-                    // must run before this rename, without waiting for Message typing.
                     self.release_resizes(child).await?;
                 }
                 Some(guard)
@@ -398,7 +375,19 @@ impl Daemon {
         };
         let _door_effect = match child {
             Some(child) if !matches!(method, "terminal.resize" | "rail.rename") => {
-                Some(self.child_effects(&child).read_owned().await)
+                if !self.sender.get().is_some_and(|m| m.takeover_active(&child))
+                    && self.resizes.waiting(&child)?
+                {
+                    let guard = self.child_effects(&child).write_owned().await;
+                    // A newer begin may have won while this call waited for exclusion.
+                    if !self.sender.get().is_some_and(|m| m.takeover_active(&child)) {
+                        self.release_resizes(&child).await?;
+                    }
+                    Some(guard.downgrade())
+                } else {
+                    // With no older queue, Interrupt must still reach an in-flight Steer.
+                    Some(self.child_effects(&child).read_owned().await)
+                }
             }
             _ => None,
         };
@@ -588,6 +577,38 @@ impl Daemon {
             return outcome;
         }
         outcome
+    }
+
+    fn terminal_writer(&self, conn: &Conn) -> Actor {
+        match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+            Some(agent) => Actor {
+                kind: ActorKind::Agent,
+                id: agent,
+                parent: None,
+            },
+            None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
+            None => Actor::user(),
+        }
+    }
+
+    /// The wire reader and router must agree which effects share a child's arrival order.
+    async fn door_effect_child(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<Option<String>, RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(None);
+        }
+        match method {
+            "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
+                self.guard_terminal_read(actor, params).await
+            }
+            "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
+            | "agent.stop" | "rail.rename" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
+            _ => Ok(None),
+        }
     }
 
     fn child_effects(&self, child: &str) -> Arc<tokio::sync::RwLock<()>> {
@@ -1139,33 +1160,37 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             }
             continue;
         }
-        let child_arrival = if matches!(method.as_deref(), Some("terminal.resize" | "rail.rename"))
-            && conn.actor.kind == ActorKind::Agent
-        {
-            let params = request
-                .as_ref()
-                .and_then(|r| r.get("params"))
-                .unwrap_or(&Value::Null);
-            let child = if method.as_deref() == Some("rail.rename") {
-                rpc::params::<NodeId>(params.clone()).map(|node| Some(node.id))
+        let actor = if method.as_deref() == Some("terminal.write") {
+            let writer = daemon.terminal_writer(&conn);
+            if writer.kind == ActorKind::Agent {
+                writer
             } else {
-                daemon.guard_terminal_read(&conn.actor, params).await
-            };
-            // Both ordered effects join before spawning: a rename must not take the
-            // child lock ahead of a resize still waiting for its arrival predecessor.
-            match child {
-                Ok(Some(child)) => Some(daemon.resizes.arrive(child)),
-                Ok(None) => None,
-                Err(error) => {
-                    // Reject the original target; a later target must not revive an invalid call.
-                    if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
-                        let _ = frames.send(failure(id, &error));
-                    }
-                    continue;
-                }
+                conn.actor.clone()
             }
         } else {
-            None
+            conn.actor.clone()
+        };
+        let params = request
+            .as_ref()
+            .and_then(|r| r.get("params"))
+            .unwrap_or(&Value::Null);
+        // Register before spawning so scheduler order cannot overtake wire arrival.
+        let child_arrival = match daemon
+            .door_effect_child(&actor, method.as_deref().unwrap_or_default(), params)
+            .await
+        {
+            Ok(Some(child)) => Some(daemon.resizes.arrive(
+                child,
+                matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
+            )),
+            Ok(None) => None,
+            Err(error) => {
+                // Reject the original target; a later target must not revive an invalid call.
+                if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
+                    let _ = frames.send(failure(id, &error));
+                }
+                continue;
+            }
         };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
@@ -1189,10 +1214,10 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         } else {
             ordinary.spawn(async move {
                 let done = if let Some((before, done)) = child_arrival {
-                    if let Some(before) = before {
-                        let _ = before.await;
+                    if let Some(mut before) = before {
+                        let _ = before.wait_for(|done| *done).await;
                     }
-                    Some(done)
+                    done
                 } else {
                     None
                 };
