@@ -51,6 +51,10 @@ _Avoid_: session, bot, worker
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble.
 _Avoid_: process, console
 
+**Shell mark**:
+An OSC 133 (prompt, command start and end with its exit code) or OSC 7 (directory) sequence a shell the user opened prints, as iTerm2, VS Code and WezTerm read them. The Daemon makes zsh, bash and fish print them by environment only (X15).
+_Avoid_: shell integration (as a name; it is the means)
+
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
@@ -58,7 +62,7 @@ The Agent or Door attached to a Terminal as its Message receiver, with its Attem
 A scoped fresh SQL execution using a compiled statement in rusqlite's bounded cache. Its exclusive Connection borrow keeps rows inside the callback; reset and binding cleanup precede return. It retains no owner facts.
 
 **Bubble**:
-How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
+How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip. It ends with its Terminal.
 _Avoid_: overlay, popup
 
 **Pull**:
@@ -198,7 +202,7 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.appendSection` can require (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Editor**:
@@ -408,7 +412,7 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
-**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `Agents::stop_attempt`, `agent.actionHistory`, `agent_actionHistory`):
+**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.
@@ -421,6 +425,12 @@ The Client's optional bounded Terminal output receiver, taken before subscribing
 It reports lag separately from control events and ordinary replies; retained events
 keep their Terminal ids and byte offsets for Snapshot recovery. It does not select
 a Terminal or change the Daemon's subscription contract.
+
+**Event log**:
+The Daemon's table in `project.db` of every Event but Terminal output, kept to the last 10 000 (`EVENT_WINDOW`); `events.subscribe` replays from it (`scenarios/daemon.md` D10, D11).
+
+**Event number** (`seq`):
+The positive integer the Event log gives an Event as its row id: it rises by one per saved Event, never repeats across a Daemon restart, and rides on the Event every subscriber sees. Terminal output has none (D10).
 
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.

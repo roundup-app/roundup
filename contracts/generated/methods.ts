@@ -29,6 +29,7 @@ import type { ListParams as checkpoint_ListParams } from "./checkpoint/ListParam
 import type { WriteParams as checkpoint_WriteParams } from "./checkpoint/WriteParams";
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
+import type { SubscribeParams as common_SubscribeParams } from "./SubscribeParams";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
 import type { AnswerParams as decision_AnswerParams } from "./decision/AnswerParams";
@@ -49,6 +50,7 @@ import type { SendParams as message_SendParams } from "./message/SendParams";
 import type { SetRouteParams as message_SetRouteParams } from "./message/SetRouteParams";
 import type { TakeoverParams as message_TakeoverParams } from "./message/TakeoverParams";
 import type { AppendParams as pad_AppendParams } from "./pad/AppendParams";
+import type { AppendSectionParams as pad_AppendSectionParams } from "./pad/AppendSectionParams";
 import type { CreateParams as pad_CreateParams } from "./pad/CreateParams";
 import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
@@ -95,9 +97,9 @@ export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
-  "daemon.ping": { params: null; result: { pong: true, contract: { fingerprint: string, methods: string[] } } };
+  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } } };
   "daemon.identify": { params: common_IdentifyParams; result: null };
-  "events.subscribe": { params: null; result: null };
+  "events.subscribe": { params: common_SubscribeParams | null; result: null };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };
   "provenance.touched": { params: common_TouchedParams; result: common_Touch[] };
   "terminal.spawn": { params: terminal_SpawnParams; result: terminal_TerminalId };
@@ -128,6 +130,7 @@ export type RpcMethods = {
   "pad.list": { params: null; result: pad_Pad[] };
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
+  "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_PadName; result: null };
@@ -136,8 +139,8 @@ export type RpcMethods = {
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
   "agent.actionHistory": { params: agent_NodeId; result: agent_HeldAction[] };
   "agent.stop": { params: agent_NodeId; result: null | agent_HeldAction };
-  "agent.prompt": { params: agent_PromptParams; result: null };
-  "agent.interrupt": { params: agent_NodeId; result: null };
+  "agent.prompt": { params: agent_PromptParams; result: null | agent_HeldAction };
+  "agent.interrupt": { params: agent_NodeId; result: null | agent_HeldAction };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };

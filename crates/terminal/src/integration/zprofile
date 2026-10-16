@@ -1,0 +1,5 @@
+__rup_dir=$ZDOTDIR
+ZDOTDIR=${ROUNDUP_USER_ZDOTDIR:-$HOME}
+[[ -f $ZDOTDIR/.zprofile ]] && source $ZDOTDIR/.zprofile
+ZDOTDIR=$__rup_dir
+unset __rup_dir

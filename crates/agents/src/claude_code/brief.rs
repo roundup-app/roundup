@@ -47,6 +47,10 @@ const TOOLS: &[(&str, &str)] = &[
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     ("pad_append", "add text to the end of any Pad"),
+    (
+        "pad_appendSection",
+        "add text at the end of the section under a Markdown heading of any Pad",
+    ),
     ("pad_setOwner", "give a Pad to another Actor"),
     ("pad_delete", "delete a Pad you no longer need"),
     (
@@ -131,11 +135,11 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_interrupt",
-        "interrupt the turn of an Agent in your Reach",
+        "interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
         "agent_prompt",
-        "send a prompt to an Agent in your Reach as the user would",
+        "send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
         "agent_resume",
@@ -354,7 +358,8 @@ pub fn text(role: Role) -> String {
     let mut text = format!(
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
-         Your id and where you stand are in the Context you get at start; the id never changes.\n\n\
+         Your id and where you stand are in the Context you get at start; the id never changes. \
+         Your shell sets `ROUNDUP_AGENT_ID` to it, and `rup` is on your `PATH`: run `rup help` to learn its command line, which does everything the tools below do.\n\n\
          ## Tools\n\n\
          The `roundup` MCP server offers these tools. They are deferred: load a tool before its first call with `ToolSearch` and the query `select:mcp__roundup__<name>,…`, naming every tool you need in one call. \
          {first_turn}\n\n",
@@ -406,6 +411,13 @@ mod tests {
             brief.contains("`order`") && brief.contains("`prompt`"),
             "{brief}"
         );
+    }
+
+    #[test]
+    fn i8_every_brief_says_to_run_rup_help() {
+        for role in [Role::Agent, Role::Door] {
+            assert!(text(role).contains("run `rup help`"), "{role:?}");
+        }
     }
 
     #[test]

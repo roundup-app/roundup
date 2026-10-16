@@ -38,16 +38,20 @@ jobs:
       - uses: ./.github/actions/setup
       - run: python3 loop/app-data.py just lint-rust
 
-  # L89: the Rust suite in three thirds, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
-  # the timed waits of daemons, fake Claude and sqlite. `hash` keeps each test in its third across commits, so a PR's
-  # third and `main`'s third hold the same tests (L82). L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
+  # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
+  # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
+  # tests; a build job whose nextest archive the lanes download is no shorter: one compile stays on the path, with the
+  # archive's upload, download and unpacking after it. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
+  # the test binaries packed to equal seconds; a test stays in its lane across commits, so a PR's lane and `main`'s hold
+  # the same tests (L82).
+  # L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
   rust:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3]
+        partition: [1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -57,10 +61,23 @@ jobs:
         with:
           save-cache: ${{ matrix.partition == 1 }}
       - name: test-rust
-        run: python3 loop/app-data.py just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/3 --test-threads 4
+        run: python3 loop/app-data.py just test-rust-since "$BASE" --profile ci${{ matrix.partition }} --test-threads 4
 
-  # L89: the code Linux never compiles or runs: clippy on macOS, the tests that take a macOS path, and the daemon smoke
-  # test, on the OS the App ships on.
+  # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
+  # tests of `mac`: clippy's 36 s of work and its setup run beside them, not before. `mac` saves the cache.
+  mac-clippy:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          node: 'false'
+      - run: just clippy
+
+  # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-latest
@@ -72,10 +89,9 @@ jobs:
         uses: ./.github/actions/setup
         with:
           save-cache: 'true'
-      - run: just clippy
+          node: 'false'
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -88,7 +104,10 @@ jobs:
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py
 
-  # L89: the web checks that run no test.
+  # L89: the web checks that run no test, then the two U26 regression tests that hold Chromium's startup for real seconds:
+  # neither depends on which web tests run, so they run once here and not in every shard. The lint takes 40 s, so the
+  # held tests fit in this lane without a runner of their own. A failed step leaves later steps running, so one run
+  # reports every failure.
   lint-web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
@@ -99,17 +118,32 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           rust: 'false'
+          browser: 'true'
       - run: python3 loop/app-data.py just lint-web
+      - id: deps
+        name: U26 Linux fault observer dependencies
+        if: ${{ !cancelled() }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      - name: U26 held cold startup regression
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
+      - name: U26 held file-backed fault
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
 
-  # L89: the web tests in six shards; vitest's `--shard` sorts the test files by their path's hash and gives each shard
-  # an equal count.
+  # L89: the web tests in seven shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
+  # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
+  # diff usually reaches far fewer.
   web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: web ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5, 6]
+        partition: [1, 2, 3, 4, 5, 6, 7]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -119,8 +153,6 @@ jobs:
         with:
           rust: 'build'
           browser: 'true'
-      # The real-`rupd` tests run these binaries: built here from the restored cache, no test waits on the build.
-      - run: cargo build -p rupd -p rup
       - name: U26 Linux fault observer dependencies
         run: |
           sudo apt-get update -qq
@@ -128,10 +160,6 @@ jobs:
       # This must be the runner's first browser command, before any warmup or regression fixture.
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults-${{ matrix.partition }}.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold-${{ matrix.partition }}.jsonl"
-      - name: U26 held cold startup regression
-        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
-      - name: U26 held file-backed fault
-        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
       - name: test-web
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-faults-${{ matrix.partition }}.jsonl" -- just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
       - name: Chromium file fault evidence
@@ -196,7 +224,7 @@ jobs:
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [lint, rust, mac, lint-web, web]
+    needs: [lint, rust, mac-clippy, mac, lint-web, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
@@ -205,7 +233,7 @@ jobs:
         run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac, lint-web, web, check]
+    needs: [lint, rust, mac-clippy, mac, lint-web, web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml

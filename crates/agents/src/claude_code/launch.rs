@@ -305,11 +305,11 @@ impl Launcher {
         if is_symlink(&shims) {
             return Err(invalid(format!("{} is a symlink", shims.display())));
         }
-        let path = (role == Role::Door).then(|| shim_path(&shims));
+        let path = self.shell_path((role == Role::Door).then_some(shims.as_path()));
         if role == Role::Door {
             write_shims(&shims).map_err(RpcError::internal)?;
         }
-        replace_file(&settings, &self.settings_json(id, attempt, path.as_deref()))
+        replace_file(&settings, &self.settings_json(id, attempt, &path))
             .map_err(RpcError::internal)?;
         replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
         let brief_file = brief_path(&dir, id);
@@ -368,6 +368,15 @@ impl Launcher {
         );
         // Trust/config locks and disk delivery cannot hold the async runtime thread.
         let mut env = pair.env();
+        // I5: every shell the Agent's `claude` runs inherits who it is, and finds `rup` on its PATH.
+        env.insert("ROUNDUP_AGENT".to_owned(), id.to_owned());
+        if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
+            let inherited = std::env::var_os("PATH").unwrap_or_default();
+            let paths = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&inherited));
+            if let Ok(path) = std::env::join_paths(paths) {
+                env.insert("PATH".to_owned(), path.to_string_lossy().into_owned());
+            }
+        }
         let mut argv = tokio::task::spawn_blocking(move || {
             launcher.prepare_on(
                 Folders {
@@ -507,8 +516,9 @@ impl Launcher {
     }
 
     /// A20: the hook command, not the program, carries the launch's Attempt.
-    /// F4: a Door's `path` puts its shims ahead of the Daemon's own `PATH` in Claude Code's `env`.
-    fn settings_json(&self, id: u64, attempt: &str, path: Option<&OsStr>) -> Value {
+    /// A43: `path` is the Agent's `PATH` in Claude Code's `env`, and `ROUNDUP_AGENT_ID` its id.
+    fn settings_json(&self, id: u64, attempt: &str, path: &OsStr) -> Value {
+        let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
         let id = shell_quote(&id.to_string());
         // H9: `PermissionRequest` waits for the user's answer, so its hook outlives the 5 s of the rest.
@@ -547,13 +557,27 @@ impl Launcher {
         if !self.user_tool_search {
             env.insert("ENABLE_TOOL_SEARCH".into(), "true".into());
         }
-        if let Some(path) = path {
-            env.insert("PATH".into(), path.to_string_lossy().into());
-        }
-        if !env.is_empty() {
-            settings["env"] = Value::Object(env);
-        }
+        env.insert("ROUNDUP_AGENT_ID".into(), agent_id.into());
+        env.insert("PATH".into(), path.to_string_lossy().into());
+        settings["env"] = Value::Object(env);
         settings
+    }
+
+    /// A43: the folder of `rup`, then (F4) a Door's `shims`, then the `PATH` this process has.
+    fn shell_path(&self, shims: Option<&Path>) -> OsString {
+        let mut path = self
+            .rup
+            .parent()
+            .map_or_else(OsString::new, |dir| dir.as_os_str().to_owned());
+        for next in shims.map(Path::as_os_str).into_iter().chain(
+            std::env::var_os("PATH")
+                .as_deref()
+                .filter(|p| !p.is_empty()),
+        ) {
+            path.push(":");
+            path.push(next);
+        }
+        path
     }
 
     /// `RUPD_SOCKET` is left out: Claude Code's environment, which the server inherits, has it.
@@ -720,16 +744,6 @@ fn shim_dir(dir: &Path, id: u64) -> PathBuf {
 pub fn settings_marker(dir: &Path, id: &str) -> Option<PathBuf> {
     let dir = dir.canonicalize().ok()?;
     Some(settings_path(&dir, parse_id(id)?))
-}
-
-/// `shims` followed by the `PATH` this process has.
-fn shim_path(shims: &Path) -> OsString {
-    let mut path = shims.as_os_str().to_owned();
-    if let Some(inherited) = std::env::var_os("PATH").filter(|inherited| !inherited.is_empty()) {
-        path.push(":");
-        path.push(inherited);
-    }
-    path
 }
 
 /// One executable in `shims` for each program name an Adapter supplies, each failing loud.
