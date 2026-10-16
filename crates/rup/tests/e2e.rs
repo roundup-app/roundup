@@ -3084,7 +3084,8 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
 
 #[tokio::test]
 async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
-    let hold = tempfile::tempdir().unwrap().keep().join("start");
+    let gates = tempfile::tempdir().unwrap();
+    let hold = gates.path().join("start");
     let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
     let project = start(&[
         ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
@@ -3092,7 +3093,6 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
     ]);
     let client = project.client().await;
     let door = start_door(&client).await;
-    let child = agent_in(&project, &client, Some(&door)).await;
     // B7 batches pending Messages. Put another note first so the Decision notice
     // cannot accidentally pass only because it heads the submitted prompt.
     client
@@ -3102,30 +3102,53 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
         )
         .await
         .unwrap();
+    let child = agent_in(&project, &client, Some(&door)).await;
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
     let decision = h21_decision(&client, &child, None).await;
     let id = decision["id"].as_str().unwrap().to_owned();
-    h21_notes(&client, &door, 1).await;
+    let notes = h21_notes(&client, &door, 1).await;
+    let body = notes[0]["body"].as_str().unwrap();
+    assert_eq!(notes[0]["status"], "pending");
 
     h21_user_answers(&client, &id, "deny").await.unwrap();
+    let decisions = client.request("decision.list", Value::Null).await.unwrap();
+    assert!(decisions.as_array().unwrap().iter().all(|d| d["id"] != id));
+    let mut events = project.subscribed().await;
     std::fs::write(&hold, "").unwrap();
 
-    let typed = h21_poll("the typed note", async || {
-        let todos = client.request("todo.list", Value::Null).await.unwrap();
-        todos
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|t| {
-                t["title"]
-                    .as_str()
-                    .unwrap()
-                    .starts_with(&format!("[decision {id}] "))
-            })
-            .cloned()
+    let observed = tokio::time::timeout(Duration::from_secs(30), async {
+        while let Some(event) = events.next_event().await {
+            if let EventData::TodoCreated(todo) = event.data
+                && todo.creator.id == door
+                && todo
+                    .title
+                    .lines()
+                    .any(|line| line.strip_prefix("[from rupd, note] ").unwrap_or(line) == body)
+            {
+                return todo;
+            }
+        }
+        panic!("the connection closed before the typed Decision notice");
     })
     .await;
-    assert!(typed["title"].as_str().unwrap().contains("asks Bash"));
+    let typed = match observed {
+        Ok(todo) => todo,
+        Err(_) => {
+            let evidence = tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::join!(
+                    client.request("message.list", json!({"to": door})),
+                    client.request("todo.list", Value::Null),
+                    client.request("rail.tree", Value::Null),
+                )
+            })
+            .await;
+            panic!(
+                "timed out waiting for typed Decision notice {body:?}; \
+                 (Messages, Todos, Rail): {evidence:?}"
+            );
+        }
+    };
+    assert!(typed.title.starts_with("queued before the Decision\n\n"));
 }
 
 #[tokio::test]
