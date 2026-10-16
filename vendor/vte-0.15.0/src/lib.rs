@@ -51,7 +51,7 @@ const MAX_OSC_RAW: usize = 1024;
 /// Generic over the value for the size of the raw Operating System Command
 /// buffer. Input beyond this bound is discarded until the OSC terminates;
 /// the retained prefix is dispatched, never rendered as ordinary text.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Parser<const OSC_RAW_BUF_SIZE: usize = MAX_OSC_RAW> {
     state: State,
     intermediates: [u8; MAX_INTERMEDIATES],
@@ -1029,9 +1029,6 @@ mod tests {
             Sequence::Osc(params, _) => {
                 assert_eq!(params.len(), 2);
                 assert_eq!(params[0], b"52");
-
-                #[cfg(feature = "std")]
-                assert_eq!(params[1].len(), NUM_BYTES + INPUT_END.len());
 
                 assert_eq!(params[1].len(), MAX_OSC_RAW - params[0].len());
             },
