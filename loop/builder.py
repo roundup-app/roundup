@@ -46,8 +46,10 @@ CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # The Issue a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names.
 LINKED = re.compile(r'^(?:Refs|Closes|Fixes) #(\d+)', re.M)
+# A scenario id, such as U467 or V4b.
+SCENARIO_ID = r'[A-Za-z]+[0-9]+[a-z]?'
 # A scenario file's heading line, `**<id> <title>.**`, where a scenario starts.
-HEADING = re.compile(r'\*\*([A-Za-z]+[0-9]+[a-z]?) ')
+HEADING = re.compile(rf'\*\*({SCENARIO_ID}) ')
 ATTEMPTS = 3
 # L82: causes about a PR's plumbing, not its work, start a fix run that posts no comment and counts no attempt: a conflict
 # with `main`, and a `rules` failure whose every failed step checks PR shape (a base, `Author-Agent` trailers, scenario ids).
@@ -67,7 +69,8 @@ CAUSES = {
     'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below.',
     'critic': 'The design critic rejected this head (L103); its findings are the last `CRITIC:` comment below. Meet each '
-              'finding, or the bar it names, without loosening `docs/design-system.md`.',
+              'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
+              'the notes are polish the critic raises once and never blocks on again.',
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
@@ -787,17 +790,39 @@ def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
             call('run', 'rerun', run)
 
 
+def clauses(ids):
+    """The full text of each scenario `ids` names, as this checkout's `scenarios/` holds it: its heading line through the
+    line before the next scenario or Markdown heading, in file order. An id no heading holds gets a line saying so."""
+    wanted, found = set(re.findall(rf'\b{SCENARIO_ID}\b', ids)), {}
+    for path in sorted((ROOT / 'scenarios').glob('*.md')):
+        current = None
+        for line in path.read_text().splitlines():
+            heading = HEADING.match(line)
+            if heading or re.match(r'#+ ', line):
+                current = heading[1] if heading and heading[1] in wanted else None
+                if current:
+                    found[current] = [f'From `scenarios/{path.name}`:', '']
+            if current:
+                found[current].append(line)
+    missing = [f'No scenario on `main` holds {name}.' for name in sorted(wanted - found.keys())]
+    return '\n\n'.join(['\n'.join(text).rstrip() for text in found.values()] + missing)
+
+
 def review_task(pr, head):
-    """The review run's task, or None when the PR is not open at `head` or is a draft."""
+    """The review run's task, or None when the PR is not open at `head` or is a draft: the body's `Scenarios:` and
+    `Moves:` lines and never the rest of the body (rule 5), the full text of each scenario the `Scenarios:` line names
+    as `main` holds it, then the earlier verdicts, whose findings the run re-derives."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
-    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)]
+    named = re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)
+    ids = ' '.join(line for line in named if line.startswith('Scenarios:'))
+    lines = [f'Review PR #{pr}, head {head}.', *named, '\nThe scenarios, as `main` holds them:\n\n' +
+             (clauses(ids) or 'The PR names none.')]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
-        lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
-                  'resolutions and their effects. Your verdict still covers the current head; do not repeat unchanged '
-                  'findings.', '\nEarlier verdicts, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
+        lines += ['\nEarlier verdicts, oldest first. Each finding is a claim to re-derive as Review run step 3 says, '
+                  'never one to repeat:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 
@@ -835,6 +860,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 BAR = 'elegant, well designed and tasteful. That is the bar'
 # L103: a reject posts as the critic wrote it, up to this many characters.
 CRITIC_CAP = 6000
+# L103: a finding line starting so is polish or an idea; it never blocks.
+POLISH = re.compile(r'(NOTE:|ideas\b)')
 
 
 def touches_desktop(pr):
@@ -863,7 +890,9 @@ def critic_task(pr, head):
     if earlier:
         last = orders.field(earlier[-1], 'Head', '')
         lines += ['\nThis is a later round (`.agents/design-critic.md`, Later rounds): judge the earlier findings below and '
-                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only.',
+                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only. Block '
+                  'only on a block: an unfixed earlier block, a new block, a failure of the scenario\'s goal, or ugly or '
+                  'hacky UI or code; raise no new polish and never block on an earlier `NOTE:`.',
                   '\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
@@ -889,6 +918,8 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         status(head, 'error', 'The critic run gave no usable verdict', run_url, 'critic')
         flag(pr, f'The critic run {run_url} gave no usable verdict on {head}; rerun it from that page.')
         return False
+    if verdict == 'reject' and all(POLISH.match(line) for line in findings if line.strip()):
+        verdict = 'approve'  # polish alone never blocks, in any round
     text = '\n'.join(findings)
     if len(text) > CRITIC_CAP:
         text = text[:CRITIC_CAP].rstrip() + '\n[cut: the critic wrote more than ' + str(CRITIC_CAP) + ' characters]'

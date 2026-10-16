@@ -1,6 +1,6 @@
 # The `rup` command line for a user and an outside Claude Code
 
-Module: `crates/rup` (`ping`, `help`, the `--as` and `--json` options), with `crates/rupd` (the `daemon.ping` reply). Ids: CL1–CL4. `scenarios/cli.md` (I1–I8) owns the command tree, `rup help` and the exit codes; this file adds `ping`'s line and the `--as` option, and where the two meet, I1–I8 hold.
+Module: `crates/rup` (`ping`, `help`, the `--as` and `--json` options), with `crates/rupd` (the `daemon.ping` reply). Ids: CL1–CL4. `scenarios/cli.md` (I1–I9) owns the command tree, `rup help` and the exit codes; this file adds `ping`'s line and the `--as` option, and where the two meet, I1–I8 hold.
 
 The owner switches to roundup from their own terminal, and drives it from a Claude Code started outside roundup. Neither is an Agent: the Daemon knows an Agent by walking the caller's parent processes to a running Agent, so every other `rup` call acts as the User, and only `rup mcp <agent-id>` can name a caller. `rup` reaches the Daemon at `RUPD_SOCKET`, else `~/.roundup/rupd.sock`. Tests start the built `rup` (`CARGO_BIN_EXE_rup`) against an in-process Daemon on a temp socket, as `crates/rup/tests/ping.rs` does. No `claude` is involved.
 
