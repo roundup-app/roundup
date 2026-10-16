@@ -48,7 +48,7 @@ const TYPE = `(text) => {
     first: field.scrollTop,
     rowBelow: row.getBoundingClientRect().top,
     rail: field.parentElement.getBoundingClientRect().width,
-    width: box.width,
+    width: box.width + parseFloat(style.marginLeft),
     outline: style.outlineWidth,
     border: style.borderTopWidth,
   };
