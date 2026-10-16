@@ -72,6 +72,7 @@ jobs:
         uses: ./.github/actions/setup
         with:
           save-cache: 'true'
+          node: 'false'
       - run: just clippy
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
@@ -101,15 +102,16 @@ jobs:
           rust: 'false'
       - run: python3 loop/app-data.py just lint-web
 
-  # L89: the web tests in six shards; vitest's `--shard` sorts the test files by their path's hash and gives each shard
-  # an equal count.
+  # L89: the web tests in two shards; vitest's `--shard` sorts the test files by their path's hash and gives each shard
+  # an equal count. A shard spends about 90 s on setup and 30 to 60 s on its tests, so a third shard would add a runner
+  # for no wall time.
   web:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: web ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5, 6]
+        partition: [1, 2]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,10 +130,6 @@ jobs:
       # This must be the runner's first browser command, before any warmup or regression fixture.
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults-${{ matrix.partition }}.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold-${{ matrix.partition }}.jsonl"
-      - name: U26 held cold startup regression
-        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
-      - name: U26 held file-backed fault
-        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
       - name: test-web
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-faults-${{ matrix.partition }}.jsonl" -- just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
       - name: Chromium file fault evidence
@@ -144,6 +142,30 @@ jobs:
             ${{ runner.temp }}/chromium-cold-faults-${{ matrix.partition }}.jsonl
             ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
+
+  # L89: the two U26 regression tests whose result does not depend on which web tests run: they hold Chromium's startup
+  # for real seconds, so they run once here and not in every shard. They build no Rust and wait on no daemon.
+  web-faults:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+          browser: 'true'
+      - name: U26 Linux fault observer dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      - name: U26 held cold startup regression
+        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
+      # A failed check leaves later steps running, so one run reports every failure.
+      - name: U26 held file-backed fault
+        if: ${{ !cancelled() }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
 
   # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
   # then tests the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
@@ -196,7 +218,7 @@ jobs:
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [lint, rust, mac, lint-web, web]
+    needs: [lint, rust, mac, lint-web, web, web-faults]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
@@ -205,7 +227,7 @@ jobs:
         run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac, lint-web, web, check]
+    needs: [lint, rust, mac, lint-web, web, web-faults, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
