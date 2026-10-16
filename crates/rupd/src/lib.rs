@@ -321,7 +321,7 @@ impl Daemon {
         if method.starts_with("decision.") {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
-        } else if matches!(method, "rail.rename" | "agent.actionHistory") {
+        } else if matches!(method, "rail.rename" | "agent.stop" | "agent.actionHistory") {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = self.route(conn, method, params).await;
@@ -368,14 +368,18 @@ impl Daemon {
             .door_effect_children(&conn.actor, method, &params)
             .await?;
         let child = children.first();
-        let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename") {
+        let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename" | "agent.stop")
+        {
             if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
                 if method == "terminal.resize" {
                     if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
                         return Ok(receipt);
                     }
-                } else if let Some(receipt) = self.hold_rename(conn, child, params.clone()).await? {
+                } else if let Some(receipt) = self
+                    .hold_child_action(conn, child, method, params.clone())
+                    .await?
+                {
                     return Ok(receipt);
                 }
                 Some(guard)
@@ -386,7 +390,7 @@ impl Daemon {
             None
         };
         let mut door_effects = Vec::new();
-        if !matches!(method, "terminal.resize" | "rail.rename") {
+        if !matches!(method, "terminal.resize" | "rail.rename" | "agent.stop") {
             // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
             for child in &children {
                 let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
@@ -405,6 +409,16 @@ impl Daemon {
                 door_effects.push(guard);
             }
         }
+        // A released Stop names the original Attempt. User Stop/Resume may run alongside
+        // ordinary steering, but cannot replace that Attempt between its check and effect.
+        let _user_attempt = if conn.actor.kind == ActorKind::User
+            && matches!(method, "agent.stop" | "agent.resume")
+        {
+            let NodeId { id } = rpc::params(params.clone())?;
+            Some(self.child_effects(&id).read_owned().await)
+        } else {
+            None
+        };
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             Some(self.child_effects(&agent).write_owned().await)
@@ -1280,7 +1294,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             daemon.decision_actor(&conn)
         } else if matches!(
             method.as_deref(),
-            Some("rail.rename" | "agent.actionHistory")
+            Some("rail.rename" | "agent.stop" | "agent.actionHistory")
         ) {
             daemon.action_actor(&conn)
         } else {
@@ -1300,7 +1314,10 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                 .map(|child| {
                     daemon.held_actions.arrive(
                         child,
-                        matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
+                        matches!(
+                            method.as_deref(),
+                            Some("terminal.resize" | "rail.rename" | "agent.stop")
+                        ),
                     )
                 })
                 .collect::<Vec<_>>(),

@@ -412,6 +412,8 @@ The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.
+Door `agent.stop` shares this record with rename and resize actions, bound to its
+original Attempt so release never stops a replacement.
 
 **Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
 An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
