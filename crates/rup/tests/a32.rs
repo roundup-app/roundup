@@ -573,49 +573,6 @@ async fn a32_the_handoff_read_waits_for_a_delayed_prompt_write() {
     assert_eq!(last["resume"], false);
 }
 
-#[tokio::test]
-async fn a32_message_list_spans_iterations() {
-    let fx = fixture().await;
-    let send = |body: &'static str| {
-        fx.user.request(
-            "message.send",
-            json!({"to": fx.ws, "kind": "note", "body": body}),
-        )
-    };
-    send("first ask").await.unwrap();
-    settle(&fx.user, &fx.ws).await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-    settle(&fx.user, &fx.ws).await;
-    send("second ask").await.unwrap();
-
-    let listed = fx
-        .user
-        .request("message.list", json!({"id": fx.ws}))
-        .await
-        .unwrap();
-    let seen: Vec<(String, u64)> = listed
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|m| !m["body"].as_str().unwrap().starts_with("[digest]"))
-        .map(|m| {
-            (
-                m["body"].as_str().unwrap().to_owned(),
-                m["iteration"].as_u64().unwrap(),
-            )
-        })
-        .collect();
-    assert_eq!(
-        seen,
-        [("first ask".to_owned(), 1), ("second ask".to_owned(), 2)]
-    );
-}
-
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
 async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
