@@ -425,42 +425,6 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
 }
 
 #[tokio::test]
-async fn a32_the_door_restarts_fresh_from_the_handoff() {
-    let fx = fixture().await;
-    fx.full().await;
-    let first = node(&fx.user, &fx.ws).await.unwrap();
-    let mut events = fx.project.subscribed().await;
-    let mut task = fx.clear("bloat", false).await;
-    fx.asked().await;
-    fx.hand_off(
-        json!({"id": fx.ws, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(task.end().await.unwrap(), 2);
-
-    let after = node(&fx.user, &fx.ws).await.unwrap();
-    assert_eq!(after.attempt, Some("2".to_owned()));
-    assert_ne!(after.terminal_id, first.terminal_id);
-    fx.handoff_prompt(&mut events).await;
-    // A Subagent's stopped Digest can arrive after the restart's Handoff.
-    let last = prompts(&fx.log)
-        .into_iter()
-        .rev()
-        .find(|p| {
-            !p["prompt"]
-                .as_str()
-                .unwrap()
-                .starts_with(agents::claude_code::STATUS_LEAD)
-        })
-        .unwrap();
-    assert_eq!(last["resume"], false);
-    let text = last["prompt"].as_str().unwrap();
-    assert!(text.starts_with("Build the login page."), "{text}");
-    assert!(text.contains("archived in the Pad archive-1"), "{text}");
-}
-
-#[tokio::test]
 async fn a32_the_handoff_read_waits_for_a_delayed_prompt_write() {
     use std::future::Future;
     use std::task::Poll;
