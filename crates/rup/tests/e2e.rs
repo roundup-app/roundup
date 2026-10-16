@@ -838,8 +838,6 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
 
 // E2 to E6: an Agent is told where it stands and asks again.
 
-const DEADLINE: (&str, &str) = ("ROUNDUP_CHANNEL_DEADLINE_MS", "600");
-
 fn socket(project: &Project) -> PathBuf {
     project.dir.path().join("rupd.sock")
 }
