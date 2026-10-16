@@ -2489,6 +2489,166 @@ def restart_replay(alive: Bool, +s: M.World) -> {S.records(M.step(M.Restart{aliv
 def Laws.m9_restart_is_a_replay(evs, alive):
   restart_replay(alive, S.world(evs))
 
+# ---- B39
+# The in-flight step (B39, B40): the Messages in flight are the list `k` of the shared invariant `IV`, the queue is `q`, the delivered
+# are `t`, the dropped are `d`, and `a` is a list this model never fills. Typing moves the queue to `k`, the Signal moves `k` to `t`,
+# a kill moves `k` back to the front of `q`.
+def sht(+lq: Nat, +la: Nat, +lk: Nat, +lt: Nat, +ld: Nat, +z: Nat) -> EQ(SG(lq, la, lk, Nat.add(lt, z), ld), Nat.add(z, SG(lq, la, lk, lt, ld))):
+  tr(SG(lq, la, lk, Nat.add(lt, z), ld), 1n+Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), Nat.add(z, SG(lq, la, lk, lt, ld)), sc(Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld)))), Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), tr(Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld)))), Nat.add(lq, Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), ar(lq, Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld))), Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))), tr(Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld))), Nat.add(la, Nat.add(z, Nat.add(lk, Nat.add(lt, ld)))), Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))), ar(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld)), Nat.add(z, Nat.add(lk, Nat.add(lt, ld))), tr(Nat.add(lk, Nat.add(Nat.add(lt, z), ld)), Nat.add(lk, Nat.add(z, Nat.add(lt, ld))), Nat.add(z, Nat.add(lk, Nat.add(lt, ld))), ar(lk, Nat.add(Nat.add(lt, z), ld), Nat.add(z, Nat.add(lt, ld)), tr(Nat.add(Nat.add(lt, z), ld), Nat.add(lt, Nat.add(z, ld)), Nat.add(z, Nat.add(lt, ld)), add_assoc(lt, z, ld), swp(lt, z, ld))), swp(lk, z, Nat.add(lt, ld)))), swp(la, z, Nat.add(lk, Nat.add(lt, ld))))), swp(lq, z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))))), sy(Nat.add(z, 1n+Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), 1n+Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), add_succ_r(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))))))
+
+# Typing: the queue becomes the batch in flight (none was in flight).
+def sm_ty(+q: +List<Nat>, +a: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, [], t, d, n))) -> T(SUMB([], a, q, t, d, n)):
+  eq_intro(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), n, tr(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), n, tr(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), shk(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(q)), sy(SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), shq(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(q)))), eq_elim(SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), n, hs)))
+
+# The Signal: the batch in flight is delivered.
+def sm_cf(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, [], List.append(&2, Nat, t, k), d, n)):
+  eq_intro(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), n, tr(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), SG(S.len(q), S.len(a), 0n, Nat.add(S.len(t), S.len(k)), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), cgt(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), Nat.add(S.len(t), S.len(k)), S.len(d), len_app(t, k)), sht(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), tr(Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), shk(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+
+def len_app_comm(+a: +List<Nat>, +b: +List<Nat>) -> EQ(S.len(List.append(&2, Nat, a, b)), S.len(List.append(&2, Nat, b, a))):
+  tr(S.len(List.append(&2, Nat, a, b)), Nat.add(S.len(a), S.len(b)), S.len(List.append(&2, Nat, b, a)), len_app(a, b), tr(Nat.add(S.len(a), S.len(b)), Nat.add(S.len(b), S.len(a)), S.len(List.append(&2, Nat, b, a)), add_comm(S.len(a), S.len(b)), sy(S.len(List.append(&2, Nat, b, a)), Nat.add(S.len(b), S.len(a)), len_app(b, a))))
+
+# The kill: the batch in flight is pending again, ahead of the queue.
+def sm_kill(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(List.append(&2, Nat, k, q), a, [], t, d, n)):
+  eq_intro(SG(S.len(List.append(&2, Nat, k, q)), S.len(a), 0n, S.len(t), S.len(d)), n, tr(SG(S.len(List.append(&2, Nat, k, q)), S.len(a), 0n, S.len(t), S.len(d)), SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), n, cgq(S.len(List.append(&2, Nat, k, q)), S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d), len_app_comm(k, q)), eq_elim(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), n, sm_te(q, a, k, t, d, n, hs))))
+
+def inv_ty(+q: +List<Nat>, +a: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, [], t, d, n))) -> T(IV([], a, q, t, d, n)):
+  mk([], a, q, t, d, n, {==}, p1(q, a, [], t, d, n, h), p0(q, a, [], t, d, n, h), p3(q, a, [], t, d, n, h), p4(q, a, [], t, d, n, h), {==}, {==}, {==}, {==}, dj_sym(q, a, p5(q, a, [], t, d, n, h)), p10(q, a, [], t, d, n, h), p11(q, a, [], t, d, n, h), p7(q, a, [], t, d, n, h), p8(q, a, [], t, d, n, h), p14(q, a, [], t, d, n, h), {==}, p16(q, a, [], t, d, n, h), p15(q, a, [], t, d, n, h), p18(q, a, [], t, d, n, h), p19(q, a, [], t, d, n, h), sm_ty(q, a, t, d, n, p20(q, a, [], t, d, n, h)))
+
+def inv_cf(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, a, [], List.append(&2, Nat, t, k), d, n)):
+  mk(q, a, [], List.append(&2, Nat, t, k), d, n, p0(q, a, k, t, d, n, h), p1(q, a, k, t, d, n, h), {==}, nd_app(t, k, p3(q, a, k, t, d, n, h), p2(q, a, k, t, d, n, h), dj_sym(k, t, p12(q, a, k, t, d, n, h))), p4(q, a, k, t, d, n, h), p5(q, a, k, t, d, n, h), dj_nil_r(q), dj_app_r(q, t, k, p7(q, a, k, t, d, n, h), p6(q, a, k, t, d, n, h)), p8(q, a, k, t, d, n, h), dj_nil_r(a), dj_app_r(a, t, k, p10(q, a, k, t, d, n, h), p9(q, a, k, t, d, n, h)), p11(q, a, k, t, d, n, h), {==}, {==}, dj_app_l(t, k, d, p14(q, a, k, t, d, n, h), p13(q, a, k, t, d, n, h)), p15(q, a, k, t, d, n, h), p16(q, a, k, t, d, n, h), {==}, bd_app(t, k, n, p18(q, a, k, t, d, n, h), p17(q, a, k, t, d, n, h)), p19(q, a, k, t, d, n, h), sm_cf(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
+
+def inv_kill(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(List.append(&2, Nat, k, q), a, [], t, d, n)):
+  mk(List.append(&2, Nat, k, q), a, [], t, d, n, nd_app(k, q, p2(q, a, k, t, d, n, h), p0(q, a, k, t, d, n, h), dj_sym(q, k, p6(q, a, k, t, d, n, h))), p1(q, a, k, t, d, n, h), {==}, p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_app_l(k, q, a, dj_sym(a, k, p9(q, a, k, t, d, n, h)), p5(q, a, k, t, d, n, h)), dj_nil_r(List.append(&2, Nat, k, q)), dj_app_l(k, q, t, p12(q, a, k, t, d, n, h), p7(q, a, k, t, d, n, h)), dj_app_l(k, q, d, p13(q, a, k, t, d, n, h), p8(q, a, k, t, d, n, h)), dj_nil_r(a), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), {==}, {==}, p14(q, a, k, t, d, n, h), bd_app(k, q, n, p17(q, a, k, t, d, n, h), p15(q, a, k, t, d, n, h)), p16(q, a, k, t, d, n, h), {==}, p18(q, a, k, t, d, n, h), p19(q, a, k, t, d, n, h), sm_kill(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
+
+# The invariant of the in-flight model: the shared partition invariant with the unused list empty.
+def invf(+s: M.Fl) -> Bool:
+  IV(S.f_queue(s), [], S.f_inflight(s), S.f_delivered(s), S.f_dropped(s), S.f_next(s))
+
+def fidle_go_inv(+inf: +List<Nat>, +q: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, hold: Bool, g: Bool, +h: T(IV(q, [], inf, t, d, n))) -> T(invf(M.fidle_go(inf, q, t, d, n, hold, g))):
+  match inf:
+    case Nil{}:
+      inv_ty(q, [], t, d, n, h)
+    case Con{+x, +rest}:
+      h
+
+def fidle_live_inv(hold: Bool, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fidle_live(hold, s))):
+  match hold:
+    case True{}:
+      h
+    case False{}:
+      match s:
+        case M.F{+q, +inf, +t, +d, +n, +hold2, +g}:
+          fidle_go_inv(inf, q, t, d, n, hold2, g, h)
+
+def fidle_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fidle(s))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      match g:
+        case True{}:
+          h
+        case False{}:
+          fidle_live_inv(hold, M.F{q, inf, t, d, n, hold, False{}}, h)
+
+def fsend_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fsend(s))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      match g:
+        case True{}:
+          h
+        case False{}:
+          inv_sendQ(q, [], inf, t, d, n, h)
+
+def fconfirm_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fconfirm(s))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      inv_cf(q, [], inf, t, d, n, h)
+
+def fkill_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fkill(s))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      inv_kill(q, [], inf, t, d, n, h)
+
+def fhold_inv(b: Bool, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fhold(b, s))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      h
+
+def fexit_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fexit(s))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      inv_ex(q, [], inf, t, d, n, h)
+
+def fstep_inv(e: M.FEv, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fstep(e, s))):
+  match e:
+    case M.FSend{}:
+      fsend_inv(s, h)
+    case M.FIdle{}:
+      fidle_inv(s, h)
+    case M.FConfirm{}:
+      fconfirm_inv(s, h)
+    case M.FKill{}:
+      fkill_inv(s, h)
+    case M.FHold{}:
+      fhold_inv(True{}, s, h)
+    case M.FRelease{}:
+      fhold_inv(False{}, s, h)
+    case M.FExit{}:
+      fexit_inv(s, h)
+
+def frun_inv(+evs: +List<M.FEv>, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.frun(evs, s))):
+  match evs:
+    case Nil{}:
+      h
+    case Con{e, +rest}:
+      frun_inv(rest, M.fstep(e, s), fstep_inv(e, s, h))
+
+def finv_world(+evs: +List<M.FEv>) -> T(invf(S.fworld(evs))):
+  frun_inv(evs, M.finit(), mk([], [], [], [], [], 1n, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}))
+
+def b39_delivered_main(+evs: +List<M.FEv>) -> T(S.nodup(S.f_delivered(S.fworld(evs)))):
+  p3(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))
+
+def Laws.b39_delivered_at_most_once(evs):
+  b39_delivered_main(evs)
+
+def b40_main(+evs: +List<M.FEv>) -> T(Bool.and(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs))))):
+  and_i(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs))), dj_sym(S.f_queue(S.fworld(evs)), S.f_delivered(S.fworld(evs)), p7(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))), dj_sym(S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), p12(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))))
+
+def Laws.b39_a_retry_never_retypes_a_delivered_message(evs):
+  b40_main(evs)
+
+def b39_sum_main(+evs: +List<M.FEv>) -> EQ(SG(S.len(S.f_queue(S.fworld(evs))), 0n, S.len(S.f_inflight(S.fworld(evs))), S.len(S.f_delivered(S.fworld(evs))), S.len(S.f_dropped(S.fworld(evs)))), S.f_next(S.fworld(evs))):
+  eq_elim(SG(S.len(S.f_queue(S.fworld(evs))), 0n, S.len(S.f_inflight(S.fworld(evs))), S.len(S.f_delivered(S.fworld(evs))), S.len(S.f_dropped(S.fworld(evs)))), S.f_next(S.fworld(evs)), p20(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs)))
+
+def Laws.b39_no_silent_loss_in_flight(evs):
+  b39_sum_main(evs)
+
+def hold_refl(hd: Bool, +inf: +List<Nat>) -> T(S.implies(hd, S.all_in(inf, inf))):
+  match hd:
+    case True{}:
+      all_in_refl(inf)
+    case False{}:
+      {==}
+
+def hold_live(hd: Bool, +q: +List<Nat>, +inf: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, n: Nat, g: Bool) -> T(S.implies(hd, S.all_in(S.f_inflight(M.fidle_live(hd, M.F{q, inf, t, d, n, hd, g})), inf))):
+  match hd:
+    case True{}:
+      all_in_refl(inf)
+    case False{}:
+      {==}
+
+def fhold_types_nothing(+s: M.Fl) -> T(S.implies(S.f_hold(s), S.all_in(S.f_inflight(M.fstep(M.FIdle{}, s)), S.f_inflight(s)))):
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hd, +g}:
+      match g:
+        case True{}:
+          hold_refl(hd, inf)
+        case False{}:
+          hold_live(hd, q, inf, t, d, n, False{})
+
+def Laws.b39_a_hold_types_no_batch(evs):
+  fhold_types_nothing(S.fworld(evs))
+
 # ---- M8
 def not_or_l(a: Bool, b: Bool, +h: T(Bool.not(Bool.or(a, b)))) -> T(Bool.not(a)):
   match a:

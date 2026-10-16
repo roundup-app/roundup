@@ -1765,6 +1765,38 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_at_the_nex
 }
 
 #[tokio::test]
+async fn b40_a_batch_in_flight_at_a_kill_is_retried_as_one_batch() {
+    let (_dir, h, raw) = signalled();
+    for body in ["one", "two", "three"] {
+        h.send_as(agent("a"), "b", body).await;
+    }
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+
+    let (deliver, retried) = raw_deliver();
+    let mut h = h.restarted_manual(deliver);
+    h.becomes("b", Kind::Idle);
+
+    // One prompt holds all three, in id order, with one id line.
+    let again = prompts(&retried, 1).await.remove(0);
+    assert_eq!(
+        again,
+        "[from a, note] one\n\n[from a, note] two\n\n[from a, note] three\n\n[rup messages: 1 2 3]"
+    );
+    h.names();
+    assert!(!h.messages.confirm_prompt("b", &again));
+    assert!(h.messages.confirm_prompt("b", &again));
+
+    let delivered = h
+        .names()
+        .into_iter()
+        .filter(|name| name == "message.delivered")
+        .count();
+    assert_eq!(delivered, 3);
+    assert_eq!(retried.lock().unwrap().len(), 1, "typed a third time");
+}
+
+#[tokio::test]
 async fn b40_the_retry_is_confirmed_and_delivered_once() {
     let (_dir, h, raw) = signalled();
     h.send_as(agent("a"), "b", "one").await;
