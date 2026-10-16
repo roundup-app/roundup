@@ -4,6 +4,7 @@ import { Sortable } from "./index";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";
+import "./u485.css";
 
 const u484Fixture = () => {
   const dense = new URLSearchParams(location.search).has("dense");

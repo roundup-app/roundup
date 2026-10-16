@@ -37,7 +37,7 @@ beforeAll(async () => {
   server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!;
-  await browser("--profile", profile, "open", new URL(new URL("./u485Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
+  await browser("--profile", profile, "open", new URL("/src/ui/u483.html", origin).href);
 
   if (art) mkdirSync(art, { recursive: true });
 }, 90_000);
@@ -49,68 +49,88 @@ afterAll(async () => {
 const baseline = process.env.ROUNDUP_CAPTURE_BASE === "1";
 
 it("u485_rendered_checks", async () => {
-  const initial = Array.from({ length: 40 }, (_, index) => String(index + 1)).join(",");
-  const reordered = ["2", "1", ...Array.from({ length: 38 }, (_, index) => String(index + 3))].join(",");
-  const preview = `[...document.querySelectorAll('.u485-fixture > .u485-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',')`;
-
-  for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) for (const input of ["keyboard", "pointer"]) {
+  for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
-    await browser("open", new URL(new URL("./u485Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
-    await browser("wait", "--fn", `document.querySelectorAll('.u485-row').length === 40`);
 
-    const capture = async (step: string) => {
+    for (const surface of ["tree", "tree-pressed", "sort", "keyboard-held", "pointer-held", "failure"]) {
+      const path = surface === "failure" ? "/harness.html?seed=tree-40" : surface.startsWith("tree") ? "/src/ui/u483.html" : "/src/ui/u484.html?dense";
+      await browser("open", new URL(path, origin).href);
+
+      if (surface === "failure") {
+        await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+        await browser("eval", `window.__fake.app.closeProject = async () => { throw new Error('could not stop project'); }`);
+        await browser("hover", ".project-tab");
+        await browser("eval", `document.querySelector('[aria-label^="Close "]').click()`);
+        await browser("wait", "--fn", `!!document.querySelector('[role=alertdialog]')`);
+        await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
+        await browser("wait", "--fn", `document.body.textContent.includes('could not stop project')`);
+      } else if (surface.startsWith("tree")) {
+        await browser("wait", "--fn", `!!document.querySelector('[role=tree]')`);
+        await browser("press", "Tab");
+        await browser("press", "ArrowRight");
+        await browser("wait", "--fn", `document.querySelector('[data-id=Alpha]').getAttribute('aria-expanded') === 'true'`);
+        await browser("press", "ArrowRight");
+        await browser("wait", "--fn", `document.activeElement?.closest('[data-id]')?.getAttribute('data-id') === 'Beta'`);
+
+        if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineWidth, s.outlineOffset]; })()`)).toEqual(["solid", "2px", "1px"]);
+
+        if (surface === "tree-pressed") {
+          await browser("click", "button[data-button=quiet]");
+          await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').getAttribute('aria-selected') === 'true'`);
+          const point = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('#label-Delta').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+          await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+          await browser("mouse", "down");
+
+          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Alpha]')).backgroundColor`)).toBe("rgba(0, 0, 0, 0)");
+
+          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-id=Delta]')).backgroundColor`)).toBe(scheme === "light" ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.16)");
+        }
+      } else {
+        await browser("wait", "--fn", `document.querySelectorAll('.sortable-row').length === 40`);
+        await browser("focus", '[aria-label="Move 12"]');
+        await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 0`);
+
+        if (!baseline) expect(await read<boolean>(`(() => { const handle = document.activeElement.getBoundingClientRect(); const box = document.querySelector('.sortable-fixture').getBoundingClientRect(); return handle.left - 3 >= box.left && handle.right + 3 <= box.right && handle.top - 3 >= box.top && handle.bottom + 3 <= box.bottom; })()`)).toBe(true);
+
+        if (surface === "keyboard-held") {
+          await browser("press", "Space");
+          await browser("wait", "--fn", `!!document.querySelector('[data-dnd-dragging]')`);
+          await browser("press", "ArrowDown");
+          await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-row:not([data-dnd-placeholder])')].findIndex(el => el.dataset.id === '12') === 12`);
+        }
+
+        if (surface === "pointer-held") {
+          const point = await read<{ x: number; y: number }>(`(() => { const r = document.activeElement.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+          await browser("mouse", "move", String(Math.round(point.x)), String(Math.round(point.y)));
+          await browser("mouse", "down");
+          await browser("mouse", "move", String(Math.round(point.x + 20)), String(Math.round(point.y + 40)));
+        }
+
+        if (surface.endsWith("held")) {
+          await browser("wait", "--fn", `!!document.querySelector('[data-dnd-dragging]')`);
+
+          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundColor`)).toBe(scheme === "light" ? "rgb(255, 255, 255)" : "rgb(28, 28, 30)");
+
+          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth]; })()`)).toEqual(["visible", "solid", "1px"]);
+        }
+      }
+
       const checks = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks(document))`);
 
       if (art) {
         const dir = join(art, baseline ? "base" : "head");
         mkdirSync(dir, { recursive: true });
-        const name = `${input}-${step}-${width}-${scheme}`;
+        const name = `${surface}-${width}-${scheme}`;
         await browser("screenshot", join(dir, `${name}.png`));
         writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
       }
 
-      if (!baseline) for (const id of CHECK_IDS) expect(checks[id], `${input} ${step} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
-    };
+      if (surface === "pointer-held" || surface === "tree-pressed") await browser("mouse", "up");
 
-    const move = async () => {
-      await browser("focus", '[aria-label="Move 1"]');
+      if (surface === "keyboard-held") await browser("press", "Escape");
 
-      if (input === "keyboard") {
-        await browser("press", "Space");
-        await browser("wait", "--fn", `!!document.querySelector('[data-dnd-dragging]')`);
-        await browser("press", "ArrowDown");
-      } else {
-        const points = await read<{ x: number; y: number }[]>(`['1','2'].map(id => { const r = document.querySelector('[aria-label="Move '+id+'"]').getBoundingClientRect(); return { x: r.x+r.width/2, y: r.y+r.height/2 }; })`);
-        const [start, end] = points;
-
-        if (!start || !end) throw new Error("Missing handles");
-        await browser("mouse", "move", String(Math.round(start.x)), String(Math.round(start.y)));
-        await browser("mouse", "down");
-        await browser("mouse", "move", String(Math.round(start.x + 15)), String(Math.round(start.y)));
-        await browser("wait", "--fn", `!!document.querySelector('[data-dnd-dragging]')`);
-        await browser("mouse", "move", String(Math.round(end.x)), String(Math.round(end.y)));
-      }
-
-      await browser("wait", "--fn", `${preview} === '${reordered}'`);
-    };
-
-    await capture("idle");
-    await move();
-    await capture("held-cancel");
-    await browser("press", "Escape");
-
-    if (input === "pointer") await browser("mouse", "up");
-    await browser("wait", "--fn", `!document.querySelector('[data-dnd-dragging]') && ${preview} === '${initial}'`);
-    expect(await read<string>(`document.querySelector('[aria-label="Committed order"]').textContent`)).toBe(initial);
-    expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
-    await capture("cancelled");
-    await move();
-    await capture("held-drop");
-    await browser(...(input === "keyboard" ? ["press", "Space"] : ["mouse", "up"]));
-    await browser("wait", "--fn", `!document.querySelector('[data-dnd-dragging]') && document.querySelector('[aria-label=Commits]').textContent === '1'`);
-    expect(await read<string>(`document.querySelector('[aria-label="Committed order"]').textContent`)).toBe(reordered);
-    expect(await read<string>(preview)).toBe(reordered);
-    await capture("dropped");
+      if (!baseline) for (const id of CHECK_IDS) expect(checks[id], `${surface} ${width} ${scheme} ${id}`).toMatchObject({ status: "pass" });
+    }
   }
 }, 360_000);

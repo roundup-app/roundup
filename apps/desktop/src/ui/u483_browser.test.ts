@@ -63,18 +63,33 @@ it("u483_three_level_keyboard_walk", async () => {
 
   await at("Alpha");
 
-  for (const [key, name] of [["ArrowRight", "Alpha"], ["ArrowRight", "Beta"], ["ArrowRight", "Beta"], ["ArrowRight", "Cedar"], ["ArrowLeft", "Beta"], ["ArrowLeft", "Beta"], ["ArrowDown", "Delta"], ["ArrowUp", "Beta"], ["ArrowLeft", "Alpha"], ["End", "Echo"], ["Home", "Alpha"], ["e", "Echo"], ["c", "Echo"]]) {
-    await browser("press", key!);
-    await at(name!);
+  const steps: [string, string, string, boolean, boolean][] = [
+    ["ArrowRight", "Alpha", "true", true, false],
+    ["ArrowRight", "Beta", "false", true, false],
+    ["ArrowRight", "Beta", "true", true, true],
+    ["ArrowRight", "Cedar", "leaf", true, true],
+    ["ArrowLeft", "Beta", "true", true, true],
+    ["ArrowLeft", "Beta", "false", true, false],
+    ["ArrowDown", "Delta", "leaf", true, false],
+    ["ArrowUp", "Beta", "false", true, false],
+    ["ArrowLeft", "Alpha", "true", true, false],
+    ["End", "Echo", "leaf", true, false],
+    ["Home", "Alpha", "true", true, false],
+    ["e", "Echo", "leaf", true, false],
+    ["c", "Echo", "leaf", true, false],
+  ];
 
-    if (key === "ArrowRight" && name === "Alpha") expect(await read<string>(`document.querySelector('[data-id=Alpha]').getAttribute('aria-expanded')`)).toBe("true");
+  for (const [key, name, expanded, betaVisible, cedarVisible] of steps) {
+    await browser("press", key);
+    await at(name);
 
-    if (key === "ArrowRight" && name === "Beta" && await read<string>(`document.querySelector('[data-id=Beta]').getAttribute('aria-expanded')`) === "true") {
-      await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').checkVisibility()`);
-      expect(await read<boolean>(`document.querySelector('[data-id=Cedar]').checkVisibility()`)).toBe(true);
+    if (expanded !== "leaf") {
+      await browser("wait", "--fn", `document.querySelector('[data-id=${name}]').getAttribute('aria-expanded') === '${expanded}'`);
+      expect(await read<string>(`document.querySelector('[data-id=${name}]').getAttribute('aria-expanded')`)).toBe(expanded);
     }
 
-    if (key === "ArrowLeft" && name === "Beta" && await read<string>(`document.querySelector('[data-id=Beta]').getAttribute('aria-expanded')`) === "false") expect(await read<boolean>(`document.querySelector('[data-id=Cedar]').checkVisibility()`)).toBe(false);
+    expect(await read<boolean>(`document.querySelector('[data-id=Beta]').checkVisibility()`)).toBe(betaVisible);
+    expect(await read<boolean>(`document.querySelector('[data-id=Cedar]').checkVisibility()`)).toBe(cedarVisible);
   }
 
   await load();
