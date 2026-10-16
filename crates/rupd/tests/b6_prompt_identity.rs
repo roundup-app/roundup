@@ -5277,3 +5277,49 @@ async fn b6_action_history_uses_the_door_process_identity_despite_a_user_claim()
         "the Door read another Actor's receipt: {reply}"
     );
 }
+
+#[tokio::test]
+async fn b6_a_door_stop_waits_for_takeover_release() {
+    let (run, caller) = order_child().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let terminals = run.user.request("terminal.list", ()).await.unwrap();
+    let still_running = terminals
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["id"] == run.terminal && t["running"] == true);
+    assert!(
+        still_running,
+        "Door Stop affected the child during Takeover"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let after = run.user.request("terminal.list", ()).await.unwrap();
+    let stopped = !after
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["id"] == run.terminal && t["running"] == true);
+    run.finish().await;
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert_eq!(receipt["method"], "agent.stop");
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed");
+    assert!(stopped, "released Stop did not end the original Terminal");
+}
