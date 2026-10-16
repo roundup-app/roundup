@@ -108,15 +108,16 @@ class DownstreamDraft(unittest.TestCase):
 
 
 class Permissions(unittest.TestCase):
-    def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
-        # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
+    def test_l23_build_and_fix_runs_run_the_engine_with_the_max_token_and_the_chatgpt_login(self):
+        # builder.test.py proves `builder.py engine` runs Sonnet first, falls back to Codex and asks the App for workflow changes.
         for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix', '$RUNNER_TEMP/main/loop')):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             self.assertNotIn('claude-code-action', source, workflow)
             self.assertIn("builder: 'true'", source, workflow)
-            step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
+            step = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
             self.assertIn('CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}', step, workflow)
-            self.assertIn(f'python3 "{loop}/builder.py" codex gpt-6.1-sol', step, workflow)
+            self.assertIn('CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}', step, workflow)
+            self.assertIn(f'python3 "{loop}/builder.py" engine', step, workflow)
             self.assertNotIn('github.token', step, workflow)
 
     def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):

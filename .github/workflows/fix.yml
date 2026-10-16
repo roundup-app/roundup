@@ -3,7 +3,7 @@ run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) 
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
 # draft its run left unfinished. A PR gets three fix runs that worked; the fourth cause closes the PR, deletes its
-# branch and hands its Issue the causes. The fix run, on Codex, pushes with the Claude App's token, so its push starts check, then review, again.
+# branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
 # A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt.
 on:
@@ -119,17 +119,17 @@ jobs:
         run: |
           bash .loop-main/loop/author.sh "builder-$GITHUB_RUN_ID"
           mv .loop-main "$RUNNER_TEMP/main"
-      # L23: Codex on the user's ChatGPT plan.
-      - id: codex
-        name: Run Codex
+      # L23: Claude Code on Sonnet with the Max token, Codex on the user's ChatGPT plan when it did no work.
+      - id: engine
+        name: Run Claude Code, then Codex
         # L23: inside the job's two hours, so `keep` runs after the longest run.
         timeout-minutes: 105
         env:
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
-          # A Builder's real-`claude` observers sign in with it.
+          # Claude Code runs on it, and a Builder's real-`claude` observers sign in with it.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PROMPT: ${{ needs.task.outputs.prompt }}
-        run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/main/loop/builder.py" codex gpt-6.1-sol
+        run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/main/loop/builder.py" engine
       # L82: a fix run that outlives the App token's hour keeps its commits through main's `keep` (L23).
       - id: keep
         if: always()
@@ -140,7 +140,7 @@ jobs:
       - id: ran
         if: always()
         env:
-          EXECUTION_FILE: ${{ steps.codex.outputs.execution_file }}
+          EXECUTION_FILE: ${{ steps.engine.outputs.execution_file }}
         run: |
           ran=false
           if python3 "$RUNNER_TEMP/main/loop/builder.py" worked "$EXECUTION_FILE"; then ran=true; fi
