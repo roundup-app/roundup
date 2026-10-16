@@ -41,3 +41,15 @@ it("u492_configurable_provider_lifecycle", async () => {
   expect(activate).toHaveBeenCalledExactlyOnceWith("a");
   expect(screen.queryByText("Updated")).toBeNull();
 });
+
+it("u492_focus_retains_accessible_activation", async () => {
+  vi.useFakeTimers();
+  const toast = createToast({ limit: 3, newestFirst: true });
+  render(() => <ToastProvider toast={toast} label="Updates" />);
+  toast.show({ id: "a", name: "Agent", content: "Changed" });
+  await vi.advanceTimersToNextFrame();
+  const button = screen.getByRole("button");
+  button.focus();
+  await vi.advanceTimersToNextFrame();
+  expect(document.activeElement).toBe(button);
+});
