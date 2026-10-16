@@ -411,6 +411,12 @@ The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 **Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
 An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
 
+**RPC output intake** (`Client::take_output`):
+The Client's optional bounded Terminal output receiver, taken before subscribing.
+It reports lag separately from control events and ordinary replies; retained events
+keep their Terminal ids and byte offsets for Snapshot recovery. It does not select
+a Terminal or change the Daemon's subscription contract.
+
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 
