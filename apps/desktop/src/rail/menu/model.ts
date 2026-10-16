@@ -136,17 +136,23 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const canClear = (current: MenuState) => isClearable(current.node);
 
+  /** U350: the Workstream whose reason prompt the Rail shows, opened from its row menu or its clear icon. */
+  const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
+
   const chooseClear = () => {
     const current = state();
 
     close();
 
-    if (current) clearingOf(app, events, current.node.id).open();
+    if (current) requestClear(current.node);
   };
 
   /** U427: the Rail's clear icon opens U350's reason prompt for the Workstream. */
   const requestClear = (node: RailNode) => {
-    if (isClearable(node)) clearingOf(app, events, node.id).open();
+    if (!isClearable(node)) return;
+
+    setClearTarget(node);
+    clearingOf(app, events, node.id).open();
   };
 
   const chooseRemove = () => {
@@ -236,6 +242,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseRemove,
     chooseClear,
     canClear,
+    clearTarget,
     requestRemove,
     requestStop,
     requestClear,
