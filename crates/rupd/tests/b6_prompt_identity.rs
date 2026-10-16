@@ -2948,7 +2948,9 @@ async fn b6_wire_door_decision_calls_wait_for_all_earlier_resizes() {
         let params = match method {
             "decision.capture" => json!({"id":decision["id"]}),
             "decision.answers" => json!({"agent":run.child}),
-            _ => json!({"id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }}),
+            _ => {
+                json!({"id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }})
+            }
         };
         frames.push(json!({"id":110,"method":method,"params":params}));
         frames.push(json!({"id":111,"method":"rail.tree"}));
