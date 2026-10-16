@@ -161,7 +161,7 @@ it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
     const bytes = Buffer.alloc(16_384, 97);
     let sent = 0;
     let pendingWrite = false;
-    const socketClosed = once(socket, "close");
+    const socketClosed = new Promise<void>((resolve) => socket.once("close", resolve));
 
     // Respect socket backpressure. A completed write is the send barrier; a
     // pending write after HTTP saturation proves the dedicated connection holds.
@@ -187,8 +187,10 @@ it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
     const rpc = await bound(fetch(`${real.base}/__daemon/rpc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "daemon.ping" }) }));
     expect(await rpc.json()).toEqual({ result: "control-reply" });
     expect(sent - before).toBeLessThan(32);
+    expect([socket.destroyed, response.destroyed]).toEqual([false, false]);
+    expect(real.responses[0]!.writableNeedDrain).toBe(true);
     response.destroy();
-    socket.destroy();
+    await bound(socketClosed);
     await bound(flood);
 
     // Recovery is explicit: discontinuous bytes fail the body before a second
@@ -210,7 +212,6 @@ it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
     oversized.socket.write(" ".repeat(262_145));
     await bound(rejected);
     expect(oversized.response.complete).toBe(false);
-
   } finally { await real.close(); }
 }, 30_000);
 
