@@ -127,8 +127,9 @@ describe("u136 the existing screens pass", () => {
         await mount(seed, settings);
         const checks = runChecks();
 
+        // Non-first-run D5/D10 need painted boxes: u136_<seed>_<scheme>_d5_d10_on_painted_layout_at_<width>_by_<height> in u137_checks.test.tsx retains those proofs.
         // D12 and D14 measure the Shelf rows' boxes, which jsdom has none of (U360); the harness page measures them.
-        for (const id of CHECK_IDS.filter((one) => one !== "D12" && one !== "D14")) expect(checks[id], `${id} ${JSON.stringify(checks[id])} on ${seed} ${settings.join() || "light"}`).toMatchObject({ status: "pass" });
+        for (const id of CHECK_IDS.filter((one) => one !== "D12" && one !== "D14" && (seed === "first-run" || (one !== "D5" && one !== "D10")))) expect(checks[id], `${id} ${JSON.stringify(checks[id])} on ${seed} ${settings.join() || "light"}`).toMatchObject({ status: "pass" });
       // Dense jsdom style measurements need time to return their Check results.
       }, 15_000);
     }

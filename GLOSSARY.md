@@ -387,6 +387,12 @@ complete prompt, request kind (`RequestKind`: question or permission), requestin
 Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
 Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
 
+**Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
+An `ask_user` question the user reads and answers in its Agent's primary Terminal.
+The answer belongs to the original Decision and Attempt and retains its authenticated
+answering Actor. `AskCall.terminal` correlates that waiting call with its form and
+grants no answering authority.
+
 **Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
 The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
 
