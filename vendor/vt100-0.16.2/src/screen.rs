@@ -547,6 +547,50 @@ impl Screen {
         self.grid().visible_cell(crate::grid::Pos { row, col })
     }
 
+    /// Annotates a cell in the active drawing grid, ignoring the scrollback
+    /// viewport. Returns false for an out-of-bounds position. This changes no
+    /// text, attributes, cursor or callbacks. Use with scrollback set to zero
+    /// when reading back through `cell`, which addresses the visible viewport.
+    /// The opaque value can be a raw source byte offset; the library never
+    /// interprets it. Existing grid operations move and invalidate annotations.
+    pub fn set_cell_source(
+        &mut self,
+        row: u16,
+        col: u16,
+        source: Option<u64>,
+    ) -> bool {
+        if let Some(cell) = self
+            .grid_mut()
+            .drawing_cell_mut(crate::grid::Pos { row, col })
+        {
+            cell.source = source;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns the source annotation of a visible row, or None for an
+    /// unannotated/out-of-bounds row. Like `cell`, this respects scrollback.
+    #[must_use]
+    pub fn row_source(&self, row: u16) -> Option<u64> {
+        self.grid().visible_row(row).and_then(|row| row.source)
+    }
+
+    /// Annotates a row in the active drawing grid, ignoring the scrollback
+    /// viewport. Returns false out of bounds. Row annotations follow whole-row
+    /// moves, including scrollback. New rows and whole-row clear operations
+    /// have none. Cell-level edits retain it, even when erasing every cell.
+    /// Clone preserves it; ANSI formatting/restoration does not export it.
+    pub fn set_row_source(&mut self, row: u16, source: Option<u64>) -> bool {
+        if let Some(row) = self.grid_mut().drawing_row_mut(row) {
+            row.source = source;
+            true
+        } else {
+            false
+        }
+    }
+
     /// Returns whether the text in row `row` should wrap to the next line.
     #[must_use]
     pub fn row_wrapped(&self, row: u16) -> bool {
