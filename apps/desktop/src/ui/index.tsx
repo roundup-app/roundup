@@ -66,3 +66,7 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
 };
+
+export { Splitter } from "./Splitter";
+
+export { createToast, ToastProvider } from "./Toast";
