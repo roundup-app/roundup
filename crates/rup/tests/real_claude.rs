@@ -1676,6 +1676,12 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
+    // Hold child Digests so Clear cannot race a startup or Todo/Pad update turn.
+    // Clear steers the Door directly; Takeover only holds Message delivery here.
+    client
+        .request("takeover.begin", json!({"agent": door}))
+        .await
+        .unwrap();
     let model = project.model.as_ref().unwrap();
     let first = model.tool_result("toolu_a32_child").await;
     let a: contracts::agent::RailNode =
@@ -1751,7 +1757,7 @@ async fn a32_no_handoff_times_out_and_changes_nothing() {
         _ => None,
     })
     .await;
-    assert_eq!(failed.code, rpc::code::NOT_ACKED as i32);
+    assert_eq!(failed.code, rpc::code::NOT_ACKED as i32, "{failed:?}");
     let after = rail_tree(&client).await;
     let shape = |nodes: Vec<contracts::agent::RailNode>| {
         nodes
