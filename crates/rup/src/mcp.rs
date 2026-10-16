@@ -284,10 +284,13 @@ fn offered_tools() -> Vec<Offered> {
             "rail.remove",
             "Remove a node in your Reach, never yourself. Its children move to its parent.",
         ),
-        offered::<agent::NodeId>("agent.stop", "Stop an Agent in your Reach, never yourself."),
+        offered::<agent::NodeId>(
+            "agent.stop",
+            "Stop an Agent in your Reach, never yourself. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+        ),
         offered::<agent::NodeId>(
             "agent.interrupt",
-            "Interrupt the turn of an Agent in your Reach.",
+            "Interrupt the turn of an Agent in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<agent::PromptParams>(
             "agent.prompt",
@@ -437,8 +440,6 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
                 "disabled"
             }
         ),
-        "agent.stop" => format!("stopped Agent {id}"),
-        "agent.interrupt" => format!("interrupted Agent {id}"),
         "agent.prompt" => format!("sent prompt to Agent {id}"),
         "agent.discard" => format!("discarded Worktree of Agent {id}"),
         "rail.move" => format!(

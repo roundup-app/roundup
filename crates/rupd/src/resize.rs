@@ -1,4 +1,4 @@
-//! B6: one durable ledger for held Door resizes and renames, using per-child exclusion.
+//! B6: one durable ledger for held Door resizes, renames and stops, using per-child exclusion.
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -40,6 +40,14 @@ impl HeldActions {
                     if matches!(accepted.action.call, HeldCall::Rename(_)) =>
                 {
                     continue;
+                }
+                ResizeOutcome::Waiting { .. }
+                    if matches!(
+                        accepted.action.call,
+                        HeldCall::Stop(_) | HeldCall::Interrupt(_)
+                    ) =>
+                {
+                    "original Attempt did not survive Daemon restart"
                 }
                 ResizeOutcome::Waiting { .. } => "original Terminal did not survive Daemon restart",
                 ResizeOutcome::InProgress => {
@@ -213,30 +221,32 @@ impl Daemon {
         )
     }
 
-    pub(crate) async fn hold_rename(
+    pub(crate) async fn hold_child_action(
         &self,
         conn: &Conn,
         child: &str,
+        method: &str,
         params: Value,
     ) -> Result<Option<Value>, RpcError> {
         if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
             self.release_actions(child).await?;
             return Ok(None);
         }
-        let rename: contracts::agent::RenameParams = rpc::params(params)?;
-        self.agents.guard_reach(&conn.actor, child, true)?;
+        let call = match method {
+            "rail.rename" => HeldCall::Rename(rpc::params(params)?),
+            "agent.stop" => HeldCall::Stop(rpc::params(params)?),
+            "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
+            _ => return Err(RpcError::method_not_found(method)),
+        };
+        self.agents
+            .guard_reach(&conn.actor, child, matches!(call, HeldCall::Rename(_)))?;
         let node = self
             .rail()
             .await?
             .into_iter()
             .find(|n| n.id == child)
             .ok_or_else(|| RpcError::not_found(format!("child {child}")))?;
-        rpc::reply(
-            &self
-                .held_actions
-                .accept(&conn.actor, &node, HeldCall::Rename(rename))?,
-        )
-        .map(Some)
+        rpc::reply(&self.held_actions.accept(&conn.actor, &node, call)?).map(Some)
     }
 
     pub(crate) async fn resize_history(
@@ -282,20 +292,21 @@ impl Daemon {
                     .await?,
             )
             .map_err(RpcError::internal)?;
-            let child_exited = !matches!(action.call, HeldCall::Rename(_))
+            let child_exited = matches!(action.call, HeldCall::Resize(_))
                 && accepted
                     .child_terminal
                     .as_ref()
                     .is_some_and(|id| !terminals.iter().any(|t| &t.id == id && t.running));
             let reason = match node {
-                _ if child_exited => Some("child exited before resize release"),
+                _ if child_exited => Some("child exited before action release"),
                 None => Some("child was removed"),
                 Some(n)
                     if !matches!(action.call, HeldCall::Rename(_))
                         && (n.attempt != accepted.attempt
-                            || n.terminal_id != accepted.child_terminal) =>
+                            || matches!(action.call, HeldCall::Resize(_))
+                                && n.terminal_id != accepted.child_terminal) =>
                 {
-                    Some("child Attempt changed before resize release")
+                    Some("child Attempt changed before action release")
                 }
                 Some(n)
                     if !matches!(action.call, HeldCall::Rename(_))
@@ -303,7 +314,7 @@ impl Daemon {
                             .as_ref()
                             .is_some_and(|s| s.kind == contracts::Kind::Done) =>
                 {
-                    Some("child exited before resize release")
+                    Some("child exited before action release")
                 }
                 _ => None,
             };
@@ -320,16 +331,33 @@ impl Daemon {
                         }
                     } else {
                         // Reach is checked again at execution: moving a child does not grant authority.
-                        self.agents.guard_reach(&accepted.actor, child, true)?;
+                        self.agents.guard_reach(
+                            &accepted.actor,
+                            child,
+                            matches!(action.call, HeldCall::Rename(_)),
+                        )?;
                     }
                     self.held_actions
                         .outcome(&action.id, ResizeOutcome::InProgress)?;
                     self.before_prompt_effect(&accepted.actor, method, &params)
                         .await?;
-                    let namespace = method.split('.').next().unwrap_or_default();
-                    self.modules[namespace]
-                        .call(&self.ctx(accepted.actor), method, params.clone())
-                        .await?;
+                    let ctx = self.ctx(accepted.actor);
+                    if matches!(action.call, HeldCall::Stop(_) | HeldCall::Interrupt(_)) {
+                        let attempt = accepted
+                            .attempt
+                            .as_deref()
+                            .ok_or_else(|| RpcError::conflict("original Attempt is unavailable"))?;
+                        if matches!(action.call, HeldCall::Stop(_)) {
+                            self.agents.stop_attempt(&ctx, child, attempt).await?;
+                        } else {
+                            self.agents.interrupt_attempt(&ctx, child, attempt).await?;
+                        }
+                    } else {
+                        let namespace = method.split('.').next().unwrap_or_default();
+                        self.modules[namespace]
+                            .call(&ctx, method, params.clone())
+                            .await?;
+                    }
                     self.after_action_effect(method).await?;
                     Ok::<(), RpcError>(())
                 }
@@ -381,10 +409,11 @@ impl Daemon {
         let Some(gate) = &self.prompt_effect_gate else {
             return Ok(());
         };
-        let boundary = if method == "rail.rename" {
-            "after-rename"
-        } else {
-            "after-resize"
+        let boundary = match method {
+            "rail.rename" => "after-rename",
+            "agent.stop" => "after-stop",
+            "agent.interrupt" => "after-interrupt",
+            _ => "after-resize",
         };
         if std::fs::read_to_string(gate).ok().as_deref() != Some(boundary) {
             return Ok(());
@@ -414,6 +443,45 @@ impl Daemon {
         .map_err(RpcError::internal)?;
         for accepted in self.held_actions.accepted(None)? {
             if !matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. }) {
+                continue;
+            }
+            if matches!(
+                accepted.action.call,
+                HeldCall::Stop(_) | HeldCall::Interrupt(_)
+            ) {
+                let child = &accepted.action.agent;
+                let _child = self.child_effects(child).write_owned().await;
+                if !self.held_actions.accepted(Some(child))?.iter().any(|a| {
+                    a.action.id == accepted.action.id
+                        && matches!(a.action.outcome, ResizeOutcome::Waiting { .. })
+                }) {
+                    continue;
+                }
+                let node = self.rail().await?.into_iter().find(|n| &n.id == child);
+                let reason = match node {
+                    None => Some("child was removed before action release"),
+                    Some(n) if n.attempt != accepted.attempt => {
+                        Some("original Attempt changed before action release")
+                    }
+                    Some(n)
+                        if n.status
+                            .as_ref()
+                            .is_some_and(|s| s.kind == contracts::Kind::Done) =>
+                    {
+                        Some("original Attempt is stopped or stopping")
+                    }
+                    _ => None,
+                };
+                if let Some(reason) = reason {
+                    self.held_actions.outcome(
+                        &accepted.action.id,
+                        ResizeOutcome::Dropped {
+                            reason: reason.into(),
+                        },
+                    )?;
+                } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                    self.release_actions(child).await?;
+                }
                 continue;
             }
             if matches!(accepted.action.call, HeldCall::Rename(_)) {
@@ -456,7 +524,7 @@ impl Daemon {
         let pending = self.held_actions.accepted(None)?;
         for accepted in pending {
             if matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. })
-                && !matches!(accepted.action.call, HeldCall::Rename(_))
+                && matches!(accepted.action.call, HeldCall::Resize(_))
                 && (original_terminal(&accepted.action.call) == Some(terminal)
                     || accepted.child_terminal.as_deref() == Some(terminal))
             {
@@ -477,7 +545,7 @@ impl Daemon {
                     self.held_actions.outcome(
                         &accepted.action.id,
                         ResizeOutcome::Dropped {
-                            reason: "child or original Terminal exited before resize release"
+                            reason: "child or original Terminal exited before action release"
                                 .into(),
                         },
                     )?;
@@ -490,7 +558,9 @@ impl Daemon {
 
 fn resize_action(action: HeldAction) -> Result<ResizeAction, RpcError> {
     let HeldCall::Resize(resize) = action.call else {
-        return Err(RpcError::internal("rename cannot be read as a resize"));
+        return Err(RpcError::internal(
+            "child action cannot be read as a resize",
+        ));
     };
     Ok(ResizeAction {
         id: action.id,
@@ -506,6 +576,8 @@ fn action_method(call: &HeldCall) -> &'static str {
     match call {
         HeldCall::Resize(_) => "terminal.resize",
         HeldCall::Rename(_) => "rail.rename",
+        HeldCall::Stop(_) => "agent.stop",
+        HeldCall::Interrupt(_) => "agent.interrupt",
     }
 }
 
@@ -513,6 +585,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
     match call {
         HeldCall::Resize(params) => serde_json::to_value(params),
         HeldCall::Rename(params) => serde_json::to_value(params),
+        HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
     }
     .map_err(RpcError::internal)
 }
@@ -520,6 +593,6 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
 fn original_terminal(call: &HeldCall) -> Option<&str> {
     match call {
         HeldCall::Resize(params) => Some(&params.id),
-        HeldCall::Rename(_) => None,
+        HeldCall::Rename(_) | HeldCall::Stop(_) | HeldCall::Interrupt(_) => None,
     }
 }
