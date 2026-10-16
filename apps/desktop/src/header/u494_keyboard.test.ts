@@ -49,3 +49,33 @@ it("u495_menu_pointer_keyboard_and_return", async () => {
   await browser("press", "Escape");
   await wait(`!document.querySelector('[role=menu]') && document.activeElement === document.querySelector('[role=tab]')`);
 }, 60_000);
+
+for (const reverse of [false, true]) for (const surface of ["models", "menu"]) it(`u496_top_layer_escape_is_order_independent_${surface}_${reverse}`, async () => {
+  await browser("open", url(`/src/header/u496.html${reverse ? '?reverse' : ''}`));
+  await wait(`!!document.querySelector('#origin')`);
+  await browser("click", "#origin");
+  await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
+  await browser("eval", `document.querySelector('[role=tab]').focus()`);
+  await browser("press", "Shift+F10");
+  await wait(`!!document.querySelector('[role=menu]')`);
+  if (surface === "models") {
+    await browser("press", "ArrowDown");
+    await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
+    await browser("press", "Enter");
+    await wait(`!!document.querySelector('[role=dialog] select')`);
+  }
+  await browser("press", "Escape");
+  await wait(`!document.querySelector('[role=${surface === 'models' ? 'dialog' : 'menu'}]')`);
+  expect(await read<string>(`document.querySelector('.drawer').dataset.open`)).toBe("true");
+  expect(await read<string>(`document.querySelector('.drawer p').textContent`)).toBe("Unchanged Drawer content");
+}, 90_000);
+
+for (const target of ["input", "textarea", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
+  await browser("open", url('/src/header/u496.html'));
+  await wait(`!!document.querySelector('#origin')`);
+  await browser("click", "#origin");
+  await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
+  await browser("eval", `document.querySelector(${JSON.stringify(target === '.xterm' ? target : '.drawer ' + target)}).focus()`);
+  await browser("press", "Escape");
+  expect(await read<string>(`document.querySelector('.drawer').dataset.open`)).toBe("true");
+}, 60_000);
