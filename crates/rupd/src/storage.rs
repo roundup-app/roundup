@@ -123,6 +123,7 @@ mod tests {
                 .unwrap(),
             rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(3).unwrap())
         );
+        standalone::write_ask(&db);
         let ws = call(
             &daemon,
             "rail.createWorkstream",
@@ -245,6 +246,7 @@ mod tests {
         );
         assert_eq!(daemon.touches.sequence().unwrap(), touch_sequence);
         let db = Connection::open(dir.path().join("project.db")).unwrap();
+        standalone::read_ask(&db);
         assert_eq!(
             db.query_row("SELECT newest FROM pad_cursors WHERE door=?", [&ws], |r| {
                 r.get::<_, i64>(0)
