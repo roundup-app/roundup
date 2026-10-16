@@ -235,6 +235,7 @@ export const copy = {
   readOnly: ": Read-only",
   takeOver: "Take control",
   selectAnAgentOrATerminal: "Select an Agent or a Terminal",
+  selectCommand: "Select command",
   creatingWorkstream: "Creating Workstream…",
   noWorkstreamYet: "No Workstream yet",
   newWorkstreamWord: " New Workstream",
