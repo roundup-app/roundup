@@ -2918,8 +2918,15 @@ async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
 }
 
 #[tokio::test]
-async fn b6_wire_door_answers_wait_for_all_earlier_resizes() {
-    for kind in ["permission", "ask_user"] {
+async fn b6_wire_door_decision_calls_wait_for_all_earlier_resizes() {
+    for (kind, method) in [
+        ("permission", "decision.capture"),
+        ("ask_user", "decision.capture"),
+        ("permission", "decision.answers"),
+        ("ask_user", "decision.answers"),
+        ("permission", "decision.answer"),
+        ("ask_user", "decision.answer"),
+    ] {
         let (run, caller) = door_terminal().await;
         let (door, terminal) = start_answer_door(&run).await;
         let (decision, waiting) = run.open(kind).await;
@@ -2938,9 +2945,12 @@ async fn b6_wire_door_answers_wait_for_all_earlier_resizes() {
         for cols in 102..110 {
             frames.push(json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}}));
         }
-        frames.push(json!({"id":110,"method":"decision.answer","params":{
-            "id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }
-        }}));
+        let params = match method {
+            "decision.capture" => json!({"id":decision["id"]}),
+            "decision.answers" => json!({"agent":run.child}),
+            _ => json!({"id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }}),
+        };
+        frames.push(json!({"id":110,"method":method,"params":params}));
         frames.push(json!({"id":111,"method":"rail.tree"}));
         std::fs::write(
             run.dir.path().join("peer-request"),
@@ -2976,6 +2986,9 @@ async fn b6_wire_door_answers_wait_for_all_earlier_resizes() {
         .await
         .unwrap();
         first.await.unwrap().unwrap();
+        if method != "decision.answer" {
+            run.user_answer(&decision, kind).await;
+        }
         waiting.await.unwrap().unwrap();
         for reply in replies.as_array().unwrap() {
             assert!(reply.get("result").is_some(), "{reply}");
@@ -2994,7 +3007,7 @@ async fn b6_wire_door_answers_wait_for_all_earlier_resizes() {
         assert_eq!(
             order,
             [1, 111, 102, 103, 104, 105, 106, 107, 108, 109, 110],
-            "{kind}: answer overtook an earlier wire resize"
+            "{kind} {method}: Decision call overtook an earlier wire resize"
         );
     }
 }
