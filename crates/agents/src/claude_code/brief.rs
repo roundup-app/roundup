@@ -205,7 +205,14 @@ const TOOLS: &[(&str, &str)] = &[
         "terminal_write",
         "type base64 `data` into a Terminal you or your Reach own",
     ),
-    ("terminal_resize", "resize a Terminal you or your Reach own"),
+    (
+        "terminal_resize",
+        "resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed",
+    ),
+    (
+        "terminal_resizeHistory",
+        "read your durable resize outcomes, including Takeover waits and drop reasons",
+    ),
     (
         "terminal_kill",
         "stop the program of a Terminal you or your Reach own",
