@@ -55,3 +55,24 @@ describe("u113 a reload and a Reopen", () => {
     expect(rpcCalls(app, "terminal.write")).toEqual([]);
   });
 });
+
+
+describe("u468 refused Door answers", () => {
+  it("u468_a_failed_door_answer_keeps_the_request_actionable", async () => {
+    const { app } = await mountApp([decision("d1", "a", {
+      failure: {
+        attempt: "attempt-a", answered_by: { kind: "agent", id: "r", parent: null },
+        failed_at: 2, error_code: -32602, message: "answer is allow or deny, with no note",
+      },
+    })]);
+    select("alpha");
+
+    await waitFor(() => expect(card()?.textContent).toContain("harbor"));
+    expect(within(card()!).getByRole("alert").textContent).toContain("answer is allow or deny, with no note");
+    expect(card()?.textContent).toContain("rm -rf build");
+    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+
+    await waitFor(() => expect(card()).toBeNull());
+    expect(rpcCalls(app, "decision.answer")).toEqual([{ id: "d1", answer: "allow", proof: app.proof.value }]);
+  });
+});
