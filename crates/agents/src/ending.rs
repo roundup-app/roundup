@@ -8,6 +8,18 @@ pub(super) struct State {
 }
 
 impl Agents {
+    /// B6: check the original Attempt under the run lock that claims Interrupt's Escape.
+    pub async fn interrupt_attempt(
+        &self,
+        ctx: &Ctx,
+        id: &str,
+        attempt: &str,
+    ) -> Result<(), RpcError> {
+        self.may_steer(&ctx.actor, id, "Interrupt")?;
+        self.shared.interrupt(id, Some(attempt)).await?;
+        Self::touch_rail(ctx, id)
+    }
+
     /// B6: check the original Attempt under the same locks that claim Stop's effect.
     pub async fn stop_attempt(&self, ctx: &Ctx, id: &str, attempt: &str) -> Result<(), RpcError> {
         self.shared.guard_reach(&ctx.actor, id, false)?;

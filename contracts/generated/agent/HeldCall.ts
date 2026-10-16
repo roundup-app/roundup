@@ -3,4 +3,4 @@ import type { ResizeParams } from "../terminal/ResizeParams";
 import type { NodeId } from "./NodeId";
 import type { RenameParams } from "./RenameParams";
 
-export type HeldCall = { "method": "terminal.resize", "params": ResizeParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.stop", "params": NodeId };
+export type HeldCall = { "method": "terminal.resize", "params": ResizeParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.stop", "params": NodeId } | { "method": "agent.interrupt", "params": NodeId };

@@ -7,4 +7,4 @@ import type { RenameParams } from "./RenameParams";
 /**
  * B6: durable acceptance of an action that waits for a child's Takeover.
  */
-export type HeldAction = { id: string, agent: string, outcome: ResizeOutcome, } & ({ "method": "terminal.resize", "params": ResizeParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.stop", "params": NodeId });
+export type HeldAction = { id: string, agent: string, outcome: ResizeOutcome, } & ({ "method": "terminal.resize", "params": ResizeParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.stop", "params": NodeId } | { "method": "agent.interrupt", "params": NodeId });

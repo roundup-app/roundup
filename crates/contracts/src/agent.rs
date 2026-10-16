@@ -551,4 +551,6 @@ pub enum HeldCall {
     Rename(RenameParams),
     #[serde(rename = "agent.stop")]
     Stop(NodeId),
+    #[serde(rename = "agent.interrupt")]
+    Interrupt(NodeId),
 }
