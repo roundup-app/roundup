@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, For, on, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -25,9 +25,11 @@ const readable = (args: string): string => {
 
 /** The Decision an Agent waits on, with the buttons that answer it; `focusTerminal` hands the keyboard to that Agent's Terminal. */
 export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void }) => {
-  const { decisions, daemonExit } = useConnectedProject();
-  const id = () => props.decision.id;
-  const asked = createMemo(() => (props.decision.tool === "ask_user" ? questionOf(props.decision.args) : null));
+  const { decisions, daemonExit, rail } = useConnectedProject();
+  const id = createMemo(() => props.decision.id);
+  // A refusal refresh changes the Decision, not its question; keep the user's answer draft mounted.
+  const questionArgs = createMemo(() => props.decision.tool === "ask_user" ? props.decision.args : null);
+  const asked = createMemo(on([id, questionArgs], ([, args]) => args === null ? null : questionOf(args)));
   const unreadable = () => props.decision.tool === "ask_user" && asked() === null;
 
   const answers = () => {
@@ -64,6 +66,9 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       </Show>
       <Show when={!props.decision.answerable && !unreadable()}>
         <p class="light">{copy.answerInTheTerminal}</p>
+      </Show>
+      <Show when={props.decision.failure}>
+        {(failure) => <ErrorLine message={copy.answerRefused(rail.nodes.find((node) => node.id === failure().answered_by.id)?.name ?? failure().answered_by.id, failure().message)} />}
       </Show>
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>

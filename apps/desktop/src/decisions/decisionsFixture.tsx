@@ -48,7 +48,7 @@ export const cleared = (id: string, outcome: "allow" | "deny" | "replaced" | "ag
   event({ name: "decision.cleared", data: { id, outcome } });
 
 /** The real App over a fake Daemon holding agents alpha and beta and the Workstream "harbor" with a live Door. */
-export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], prepare: (app: FakeApp) => void = () => {}) => {
+export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], prepare: (app: FakeApp) => void = () => {}, clock: () => number = () => 0) => {
   const app = createFakeApp();
   const emulators = fakeEmulators();
 
@@ -66,7 +66,7 @@ export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], pr
   app.handlers["decision.answer"] = () => null;
   prepare(app);
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={emulators.factory} />);
+  const view = render(() => <App app={app} reducedMotion={() => false} clock={clock} createEmulator={emulators.factory} />);
 
   await waitFor(() => expect(view.container.querySelector(".pane")).not.toBeNull());
   await waitFor(() => expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(3));
