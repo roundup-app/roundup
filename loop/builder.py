@@ -43,6 +43,8 @@ CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # The Issue a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names.
 LINKED = re.compile(r'^(?:Refs|Closes|Fixes) #(\d+)', re.M)
+# A scenario file's heading line, `**<id> <title>.**`, where a scenario starts.
+HEADING = re.compile(r'\*\*([A-Za-z]+[0-9]+[a-z]?) ')
 ATTEMPTS = 3
 # L82: causes about a PR's plumbing, not its work, start a fix run that posts no comment and counts no attempt: a conflict
 # with `main`, and a `rules` failure whose every failed step checks PR shape (a base, `Author-Agent` trailers, scenario ids).
@@ -491,6 +493,66 @@ def pick(most):
     print(json.dumps(choose(rows, taken, free)))
 
 
+def changed_scenarios(pr, head):
+    """Ids, in file order, of the scenarios PR `pr`'s diff adds or changes: the heading above each changed line of a
+    `scenarios/*.md` file at `head`. A deleted heading is a retired scenario and names none."""
+    touched, path, hunk, at = {}, None, False, 0
+    for line in call('pr', 'diff', str(pr)).splitlines():
+        if line.startswith('diff --git'):
+            path, hunk = None, False
+        elif found := re.fullmatch(r'\+\+\+ b/(scenarios/[^/]+\.md)', line):
+            path = found[1]
+        elif found := re.match(r'@@ -\d+(?:,\d+)? \+(\d+)', line):
+            hunk, at = True, int(found[1])
+        elif path and hunk and line.startswith('+'):
+            touched.setdefault(path, []).append(at)
+            at += 1
+        elif path and hunk and line.startswith('-'):
+            if not HEADING.match(line[1:]):
+                touched.setdefault(path, []).append(max(at - 1, 1))
+        elif path and hunk:
+            at += 1
+    ids = []
+    for path, numbers in touched.items():
+        text = call('api', f'repos/{{owner}}/{{repo}}/contents/{path}?ref={head}', '-H',
+                    'Accept: application/vnd.github.raw').splitlines()
+        for number in sorted(set(numbers)):
+            above = [m[1] for line in reversed(text[:number]) if (m := HEADING.match(line))][:1]
+            ids += [i for i in above if i not in ids]
+    return ids
+
+
+def issue_of(branch):
+    """The Issue whose work Key names `build/<key>`, or None."""
+    return next((row['issue'] for row in orders.read_orders() if row['slug'] and f"build/{row['slug']}" == branch), None)
+
+
+def link(pr, issue=None):
+    """L82: the loop writes PR `pr`'s `Refs #<issue>` and `Scenarios:` lines, never the Builder: the Issue is `issue`, else
+    the one the branch's work Key names, else the one the body links; `Scenarios:` comes from that Issue's own line, else
+    from the scenarios the diff adds or changes. A wrong or missing line is replaced in place, with no comment and no fix
+    run; a `Closes` or `Fixes` line already naming the Issue stays. Returns the PR with its new body."""
+    body = original = pr['body'] or ''
+    found = LINKED.search(body)
+    issue = issue or issue_of(pr['headRefName']) or (int(found[1]) if found else None)
+    ids = ''
+    if issue is None:
+        print(f"PR #{pr['number']} names no Issue and no work Key finds one; no Refs line to write", file=sys.stderr)
+    else:
+        if not found or int(found[1]) != issue:
+            body = f"Refs #{issue}\n{re.sub(r'^(?:Refs|Closes|Fixes):? #?\d+.*\n?', '', body, count=1, flags=re.M)}"
+        ids = orders.field(orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')['body'] or '', 'Scenarios', '')
+    ids = ids or ', '.join(changed_scenarios(pr['number'], pr['headRefOid']))
+    if ids and f'Scenarios: {ids}' not in body.splitlines():
+        line = f'Scenarios: {ids}'
+        body = re.sub(r'^Scenarios:.*\n?', '', body, count=1, flags=re.M)
+        body = re.sub(r'^((?:Refs|Closes|Fixes) #\d+.*)$', lambda m: f'{m[1]}\n{line}', body, count=1, flags=re.M) \
+            if LINKED.search(body) else f'{line}\n{body}'
+    if body != original:
+        call('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/pulls/{pr['number']}", '-f', f'body={body}')
+    return dict(pr, body=body)
+
+
 def ended(pr, verdict, run_url):
     """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), and one the
     screen sends back to the loop resumes (`resume`); another draft gets a fix run."""
@@ -533,9 +595,10 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
             except ValueError as error:
                 strike(issue, f'The repair run {run_url} left the order unreadable: {error}.')
         return
-    prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json', 'number,headRefOid,isDraft,body')
+    prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json',
+                    'number,headRefName,headRefOid,isDraft,body')
     if prs:
-        ended(prs[0], verdict, run_url)
+        ended(link(prs[0], issue), verdict, run_url)
         return
     current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
     if current['state'] == 'closed':
@@ -685,7 +748,7 @@ def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
         return
     if not plumbing:
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
-    current = view(pr)
+    current = link(view(pr))
     ended(current, verdict, run_url)
     if cause in ('review', 'critic') and not current['isDraft'] and 'check' not in running(current):
         for run in review_runs(current, 'FAILURE', cause):
