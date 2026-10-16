@@ -147,6 +147,7 @@ for (const scheme of ["light", "dark"] as const) for (const width of [1280, 1440
     const during = await readings();
 
     for (const id of Object.keys(before)) if (before[id]!.status === "pass") expect(`${id} ${during[id]!.status}`).toBe(`${id} pass`);
+
     for (const id of ["D2", "D5", "D6"]) expect(`${id} ${during[id]!.status}`).toBe(`${id} pass`);
   }, 90_000);
 }

@@ -146,10 +146,12 @@ it("u511_duplicate_names_are_independent", async () => {
 
 it("u511_custom_name_survives_title_updates", async () => {
   const mounted = await mountBubbles();
+
   const retitle = (title: string) => {
     mounted.setListed(TERMINALS.map((terminal) => (terminal.id === "2" ? { ...terminal, title } : terminal)));
     mounted.app.emit(event({ name: "terminal.changed" }));
   };
+
   await edit("2");
   fireEvent.input(field()!, { target: { value: "build" } });
   fireEvent.keyDown(field()!, { key: "Enter" });
