@@ -3,7 +3,7 @@
 <body><div id="root"></div><script type="module">
 import { createToaster } from "@ark-ui/solid/toast";
 import { render } from "solid-js/web";
-import { u492Probe } from "./u492_probe.tsx";
+import { u492Fixture } from "./u492Fixture.tsx";
 const toaster = createToaster({ placement: "bottom-end", removeDelay: 150 });
-render(() => u492Probe(toaster), document.getElementById("root"));
+render(() => u492Fixture(toaster), document.getElementById("root"));
 </script></body></html>

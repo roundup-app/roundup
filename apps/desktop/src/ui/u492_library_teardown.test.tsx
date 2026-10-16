@@ -1,7 +1,7 @@
 import { createToaster } from "@ark-ui/solid/toast";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { u492Probe } from "./u492_probe";
+import { u492Fixture } from "./u492Fixture";
 
 const duration = 5000;
 
@@ -23,7 +23,7 @@ function mount() {
   const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
   const toaster = createToaster({ placement: "bottom-end", removeDelay });
 
-  const mounted = render(() => u492Probe(toaster));
+  const mounted = render(() => u492Fixture(toaster));
 
   const create = () => toaster.create({ title: "Saved", duration, onStatusChange: status });
 
