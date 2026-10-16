@@ -276,6 +276,8 @@ than the Rail node returned by an executed rename. `agent.actionHistory {id}`
 child; the user can read all of them, including after removal. Receipts retain
 method, parameters and the same outcome tags as resize receipts. The MCP tool
 keeps that JSON, so a waiting receipt is never described as an executed rename.
+The wire reader captures a known Agent process's identity before waiting for
+prior calls; claiming the user cannot bypass rename holds or receipt privacy.
 
 Resizes and renames share one append-only acceptance sequence and outcome
 ledger. Existing resize history migrates with its ids and outcomes intact;
