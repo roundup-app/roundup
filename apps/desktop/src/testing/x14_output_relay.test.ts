@@ -126,11 +126,12 @@ it("x14_harness_output_relay_selects_exact_bytes", async () => {
   try {
     await writeFile(config, "{}");
     await browser("open", real.base);
-    await browser("eval", `window.received = {}; window.meta = {}; window.start = (id) => {
+    await browser("eval", `window.received = {}; window.meta = {}; window.finished = {}; window.start = (id) => {
       window.received[id] = []; fetch('/__daemon/output?terminal=' + id + '&after=0').then(async response => {
         window.meta[id] = [response.status, response.headers.get('content-type'), response.headers.get('x-terminal'), response.headers.get('x-output-after')];
         const reader = response.body.getReader();
         for (;;) { const { value, done } = await reader.read(); if (done) break; window.received[id].push(...value); }
+        window.finished[id] = true;
       });
     }; window.start('A');`);
     await expect.poll(() => real.subscriptions.length).toBe(1);
@@ -144,7 +145,7 @@ it("x14_harness_output_relay_selects_exact_bytes", async () => {
       socket.end(output("A", [130, 172, 128], 4));
     }
 
-    await browser("wait", "--fn", "window.received.A.length === 7 && window.received.B.length === 2");
+    await browser("wait", "--fn", "window.finished.A && window.finished.B");
     expect((await browser("eval", "window.received")).result).toEqual({ A: [0, 27, 255, 226, 130, 172, 128], B: [66, 0] });
     expect((await browser("eval", "window.meta")).result).toEqual({ A: [200, "application/octet-stream", "A", "0"], B: [200, "application/octet-stream", "B", "0"] });
   } finally {
