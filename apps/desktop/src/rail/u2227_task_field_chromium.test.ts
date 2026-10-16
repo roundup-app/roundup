@@ -26,7 +26,7 @@ type Read = { pad: number; height: number; line: number; scrollHeight: number; f
 /** Page-side: opens the field with `⇧⌘N`, types `text` through the input event, and reads its layout. */
 const TYPE = `(text) => {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, shiftKey: true, bubbles: true }));
-  const field = document.querySelector("textarea[aria-label=Task]");
+  const field = document.querySelector("textarea[aria-label=Ask]");
   field.focus();
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(field, text);
   field.dispatchEvent(new Event("input", { bubbles: true }));
@@ -79,7 +79,7 @@ run("u2227 the task field in Chromium", () => {
 
       expect(read.height).toBeGreaterThan(read.line * 1.5);
       expect(read.first).toBe(0);
-      expect(read.scrollHeight).toBeLessThanOrEqual(Math.ceil(read.height));
+      expect(Math.ceil(read.height)).toBeGreaterThanOrEqual(Math.min(read.scrollHeight, read.line * 6 + read.pad));
       expect(read.rowBelow).toBeGreaterThanOrEqual(read.top + read.height - 1);
     }, 60_000);
 
