@@ -110,8 +110,12 @@ const inventory = async (): Promise<Inventory> => evaluate(`(() => {
     const value = node.textContent.replace(/\\s+/g, ' ').trim();
     if (value) text.push(value);
   }
+  // The composed Project panel repeats the selected Project's authored name.
+  // Verify that binding, then count that name once in the historical copy inventory.
+  const panel = document.querySelector('.window > [data-scope=tabs][role=tabpanel]');
+  if (panel && panel.getAttribute('aria-label') !== document.querySelector('.header [role=tab][aria-selected=true] .tab-name')?.textContent) throw new Error('Project panel name differs from the selected Project');
   const names = [...document.querySelectorAll('[aria-label], [title], [placeholder]')].flatMap(element =>
-    element.closest('.resource-project') ? [] : ['aria-label', 'title', 'placeholder'].map(name => element.getAttribute(name)).filter(value => value));
+    element.closest('.resource-project') ? [] : ['aria-label', 'title', 'placeholder'].map(name => element === panel && name === 'aria-label' ? null : element.getAttribute(name)).filter(value => value));
   return {text, names};
 })()`);
 

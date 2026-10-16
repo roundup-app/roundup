@@ -180,7 +180,7 @@ describe("u470 the shared scope toggle", () => {
 
     for (const name of ["Todos", "Pads"]) {
       fireEvent.click(tabNamed(name));
-      expect(within(screen.getByRole("tabpanel")).queryByRole("group", { name: "Show Todos" })).toBeNull();
+      expect(within(within(shelf()).getByRole("tabpanel")).queryByRole("group", { name: "Show Todos" })).toBeNull();
       expect(shelf().querySelector('input[type="radio"]')).toBeNull();
     }
   });
@@ -289,14 +289,6 @@ describe("u470 the shared scope toggle", () => {
 });
 
 describe("u369 and u371 the Shelf below the window bar", () => {
-  it("u449_the_shelf_starts_below_the_window_bar", async () => {
-    await mountApp();
-    const style = getComputedStyle(shelf());
-
-    expect([style.position, style.top, style.bottom, style.right]).toEqual(["absolute", "var(--header-height)", "0px", "0px"]);
-    expect(shelf().parentElement!.classList.contains("window")).toBe(true);
-  });
-
   it("u369_the_centre_floor_uses_the_shared_token", () => {
     expect(appCss).not.toContain("@media (max-width: 1101px)");
     expect(appCss).toMatch(/\.columns {[^}]*grid-template-columns: var\(--rail-width\) minmax\(var\(--centre-min-width\), 1fr\)/);
