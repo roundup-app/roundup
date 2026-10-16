@@ -162,7 +162,7 @@ const stream = (daemon: RealDaemon, response: ServerResponse) => {
  * Each request owns its connection; pipeline backpressure cannot hold an RPC.
  * See realDaemonOutput.md for bounds and the browser recovery contract. */
 const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, after: number) => {
-  const socket = connect({ path: daemon.socket, highWaterMark: 16_384 });
+  const socket = connect(daemon.socket);
   const maxLine = 262_144;
   let next = after;
 
@@ -191,10 +191,12 @@ const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, 
         const line = pending.subarray(0, end);
 
         pending = pending.subarray(end + 1);
+
         if (!line.length) continue;
         const frame = v.parse(replySchema, JSON.parse(line.toString("utf8")));
 
         if (frame.error) throw new Error(frame.error.message);
+
         if (frame.method !== "event") continue;
         const event = v.parse(v.object({ name: v.string(), data: v.optional(v.unknown()) }), frame.params);
 
@@ -202,11 +204,13 @@ const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, 
         const data = v.parse(v.object({ id: v.string(), data: v.string(), offset: v.pipe(v.number(), v.safeInteger(), v.minValue(0)) }), event.data);
 
         if (data.id !== terminal) continue;
+
         if (data.offset !== next) throw new Error("output offset gap; obtain a fresh snapshot");
         const bytes = Buffer.from(data.data, "base64");
 
         if (bytes.toString("base64") !== data.data) throw new Error("invalid output base64");
         next += bytes.length;
+
         if (!Number.isSafeInteger(next)) throw new Error("output offset exceeds safe integer");
         yield bytes;
       }
