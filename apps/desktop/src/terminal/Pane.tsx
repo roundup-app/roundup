@@ -352,7 +352,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             />
         )}
       </Show>
-      <AnsweredDecisions agent={selected()?.kind === "agent" || selected()?.kind === "workstream" ? selected()!.id : null} name={selected()?.name ?? ""} />
+      <AnsweredDecisions agent={selected()?.kind === "agent" ? selected()!.id : null} name={selected()?.name ?? ""} />
       <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={taken()}>
         <p class="pane-takeover" role="status"><span>{copy.takeoverTypingGoesStraightTo}{selected()?.name}</span>
