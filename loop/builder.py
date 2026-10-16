@@ -30,8 +30,12 @@ AUDIENCE = 'claude-code-github-action'
 RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
 # L23: a build or fix run's token holds `keep`'s rights and reads CI evidence.
 RUN_RIGHTS = {**RIGHTS, 'actions': 'read', 'checks': 'read'}
-# L23: build and fix runs run on Codex with the user's ChatGPT login. The Codex App lends a workflow no token, so a run's
-# commits name its account and push with a Claude App token.
+# L23: build and fix runs run on Claude Code with the Max token, on Codex with the user's ChatGPT login when Claude Code did
+# no work. Neither App lends a workflow a token, so a run's commits name its engine's account and push with a Claude App
+# token.
+CLAUDE_MODEL = 'claude-sonnet-5-5'
+CODEX_MODEL = 'gpt-6.1-sol'
+CLAUDE_ACCOUNT = ('claude[bot]', '209825114+claude[bot]@users.noreply.github.com')
 CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connector[bot]@users.noreply.github.com')
 # The items of Codex's `--json` event lines that a tool use leaves.
 CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
@@ -137,17 +141,23 @@ def put(number, ask, verdict, run_url, back):
         flag(number, f"{verdict['preview']}\n\n---\n\n{ask}")
 
 
+def tool_use(event):
+    """Whether one event of a run is its model using a tool: an assistant message holding a `tool_use` part
+    (claude-code-action's execution file, Claude Code's `stream-json`) or a completed Codex item of `CODEX_TOOLS`."""
+    if event.get('type') == 'assistant':
+        return any(part.get('type') == 'tool_use' for part in event.get('message', {}).get('content', []))
+    return event.get('item', {}).get('type') in CODEX_TOOLS
+
+
 def worked(path):
-    """A run worked when its model used a tool, read from claude-code-action's execution file (a JSON array) or Codex's
-    `--json` event lines; a usage limit or a setup failure leaves no tool use."""
+    """A run worked when its model used a tool, read from claude-code-action's execution file (a JSON array) or the
+    event lines of Claude Code or Codex; a usage limit or a setup failure leaves no tool use."""
     if not path or not Path(path).is_file():
         return False
     text = Path(path).read_text()
     if text.lstrip().startswith('['):
-        return any(entry.get('type') == 'assistant' and
-                   any(part.get('type') == 'tool_use' for part in entry.get('message', {}).get('content', []))
-                   for entry in json.loads(text))
-    return any(json.loads(line).get('item', {}).get('type') in CODEX_TOOLS for line in text.splitlines() if line.strip())
+        return any(map(tool_use, json.loads(text)))
+    return any(tool_use(json.loads(line)) for line in text.splitlines() if line.strip())
 
 
 def app_token(rights=RIGHTS):
@@ -168,12 +178,66 @@ def app_token(rights=RIGHTS):
     return token
 
 
-def codex(prompt, model, schema, output):
-    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login in `CODEX_AUTH`, `git` and
-    `gh` holding a fresh App token with a run's rights, answering the JSON Schema `schema` unless it is None. Appends the
-    step output `execution_file`, Codex's event lines, before the run starts, so a run cut off still leaves them, then
-    `structured_output`, its answer; revokes the token after. Returns Codex's exit code."""
-    login = os.environ.pop('CODEX_AUTH', '')
+def stream(command, prompt, events, env, account):
+    """Run `command` on `prompt` as `account`, `git` and `gh` holding a fresh App token with a run's rights, writing its
+    stdout lines to `events`, which the public step log shows only as each event's kind; revokes the token after.
+    Returns the exit code."""
+    name, email = account
+    env = {**env, 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name, 'GIT_AUTHOR_EMAIL': email,
+           'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
+    try:
+        subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
+        with open(events, 'w') as log, subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                                        text=True, env=env) as run:
+            run.stdin.write(prompt)
+            run.stdin.close()
+            for line in run.stdout:
+                log.write(line)
+                log.flush()
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    event = {}
+                content = event.get('message', {}).get('content', [])
+                kinds = [part.get('type', '') for part in content] if isinstance(content, list) else []
+                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), *kinds, flush=True)
+    finally:
+        subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
+    return run.returncode
+
+
+def answer_out(output, answer):
+    """Append the step output `structured_output`, `answer`."""
+    delimiter = 'ANSWER_' + secrets.token_hex(8)
+    with open(output, 'a') as out:
+        out.write(f'structured_output<<{delimiter}\n{answer}\n{delimiter}\n')
+
+
+def claude(prompt, model, schema, output):
+    """L23: run `prompt` on Claude Code's `model` in this checkout, signed in with the Max token in
+    `CLAUDE_CODE_OAUTH_TOKEN`, answering the JSON Schema `schema` unless it is None. Appends the step output
+    `execution_file`, its event lines, before the run starts, then `structured_output` when it answered. Returns its exit
+    code."""
+    home = Path(os.environ['RUNNER_TEMP']) / 'claude'
+    home.mkdir(mode=0o700)
+    events = home / 'events.jsonl'
+    with open(output, 'a') as out:
+        out.write(f'execution_file={events}\n')
+    command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose',
+               '--dangerously-skip-permissions']
+    if schema is not None:
+        command += ['--json-schema', schema]
+    code = stream(command, prompt, events, os.environ, CLAUDE_ACCOUNT)
+    results = [event for event in map(json.loads, events.read_text().splitlines()) if event.get('type') == 'result']
+    if schema is not None and results and isinstance(results[-1].get('structured_output'), dict):
+        answer_out(output, json.dumps(results[-1]['structured_output']))
+    return code
+
+
+def codex(login, prompt, model, schema, output):
+    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
+    Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
+    starts, so a run cut off still leaves them, then `structured_output`, its answer. Returns Codex's exit code."""
     auth = json.loads(login or '{}')
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
@@ -193,31 +257,22 @@ def codex(prompt, model, schema, output):
     if schema is not None:
         (home / 'schema.json').write_text(schema)
         command += ['--output-schema', str(home / 'schema.json')]
-    name, email = CODEX_ACCOUNT
-    env = {**os.environ, 'CODEX_HOME': str(home), 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name,
-           'GIT_AUTHOR_EMAIL': email, 'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
-    try:
-        subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
-        # The public step log shows each event's kind; only the event file keeps commands, their output and messages.
-        with open(events, 'w') as log, subprocess.Popen([*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                        text=True, env=env) as run:
-            run.stdin.write(prompt)
-            run.stdin.close()
-            for line in run.stdout:
-                log.write(line)
-                log.flush()
-                try:
-                    event = json.loads(line)
-                except ValueError:
-                    event = {}
-                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), flush=True)
-    finally:
-        subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
+    code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT)
     if schema is not None and answer.is_file():
-        delimiter = 'ANSWER_' + secrets.token_hex(8)
-        with open(output, 'a') as out:
-            out.write(f'structured_output<<{delimiter}\n{answer.read_text().strip()}\n{delimiter}\n')
-    return run.returncode
+        answer_out(output, answer.read_text().strip())
+    return code
+
+
+def engine(prompt, schema, output):
+    """L23: run `prompt` on Claude Code and, when its model used no tool (a usage limit or a setup failure, as `worked`
+    reads it, so the checkout is untouched), on Codex. The ChatGPT login leaves the environment first, so a Claude Code
+    run's shell never holds it. Returns the exit code of the run that was last."""
+    login = os.environ.pop('CODEX_AUTH', '')
+    code = claude(prompt, CLAUDE_MODEL, schema, output)
+    if worked(Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'):
+        return code
+    print('engine: Claude Code did no work; falling back to Codex', file=sys.stderr)
+    return codex(login, prompt, CODEX_MODEL, schema, output)
 
 
 def keep(branch, issue, run_url):
@@ -699,8 +754,8 @@ def main(args):
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['worked', path]:
             return 0 if worked(path) else 1
-        case ['codex', model, *schema] if len(schema) < 2:
-            return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['engine', *schema] if len(schema) < 2:
+            return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
@@ -727,7 +782,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
