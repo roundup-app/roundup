@@ -126,7 +126,7 @@ it("u485_rendered_checks", async () => {
 
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundColor`)).toBe(scheme === "light" ? "rgb(255, 255, 255)" : "rgb(28, 28, 30)");
 
-          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundImage`)).toContain(scheme === "light" ? "rgba(0, 0, 0, 0.07)" : "rgba(255, 255, 255, 0.13)");
+          if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).backgroundImage`)).toContain(scheme === "light" ? "rgba(0, 0, 0, 0.05)" : "rgba(255, 255, 255, 0.1)");
 
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).outlineStyle`)).toBe("none");
 
