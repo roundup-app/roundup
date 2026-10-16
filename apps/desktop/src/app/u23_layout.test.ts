@@ -370,9 +370,11 @@ it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
 
   const linked = () => evaluate(`(() => {
     const tab = document.querySelector('.header [role=tab][aria-selected=true]');
-    const panel = document.getElementById(tab?.getAttribute('aria-controls'));
+    const controls = tab?.getAttribute('aria-controls')?.trim().split(/\\s+/) ?? [];
+    const panel = controls.length === 1 ? document.getElementById(controls[0]) : null;
+    const labels = panel?.getAttribute('aria-labelledby')?.trim().split(/\\s+/) ?? [];
     return Boolean(panel?.isConnected && panel.getAttribute('role') === 'tabpanel'
-      && panel.getAttribute('aria-labelledby') === tab.id
+      && labels.length === 1 && labels[0] === tab.id
       && ['rail','centre','shelf'].every(part => panel.contains(document.querySelector('[data-layout-panel='+part+']')))
       && !panel.contains(tab) && !panel.hidden);
   })()`);
@@ -384,6 +386,10 @@ it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
   expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-2");
   await browser("press", "Enter");
   await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]') && Boolean(document.querySelector('.rail [data-id=p3-agent]'))");
+  expect(await linked()).toBe(true);
+  await evaluate("window.__fake.app.chooser.path = '/Users/you/Project 雪 space'");
+  await browser("click", ".strip-add");
+  await browser("wait", "--fn", "document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('data-value') === '/Users/you/Project 雪 space' && document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('aria-busy') === 'false'");
   expect(await linked()).toBe(true);
 }, 90_000);
 
