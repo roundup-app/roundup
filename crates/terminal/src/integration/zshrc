@@ -1,0 +1,21 @@
+__rup_dir=$ZDOTDIR
+ZDOTDIR=${ROUNDUP_USER_ZDOTDIR:-$HOME}
+[[ -f $ZDOTDIR/.zshrc ]] && source $ZDOTDIR/.zshrc
+# The user's folder from here on, so .zlogin and nested shells read the user's own files.
+unset __rup_dir
+
+autoload -Uz add-zsh-hook
+__rup_first=1
+__rup_precmd() {
+  local code=$?
+  if [[ -z $__rup_first ]]; then printf '\e]133;D;%s\a' $code; fi
+  __rup_first=
+  printf '\e]7;file://%s%s\a' "${HOST:-$(hostname)}" "$PWD"
+  # A theme may have replaced the prompt since the last time.
+  if [[ $PS1 != *'133;A'* ]]; then
+    PS1=$'%{\e]133;A\a%}'$PS1$'%{\e]133;B\a%}'
+  fi
+}
+__rup_preexec() { printf '\e]133;C\a'; }
+add-zsh-hook precmd __rup_precmd
+add-zsh-hook preexec __rup_preexec
