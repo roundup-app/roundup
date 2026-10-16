@@ -70,3 +70,5 @@ wait "$load_pid"
 | `pnpm --filter desktop exec vitest run src/testing/u26_chromePage.test.ts` | 0 | Seven passed; private evicted executable, 100 read IOPS, concurrent isolated pages, actual 42/42 and cleanup; read-IOPS test 22982 ms total |
 
 Node v24.21.0 was used for every command above. Existing held-start assertions and issue-1977 fault evidence remain intact. No test was removed; the elapsed-startup assertion is retired in favour of the measured harness startup stall bound required by U26. The four explicit 5000 ms failure tests still exercise their own startup deadlines and diagnostics.
+
+Final `just check origin/main` after merging main 5e9227e4: exit 0. Rust lint, proof/mutation checks, web lint/typecheck and full web suite passed: 374 files passed, two skipped; 2919 tests passed, 19 skipped. Web duration 1300.30 s. The earlier full-check invocation was intentionally terminated when main advanced, then replaced by this complete run; no cold pair was retried.
