@@ -139,7 +139,7 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
   type Read = { bar: unknown; pane: unknown; composer: unknown; checks: Record<string, { status: string }> };
 
   for (const scheme of ['light', 'dark'] as const) {
-    for (const width of [1280, 1440]) {
+    for (const width of [700, 1280, 1440]) {
       await page.scheme(scheme, 'more');
       await page.load('/harness.html?seed=empty-project', width, 800);
       await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.resource-strip')`);
@@ -148,7 +148,7 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
       await page.call(`() => document.querySelector('.terminal-new').click()`);
       await page.until(`() => document.querySelector('.resource-strip .terminal-note')?.textContent === 'Select a Workstream first'`);
       const shown = await page.call<Read>(geometry);
-      const note = await page.call<boolean>(`() => { const r = document.querySelector('.terminal-note').getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0; }`);
+      const note = await page.call<boolean>(`() => { const n = document.querySelector('.terminal-note'); const r = n.getBoundingClientRect(); if (r.width <= 0 || r.left < 0 || r.right > innerWidth || r.top < 0) return false; const strip = document.querySelector('.resource-strip').getBoundingClientRect(); if (r.right > strip.right + 0.5) return false; return n.scrollWidth <= n.clientWidth; }`);
 
       expect(note, `${width} ${scheme} note visible`).toBe(true);
 
