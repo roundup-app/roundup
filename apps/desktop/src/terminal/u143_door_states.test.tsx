@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
 import { agent, door, event, workstream } from "../testing/nodes";
-import { mountRailAndPane } from "./paneHarness";
+import { mountPane, mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
@@ -187,4 +187,13 @@ describe("u143 direct Agent access beside a stopped Door", () => {
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });
+});
+
+it("u467_workstream_selection_focuses_its_own_door", async () => {
+  const { connected, container } = await mountPane([door("one", "idle", "ready"), door("two", "idle", "ready")]);
+  connected.rail.select("one");
+  expect(container.querySelector(".pane-screen")?.hasAttribute("hidden")).toBe(false);
+  expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-one");
+  connected.rail.select("two");
+  expect(document.activeElement?.getAttribute("data-terminal")).toBe("t-two");
 });
