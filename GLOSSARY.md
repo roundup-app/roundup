@@ -408,7 +408,7 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
-**Held action** (`HeldAction`, `HeldCall`, `agent.actionHistory`, `agent_actionHistory`):
+**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `Agents::stop_attempt`, `agent.actionHistory`, `agent_actionHistory`):
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.
@@ -539,6 +539,12 @@ A Token-styled set of named App views, with one selected view and its panel visi
 
 **IconButton**:
 An App button of the icon kind, named for its action for assistive technology.
+
+**TreeView**:
+A shared navigable hierarchy preserving caller-rendered rows.
+
+**Sortable**:
+A shared reorderable region with named drag handles and caller-owned committed order.
 
 ### Keyboard registration
 

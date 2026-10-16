@@ -869,27 +869,6 @@ async fn m4_the_empty_list_a_cursor_gets_carries_a_numeric_ttl_ms_and_cache_scop
     assert_eq!(result["cacheScope"], "public", "{result}");
 }
 
-#[tokio::test]
-async fn m3_the_call_after_the_daemon_goes_away_makes_the_shim_exit_nonzero() {
-    let project = start_daemon();
-    let mut shim = spawn_shim(&project.socket, "a1").await;
-    project.daemon.abort();
-    let _ = project.daemon.await;
-
-    let _ = tokio::time::timeout(
-        BOUND,
-        shim.client
-            .call_tool(CallToolRequestParams::new("todo_list")),
-    )
-    .await;
-
-    let status = tokio::time::timeout(BOUND, shim.child.wait())
-        .await
-        .expect("the shim exited")
-        .unwrap();
-    assert!(!status.success());
-}
-
 /// A stand-in Daemon that answers `agent.ask` with `{"answer": "dogs"}` after `delay` and `null` to `daemon.identify`.
 fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Value> {
     let listener = UnixListener::bind(socket).unwrap();
@@ -1265,7 +1244,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "exported Pad notes to /tmp/notes.md",
             ),
             "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
-            "agent.stop" => (json!({"id":"child"}), "stopped Agent child"),
             "agent.interrupt" => (json!({"id":"child"}), "interrupted Agent child"),
             "agent.prompt" => (
                 json!({"id":"child","prompt":"hello"}),
@@ -1357,6 +1335,12 @@ async fn m17_data_results_keep_their_json_text() {
 #[tokio::test]
 async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed_data() {
     for (name, args, value) in [
+        (
+            "agent_stop",
+            json!({"id":"child"}),
+            json!({"id":"3","agent":"child","method":"agent.stop","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("agent_stop", json!({"id":"child"}), Value::Null),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),

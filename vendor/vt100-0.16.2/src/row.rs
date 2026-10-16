@@ -4,6 +4,7 @@ use crate::term::BufWrite as _;
 pub struct Row {
     cells: Vec<crate::Cell>,
     wrapped: bool,
+    pub(crate) source: Option<u64>,
 }
 
 impl Row {
@@ -11,6 +12,7 @@ impl Row {
         Self {
             cells: vec![crate::Cell::new(); usize::from(cols)],
             wrapped: false,
+            source: None,
         }
     }
 
@@ -23,6 +25,7 @@ impl Row {
     }
 
     pub fn clear(&mut self, attrs: crate::attrs::Attrs) {
+        self.source = None;
         for cell in &mut self.cells {
             cell.clear(attrs);
         }
