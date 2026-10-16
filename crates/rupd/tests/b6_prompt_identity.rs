@@ -4274,7 +4274,10 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
             run.finish().await;
         }
         let effect = effect.unwrap();
-        if matches!(method, "agent.land" | "agent.worktreeState") {
+        if matches!(
+            method,
+            "agent.discard" | "agent.land" | "agent.worktreeState"
+        ) {
             assert_eq!(effect.unwrap_err().code, rpc::code::NOT_FOUND);
         } else {
             effect.unwrap();
@@ -4388,7 +4391,12 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
                     .unwrap(),
             )
             .unwrap();
-            if reply["id"] == 110 && matches!(method, "agent.land" | "agent.worktreeState") {
+            if reply["id"] == 110
+                && matches!(
+                    method,
+                    "agent.discard" | "agent.land" | "agent.worktreeState"
+                )
+            {
                 assert_eq!(reply["error"]["code"], rpc::code::NOT_FOUND, "{reply}");
             } else if reply["id"] == 110 && method == "agent.resume" {
                 assert_eq!(reply["error"]["code"], rpc::code::CONFLICT, "{reply}");
