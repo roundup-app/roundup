@@ -2,7 +2,7 @@ import { registerKeys } from "./keys/registry";
 import { chordsFor } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -144,6 +144,7 @@ export const App = (props: {
   chime?: Chime | undefined;
 }) => {
   const projects = createProjectsState(props.app);
+  const tabsId = createUniqueId();
   const now = createNow(props.clock);
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
@@ -273,7 +274,12 @@ export const App = (props: {
         {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
-      <Tabs.Root value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}>
+      <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
+        ids={{
+          trigger: (path) => `tabs:${tabsId}:trigger-${encodeURIComponent(path)}`,
+          content: (path) => `tabs:${tabsId}:content-${encodeURIComponent(path)}`,
+        }}
+      >
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
