@@ -28,13 +28,17 @@ def stamp(seconds_ago):
 
 def pr(**changes):
     return dict(dict(number=9, state='OPEN', headRefName='build/U1', headRefOid=HEAD, isDraft=False,
-                     isCrossRepository=False, mergeable='MERGEABLE', body='Scenarios: U1\n',
+                     isCrossRepository=False, mergeable='MERGEABLE', body='Refs #1\nScenarios: U1\n',
                      statusCheckRollup=[]), **changes)
 
 
 def ran(name, conclusion, ago, workflow='check'):
     """A rollup check run of `workflow` that ended `ago` seconds ago."""
     return dict(name=name, workflowName=workflow, status='COMPLETED', conclusion=conclusion, completedAt=stamp(ago))
+
+
+# What `link` leaves in a body that holds the Issue and its scenarios.
+LINKED_BODY = 'Refs #1\nScenarios: U1\n\n'
 
 
 # A head whose `check` and `rules` runs failed.
@@ -49,10 +53,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', history=(), steps=()):
+                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file=''):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
-        self.history, self.steps = list(history), list(steps)
+        self.history, self.steps, self.order, self.file = list(history), list(steps), order, file
         self.writes = []
 
     def read(self, *args):
@@ -81,11 +85,13 @@ class GitHub:
                     return dict(jobs=jobs)
             return dict(jobs=self.runs[int(args[1].split('/runs/')[1].split('/')[0])][1])
         return dict(state=self.state, closed_by=dict(type=self.closer), labels=[dict(name=name) for name in self.labels],
-                    title='Hide archived Agents', body='Scenarios: U1\n')
+                    title='Hide archived Agents', body=self.order)
 
     def write(self, *args):
         if args[:2] == ('pr', 'diff'):
             return self.diff
+        if args[0] == 'api' and '/contents/' in args[1]:
+            return self.file
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(note(args[3].removeprefix('body=')))
@@ -93,7 +99,8 @@ class GitHub:
 
     def __enter__(self):
         self.patches = [patch.object(builder.orders, 'gh', side_effect=self.read), patch.object(builder, 'call', side_effect=self.write),
-                        patch.object(builder.orders, 'queued', return_value=self.queued)]
+                        patch.object(builder.orders, 'queued', return_value=self.queued),
+                        patch.object(builder.orders, 'read_orders', return_value=[dict(issue=1, slug='U1')])]
         for p in self.patches:
             p.start()
         return self
@@ -104,6 +111,9 @@ class GitHub:
 
     def bodies(self):
         return [w[3].removeprefix('body=') for w in self.writes if w[0] == 'api' and w[1].endswith('/comments')]
+
+    def bodies_set(self):
+        return [w[5].removeprefix('body=') for w in self.writes if w[:3] == ('api', '-X', 'PATCH')]
 
     def fixes(self):
         return [w[3:] for w in self.writes if w[:3] == ('workflow', 'run', 'fix.yml')]
@@ -410,7 +420,7 @@ class Pick(unittest.TestCase):
                pr(number=3, statusCheckRollup=[dict(name='check', conclusion='FAILURE')]),
                pr(number=4, isDraft=True, body=''),
                pr(number=5, isDraft=True, body=''),
-               pr(number=6, isDraft=True, body='Stopped: which colour?'),
+               pr(number=6, isDraft=True, body=f'{LINKED_BODY}Stopped: which colour?'),
                pr(number=10, isDraft=True, body='Refs #11\n'),
                pr(number=7, headRefName='stock-loop', mergeable='CONFLICTING'),
                pr(number=8, isCrossRepository=True, mergeable='CONFLICTING'),
@@ -434,7 +444,7 @@ class Built(unittest.TestCase):
 
     def test_l81_a_stopped_drafts_question_goes_where_its_screen_verdict_says(self):
         stop = 'Stopped: `bend` is not installed on the runner.\nRecommended: queue a run that has it.'
-        body = f'Scenarios: U1\n\n{stop}\n\n## What changed\n- x\n'
+        body = f'Refs #1\nScenarios: U1\n\n{stop}\n\n## What changed\n- x\n'
         sent = ('The run https://run/1 stopped on: `bend` is not installed on the runner.\nRecommended: queue a run that has '
                 'it.\n\nThe screen sent it back to the loop: why')
         unfinished = [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')]
@@ -453,11 +463,11 @@ class Built(unittest.TestCase):
                 self.assertEqual([w[3] for w in github.writes if w[1].endswith('/labels')], [f'labels[]={label}'] if label else [])
                 self.assertEqual(github.fixes(), fixes)
                 edits = [w[5].removeprefix('body=') for w in github.writes if w[:3] == ('api', '-X', 'PATCH')]
-                self.assertEqual(edits, [f'Scenarios: U1\n\n{sent}\n\n## What changed\n- x\n'] if verdict == 'loop' else [])
+                self.assertEqual(edits, [f'Refs #1\nScenarios: U1\n\n{sent}\n\n## What changed\n- x\n'] if verdict == 'loop' else [])
                 self.assertTrue(all(builder.stopped(dict(body=edit)) == '' for edit in edits))
 
     def test_l81_a_fix_run_that_stops_is_screened_the_same_way(self):
-        stopped = pr(isDraft=True, body='Stopped: which colour?')
+        stopped = pr(isDraft=True, body=f'{LINKED_BODY}Stopped: which colour?')
         with GitHub(view=stopped) as github:
             builder.fixed(9, 'review', True, 'https://run/2', dict(verdict='loop', reason='U3 says blue', preview='Build it.'))
         self.assertFalse(github.flagged())
@@ -479,8 +489,8 @@ class Built(unittest.TestCase):
 
     def test_l79_the_screen_reads_an_open_drafts_stopped_paragraph_and_else_the_ask(self):
         answer = json.dumps(dict(ask='Should the Rail hide archived Agents?'))
-        cases = (([pr(isDraft=True, body='Scenarios: U1\n\nStopped: which colour?\n\nrest')], 'Stopped: which colour?'),
-                 ([pr(isDraft=True)], ''), ([pr(body='Stopped: which colour?')], ''),
+        cases = (([pr(isDraft=True, body='Refs #1\nScenarios: U1\n\nStopped: which colour?\n\nrest')], 'Stopped: which colour?'),
+                 ([pr(isDraft=True)], ''), ([pr(body=f'{LINKED_BODY}Stopped: which colour?')], ''),
                  ([], 'Should the Rail hide archived Agents?'))
         for prs, expected in cases:
             with self.subTest(prs=prs), GitHub(prs=prs):
@@ -553,6 +563,55 @@ class Built(unittest.TestCase):
                 self.assertTrue(given.endswith('## Ask\n\nCheck it?\n'))
         with patch.object(builder.subprocess, 'run', side_effect=builder.subprocess.CalledProcessError(1, 'claude')):
             self.assertIsNone(builder.screen('Check it?'))
+
+
+SCENARIO_FILE = '# x\n**U1 First.** a\n- *clause changed*\n**U2 Second.** b\n- *clause b*\n**U4 New.** d\n**U3 Third.** c\n'
+SCENARIO_DIFF = '''diff --git a/scenarios/a.md b/scenarios/a.md
+--- a/scenarios/a.md
++++ b/scenarios/a.md
+@@ -2,2 +2,2 @@
+ **U1 First.** a
+-- *clause*
++- *clause changed*
+@@ -5,0 +6,1 @@
++**U4 New.** d
+@@ -8 +8,0 @@
+-**U5 Old.** e
+diff --git a/loop/x.py b/loop/x.py
+--- a/loop/x.py
++++ b/loop/x.py
+@@ -1,0 +1,1 @@
++**U9 Not a scenario file.** z
+'''
+
+
+class Body(unittest.TestCase):
+    PATCH = ('api', '-X', 'PATCH', 'repos/{owner}/{repo}/pulls/9', '-f')
+
+    def test_l82_the_loop_writes_the_refs_and_scenarios_lines(self):
+        # (body the run left, body the loop leaves): None where the body already holds both lines.
+        cases = (('', 'Refs #1\nScenarios: U1\n'),
+                 ('Scenarios: U9\nprose', 'Refs #1\nScenarios: U1\nprose'),
+                 ('Refs #7\nScenarios: U1\nprose', 'Refs #1\nScenarios: U1\nprose'),
+                 ('Refs #1\nScenarios: U1\nprose', None),
+                 ('Closes #1\nScenarios: U1\nprose', None))
+        for body, written in cases:
+            for how in ('built', 'fixed'):
+                with self.subTest(body=body, how=how):
+                    if how == 'built':
+                        with GitHub(prs=[pr(body=body)]) as github:
+                            builder.built(1, 'U1', True, '', 'https://run/1')
+                    else:
+                        with GitHub(view=pr(body=body)) as github:
+                            builder.fixed(9, 'check', True, 'https://run/2')
+                    self.assertEqual(github.bodies_set(), [written] if written else [])
+                    self.assertFalse([w for w in github.writes if 'comments' in w[1]
+                                      and 'fix-attempt' not in w[3]])
+
+    def test_l82_scenarios_come_from_the_diff_when_the_issue_names_none(self):
+        with GitHub(prs=[pr(body='Refs #1\n')], order='no scenarios line', diff=SCENARIO_DIFF, file=SCENARIO_FILE) as github:
+            builder.built(1, 'U1', True, '', 'https://run/1')
+        self.assertEqual(github.bodies_set(), ['Refs #1\nScenarios: U1, U4\n'])
 
 
 def branch(path, commits, pushed):
@@ -962,7 +1021,7 @@ class Critic(unittest.TestCase):
             self.assertIsNone(builder.fix_task(9, HEAD, 'critic'))
         # the attempt counts toward the three
         three = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=500 - n) for n in range(3)]
-        with GitHub(view=pr(), notes=[*three, reject], labels=READY):
+        with GitHub(view=pr(body='Scenarios: U1\n'), notes=[*three, reject], labels=READY):
             self.assertIsNone(builder.fix_task(9, HEAD, 'critic'))
 
     def test_l103_a_fix_run_answering_a_critic_reject_reruns_the_critic(self):
