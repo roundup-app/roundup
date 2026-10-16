@@ -114,3 +114,44 @@ What can go wrong:
 - **Load.** Run it with the laptop idle; the load average is printed per run.
 - **Windows over a headless Chromium number.** Chromium with the same xterm measured p95 under 5 ms; WKWebView on an M4 Max in the earlier spike measured 11 to 15 ms. The difference is the frame wait, so the budget is only meaningful here.
 
+
+## X14 retained flood observation
+
+`just perf --flood --out target/perf-flood.json` builds the release probe and runs
+only the isolated real-Daemon flood observer. Ordinary `just perf` retains every
+idle metric, budget, load/skip rule and qualification requirement above; flood
+mode is a separate correctness observation, not latency or R16 qualification.
+It opens no native window and supplies no R11/R12 keystroke evidence.
+
+```text
+real temporary Daemon → ten gated shells → exec yes
+                      → independent RPC output drain → chunks per Terminal > Bus capacity
+paused actual Bus receiver → two identified Rail markers → resume after producer shutdown
+report → counters + received markers + payloads + structured lag + cleanup + outcome
+```
+
+The two Rail markers are emitted while the actual receiver is unread, before
+releasing the ten programs; their count is strictly below the Daemon's reported
+Bus capacity. Output is drained through the existing RPC client independently
+of that receiver. Collection stops only after every Terminal exceeds capacity;
+producers then stop before resuming the receiver to obtain a finite observation.
+The report retains partial counters on failure, both marker identity lists,
+Terminal payload count, lag error and missed-event counts, and verified stopped
+Terminal count. Missing or incomplete counters and markers cannot pass.
+`--flood-timeout 60` bounds startup/collection; shutdown and shutdown verification
+have separate ten-second bounds. Only this temporary Project's processes and
+socket/data are touched.
+
+| Executable exit | Meaning |
+| --- | --- |
+| 0 | Complete counters, all markers in order, no payloads or lag, successful cleanup |
+| 1 | Complete observation violates isolation or loses markers (expected on current transport) |
+| 2 | Startup, collection timeout/error, cleanup or report-write failure; no valid acceptance |
+
+A failing command through `just` may return the recipe's exit 1; the executable's
+exit and JSON `flood.error` distinguish an observation error from detected lag.
+Keep the JSON and command/exit with source and probe binary hashes, host,
+toolchain, profile and load when recording an observation. Do not replace or
+relax `budgets.json`. #1930 must migrate this output drain to selected streams
+in its Contract PR, rerun this command and retain zero Rail lag; this observer
+does not complete #1930 or X14's Terminal regression/journey acceptance.
