@@ -55,6 +55,8 @@ export const SEAM_COMMANDS = [
   "rename_project",
   "rpc",
   "subscribe",
+  "terminal_output",
+  "terminal_output_stop",
   "daemon_proof",
   "open_target",
   "open_in_editor",
