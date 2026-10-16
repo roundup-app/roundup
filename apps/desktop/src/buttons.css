@@ -103,6 +103,12 @@ button[data-pressed="true"]:not([aria-disabled="true"]) {
   transition-duration: 0s;
 }
 
+/* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
+button[data-feedback="ink"]:is(:hover, :active):not([aria-disabled="true"]) {
+  color: var(--text);
+  background-color: transparent;
+}
+
 /* U470: an icon toggle keeps its library mark and shows its state on a selected surface. */
 [data-button="icon"][aria-pressed="true"] {
   color: var(--text);

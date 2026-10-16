@@ -94,7 +94,11 @@ pub const METHODS: &[Method] = &[
     m("agent.spawn", "agent_SpawnParams", "agent_RailNode"),
     m("agent.actionHistory", "agent_NodeId", "agent_HeldAction[]"),
     m("agent.stop", "agent_NodeId", "null | agent_HeldAction"),
-    m("agent.prompt", "agent_PromptParams", "null"),
+    m(
+        "agent.prompt",
+        "agent_PromptParams",
+        "null | agent_HeldAction",
+    ),
     m("agent.interrupt", "agent_NodeId", "null | agent_HeldAction"),
     m("agent.worktreeState", "agent_NodeId", "agent_WorktreeState"),
     m("agent.land", "agent_NodeId", "agent_Landed"),

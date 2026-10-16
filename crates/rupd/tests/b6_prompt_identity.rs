@@ -5968,3 +5968,63 @@ async fn b6_a_held_interrupt_is_dropped_when_the_child_exits() {
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
 }
+
+async fn idle_child_with_held_prompt() -> (Run, Arc<Client>, Value) {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.prompt", json!({"id":run.child,"text":"held words"}))
+        .await
+        .unwrap();
+    (run, caller, receipt)
+}
+
+#[tokio::test]
+async fn b6_a_door_prompt_waits_for_takeover_release() {
+    let (run, caller, receipt) = idle_child_with_held_prompt().await;
+    assert_eq!(receipt["method"], "agent.prompt");
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert!(
+        !run.recorded_input().await.contains("BYTE:"),
+        "Door prompt reached the child during Takeover"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let typed = String::from_utf8_lossy(&recorded_bytes(&run).await)
+        .matches("held words")
+        .count();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert_eq!(typed, 1);
+}
+
+#[tokio::test]
+async fn b6_a_held_prompt_is_dropped_when_the_child_exits() {
+    let (run, caller, receipt) = idle_child_with_held_prompt().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
