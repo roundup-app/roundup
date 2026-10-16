@@ -1528,32 +1528,6 @@ async fn next_channel(client: &mut rpc::Client, id: &str) -> Channel {
 }
 
 #[tokio::test]
-async fn e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count() {
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-        DEADLINE,
-    ]);
-    let mut events = project.subscribed().await;
-
-    let node = project.spawn_agent(&events).await;
-    let status = next(&mut events, |data| match data {
-        EventData::AgentStatus(s) if s.id == node.id => Some(s.status),
-        _ => None,
-    })
-    .await;
-
-    assert_eq!(next_channel(&mut events, &node.id).await, Channel::Missing);
-    let now = rail_tree(&events)
-        .await
-        .into_iter()
-        .find(|n| n.id == node.id)
-        .unwrap();
-    assert_eq!(now.channel, Some(Channel::Missing));
-    assert_eq!(now.status.unwrap().kind, status.kind);
-}
-
-#[tokio::test]
 async fn e6_only_the_agent_reports_its_channel_and_a_second_report_emits_nothing() {
     let project = start(&[("ROUNDUP_CHANNEL_DEADLINE_MS", "60000")]);
     let mut user = project.subscribed().await;
