@@ -13,7 +13,7 @@ use crate::{Conn, Daemon};
 
 pub(crate) struct Resizes {
     db: Mutex<Connection>,
-    arrivals: Mutex<HashMap<String, tokio::sync::oneshot::Receiver<()>>>,
+    arrivals: Mutex<HashMap<String, tokio::sync::watch::Receiver<bool>>>,
 }
 
 struct Accepted {
@@ -57,35 +57,37 @@ impl Resizes {
     pub(crate) fn arrive(
         &self,
         child: String,
+        ordered: bool,
     ) -> (
-        Option<tokio::sync::oneshot::Receiver<()>>,
-        tokio::sync::oneshot::Sender<()>,
+        Option<tokio::sync::watch::Receiver<bool>>,
+        Option<tokio::sync::watch::Sender<bool>>,
     ) {
         let mut arrivals = self.arrivals.lock().unwrap_or_else(|e| e.into_inner());
-        arrivals.retain(|_, prior| {
-            matches!(
-                prior.try_recv(),
-                Err(tokio::sync::oneshot::error::TryRecvError::Empty)
-            )
-        });
-        let before = arrivals.remove(&child);
-        let (done, next) = tokio::sync::oneshot::channel();
+        arrivals.retain(|_, prior| !*prior.borrow() && prior.has_changed().is_ok());
+        let before = arrivals.get(&child).cloned();
+        if !ordered {
+            // Steering calls may interrupt each other, but cannot overtake an earlier resize.
+            return (before, None);
+        }
+        let (done, next) = tokio::sync::watch::channel(false);
         arrivals.insert(child, next);
-        (before, done)
+        (before, Some(done))
     }
 
-    pub(crate) fn finish_arrival(&self, done: tokio::sync::oneshot::Sender<()>) {
-        let _ = done.send(());
+    pub(crate) fn finish_arrival(&self, done: tokio::sync::watch::Sender<bool>) {
+        let _ = done.send(true);
         // Completed children retain neither order tokens nor historical map entries.
         self.arrivals
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .retain(|_, prior| {
-                matches!(
-                    prior.try_recv(),
-                    Err(tokio::sync::oneshot::error::TryRecvError::Empty)
-                )
-            });
+            .retain(|_, prior| !*prior.borrow() && prior.has_changed().is_ok());
+    }
+
+    pub(crate) fn waiting(&self, child: &str) -> Result<bool, RpcError> {
+        Ok(self
+            .accepted(Some(child))?
+            .iter()
+            .any(|accepted| matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. })))
     }
 
     fn accepted(&self, child: Option<&str>) -> Result<Vec<Accepted>, RpcError> {
