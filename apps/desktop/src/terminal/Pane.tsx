@@ -205,6 +205,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (failure === null) focusTerminal();
   };
 
+  let takeControl: HTMLButtonElement | undefined;
+
   const giveBack = async (): Promise<void> => {
     const id = selected()?.id;
 
@@ -213,7 +215,10 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     setTakeFailure(null);
     const failure = await connected.takeover.end(id);
 
-    if (selected()?.id === id) setTakeFailure(failure);
+    if (selected()?.id === id) {
+      setTakeFailure(failure);
+      if (failure === null) takeControl?.focus();
+    }
   };
 
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
@@ -348,7 +353,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       </Show>
       <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={taken()}>
-        <p class="pane-takeover" role="status">{copy.takeoverTypingGoesStraightTo}{selected()?.name}
+        <p class="pane-takeover" role="status"><span>{copy.takeoverTypingGoesStraightTo}{selected()?.name}</span>
           <Show when={selected()?.kind === "agent"}>
             <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void giveBack(); }}>{copy.endTheTakeover}</button>
           </Show>
@@ -357,7 +362,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
         <div class="pane-watch" role="status">
           <span>{copy.watching}{selected()?.name}{copy.readOnly}</span>
-          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}</button>
+          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={takeControl} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}</button>
         </div>
       </Show>
       <div

@@ -133,7 +133,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  justify-content: space-between;
   flex: none;
   padding: var(--space-1) var(--space-3);
   color: var(--text);
@@ -165,4 +165,17 @@
   color: var(--text);
   background-color: var(--selected);
   transition-duration: 0s;
+}
+
+.pane-watch > span,
+.pane-takeover > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-watch > button,
+.pane-takeover > button {
+  flex: none;
 }

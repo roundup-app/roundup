@@ -108,6 +108,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
       { method: "takeover.end", params: { agent: id } },
     ]);
     expect(band()).not.toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take control" }));
   });
 
   it("u375_alt_n_on_the_agents_row_begins_once_focuses_the_emulator_and_swaps_the_band", async () => {
