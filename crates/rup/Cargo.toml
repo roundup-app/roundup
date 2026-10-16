@@ -5,6 +5,8 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+base64.workspace = true
+clap = { version = "4", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "string"] }
 contracts = { path = "../contracts" }
 rmcp = { version = "3.5.1", default-features = false, features = ["server", "transport-io", "elicitation"] }
 rpc = { path = "../rpc" }
@@ -15,7 +17,6 @@ tokio.workspace = true
 [dev-dependencies]
 agents = { path = "../agents" }
 checkpoints = { path = "../checkpoints" }
-base64.workspace = true
 rmcp = { version = "3.5.1", default-features = false, features = ["client"] }
 rupd = { path = "../rupd" }
 rusqlite.workspace = true

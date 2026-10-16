@@ -211,6 +211,7 @@ mod tests {
                 owner: Actor::user(),
                 text: "keep this".into(),
                 updated_at: 0,
+                revision: 1,
                 home: None,
             }]),
             reads,
