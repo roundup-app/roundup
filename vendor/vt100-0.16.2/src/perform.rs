@@ -33,10 +33,11 @@ impl<CB: crate::callbacks::Callbacks> WrappedScreen<CB> {
 
 impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
     fn print(&mut self, c: char) {
-        if c == '\u{fffd}' || ('\u{80}'..'\u{a0}').contains(&c) {
+        if ('\u{80}'..'\u{a0}').contains(&c) {
             self.callbacks.unhandled_char(&mut self.screen, c);
         } else {
             self.screen.text(c);
+            self.callbacks.text(&mut self.screen, c);
         }
     }
 
@@ -53,6 +54,9 @@ impl<CB: crate::callbacks::Callbacks> vte::Perform for WrappedScreen<CB> {
             // it shouldn't count as an "error"
             14 | 15 => {}
             _ => self.callbacks.unhandled_control(&mut self.screen, b),
+        }
+        if (8..=13).contains(&b) {
+            self.callbacks.control(&mut self.screen, b);
         }
     }
 

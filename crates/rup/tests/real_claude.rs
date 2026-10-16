@@ -2016,3 +2016,982 @@ async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
     );
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn a32_no_slash_command_is_typed() {
+    let (project, mut client, door) = clear_fixture("a32_no_slash", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "/clear please"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("/clear please")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Slash-free handoff", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"].as_str().is_some_and(
+                            |text| text.contains("Follow this instruction: Slash-free handoff")
+                        ))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    for entry in model.journal() {
+        for message in entry["body"]["messages"].as_array().unwrap() {
+            if message["role"] == "user"
+                && let Some(text) = message["content"].as_str()
+            {
+                assert!(!text.starts_with('/'), "slash command typed: {text}");
+            }
+        }
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_the_workstream_and_its_terminals_survive() {
+    let (project, mut client, door) = clear_fixture("a32_terminals", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let opened = client
+        .request("terminal.open", json!({"workstream": door}))
+        .await
+        .unwrap();
+    let terminal = opened["terminal_id"]
+        .as_str()
+        .expect("the opened Terminal")
+        .to_owned();
+    let before = rail_tree(&client)
+        .await
+        .into_iter()
+        .find(|node| node.id == door)
+        .unwrap();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "preserve the terminals"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("preserve the terminals")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Terminals survived", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"].as_str().is_some_and(
+                            |text| text.contains("Follow this instruction: Terminals survived")
+                        ))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    let tree = rail_tree(&client).await;
+    let after = tree.iter().find(|node| node.id == door).unwrap();
+    assert_eq!(
+        (&after.name, &after.parent, after.order),
+        (&before.name, &before.parent, before.order)
+    );
+    let terminals = client.request("terminal.list", Value::Null).await.unwrap();
+    let kept = terminals
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["id"] == terminal)
+        .expect("the Terminal stays");
+    assert_eq!(kept["running"], true);
+    assert!(project.dir.path().join("README").is_file());
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_worktrees_and_branches_survive_even_dirty() {
+    let (project, mut client, door) = clear_fixture("a32_worktrees", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let trees: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .filter(|node| node.id != door)
+        .map(|node| node.worktree.expect("child has a Worktree"))
+        .collect();
+    assert_eq!(trees.len(), 2);
+    std::fs::write(
+        std::path::Path::new(&trees[1].path).join("dirty.txt"),
+        "unlanded",
+    )
+    .unwrap();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "preserve dirty worktrees"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("preserve dirty worktrees")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Worktrees survived", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    let branches = std::process::Command::new("git")
+        .current_dir(project.dir.path())
+        .args(["branch", "--list"])
+        .output()
+        .unwrap();
+    assert!(branches.status.success());
+    let branches = String::from_utf8(branches.stdout).unwrap();
+    for tree in &trees {
+        assert!(
+            std::path::Path::new(&tree.path).is_dir(),
+            "{} was removed",
+            tree.path
+        );
+        assert!(branches.contains(&tree.branch), "{branches}");
+    }
+    assert!(
+        std::path::Path::new(&trees[1].path)
+            .join("dirty.txt")
+            .is_file()
+    );
+    let journal = model.journal();
+    let handoff = journal
+        .iter()
+        .filter(|entry| entry["body"]["tools"].is_array())
+        .flat_map(|entry| entry["body"]["messages"].as_array().into_iter().flatten())
+        .filter(|message| message["role"] == "user")
+        .filter_map(|message| message["content"].as_str())
+        .find(|text| text.contains("Follow this instruction: Worktrees survived"))
+        .expect("the real Door receives the Handoff");
+    for tree in &trees {
+        assert!(
+            handoff.contains(&tree.path) && handoff.contains(&tree.branch),
+            "{handoff}"
+        );
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
+    let (project, mut client, door) = clear_fixture("a32_archive", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let todos = todos.as_array().unwrap();
+    let keep = todos
+        .iter()
+        .find(|todo| todo["title"] == "build the login page")
+        .unwrap()["id"]
+        .clone();
+    let fluff = todos
+        .iter()
+        .find(|todo| todo["title"] == "refactor everything")
+        .unwrap();
+    let fluff_id = fluff["id"].clone();
+    let owner = fluff["creator"]["id"].as_str().unwrap().to_owned();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "archive unkept items"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("archive unkept items")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Kept items survived", "keep_todos": [keep], "keep_pads": ["notes"]}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text
+                                .contains("Follow this instruction: Kept items survived")))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    assert_eq!(
+        todos
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|todo| todo["id"].clone())
+            .collect::<Vec<_>>(),
+        [keep]
+    );
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    let pads = pads.as_array().unwrap();
+    assert_eq!(pads.len(), 2);
+    let archive = pads
+        .iter()
+        .find(|pad| pad["name"] == "archive-1")
+        .expect("the archive Pad");
+    assert_eq!(archive["owner"]["kind"], "user");
+    let text = archive["text"].as_str().unwrap();
+    assert!(
+        text.contains(&format!(
+            "## refactor everything (todo {fluff_id}, owner {owner})"
+        )),
+        "{text}"
+    );
+    assert!(text.contains("refactor everything body"), "{text}");
+    assert!(text.contains("## scratch (pad, owner "), "{text}");
+    assert!(text.contains("scratch text"), "{text}");
+    assert!(!text.contains("build the login page"), "{text}");
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_kept_items_keep_their_ids_and_owners() {
+    let (project, mut client, door) = clear_fixture("a32_kept_items", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let todos = todos.as_array().unwrap();
+    let keep = todos
+        .iter()
+        .find(|todo| todo["title"] == "build the login page")
+        .unwrap()["id"]
+        .clone();
+    let fluff = todos
+        .iter()
+        .find(|todo| todo["title"] == "refactor everything")
+        .unwrap();
+    let fluff_id = fluff["id"].clone();
+    client
+        .request(
+            "todo.setBlockers",
+            json!({"id": keep, "blockers": [fluff_id]}),
+        )
+        .await
+        .unwrap();
+    let before = client.request("todo.list", Value::Null).await.unwrap();
+    let before = before
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|todo| todo["id"] == keep)
+        .unwrap();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "preserve kept items"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        // A33: the kept Todo is blocked until Clear archives its blocker.
+        if working && status.status.kind == Kind::Blocked {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("preserve kept items")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Kept items survived", "keep_todos": [keep], "keep_pads": ["scratch"]}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text
+                                .contains("Follow this instruction: Kept items survived")))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let after = todos
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|todo| todo["id"] == keep)
+        .unwrap();
+    assert_eq!(
+        after["blockers"],
+        json!([]),
+        "an archived blocker leaves the list"
+    );
+    assert_eq!(
+        (&after["title"], &after["creator"], &after["home"]),
+        (&before["title"], &before["creator"], &before["home"])
+    );
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    let scratch = pads
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pad| pad["name"] == "scratch")
+        .unwrap();
+    assert_eq!(
+        scratch["owner"]["kind"], "user",
+        "a Pad of a removed Subagent becomes the user's"
+    );
+    assert_eq!(scratch["home"], json!(door));
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_message_list_spans_iterations() {
+    tokio::time::timeout(Duration::from_secs(60), async {
+        let project = daemon::start_real("a32_message_history", &[]);
+        let path = project.dir.path();
+        for args in [
+            vec!["init", "-q", "-b", "main"],
+            vec!["config", "user.name", "roundup"],
+            vec!["config", "user.email", "roundup@example.com"],
+        ] {
+            assert!(
+                std::process::Command::new("git")
+                    .current_dir(path)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        std::fs::write(path.join("README"), "keep").unwrap();
+        for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+            assert!(
+                std::process::Command::new("git")
+                    .current_dir(path)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        let mut client = project.subscribed().await;
+        client
+            .request("project.setWorktrees", json!({"on": true, "check": null}))
+            .await
+            .unwrap();
+        let door = client
+            .request(
+                "rail.createWorkstream",
+                json!({"name": "team", "parent": null}),
+            )
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        client
+            .request("rail.startDoor", json!({"id": door}))
+            .await
+            .unwrap();
+        let model = project.model.as_ref().unwrap();
+        // Each next input follows the real turn's Working → Stop acknowledgement.
+        async fn stopped(client: &mut rpc::Client, door: &str, attempt: &str) {
+            let mut working = false;
+            loop {
+                let status = next(client, |event| match event {
+                    EventData::AgentStatus(status)
+                        if status.id == door && status.attempt == attempt =>
+                    {
+                        Some(status)
+                    }
+                    _ => None,
+                })
+                .await;
+                working |= status.status.kind == Kind::Working;
+                if working && status.status.kind == Kind::Idle {
+                    return;
+                }
+            }
+        }
+        stopped(&mut client, &door, "1").await;
+        client
+            .request(
+                "message.send",
+                json!({"to": door, "kind": "note", "body": "first ask"}),
+            )
+            .await
+            .unwrap();
+        stopped(&mut client, &door, "1").await;
+        assert_eq!(
+            client
+                .request(
+                    "workstream.clear",
+                    json!({"id": door, "reason": "history clear"})
+                )
+                .await
+                .unwrap(),
+            json!({"pending": true})
+        );
+        stopped(&mut client, &door, "1").await;
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: door.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "History survived", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+        let cleared = next(&mut client, |event| match event {
+            EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+            _ => None,
+        })
+        .await;
+        assert_eq!(cleared.iteration, 2);
+        stopped(&mut client, &door, "2").await;
+        client
+            .request(
+                "message.send",
+                json!({"to": door, "kind": "note", "body": "second ask"}),
+            )
+            .await
+            .unwrap();
+        stopped(&mut client, &door, "2").await;
+        let listed = client
+            .request("message.list", json!({"id": door}))
+            .await
+            .unwrap();
+        let seen: Vec<(String, u64)> = listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| !m["body"].as_str().unwrap().starts_with("[digest]"))
+            .map(|m| {
+                (
+                    m["body"].as_str().unwrap().to_owned(),
+                    m["iteration"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            [("first ask".to_owned(), 1), ("second ask".to_owned(), 2)]
+        );
+        let journal = model.journal();
+        for expected in [
+            "first ask",
+            "history clear",
+            "History survived",
+            "second ask",
+        ] {
+            assert!(
+                journal.iter().any(|entry| entry["body"]["tools"]
+                    .as_array()
+                    .is_some_and(|tools| !tools.is_empty())
+                    && entry["body"]["messages"]
+                        .as_array()
+                        .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
+                            && m["content"]
+                                .as_str()
+                                .is_some_and(|text| text.contains(expected))))),
+                "real Claude did not receive {expected}: {journal:#?}"
+            );
+        }
+        model.assert_matched();
+    })
+    .await
+    .expect("Message history across Clear did not complete");
+}
+
+#[tokio::test]
+async fn a32_iteration_advances_once() {
+    tokio::time::timeout(Duration::from_secs(60), async {
+        let (project, mut client, door) = clear_fixture("a32_iteration", &[]).await;
+        let model = project.model.as_ref().unwrap();
+        let before = rail_tree(&client).await;
+        assert_eq!(
+            before
+                .iter()
+                .find(|node| node.id == door)
+                .unwrap()
+                .iteration,
+            Some(1)
+        );
+        assert!(
+            before
+                .iter()
+                .filter(|node| node.id != door)
+                .all(|node| node.iteration.is_none())
+        );
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "advance iteration"}),
+            )
+            .await
+            .unwrap();
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door => Some(status),
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: door.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "workstream.handoff",
+                json!({"id": door, "summary": "Iteration advanced", "keep_todos": [], "keep_pads": []}),
+            )
+            .await
+            .unwrap();
+        let cleared = next(&mut client, |event| match event {
+            EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+            _ => None,
+        })
+        .await;
+        assert_eq!((cleared.id.as_str(), cleared.iteration), (door.as_str(), 2));
+        assert_eq!(
+            rail_tree(&client)
+                .await
+                .iter()
+                .find(|node| node.id == door)
+                .unwrap()
+                .iteration,
+            Some(2)
+        );
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                    Some(status)
+                }
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "advance again"}),
+            )
+            .await
+            .unwrap();
+        let mut working = false;
+        loop {
+            let status = next(&mut client, |event| match event {
+                EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                    Some(status)
+                }
+                _ => None,
+            })
+            .await;
+            working |= status.status.kind == Kind::Working;
+            if working && status.status.kind == Kind::Idle {
+                break;
+            }
+        }
+        let journal = model.journal();
+        for expected in ["advance iteration", "Iteration advanced", "advance again"] {
+            assert!(
+                journal.iter().any(|entry| entry["body"]["tools"].is_array()
+                    && entry["body"]["messages"]
+                        .as_array()
+                        .is_some_and(|messages| messages.iter().any(|message| message["role"]
+                            == "user"
+                            && message["content"]
+                                .as_str()
+                                .is_some_and(|text| text.contains(expected)
+                                    && (expected == "Iteration advanced" || text.contains("workstream_handoff")))))),
+                "real Claude did not receive {expected}: {journal:#?}"
+            );
+        }
+        assert_eq!(
+            rail_tree(&client)
+                .await
+                .iter()
+                .find(|node| node.id == door)
+                .unwrap()
+                .iteration,
+            Some(2)
+        );
+        model.assert_matched();
+    })
+    .await
+    .expect("Iteration observer did not complete");
+}

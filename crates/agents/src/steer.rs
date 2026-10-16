@@ -168,6 +168,12 @@ impl Agents {
         self.shared.guard_reach(actor, id, false)
     }
 
+    /// M7: a missing node is NOT_FOUND; otherwise an Agent needs Reach, or its own id
+    /// when `itself` permits it. This is the same check the Agent's command dispatch uses.
+    pub fn guard_reach(&self, actor: &Actor, id: &str, itself: bool) -> Result<(), RpcError> {
+        self.shared.guard_reach(actor, id, itself)
+    }
+
     /// M13: whether `actor` may read Terminal `terminal`, whose `owner` is as `terminal.list` says.
     pub fn guard_terminal_read(
         &self,

@@ -43,7 +43,7 @@ pub struct Daemon {
     pads: Arc<pads::Pads>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    resizes: resize::Resizes,
+    held_actions: resize::HeldActions,
     /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
@@ -179,7 +179,7 @@ impl Daemon {
             pads: Arc::clone(&pads),
             door_first_steers: Default::default(),
             child_effects: Default::default(),
-            resizes: resize::Resizes::open(dir)?,
+            held_actions: resize::HeldActions::open(dir)?,
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -308,12 +308,7 @@ impl Daemon {
     }
 
     /// Answer one request line. Notifications (no `id`) get no answer.
-    async fn dispatch(
-        &self,
-        conn: &mut Conn,
-        line: &str,
-        decision_actor: Option<Actor>,
-    ) -> Option<Value> {
+    async fn dispatch(&self, conn: &mut Conn, line: &str, actor: Option<Actor>) -> Option<Value> {
         let Ok(request) = serde_json::from_str::<Value>(line) else {
             return Some(failure(
                 &Value::Null,
@@ -325,7 +320,9 @@ impl Daemon {
         let params = request.get("params").cloned().unwrap_or(Value::Null);
         if method.starts_with("decision.") {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
-            conn.actor = decision_actor.unwrap_or_else(|| self.decision_actor(conn));
+            conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
+        } else if matches!(method, "rail.rename" | "agent.actionHistory") {
+            conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = self.route(conn, method, params).await;
         let id = id?;
@@ -359,21 +356,27 @@ impl Daemon {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
         }
+        if method == "agent.actionHistory" {
+            return self.action_history(conn, params).await;
+        }
         if method == "terminal.resizeHistory" {
             return self.resize_history(conn, params).await;
         }
         // These Door calls account for their physical effects before returning, including
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
-        let child = self.door_effect_child(&conn.actor, method, &params).await?;
+        let children = self
+            .door_effect_children(&conn.actor, method, &params)
+            .await?;
+        let child = children.first();
         let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename") {
-            if let Some(child) = &child {
+            if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
                 if method == "terminal.resize" {
                     if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
                         return Ok(receipt);
                     }
-                } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                    self.release_resizes(child).await?;
+                } else if let Some(receipt) = self.hold_rename(conn, child, params.clone()).await? {
+                    return Ok(receipt);
                 }
                 Some(guard)
             } else {
@@ -382,24 +385,26 @@ impl Daemon {
         } else {
             None
         };
-        let _door_effect = match child {
-            Some(child) if !matches!(method, "terminal.resize" | "rail.rename") => {
-                if !self.sender.get().is_some_and(|m| m.takeover_active(&child))
-                    && self.resizes.waiting(&child)?
+        let mut door_effects = Vec::new();
+        if !matches!(method, "terminal.resize" | "rail.rename") {
+            // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
+            for child in &children {
+                let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
+                    && self.held_actions.waiting(child)?
                 {
-                    let guard = self.child_effects(&child).write_owned().await;
+                    let guard = self.child_effects(child).write_owned().await;
                     // A newer begin may have won while this call waited for exclusion.
-                    if !self.sender.get().is_some_and(|m| m.takeover_active(&child)) {
-                        self.release_resizes(&child).await?;
+                    if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                        self.release_actions(child).await?;
                     }
-                    Some(guard.downgrade())
+                    guard.downgrade()
                 } else {
                     // With no older queue, Interrupt must still reach an in-flight Steer.
-                    Some(self.child_effects(&child).read_owned().await)
-                }
+                    self.child_effects(child).read_owned().await
+                };
+                door_effects.push(guard);
             }
-            _ => None,
-        };
+        }
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             Some(self.child_effects(&agent).write_owned().await)
@@ -559,7 +564,7 @@ impl Daemon {
                 .get()
                 .is_some_and(|messages| messages.takeover_active(&agent))
             {
-                self.release_resizes(&agent).await?;
+                self.release_actions(&agent).await?;
             }
         }
         if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
@@ -589,6 +594,17 @@ impl Daemon {
         outcome
     }
 
+    /// A known Agent process cannot gain the user's control or receipt access by identifying
+    /// as the user. The wire reader captures this before an earlier action can delay dispatch.
+    fn action_actor(&self, conn: &Conn) -> Actor {
+        let actor = self.terminal_writer(conn);
+        if actor.kind == ActorKind::Agent {
+            actor
+        } else {
+            conn.actor.clone()
+        }
+    }
+
     fn terminal_writer(&self, conn: &Conn) -> Actor {
         match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
             Some(agent) => Actor {
@@ -599,6 +615,53 @@ impl Daemon {
             None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
             None => Actor::user(),
         }
+    }
+
+    /// Aggregate reads must respect each child's prior calls, not only the Door's own id.
+    async fn door_effect_children(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<Vec<String>, RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(Vec::new());
+        }
+        let mut children: Vec<String> = match method {
+            "agent.digest" => {
+                let NodeId { id } = rpc::params(params.clone())?;
+                // The Digest module still owns its permission and node-kind checks.
+                if actor.id != id {
+                    return Err(RpcError::forbidden(format!(
+                        "{} may not read the digest of agent {id}",
+                        actor.id
+                    )));
+                }
+                self.rail()
+                    .await?
+                    .into_iter()
+                    .filter(|n| n.parent.as_deref() == Some(&id) && n.status.is_some())
+                    .map(|n| n.id)
+                    .collect()
+            }
+            "decision.list" => {
+                // Use the Agent's Reach filtering; never wait on an unrelated Workstream.
+                let listed = self.modules["decision"]
+                    .call(&self.ctx(actor.clone()), method, Value::Null)
+                    .await?;
+                let decisions: Vec<contracts::decision::Decision> =
+                    serde_json::from_value(listed).map_err(RpcError::internal)?;
+                decisions.into_iter().map(|d| d.agent).collect()
+            }
+            _ => self
+                .door_effect_child(actor, method, params)
+                .await?
+                .into_iter()
+                .collect(),
+        };
+        children.sort();
+        children.dedup();
+        Ok(children)
     }
 
     /// The wire reader and router must agree which effects share a child's arrival order.
@@ -616,17 +679,22 @@ impl Daemon {
             | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                 self.guard_terminal_read(actor, params).await
             }
-            "decision.answer" => {
-                let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
+            "decision.answers" => {
+                let answers: contracts::decision::AnswersParams = rpc::params(params.clone())?;
+                Ok(Some(answers.agent))
+            }
+            "decision.answer" | "decision.capture" => {
+                let id = if method == "decision.answer" {
+                    rpc::params::<contracts::decision::AnswerParams>(params.clone())?.id
+                } else {
+                    rpc::params::<contracts::decision::CaptureParams>(params.clone())?.id
+                };
                 let listed = self.modules["decision"]
                     .call(&self.ctx(actor.clone()), "decision.list", Value::Null)
                     .await?;
                 let decisions: Vec<contracts::decision::Decision> =
                     serde_json::from_value(listed).map_err(RpcError::internal)?;
-                Ok(decisions
-                    .into_iter()
-                    .find(|d| d.id == answer.id)
-                    .map(|d| d.agent))
+                Ok(decisions.into_iter().find(|d| d.id == id).map(|d| d.agent))
             }
             "agent.prompt"
             | "agent.setOrder"
@@ -636,6 +704,7 @@ impl Daemon {
             | "agent.discard"
             | "agent.land"
             | "agent.worktreeState"
+            | "agent.spawnPrompt"
             | "agent.run"
             | "rail.rename"
             | "rail.move"
@@ -1073,11 +1142,30 @@ fn failure(id: &Value, err: &RpcError) -> Value {
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     let mut exits = daemon.bus.subscribe();
+    daemon.reconcile_actions().await.map_err(io::Error::other)?;
     let weak = Arc::downgrade(&daemon);
     tokio::spawn(async move {
         loop {
             match exits.recv().await {
                 Ok(event) => {
+                    // User release can still be typing a recorded Message; its router call
+                    // owns that later cut. Only the Daemon's exit release runs here.
+                    if let contracts::EventData::TakeoverChanged(change) = &event.data
+                        && event.actor == Actor::daemon()
+                        && !change.on
+                    {
+                        let Some(daemon) = weak.upgrade() else { return };
+                        let _child = daemon.child_effects(&change.agent).write_owned().await;
+                        if !daemon
+                            .sender
+                            .get()
+                            .is_some_and(|m| m.takeover_active(&change.agent))
+                            && let Err(e) = daemon.release_actions(&change.agent).await
+                        {
+                            eprintln!("rupd: held action release failed: {}", e.message);
+                            return;
+                        }
+                    }
                     if let contracts::EventData::TerminalExited(exit) = event.data {
                         let Some(daemon) = weak.upgrade() else { return };
                         if let Err(e) = daemon.resize_exit(&exit.id).await {
@@ -1089,7 +1177,7 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
                     // A missed exit must not silently strand an accepted resize.
                     let Some(daemon) = weak.upgrade() else { return };
-                    if let Err(e) = daemon.reconcile_resizes().await {
+                    if let Err(e) = daemon.reconcile_actions().await {
                         eprintln!("rupd: resize exit reconciliation failed: {}", e.message);
                         return;
                     }
@@ -1190,6 +1278,11 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .is_some_and(|m| m.starts_with("decision."))
         {
             daemon.decision_actor(&conn)
+        } else if matches!(
+            method.as_deref(),
+            Some("rail.rename" | "agent.actionHistory")
+        ) {
+            daemon.action_actor(&conn)
         } else {
             conn.actor.clone()
         };
@@ -1199,14 +1292,18 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .unwrap_or(&Value::Null);
         // Register before spawning so scheduler order cannot overtake wire arrival.
         let child_arrival = match daemon
-            .door_effect_child(&actor, method.as_deref().unwrap_or_default(), params)
+            .door_effect_children(&actor, method.as_deref().unwrap_or_default(), params)
             .await
         {
-            Ok(Some(child)) => Some(daemon.resizes.arrive(
-                child,
-                matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
-            )),
-            Ok(None) => None,
+            Ok(children) => children
+                .into_iter()
+                .map(|child| {
+                    daemon.held_actions.arrive(
+                        child,
+                        matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
+                    )
+                })
+                .collect::<Vec<_>>(),
             Err(error) => {
                 // Reject the original target; a later target must not revive an invalid call.
                 if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
@@ -1236,19 +1333,20 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             });
         } else {
             ordinary.spawn(async move {
-                let done = if let Some((before, done)) = child_arrival {
+                let mut completed = Vec::new();
+                for (before, done) in child_arrival {
                     if let Some(mut before) = before {
                         let _ = before.wait_for(|done| *done).await;
                     }
-                    done
-                } else {
-                    None
-                };
+                    if let Some(done) = done {
+                        completed.push(done);
+                    }
+                }
                 if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
                 }
-                if let Some(done) = done {
-                    daemon.resizes.finish_arrival(done);
+                for done in completed {
+                    daemon.held_actions.finish_arrival(done);
                 }
             });
         }

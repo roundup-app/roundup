@@ -53,6 +53,20 @@ impl<CB: crate::callbacks::Callbacks> Parser<CB> {
         self.parser.advance(&mut self.screen, bytes);
     }
 
+    /// Returns ANSI bytes restoring pending CSI, OSC and UTF-8 recognition.
+    /// Feed `screen().state_formatted()`, then these bytes, then only subsequent
+    /// raw output into a fresh parser of the same dimensions. This does not
+    /// mutate the live parser or invoke its callbacks. Screen/scrollback
+    /// formatting remains the caller's responsibility. The result is at most
+    /// 1280 bytes, independent of input length; no replay history is retained.
+    /// DCS payloads are ignored by this emulator and are not exported.
+    #[must_use]
+    pub fn pending_formatted(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        self.parser.pending_formatted(|byte| bytes.push(byte));
+        bytes
+    }
+
     /// Returns a reference to a [`Screen`](crate::Screen) object containing
     /// the terminal state.
     #[must_use]

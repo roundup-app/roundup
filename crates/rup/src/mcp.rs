@@ -272,7 +272,10 @@ fn offered_tools() -> Vec<Offered> {
             "rail.startDoor",
             "Start the Door of a Workstream you made, or of one in your Reach. It asks the user what the Workstream is for.",
         ),
-        offered::<agent::RenameParams>("rail.rename", "Rename yourself or a node in your Reach."),
+        offered::<agent::RenameParams>(
+            "rail.rename",
+            "Rename yourself or a node in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+        ),
         offered::<agent::MoveParams>(
             "rail.move",
             "Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root.",
@@ -380,6 +383,10 @@ fn offered_tools() -> Vec<Offered> {
         offered::<terminal::TerminalId>(
             "terminal.kill",
             "Stop the program of a Terminal you or your Reach own.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.actionHistory",
+            "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
         ),
         agent_context(),
         agent_set_order(),

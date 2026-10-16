@@ -93,6 +93,13 @@ const Connection = (props: {
     if (mine) props.onConnected(path, mine);
   });
 
+  // Refused Agent answers have no Event, so live requests refresh on the App's shared clock.
+  createEffect(on(props.now, () => {
+    const open = connected();
+
+    if (open && !(open instanceof Error) && open.decisions.open().length > 0) open.decisions.retryList();
+  }, { defer: true }));
+
   // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
   createEffect(() => {
     const open = connected();
