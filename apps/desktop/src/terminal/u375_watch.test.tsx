@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Decision } from "@contracts/decision/Decision";
 import { RpcError } from "../app/seam";
 import { callsTo } from "./paneHarness";
-import { agent, door, event } from "../testing/nodes";
+import { agent, door, event, NOW } from "../testing/nodes";
 import { mountCentre } from "../testing/centreFixture";
 
 const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent("a", "working", "x", { parent: "workstream", name: "ann", terminal_id: "t-a" })];
@@ -173,6 +173,31 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
   });
 
+
+  it("u468_a_child_that_needs_you_takes_its_answer_in_its_terminal", async () => {
+    const { app, connected, emulators } = await mountCentre(tree(), { select: "workstream" });
+    const status = (kind: "needs-you" | "working", revision: string) =>
+      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW } } }));
+
+    status("needs-you", "2");
+    // U412: activating the child's Toast selects its row, as a click on the row does.
+    connected.rail.select("a");
+
+    await vi.waitFor(() => expect(document.activeElement?.closest('[data-terminal="t-a"]')).not.toBeNull());
+    expect(band()).toBeNull();
+
+    emulators.get("t-a")!.type(bytes(49, 13));
+
+    await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toHaveLength(1));
+    expect(callsTo(app, "terminal.write")[0]).toMatchObject({ id: "t-a" });
+    expect(calls(app, "takeover.")).toEqual([]);
+
+    status("working", "3");
+
+    await vi.waitFor(() => expect(band()).not.toBeNull());
+    emulators.get("t-a")!.type(bytes(50));
+    expect(callsTo(app, "terminal.write")).toHaveLength(1);
+  });
 
   it("u375_an_exited_terminal_shows_no_band", async () => {
     const { app } = await mountWatch();

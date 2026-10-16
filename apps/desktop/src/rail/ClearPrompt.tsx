@@ -51,7 +51,7 @@ export const ClearPrompt = (props: { node: RailNode }) => {
           }
         }}
       >
-        <label class="clear-title">{copy.whyClear}{props.node.name}{copy.questionMark}<textarea
+        <label class="clear-title">{copy.whyClear}<textarea
             ref={(element) => (field = element)}
             class="clear-reason"
             rows={1}
@@ -82,11 +82,10 @@ export const ClearPrompt = (props: { node: RailNode }) => {
         </Show>
         <p class="clear-words">
           <button type="submit" class="word" data-button="quiet" disabled={empty() || pending()}>{copy.clearWithHandoff}</button>{" "}
-          <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={() => clearing().keep()}>{copy.keep}</button>
           <Show when={clearing().offersWithoutHandoff()}>
-            {" "}
-            <button type="button" class="word" data-button="quiet" disabled={empty() || pending()} onClick={() => void clearing().submit(true)}>{copy.clearWithoutHandoff}</button>
+            <button type="button" class="word" data-button="quiet" disabled={empty() || pending()} onClick={() => void clearing().submit(true)}>{copy.clearWithoutHandoff}</button>{" "}
           </Show>
+          <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={() => clearing().keep()}>{copy.keep}</button>
         </p>
       </form>
     </Show>

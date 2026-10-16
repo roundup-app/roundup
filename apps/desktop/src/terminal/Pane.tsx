@@ -30,12 +30,15 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? createXtermEmulators();
 
-  /** U375: an Agent below a Door is read-only until the user takes it over; the Door itself is always typed into (U467). */
+  /** U375: an Agent below a Door is read-only until the user takes it over; the Door itself is always typed into (U467),
+   * and a child that needs you takes keys, so the user answers its question or permission in its own Terminal (U468). */
   const inWatch = (): boolean => {
     const id = rail.selected();
 
-    return id !== null && !isDoor(id) && belowDoor(id) && connected.takeover.taken() !== id;
+    return id !== null && !isDoor(id) && belowDoor(id) && !needsYou(id) && connected.takeover.taken() !== id;
   };
+
+  const needsYou = (id: string): boolean => rail.nodes.find((node) => node.id === id)?.status?.kind === "needs-you";
 
   const belowDoor = (from: string): boolean => {
     for (let id: string | null = from; id !== null; ) {
