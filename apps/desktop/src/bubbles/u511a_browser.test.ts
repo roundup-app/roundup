@@ -28,7 +28,7 @@ const probe = `(selector) => {
   const rect = s => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? [r.x, r.y, r.width, r.height] : null; };
   return { font: [style.fontFamily, style.fontSize, style.fontWeight, style.fontStyle].join('|'), letter: style.letterSpacing, line: style.lineHeight,
     left: node.tagName === 'INPUT' ? box.left + pad : left, baseline: box.top + (box.height - parseFloat(style.fontSize)) / 2, height: document.querySelector('.terminal-tab-pair').getBoundingClientRect().height,
-    rects: { bar: rect('.resource-strip'), pane: rect('.pane'), composer: rect('.thread-composer') } };
+    rects: { bar: rect('.resource-strip'), pane: rect('.pane') } };
 }`;
 
 const open = async (width: number): Promise<void> => {
