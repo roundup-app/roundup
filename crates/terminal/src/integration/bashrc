@@ -1,0 +1,21 @@
+# roundup shell marks (X15): what a login bash reads, then the marks.
+[ -r /etc/profile ] && . /etc/profile
+for __rup_file in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+  if [ -r "$__rup_file" ]; then . "$__rup_file"; break; fi
+done
+unset __rup_file
+
+__rup_first=1
+__rup_prompt() {
+  local code=$?
+  if [ -z "$__rup_first" ]; then printf '\e]133;D;%s\a' "$code"; fi
+  __rup_first=
+  printf '\e]7;file://%s%s\a' "${HOSTNAME:-$(hostname)}" "$PWD"
+  case $PS1 in
+    *'133;A'*) ;;
+    *) PS1='\[\e]133;A\a\]'"$PS1"'\[\e]133;B\a\]' ;;
+  esac
+  return "$code"
+}
+PROMPT_COMMAND="__rup_prompt${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+PS0=$PS0'\e]133;C\a'
