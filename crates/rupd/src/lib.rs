@@ -616,17 +616,22 @@ impl Daemon {
             | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                 self.guard_terminal_read(actor, params).await
             }
-            "decision.answer" => {
-                let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
+            "decision.answers" => {
+                let answers: contracts::decision::AnswersParams = rpc::params(params.clone())?;
+                Ok(Some(answers.agent))
+            }
+            "decision.answer" | "decision.capture" => {
+                let id = if method == "decision.answer" {
+                    rpc::params::<contracts::decision::AnswerParams>(params.clone())?.id
+                } else {
+                    rpc::params::<contracts::decision::CaptureParams>(params.clone())?.id
+                };
                 let listed = self.modules["decision"]
                     .call(&self.ctx(actor.clone()), "decision.list", Value::Null)
                     .await?;
                 let decisions: Vec<contracts::decision::Decision> =
                     serde_json::from_value(listed).map_err(RpcError::internal)?;
-                Ok(decisions
-                    .into_iter()
-                    .find(|d| d.id == answer.id)
-                    .map(|d| d.agent))
+                Ok(decisions.into_iter().find(|d| d.id == id).map(|d| d.agent))
             }
             "agent.prompt"
             | "agent.setOrder"
@@ -636,6 +641,7 @@ impl Daemon {
             | "agent.discard"
             | "agent.land"
             | "agent.worktreeState"
+            | "agent.spawnPrompt"
             | "agent.run"
             | "rail.rename"
             | "rail.move"
