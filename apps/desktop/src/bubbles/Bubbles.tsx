@@ -1,4 +1,4 @@
-import { IconButton } from "../ui";
+import { Editable, IconButton, Menu } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -9,7 +9,7 @@ import { resolvedWorkstream } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, DEFAULT_TRANSPARENCY, MAX_TRANSPARENCY, MIN_HEIGHT, MIN_WIDTH, nameOf, placesStorage, shownFor, STEP, TRANSPARENCY_STEP, transparencyStorage,
+  clamped, defaultPlace, DEFAULT_TRANSPARENCY, MAX_TRANSPARENCY, MIN_HEIGHT, MIN_WIDTH, placesStorage, shownFor, shownName, STEP, TRANSPARENCY_STEP, transparencyStorage,
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
@@ -50,6 +50,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
   const [selectionMessage, setSelectionMessage] = createSignal(false);
+  const [editing, setEditing] = createSignal<string | null>(null);
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const closing = new Set<string>();
   let before: Element | null = null;
@@ -89,6 +90,19 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     setPlaces(next);
     persistPlaces(next);
+  };
+
+  const nameFor = (terminal: TerminalInfo): string => shownName(terminal, places()[terminal.id]);
+
+  /** U511: a trimmed name that differs from the shown one is saved on the Terminal's place; an empty one clears it. */
+  const rename = (terminal: TerminalInfo, value: string): void => {
+    const name = value.trim();
+
+    if (name === nameFor(terminal) || (name === "" && places()[terminal.id]?.name === undefined)) return;
+
+    const { name: _previous, ...place } = placeOf(terminal.id);
+
+    setPlace(terminal.id, name === "" ? place : { ...place, name });
   };
 
   const show = (id: string | null): void => {
@@ -499,6 +513,9 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   const onKey = (press: KeyboardEvent): void => {
     // Help is modal: while it is open no chord acts (U54).
+    // U511: the name's editor owns its keys.
+    if (press.target instanceof Element && press.target.closest(".terminal-tab-editor")) return;
+
     if (!press.metaKey || press.ctrlKey || press.altKey || document.querySelector(".help") !== null) return;
 
     const key = press.key.toLowerCase();
@@ -622,7 +639,7 @@ export const Bubbles = (props: { screens: Screens }) => {
         class="bubble"
         data-bubble={id}
         role="group"
-        aria-label={nameOf(terminal()!)}
+        aria-label={nameFor(terminal()!)}
         hidden={place().min}
         style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px`, "--bubble-ground": `${(100 - transparency()) / 100}` }}
       >
@@ -630,7 +647,7 @@ export const Bubbles = (props: { screens: Screens }) => {
             // SAFETY: a pointer event on the header always targets an Element.
             if (!(event.target as Element).closest("button, input")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
           }} onKeyDown={onHeaderKey}>
-          <span class="bubble-name">{nameOf(terminal()!)}</span>
+          <span class="bubble-name">{nameFor(terminal()!)}</span>
           <span class="bubble-state">{stateText(terminal()!)}</span>
           <input
             type="range"
@@ -665,15 +682,52 @@ export const Bubbles = (props: { screens: Screens }) => {
           <For each={shownIds()}>{(id) => {
             const terminal = () => shown().find((candidate) => candidate.id === id)!;
 
-            return <span class="terminal-tab-pair" data-bubble={id}>
-              <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-                aria-label={nameOf(terminal())} aria-describedby={`terminal-state-${id}`} title={nameOf(terminal())} aria-pressed={!placeOf(id).min}
-                onClick={() => toggleMinimised(id)}>
-                <span class="terminal-tab-name">{nameOf(terminal())}</span>
-                <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
-              </button>
-              <IconButton aria-label={copy.closeTerminal(nameOf(terminal()))} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-            </span>;
+            const name = () => nameFor(terminal());
+            let renameChosen = false;
+
+            const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
+
+            return <Menu.Root positioning={{ strategy: "fixed" }} onSelect={({ value }) => { renameChosen = value === "rename"; }}
+              onOpenChange={({ open }) => {
+                // The menu hands focus back to its trigger as it closes; the editor starts after that.
+                if (open || !renameChosen) return;
+
+                renameChosen = false;
+                setTimeout(() => setEditing(id));
+              }}>
+              <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} data-bubble={id}>
+                <Show when={editing() === id} fallback={
+                  <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
+                    aria-label={name()} aria-describedby={`terminal-state-${id}`} title={name()} aria-pressed={!placeOf(id).min}
+                    onClick={() => toggleMinimised(id)}
+                    onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
+                    <span class="terminal-tab-name">{name()}</span>
+                    <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
+                  </button>
+                }>
+                  <div class="terminal-tab terminal-tab-editor" data-bubble={id}>
+                    <Editable.Root defaultValue={name()} activationMode="none" submitMode="both" finalFocusEl={tab}
+                      onValueCommit={({ value }) => rename(terminal(), value)}
+                      onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
+                      <Editable.Context>{(api) => {
+                        onMount(() => api().edit());
+
+                        return null;
+                      }}</Editable.Context>
+                      <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName} ref={(input: HTMLInputElement) => {
+                        // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
+                        onMount(() => requestAnimationFrame(() => { input.focus({ preventScroll: true }); input.select(); }));
+                      }} /></Editable.Area>
+                    </Editable.Root>
+                    <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
+                  </div>
+                </Show>
+                <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
+              </span>} />
+              <Portal><Menu.Positioner><Menu.Content>
+                <Menu.Item value="rename">{copy.rename}</Menu.Item>
+              </Menu.Content></Menu.Positioner></Portal>
+            </Menu.Root>;
           }}</For>
           <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
