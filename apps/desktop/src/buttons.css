@@ -70,6 +70,11 @@ button {
   color: var(--text);
 }
 
+/* U137: the Add Agent icon and label share stronger ink on the selected wash to keep D5. */
+.rail-row[data-selected="true"] button:has(.rail-add-label) {
+  color: var(--text);
+}
+
 /* The Ink tones of U132 on a button (a strip edge). */
 [data-button][data-tone="amber"] {
   color: var(--amber);
