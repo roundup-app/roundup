@@ -30,7 +30,7 @@ const each = async (body: (width: number, scheme: "light" | "dark") => Promise<v
 it("u534_the_tab_region_ends_before_the_resource_values_and_the_shelf", async () => {
   await each(async (width, scheme) => {
     await eight(width, scheme);
-    const r = await page.call<{ host: number[]; pane: number[]; values: number[][]; tabs: number[][]; shelf: number | null; overflow: string }>(`() => {
+    const r = await page.call<{ host: [number, number, number, number]; pane: [number, number, number, number]; values: [number, number, number, number][]; tabs: number[][]; shelf: number | null; overflow: string }>(`() => {
       const b = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
       const host = document.querySelector('.terminal-tabs-host');
       const shelf = document.querySelector('.shelf');
