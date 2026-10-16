@@ -137,7 +137,7 @@ export type RpcMethods = {
   "agent.actionHistory": { params: agent_NodeId; result: agent_HeldAction[] };
   "agent.stop": { params: agent_NodeId; result: null | agent_HeldAction };
   "agent.prompt": { params: agent_PromptParams; result: null };
-  "agent.interrupt": { params: agent_NodeId; result: null };
+  "agent.interrupt": { params: agent_NodeId; result: null | agent_HeldAction };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };
