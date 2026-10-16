@@ -598,6 +598,15 @@ impl ServerHandler for Shim {
         request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
+        if matches!(request.name.as_ref(), "ask_send" | "ask_list" | "ask_pick") {
+            return Err(ErrorData::new(
+                rmcp::model::ErrorCode(
+                    rpc::code::FORBIDDEN.try_into().expect("FORBIDDEN fits i32"),
+                ),
+                format!("{} is user-only", request.name),
+                None,
+            ));
+        }
         let offer = self
             .tools
             .iter()
