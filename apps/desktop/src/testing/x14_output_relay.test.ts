@@ -223,7 +223,7 @@ it("x14_harness_output_relay_cancellation_is_isolated", async () => {
     const other = await real.select("B");
     const otherBytes: Buffer[] = [];
     other.response.on("data", (chunk: Buffer) => otherBytes.push(chunk));
-    const global = await fetch(`${real.base}/__daemon/events`);
+    const global = await bound(fetch(`${real.base}/__daemon/events`));
     const events = global.body!.getReader();
     const ready = await bound(events.read());
     expect(new TextDecoder().decode(ready.value)).toContain('"ready":true');
@@ -249,13 +249,13 @@ it("x14_harness_output_relay_cancellation_is_isolated", async () => {
     await bound(releasedReplacement);
     other.socket.write(output("B", [67], 1));
     await expect.poll(() => Buffer.concat(otherBytes)).toEqual(Buffer.from([66, 67]));
-    expect((await fetch(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Origin: "https://foreign.example" } })).status).toBe(403);
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Origin: "https://foreign.example" } }))).status).toBe(403);
 
     const foreign = await bound(new Promise<number>((resolve, reject) => {
       request(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Host: "foreign.example" } }, (res) => { res.resume(); resolve(res.statusCode!); }).on("error", reject).end();
     }));
 
     expect(foreign).toBe(403);
-    expect((await fetch(`${real.base}/__daemon/output?terminal=A&after=-1`)).status).toBe(400);
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A&after=-1`))).status).toBe(400);
   } finally { await real.close(); }
 }, 30_000);

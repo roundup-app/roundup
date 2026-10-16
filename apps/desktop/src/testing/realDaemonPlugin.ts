@@ -163,6 +163,7 @@ const stream = (daemon: RealDaemon, response: ServerResponse) => {
  * See realDaemonOutput.md for bounds and the browser recovery contract. */
 const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, after: number) => {
   const socket = connect(daemon.socket);
+  const timer = setTimeout(() => socket.destroy(new Error(`output subscription did not answer within ${RPC_BOUND_MS} ms`)), RPC_BOUND_MS);
   const maxLine = 262_144;
   let next = after;
 
@@ -176,6 +177,8 @@ const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, 
   response.flushHeaders();
   response.on("close", () => socket.destroy());
   socket.on("connect", () => socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "events.subscribe", params: null })}\n`));
+
+  socket.once("close", () => clearTimeout(timer));
 
   // A generator yields only when downstream requests bytes. No event callback
   // keeps writing after response.write() has signalled backpressure.
@@ -196,6 +199,8 @@ const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, 
         const frame = v.parse(replySchema, JSON.parse(line.toString("utf8")));
 
         if (frame.error) throw new Error(frame.error.message);
+
+        if (frame.id === 1) clearTimeout(timer);
 
         if (frame.method !== "event") continue;
         const event = v.parse(v.object({ name: v.string(), data: v.optional(v.unknown()) }), frame.params);

@@ -6,7 +6,9 @@ binary response and one dedicated Unix socket. `Content-Type` is
 `X-Output-After` is its initial byte offset. Read `response.body.getReader()`
 as `Uint8Array` chunks, without a text decoder. HTTP may split or coalesce
 chunks; chunk boundaries carry no meaning. Abort the fetch or cancel its reader
-to release the selection. Never reuse a reader for another selection.
+to release the selection. Never reuse a reader for another selection. The socket
+subscription must answer within 60 seconds; an acknowledged stream has no idle
+timeout and remains owned by its browser request.
 
 The starting offset must equal the next selected Event's offset. A malformed
 frame, offset gap, invalid base64, overlarge envelope or incomplete final line
