@@ -38,16 +38,20 @@ jobs:
       - uses: ./.github/actions/setup
       - run: python3 loop/app-data.py just lint-rust
 
-  # L89: the Rust suite in three thirds, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
-  # the timed waits of daemons, fake Claude and sqlite. `hash` keeps each test in its third across commits, so a PR's
-  # third and `main`'s third hold the same tests (L82). L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
+  # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
+  # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
+  # tests; a build job whose nextest archive the lanes download is no shorter: one compile stays on the path, with the
+  # archive's upload, download and unpacking after it. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
+  # the test binaries packed to equal seconds; a test stays in its lane across commits, so a PR's lane and `main`'s hold
+  # the same tests (L82).
+  # L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
   rust:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3]
+        partition: [1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -57,7 +61,7 @@ jobs:
         with:
           save-cache: ${{ matrix.partition == 1 }}
       - name: test-rust
-        run: python3 loop/app-data.py just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/${{ strategy.job-total }} --test-threads 4
+        run: python3 loop/app-data.py just test-rust-since "$BASE" --profile ci${{ matrix.partition }} --test-threads 4
 
   # L89: the code Linux never compiles or runs: clippy on macOS, the tests that take a macOS path, and the daemon smoke
   # test, on the OS the App ships on.

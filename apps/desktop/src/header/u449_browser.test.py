@@ -123,6 +123,9 @@ if len(sys.argv) > 5 and sys.argv[5] == "boxes":
     try:
         browser("open", origin + "harness.html?seed=first-run")
         for width, height in ((1280, 800), (1280, 820), (1440, 800)):
+            # An optional viewport ("1280x800") runs only that one: the test runs the three side by side.
+            if len(sys.argv) > 6 and sys.argv[6] != f"{width}x{height}":
+                continue
             browser("set", "viewport", str(width), str(height))
             for scheme in ("light", "dark"):
                 browser("set", "media", scheme)
