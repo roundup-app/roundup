@@ -1760,7 +1760,7 @@ mod tests {
         let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
         let mut client = UnixStream::connect(&socket).await.unwrap();
         client
-            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\"}\n")
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"fixture\"}}\n")
             .await
             .unwrap();
         client.shutdown().await.unwrap();
