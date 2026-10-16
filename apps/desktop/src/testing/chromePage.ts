@@ -59,10 +59,10 @@ export type ChromePage = {
   close(): Promise<void>;
 };
 
-/** Startup awaits the page acknowledgement and attachment within startupMs (defaults to replyMs). Post-startup replies retain replyMs; observe reports completed stages in elapsed milliseconds. */
+/** Startup awaits the page acknowledgement and attachment within startupMs (defaults to the measured 60000 ms stall bound; tools/chromium-faults/issue-1977.md). Post-startup replies retain replyMs; observe reports completed stages in elapsed milliseconds. */
 export const openPage = async (
   found: string,
-  { root = process.cwd(), clock, replyMs = 20_000, startupMs = replyMs, observe }: { root?: string; clock?: number; replyMs?: number; startupMs?: number; observe?: (stage: string, elapsedMs: number) => void } = {},
+  { root = process.cwd(), clock, replyMs = 20_000, startupMs = 60_000, observe }: { root?: string; clock?: number; replyMs?: number; startupMs?: number; observe?: (stage: string, elapsedMs: number) => void } = {},
 ): Promise<ChromePage> => {
   const startup = performance.now();
   let stage = "executable-reading";
