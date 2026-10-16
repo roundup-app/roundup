@@ -308,7 +308,12 @@ impl Daemon {
     }
 
     /// Answer one request line. Notifications (no `id`) get no answer.
-    async fn dispatch(&self, conn: &mut Conn, line: &str) -> Option<Value> {
+    async fn dispatch(
+        &self,
+        conn: &mut Conn,
+        line: &str,
+        decision_actor: Option<Actor>,
+    ) -> Option<Value> {
         let Ok(request) = serde_json::from_str::<Value>(line) else {
             return Some(failure(
                 &Value::Null,
@@ -318,6 +323,10 @@ impl Daemon {
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
         let params = request.get("params").cloned().unwrap_or(Value::Null);
+        if method.starts_with("decision.") {
+            // Preserve the wire reader's authenticated identity while earlier actions finish.
+            conn.actor = decision_actor.unwrap_or_else(|| self.decision_actor(conn));
+        }
         let outcome = self.route(conn, method, params).await;
         let id = id?;
         Some(match outcome {
@@ -345,10 +354,6 @@ impl Daemon {
         } else {
             None
         };
-        if method.starts_with("decision.") {
-            // H21's peer identity must govern arrival, release and the final answer alike.
-            conn.actor = self.decision_actor(conn);
-        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -1158,7 +1163,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             method.as_deref(),
             Some("daemon.identify" | "events.subscribe")
         ) {
-            if let Some(reply) = daemon.dispatch(&mut conn, &line).await {
+            if let Some(reply) = daemon.dispatch(&mut conn, &line, None).await {
                 let _ = frames.send(reply);
             }
             continue;
@@ -1214,7 +1219,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                 if let Some(before) = before {
                     let _ = before.await;
                 }
-                if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
+                if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
                 }
                 let _ = done.send(());
@@ -1229,7 +1234,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                 } else {
                     None
                 };
-                if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
+                if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
                 }
                 if let Some(done) = done {
@@ -1269,7 +1274,7 @@ mod tests {
             peer: None,
             events,
         };
-        daemon.dispatch(&mut conn, line).await.unwrap()
+        daemon.dispatch(&mut conn, line, None).await.unwrap()
     }
 
     fn daemon() -> (tempfile::TempDir, Daemon) {
