@@ -477,7 +477,8 @@ impl Daemon {
         }
         if matches!(
             method,
-            "terminal.screen"
+            "terminal.snapshot"
+                | "terminal.screen"
                 | "terminal.read"
                 | "terminal.search"
                 | "terminal.write"
@@ -602,8 +603,8 @@ impl Daemon {
             return Ok(None);
         }
         match method {
-            "terminal.screen" | "terminal.read" | "terminal.search" | "terminal.write"
-            | "terminal.kill" | "terminal.close" | "terminal.resize" => {
+            "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
+            | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                 self.guard_terminal_read(actor, params).await
             }
             "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
