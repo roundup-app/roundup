@@ -4276,13 +4276,27 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
             )
             .await
             .unwrap();
+        let mut events = notice_events(&run).await;
         let gate = run.dir.path().join("input-gate");
         std::fs::write(&gate, "pause").unwrap();
         let user = Arc::clone(&run.user);
         let child = run.child.clone();
         let end =
             tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
-        // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
+        // A background Digest can reach the shared input gate before the child is released.
+        // Observe the child's Takeover boundary independently of the physical input gate.
+        tokio::time::timeout(BOUND, async {
+            loop {
+                if matches!(events.next_event().await.unwrap().data,
+                    EventData::TakeoverChanged(ref change)
+                    if change.agent == run.child && !change.on)
+                {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
         tokio::time::timeout(BOUND, async {
             while !gate.with_extension("arrived").is_file() {
                 tokio::task::yield_now().await;
