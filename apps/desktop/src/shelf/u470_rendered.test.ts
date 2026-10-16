@@ -8,14 +8,14 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
+import { appServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
 it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
   const profile = mkdtempSync(join(tmpdir(), "u470-browser-"));
   const cacheDir = mkdtempSync(join(tmpdir(), "u470-vite-"));
-  const server = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
+  const server = await appServer();
   const mainRoot = process.env["ROUNDUP_U470_MAIN"];
   const main = mainRoot ? await createServer({ root: mainRoot, cacheDir: join(cacheDir, "main"), server: { port: 0, hmr: false }, logLevel: "silent" }) : null;
   await main?.listen();
@@ -76,7 +76,7 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
       }
     }
 
-    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
     await browser("wait", ".shelf-tabs");
     await evaluate(seed);
     await settle();
@@ -167,10 +167,8 @@ it("u470_rendered_header_keeps_checks_and_failure_visible", async () => {
 
 it("u470_tab_space_and_enter", async () => {
   const profile = mkdtempSync(join(tmpdir(), "u470-keys-"));
-  const cacheDir = mkdtempSync(join(tmpdir(), "u470-keys-vite-"));
-  const server = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, hmr: false }, logLevel: "silent" });
+  const server = await appServer();
 
-  await server.listen();
 
   const session = `u470-keys-${process.pid}`;
   const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
@@ -179,7 +177,7 @@ it("u470_tab_space_and_enter", async () => {
   const settle = () => browser("eval", "new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
 
   try {
-    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
     await browser("wait", ".shelf-tabs");
     await evaluate(`(() => { document.querySelector('.rail [data-id="backend"] .name').click(); document.querySelector('#shelf-tab-todos').focus(); return true; })()`);
     await browser("press", "Tab");
@@ -206,6 +204,5 @@ it("u470_tab_space_and_enter", async () => {
     await browser("close");
     await server.close();
     rmSync(profile, { recursive: true, force: true });
-    rmSync(cacheDir, { recursive: true, force: true });
   }
 }, 90_000);

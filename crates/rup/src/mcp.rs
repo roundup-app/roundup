@@ -298,7 +298,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<agent::PromptParams>(
             "agent.prompt",
-            "Send a prompt to an Agent in your Reach as the user would.",
+            "Send a prompt to an Agent in your Reach as the user would. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<agent::NodeId>(
             "agent.resume",
@@ -444,7 +444,6 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
                 "disabled"
             }
         ),
-        "agent.prompt" => format!("sent prompt to Agent {id}"),
         "agent.discard" => format!("discarded Worktree of Agent {id}"),
         "rail.move" => format!(
             "moved {id} to {}",
