@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
-import { LIST, selectNamed } from "../models/modelsFixture";
+import { LIST } from "../models/modelsFixture";
 import { clearingOf } from "../thread/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
@@ -59,7 +59,7 @@ describe("u427 a Workstream row's icons", () => {
 
     fireEvent.click(icon("g", "Choose Model and Effort"));
 
-    expect(await selectNamed("Model")).toBeTruthy();
+    expect(await screen.findByRole("combobox", { name: "Model" })).toBeTruthy();
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 

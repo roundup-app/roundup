@@ -83,6 +83,8 @@ export { Sortable } from "./sortable";
 
 export { Splitter } from "./Splitter";
 
+export { Select } from "./Select";
+
 export { createToast, ToastProvider } from "./Toast";
 
 export { Listbox } from "./Listbox";
