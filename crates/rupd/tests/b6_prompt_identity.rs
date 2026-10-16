@@ -4103,114 +4103,97 @@ async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
 }
 
 #[tokio::test]
-async fn b6_a_later_door_rename_cannot_overtake_a_released_resize() {
-    let (run, caller) = door_terminal().await;
-    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
-    run.user
-        .request("takeover.begin", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    caller
-        .request(
-            "terminal.resize",
-            json!({"id":run.terminal,"cols":101,"rows":37}),
-        )
-        .await
-        .unwrap();
-    run.user
-        .request(
-            "message.send",
-            json!({"to":run.child,"kind":"note","body":"release ordering"}),
-        )
-        .await
-        .unwrap();
-    let gate = run.dir.path().join("input-gate");
-    std::fs::write(&gate, "pause").unwrap();
-    let user = Arc::clone(&run.user);
-    let child = run.child.clone();
-    let end =
-        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
-    // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
-    tokio::time::timeout(BOUND, async {
-        while !gate.with_extension("arrived").is_file() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    let renamed = tokio::time::timeout(
-        BOUND,
-        caller.request("rail.rename", json!({"id":run.child,"name":"after resize"})),
-    )
-    .await;
-    let history = tokio::time::timeout(
-        BOUND,
+async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
+    for method in ["rail.rename", "terminal.kill"] {
+        let (run, caller) = door_terminal().await;
+        std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
         run.user
-            .request("terminal.resizeHistory", json!({"id":run.terminal})),
-    )
-    .await;
-    std::fs::remove_file(gate).unwrap();
-    end.await.unwrap().unwrap();
-    run.finish().await;
-    renamed.unwrap().unwrap();
-    assert_eq!(
-        history.unwrap().unwrap()[0]["outcome"]["status"],
-        "completed",
-        "a later Door rename returned before the older resize ran"
-    );
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        caller
+            .request(
+                "terminal.resize",
+                json!({"id":run.terminal,"cols":101,"rows":37}),
+            )
+            .await
+            .unwrap();
+        run.user
+            .request(
+                "message.send",
+                json!({"to":run.child,"kind":"note","body":"release ordering"}),
+            )
+            .await
+            .unwrap();
+        let gate = run.dir.path().join("input-gate");
+        std::fs::write(&gate, "pause").unwrap();
+        let user = Arc::clone(&run.user);
+        let child = run.child.clone();
+        let end =
+            tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+        // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
+        tokio::time::timeout(BOUND, async {
+            while !gate.with_extension("arrived").is_file() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let params = if method == "rail.rename" {
+            json!({"id":run.child,"name":"after resize"})
+        } else {
+            json!({"id":run.terminal})
+        };
+        let effect = tokio::time::timeout(BOUND, caller.request(method, params)).await;
+        let history = tokio::time::timeout(
+            BOUND,
+            run.user
+                .request("terminal.resizeHistory", json!({"id":run.terminal})),
+        )
+        .await;
+        std::fs::remove_file(gate).unwrap();
+        end.await.unwrap().unwrap();
+        run.finish().await;
+        effect.unwrap().unwrap();
+        assert_eq!(
+            history.unwrap().unwrap()[0]["outcome"]["status"],
+            "completed",
+            "{method} returned before the older resize ran"
+        );
+    }
 }
 
 #[tokio::test]
-async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
+async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-    let (run, _) = door_terminal().await;
-    let tree = run.user.request("rail.tree", ()).await.unwrap();
-    let door = tree
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|n| n["id"] == run.child)
-        .unwrap()["parent"]
-        .clone();
-    let client = tokio::net::UnixStream::connect(&run.daemon.socket)
-        .await
-        .unwrap();
-    let (read, mut write) = client.into_split();
-    let mut replies = BufReader::new(read).lines();
-    write.write_all(format!("{}\n", json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).as_bytes()).await.unwrap();
-    let identified: Value = serde_json::from_str(
-        &tokio::time::timeout(BOUND, replies.next_line())
+    for method in [
+        "terminal.write",
+        "agent.prompt",
+        "agent.setOrder",
+        "agent.interrupt",
+        "agent.resume",
+        "agent.stop",
+        "terminal.kill",
+        "terminal.close",
+        "rail.rename",
+    ] {
+        let (run, _) = door_terminal().await;
+        std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        let door = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap()["parent"]
+            .clone();
+        let client = tokio::net::UnixStream::connect(&run.daemon.socket)
             .await
-            .unwrap()
-            .unwrap()
-            .unwrap(),
-    )
-    .unwrap();
-    assert!(identified.get("result").is_some(), "{identified}");
-    run.pause();
-    write.write_all(format!("{}\n", json!({"id":2,"method":"terminal.resize","params":{"id":run.terminal,"cols":101,"rows":37}})).as_bytes()).await.unwrap();
-    run.paused().await;
-    let mut batch = Vec::new();
-    for cols in 102..110 {
-        batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
-    }
-    batch.extend(format!("{}\n", json!({"id":110,"method":"rail.rename","params":{"id":run.child,"name":"after every resize"}})).as_bytes());
-    // This reply acknowledges that the reader has scheduled every earlier wire frame.
-    batch.extend(format!("{}\n", json!({"id":111,"method":"rail.tree"})).as_bytes());
-    write.write_all(&batch).await.unwrap();
-    let barrier: Value = serde_json::from_str(
-        &tokio::time::timeout(BOUND, replies.next_line())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(barrier["id"], 111, "{barrier}");
-    run.release();
-    let mut order = Vec::new();
-    for _ in 0..10 {
-        let reply: Value = serde_json::from_str(
+            .unwrap();
+        let (read, mut write) = client.into_split();
+        let mut replies = BufReader::new(read).lines();
+        write.write_all(format!("{}\n", json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).as_bytes()).await.unwrap();
+        let identified: Value = serde_json::from_str(
             &tokio::time::timeout(BOUND, replies.next_line())
                 .await
                 .unwrap()
@@ -4218,13 +4201,72 @@ async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
                 .unwrap(),
         )
         .unwrap();
-        assert!(reply.get("result").is_some(), "{reply}");
-        order.push(reply["id"].as_u64().unwrap());
+        assert!(identified.get("result").is_some(), "{identified}");
+        run.pause();
+        write.write_all(format!("{}\n", json!({"id":2,"method":"terminal.resize","params":{"id":run.terminal,"cols":101,"rows":37}})).as_bytes()).await.unwrap();
+        run.paused().await;
+        let mut batch = Vec::new();
+        for cols in 102..110 {
+            batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
+        }
+        let params = match method {
+            "terminal.write" => json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
+            "terminal.kill" | "terminal.close" => json!({"id":run.terminal}),
+            "agent.prompt" => json!({"id":run.child,"text":"later prompt"}),
+            "agent.setOrder" => {
+                json!({"id":run.child,"order":{"kind":"work","ask":"later order","limits":[]}})
+            }
+            "rail.rename" => json!({"id":run.child,"name":"after every resize"}),
+            _ => json!({"id":run.child}),
+        };
+        batch.extend(format!("{}\n", json!({"id":110,"method":method,"params":params})).as_bytes());
+        // This reply acknowledges that the reader has scheduled every earlier wire frame.
+        batch.extend(format!("{}\n", json!({"id":111,"method":"rail.tree"})).as_bytes());
+        write.write_all(&batch).await.unwrap();
+        let barrier: Value = serde_json::from_str(
+            &tokio::time::timeout(BOUND, replies.next_line())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        if barrier["id"] != 111 {
+            run.release();
+            run.finish().await;
+            panic!("{method} overtook earlier resizes before the wire barrier: {barrier}");
+        }
+        run.release();
+        let mut order = Vec::new();
+        for _ in 0..10 {
+            let reply: Value = serde_json::from_str(
+                &tokio::time::timeout(BOUND, replies.next_line())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap(),
+            )
+            .unwrap();
+            if reply["id"] == 110 && method == "agent.resume" {
+                assert_eq!(reply["error"]["code"], rpc::code::CONFLICT, "{reply}");
+            } else if reply["id"] == 110 && method == "agent.interrupt" {
+                // A fake Claude need not acknowledge Escape; its accounted unknown is final.
+                assert!(
+                    reply.get("result").is_some()
+                        || (reply["error"]["code"] == rpc::code::UNKNOWN_OUTCOME
+                            || reply["error"]["code"] == rpc::code::NOT_RUNNING),
+                    "{reply}"
+                );
+            } else {
+                assert!(reply.get("result").is_some(), "{method}: {reply}");
+            }
+            order.push(reply["id"].as_u64().unwrap());
+        }
+        run.finish().await;
+        assert_eq!(
+            order,
+            [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
+            "{method} overtook an already-arrived resize"
+        );
     }
-    run.finish().await;
-    assert_eq!(
-        order,
-        [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
-        "rename overtook an already-arrived resize"
-    );
 }
