@@ -135,7 +135,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "agent_prompt",
-        "send a prompt to an Agent in your Reach as the user would",
+        "send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
         "agent_resume",

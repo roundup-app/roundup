@@ -329,7 +329,11 @@ impl Daemon {
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
         } else if matches!(
             method,
-            "rail.rename" | "agent.stop" | "agent.interrupt" | "agent.actionHistory"
+            "rail.rename"
+                | "agent.stop"
+                | "agent.interrupt"
+                | "agent.prompt"
+                | "agent.actionHistory"
         ) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
@@ -419,7 +423,7 @@ impl Daemon {
                     self.child_effects(child).read_owned().await
                 };
                 // Begin needs the write lock, so this check under the read guard is final.
-                let guard = if method == "agent.interrupt"
+                let guard = if matches!(method, "agent.interrupt" | "agent.prompt")
                     && self.sender.get().is_some_and(|m| m.takeover_active(child))
                 {
                     drop(guard);
@@ -776,7 +780,7 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "agent.interrupt" | "rail.rename" | "terminal.kill"
+            "agent.stop" | "agent.interrupt" | "agent.prompt" | "rail.rename" | "terminal.kill"
             | "terminal.close" | "terminal.resize" => actor.kind == ActorKind::Agent,
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
@@ -1341,7 +1345,13 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             daemon.decision_actor(&conn)
         } else if matches!(
             method.as_deref(),
-            Some("rail.rename" | "agent.stop" | "agent.interrupt" | "agent.actionHistory")
+            Some(
+                "rail.rename"
+                    | "agent.stop"
+                    | "agent.interrupt"
+                    | "agent.prompt"
+                    | "agent.actionHistory"
+            )
         ) {
             daemon.action_actor(&conn)
         } else {
@@ -1368,6 +1378,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                                     | "rail.rename"
                                     | "agent.stop"
                                     | "agent.interrupt"
+                                    | "agent.prompt"
                             )
                         ),
                     )

@@ -1249,10 +1249,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "exported Pad notes to /tmp/notes.md",
             ),
             "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
-            "agent.prompt" => (
-                json!({"id":"child","prompt":"hello"}),
-                "sent prompt to Agent child",
-            ),
             "agent.discard" => (json!({"id":"child"}), "discarded Worktree of Agent child"),
             "rail.move" => (json!({"id":"child","parent":"door"}), "moved child to door"),
             "project.setWorktrees" => (json!({"on":false}), "disabled Worktrees"),
@@ -1351,6 +1347,16 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
             json!({"id":"4","agent":"child","method":"agent.interrupt","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
         ),
         ("agent_interrupt", json!({"id":"child"}), Value::Null),
+        (
+            "agent_prompt",
+            json!({"id":"child","text":"hello"}),
+            json!({"id":"5","agent":"child","method":"agent.prompt","params":{"id":"child","text":"hello"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "agent_prompt",
+            json!({"id":"child","text":"hello"}),
+            Value::Null,
+        ),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),

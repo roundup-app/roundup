@@ -62,7 +62,7 @@ The Agent or Door attached to a Terminal as its Message receiver, with its Attem
 A scoped fresh SQL execution using a compiled statement in rusqlite's bounded cache. Its exclusive Connection borrow keeps rows inside the callback; reset and binding cleanup precede return. It retains no owner facts.
 
 **Bubble**:
-How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
+How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip. It ends with its Terminal.
 _Avoid_: overlay, popup
 
 **Pull**:
@@ -202,7 +202,7 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.appendSection` can require (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Editor**:
@@ -412,7 +412,7 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
-**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
+**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.
