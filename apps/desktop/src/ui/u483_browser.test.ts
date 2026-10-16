@@ -104,6 +104,13 @@ it("u483_three_level_keyboard_walk", async () => {
 
 it("u483_row_composition", async () => {
   await load();
+  expect(await snapshot()).toContain('treeitem "Alpha"');
+  expect(await snapshot()).toContain('button "Inspect Alpha"');
+  await browser("press", "Tab");
+  await browser("press", "ArrowRight");
+  await browser("wait", "--fn", `document.querySelector('[data-id=Alpha]').getAttribute('aria-expanded') === 'true'`);
+  expect(await snapshot()).toContain('treeitem "Beta"');
+  expect(await snapshot()).toContain('button "Inspect Beta"');
   await browser("find", "role", "button", "click", "--name", "Select Cedar", "--exact");
   await browser("wait", "--fn", `document.querySelector('[data-id=Cedar]').getAttribute('aria-selected') === 'true'`);
   expect(await read<string[]>(`[...document.querySelectorAll('[data-id]')].map(el => el.dataset.id)`)).toEqual(["Alpha", "Beta", "Cedar", "Delta", "Echo"]);
@@ -111,6 +118,8 @@ it("u483_row_composition", async () => {
 
   for (const name of ["Alpha", "Beta", "Cedar", "Delta", "Echo"]) {
     expect(await snapshot()).toContain(`button "Inspect ${name}"`);
+    expect(await snapshot()).toContain(`treeitem "${name}"`);
+    expect(await read<string>(`document.querySelector('[data-id=${name}] [aria-hidden=true]').textContent`)).toBe("○");
   }
 }, 60_000);
 
