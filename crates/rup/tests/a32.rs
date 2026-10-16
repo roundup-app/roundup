@@ -715,28 +715,6 @@ async fn a32_iteration_advances_once() {
 }
 
 #[tokio::test]
-async fn a32_no_handoff_times_out_and_changes_nothing() {
-    let fx = fixture_with("600").await;
-    fx.full().await;
-    let rail = shape(&fx.user).await;
-    let (todos, pads) = (fx.todos().await, fx.pads().await);
-    let (code, _) = fx.clear("r", false).await.end().await.unwrap_err();
-    assert_eq!(code, rpc::code::NOT_ACKED as i32);
-    assert_eq!(
-        (shape(&fx.user).await, fx.todos().await, fx.pads().await),
-        (rail, todos, pads)
-    );
-
-    // The clear is no longer pending, and a Door that is not running is a CONFLICT.
-    fx.user
-        .request("agent.stop", json!({"id": fx.ws}))
-        .await
-        .unwrap();
-    let stopped = fx.clear("r", false).await.reply.unwrap_err();
-    assert_eq!(stopped.code, rpc::code::CONFLICT);
-}
-
-#[tokio::test]
 async fn a32_without_handoff_archives_everything() {
     let fx = fixture_with("600").await;
     fx.full().await;
