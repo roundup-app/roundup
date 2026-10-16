@@ -217,13 +217,25 @@ impl Screen {
     }
 
     /// Return escape codes sufficient to reproduce the entire contents of the
-    /// current terminal state. This is a convenience wrapper around
-    /// [`contents_formatted`](Self::contents_formatted) and
-    /// [`input_mode_formatted`](Self::input_mode_formatted).
+    /// current visible screen, input modes, saved cursor/attributes and scrolling
+    /// region. Feed this to a fresh terminal of matching dimensions before
+    /// [`Parser::pending_formatted`](crate::Parser::pending_formatted) and later
+    /// input. Scrollback and the inactive alternate grid are not included.
+    /// Export does not modify the screen or invoke parser callbacks.
     #[must_use]
     pub fn state_formatted(&self) -> Vec<u8> {
         let mut contents = vec![];
+        crate::term::OriginMode(false).write_buf(&mut contents);
+        contents.extend_from_slice(b"\x1b[r");
+        crate::term::ClearAttrs.write_buf(&mut contents);
+        self.saved_attrs.write_escape_code_diff(
+            &mut contents,
+            &crate::attrs::Attrs::default(),
+        );
+        self.grid().write_saved_cursor_formatted(&mut contents);
         self.write_contents_formatted(&mut contents);
+        self.grid()
+            .write_drawing_state_formatted(&mut contents, self.attrs);
         self.write_input_mode_formatted(&mut contents);
         contents
     }
