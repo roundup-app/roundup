@@ -12,7 +12,9 @@ export const STEP = 16;
 
 /** A bubble's padding (`--space-3`), its header row and gap (`--space-5`, `--space-2`) and the emulator's scrollbar, in px. */
 const PADDING = 12;
+
 const HEADER = 24 + 8;
+
 const SCROLLBAR = 14;
 
 /** A bubble keeps extent for 24 columns by 6 rows of the default text, its chrome included. */
