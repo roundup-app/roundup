@@ -2976,7 +2976,8 @@ async fn a32_iteration_advances_once() {
                             == "user"
                             && message["content"]
                                 .as_str()
-                                .is_some_and(|text| text.contains(expected))))),
+                                .is_some_and(|text| text.contains(expected)
+                                    && (expected == "Iteration advanced" || text.contains("workstream_handoff")))))),
                 "real Claude did not receive {expected}: {journal:#?}"
             );
         }
