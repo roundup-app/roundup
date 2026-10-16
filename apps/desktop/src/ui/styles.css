@@ -278,8 +278,7 @@
   min-height: var(--space-5);
   padding-inline: var(--space-2);
   color: var(--text);
-  background-color: var(--sunken);
-  border: 1px solid var(--hairline);
+  background-color: var(--ground);
   border-radius: var(--radius-control);
   font: inherit;
   cursor: pointer;
@@ -316,9 +315,12 @@
   scrollbar-color: var(--hairline) transparent;
   padding: var(--space-1);
   color: var(--text);
-  background-color: var(--sunken);
-  border: 1px solid var(--hairline);
+  background-color: var(--ground);
   border-radius: var(--radius-drawer);
+}
+
+.app-select-list:focus-visible {
+  outline: none;
 }
 
 .app-select-item {
@@ -338,6 +340,10 @@
 
 .app-select-item[data-state="checked"] {
   background-color: var(--selected);
+}
+
+.app-select-item[data-state="checked"][data-highlighted] {
+  background-color: var(--selected-hover);
 }
 
 .app-listbox {
