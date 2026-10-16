@@ -123,6 +123,11 @@ button[aria-disabled="true"] {
   cursor: default;
 }
 
+/* U137: disabled split actions keep one distinct ink with D5 contrast on the selected wash. */
+.rail-row[data-selected="true"] .rail-split-add > button[aria-disabled="true"] {
+  color: var(--grey);
+}
+
 /* An opaque surface stays below its local wash; replacing it would expose the parent's ground. */
 button[data-button-surface]:hover:not([aria-disabled="true"]) {
   background-color: var(--button-surface);
