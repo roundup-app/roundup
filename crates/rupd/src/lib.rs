@@ -342,7 +342,7 @@ impl Daemon {
                     self.guard_terminal_read(&conn.actor, &params).await?
                 }
                 "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
-                | "agent.stop" => Some(rpc::params::<NodeId>(params.clone())?.id),
+                | "agent.stop" | "rail.rename" => Some(rpc::params::<NodeId>(params.clone())?.id),
                 _ => None,
             }
         } else {
@@ -578,9 +578,8 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                actor.kind == ActorKind::Agent
-            }
+            "agent.stop" | "rail.rename" | "terminal.kill" | "terminal.close"
+            | "terminal.resize" => actor.kind == ActorKind::Agent,
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
             _ => false,
