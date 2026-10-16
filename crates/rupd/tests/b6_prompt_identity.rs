@@ -4138,8 +4138,14 @@ async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
     let (read, mut write) = client.into_split();
     let mut replies = BufReader::new(read).lines();
     write.write_all(format!("{}\n", json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).as_bytes()).await.unwrap();
-    let identified: Value =
-        serde_json::from_str(&replies.next_line().await.unwrap().unwrap()).unwrap();
+    let identified: Value = serde_json::from_str(
+        &tokio::time::timeout(BOUND, replies.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
     assert!(identified.get("result").is_some(), "{identified}");
     run.pause();
     write.write_all(format!("{}\n", json!({"id":2,"method":"terminal.resize","params":{"id":run.terminal,"cols":101,"rows":37}})).as_bytes()).await.unwrap();
