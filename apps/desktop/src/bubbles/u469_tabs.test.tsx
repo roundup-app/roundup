@@ -68,16 +68,30 @@ it("u469_close_returns_focus_to_a_remaining_control", async () => {
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]);
 });
 
-it.each(["plus", "chord"])("u469_plus_and_cmd_t_without_a_workstream_show_the_selection_message_%s", async (activation) => {
+it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_%s", async (activation) => {
   const mounted = await mountBubbles(null);
-  const plus = document.querySelector<HTMLButtonElement>('[aria-label="New Terminal"]')!;
-  plus.focus();
 
-  if (activation === "plus") fireEvent.click(plus);
+  if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
-  expect(document.querySelector('.bubble-failure[role="status"]')?.textContent).toBe("Select a Workstream first");
+  await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);
+  expect(mounted.connected.rail.selected()).toBeNull();
+});
+
+it.each(["plus", "chord"])("u524_an_empty_project_shows_the_message_in_the_bar_and_focuses_the_rail_%s", async (activation) => {
+  const mounted = await mountBubbles(null, [], []);
+  const add = document.createElement("div");
+  add.className = "rail-actions";
+  add.innerHTML = '<button data-button="add"></button>';
+  document.body.append(add);
+
+  if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
+  const note = document.querySelector('.terminal-tabs [role="status"]');
+  expect(note?.textContent).toBe("Select a Workstream first");
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
-  expect(document.activeElement).toBe(plus);
+  expect(document.activeElement).toBe(add.firstElementChild);
+  add.remove();
 });
 
 it.each(["plus", "chord"])("u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_%s", async (activation) => {
