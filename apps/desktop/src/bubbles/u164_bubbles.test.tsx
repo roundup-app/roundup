@@ -14,7 +14,6 @@ afterEach(cleanup);
 
 const bubble = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"]`)!;
 
-
 describe("u164 a bubble floats over the centre pane", () => {
   it("u164_a_bubble_floats_over_the_pane_and_adds_no_rail_row_or_switcher_entry", async () => {
     await mountBubbles("a");
