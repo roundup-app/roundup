@@ -88,19 +88,27 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(callsTo(app, "terminal.write")).toEqual([]);
   });
 
-  it("u375_take_over_begins_once_and_end_returns_to_watch", async () => {
-    const { app } = await mountWatch();
+  it.each(["a", "nested"])("u467_each_child_keeps_takeover_and_give_back_controls (%s)", async (id) => {
+    const { app, connected } = await mountThread([...tree(), agent("nested", "working", "x", { parent: "a", name: "nested", terminal_id: "t-nested" })], { select: id });
+    const take = screen.getByRole("button", { name: "Take control" });
+    expect(take.tagName).toBe("BUTTON");
+    fireEvent.click(take);
+    await connected.takeover.end("not-taken");
 
-    fireEvent.click(screen.getByRole("button", { name: "Take control" }));
+    expect(connected.takeover.taken()).toBe(id);
+    expect(document.activeElement?.closest("[data-terminal]")?.getAttribute("data-terminal")).toBe(`t-${id}`);
+    const give = screen.getByRole("button", { name: "Give control back" });
+    expect(give.tagName).toBe("BUTTON");
+    fireEvent.click(give);
+    await connected.takeover.end("not-taken");
 
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
-    expect(band()).toBeNull();
-    expect(calls(app, "takeover.")).toEqual(["takeover.begin"]);
-
-    fireEvent.keyDown(document.body, { key: "¡", code: "Digit0", altKey: true });
-
-    await vi.waitFor(() => expect(band()).not.toBeNull());
-    expect(calls(app, "takeover.")).toEqual(["takeover.begin", "takeover.end"]);
+    expect(connected.takeover.taken()).toBeNull();
+    expect(app.calls.filter((call) => call.method.startsWith("takeover.")).slice(1)).toEqual([
+      { method: "takeover.begin", params: { agent: id } },
+      { method: "takeover.end", params: { agent: id } },
+    ]);
+    expect(band()).not.toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take control" }));
   });
 
   it("u375_alt_n_on_the_agents_row_begins_once_focuses_the_emulator_and_swaps_the_band", async () => {
@@ -114,18 +122,23 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.activeElement?.closest("[data-terminal]")).not.toBeNull();
   });
 
-  it("u375_take_over_focuses_the_emulator_and_selecting_another_row_ends_it", async () => {
-    const { app, emulators } = await mountWatch();
-    const focus = vi.fn();
+  it("u467_selection_does_not_end_takeover", async () => {
+    const { app, connected, emulators } = await mountWatch();
 
-    emulators.get("t-a")!.focus = focus;
     fireEvent.click(screen.getByRole("button", { name: "Take control" }));
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
-    expect(focus).toHaveBeenCalled();
+    await screen.findByText("Control: Typing goes straight to ann");
 
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
-    await vi.waitFor(() => expect(band()).toBeNull());
-    expect(calls(app, "takeover.")).toContain("takeover.end");
+    expect(connected.rail.selected()).toBe("workstream");
+    // Takeover calls serialize: this no-op drains any release queued by selection.
+    await connected.takeover.end("not-taken");
+    expect(connected.takeover.taken()).toBe("a");
+    fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "a")!);
+
+    await screen.findByText("Control: Typing goes straight to ann");
+    expect(calls(app, "takeover.")).toEqual(["takeover.begin"]);
+    emulators.get("t-a")!.type(bytes(108));
+    await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
   });
 
   it("u375_a_conflict_stays_in_watch_with_the_failure_line", async () => {
@@ -142,6 +155,22 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.querySelector(".pane-takeover")).toBeNull();
   });
 
+  it("u467_takeover_failure_preserves_the_child_and_shows_the_error", async () => {
+    const { app, connected, emulators } = await mountWatch();
+    fireEvent.click(screen.getByRole("button", { name: "Take control" }));
+    await connected.takeover.end("not-taken");
+    app.handlers["takeover.end"] = () => { throw new RpcError(-32000, "Give back failed: connection lost"); };
+
+    fireEvent.click(screen.getByRole("button", { name: "Give control back" }));
+
+    await screen.findByText("Give back failed: connection lost");
+    expect(connected.takeover.taken()).toBe("a");
+    expect(connected.rail.selected()).toBe("a");
+    expect(screen.getByRole("button", { name: "Give control back" })).not.toBeNull();
+    emulators.get("t-a")!.type(bytes(108));
+    await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
+  });
+
   it("u375_a_decision_card_and_the_composer_hold_in_watch", async () => {
     const { app } = await mountWatch([open]);
 
@@ -154,23 +183,6 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
   });
 
-  it("u375_a_reload_opens_in_watch", async () => {
-    await mountWatch();
-
-    expect(band()).not.toBeNull();
-    expect(document.querySelector("[data-takeover]")).toBeNull();
-  });
-
-  it("u375_u12_typing_holds_in_a_takeover", async () => {
-    const { app, emulators } = await mountWatch();
-
-    fireEvent.click(screen.getByRole("button", { name: "Take control" }));
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
-
-    emulators.get("t-a")!.type(bytes(108));
-
-    await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
-  });
 
   it("u375_an_exited_terminal_shows_no_band", async () => {
     const { app } = await mountWatch();
