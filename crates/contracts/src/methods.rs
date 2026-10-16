@@ -42,7 +42,16 @@ pub const METHODS: &[Method] = &[
     m("terminal.open", "terminal_OpenParams", "terminal_Opened"),
     m("terminal.close", "terminal_TerminalId", "null"),
     m("terminal.write", "terminal_WriteParams", "null"),
-    m("terminal.resize", "terminal_ResizeParams", "null"),
+    m(
+        "terminal.resize",
+        "terminal_ResizeParams",
+        "terminal_ResizeAction | null",
+    ),
+    m(
+        "terminal.resizeHistory",
+        "terminal_TerminalId",
+        "terminal_ResizeAction[]",
+    ),
     m("terminal.kill", "terminal_TerminalId", "null"),
     m("terminal.list", "null", "terminal_TerminalInfo[]"),
     m(
