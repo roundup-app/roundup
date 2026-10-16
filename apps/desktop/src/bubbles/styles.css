@@ -215,7 +215,16 @@
   background: var(--ground);
 }
 
+.terminal-note-host {
+  display: contents;
+}
+
+/* U524: the note sits above the bar, outside the clipped Terminal host, so a narrow window still shows it. */
 .terminal-note {
-  flex: none;
+  position: absolute;
+  bottom: 100%;
+  left: var(--space-3);
   padding-inline: var(--space-1);
+  white-space: nowrap;
+  background: var(--ground);
 }
