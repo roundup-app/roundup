@@ -6,9 +6,13 @@ import measuredDurations from "./shardDurations.json" with { type: "json" };
 type Seconds = Readonly<Record<string, number>>;
 
 interface Shard {
-  load: number;
+  weights: number[];
   files: string[];
 }
+
+// A shard's test files run side by side on a 4-vCPU runner: measured on `main`, a shard takes about its longest file, or
+// its summed file time over this many files at once, whichever is longer.
+const PARALLEL_FILES = 2.8;
 
 const durations: Seconds = measuredDurations;
 
@@ -18,21 +22,30 @@ const median = (values: readonly number[]): number => {
   return sorted[Math.floor(sorted.length / 2)] ?? 1;
 };
 
+/** What a shard holding files of these durations takes, in seconds. */
+export const shardTime = (held: readonly number[]): number => Math.max(0, ...held, held.reduce((sum, seconds) => sum + seconds, 0) / PARALLEL_FILES);
+
 /**
- * Longest-processing-time-first: each file, longest first, goes to the least loaded shard. Files without a measured
- * duration weigh the median. Every shard computes the same answer from the same file list, so the shards partition it.
- * Returns, per shard (0-based), the files it runs.
+ * Longest first, each file goes to the shard it makes finish soonest (the emptier one on a tie), so a file longer than
+ * a fair share keeps a shard nearly to itself. Files without a measured duration weigh the median. Every shard computes
+ * the same answer from the same file list, so the shards partition it. Returns, per shard (0-based), the files it runs.
  */
 export function assignShards(files: readonly string[], measured: Seconds, count: number): string[][] {
   const fallback = median(Object.values(measured));
   const weight = (file: string) => measured[file] ?? fallback;
-  const shards = Array.from({ length: count }, (): Shard => ({ load: 0, files: [] }));
+  const shards = Array.from({ length: count }, (): Shard => ({ weights: [], files: [] }));
 
   for (const file of [...files].sort((a, b) => weight(b) - weight(a) || (a < b ? -1 : 1))) {
-    const lightest = shards.reduce((least, shard) => (shard.load < least.load ? shard : least));
+    const finishes = (shard: Shard) => shardTime([...shard.weights, weight(file)]);
 
-    lightest.load += weight(file);
-    lightest.files.push(file);
+    const soonest = shards.reduce((best, shard) => {
+      const gap = finishes(shard) - finishes(best);
+
+      return gap < 0 || (gap === 0 && shard.weights.length < best.weights.length) ? shard : best;
+    });
+
+    soonest.weights.push(weight(file));
+    soonest.files.push(file);
   }
 
   return shards.map((shard) => shard.files);

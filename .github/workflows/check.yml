@@ -118,8 +118,8 @@ jobs:
         if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
         run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
 
-  # L89: the web tests in seven shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
-  # which gives each test file, longest first, to the least loaded shard by the durations measured on `main`
+  # L89: the web tests in six shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
+  # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.
   web:
@@ -128,7 +128,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5, 6, 7]
+        partition: [1, 2, 3, 4, 5, 6]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
