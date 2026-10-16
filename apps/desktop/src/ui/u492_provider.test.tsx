@@ -12,6 +12,12 @@ it("u492_hover_focus_restart_full_duration", async () => {
   await vi.advanceTimersByTimeAsync(2000);
   const card = screen.getByRole("button", { name: "Agent Needs you" });
   fireEvent.pointerEnter(card);
+  await vi.advanceTimersByTimeAsync(6000);
+  fireEvent.pointerLeave(card);
+  // Ark's public duration update enters visible:updating until its next frame.
+  await vi.advanceTimersToNextFrame();
+  await vi.advanceTimersByTimeAsync(1000);
+  fireEvent.pointerEnter(card);
   fireEvent.focusIn(card);
   await vi.advanceTimersByTimeAsync(6000);
   fireEvent.pointerLeave(card);
