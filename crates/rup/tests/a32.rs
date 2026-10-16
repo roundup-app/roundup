@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use contracts::agent::RailNode;
+use contracts::agent::{Channel, RailNode};
 use contracts::{Actor, ActorKind, IdentifyParams, Kind};
 use daemon::{Project, rail_tree};
 use serde_json::{Value, json};
@@ -205,14 +205,30 @@ async fn fixture_with_prompt_hold(bound_ms: &str, hold_prompt: bool) -> Fix {
     let spawn = |parent: Value, client: rpc::Client| {
         let cwd = project.dir.path().to_owned();
         async move {
-            let node = client
+            let spawned = client
                 .request(
                     "agent.spawn",
                     json!({"cwd": cwd, "prompt": null, "parent": parent}),
                 )
                 .await
                 .unwrap();
-            serde_json::from_value::<RailNode>(node).unwrap().id
+            let id = serde_json::from_value::<RailNode>(spawned).unwrap().id;
+            // The fake opens its Channel after SessionStart; without this acknowledgement,
+            // closing the shared start gate can hold an initial launch instead of a resume.
+            tokio::time::timeout(Duration::from_secs(30), async {
+                loop {
+                    if node(&client, &id)
+                        .await
+                        .is_some_and(|n| n.channel == Some(Channel::Up))
+                    {
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                }
+            })
+            .await
+            .expect("initial Agent did not acknowledge SessionStart through its Channel");
+            id
         }
     };
     let a = spawn(json!(ws), project.client().await).await;
@@ -386,123 +402,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
         .iter()
         .map(|i| i[key].to_string().trim_matches('"').to_owned())
         .collect()
-}
-
-#[tokio::test]
-async fn a32_an_empty_reason_changes_nothing() {
-    let fx = fixture().await;
-    settle(&fx.user, &fx.ws).await;
-    let before = shape(&fx.user).await;
-    let asked = prompts(&fx.log).len();
-    for reason in ["", "  \n ", &"x".repeat(2001)] {
-        let err = fx
-            .user
-            .request("workstream.clear", json!({"id": fx.ws, "reason": reason}))
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
-    }
-    let missing = fx
-        .user
-        .request("workstream.clear", json!({"id": "9999", "reason": "r"}))
-        .await
-        .unwrap_err();
-    assert_eq!(missing.code, rpc::code::NOT_FOUND);
-    let sub = fx
-        .user
-        .request("workstream.clear", json!({"id": fx.a, "reason": "r"}))
-        .await
-        .unwrap_err();
-    assert_eq!(sub.code, rpc::code::INVALID_PARAMS);
-    assert_eq!(shape(&fx.user).await, before);
-    assert_eq!(prompts(&fx.log).len(), asked);
-}
-
-#[tokio::test]
-async fn a32_a_valid_clear_only_asks_the_door() {
-    let fx = fixture().await;
-    fx.user
-        .request(
-            "message.send",
-            json!({"to": fx.ws, "kind": "note", "body": "I want a login page"}),
-        )
-        .await
-        .unwrap();
-    let (keep, fluff) = fx.full().await;
-    let before = shape(&fx.user).await;
-    let task = fx.clear("too much fluff", false).await;
-    let ask = fx.asked().await;
-    assert!(ask.contains("too much fluff"), "{ask}");
-    assert!(ask.contains("1. I want a login page"), "{ask}");
-    assert!(
-        ask.contains(&format!("{keep} \"build the login page\"")),
-        "{ask}"
-    );
-    assert!(
-        ask.contains(&format!("{fluff} \"refactor everything\"")),
-        "{ask}"
-    );
-    assert!(ask.contains("scratch (owner "), "{ask}");
-    assert_eq!(
-        shape(&fx.user).await,
-        before,
-        "nothing leaves the Rail before the Handoff"
-    );
-    assert_eq!(fx.todos().await.len(), 2);
-    let second = fx
-        .user
-        .request("workstream.clear", json!({"id": fx.ws, "reason": "again"}))
-        .await
-        .unwrap_err();
-    assert_eq!(second.code, rpc::code::CONFLICT);
-    drop(task);
-}
-
-#[tokio::test]
-async fn a32_only_the_door_may_hand_off() {
-    let fx = fixture().await;
-    let params = json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []});
-    let none = fx.hand_off(params.clone()).await.unwrap_err();
-    assert_eq!(none.code, rpc::code::CONFLICT);
-    let task = fx.clear("r", false).await;
-    fx.asked().await;
-    for who in [
-        as_actor(&fx.project, ActorKind::Agent, &fx.a).await,
-        fx.project.client().await,
-    ] {
-        let err = who
-            .request("workstream.handoff", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::FORBIDDEN);
-    }
-    drop(task);
-}
-
-#[tokio::test]
-async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
-    let fx = fixture().await;
-    let (keep, _) = fx.full().await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    for bad in [
-        json!({"keep_todos": [999], "keep_pads": []}),
-        json!({"keep_todos": [], "keep_pads": ["nope"]}),
-        json!({"keep_todos": [], "keep_pads": [], "summary": " "}),
-    ] {
-        let mut params = json!({"id": fx.ws, "summary": "s"});
-        params
-            .as_object_mut()
-            .unwrap()
-            .extend(bad.as_object().unwrap().clone());
-        let err = fx.hand_off(params).await.unwrap_err();
-        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
-    }
-    assert_eq!(fx.todos().await.len(), 2, "a bad Handoff changes nothing");
-    fx.hand_off(json!({"id": fx.ws, "summary": "ok", "keep_todos": [keep], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
 }
 
 #[tokio::test]
@@ -693,21 +592,6 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
 }
 
 #[tokio::test]
-async fn a32_no_slash_command_is_typed() {
-    let fx = fixture().await;
-    let mut task = fx.clear("/clear please", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-    for typed in prompts(&fx.log) {
-        let text = typed["prompt"].as_str().unwrap();
-        assert!(!text.starts_with('/'), "{text}");
-    }
-}
-
-#[tokio::test]
 async fn a32_iteration_advances_once() {
     let fx = fixture().await;
     assert_eq!(node(&fx.user, &fx.ws).await.unwrap().iteration, Some(1));
@@ -747,28 +631,6 @@ async fn a32_iteration_advances_once() {
     .await;
     assert!(ask.contains("again"));
     drop(task);
-}
-
-#[tokio::test]
-async fn a32_no_handoff_times_out_and_changes_nothing() {
-    let fx = fixture_with("600").await;
-    fx.full().await;
-    let rail = shape(&fx.user).await;
-    let (todos, pads) = (fx.todos().await, fx.pads().await);
-    let (code, _) = fx.clear("r", false).await.end().await.unwrap_err();
-    assert_eq!(code, rpc::code::NOT_ACKED as i32);
-    assert_eq!(
-        (shape(&fx.user).await, fx.todos().await, fx.pads().await),
-        (rail, todos, pads)
-    );
-
-    // The clear is no longer pending, and a Door that is not running is a CONFLICT.
-    fx.user
-        .request("agent.stop", json!({"id": fx.ws}))
-        .await
-        .unwrap();
-    let stopped = fx.clear("r", false).await.reply.unwrap_err();
-    assert_eq!(stopped.code, rpc::code::CONFLICT);
 }
 
 #[tokio::test]
@@ -918,6 +780,10 @@ async fn a32_message_list_spans_iterations() {
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
 async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
+    // Spawn returns before SessionStart: a needs a saved conversation, and b must clear the
+    // shared start gate so only a's resumed Attempt can create the held-start marker.
+    idle(&fx.user, &fx.a).await;
+    idle(&fx.user, &fx.b).await;
     fx.user
         .request("agent.stop", json!({"id": fx.a}))
         .await
@@ -931,10 +797,9 @@ async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::R
         fx.held.is_file().then_some(())
     })
     .await;
-    assert!(
-        !resume.is_finished(),
-        "resume completed without SessionStart"
-    );
+    if resume.is_finished() {
+        panic!("resume completed without SessionStart: {:?}", resume.await);
+    }
     resume
 }
 

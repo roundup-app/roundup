@@ -306,3 +306,158 @@ async fn m6_a_parent_but_null_is_conflict_and_changes_nothing() {
 
     assert_eq!(w.tree_ids().await, before);
 }
+
+#[tokio::test]
+async fn m7_a_run_outside_reach_starts_nothing() {
+    let w = World::new().await;
+    for caller in [&w.door, &w.sibling] {
+        let target = if caller == &w.door {
+            &w.other
+        } else {
+            &w.child
+        };
+        let before = serde_json::to_value(w.f.terminals.list()).unwrap();
+        let mut events = w.f.bus.subscribe();
+        let err = w
+            .call(
+                agent(caller),
+                "agent.run",
+                json!({"id": target, "command": ["/bin/sh", "-c", "echo ran > forbidden-run"],
+                   "cwd": w.f.dir.path()}),
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.code, code::FORBIDDEN);
+        assert!(err.message.contains(target));
+        assert_eq!(serde_json::to_value(w.f.terminals.list()).unwrap(), before);
+        assert!(w.touches_of(&format!("agent:{target}")).is_empty());
+        assert!(events.try_recv().is_err());
+        assert!(!w.f.dir.path().join("forbidden-run").exists());
+    }
+}
+
+#[tokio::test]
+async fn m7_a_run_is_allowed_for_self_descendants_and_the_user() {
+    let w = World::new().await;
+    for caller in [agent(&w.child), agent(&w.door), Actor::user()] {
+        let opened = w
+            .call(
+                caller.clone(),
+                "agent.run",
+                json!({"id": w.child, "command": ["/bin/sh", "-c", "sleep 30"]}),
+            )
+            .await
+            .unwrap();
+        assert!(
+            w.f.terminals
+                .list()
+                .iter()
+                .any(|t| t.id == opened["terminal_id"].as_str().unwrap()
+                    && t.owner.as_deref() == Some(w.child.as_str())
+                    && t.running)
+        );
+        assert_eq!(
+            w.touches_of(&format!("agent:{}", w.child))
+                .last()
+                .unwrap()
+                .actor,
+            caller
+        );
+    }
+}
+
+#[tokio::test]
+async fn m7_run_validation_keeps_x11_errors_for_an_agent() {
+    let w = World::new().await;
+    for (id, command, expected) in [
+        ("9999", json!(["/bin/true"]), code::NOT_FOUND),
+        (w.door.as_str(), json!(["/bin/true"]), code::INVALID_PARAMS),
+        (w.child.as_str(), json!([]), code::INVALID_PARAMS),
+    ] {
+        let err = w
+            .call(
+                agent(&w.child),
+                "agent.run",
+                json!({"id": id, "command": command}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, expected);
+    }
+}
+
+impl World {
+    async fn prompt_child(&self) -> String {
+        let node = self.call(agent(&self.door), "agent.spawn", json!({
+            "cwd": self.f.dir.path(),
+            "prompt": "  private instructions\nfor this Workstream only\n",
+            "order": {"kind": "work", "ask": "read the instructions", "done": "instructions read", "limits": []}
+        })).await.unwrap();
+        node["id"].as_str().unwrap().to_owned()
+    }
+}
+
+#[tokio::test]
+async fn m7_a_spawn_prompt_outside_reach_is_refused_without_effects() {
+    let w = World::new().await;
+    let target = w.prompt_child().await;
+    let foreign = w.f.workstream("foreign", None).await;
+    for caller in [&foreign, &w.other, &w.sibling] {
+        let before = w.touches.sequence().unwrap();
+        let mut events = w.f.bus.subscribe();
+        let err = w
+            .call(agent(caller), "agent.spawnPrompt", json!({"id": target}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::FORBIDDEN);
+        assert!(err.message.contains(&target));
+        assert_eq!(w.touches.sequence().unwrap(), before);
+        assert!(events.try_recv().is_err());
+    }
+}
+
+#[tokio::test]
+async fn m7_a_spawn_prompt_is_readable_by_self_reach_user_or_extension() {
+    let w = World::new().await;
+    let target = w.prompt_child().await;
+    for caller in [
+        agent(&target),
+        agent(&w.door),
+        Actor::user(),
+        Actor {
+            kind: ActorKind::Ext,
+            id: "extension".into(),
+            parent: None,
+        },
+    ] {
+        let prompt = w
+            .call(caller, "agent.spawnPrompt", json!({"id": target}))
+            .await
+            .unwrap();
+        assert_eq!(
+            prompt,
+            json!({"prompt": "  private instructions\nfor this Workstream only\n"})
+        );
+    }
+}
+
+#[tokio::test]
+async fn m7_an_unknown_spawn_prompt_is_not_found() {
+    let w = World::new().await;
+    let err = w
+        .call(agent(&w.child), "agent.spawnPrompt", json!({"id": "9999"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn m7_an_authorized_absent_spawn_prompt_is_null() {
+    let w = World::new().await;
+    let prompt = w
+        .call(agent(&w.door), "agent.spawnPrompt", json!({"id": w.child}))
+        .await
+        .unwrap();
+    assert_eq!(prompt, json!({"prompt": null}));
+}

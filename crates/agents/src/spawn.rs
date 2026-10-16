@@ -104,7 +104,11 @@ impl Agents {
             }
             (node.id, attempt)
         };
-        match self.run_agent(&id, &attempt, cwd, None).await.map(drop) {
+        match self
+            .run_agent(&id, &attempt, cwd, None, true)
+            .await
+            .map(drop)
+        {
             Ok(()) => {}
             Err(err) => {
                 let mut rail = self.shared.rail();
@@ -146,6 +150,7 @@ impl Agents {
                 format!("{id} is not an Agent"),
             ));
         }
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
         let cwd = cwd
             .or_else(|| node.worktree.map(|worktree| worktree.path))
             .or(saved_cwd)
@@ -212,6 +217,7 @@ impl Agents {
         attempt: &str,
         cwd: &Path,
         first: Option<String>,
+        startup_context: bool,
     ) -> Result<String, RpcError> {
         let node = self.shared.rail().node(id)?;
         // O2, O3: the first Steer is the node's order, whichever way it was set.
@@ -257,6 +263,7 @@ impl Agents {
         let terminal_id = spawned.id.clone();
         let run_cwd = effective_cwd.to_string_lossy().into_owned();
         let prompts = self.shared.finish_starting(id, attempt, |named| Run {
+            startup_context,
             attempt: attempt.to_owned(),
             status_revision: 1,
             closing: false,

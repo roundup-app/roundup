@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, A32, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1259,4 +1259,869 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
             .any(|entry| entry["body"]["tools"].is_array()
                 && entry["body"]["messages"].to_string().contains("E6 no shim"))
     );
+}
+
+#[tokio::test]
+async fn a41_a_leading_slash_runs_the_skill() {
+    let project = daemon::start_real("a41_skill", &[]);
+    let skill = project.dir.path().join("claude-config/skills/a41-proof");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(skill.join("SKILL.md"), "---\nname: a41-proof\ndescription: Prove Ask delivery preserves skill invocation.\n---\nA41_SKILL_MARKER. Reply with Skill received.\n").unwrap();
+    let mut client = project.client().await;
+    client
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let node = client.request("rail.createWorkstream", json!({"name":"Skill","order":{"kind":"work","title":"Skill","ask":"A41 initial","limits":[]}})).await.unwrap();
+    let id = node["id"].as_str().unwrap();
+    client
+        .request("rail.startDoor", json!({"id":id}))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    let ask = client
+        .request("ask.send", json!({"text":"@Skill /a41-proof x"}))
+        .await
+        .unwrap();
+    next(&mut client, |event| matches!(event, EventData::AskChanged { ask: changed } if changed.id == ask["id"].as_str().unwrap() && changed.parts[0].state == contracts::ask::State::Typed).then_some(())).await;
+    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    let journal = project.model.as_ref().unwrap().journal();
+    let text = serde_json::to_string(&journal).unwrap();
+    assert!(text.contains("A41_SKILL_MARKER"), "{text}");
+    assert!(
+        journal.iter().all(|entry| entry["response"]["status"]
+            .as_i64()
+            .is_some_and(|status| status < 400)),
+        "{journal:#?}"
+    );
+    assert!(
+        journal.iter().all(|entry| !entry["body"]["model"]
+            .as_str()
+            .is_some_and(|model| model.starts_with("claude-haiku"))),
+        "named routing made a Placement call"
+    );
+}
+
+#[tokio::test]
+async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
+ {
+    use std::os::unix::fs::PermissionsExt;
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-hook-observer");
+    let log = probe.path().join("hooks.jsonl");
+    std::fs::write(&wrapper, r##"#!/usr/bin/env python3
+import json, os, subprocess, sys
+if sys.argv[1] != "signal":
+    os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
+payload = sys.stdin.buffer.read()
+result = subprocess.run([os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]], input=payload, stdout=subprocess.PIPE, timeout=5)
+with open(os.environ["REAL_CLAUDE_HOOK_LOG"], "a") as log:
+    log.write(json.dumps({"event": json.loads(payload)["hook_event_name"], "exit": result.returncode}) + "\n")
+sys.stdout.buffer.write(result.stdout)
+sys.exit(result.returncode)
+"##).unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "h15_hundred_tools",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("REAL_CLAUDE_HOOK_LOG", log.to_str().unwrap()),
+        ],
+    );
+    for index in 0..100 {
+        std::fs::write(
+            project.dir.path().join(format!("h15-{index:03}.txt")),
+            "H15 hook round\n",
+        )
+        .unwrap();
+    }
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "H15 exercise one hundred tools"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(180), async {
+        let mut working = false;
+        loop {
+            let event = client
+                .next_event()
+                .await
+                .expect("the connection stays open");
+            if let EventData::AgentStatus(status) = event.data
+                && status.id == agent.id
+            {
+                if status.status.kind == Kind::Working {
+                    working = true;
+                } else if status.status.kind == Kind::Idle && working {
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .expect("the hundred-tool turn completes");
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    let journal = model.journal();
+    // Aimock truncates long request bodies at 64 KB. Its selected fixture records the
+    // last-result ID and content constraints that actually matched even after that cap.
+    for index in 0..100 {
+        let id = format!("toolu_h15_{index:03}");
+        assert!(
+            journal.iter().any(|entry| {
+                let matched = &entry["response"]["fixture"]["match"];
+                matched["toolCallId"] == id && matched["toolResultContains"] == "H15 hook round"
+            }),
+            "missing successful tool result {id}"
+        );
+    }
+    let hooks: Vec<Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert!(hooks.iter().all(|hook| hook["exit"] == 0), "{hooks:#?}");
+    let uses: Vec<_> = hooks
+        .iter()
+        .filter(|hook| matches!(hook["event"].as_str(), Some("PreToolUse" | "PostToolUse")))
+        .collect();
+    assert_eq!(uses.len(), 200, "{hooks:#?}");
+    assert!(
+        uses.chunks(2).all(|pair| pair[0]["event"] == "PreToolUse"
+            && pair[1]["event"] == "PostToolUse"
+            && pair.iter().all(|hook| hook["exit"] == 0)),
+        "{hooks:#?}"
+    );
+    let tree = rail_tree(&client).await;
+    assert_eq!(
+        tree.iter()
+            .find(|node| node.id == agent.id)
+            .unwrap()
+            .status
+            .as_ref()
+            .map(|status| status.label.as_str()),
+        Some("idle")
+    );
+}
+
+#[tokio::test]
+async fn a32_an_empty_reason_changes_nothing() {
+    let project = daemon::start_real("a32_invalid_clear", &[]);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut client = project.subscribed().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a32_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a32_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
+    }
+    let before: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .map(|n| (n.id, n.parent, n.iteration, n.worktree))
+        .collect();
+    let asked = model.journal().len();
+    for reason in ["", "  \n ", &"x".repeat(2001)] {
+        let error = client
+            .request("workstream.clear", json!({"id": door, "reason": reason}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    }
+    let missing = client
+        .request("workstream.clear", json!({"id": "9999", "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(missing.code, rpc::code::NOT_FOUND);
+    let sub = client
+        .request("workstream.clear", json!({"id": a.id, "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(sub.code, rpc::code::INVALID_PARAMS);
+    let after: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .map(|n| (n.id, n.parent, n.iteration, n.worktree))
+        .collect();
+    assert_eq!(after, before);
+    assert_eq!(
+        model.journal().len(),
+        asked,
+        "invalid clear sends no prompt to Claude"
+    );
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_only_the_door_may_hand_off() {
+    let project = daemon::start_real("a32_handoff_authority", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    let actor = |id: String| async {
+        let who = project.client().await;
+        who.request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id,
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+        who
+    };
+    let owner = actor(door.clone()).await;
+    let params = json!({"id": door, "summary": "s", "keep_todos": [], "keep_pads": []});
+    let error = owner
+        .request("workstream.handoff", params.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "authority check"}),
+        )
+        .await
+        .unwrap();
+    // Digest turns also emit Working/Idle, so only the request proves Clear arrived.
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            model.assert_matched();
+            if model.journal().iter().any(|entry| {
+                entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("authority check")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+            }) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "clear prompt missing from aimock journal: {:#?}",
+            model.journal()
+        )
+    });
+    // Spawn the child during Clear, so its startup digests cannot race Clear's Steer.
+    let result = model.tool_result("toolu_a32_child").await;
+    let child: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    for who in [actor(child.id).await, project.client().await] {
+        let error = who
+            .request("workstream.handoff", params.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::FORBIDDEN);
+    }
+    model.assert_matched();
+}
+
+async fn clear_fixture(
+    fixture: &str,
+    env: &[(&str, &str)],
+) -> (daemon::Project, rpc::Client, String) {
+    let project = daemon::start_real(fixture, env);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut client = project.subscribed().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    // Hold child Digests so Clear cannot race a startup or Todo/Pad update turn.
+    // Clear steers the Door directly; Takeover only holds Message delivery here.
+    client
+        .request("takeover.begin", json!({"agent": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a32_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a32_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
+    }
+
+    for (owner, title, name) in [
+        (&door, "build the login page", "notes"),
+        (&a.id, "refactor everything", "scratch"),
+    ] {
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: owner.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "todo.create",
+                json!({"title": title, "body": format!("{title} body")}),
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "pad.create",
+                json!({"name": name, "text": format!("{name} text")}),
+            )
+            .await
+            .unwrap();
+    }
+    (project, client, door)
+}
+
+#[tokio::test]
+async fn a32_no_handoff_times_out_and_changes_nothing() {
+    let (project, mut client, door) =
+        clear_fixture("a32_no_handoff", &[("ROUNDUP_HANDOFF_BOUND_MS", "10000")]).await;
+    let model = project.model.as_ref().unwrap();
+    let before = rail_tree(&client).await;
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    let reply = client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "no handoff observer"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply, json!({"pending": true}));
+    let failed = next(&mut client, |event| match event {
+        EventData::WorkstreamClearFailed(failed) if failed.id == door => Some(failed),
+        _ => None,
+    })
+    .await;
+    assert_eq!(failed.code, rpc::code::NOT_ACKED as i32, "{failed:?}");
+    let after = rail_tree(&client).await;
+    let shape = |nodes: Vec<contracts::agent::RailNode>| {
+        nodes
+            .into_iter()
+            .map(|node| (node.id, node.parent, node.iteration, node.worktree))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(shape(after), shape(before));
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos
+    );
+    assert_eq!(client.request("pad.list", Value::Null).await.unwrap(), pads);
+    assert!(
+        model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("no handoff observer")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude: {:#?}",
+        model.journal()
+    );
+    client
+        .request("agent.stop", json!({"id": door}))
+        .await
+        .unwrap();
+    let stopped = client
+        .request("workstream.clear", json!({"id": door, "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(stopped.code, rpc::code::CONFLICT);
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_a_valid_clear_only_asks_the_door() {
+    let (project, mut client, door) = clear_fixture("a32_valid_clear", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let before = rail_tree(&client).await;
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "I want a login page"}),
+        )
+        .await
+        .unwrap();
+    let reply = client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "too much fluff"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply, json!({"pending": true}));
+    let ask = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            model.assert_matched();
+            for entry in model.journal() {
+                if let Some(messages) = entry["body"]["messages"].as_array() {
+                    for message in messages {
+                        if message["role"] == "user"
+                            && let Some(text) = message["content"].as_str()
+                            && text.contains("too much fluff")
+                            && text.contains("workstream_handoff")
+                        {
+                            return text.to_owned();
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("Clear missing from aimock journal");
+    assert!(ask.contains("1. I want a login page"), "{ask}");
+    for todo in todos.as_array().unwrap() {
+        assert!(
+            ask.contains(&format!(
+                "{} \"{}\"",
+                todo["id"],
+                todo["title"].as_str().unwrap()
+            )),
+            "{ask}"
+        );
+    }
+    assert!(ask.contains("scratch (owner "), "{ask}");
+    let shape = |nodes: Vec<contracts::agent::RailNode>| {
+        nodes
+            .into_iter()
+            .map(|node| (node.id, node.parent, node.iteration, node.worktree))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        shape(rail_tree(&client).await),
+        shape(before),
+        "nothing leaves the Rail before Handoff"
+    );
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos
+    );
+    assert_eq!(client.request("pad.list", Value::Null).await.unwrap(), pads);
+    let second = client
+        .request("workstream.clear", json!({"id": door, "reason": "again"}))
+        .await
+        .unwrap_err();
+    assert_eq!(second.code, rpc::code::CONFLICT);
+    // Finish the real Clear turn before checking the complete request journal.
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
+    let (project, mut client, door) = clear_fixture("a32_bad_handoff", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let keep = todos[0]["id"].clone();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "bad handoff observer"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("bad handoff observer")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    for bad in [
+        json!({"keep_todos": [999], "keep_pads": []}),
+        json!({"keep_todos": [], "keep_pads": ["nope"]}),
+        json!({"keep_todos": [], "keep_pads": [], "summary": " "}),
+    ] {
+        let mut params = json!({"id": door, "summary": "s"});
+        params
+            .as_object_mut()
+            .unwrap()
+            .extend(bad.as_object().unwrap().clone());
+        let err = actor
+            .request("workstream.handoff", params)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+    }
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos,
+        "a bad Handoff changes nothing"
+    );
+    actor.request("workstream.handoff", json!({"id": door, "summary": "Valid handoff after bad ids", "keep_todos": [keep], "keep_pads": []})).await.unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"].as_str().is_some_and(|text| text
+                            .contains("Follow this instruction: Valid handoff after bad ids")))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_no_slash_command_is_typed() {
+    let (project, mut client, door) = clear_fixture("a32_no_slash", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "/clear please"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("/clear please")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Slash-free handoff", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"].as_str().is_some_and(
+                            |text| text.contains("Follow this instruction: Slash-free handoff")
+                        ))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    for entry in model.journal() {
+        for message in entry["body"]["messages"].as_array().unwrap() {
+            if message["role"] == "user"
+                && let Some(text) = message["content"].as_str()
+            {
+                assert!(!text.starts_with('/'), "slash command typed: {text}");
+            }
+        }
+    }
+    model.assert_matched();
 }
