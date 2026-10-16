@@ -2561,6 +2561,7 @@ dependencies = [
  "clap",
  "contracts",
  "rpc",
+ "rupd",
  "serde",
  "serde_json",
  "sysinfo",
