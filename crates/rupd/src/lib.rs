@@ -602,7 +602,8 @@ impl Daemon {
             return Ok(None);
         }
         match method {
-            "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
+            "terminal.screen" | "terminal.read" | "terminal.search" | "terminal.write"
+            | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                 self.guard_terminal_read(actor, params).await
             }
             "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
