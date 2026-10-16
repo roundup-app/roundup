@@ -636,6 +636,7 @@ impl Daemon {
             | "agent.discard"
             | "agent.land"
             | "agent.worktreeState"
+            | "agent.spawnPrompt"
             | "agent.run"
             | "rail.rename"
             | "rail.move"
