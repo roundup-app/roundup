@@ -224,7 +224,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 60] = [
+const TOOL_METHODS: [&str; 61] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -253,6 +253,7 @@ const TOOL_METHODS: [&str; 60] = [
     "checkpoint.list",
     // E2, O4, F3
     "agent.context",
+    "agent.actionHistory",
     "agent.setOrder",
     "agent.run",
     "agent.spawn",
@@ -1354,8 +1355,18 @@ async fn m17_data_results_keep_their_json_text() {
 }
 
 #[tokio::test]
-async fn b6_mcp_resize_receipts_and_history_keep_their_waiting_or_completed_data() {
+async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed_data() {
     for (name, args, value) in [
+        (
+            "rail_rename",
+            json!({"id":"child","name":"waiting rename"}),
+            json!({"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "agent_actionHistory",
+            json!({"id":"child"}),
+            json!([{"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"completed"}}]),
+        ),
         (
             "terminal_resize",
             json!({"id":"t1","cols":80,"rows":24}),
