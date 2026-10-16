@@ -8,6 +8,8 @@ const ANSWERS: &str = include_str!("../../agents/migrations/003/up.sql");
 const ASKS: &str = include_str!("../../agents/migrations/004/up.sql");
 const RESIZES: &str = include_str!("../migrations/003/up.sql");
 
+const ACTIONS: &str = include_str!("../migrations/005/up.sql");
+
 const SCHEMA: &str = include_str!("../migrations/001/up.sql");
 
 pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
@@ -17,7 +19,13 @@ pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
         db.pragma_update(None, "journal_mode", "WAL")?;
         apply(
             &mut db,
-            vec![M::up(SCHEMA), M::up(ANSWERS), M::up(RESIZES), M::up(ASKS)],
+            vec![
+                M::up(SCHEMA),
+                M::up(ANSWERS),
+                M::up(RESIZES),
+                M::up(ASKS),
+                M::up(ACTIONS),
+            ],
         )
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
@@ -118,6 +126,8 @@ mod tests {
         let resize_schema = Connection::open_in_memory().unwrap();
         resize_schema.execute_batch(RESIZES).unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        resize_schema.execute_batch(ACTIONS).unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
@@ -126,11 +136,12 @@ mod tests {
                 M::up(SCHEMA),
                 M::up(ANSWERS),
                 M::up(RESIZES),
-                M::up(ASKS)
+                M::up(ASKS),
+                M::up(ACTIONS)
             ])
             .current_version(&db)
             .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(4).unwrap())
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(5).unwrap())
         );
         standalone::write_ask(&db);
         let ws = call(

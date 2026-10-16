@@ -3,6 +3,7 @@ import type { Brief as agent_Brief } from "./agent/Brief";
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
+import type { HeldAction as agent_HeldAction } from "./agent/HeldAction";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
@@ -133,6 +134,7 @@ export type RpcMethods = {
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
+  "agent.actionHistory": { params: agent_NodeId; result: agent_HeldAction[] };
   "agent.stop": { params: agent_NodeId; result: null };
   "agent.prompt": { params: agent_PromptParams; result: null };
   "agent.interrupt": { params: agent_NodeId; result: null };
@@ -156,7 +158,7 @@ export type RpcMethods = {
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
-  "rail.rename": { params: agent_RenameParams; result: agent_RailNode };
+  "rail.rename": { params: agent_RenameParams; result: agent_RailNode | agent_HeldAction };
   "rail.startDoor": { params: agent_StartDoorParams; result: agent_RailNode };
   "agent.run": { params: agent_RunParams; result: terminal_Opened };
   "project.setWorktrees": { params: project_Worktrees; result: null };
