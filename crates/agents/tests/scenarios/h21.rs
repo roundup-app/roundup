@@ -520,3 +520,60 @@ async fn b6_prompt_identity_keeps_reach_proof_and_takeover_authority() {
         .unwrap();
     assert_eq!(hook.await.unwrap().unwrap(), json!({"output":ALLOW}));
 }
+
+/// Backend observation only; #1497 owns the rendered App observer.
+#[tokio::test]
+async fn u468_backend_refused_permission_is_readable_on_the_original_request() {
+    let w = World::new().await;
+    let (hook, id) = w.asks(&w.child).await;
+    let original = w.listed(Actor::user()).await.remove(0);
+    let error = w
+        .answer(agent(&w.door), &id, "invalid-choice")
+        .await
+        .unwrap_err();
+    let listed = w
+        .call(Actor::user(), "decision.list", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(listed[0]["id"], original.id);
+    assert_eq!(listed[0]["failure"]["error_code"], code::INVALID_PARAMS);
+    assert_eq!(
+        listed[0]["failure"]["message"],
+        "answer is allow or deny, with no note"
+    );
+    assert_eq!(listed[0]["failure"]["message"], error.message);
+    assert_eq!(
+        listed[0]["failure"]["answered_by"],
+        serde_json::to_value(agent(&w.door)).unwrap()
+    );
+    assert!(w.listed(agent(&w.other)).await.is_empty());
+    assert_eq!(
+        w.answer(agent(&w.other), &id, "deny")
+            .await
+            .unwrap_err()
+            .code,
+        code::FORBIDDEN
+    );
+    let unchanged = w
+        .call(Actor::user(), "decision.list", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(unchanged, listed);
+    assert_eq!(
+        w.call(Actor::user(), "decision.answers", json!({"agent": w.child}))
+            .await
+            .unwrap(),
+        json!([])
+    );
+    w.user_answer(&id, "allow").await.unwrap();
+    assert_eq!(hook.await.unwrap().unwrap(), json!({"output": ALLOW}));
+    let (later, later_id) = w.asks(&w.child).await;
+    let listed = w
+        .call(Actor::user(), "decision.list", Value::Null)
+        .await
+        .unwrap();
+    assert_ne!(later_id, id);
+    assert!(listed[0].get("failure").is_none());
+    w.user_answer(&later_id, "deny").await.unwrap();
+    later.await.unwrap().unwrap();
+}
