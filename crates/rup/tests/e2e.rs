@@ -2019,6 +2019,14 @@ fn path_with_fake_claude(root: &std::path::Path) -> String {
     format!("{}:{}", bin.display(), std::env::var("PATH").unwrap())
 }
 
+fn rup_dir() -> String {
+    std::path::Path::new(env!("CARGO_BIN_EXE_rup"))
+        .parent()
+        .unwrap()
+        .display()
+        .to_string()
+}
+
 async fn json_file(path: &std::path::Path) -> Value {
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
@@ -2075,11 +2083,11 @@ async fn f2_an_ordinary_agent_runs_claude_directly_and_through_sh() {
             (Some(0), Some("9.9.9\n"))
         );
     }
-    assert!(
-        settings_of(&project, &agent.id)["env"]
-            .get("PATH")
-            .is_none()
-    );
+    let settings = settings_of(&project, &agent.id);
+    assert_eq!(settings["env"]["ROUNDUP_AGENT_ID"], agent.id);
+    let path = settings["env"]["PATH"].as_str().unwrap();
+    assert!(path.starts_with(&format!("{}:", rup_dir())));
+    assert!(!path.contains("/agents/"));
 }
 
 #[tokio::test]
@@ -2139,7 +2147,7 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
         .join(format!("agents/{door}.bin"));
     assert_eq!(
         settings_of(&project, &door)["env"]["PATH"],
-        format!("{}:{path}", shims.display())
+        format!("{}:{}:{path}", rup_dir(), shims.display())
     );
     assert!(shims.join("claude").is_file());
 }
