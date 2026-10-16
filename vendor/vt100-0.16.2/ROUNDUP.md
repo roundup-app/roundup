@@ -209,3 +209,8 @@ restoration. The bounded observer feeds fixed 8192-byte chunks to 1 MiB and
 literal retained titles/later text, and on Linux checks isolated-process RSS
 within 1024 KiB of its 1 MiB reading. `cargo test -p terminal` exits 0, retaining
 bounded-state, replacement, handled-write and executed-control observers.
+
+Final `just check origin/main` after merging main `3aea34ad4` exits **0**:
+1586 Rust tests passed (6 skipped), 61 web tests passed (2 skipped), with lint,
+contract freshness and `ALL PROOFS CHECK` passing. No full X14 integration or
+matched performance acceptance is claimed by these library observers.
