@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { mountBubbles } from "./bubblesFixture";
+import { event, info } from "../testing/nodes";
+import { bubbleCalls, bubbleChord, mountBubbles, TERMINALS } from "./bubblesFixture";
 
 beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
 
@@ -113,4 +114,67 @@ it("u511_context_rename_uses_the_same_editor", async () => {
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect(field()!.value).toBe("zsh");
   expect(document.querySelector(".terminal-tab-editor button")).toBeNull();
+});
+
+it("u511_editing_keys_do_not_reach_the_terminal", async () => {
+  const mounted = await mountBubbles();
+  await edit("2");
+  const press = bubbleChord("t", {}, field()!);
+  fireEvent.keyDown(field()!, { key: "a" });
+  expect(press.defaultPrevented).toBe(false);
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
+  expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
+});
+
+it("u511_composition_enter_keeps_editing", async () => {
+  await mountBubbles();
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "かな" } });
+  fireEvent.keyDown(field()!, { key: "Enter", isComposing: true });
+  expect(field()).not.toBeNull();
+  expect(tab("2")).toBeNull();
+});
+
+it("u511_duplicate_names_are_independent", async () => {
+  await mountBubbles("a", [info("1", { owner: "a", title: "zsh" }), info("2", { owner: "w", title: "zsh" })]);
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "build" } });
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
+  expect(tab("1")!.getAttribute("aria-label")).toBe("zsh");
+});
+
+it("u511_custom_name_survives_title_updates", async () => {
+  const mounted = await mountBubbles();
+  const retitle = (title: string) => {
+    mounted.setListed(TERMINALS.map((terminal) => (terminal.id === "2" ? { ...terminal, title } : terminal)));
+    mounted.app.emit(event({ name: "terminal.changed" }));
+  };
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "build" } });
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
+  retitle("vim");
+  await waitFor(() => expect(mounted.connected.rail.terminals().find((terminal) => terminal.id === "2")?.title).toBe("vim"));
+  expect(tab("2")!.getAttribute("aria-label")).toBe("build");
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "" } });
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("vim"));
+  retitle("htop");
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("htop"));
+});
+
+it("u511_closed_or_restarted_terminals_do_not_inherit_names", async () => {
+  const mounted = await mountBubbles();
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "build" } });
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("build"));
+  mounted.setListed(TERMINALS.filter((terminal) => terminal.id !== "2"));
+  mounted.app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(tab("2")).toBeNull());
+  mounted.setListed(TERMINALS);
+  mounted.app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("zsh"));
 });

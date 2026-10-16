@@ -512,10 +512,10 @@ export const Bubbles = (props: { screens: Screens }) => {
   });
 
   const onKey = (press: KeyboardEvent): void => {
-    // Help is modal: while it is open no chord acts (U54).
     // U511: the name's editor owns its keys.
     if (press.target instanceof Element && press.target.closest(".terminal-tab-editor")) return;
 
+    // Help is modal: while it is open no chord acts (U54).
     if (!press.metaKey || press.ctrlKey || press.altKey || document.querySelector(".help") !== null) return;
 
     const key = press.key.toLowerCase();
