@@ -338,3 +338,18 @@ is dropped with the original-Attempt reason; one recorded in progress is dropped
 as possibly applied, and none is retried. These are integration-tested guarantees
 for M1, M3, M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581
 retains the remaining action families and full acceptance.
+
+## B6 Door prompt actions
+
+Door `agent.prompt` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and ledger as Interrupt.
+Release rechecks Reach and writes the prompt only while the original Attempt
+still runs, checked under the admission lock that claims the Terminal, so a
+replacement Attempt never receives it. A prompt that finds the child busy, a
+removed child, an exited Terminal or a replaced Attempt gives a retained drop or
+failure reason and later actions proceed. A waiting prompt does not survive a
+Daemon restart: it is dropped with the original-Attempt reason; one recorded in
+progress is dropped as possibly typed, and none is retried. These are
+integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs
+and laws are unchanged. #1581 retains the remaining action families (resume,
+Terminal writes, close and kill, answers, rewind, reads) and full acceptance.

@@ -951,12 +951,11 @@ fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
 }
 
 #[test]
-fn f2_an_agents_settings_have_no_path_and_no_shim_directory_exists() {
+fn f2_no_shim_directory_exists_for_an_agent() {
     let s = setup();
 
-    let argv = s.prepare("8").unwrap();
+    s.prepare("8").unwrap();
 
-    assert!(read(Path::new(&argv[2]))["env"].get("PATH").is_none());
     assert!(!s.dir.join("agents/8.bin").exists());
 }
 
@@ -972,7 +971,10 @@ fn f4_a_doors_settings_put_its_shim_directory_before_the_daemons_path() {
         .to_owned();
     let shims = s.real(&s.dir.join("agents/7.bin"));
     let inherited = std::env::var("PATH").unwrap();
-    assert_eq!(path, format!("{shims}:{inherited}"));
+    assert_eq!(
+        path,
+        format!("{}:{shims}:{inherited}", s.rup.parent().unwrap().display())
+    );
 }
 
 #[test]
@@ -1675,4 +1677,92 @@ fn user_files(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
     let mut files = std::collections::BTreeMap::new();
     visit(root, root, &mut files);
     files
+}
+
+fn env_of(argv: &[String]) -> Value {
+    read(Path::new(&argv[2]))["env"].clone()
+}
+
+fn rup_dir(s: &Setup) -> String {
+    s.rup.parent().unwrap().to_string_lossy().into_owned()
+}
+
+#[test]
+fn a43_an_agents_settings_set_its_id_and_put_the_rup_folder_first_on_path() {
+    let s = setup();
+    let env = env_of(&s.prepare("7").unwrap());
+    assert_eq!(env["ROUNDUP_AGENT_ID"], "7");
+    assert_eq!(
+        env["PATH"].as_str().unwrap(),
+        format!("{}:{}", rup_dir(&s), std::env::var("PATH").unwrap())
+    );
+    assert_eq!(env["CLAUDE_CODE_ENABLE_FUNCTION_HOOKS"], "1");
+}
+
+#[test]
+fn a43_a_doors_path_is_the_rup_folder_then_its_shims_then_the_daemons() {
+    let s = setup();
+    let env = env_of(&s.prepare_as("7", Role::Door).unwrap());
+    assert_eq!(env["ROUNDUP_AGENT_ID"], "7");
+    assert_eq!(
+        env["PATH"].as_str().unwrap(),
+        format!(
+            "{}:{}:{}",
+            rup_dir(&s),
+            s.real(&s.dir.join("agents/7.bin")),
+            std::env::var("PATH").unwrap()
+        )
+    );
+}
+
+#[test]
+fn a43_an_empty_daemon_path_leaves_no_empty_entry() {
+    if std::env::var_os("A43_CHILD").is_none() {
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "a43_an_empty_daemon_path_leaves_no_empty_entry"])
+            .env("A43_CHILD", "1")
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stdout)
+        );
+        return;
+    }
+    let s = setup();
+    assert_eq!(env_of(&s.prepare("7").unwrap())["PATH"], rup_dir(&s));
+}
+
+#[test]
+fn a43_a_resumed_agents_settings_hold_the_same_env() {
+    let s = setup();
+    let first = env_of(&s.prepare("7").unwrap());
+    let argv = s
+        .launcher()
+        .prepare(
+            folders(&s.dir),
+            "7",
+            "2",
+            &s.cwd,
+            Some("saved"),
+            Role::Agent,
+        )
+        .unwrap();
+    assert_eq!(env_of(&argv), first);
+}
+
+#[test]
+fn a43_the_brief_names_the_id_variable_and_rup_help() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_as("7", role).unwrap();
+        let at = argv
+            .iter()
+            .position(|a| a == "--append-system-prompt-file")
+            .unwrap();
+        let brief = std::fs::read_to_string(&argv[at + 1]).unwrap();
+        assert!(brief.contains("ROUNDUP_AGENT_ID") && brief.contains("rup help"));
+    }
 }
