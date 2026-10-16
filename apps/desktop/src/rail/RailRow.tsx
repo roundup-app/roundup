@@ -46,6 +46,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 
 /** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
 const ignoringControls = <T extends { onPointerMove?: unknown }>(props: T): T => {
+  // SAFETY: the row's Ark tooltip trigger props carry onPointerMove as a pointer-event handler when present.
   const move = props.onPointerMove as ((event: PointerEvent) => void) | undefined;
 
   return {
