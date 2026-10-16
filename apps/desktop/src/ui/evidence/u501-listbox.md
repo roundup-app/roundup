@@ -1,6 +1,6 @@
 # U501 shared answer Listbox
 
-Source: `faa8743e2f9b0313d7d03983e7ee71dc8530ff7b`; main baseline: `32198b7297869ddc237030cf14b754fb8084206f`. Scope is `ui/`; #2004 owns lane adoption. No lane, App, contracts, Tokens, package or loop file changes. The final branch includes main’s test-only #2163 merge (`5882ad851`); its UI and Rust release inputs match this captured/measured baseline.
+Source: `964f2438ec53806b81e3486bb2c95b43c0cf692f`; main baseline: `32198b7297869ddc237030cf14b754fb8084206f`. Scope is `ui/`; #2004 owns lane adoption. No lane, App, contracts, Tokens, package or loop file changes. Main `5882ad851` differs from the captured baseline only in tests (#2163); their desktop UI trees and Rust release inputs are identical.
 
 ```text
 controlled answer/highlight → Ark collection + Root → supplied options
@@ -19,10 +19,10 @@ Installed `@ark-ui/solid` 5.39.3 and Zag Listbox 1.45.0 are mounted without mock
 | Caller recommendation metadata keeps the supplied name/description | `u501_supplied_metadata_keeps_the_option_name_and_description` |
 | Pointer selects without submitting; note Enter stays with caller | `u501_browser_pointer_never_submits_and_enter_stays_with_note_owner` |
 | No supplied answers; teardown removes DOM, timers and callbacks | `u501_empty_answers_keep_an_own_answer_input`, `u501_disposal_removes_navigation_and_callbacks` |
-| Paired rendered Checks | `u501_rendered_checks`: light/dark, 1280×800/1440×800, normal/increased contrast, initial/hover/focus/null/pending plus tree-40 multiline failure |
+| Paired rendered Checks | `u501_rendered_checks`: light/dark, 1280×800/1440×800, normal/increased contrast, initial/hover/focus/null/pending/selected-pending plus tree-40 multiline failure |
 | Existing Decision policy and Markdown bytes | Existing `decisions/` suite, including all `u406_` and `q2_decision_preview` |
 
-The browser driver uses a dedicated agent-browser session and fresh profile. Increased contrast uses `AGENT_BROWSER_ARGS='--force-high-contrast,--disable-features=ForcedColors'` from `docs/u478-contrast-observer.md`; each test asserts the native media query. The baseline worktree receives only this observer fixture, which imports main's existing `AskAnswers`; its production source and styles stay on main. Captures remain untracked. [Review evidence bundle](https://github.com/saadshahd/roundup/releases/tag/pr-2166-evidence) retains the paired captures and observer logs.
+The browser driver uses a dedicated agent-browser session and fresh profile. Increased contrast uses `AGENT_BROWSER_ARGS='--force-high-contrast,--disable-features=ForcedColors'` from `docs/u478-contrast-observer.md`; each test asserts the native media query. The baseline worktree receives only this observer fixture, which imports main's existing `AskAnswers`; its production source and styles stay on main. Captures remain untracked. Full `just check origin/main` exits 0: 383 test files and 3008 tests pass, with 19 existing skips. Ten wrapper tests and seven Chromium tests pass. [Final evidence archive](https://api.github.com/repos/saadshahd/roundup/git/blobs/92748ccf9203a983ebc70fddc1281fa6872b120b) retains the paired captures and observer logs.
 
 Reproduce from the implementation checkout after `pnpm install` in it and a detached main worktree:
 
@@ -37,6 +37,14 @@ ROUNDUP_CAPTURES=U501 U500_BASE_ROOT=/tmp/u501-main/apps/desktop \
   pnpm --filter desktop exec vitest run src/ui/u501_browser.test.ts -t rendered_checks
 ```
 
+Download the generated archive (it is a GitHub blob, not a tracked source file):
+
+```sh
+curl -fsSL -H 'Accept: application/vnd.github.raw+json' \
+  'https://api.github.com/repos/saadshahd/roundup/git/blobs/92748ccf9203a983ebc70fddc1281fa6872b120b' -o U501-final-evidence.tar.gz
+tar -xzf U501-final-evidence.tar.gz
+```
+
 `artifacts/ux/U501/{base,head}/` holds paired PNG/Check JSON. The tree-40 observer verifies the visible first error line and the full unchanged multiline title, preserving the existing error renderer. Opening and replacing the fixture never moves keyboard focus. Preview rendering and submission/retry remain caller policy; the existing Decision implementation is unchanged.
 
 ## Reuse
@@ -47,7 +55,7 @@ Considered [Kobalte Select/Listbox](https://kobalte.dev/docs/core/components/sel
 
 ## Matched rule 7 observations
 
-Both `just perf` invocations use the same Ubuntu 24.04 x86_64 AMD EPYC 7763 host, four available CPUs/online set/affinity `0-3`, rustc 1.99.0, release profile, login-shell workload and unchanged `crates/perf/budgets.json`. Both revisions' `crates` tree is `d97fac193b413c6e3644b460c5b4b2ba9f2bf9c4`. The same release binaries are reused because the Rust and build inputs are identical. Full host, hashes, loads, per-run samples, limits and skips are retained with the evidence.
+The unskipped `just perf` pair measured main `32198b729` and head `13279171c`, before the test-only main merge and later UI-only changes. Both invocations use the same Ubuntu 24.04 x86_64 AMD EPYC 7763 host, four available CPUs/online set/affinity `0-3`, rustc 1.99.0, release profile, login-shell workload and unchanged `crates/perf/budgets.json`. Both measured revisions' `crates` tree is `d97fac193b413c6e3644b460c5b4b2ba9f2bf9c4`. The same release binaries are reused because the Rust and build inputs are identical. Full host, hashes, loads, per-run samples, limits and skips are retained with the evidence.
 
 | Metric | Main | Head | Gate |
 | --- | ---: | ---: | --- |
@@ -69,5 +77,6 @@ Each lower-load command exits 1 on the same five shipped regression baselines. N
 | --- | --- | --- |
 | A native disabled note can lose focus; caller Enter can run while pending | Explicitly keep native disabled false, use readOnly and block pending key callbacks | Pending tests went red with `submitted`, then green; real browser retains focus and retries once |
 | New note lacked the required click-target states | Token hover/press/focus behavior, disabled colour/cursor and no disabled hover/press | Rendered D2/D5/D6 and baseline comparison |
+| Generic disabled text on a selected pending row measured 4.11:1/4.30:1 | Keep U406’s selected label/description palette while disabled | `u501_rendered_checks` selected-pending in all eight media/viewport cases |
 | Dense observer expected the second error line in visible text | Assert main's first-line renderer and full multiline title | Paired tree-40 failure captures |
 
