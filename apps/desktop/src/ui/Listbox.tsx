@@ -43,11 +43,12 @@ const Content = (props: ArkListbox.ContentProps) => {
     aria-disabled={listbox().disabled || undefined} />;
 };
 
-const Item = (props: { item: Answer }) => {
+const Item = (props: { item: Answer; class?: string; children?: JSX.Element }) => {
   const id = createUniqueId();
 
-  return <ArkListbox.Item item={props.item} class="app-listbox-item" aria-labelledby={`${id}-label`} aria-describedby={`${id}-description`}>
+  return <ArkListbox.Item item={props.item} class={`app-listbox-item ${props.class ?? ""}`} aria-labelledby={`${id}-label`} aria-describedby={`${id}-description`}>
     <ArkListbox.ItemText id={`${id}-label`}>{props.item.label}</ArkListbox.ItemText>
+    {props.children}
     <span id={`${id}-description`} class="app-listbox-description">{props.item.description}</span>
   </ArkListbox.Item>;
 };
