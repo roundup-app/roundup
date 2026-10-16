@@ -1,3 +1,4 @@
+import { TreeView as ArkTreeView } from "@ark-ui/solid/tree-view";
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
 import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
@@ -66,6 +67,13 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
 };
+
+export const TreeView = {
+  ...ArkTreeView,
+  Tree: (props: ArkTreeView.TreeProps) => <ArkTreeView.Tree {...props} class={`app-tree ${props.class ?? ""}`} />,
+};
+
+export { Sortable } from "./sortable";
 
 export { Splitter } from "./Splitter";
 
