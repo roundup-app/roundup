@@ -3223,8 +3223,9 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
         let (project, mut client, door) = clear_fixture("a32_stop_deepest", &[]).await;
         let model = project.model.as_ref().unwrap();
         let before = rail_tree(&client).await;
-        let children: Vec<_> = before.iter().filter(|node| node.id != door).map(|node| node.id.clone()).collect();
-        assert_eq!(children.len(), 2);
+        let child = before.iter().find(|node| node.parent.as_deref() == Some(&door)).unwrap();
+        let grandchild = before.iter().find(|node| node.parent.as_deref() == Some(&child.id)).unwrap();
+        let children = [&child.id, &grandchild.id];
         client
             .request(
                 "workstream.clear",
@@ -3296,7 +3297,7 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
         }
         let tree = rail_tree(&client).await;
         assert!(tree.iter().any(|node| node.id == door));
-        assert!(tree.iter().all(|node| !children.contains(&node.id)));
+        assert!(tree.iter().all(|node| !children.contains(&&node.id)));
         let journal = model.journal();
         let restarted = journal.iter().find(|entry| entry["body"]["tools"].is_array()
             && entry["body"]["messages"].as_array().is_some_and(|messages|
@@ -3306,10 +3307,15 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
                         && text.contains("archived in the Pad archive-1")))))
             .unwrap_or_else(|| panic!("real Door receives the Handoff and archive pointer: {journal:#?}"));
         let messages = restarted["body"]["messages"].as_array().unwrap();
-        assert!(messages.iter().any(|message| message["role"] == "user"
-            && message["content"].as_str().is_some_and(|text|
-                text.contains(&format!("branch roundup/agent-{}", children[0])))),
-            "the Handoff retains the child's Worktree branch: {journal:#?}");
+        let handoff = messages.iter().filter(|message| message["role"] == "user")
+            .filter_map(|message| message["content"].as_str())
+            .find(|text| text.contains("Follow this instruction: Build the login page."))
+            .unwrap();
+        let child_branch = format!("branch roundup/agent-{}", child.id);
+        let grandchild_branch = format!("branch roundup/agent-{}", grandchild.id);
+        let shallow = handoff.find(&child_branch).expect("child Worktree in Handoff");
+        let deep = handoff.find(&grandchild_branch).expect("grandchild Worktree in Handoff");
+        assert!(deep < shallow, "deepest Subagent is handed off first: {handoff}");
         model.assert_matched();
     })
     .await
