@@ -23,20 +23,39 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 
 /// A Todo or Pad call is a few SQLite statements; past this the Daemon is wedged, and a hung tool call would hang the Agent's turn.
-const CALL_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// `ttlMs` and `cacheScope` are required by the client's `tools/list` schema (M4). The tool set is fixed for
 /// the life of this process, so the reply is `public` and fresh for an hour.
 const TOOLS_TTL_MS: u64 = 3_600_000;
 
-struct Offered {
-    method: &'static str,
-    tool: Tool,
+/// One entry of the one tool list: `rup mcp` offers it as a tool and `rup` as a command (I1).
+pub(crate) struct Offered {
+    pub(crate) method: &'static str,
+    pub(crate) tool: Tool,
     takes_params: bool,
     /// E4: the params are `{id}` with the shim's own Agent id, and the tool takes no input.
     own_id: bool,
     /// H14: the call waits for the user, so no `CALL_TIMEOUT` applies and its result is the answer's text.
-    waits_for_user: bool,
+    pub(crate) waits_for_user: bool,
+    /// B20, A32, M10: only a Door is offered it.
+    pub(crate) door_only: bool,
+}
+
+impl Offered {
+    /// The params of a call by Agent `agent` with the tool's `arguments`.
+    pub(crate) fn params(&self, agent: &str, arguments: Option<JsonObject>) -> Value {
+        match (self.takes_params, self.own_id, arguments) {
+            (false, true, _) => serde_json::json!({ "id": agent }),
+            (true, true, arguments) => {
+                let mut arguments = arguments.unwrap_or_default();
+                arguments.insert("id".into(), agent.into());
+                Value::Object(arguments)
+            }
+            (true, false, arguments) => Value::Object(arguments.unwrap_or_default()),
+            (false, false, _) => Value::Null,
+        }
+    }
 }
 
 /// The Daemon cannot be spoken to; the shim exits instead of answering the Agent.
@@ -84,6 +103,7 @@ fn ask_user() -> Offered {
         takes_params: true,
         own_id: false,
         waits_for_user: true,
+        door_only: false,
     }
 }
 
@@ -104,6 +124,7 @@ fn offer(
         takes_params,
         own_id: false,
         waits_for_user: false,
+        door_only: false,
     }
 }
 
@@ -122,6 +143,7 @@ fn agent_context() -> Offered {
 fn agent_digest() -> Offered {
     Offered {
         own_id: true,
+        door_only: true,
         ..offered_without_params(
             "agent.digest",
             "Ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.",
@@ -131,10 +153,13 @@ fn agent_digest() -> Offered {
 
 /// M10: only a Door writes a Checkpoint.
 fn checkpoint_write() -> Offered {
-    offered::<checkpoint::WriteParams>(
-        "checkpoint.write",
-        "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
-    )
+    Offered {
+        door_only: true,
+        ..offered::<checkpoint::WriteParams>(
+            "checkpoint.write",
+            "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
+        )
+    }
 }
 
 /// H21: `decision.answer` takes `{id, answer, note}`; an Agent has no `proof` to send, and the Daemon
@@ -206,9 +231,18 @@ fn with_own_id<P: JsonSchema>(
     }
     Offered {
         own_id: true,
+        door_only: method == "workstream.handoff",
         tool: Tool::new(name, description, schema),
         ..offer(method, "", JsonObject::new(), true)
     }
+}
+
+/// I1: the one list both `rup mcp` and `rup` read: M5's tools, and the Door-only ones (marked) when `door`.
+pub(crate) fn tools(door: bool) -> Vec<Offered> {
+    let mut list = offered_tools();
+    list.extend([agent_digest(), workstream_handoff(), checkpoint_write()]);
+    list.retain(|offer| door || !offer.door_only);
+    list
 }
 
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
@@ -412,7 +446,7 @@ fn agent_spawn() -> Offered {
 }
 
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.
-fn success_text(method: &str, params: &Value, result: Value) -> String {
+pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
         .iter()
         .any(|m| m.name == method && m.result == "null");
@@ -471,6 +505,25 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
     }
 }
 
+/// B20: whether Agent `id` is a Door, a Workstream's Door, which the Rail shows as a Workstream node with its own id.
+pub(crate) async fn is_door(client: &rpc::Client, id: &str) -> Result<bool, String> {
+    let tree = client.request("rail.tree", Value::Null);
+    match tokio::time::timeout(CALL_TIMEOUT, tree).await {
+        Ok(Ok(tree)) => Ok(
+            serde_json::from_value::<Vec<agent::RailNode>>(tree).is_ok_and(|nodes| {
+                nodes
+                    .iter()
+                    .any(|node| node.id == id && node.kind == agent::NodeKind::Workstream)
+            }),
+        ),
+        Ok(Err(err)) => Err(format!("the Daemon would not show the Rail: {err}")),
+        Err(_) => Err(format!(
+            "no answer to the Rail within {}s",
+            CALL_TIMEOUT.as_secs()
+        )),
+    }
+}
+
 struct Shim {
     socket: PathBuf,
     actor: Actor,
@@ -508,27 +561,12 @@ impl Shim {
             })?
     }
 
-    /// B20: whether this Agent is a Door, a Workstream's Door, which the Rail shows as a
-    /// Workstream node with its own id. A Daemon that cannot say leaves the tool out, and says so.
+    /// B20: whether this Agent is a Door. A Daemon that cannot say leaves the tool out, and says so.
     async fn is_door(&self, start: &rpc::Client) -> bool {
-        let tree = start.request("rail.tree", Value::Null);
-        match tokio::time::timeout(CALL_TIMEOUT, tree).await {
-            Ok(Ok(tree)) => {
-                serde_json::from_value::<Vec<agent::RailNode>>(tree).is_ok_and(|nodes| {
-                    nodes.iter().any(|node| {
-                        node.id == self.actor.id && node.kind == agent::NodeKind::Workstream
-                    })
-                })
-            }
-            Ok(Err(err)) => {
-                eprintln!("rup: the Daemon would not show the Rail, so no digest tool: {err}");
-                false
-            }
-            Err(_) => {
-                eprintln!(
-                    "rup: no answer to the Rail within {}s, so no digest tool",
-                    CALL_TIMEOUT.as_secs()
-                );
+        match is_door(start, &self.actor.id).await {
+            Ok(door) => door,
+            Err(why) => {
+                eprintln!("rup: {why}, so no digest tool");
                 false
             }
         }
@@ -676,16 +714,7 @@ impl Shim {
         offer: &Offered,
         arguments: Option<JsonObject>,
     ) -> Result<Result<String, RpcError>, Gone> {
-        let params = match (offer.takes_params, offer.own_id, arguments) {
-            (false, true, _) => serde_json::json!({ "id": self.actor.id }),
-            (true, true, arguments) => {
-                let mut arguments = arguments.unwrap_or_default();
-                arguments.insert("id".into(), self.actor.id.clone().into());
-                Value::Object(arguments)
-            }
-            (true, false, arguments) => Value::Object(arguments.unwrap_or_default()),
-            (false, false, _) => Value::Null,
-        };
+        let params = offer.params(&self.actor.id, arguments);
         let client = self.connect().await?;
         if offer.waits_for_user {
             return Ok(client
@@ -798,16 +827,14 @@ async fn serve(actor: Actor) -> Result<(), String> {
     let mut shim = Shim {
         socket,
         actor,
-        tools: offered_tools(),
+        tools: tools(false),
         gone,
     };
     let start = shim.connect().await.map_err(|gone| gone.to_string())?;
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
-        shim.tools.push(agent_digest());
-        shim.tools.push(workstream_handoff());
-        shim.tools.push(checkpoint_write());
+        shim.tools = tools(true);
     }
     drop(start);
     let running = shim
