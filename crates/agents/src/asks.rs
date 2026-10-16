@@ -406,7 +406,12 @@ impl Intake {
                                 }
                             }
                             Err(err) => {
-                                self.fail(&id, ord, part, err.message)?;
+                                let reason = if self.agents.shared.node(workstream).is_err() {
+                                    "the Workstream was removed".to_owned()
+                                } else {
+                                    err.message
+                                };
+                                self.fail(&id, ord, part, reason)?;
                                 continue;
                             }
                         }

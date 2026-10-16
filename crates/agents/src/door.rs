@@ -163,6 +163,7 @@ impl Agents {
         first: Option<String>,
         startup_context: bool,
     ) -> Result<RailNode, RpcError> {
+        let _lifecycle = self.shared.door_lifecycle.read().await;
         let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();

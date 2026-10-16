@@ -114,6 +114,8 @@ struct Shared {
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
     /// that creates or reserves it, so `agent.stop` never finds a starting node unmarked.
     runs: Mutex<HashMap<String, Slot>>,
+    /// A41: removal excludes Door starts until its Rail transaction has committed.
+    door_lifecycle: tokio::sync::RwLock<()>,
     bus: Bus,
     terminals: Arc<Terminals>,
     /// Milliseconds since the Unix epoch. Adapters stamp Statuses with it and the watchers time

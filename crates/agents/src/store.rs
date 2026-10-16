@@ -84,6 +84,7 @@ impl Agents {
                 project_dir: project.to_owned(),
                 rail: Mutex::new(rail),
                 runs: Mutex::new(HashMap::new()),
+                door_lifecycle: tokio::sync::RwLock::new(()),
                 bus,
                 ending: ending::State {
                     kill: Arc::clone(&terminals) as Arc<dyn KillsTerminals>,
@@ -461,6 +462,7 @@ pub(super) mod tests {
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
             runs: Mutex::new(HashMap::new()),
+            door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
             ending: ending::State {
                 kill: Arc::clone(&terminals) as Arc<dyn crate::KillsTerminals>,
@@ -508,6 +510,7 @@ pub(super) mod tests {
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
             runs: Mutex::new(HashMap::new()),
+            door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
             terminals: Arc::new(Terminals::open(dir.path(), bus).unwrap()),
             ending: ending::State {
@@ -588,6 +591,7 @@ pub(super) mod tests {
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
             runs: Mutex::new(HashMap::new()),
+            door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
             terminals: Arc::new(Terminals::open(dir.path(), bus).unwrap()),
             ending: ending::State {
