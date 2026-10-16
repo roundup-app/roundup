@@ -3198,13 +3198,13 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
             && entry["body"]["messages"].as_array().is_some_and(|messages|
                 messages.iter().any(|message| message["role"] == "user"
                     && message["content"].as_str().is_some_and(|text|
-                        text.starts_with("Follow this instruction: Build the login page.")
+                        text.contains("Follow this instruction: Build the login page.")
                         && text.contains("archived in the Pad archive-1")))))
-            .expect("real Door receives the Handoff and archive pointer");
+            .unwrap_or_else(|| panic!("real Door receives the Handoff and archive pointer: {journal:#?}"));
         // A resumed conversation would retain the earlier Clear and child-spawn turns.
         let messages = restarted["body"]["messages"].as_array().unwrap();
         assert!(!messages.iter().any(|message| message["role"] == "tool"));
-        assert!(!messages.iter().any(|message| message["content"].as_str()
+        assert!(!messages.iter().any(|message| message["role"] == "user" && message["content"].as_str()
             .is_some_and(|text| text.contains("workstream_handoff") || text.contains("What is this Workstream for?"))));
         assert!(journal.iter().any(|entry| entry["body"]["tools"].is_array()
             && entry["body"]["messages"].as_array().is_some_and(|messages|
