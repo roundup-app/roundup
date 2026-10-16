@@ -288,7 +288,7 @@ impl Daemon {
                     .await?,
             )
             .map_err(RpcError::internal)?;
-            let child_exited = !matches!(action.call, HeldCall::Rename(_))
+            let child_exited = matches!(action.call, HeldCall::Resize(_))
                 && accepted
                     .child_terminal
                     .as_ref()
@@ -337,10 +337,19 @@ impl Daemon {
                         .outcome(&action.id, ResizeOutcome::InProgress)?;
                     self.before_prompt_effect(&accepted.actor, method, &params)
                         .await?;
-                    let namespace = method.split('.').next().unwrap_or_default();
-                    self.modules[namespace]
-                        .call(&self.ctx(accepted.actor), method, params.clone())
-                        .await?;
+                    let ctx = self.ctx(accepted.actor);
+                    if matches!(action.call, HeldCall::Stop(_)) {
+                        let attempt = accepted
+                            .attempt
+                            .as_deref()
+                            .ok_or_else(|| RpcError::conflict("original Attempt is unavailable"))?;
+                        self.agents.stop_attempt(&ctx, child, attempt).await?;
+                    } else {
+                        let namespace = method.split('.').next().unwrap_or_default();
+                        self.modules[namespace]
+                            .call(&ctx, method, params.clone())
+                            .await?;
+                    }
                     self.after_action_effect(method).await?;
                     Ok::<(), RpcError>(())
                 }
@@ -427,7 +436,10 @@ impl Daemon {
             if !matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. }) {
                 continue;
             }
-            if matches!(accepted.action.call, HeldCall::Rename(_)) {
+            if matches!(
+                accepted.action.call,
+                HeldCall::Rename(_) | HeldCall::Stop(_)
+            ) {
                 if !self
                     .sender
                     .get()
@@ -467,7 +479,7 @@ impl Daemon {
         let pending = self.held_actions.accepted(None)?;
         for accepted in pending {
             if matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. })
-                && !matches!(accepted.action.call, HeldCall::Rename(_))
+                && matches!(accepted.action.call, HeldCall::Resize(_))
                 && (original_terminal(&accepted.action.call) == Some(terminal)
                     || accepted.child_terminal.as_deref() == Some(terminal))
             {
