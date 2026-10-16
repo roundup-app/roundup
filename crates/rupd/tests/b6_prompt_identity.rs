@@ -4178,7 +4178,7 @@ async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
     run.finish().await;
     assert_eq!(
         order,
-        [vec![2], (102..=110).collect()].concat(),
+        [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
         "rename overtook an already-arrived resize"
     );
 }
