@@ -1,8 +1,10 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { CHECK_IDS, runChecks } from "./checks";
 import { withStylesheets } from "./contrast";
+import { chromePath, openPage } from "./chromePage";
+import type { Checks } from "./checks";
 import { seedApp } from "./seeds";
 
 afterEach(() => {
@@ -174,4 +176,161 @@ describe("u137 one module measures the checks", () => {
       expect([document.body.innerHTML, document.head.innerHTML, String(document.activeElement === row)]).toEqual(before);
     });
   });
+});
+
+const chrome = chromePath();
+
+const rendered = chrome || process.env.CI ? describe : describe.skip;
+
+rendered("u137 rendered focus marks", () => {
+  let page: Awaited<ReturnType<typeof openPage>>;
+
+  beforeAll(async () => { if (!chrome) throw new Error("U137 requires Chromium"); page = await openPage(chrome); }, 90_000);
+  afterAll(async () => { await page?.close(); });
+
+  for (const width of [1280, 1440]) {
+    it(`u137_measures_the_visible_composer_mark_after_takeover_release_at_${width}`, async () => {
+      await page.load("/harness.html?seed=thread-report", width, 800);
+      await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+      await page.call(`() => document.querySelector('[aria-label="More"]').click()`);
+      await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some(el => el.textContent === 'Take control')`);
+      await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find(el => el.textContent === 'Take control').click()`);
+      await page.until(`() => Boolean(document.querySelector('.pane-takeover'))`);
+      await page.press("0", "Digit0", 1);
+      await page.until(`() => document.activeElement?.matches('[data-thread-input]') && !document.querySelector('.pane-takeover')`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      expect(checks.D5).toMatchObject({ status: "pass" });
+      expect(checks.D10.status).toBe("pass");
+    }, 60_000);
+  }
+
+  it("u137_a_low_contrast_visible_mark_fails_despite_a_zero_width_outline", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => { document.querySelector('[data-thread-input]').focus(); const sheet = document.createElement('style'); sheet.textContent = '.thread-composer:has(textarea:focus-visible) { background-image: linear-gradient(var(--ground), var(--ground)); }'; document.head.append(sheet); }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: expect.closeTo(1.08884, 4) } });
+    expect(checks.D10.status).toBe("fail");
+  });
+
+  for (const field of ["title", "ask"]) {
+    for (const lowContrast of [false, true]) {
+      it(`u137_measures_the_order_${field}_focus_mark_${lowContrast ? "below" : "above"}_three_to_one`, async () => {
+        await page.load("/harness.html?seed=thread-report", 1280, 800);
+        await page.until(`() => Boolean(document.querySelector('.thread-order'))`);
+        await page.call(`() => document.querySelector('.thread-order').click()`);
+        await page.until(`() => Boolean(document.querySelector('[aria-label="Edit order"]'))`);
+        await page.call(`() => document.querySelector('[aria-label="Edit order"]').click()`);
+        await page.until(`() => Boolean(document.querySelector('textarea[name="${field}"]'))`);
+        await page.call(`(field, lowContrast) => {
+          const input = document.querySelector('textarea[name="' + field + '"]');
+          input.focus();
+          if (lowContrast) input.style.backgroundImage = 'linear-gradient(var(--ground), var(--ground))';
+        }`, field, lowContrast);
+        const checks = await page.call<Checks>(`() => window.__checks()`);
+
+        expect(checks.D5).toMatchObject(lowContrast
+          ? { status: "fail", value: { focusRing: 1 } }
+          : { status: "pass" });
+      });
+    }
+  }
+
+  it("u137_measures_a_percentage_width_focus_mark_on_an_unnamed_container", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => {
+      document.body.innerHTML = '<div style="width: 240px; height: 80px; background-color: white; background-image: linear-gradient(white, white); background-size: 1% 100%; background-repeat: no-repeat; background-position: left"><textarea style="color: black; background: transparent; outline-width: 0">text</textarea></div>';
+      document.querySelector('textarea').focus();
+    }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: 1 } });
+  });
+
+  it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 100% 100%">text</p>'; }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: { text: 1 } });
+  });
+
+  it("u137_unsupported_single_layer_coverage_is_not_measurable", async () => {
+    await page.load("/harness.html?seed=thread-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 50% 50%; background-repeat: no-repeat">text</p>'; }`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D5).toMatchObject({ status: "fail", value: "not measurable" });
+    expect(checks.D10.status).toBe("fail");
+  });
+});
+
+rendered("U135 U136 U161 painted scheme checks", () => {
+  let page: Awaited<ReturnType<typeof openPage>>;
+
+  beforeAll(async () => { if (!chrome) throw new Error("Scheme checks require Chromium"); page = await openPage(chrome); }, 90_000);
+  afterAll(async () => { await page?.close(); });
+
+  const load = async (seed: string, width = 1280, height = 800) => {
+    await page.load(`/harness.html?seed=${seed}`, width, height);
+    await page.until(`() => Boolean(window.__fake) && Boolean(document.querySelector('[role="tree"]'))`);
+
+    if (seed === "daemon-exits") await page.until(`() => [...document.querySelectorAll('button')].some(el => el.textContent === 'Reopen')`);
+
+    if (seed === "door-stopped") await page.until(`() => document.body.textContent.includes('Supervisor stopped, exited 0')`);
+  };
+
+  for (const [name, scheme, contrast, reduced] of [
+    ["light", "light"], ["dark", "dark"], ["more-contrast", "light", "more"],
+    ["dark_more-contrast", "dark", "more"], ["reduced-transparency", "light", undefined, "transparency"],
+    ["reduced-motion", "light", undefined, "motion"],
+  ] as const) {
+    it(`u135_${name}_d5_on_painted_layout_at_1280_by_800`, async () => {
+      await page.scheme(scheme, contrast, reduced);
+      await load("agents-10");
+
+      if (contrast) expect(await page.call<boolean>(`() => matchMedia('(prefers-contrast: more)').matches`)).toBe(true);
+
+      if (reduced) expect(await page.call<boolean>(`(feature) => matchMedia('(prefers-reduced-' + feature + ': reduce)').matches`, reduced)).toBe(true);
+
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      expect(checks.D5, JSON.stringify(checks.D5)).toMatchObject({ status: "pass" });
+    }, 60_000);
+  }
+
+  it("u135_d10_holds_at_1280_by_800", async () => {
+    await page.scheme("dark");
+    await load("door-stopped");
+    await page.until(`() => Boolean(document.querySelector('[role="treeitem"][aria-selected="true"]'))`);
+    const checks = await page.call<Checks>(`() => window.__checks()`);
+
+    expect(checks.D10.value).toMatchObject({ viewport: "1280x800", scheme: "dark" });
+    expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
+  }, 60_000);
+
+  for (const seed of ["agents-10", "tree-40", "daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
+    it(`u136_${seed.replace("-", "_")}_${scheme}_d5_d10_on_painted_layout_at_${width}_by_${height}`, async () => {
+      await page.scheme(scheme);
+      await load(seed, width, height);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      for (const id of ["D5", "D10"] as const) expect(checks[id], JSON.stringify(checks[id])).toMatchObject({ status: "pass" });
+    }, 60_000);
+  }
+
+  for (const scheme of ["light", "dark"] as const) for (const width of [1280, 1440]) {
+    it(`u161_checks_${scheme}_d5_on_painted_layout_at_${width}_by_800`, async () => {
+      await page.scheme(scheme);
+      await load("door-stopped", width);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      expect(checks.D5, JSON.stringify(checks.D5)).toMatchObject({ status: "pass" });
+    }, 60_000);
+  }
 });

@@ -15,8 +15,6 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_BRIEF_REPORT a file path: written with JSON {"brief": the text of the file named by
                            `--append-system-prompt-file`, "tools": the names the server lists}, as
                            the Brief and the real MCP list stand together
-  FAKE_CLAUDE_CONTEXT_REPORT a file path: written with the stdout of the `rup context` command that
-                           runs under SessionStart (E3), as Claude Code puts it in the session
   FAKE_CLAUDE_ORDER_PROMPTS a legacy count of nonempty initial work lines: their complete prompts are
                            submitted and stopped, and no ASK or ON_PROMPT behaviour plays for them
   FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
@@ -120,10 +118,7 @@ def play_hooks():
                 time.sleep(0.02)
             continue
         for command in commands:
-            ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
-            if " context " in command and "FAKE_CLAUDE_CONTEXT_REPORT" in os.environ:
-                with open(os.environ["FAKE_CLAUDE_CONTEXT_REPORT"], "w") as out:
-                    out.write(ran.stdout)
+            run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
 
 
 def play_loop():

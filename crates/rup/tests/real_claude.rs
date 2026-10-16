@@ -1,4 +1,4 @@
-//! D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -264,6 +264,7 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         .await
         .unwrap();
     let hook: Value = serde_json::from_str(brief["stdout"].as_str().unwrap()).unwrap();
+    assert_eq!(hook["hookSpecificOutput"]["hookEventName"], "SessionStart");
     assert!(
         messages.contains(
             hook["hookSpecificOutput"]["additionalContext"]
@@ -1106,4 +1107,156 @@ async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
         .await;
     }
     model.assert_matched();
+}
+
+#[tokio::test]
+async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp() {
+    let project = daemon::start_real("a26_three_deep", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a26_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a26_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    assert_eq!(a.parent.as_deref(), Some(door.as_str()));
+    assert_eq!(b.parent.as_deref(), Some(a.id.as_str()));
+    let tree = rail_tree(&client).await;
+    let ids: Vec<_> = tree.iter().map(|n| n.id.as_str()).collect();
+    assert_eq!(ids, [door.as_str(), a.id.as_str(), b.id.as_str()]);
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count() {
+    use contracts::agent::Channel;
+    use std::os::unix::fs::PermissionsExt;
+
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-without-mcp");
+    let log = probe.path().join("hooks.jsonl");
+    std::fs::write(
+        &wrapper,
+        r#"#!/usr/bin/env python3
+import json, os, sys
+if sys.argv[1] == "mcp":
+    sys.exit(1)
+if sys.argv[1] == "signal":
+    payload = sys.stdin.read()
+    with open(os.environ["E6_HOOK_LOG"], "a") as log:
+        log.write(json.dumps(json.loads(payload)) + "\n")
+    import subprocess
+    sys.exit(subprocess.run([os.environ["E6_RUP_BIN"], *sys.argv[1:]], input=payload, text=True).returncode)
+os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "e6_no_shim",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("E6_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("E6_HOOK_LOG", log.to_str().unwrap()),
+            ("ROUNDUP_CHANNEL_DEADLINE_MS", "100"),
+        ],
+    );
+    let mut events = project.subscribed().await;
+    let agent = events
+        .request(
+            "agent.spawn",
+            json!({"cwd": project.dir.path(), "prompt": "E6 no shim"}),
+        )
+        .await
+        .unwrap();
+    let id = agent["id"].as_str().unwrap();
+    assert_eq!(agent["channel"], "pending");
+    let mut initial = None;
+    let mut working = false;
+    let mut stopped = false;
+    let mut missing = false;
+    while !stopped || !missing {
+        let event = next(&mut events, |event| match event {
+            EventData::AgentStatus(status) if status.id == id => {
+                Some(EventData::AgentStatus(status))
+            }
+            EventData::AgentChannel(channel) if channel.id == id => {
+                Some(EventData::AgentChannel(channel))
+            }
+            _ => None,
+        })
+        .await;
+        match event {
+            EventData::AgentStatus(status) => {
+                initial.get_or_insert(status.status.kind);
+                working |= status.status.kind == Kind::Working;
+                stopped |= working && status.status.kind == Kind::Idle;
+            }
+            EventData::AgentChannel(channel) => {
+                assert_eq!(channel.channel, Channel::Missing);
+                missing = true;
+            }
+            _ => unreachable!(),
+        }
+    }
+    let node = rail_tree(&events)
+        .await
+        .into_iter()
+        .find(|node| node.id == id)
+        .unwrap();
+    assert_eq!(node.channel, Some(Channel::Missing));
+    assert_eq!(node.status.unwrap().kind, initial.unwrap());
+    let hooks: Vec<Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    for name in ["SessionStart", "UserPromptSubmit", "Stop"] {
+        assert!(
+            hooks.iter().any(|hook| hook["hook_event_name"] == name),
+            "{hooks:#?}"
+        );
+    }
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    assert!(
+        model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["tools"].is_array()
+                && entry["body"]["messages"].to_string().contains("E6 no shim"))
+    );
 }

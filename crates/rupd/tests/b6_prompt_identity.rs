@@ -1622,38 +1622,6 @@ async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect(
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_write_waits_at_its_own_physical_effect() {
-    let (run, caller) = door_terminal().await;
-    let gate = run.dir.path().join("input-gate");
-    std::fs::write(&gate, "pause").unwrap();
-    let terminal = run.terminal.clone();
-    let mut completion = tokio::spawn(async move {
-        caller
-            .request(
-                "terminal.write",
-                json!({"id":terminal,"data":STANDARD.encode(b"once")}),
-            )
-            .await
-    });
-    tokio::time::timeout(BOUND, async {
-        while !gate.with_extension("arrived").is_file() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    let early = tokio::time::timeout(Duration::from_millis(200), &mut completion).await;
-    std::fs::remove_file(gate).unwrap();
-    assert!(
-        early.is_err(),
-        "Door completed before its physical write: {early:?}"
-    );
-    completion.await.unwrap().unwrap();
-    assert_eq!(recorded_bytes(&run).await, b"once");
-    run.finish().await;
-}
-
-#[tokio::test]
 async fn b6_ordinary_door_write_refuses_a_full_queue_before_any_bytes() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
@@ -3414,5 +3382,740 @@ async fn b6_begin_racing_a_door_resize_waits_for_the_child_effect() {
     assert_eq!(
         (after["cols"].as_u64(), after["rows"].as_u64()),
         (Some(101), Some(37))
+    );
+}
+
+#[tokio::test]
+async fn b6_a_held_resize_is_acknowledged_without_effect_and_released_in_order() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let mut accepted = Vec::new();
+    for cols in [101, 102] {
+        let held = caller
+            .request(
+                "terminal.resize",
+                json!({"id":run.terminal,"cols":cols,"rows":37}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            held["outcome"],
+            json!({"status":"waiting","reason":"takeover"})
+        );
+        accepted.push(held);
+    }
+    let before = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(before["cols"], 80);
+    let history = caller
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(history, json!(accepted));
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(after["cols"], 102);
+    let history = caller
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(history.as_array().unwrap().len(), accepted.len());
+    for (record, ack) in history.as_array().unwrap().iter().zip(&accepted) {
+        assert_eq!(record["id"], ack["id"]);
+        assert_eq!(record["outcome"], json!({"status":"completed"}));
+    }
+    // A duplicate release cannot replay the earlier resize over direct user input.
+    run.user
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":111,"rows":38}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(after["cols"], 111);
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_later_door_resize_cannot_overtake_released_resizes() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    for cols in [101, 102] {
+        caller
+            .request(
+                "terminal.resize",
+                json!({"id":run.terminal,"cols":cols,"rows":37}),
+            )
+            .await
+            .unwrap();
+    }
+    run.pause();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let release =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    run.paused().await;
+    let terminal = run.terminal.clone();
+    let mut later = tokio::spawn(async move {
+        caller
+            .request(
+                "terminal.resize",
+                json!({"id":terminal,"cols":103,"rows":39}),
+            )
+            .await
+    });
+    let early = tokio::time::timeout(Duration::from_millis(200), &mut later).await;
+    run.release();
+    release.await.unwrap().unwrap();
+    later.await.unwrap().unwrap();
+    let after = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(after["cols"], 103);
+    assert!(
+        early.is_err(),
+        "a later resize overtook the paused release: {early:?}"
+    );
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_resize_waits_leave_user_input_other_children_and_messages_available() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let held = caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(held["outcome"]["status"], "waiting");
+    let message = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"held independently"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(message["status"], "held");
+    assert_eq!(message["reason"], "takeover");
+    run.user
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":111,"rows":38}),
+        )
+        .await
+        .unwrap();
+    let before = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(before["cols"], 111);
+    let other = caller
+        .request("agent.spawn", json!({"name":"other","cwd":run.dir.path()}))
+        .await
+        .unwrap();
+    // A second child-owned Terminal remains accessible while the first child is held.
+    let owner = Client::connect(&run.daemon.socket).await.unwrap();
+    owner
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":other["id"]}}),
+        )
+        .await
+        .unwrap();
+    let other_terminal = owner
+        .request(
+            "terminal.spawn",
+            json!({"cwd":run.dir.path(),"cols":80,"rows":24,"env":{},"command":["sh","-c","cat"]}),
+        )
+        .await
+        .unwrap();
+    let result = caller
+        .request(
+            "terminal.resize",
+            json!({"id":other_terminal["id"],"cols":105,"rows":35}),
+        )
+        .await
+        .unwrap();
+    assert!(result.is_null(), "another child was held: {result}");
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":other_terminal["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 105);
+    let unrelated = Client::connect(&run.daemon.socket).await.unwrap();
+    let foreign = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"foreign"}))
+        .await
+        .unwrap();
+    unrelated
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":foreign["id"]}}),
+        )
+        .await
+        .unwrap();
+    let denied = unrelated
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":106,"rows":35}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code, rpc::code::FORBIDDEN);
+    assert_eq!(
+        unrelated
+            .request("terminal.resizeHistory", json!({"id":run.terminal}))
+            .await
+            .unwrap(),
+        json!([])
+    );
+    let invalid = caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":0,"rows":37}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(invalid.code, rpc::code::INVALID_PARAMS);
+    assert_eq!(
+        caller
+            .request("terminal.resizeHistory", json!({"id":run.terminal}))
+            .await
+            .unwrap(),
+        json!([held])
+    );
+    run.user
+        .request("message.drop", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let message = run
+        .user
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(message["status"], "dropped");
+    for (method, id) in [
+        ("terminal.close", other_terminal["id"].clone()),
+        ("agent.stop", other["id"].clone()),
+    ] {
+        run.user.request(method, json!({"id":id})).await.unwrap();
+    }
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_an_unavailable_resize_is_recorded_and_does_not_block_the_next_terminal() {
+    let (run, caller) = door_terminal().await;
+    let child = Client::connect(&run.daemon.socket).await.unwrap();
+    child
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    let second = child
+        .request(
+            "terminal.spawn",
+            json!({"cwd":run.dir.path(),"cols":80,"rows":24,"env":{},"command":["sh","-c","cat"]}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":second["id"],"cols":102,"rows":38}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("terminal.close", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let dropped = caller
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(dropped[0]["outcome"]["status"], "dropped");
+    assert!(!dropped[0]["outcome"]["reason"].as_str().unwrap().is_empty());
+    let completed = caller
+        .request("terminal.resizeHistory", json!({"id":second["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(completed[0]["outcome"]["status"], "completed");
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":second["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 102);
+    run.user
+        .request("terminal.close", json!({"id":second["id"]}))
+        .await
+        .unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_child_exit_accounts_for_its_held_resizes_without_a_release() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let actions = caller
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(actions[0]["outcome"]["status"], "dropped");
+    assert!(
+        actions[0]["outcome"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("exited")
+    );
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 80);
+    run.user
+        .request("terminal.close", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn b6_resize_crashes_preserve_receipts_and_never_replay_an_uncertain_effect() {
+    for boundary in ["waiting", "before", "after-resize", "completed"] {
+        let (mut run, caller) = door_terminal().await;
+        let terminal = run.terminal.clone();
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        let door = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap()["parent"]
+            .clone();
+        run.user
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        let receipt = caller
+            .request(
+                "terminal.resize",
+                json!({"id":terminal,"cols":101,"rows":37}),
+            )
+            .await
+            .unwrap();
+        let release = if boundary == "waiting" {
+            None
+        } else {
+            if boundary != "completed" {
+                std::fs::write(run.dir.path().join("effect-gate"), boundary).unwrap();
+            }
+            let user = Arc::clone(&run.user);
+            let child = run.child.clone();
+            Some(tokio::spawn(async move {
+                user.request("takeover.end", json!({"agent":child})).await
+            }))
+        };
+        if boundary == "completed" {
+            release.unwrap().await.unwrap().unwrap();
+        } else if let Some(release) = release {
+            run.paused().await;
+            let snapshot = run
+                .user
+                .request("terminal.snapshot", json!({"id":terminal}))
+                .await
+                .unwrap();
+            assert_eq!(
+                snapshot["cols"],
+                if boundary == "before" { 80 } else { 101 }
+            );
+            run.daemon.child.kill().unwrap();
+            run.daemon.child.wait().unwrap();
+            assert!(release.await.unwrap().is_err());
+        }
+        if run.daemon.child.try_wait().unwrap().is_none() {
+            run.daemon.child.kill().unwrap();
+            run.daemon.child.wait().unwrap();
+        }
+        let _ = std::fs::remove_file(run.dir.path().join("effect-gate"));
+        run.daemon = launch(run.dir.path(), run.data.path());
+        run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+        let caller = Client::connect(&run.daemon.socket).await.unwrap();
+        caller
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":door}}),
+            )
+            .await
+            .unwrap();
+        let history = caller
+            .request("terminal.resizeHistory", json!({"id":terminal}))
+            .await
+            .unwrap();
+        assert_eq!(history.as_array().unwrap().len(), 1);
+        assert_eq!(history[0]["id"], receipt["id"]);
+        assert_eq!(
+            run.user
+                .request("terminal.resizeHistory", json!({"id":terminal}))
+                .await
+                .unwrap(),
+            history
+        );
+        if boundary == "completed" {
+            assert_eq!(history[0]["outcome"]["status"], "completed");
+        } else {
+            assert_eq!(history[0]["outcome"]["status"], "dropped");
+            let reason = history[0]["outcome"]["reason"].as_str().unwrap();
+            assert!(
+                reason.contains(if boundary == "waiting" {
+                    "did not survive"
+                } else {
+                    "may have happened"
+                }),
+                "{boundary}: {reason}"
+            );
+        }
+        // Restart clears Takeover; an explicitly resumed child accepts a new Takeover.
+        run.resumed().await;
+        run.user
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        run.user
+            .request("takeover.end", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        assert_eq!(
+            caller
+                .request("terminal.resizeHistory", json!({"id":terminal}))
+                .await
+                .unwrap(),
+            history
+        );
+        run.finish().await;
+    }
+}
+
+#[tokio::test]
+async fn b6_held_resizes_preserve_wire_arrival_order_before_task_scheduling() {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    let (run, _) = door_terminal().await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let door = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["parent"]
+        .clone();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let mut client = tokio::net::UnixStream::connect(&run.daemon.socket)
+        .await
+        .unwrap();
+    let mut batch = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).unwrap();
+    batch.push(b'\n');
+    for cols in 120..152 {
+        batch.extend(serde_json::to_vec(&json!({"jsonrpc":"2.0","id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).unwrap());
+        batch.push(b'\n');
+    }
+    client.write_all(&batch).await.unwrap();
+    client.shutdown().await.unwrap();
+    let mut replies = BufReader::new(client).lines();
+    for _ in 0..33 {
+        let line = tokio::time::timeout(BOUND, replies.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let reply: Value = serde_json::from_str(&line).unwrap();
+        assert!(reply.get("result").is_some(), "{reply}");
+    }
+    let history = run
+        .user
+        .request("terminal.resizeHistory", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    let widths: Vec<_> = history
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| a["cols"].as_u64().unwrap())
+        .collect();
+    assert_eq!(
+        widths,
+        (120..152).collect::<Vec<_>>(),
+        "acceptance must follow the already-read wire frames"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 151);
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_new_takeover_does_not_wait_for_an_end_delivering_a_recorded_message() {
+    let (run, caller) = door_terminal().await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    let message = run
+        .user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"legacy recorded cut"}),
+        )
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let end =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    let early = tokio::time::timeout(Duration::from_secs(1), &mut begin).await;
+    std::fs::remove_file(gate).unwrap();
+    end.await.unwrap().unwrap();
+    let acquired_early = early.is_ok();
+    match early {
+        Ok(result) => {
+            result.unwrap().unwrap();
+        }
+        Err(_) => {
+            begin.await.unwrap().unwrap();
+        }
+    }
+    let record = run
+        .user
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(record["status"], "delivered");
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert!(
+        acquired_early,
+        "begin waited for the earlier end's Message typing"
+    );
+    assert_eq!(
+        snapshot["cols"], 80,
+        "the earlier end released a resize into the new Takeover"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let snapshot = run
+        .user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(snapshot["cols"], 101);
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
+    let (run, caller) = order_child().await;
+    run.pause();
+    let child = run.child.clone();
+    let rename = tokio::spawn(async move {
+        caller
+            .request(
+                "rail.rename",
+                json!({"id":child,"name":"renamed before Takeover"}),
+            )
+            .await
+    });
+    run.paused().await;
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The observer acknowledges arrival before the rename. This window checks no acquisition.
+    let acquired_early = tokio::time::timeout(Duration::from_millis(200), &mut begin)
+        .await
+        .is_ok();
+    run.release();
+    let renamed = tokio::time::timeout(BOUND, rename)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    if !acquired_early {
+        tokio::time::timeout(BOUND, begin)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+    }
+    run.finish().await;
+    assert!(
+        !acquired_early,
+        "Takeover acquired before Door rename completed"
+    );
+    assert_eq!(renamed["name"], "renamed before Takeover");
+}
+
+#[tokio::test]
+async fn b6_a_later_door_rename_cannot_overtake_a_released_resize() {
+    let (run, caller) = door_terminal().await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request(
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":101,"rows":37}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"note","body":"release ordering"}),
+        )
+        .await
+        .unwrap();
+    let gate = run.dir.path().join("input-gate");
+    std::fs::write(&gate, "pause").unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let end =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    // The input worker acknowledges that end has cleared Takeover and begun Message delivery.
+    tokio::time::timeout(BOUND, async {
+        while !gate.with_extension("arrived").is_file() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let renamed = tokio::time::timeout(
+        BOUND,
+        caller.request("rail.rename", json!({"id":run.child,"name":"after resize"})),
+    )
+    .await;
+    let history = tokio::time::timeout(
+        BOUND,
+        run.user
+            .request("terminal.resizeHistory", json!({"id":run.terminal})),
+    )
+    .await;
+    std::fs::remove_file(gate).unwrap();
+    end.await.unwrap().unwrap();
+    run.finish().await;
+    renamed.unwrap().unwrap();
+    assert_eq!(
+        history.unwrap().unwrap()[0]["outcome"]["status"],
+        "completed",
+        "a later Door rename returned before the older resize ran"
     );
 }
