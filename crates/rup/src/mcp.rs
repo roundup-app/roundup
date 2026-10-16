@@ -228,6 +228,10 @@ fn offered_tools() -> Vec<Offered> {
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>("pad.write", "Rewrite a Pad's whole text. Owner only."),
         offered::<pad::AppendParams>("pad.append", "Add text to the end of any Pad."),
+        offered::<pad::AppendSectionParams>(
+            "pad.appendSection",
+            "Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since.",
+        ),
         offered::<pad::SetOwnerParams>("pad.setOwner", "Give a Pad to another Actor."),
         offered::<pad::PadName>("pad.delete", "Delete a Pad."),
         offered::<message::SendParams>(
