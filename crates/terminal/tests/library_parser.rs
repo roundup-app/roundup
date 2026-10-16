@@ -408,3 +408,74 @@ fn x14_library_reports_executed_controls_at_raw_offsets() {
     assert!(osc.callbacks().controls.is_empty());
     assert!(osc.callbacks().writes.text.is_empty());
 }
+
+#[test]
+fn x14_library_control_observation_survives_checkpoint_replay() {
+    let input = "A\r\n\t\x08é\x1b[2DC\x1b]2;hide\n\r\t\x08\x1b\\Z\r\n".as_bytes();
+    let mut continuous = vt100::Parser::new_with_callbacks(3, 16, 2, Controls::default());
+    observe_controls(&mut continuous, input);
+    assert_eq!(
+        continuous.callbacks().controls,
+        [
+            (2, 13, (0, 0)),
+            (3, 10, (1, 0)),
+            (4, 9, (1, 8)),
+            (5, 8, (1, 7)),
+            (28, 13, (1, 0)),
+            (29, 10, (2, 0)),
+        ]
+    );
+    assert_eq!(
+        continuous.callbacks().writes.text,
+        [
+            (1, 'A', (0, 1)),
+            (7, 'é', (1, 8)),
+            (12, 'C', (1, 7)),
+            (27, 'Z', (1, 8)),
+        ]
+    );
+    assert_eq!(continuous.callbacks().writes.titles, [b"hide".to_vec()]);
+    // Every cut includes CSI/OSC/UTF-8 pending state and the CRLF boundary.
+    for cut in 0..=input.len() {
+        let mut live = vt100::Parser::new_with_callbacks(3, 16, 2, Controls::default());
+        observe_controls(&mut live, &input[..cut]);
+        let checkpoint = live.clone();
+        let before_history = history(live.screen());
+        let before_cursor = live.screen().cursor_position();
+        let before_callbacks = live.callbacks().clone();
+        for _ in 0..3 {
+            let mut replay = checkpoint.clone();
+            observe_controls(&mut replay, &input[cut..]);
+            assert_eq!(replay.callbacks(), continuous.callbacks(), "cut={cut}");
+            assert_eq!(history(replay.screen()), history(continuous.screen()));
+            assert_eq!(
+                replay.screen().cursor_position(),
+                continuous.screen().cursor_position()
+            );
+        }
+        assert_eq!(history(live.screen()), before_history, "live cut={cut}");
+        assert_eq!(live.screen().cursor_position(), before_cursor);
+        assert_eq!(live.callbacks(), &before_callbacks);
+        observe_controls(&mut live, &input[cut..]);
+        assert_eq!(live.callbacks(), continuous.callbacks(), "live cut={cut}");
+    }
+
+    // Batch delivery uses the same execution path; offsets are caller bookkeeping.
+    let mut batched = vt100::Parser::new_with_callbacks(3, 16, 2, Controls::default());
+    batched.process(input);
+    assert_eq!(
+        batched
+            .callbacks()
+            .controls
+            .iter()
+            .map(|(_, b, pos)| (*b, *pos))
+            .collect::<Vec<_>>(),
+        continuous
+            .callbacks()
+            .controls
+            .iter()
+            .map(|(_, b, pos)| (*b, *pos))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(history(batched.screen()), history(continuous.screen()));
+}
