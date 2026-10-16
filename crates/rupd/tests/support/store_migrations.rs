@@ -25,18 +25,22 @@ pub fn write_ask(db: &Connection) {
            VALUES('ask-kept',1,'second','{"kind":"unclear","question":"Where?","candidates":[]}','waiting'),
                  ('ask-kept',0,'first','{"kind":"routed","workstream":"door"}','queued');"#,
     ).unwrap();
-    assert_eq!(db.execute(
-        "UPDATE ask_parts SET state='typed' WHERE ask='ask-kept' AND ord=0 AND state='queued'",
-        [],
-    ).unwrap(), 1);
+    assert_eq!(
+        db.execute(
+            "UPDATE ask_parts SET state='typed' WHERE ask='ask-kept' AND ord=0 AND state='queued'",
+            [],
+        )
+        .unwrap(),
+        1
+    );
 }
 
 pub fn read_ask(db: &Connection) {
-    let ask: (String, String, i64) = db.query_row(
-        "SELECT id,text,at FROM asks",
-        [],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-    ).unwrap();
+    let ask: (String, String, i64) = db
+        .query_row("SELECT id,text,at FROM asks", [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .unwrap();
     assert_eq!(ask, ("ask-kept".into(), "first second".into(), 42));
     let parts = db.prepare(
         "SELECT ord,text,placement,state,reason FROM ask_parts WHERE ask='ask-kept' ORDER BY ord"
@@ -44,12 +48,31 @@ pub fn read_ask(db: &Connection) {
         r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?,
         r.get::<_, String>(3)?, r.get::<_, Option<String>>(4)?,
     ))).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
-    assert_eq!(parts, vec![
-        (0, "first".into(), r#"{"kind":"routed","workstream":"door"}"#.into(), "typed".into(), None),
-        (1, "second".into(), r#"{"kind":"unclear","question":"Where?","candidates":[]}"#.into(), "waiting".into(), None),
-    ]);
-    assert_eq!(db.execute(
-        "UPDATE ask_parts SET state='typed' WHERE ask='ask-kept' AND ord=0 AND state='queued'",
-        [],
-    ).unwrap(), 0);
+    assert_eq!(
+        parts,
+        vec![
+            (
+                0,
+                "first".into(),
+                r#"{"kind":"routed","workstream":"door"}"#.into(),
+                "typed".into(),
+                None
+            ),
+            (
+                1,
+                "second".into(),
+                r#"{"kind":"unclear","question":"Where?","candidates":[]}"#.into(),
+                "waiting".into(),
+                None
+            ),
+        ]
+    );
+    assert_eq!(
+        db.execute(
+            "UPDATE ask_parts SET state='typed' WHERE ask='ask-kept' AND ord=0 AND state='queued'",
+            [],
+        )
+        .unwrap(),
+        0
+    );
 }
