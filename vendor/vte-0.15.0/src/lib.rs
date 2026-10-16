@@ -97,6 +97,93 @@ impl<const OSC_RAW_BUF_SIZE: usize> Parser<OSC_RAW_BUF_SIZE> {
         &self.intermediates[..self.intermediate_idx]
     }
 
+    /// Emit an ANSI prefix restoring pending recognition after a formatted screen.
+    /// Does not dispatch actions or mutate the parser. At most
+    /// `OSC_RAW_BUF_SIZE + 256` bytes are emitted, with no retained replay history.
+    /// Already executed controls are omitted. DCS payload is not retained: the
+    /// emitted DCS hook is suitable for screen emulators that ignore DCS, not
+    /// for performers with external DCS effects or payload storage.
+    pub fn pending_formatted(&self, mut emit: impl FnMut(u8)) {
+        let prefix: &[u8] = match self.state {
+            State::Ground => b"",
+            State::Escape | State::EscapeIntermediate => b"\x1b",
+            State::CsiEntry | State::CsiParam | State::CsiIntermediate | State::CsiIgnore => {
+                b"\x1b["
+            }
+            State::DcsEntry
+            | State::DcsParam
+            | State::DcsIntermediate
+            | State::DcsIgnore
+            | State::DcsPassthrough => b"\x1bP",
+            State::OscString => b"\x1b]",
+            State::SosPmApcString => b"\x1bX",
+        };
+        for &byte in prefix {
+            emit(byte);
+        }
+        match self.state {
+            State::OscString => {
+                let mut start = 0;
+                for &(_, end) in &self.osc_params[..self.osc_num_params] {
+                    for &byte in &self.osc_raw[start..end] {
+                        emit(byte);
+                    }
+                    emit(b';');
+                    start = end;
+                }
+                for &byte in &self.osc_raw[start..] {
+                    emit(byte);
+                }
+            }
+            State::CsiIgnore | State::DcsIgnore => {
+                // An invalid parameter after an intermediate enters ignore.
+                emit(b' ');
+                emit(b'0');
+            }
+            State::CsiParam
+            | State::CsiIntermediate
+            | State::DcsParam
+            | State::DcsIntermediate
+            | State::DcsPassthrough => {
+                // Private markers precede numeric parameters; other intermediates follow.
+                for &byte in self.intermediates() {
+                    if byte >= 0x3c {
+                        emit(byte);
+                    }
+                }
+                self.params.pending(&mut emit);
+                emit_decimal(self.param, &mut emit);
+                for &byte in self.intermediates() {
+                    if byte < 0x3c {
+                        emit(byte);
+                    }
+                }
+                if self.ignoring && !self.params.is_full() {
+                    // Intermediate overflow keeps the two retained intermediates.
+                    // Parameter overflow was already reproduced by the full list.
+                    emit(b' ');
+                }
+                if self.state == State::DcsPassthrough {
+                    emit(b'q');
+                }
+            }
+            State::EscapeIntermediate => {
+                for &byte in self.intermediates() {
+                    emit(byte);
+                }
+                if self.ignoring {
+                    for _ in 0..=MAX_INTERMEDIATES {
+                        emit(b' ');
+                    }
+                }
+            }
+            _ => (),
+        }
+        for &byte in &self.partial_utf8[..self.partial_utf8_len] {
+            emit(byte);
+        }
+    }
+
     /// Advance the parser state.
     ///
     /// Requires a [`Perform`] implementation to handle the triggered actions.
@@ -717,6 +804,22 @@ impl<const OSC_RAW_BUF_SIZE: usize> Parser<OSC_RAW_BUF_SIZE> {
                 _ => performer.print(c),
             }
         }
+    }
+}
+
+fn emit_decimal(mut value: u16, emit: &mut impl FnMut(u8)) {
+    let mut digits = [0; 5];
+    let mut start = digits.len();
+    loop {
+        start -= 1;
+        digits[start] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    for &byte in &digits[start..] {
+        emit(byte);
     }
 }
 
