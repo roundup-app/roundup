@@ -368,6 +368,15 @@ impl Launcher {
         );
         // Trust/config locks and disk delivery cannot hold the async runtime thread.
         let mut env = pair.env();
+        // I5: every shell the Agent's `claude` runs inherits who it is, and finds `rup` on its PATH.
+        env.insert("ROUNDUP_AGENT".to_owned(), id.to_owned());
+        if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
+            let inherited = std::env::var_os("PATH").unwrap_or_default();
+            let paths = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&inherited));
+            if let Ok(path) = std::env::join_paths(paths) {
+                env.insert("PATH".to_owned(), path.to_string_lossy().into_owned());
+            }
+        }
         let mut argv = tokio::task::spawn_blocking(move || {
             launcher.prepare_on(
                 Folders {
