@@ -919,8 +919,9 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
         }
         _ => {
             let text = mcp::success_text(method, params, result.clone());
+            let plain = result.to_string();
             match result {
-                Value::Array(items) if text == result.to_string() => {
+                Value::Array(items) if text == plain => {
                     for item in items {
                         println!("{}", line(item));
                     }
