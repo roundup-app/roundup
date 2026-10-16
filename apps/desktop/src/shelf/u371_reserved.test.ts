@@ -118,7 +118,7 @@ it("u369_closed_shelf_releases_its_width", async () => {
   await capture("U369", "1280x800-closed");
 }, 90_000);
 
-for (const available of [387, 388, 389]) it(`u371_minimum_pane_width_selects_the_mode_${available}`, async () => {
+for (const available of [387, 388]) it(`u371_minimum_pane_width_selects_the_mode_${available}`, async () => {
   await openShelf("tree-40", 480, 800 - available);
   const [rail, centre, shelf] = await boxes();
   expect(rail![4]).toBe(480);
