@@ -79,6 +79,13 @@
   overflow: hidden;
 }
 
+/* The emulator's host fills the body but the fit leaves under one row spare: it goes under the header, so the bottom inset stays `--space-3`. */
+.bubble-body > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
 .bubble-corner {
   position: absolute;
   right: 0;

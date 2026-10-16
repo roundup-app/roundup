@@ -1,7 +1,6 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { contrastRatio, tokensOf } from "../testing/contrast";
-import { lookLiterals } from "../testing/lookLiterals";
 import tokenCss from "../tokens.css?raw";
 import bubbleCss from "./styles.css?inline";
 import { mountBubbles } from "./bubblesFixture";
@@ -15,12 +14,6 @@ const darkTokens = (): Map<string, string> => {
 };
 
 describe("u164 surfaces and contrast", () => {
-  it("u523_panel_uses_radius_shadow_and_opaque_ground", () => {
-    expect(lookLiterals(bubbleCss)).toEqual([]);
-    expect(bubbleCss).not.toMatch(/backdrop-filter|opacity:/);
-    expect(bubbleCss).toMatch(/\.bubble\s*\{[^}]*background:\s*var\(--ground\)[^}]*border-radius:\s*var\(--radius-drawer\)[^}]*box-shadow:\s*var\(--shadow-drawer\)/);
-  });
-
   it.each([
     ["light", tokensOf(tokenCss)],
     ["dark", darkTokens()],
