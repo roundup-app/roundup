@@ -103,7 +103,7 @@ index 3c07601b97c0ffa11ddee572728f31d840307c56..3811f65eaab887a2ca4266db4e83df09
        clearMouseEventTimer({ refs }) {
          refs.get("ignoreMouseTimer").cancel();
 diff --git a/dist/toast.machine.js b/dist/toast.machine.js
-index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..c76e7bb119227dea94f10ff270f24f6e6aed4b07 100644
+index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..d6920baea56728471610c583e42866aa570d9b7c 100644
 --- a/dist/toast.machine.js
 +++ b/dist/toast.machine.js
 @@ -125,8 +125,8 @@ var machine = (0, import_core.createMachine)({
@@ -129,7 +129,19 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..c76e7bb119227dea94f10ff270f24f6e
        waitForRemoveDelay({ prop, send }) {
          return (0, import_utils.setRafTimeout)(() => {
            send({ type: "REMOVE", src: "timer" });
-@@ -196,8 +201,7 @@ var machine = (0, import_core.createMachine)({
+@@ -186,9 +191,10 @@ var machine = (0, import_core.createMachine)({
+       },
+       waitForDuration({ send, context, computed }) {
+         if (computed("shouldPersist")) return;
+-        return (0, import_utils.setRafTimeout)(() => {
++        const timeout = setTimeout(() => {
+           send({ type: "DISMISS", src: "timer" });
+         }, context.get("remainingTime"));
++        return () => clearTimeout(timeout);
+       },
+       waitForNextTick({ send }) {
+         return (0, import_utils.setRafTimeout)(() => {
+@@ -196,8 +202,7 @@ var machine = (0, import_core.createMachine)({
          }, 0);
        },
        trackHeight({ scope, prop }) {
@@ -139,7 +151,7 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..c76e7bb119227dea94f10ff270f24f6e
            const rootEl = dom.getRootEl(scope);
            if (!rootEl) return;
            const syncHeight = () => {
-@@ -212,9 +216,8 @@ var machine = (0, import_core.createMachine)({
+@@ -212,9 +217,8 @@ var machine = (0, import_core.createMachine)({
              subtree: true,
              characterData: true
            });
@@ -150,7 +162,7 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..c76e7bb119227dea94f10ff270f24f6e
        }
      },
      guards: {
-@@ -222,11 +225,6 @@ var machine = (0, import_core.createMachine)({
+@@ -222,11 +226,6 @@ var machine = (0, import_core.createMachine)({
        shouldPersist: ({ computed }) => computed("shouldPersist")
      },
      actions: {
@@ -163,7 +175,7 @@ index 98ef29a0d862f71edf23f4ae1bbaef588fa64521..c76e7bb119227dea94f10ff270f24f6e
          queueMicrotask(() => {
            const rootEl = dom.getRootEl(scope);
 diff --git a/dist/toast.machine.mjs b/dist/toast.machine.mjs
-index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..dab81fed9845242a1049ca5772616c86f3cc73b0 100644
+index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..6fa8ab221fdaac8389d5db82a81a8f763c7d9a27 100644
 --- a/dist/toast.machine.mjs
 +++ b/dist/toast.machine.mjs
 @@ -91,8 +91,8 @@ var machine = createMachine({
@@ -189,7 +201,19 @@ index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..dab81fed9845242a1049ca5772616c86
        waitForRemoveDelay({ prop, send }) {
          return setRafTimeout(() => {
            send({ type: "REMOVE", src: "timer" });
-@@ -162,8 +167,7 @@ var machine = createMachine({
+@@ -152,9 +157,10 @@ var machine = createMachine({
+       },
+       waitForDuration({ send, context, computed }) {
+         if (computed("shouldPersist")) return;
+-        return setRafTimeout(() => {
++        const timeout = setTimeout(() => {
+           send({ type: "DISMISS", src: "timer" });
+         }, context.get("remainingTime"));
++        return () => clearTimeout(timeout);
+       },
+       waitForNextTick({ send }) {
+         return setRafTimeout(() => {
+@@ -162,8 +168,7 @@ var machine = createMachine({
          }, 0);
        },
        trackHeight({ scope, prop }) {
@@ -199,7 +223,7 @@ index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..dab81fed9845242a1049ca5772616c86
            const rootEl = dom.getRootEl(scope);
            if (!rootEl) return;
            const syncHeight = () => {
-@@ -178,9 +182,8 @@ var machine = createMachine({
+@@ -178,9 +183,8 @@ var machine = createMachine({
              subtree: true,
              characterData: true
            });
@@ -210,7 +234,7 @@ index 5646f251c4b8d2bc4d75da8c0f925e5fb3c95134..dab81fed9845242a1049ca5772616c86
        }
      },
      guards: {
-@@ -188,11 +191,6 @@ var machine = createMachine({
+@@ -188,11 +192,6 @@ var machine = createMachine({
        shouldPersist: ({ computed }) => computed("shouldPersist")
      },
      actions: {
