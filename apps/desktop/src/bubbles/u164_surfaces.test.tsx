@@ -15,7 +15,7 @@ const darkTokens = (): Map<string, string> => {
 };
 
 describe("u164 surfaces and contrast", () => {
-  it("u511_panel_uses_radius_shadow_and_opaque_ground", () => {
+  it("u512_panel_uses_radius_shadow_and_opaque_ground", () => {
     expect(lookLiterals(bubbleCss)).toEqual([]);
     expect(bubbleCss).not.toMatch(/backdrop-filter|opacity:/);
     expect(bubbleCss).toMatch(/\.bubble\s*\{[^}]*background:\s*var\(--ground\)[^}]*border-radius:\s*var\(--radius-drawer\)[^}]*box-shadow:\s*var\(--shadow-drawer\)/);
@@ -24,7 +24,7 @@ describe("u164 surfaces and contrast", () => {
   it.each([
     ["light", tokensOf(tokenCss)],
     ["dark", darkTokens()],
-  ])("u511_text_reads_at_4_5_to_1_on_the_opaque_panel (%s)", (_scheme, tokens) => {
+  ])("u512_text_reads_at_4_5_to_1_on_the_opaque_panel (%s)", (_scheme, tokens) => {
     const text = tokens.get("text")!;
     const grey = tokens.get("grey")!;
     const ground = tokens.get("ground")!;
