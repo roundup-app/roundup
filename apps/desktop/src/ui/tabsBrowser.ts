@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect } from "vitest";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
@@ -12,7 +13,7 @@ const profile = mkdtempSync(join(tmpdir(), "tabs-"));
 
 const session = `tabs-${process.pid}-${profile.split("/").at(-1)}`;
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -39,9 +40,8 @@ export const read = async <T,>(expression: string): Promise<T> => {
 export const wait = async (expression: string) => browser("wait", "--fn", expression);
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   const baseRoot = process.env.U500_BASE_ROOT;
 
   if (baseRoot) {

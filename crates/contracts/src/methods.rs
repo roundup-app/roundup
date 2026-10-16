@@ -23,10 +23,10 @@ pub const METHODS: &[Method] = &[
     m(
         "daemon.ping",
         "null",
-        "{ pong: true, contract: { fingerprint: string, methods: string[] } }",
+        "{ pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } }",
     ),
     m("daemon.identify", "common_IdentifyParams", "null"),
-    m("events.subscribe", "null", "null"),
+    m("events.subscribe", "common_SubscribeParams | null", "null"),
     m(
         "provenance.history",
         "common_HistoryParams",
@@ -85,6 +85,7 @@ pub const METHODS: &[Method] = &[
     m("pad.list", "null", "pad_Pad[]"),
     m("pad.write", "pad_WriteParams", "pad_Pad"),
     m("pad.append", "pad_AppendParams", "pad_Pad"),
+    m("pad.appendSection", "pad_AppendSectionParams", "pad_Pad"),
     m("pad.setOwner", "pad_SetOwnerParams", "pad_Pad"),
     m("pad.move", "pad_MoveParams", "pad_Pad"),
     m("pad.delete", "pad_PadName", "null"),
@@ -93,8 +94,12 @@ pub const METHODS: &[Method] = &[
     m("agent.spawn", "agent_SpawnParams", "agent_RailNode"),
     m("agent.actionHistory", "agent_NodeId", "agent_HeldAction[]"),
     m("agent.stop", "agent_NodeId", "null | agent_HeldAction"),
-    m("agent.prompt", "agent_PromptParams", "null"),
-    m("agent.interrupt", "agent_NodeId", "null"),
+    m(
+        "agent.prompt",
+        "agent_PromptParams",
+        "null | agent_HeldAction",
+    ),
+    m("agent.interrupt", "agent_NodeId", "null | agent_HeldAction"),
     m("agent.worktreeState", "agent_NodeId", "agent_WorktreeState"),
     m("agent.land", "agent_NodeId", "agent_Landed"),
     m("agent.discard", "agent_NodeId", "null"),
@@ -404,6 +409,7 @@ mod tests {
                 "NOT_ACCEPTED",
                 "NOT_RUNNING",
                 "NOT_ACKED",
+                "EVENTS_EXPIRED",
             ]
         );
     }

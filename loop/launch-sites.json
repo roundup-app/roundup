@@ -455,12 +455,12 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rup/src/main.rs": {
+  "crates/rup/src/cli.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
-  "crates/rup/tests/a32.rs": {
+  "crates/rup/src/main.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -479,6 +479,12 @@
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
+  },
+  "crates/rup/tests/cl.rs": {
+    "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "a457b620ef75c65a71b6cff4bda12b86e6c7d1e5df2dbed3612127f08beb8b04"
   },
   "crates/rup/tests/common/d9_fixture.rs": {
     "cleanup": "No separate built-Daemon launch site.",

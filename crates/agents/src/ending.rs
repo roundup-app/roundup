@@ -8,6 +8,35 @@ pub(super) struct State {
 }
 
 impl Agents {
+    /// B6: check the original Attempt under the run lock that claims Interrupt's Escape.
+    pub async fn interrupt_attempt(
+        &self,
+        ctx: &Ctx,
+        id: &str,
+        attempt: &str,
+    ) -> Result<(), RpcError> {
+        self.may_steer(&ctx.actor, id, "Interrupt")?;
+        self.shared.interrupt(id, Some(attempt)).await?;
+        Self::touch_rail(ctx, id)
+    }
+
+    /// B6: write a held prompt only while the original Attempt still runs, checked under the
+    /// admission lock that claims the Terminal.
+    pub async fn prompt_attempt(
+        &self,
+        ctx: &Ctx,
+        params: contracts::agent::PromptParams,
+        attempt: &str,
+    ) -> Result<(), RpcError> {
+        let contracts::agent::PromptParams { id, text } = params;
+        self.may_steer(&ctx.actor, &id, "Steer")?;
+        self.shared
+            .prompt(&id, &text, None, Some(attempt), false)
+            .await
+            .map_err(PromptError::from)?;
+        Self::touch_rail(ctx, &id)
+    }
+
     /// B6: check the original Attempt under the same locks that claim Stop's effect.
     pub async fn stop_attempt(&self, ctx: &Ctx, id: &str, attempt: &str) -> Result<(), RpcError> {
         self.shared.guard_reach(&ctx.actor, id, false)?;

@@ -449,7 +449,7 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
 // U353: a text field answers with a caret and a focus mark, so D6's hover and cursor and D7's pressed style do not apply to it.
-const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA");
+const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA" && !el.matches("input[type=text]"));
 
 // D6: each click target has a hover and a focus style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
@@ -489,7 +489,7 @@ const d7 = (page: Page): Measure => {
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
-// D8: no border over 1 px or off `--hairline`; only the Drawer has a shadow; no `backdrop-filter` element contains another.
+// D8: no border over 1 px or off `--hairline`; only the Drawer and the bubble panel have a shadow; no `backdrop-filter` element contains another.
 const d8 = (page: Page): Measure => {
   return offender(page, (el, style) => {
     const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));
@@ -506,7 +506,7 @@ const d8 = (page: Page): Measure => {
 
     const shadow = style.boxShadow;
 
-    if (shadow && shadow !== "none" && !el.matches("aside, aside *") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 

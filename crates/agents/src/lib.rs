@@ -464,6 +464,7 @@ impl Shared {
         id: &str,
         text: &str,
         first: Option<&str>,
+        original: Option<&str>,
         verbatim: bool,
     ) -> Result<(), SteerError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
@@ -480,6 +481,8 @@ impl Shared {
                     }));
                 };
                 if first.is_some_and(|attempt| attempt != run.attempt)
+                    // B6: a held prompt never reaches a replacement Attempt.
+                    || original.is_some_and(|attempt| attempt != run.attempt)
                     || run.ended
                     || run.closing
                     || run.adapter.is_ended()
@@ -587,10 +590,18 @@ impl Shared {
     /// when `id` has a turn to end; this returns when the Agent's title shows it is no longer
     /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
     /// means the Escape was written but its outcome is uncertain. Nothing is retried.
-    async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
+    async fn interrupt(&self, id: &str, original: Option<&str>) -> Result<(), RpcError> {
         let not_found = || RpcError::not_found(format!("agent {id} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
+            // B6: a held Interrupt never ends a replacement Attempt's turn.
+            if let Some(original) = original
+                && runs.get(id).is_none_or(|slot| slot.attempt() != original)
+            {
+                return Err(RpcError::conflict(format!(
+                    "{id}: original Attempt changed or ended before Interrupt"
+                )));
+            }
             let Some(Slot::Running(run)) = runs.get_mut(id) else {
                 return Err(match runs.get(id) {
                     Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(

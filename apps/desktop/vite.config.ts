@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin";
+import TimedSequencer from "./src/testing/shardSequencer";
 
 const served = realDaemonFromEnv(process.env);
 
@@ -78,8 +79,10 @@ export default defineConfig({
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.
     css: { include: [/styles\.css/, /tokens\.css/, /buttons\.css/, /xterm\.css/] },
     include: ["src/**/*.test.{ts,tsx}"],
+    // L89: `--shard` balances by measured time, not path hash.
+    sequence: { sequencer: TimedSequencer },
     setupFiles: ["src/testing/domStubs.ts"],
-    globalSetup: ["src/testing/warmChrome.ts"],
+    globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },

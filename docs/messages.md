@@ -1,6 +1,6 @@
 # Messages between Actors
 
-Design for `scenarios/messages.md` (B1 to B37) Serves `PRINCIPLES.md` P1, P3 and P4 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
+Design for `scenarios/messages.md` (B1 to B40) Serves `PRINCIPLES.md` P1, P3 and P4 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
 
 ## What exists and what does not
 
@@ -15,7 +15,7 @@ Exists: the `Delivery` type and the `bus.route` Hook type (`contracts/hooks.ts`)
 | `delivered` | typed into the Terminal, or stored for the user | final |
 | `dropped` | never typed, with a reason | final |
 
-Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery is at most once (B8). `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
+Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery is exactly once (B39, B40): `delivered` is recorded when the Agent's `UserPromptSubmit` Signal confirms the prompt, and an unconfirmed prompt is typed again. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
 
 ## B37 lifecycle-to-model mapping
 
@@ -320,3 +320,36 @@ recorded in progress is dropped as possibly already applied; a completed Stop
 retains its completion. These are integration-tested action guarantees for
 M1, M3, M4, M6, M7, M9 and M10. Message proofs and laws are unchanged. #1581
 retains the remaining action families and full acceptance.
+
+## B6 Door Interrupt actions
+
+Door `agent.interrupt` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and ledger as Stop.
+Without a Takeover an Interrupt still runs under the shared child lock, so it
+reaches an in-flight Steer; the Takeover check is made under that lock, where
+`takeover.begin` cannot interleave. MCP preserves the waiting receipt and tells
+the Door that acceptance is not execution.
+
+Release rechecks Reach and claims the Escape only while the original Attempt
+still runs, so a replacement Attempt's turn is never interrupted. A removed
+child, an exited Terminal or a replaced Attempt gives a retained drop reason and
+later actions proceed. A waiting Interrupt does not survive a Daemon restart: it
+is dropped with the original-Attempt reason; one recorded in progress is dropped
+as possibly applied, and none is retried. These are integration-tested guarantees
+for M1, M3, M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581
+retains the remaining action families and full acceptance.
+
+## B6 Door prompt actions
+
+Door `agent.prompt` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and ledger as Interrupt.
+Release rechecks Reach and writes the prompt only while the original Attempt
+still runs, checked under the admission lock that claims the Terminal, so a
+replacement Attempt never receives it. A prompt that finds the child busy, a
+removed child, an exited Terminal or a replaced Attempt gives a retained drop or
+failure reason and later actions proceed. A waiting prompt does not survive a
+Daemon restart: it is dropped with the original-Attempt reason; one recorded in
+progress is dropped as possibly typed, and none is retried. These are
+integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs
+and laws are unchanged. #1581 retains the remaining action families (resume,
+Terminal writes, close and kill, answers, rewind, reads) and full acceptance.

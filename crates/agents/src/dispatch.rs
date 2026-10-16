@@ -20,7 +20,7 @@ impl Module for Agents {
             "agent.interrupt" => {
                 let NodeId { id } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Interrupt")?;
-                shared.interrupt(&id).await?;
+                shared.interrupt(&id, None).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
