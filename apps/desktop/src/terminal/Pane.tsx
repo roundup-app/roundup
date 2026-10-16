@@ -217,6 +217,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     if (selected()?.id === id) {
       setTakeFailure(failure);
+
       if (failure === null) takeControl?.focus();
     }
   };
