@@ -24,12 +24,12 @@ const focusThread = (): void => document.querySelector<HTMLElement>("[data-threa
 export const Jump = (props: { onFailure: (message: string | null) => void }) => {
   const { rail, takeover } = useConnectedProject();
 
-  // U187: selecting another row ends the Takeover first.
+  // U467 keeps a child taken while the user watches another row; U187 still ends a Door Takeover.
   createEffect(
     on(rail.selected, (id) => {
       const taken = takeover.taken();
 
-      if (taken !== null && taken !== id) void takeover.end(taken).then((failure) => failure !== null && props.onFailure(failure));
+      if (taken !== null && taken !== id && rail.nodes.some((node) => node.id === taken && node.kind === "workstream")) void takeover.end(taken).then((failure) => failure !== null && props.onFailure(failure));
     }),
   );
 
