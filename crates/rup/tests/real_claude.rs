@@ -1413,3 +1413,113 @@ sys.exit(result.returncode)
         Some("idle")
     );
 }
+
+#[tokio::test]
+async fn a32_an_empty_reason_changes_nothing() {
+    let project = daemon::start_real("a32_invalid_clear", &[]);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut client = project.subscribed().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a32_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a32_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
+    }
+    let before: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .map(|n| (n.id, n.parent, n.iteration, n.worktree))
+        .collect();
+    let asked = model.journal().len();
+    for reason in ["", "  \n ", &"x".repeat(2001)] {
+        let error = client
+            .request("workstream.clear", json!({"id": door, "reason": reason}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    }
+    let missing = client
+        .request("workstream.clear", json!({"id": "9999", "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(missing.code, rpc::code::NOT_FOUND);
+    let sub = client
+        .request("workstream.clear", json!({"id": a.id, "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(sub.code, rpc::code::INVALID_PARAMS);
+    let after: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .map(|n| (n.id, n.parent, n.iteration, n.worktree))
+        .collect();
+    assert_eq!(after, before);
+    assert_eq!(
+        model.journal().len(),
+        asked,
+        "invalid clear sends no prompt to Claude"
+    );
+    model.assert_matched();
+}
