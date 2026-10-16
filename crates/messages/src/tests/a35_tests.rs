@@ -315,7 +315,8 @@ async fn a35_first_prompt_recording_retries_without_a_second_note_or_steer() {
     assert!(h.typed.lock().unwrap().is_empty());
 }
 
-#[tokio::test]
+// Event ordering is the subject; SQLite work after overflow must not consume the hang guard.
+#[tokio::test(start_paused = true)]
 async fn a35_lag_resync_preserves_reserved_messages() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
