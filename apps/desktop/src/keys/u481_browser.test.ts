@@ -4,10 +4,10 @@ import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer, type ViteDevServer } from "vite";
 import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
@@ -19,7 +19,7 @@ const layerArt = captureDir("U496");
 
 const session = `u481-${process.pid}`;
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -35,13 +35,12 @@ const read = async <T,>(expression: string): Promise<T> => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ optimizeDeps: { include: ["@solidjs/testing-library"] }, cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
+  server = await appServer();
 
   if (art) mkdirSync(art, { recursive: true });
 
   if (layerArt) mkdirSync(layerArt, { recursive: true });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  origin = server.resolvedUrls.local[0]!;
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
   if (!ready.ok) throw new Error(await ready.text());

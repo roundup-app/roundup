@@ -60,7 +60,7 @@ rows = {}
 for path in glob.glob('scenarios/**/*.md', recursive=True):
     clause = None
     for line in open(path, encoding='utf-8'):
-        heading = re.match(r'\*\*([A-Za-z]+[0-9]+)[ .]', line)
+        heading = re.match(r'\*\*([A-Za-z]+[0-9]+[a-z]?)[ .]', line)
         if heading:
             clause = heading.group(1)
         law = re.match(r'Law: (.*?)\.? *(?:Check: *(.*?) *)?$', line.rstrip('\n'))

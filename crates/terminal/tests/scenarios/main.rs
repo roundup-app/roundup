@@ -6,6 +6,7 @@ mod control;
 mod in_process;
 mod owned;
 mod read;
+mod shell_marks;
 mod snapshot;
 mod spawn;
 mod stuck;

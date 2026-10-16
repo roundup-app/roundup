@@ -22,7 +22,6 @@ export const copy = {
   running: "Running",
   exit: (value1: CopyValue) => `Exit ${value1}`,
   exitSignal: "Exit signal",
-  transparency: "Transparency",
   minimise: "Minimise",
   close: "Close",
   answers: "Answers",

@@ -38,11 +38,12 @@ jobs:
       - uses: ./.github/actions/setup
       - run: python3 loop/app-data.py just lint-rust
 
-  # L89: the Rust suite in five fifths, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
-  # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 100 s before its
-  # tests, so a lane takes that plus the suite's 500 s of test time over the lanes. A build job whose nextest archive the
-  # lanes download is no shorter: one compile stays on the path, with the archive's upload, download and unpacking after it.
-  # `hash` keeps each test in its fifth across commits, so a PR's fifth and `main`'s fifth hold the same tests (L82).
+  # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
+  # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
+  # tests; a build job whose nextest archive the lanes download is no shorter: one compile stays on the path, with the
+  # archive's upload, download and unpacking after it. Lane N runs profile `ciN` of `.config/nextest.toml`, which names
+  # the test binaries packed to equal seconds; a test stays in its lane across commits, so a PR's lane and `main`'s hold
+  # the same tests (L82).
   # L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
   rust:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -60,10 +61,23 @@ jobs:
         with:
           save-cache: ${{ matrix.partition == 1 }}
       - name: test-rust
-        run: python3 loop/app-data.py just test-rust-since "$BASE" --partition hash:${{ matrix.partition }}/${{ strategy.job-total }} --test-threads 4
+        run: python3 loop/app-data.py just test-rust-since "$BASE" --profile ci${{ matrix.partition }} --test-threads 4
 
-  # L89: the code Linux never compiles or runs: clippy on macOS, the tests that take a macOS path, and the daemon smoke
-  # test, on the OS the App ships on.
+  # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
+  # tests of `mac`: clippy's 36 s of work and its setup run beside them, not before. `mac` saves the cache.
+  mac-clippy:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/setup
+        with:
+          node: 'false'
+      - run: just clippy
+
+  # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-latest
@@ -76,10 +90,8 @@ jobs:
         with:
           save-cache: 'true'
           node: 'false'
-      - run: just clippy
       # L89: a failed check leaves later steps running, so one run reports every failure.
       - name: test-rust
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile mac
       - name: hello-world round trip (rup ping through rupd)
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -214,7 +226,7 @@ jobs:
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [lint, rust, mac, lint-web, web]
+    needs: [lint, rust, mac-clippy, mac, lint-web, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
@@ -223,7 +235,7 @@ jobs:
         run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac, lint-web, web, check]
+    needs: [lint, rust, mac-clippy, mac, lint-web, web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
