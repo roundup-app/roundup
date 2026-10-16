@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 pub use client::Client;
 pub use error::{RpcError, code};
-pub use module::{Bus, Ctx, Module, params, reply};
+pub use module::{Bus, Ctx, EVENT_WINDOW, EventLog, Module, Subscription, params, reply};
 
 /// Why a module could not start (a bad database, an unwritable directory).
 pub type OpenError = Box<dyn std::error::Error + Send + Sync>;
