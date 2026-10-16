@@ -224,8 +224,7 @@ impl Daemon {
             return Ok(None);
         }
         let rename: contracts::agent::RenameParams = rpc::params(params)?;
-        self.agents
-            .guard_terminal_read(&conn.actor, child, Some(child))?;
+        self.agents.guard_reach(&conn.actor, child, true)?;
         let node = self
             .rail()
             .await?
@@ -321,8 +320,7 @@ impl Daemon {
                         }
                     } else {
                         // Reach is checked again at execution: moving a child does not grant authority.
-                        self.agents
-                            .guard_terminal_read(&accepted.actor, child, Some(child))?;
+                        self.agents.guard_reach(&accepted.actor, child, true)?;
                     }
                     self.held_actions
                         .outcome(&action.id, ResizeOutcome::InProgress)?;

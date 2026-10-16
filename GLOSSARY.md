@@ -412,7 +412,6 @@ The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.
-The resize outcome tag is shared with Resize actions.
 
 **Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
 An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
@@ -426,7 +425,7 @@ a Terminal or change the Daemon's subscription contract.
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 
-**Reach**:
+**Reach** (`Agents::guard_reach`):
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
 
 **project.requested**:
