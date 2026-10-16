@@ -2,7 +2,7 @@ import { registerKeys } from "./keys/registry";
 import { chordsFor } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -117,7 +117,8 @@ const Connection = (props: {
 
     if (!open || open instanceof Error) return;
 
-    onCleanup(watchProject(open, props.toasts.push, props.show, props.active));
+    // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active)));
   });
 
   onCleanup(() => {
