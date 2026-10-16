@@ -426,6 +426,12 @@ It reports lag separately from control events and ordinary replies; retained eve
 keep their Terminal ids and byte offsets for Snapshot recovery. It does not select
 a Terminal or change the Daemon's subscription contract.
 
+**Event log**:
+The Daemon's table in `project.db` of every Event but Terminal output, kept to the last 10 000 (`EVENT_WINDOW`); `events.subscribe` replays from it (`scenarios/daemon.md` D10, D11).
+
+**Event number** (`seq`):
+The positive integer the Event log gives an Event as its row id: it rises by one per saved Event, never repeats across a Daemon restart, and rides on the Event every subscriber sees. Terminal output has none (D10).
+
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 

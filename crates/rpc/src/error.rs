@@ -22,6 +22,8 @@ pub mod code {
     pub const NOT_RUNNING: i64 = -32007;
     /// An Interrupt was written and the title never changed (H13).
     pub const NOT_ACKED: i64 = -32008;
+    /// `events.subscribe` asked to resume from an Event number the log no longer keeps (D11).
+    pub const EVENTS_EXPIRED: i64 = -32009;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
