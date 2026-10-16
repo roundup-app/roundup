@@ -132,6 +132,11 @@ p.ink[role="alert"] {
   color: var(--grey);
 }
 
+/* U135: the compound selected wash needs stronger metadata ink to keep D5. */
+.shelf-row[data-selected="true"] .shelf-meta {
+  color: var(--text);
+}
+
 .shelf-meta button {
   vertical-align: middle;
 }

@@ -20,6 +20,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
+    crate::storage::open(&dir).unwrap();
     let bus = Bus::new();
     let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
     let agents = Arc::new(
@@ -44,6 +45,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
+        resizes: crate::resize::Resizes::open(&dir).unwrap(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         touches,
@@ -242,6 +244,7 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.path().join("rup");
     std::fs::write(&rup, "").unwrap();
+    crate::storage::open(&dir).unwrap();
     let bus = Bus::new();
     let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
     let agents = Arc::new(
@@ -277,6 +280,7 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
+        resizes: crate::resize::Resizes::open(&dir).unwrap(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         touches,

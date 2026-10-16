@@ -31,6 +31,7 @@ pub mod claude_code;
 mod decision;
 pub mod marks;
 mod models;
+pub mod placement;
 pub use models::labelled as model_choices;
 mod name;
 mod order;

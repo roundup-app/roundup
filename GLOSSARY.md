@@ -402,6 +402,9 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
+**Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
+An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
+
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 
@@ -530,3 +533,20 @@ Register a KeyScope's chords, guards and actions for its owner's lifetime.
 
 **chordsFor**:
 The matching spellings of one displayed Help chord.
+
+### Ask placement
+
+**Ask**:
+One message the user sends from the Ask bar; distinct from an Agent's Decision.
+
+**Ask part** (`AskPart`):
+A verbatim, non-overlapping span of an Ask, with its Placement.
+
+**Placement** (`Placement`, `Destination`):
+An Ask part's proposed destination: routed to a Workstream, new with an Order title, or unclear with a question and up to three candidate Workstreams.
+
+**Placement request** (`placement::Request`, `EarlierAsk`):
+An Ask's text and its context: the five newest earlier Asks' parts and destinations, and every Workstream's name, Order and Status Kind.
+
+**Placement call** (`PlacementCall`):
+The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.
