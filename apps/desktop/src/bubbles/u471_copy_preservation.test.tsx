@@ -14,7 +14,7 @@ it("u471_previous_copy_assertions_are_preserved_bubble_controls_use_sentence_cas
   await mountBubbles("a", [info("1", { owner: "a", title: "cargo test" })]);
   const bubble = await screen.findByRole("group", { name: "cargo test" });
 
-  expect(within(bubble).getByRole("slider", { name: "Transparency" })).toBeTruthy();
+  expect(within(bubble).queryByRole("slider")).toBeNull();
   expect(within(bubble).getByRole("button", { name: "Minimise" })).toBeTruthy();
   expect(within(bubble).getByRole("button", { name: "Close" })).toBeTruthy();
 });

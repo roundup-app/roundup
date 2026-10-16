@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
+import { appServer } from "../testing/appServer";
+import type { AppServer } from "../testing/appServer";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
@@ -18,7 +20,7 @@ const art = captureDir("U472");
 
 const seeds = ["first-run", "agents-10", "tree-40", "door-stopped", "decisions", "conflict"];
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let baseServer: ViteDevServer | undefined;
 
@@ -56,9 +58,8 @@ const clickText = (text: string, selector = "button") => evaluate(`(() => {
 beforeAll(async () => {
   profile = await mkdtemp(join(tmpdir(), "u472-browser-"));
   await writeFile(join(profile, "config.json"), "{}");
-  server = await createServer({ root: process.cwd(), cacheDir: join(profile, "vite-head"), server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   const baselineRoot = process.env.ROUNDUP_COPY_BASE_ROOT;
 
   if (baselineRoot) {
