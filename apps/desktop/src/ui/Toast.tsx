@@ -64,7 +64,8 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
       const pause = () => props.toast.hold(card().id!, true);
       const restart = () => { if (!hovered && !focused) props.toast.hold(card().id!, false); };
 
-      return <Toast.Root class="app-toast" tabIndex={-1} style={{ "--duration": "initial", "--remove-delay": "var(--duration-toast)" }} onKeyDown={(event) => {
+      // Keep ordinary Tab navigation out of Ark’s restore-to-previous-focus path.
+      return <Toast.Root onFocusIn={(event) => event.stopPropagation()} class="app-toast" tabIndex={-1} style={{ "--duration": "initial", "--remove-delay": "var(--duration-toast)" }} onKeyDown={(event) => {
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.toast.dismiss(card().id!); }
       }}>
         <button type="button" data-button="quiet" class="app-toast-action"
