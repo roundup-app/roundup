@@ -1140,7 +1140,10 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
         loop {
             match exits.recv().await {
                 Ok(event) => {
+                    // User release can still be typing a recorded Message; its router call
+                    // owns that later cut. Only the Daemon's exit release runs here.
                     if let contracts::EventData::TakeoverChanged(change) = &event.data
+                        && event.actor == Actor::daemon()
                         && !change.on
                     {
                         let Some(daemon) = weak.upgrade() else { return };
