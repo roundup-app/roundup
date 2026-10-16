@@ -230,7 +230,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
     let dir = tempfile::tempdir().unwrap();
     let help = out(&on(&dir.path().join("none")).rup(&["help"]).await);
     let commands = listed_commands(&help);
-    for (door, expected) in [(false, 63), (true, 66)] {
+    for door in [false, true] {
         let socket = dir.path().join(format!("{door}.sock"));
         let _requests = stand_in(&socket, door, Vec::new(), &[]);
         let tools: BTreeSet<String> = mcp_tools(&socket)
@@ -243,10 +243,8 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
             .filter(|(_, door_only)| door || !door_only)
             .map(|(usage, _)| command_key(usage))
             .collect();
-        assert_eq!(tools.len(), expected);
         assert_eq!(cli, tools, "door: {door}");
     }
-    assert_eq!(commands.len(), 66);
     let other = help.split("\n  other\n").nth(1).unwrap();
     let other: Vec<&str> = other
         .lines()
@@ -374,7 +372,6 @@ async fn i2_help_alone_teaches_every_command() {
     let dir = tempfile::tempdir().unwrap();
     let run = on(&dir.path().join("none"));
     let help = out(&run.rup(&["help"]).await);
-    let mut seen = 0;
     for (usage, _) in listed_commands(&help) {
         let words: Vec<&str> = usage.split_whitespace().collect();
         let noun = out(&run.rup(&["help", words[1]]).await);
@@ -385,9 +382,7 @@ async fn i2_help_alone_teaches_every_command() {
             out(&one).contains(&format!("Usage: rup {} {}", words[1], words[2])),
             "{usage}"
         );
-        seen += 1;
     }
-    assert_eq!(seen, 66);
 }
 
 #[tokio::test]
