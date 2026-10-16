@@ -270,8 +270,8 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
 _Avoid_: notification
 
-**Steer**:
-Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
+**Steer** (`Steer`):
+Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard. `Steer::User` preserves an Ask verbatim; `Steer::Instruction` keeps H20's instruction lead.
 _Avoid_: inject, nudge
 
 **First Steer completion** (`FirstSteerCompletion`, `Agents::first_steer_completion`):
@@ -537,7 +537,7 @@ The matching spellings of one displayed Help chord.
 ### Ask placement
 
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
-One message the user sends from the Ask bar; distinct from an Agent's Decision.
+One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination.
 
 **Ask part** (`AskPart`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
@@ -548,5 +548,5 @@ An Ask part's proposed destination: routed to a Workstream, new with an Order ti
 **Placement request** (`placement::Request`, `EarlierAsk`):
 An Ask's text and its context: the five newest earlier Asks' parts and destinations, and every Workstream's name, Order and Status Kind.
 
-**Placement call** (`PlacementCall`):
+**Placement call** (`PlacementCall`, `Agents::placement_call`):
 The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.

@@ -1194,7 +1194,9 @@ async fn a41_a_leading_slash_runs_the_skill() {
         "{journal:#?}"
     );
     assert!(
-        !text.contains("claude-haiku"),
+        journal.iter().all(|entry| !entry["body"]["model"]
+            .as_str()
+            .is_some_and(|model| model.starts_with("claude-haiku"))),
         "named routing made a Placement call"
     );
 }

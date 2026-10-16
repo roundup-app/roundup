@@ -140,7 +140,7 @@ struct Shared {
     strays: Mutex<HashMap<String, Vec<Stray>>>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
-    steer: Steer,
+    steer: SteerSettings,
     events: events::State,
     rail_view: rail_view::State,
     ending: ending::State,
@@ -403,6 +403,17 @@ pub struct TerminalOwner {
     pub ended: bool,
 }
 
+/// The user's exact Ask preserves command position; ordinary instructions keep H20's lead.
+pub enum Steer<'a> {
+    Instruction(&'a str),
+    User(&'a str),
+}
+impl<'a, T: AsRef<str> + ?Sized> From<&'a T> for Steer<'a> {
+    fn from(text: &'a T) -> Self {
+        Self::Instruction(text.as_ref())
+    }
+}
+
 pub struct Agents {
     shared: Arc<Shared>,
     dir: PathBuf,
@@ -434,7 +445,7 @@ use worktree_wiring::report_undo;
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
 const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
 
-struct Steer {
+struct SteerSettings {
     before_steer: Option<SteerEffect>,
     /// H13: how long an Interrupt waits for the title to change.
     interrupt_bound: Duration,
@@ -446,7 +457,13 @@ impl Shared {
     /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. `first` binds the initial Steer to its Attempt.
     /// Nothing is written again on any failure.
-    async fn prompt(&self, id: &str, text: &str, first: Option<&str>) -> Result<(), SteerError> {
+    async fn prompt(
+        &self,
+        id: &str,
+        text: &str,
+        first: Option<&str>,
+        verbatim: bool,
+    ) -> Result<(), SteerError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
         let (terminal_id, submitted) = loop {
             let mut completion = {
@@ -504,7 +521,11 @@ impl Shared {
                 .await
                 .map_err(|_| SteerError::Refused(not_found()))?;
         };
-        let bytes = claude_code::steer_bytes(text);
+        let bytes = if verbatim {
+            claude_code::verbatim_bytes(text)
+        } else {
+            claude_code::steer_bytes(text)
+        };
         let before = self.steer.before_steer.clone();
         let agent = id.to_owned();
         // B6: await the physical effect before starting the submit timeout. An enqueue
