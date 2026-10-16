@@ -138,6 +138,74 @@ fn fake_daemon(socket: &Path, answered: &'static [&'static str]) -> mpsc::Unboun
     requests
 }
 
+#[tokio::test]
+async fn a40_an_agent_cannot_call_the_ask_methods() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let mut requests = fake_daemon(
+        &socket,
+        &[
+            "daemon.identify",
+            "agent.channelUp",
+            "rail.tree",
+            "todo.list",
+        ],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    for name in ["ask_send", "ask_list", "ask_pick"] {
+        assert!(!tools.iter().any(|tool| tool.name == name), "{name}");
+        let error = tokio::time::timeout(
+            BOUND,
+            shim.client.call_tool(CallToolRequestParams::new(name)),
+        )
+        .await
+        .expect("the shim refused the call")
+        .unwrap_err();
+        let rmcp::service::ServiceError::McpError(error) = error else {
+            panic!("expected a protocol permission error for {name}: {error:?}");
+        };
+        assert_eq!(error.code.0, -32002, "{name}: {error:?}");
+    }
+
+    // A completed Daemon round trip fences all preceding shim calls without a sleep.
+    shim.call("todo_list", json!({})).await;
+    loop {
+        let request = tokio::time::timeout(BOUND, requests.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        match request["method"].as_str().unwrap() {
+            "daemon.identify" | "agent.channelUp" | "rail.tree" => {}
+            "todo.list" => break,
+            other => panic!("refused call reached the Daemon: {other}"),
+        }
+    }
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn m1_an_unknown_tool_keeps_its_invalid_params_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("fake.sock");
+    let _requests = fake_daemon(
+        &socket,
+        &["daemon.identify", "agent.channelUp", "rail.tree"],
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+    let error = shim
+        .client
+        .call_tool(CallToolRequestParams::new("unknown_tool"))
+        .await
+        .unwrap_err();
+    let rmcp::service::ServiceError::McpError(error) = error else {
+        panic!("expected a protocol error: {error:?}");
+    };
+    assert_eq!(error.code.0, -32602);
+    assert_eq!(error.message, "no tool named unknown_tool");
+}
+
 async fn run_without_client(socket: &Path) -> Output {
     let mut child = start_rup_mcp(socket, "a1");
     drop(child.stdin.take());
@@ -156,7 +224,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 59] = [
+const TOOL_METHODS: [&str; 60] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -223,6 +291,7 @@ const TOOL_METHODS: [&str; 59] = [
     "terminal.close",
     "terminal.write",
     "terminal.resize",
+    "terminal.resizeHistory",
     "terminal.kill",
 ];
 
@@ -1215,10 +1284,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             "terminal.close" => (json!({"id":"t1"}), "closed Terminal t1"),
             "terminal.kill" => (json!({"id":"t1"}), "stopped Terminal t1"),
             "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
-            "terminal.resize" => (
-                json!({"id":"t1","cols":80,"rows":24}),
-                "resized Terminal t1 to 80 by 24",
-            ),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream a1",
@@ -1278,6 +1343,36 @@ async fn m17_data_results_keep_their_json_text() {
         let shim = spawn_shim(&socket, "a1").await;
         // rail.remove declares nullable data, so even null must retain its JSON encoding.
         let result = shim.call("rail_remove", json!({"id":"child"})).await;
+        assert_eq!(result.is_error, Some(false));
+        assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
+        server.abort();
+    }
+}
+
+#[tokio::test]
+async fn b6_mcp_resize_receipts_and_history_keep_their_waiting_or_completed_data() {
+    for (name, args, value) in [
+        (
+            "terminal_resize",
+            json!({"id":"t1","cols":80,"rows":24}),
+            Value::Null,
+        ),
+        (
+            "terminal_resize",
+            json!({"id":"t1","cols":80,"rows":24}),
+            json!({"id":"1","agent":"child","terminal":"t1","cols":80,"rows":24,"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "terminal_resizeHistory",
+            json!({"id":"t1"}),
+            json!([{ "id":"1","agent":"child","terminal":"t1","cols":80,"rows":24,"outcome":{"status":"dropped","reason":"original Terminal did not survive Daemon restart"}}]),
+        ),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("resize.sock");
+        let server = m17_daemon(&socket, value.clone());
+        let shim = spawn_shim(&socket, "a1").await;
+        let result = shim.call(name, args).await;
         assert_eq!(result.is_error, Some(false));
         assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
         server.abort();

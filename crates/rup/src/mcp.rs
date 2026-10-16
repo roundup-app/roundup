@@ -370,7 +370,11 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
-            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
+            "Resize a Terminal you or your Reach own to `cols` by `rows`. During Takeover, a durable waiting receipt means accepted, not executed; read terminal_resizeHistory for its outcome.",
+        ),
+        offered::<terminal::TerminalId>(
+            "terminal.resizeHistory",
+            "Read your accepted resize actions and their outcomes, even after the Terminal is gone. Waiting means the user holds Takeover; a dropped reason explains why no retry was made.",
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
@@ -450,11 +454,6 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
         "terminal.close" => format!("closed Terminal {id}"),
         "terminal.kill" => format!("stopped Terminal {id}"),
         "terminal.write" => format!("wrote to Terminal {id}"),
-        "terminal.resize" => format!(
-            "resized Terminal {id} to {} by {}",
-            field("cols"),
-            field("rows")
-        ),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
     }
@@ -599,6 +598,15 @@ impl ServerHandler for Shim {
         request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
+        if matches!(request.name.as_ref(), "ask_send" | "ask_list" | "ask_pick") {
+            return Err(ErrorData::new(
+                rmcp::model::ErrorCode(
+                    rpc::code::FORBIDDEN.try_into().expect("FORBIDDEN fits i32"),
+                ),
+                format!("{} is user-only", request.name),
+                None,
+            ));
+        }
         let offer = self
             .tools
             .iter()
