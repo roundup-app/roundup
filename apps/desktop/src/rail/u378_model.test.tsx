@@ -112,10 +112,10 @@ describe("u378 the Model at the add", () => {
     await mountAdd();
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     await pickerShows("Model", "Default");
-    await waitFor(() => expect(screen.getAllByText("Claude Code default")).toHaveLength(1));
+    await waitFor(() => expect(screen.getAllByText("Model and Effort: Claude Code default")).toHaveLength(1));
     openList(await picker("Model"));
     await screen.findByRole("option", { name: "Default" });
-    expect(screen.getAllByText("Claude Code default")).toHaveLength(1);
+    expect(screen.getAllByText("Model and Effort: Claude Code default")).toHaveLength(1);
     expect(document.body.textContent).not.toContain("Default (Claude Code)");
   });
 
