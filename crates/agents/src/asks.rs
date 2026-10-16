@@ -18,7 +18,7 @@ struct Intake {
     placement: Arc<dyn Placement>,
     bus: Bus,
     /// Serialize call results in send order; delivery has one independent worker per Door.
-    placing: Mutex<Option<VecDeque<(Ctx, Ask)>>>,
+    placing: Mutex<bool>,
     recovered: AtomicBool,
     doors: Mutex<HashSet<String>>,
 }
@@ -43,7 +43,7 @@ impl Asks {
                 agents,
                 placement,
                 bus,
-                placing: Mutex::new(None),
+                placing: Mutex::new(false),
                 recovered: AtomicBool::new(false),
                 doors: Mutex::new(HashSet::new()),
             }),
@@ -66,31 +66,27 @@ impl Intake {
         Ok(ask)
     }
 
-    fn enqueue(self: &Arc<Self>, ctx: Ctx, ask: Ask) {
-        let mut pending = self.placing.lock().expect("Ask placement queue");
-        if let Some(pending) = pending.as_mut() {
-            pending.push_back((ctx, ask));
+    fn enqueue(self: &Arc<Self>, ctx: Ctx) {
+        let mut active = self.placing.lock().expect("Ask placement worker");
+        if *active {
             return;
         }
-        *pending = Some(VecDeque::from([(ctx, ask)]));
+        *active = true;
         let shared = self.clone();
         tokio::spawn(async move {
             loop {
                 let next = {
-                    let mut pending = shared.placing.lock().expect("Ask placement queue");
-                    let next = pending
-                        .as_mut()
-                        .expect("active placement queue")
-                        .pop_front();
+                    let mut active = shared.placing.lock().expect("Ask placement worker");
+                    let next = shared.store().next_placing().expect("read pending Ask");
                     if next.is_none() {
-                        *pending = None;
+                        *active = false;
                     }
                     next
                 };
-                let Some((ctx, ask)) = next else {
+                let Some(ask) = next else {
                     return;
                 };
-                if let Err(err) = shared.clone().place(ctx, ask).await {
+                if let Err(err) = shared.clone().place(user_ctx(&ctx), ask).await {
                     panic!("Ask placement worker: {err}");
                 }
             }
@@ -119,9 +115,27 @@ impl Intake {
 
     async fn place(self: Arc<Self>, ctx: Ctx, ask: Ask) -> Result<(), RpcError> {
         let rail = self.agents.shared.tree()?;
-        let parts = if let Some((name, text)) =
-            ask.text.strip_prefix('@').and_then(|s| s.split_once(' '))
-        {
+        let named = ask.text.strip_prefix('@').and_then(|rest| {
+            // Names may contain spaces. Match the longest supplied name before its separator.
+            let max_prefix = rail
+                .iter()
+                .map(|node| node.name.chars().count() * 4)
+                .max()
+                .unwrap_or(0);
+            rest.match_indices(' ')
+                .rev()
+                .filter(|(at, _)| *at <= max_prefix)
+                .find_map(|(at, _)| {
+                    rail.iter()
+                        .any(|node| {
+                            node.kind == NodeKind::Workstream
+                                && node.name.to_lowercase() == rest[..at].to_lowercase()
+                        })
+                        .then_some((&rest[..at], &rest[at + 1..]))
+                })
+                .or_else(|| rest.split_once(' '))
+        });
+        let parts = if let Some((name, text)) = named {
             let ids: Vec<_> = rail
                 .iter()
                 .filter(|node| {
@@ -487,7 +501,7 @@ impl Module for Asks {
                     .store()
                     .insert(text, (shared.agents.shared.clock)())?;
                 shared.emit(&ask.id)?;
-                shared.enqueue(user_ctx(ctx), ask.clone());
+                shared.enqueue(user_ctx(ctx));
                 reply(&ask)
             }
             "ask.list" => reply(&shared.store().list()?),
