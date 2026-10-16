@@ -14,23 +14,30 @@ const profile = mkdtempSync(join(tmpdir(), "u466-browser-"));
 
 const session = `u466-${process.pid}`;
 
-// The eight-command isolated inset read took 1,983 ms. Batching setup removes
-// six process launches; a 4 s command deadline still reports before Vitest's 5 s limit.
+// Under controlled contention the warmed batch took 3,422 ms and read 390 ms.
+// Bound commands at 4 s while retaining the observer's existing 5 s limit.
 const command = async (args: string[], input?: string, limit = 4_000) => {
   const started = performance.now();
   const label = JSON.stringify(args) + (input ?? "");
+
   if (process.env.U508_TRACE) console.log("U508 start", label);
+
   const pending = exec("agent-browser", ["--session", session, "--json", ...args], {
     maxBuffer: 8 * 1024 * 1024, timeout: limit,
   });
+
   pending.child.stdin?.end(input);
+
   try {
     const reply = await pending;
+
     if (process.env.U508_TRACE) console.log("U508 completed", Math.round(performance.now() - started), label);
+
     return reply.stdout;
   } catch (error) {
     const state = error instanceof Error && "killed" in error && error.killed ? "pending" : "failed";
-    throw new Error(`${state} browser command after ${Math.round(performance.now() - started)} ms (limit ${limit} ms): ${label}: ${String(error)}`, { cause: error });
+    const output = error instanceof Error && "stdout" in error ? String(error.stdout) : "";
+    throw new Error(`${state} browser command after ${Math.round(performance.now() - started)} ms (limit ${limit} ms): ${label}: ${String(error)} ${output}`, { cause: error });
   }
 };
 
@@ -68,8 +75,14 @@ beforeAll(async () => {
           navigationGate = undefined;
           gate.requested();
           await gate.released;
-          if (request.url === "/u508-pending") { response.end("released"); return; }
+
+          if (request.url === "/u508-pending") {
+            response.end("released");
+
+            return;
+          }
         }
+
         next();
       });
     },
@@ -96,8 +109,10 @@ const load = async (seed = "tree-40", viewport = 1280, scheme: "light" | "dark" 
     ["wait", "--fn", `Boolean(document.querySelector('.rail-row[data-selected="true"]'))`],
     ["eval", `document.querySelector('.rail').style.width = ${width} + 'px'`],
   ];
+
   // SAFETY: agent-browser batch returns its ordered command/success/error envelopes.
   const replies = JSON.parse(await command(["batch", "--bail"], JSON.stringify(commands))) as { command: string[]; success: boolean; error: string | null }[];
+
   for (const reply of replies) {
     if (!reply.success) throw new Error(`browser command ${JSON.stringify(reply.command)} failed: ${reply.error}`);
   }
@@ -332,20 +347,23 @@ it("u508_completed_commands_preserve_load_order", async () => {
   expect(await page.call(`() => ({ selected: document.querySelectorAll('.rail-row[data-selected="true"]').length, width: document.querySelector('.rail').getBoundingClientRect().width })`)).toEqual({ selected: 1, width: 480 });
 });
 
+// The error, pending evaluation and drain each have a 4 s command bound.
 it("u508_pending_or_failed_command_is_identified", async () => {
-  await expect(command(["eval", "throw new Error('u508 failed')"])).rejects.toThrow(/eval.*u508 failed/s);
+  await expect(command(["eval", "throw new Error(['u508', 'failed'].join(' '))"])).rejects.toThrow(/eval.*"error":".*u508 failed/s);
   const started = performance.now();
   let release!: () => void;
   let requested!: () => void;
   const arrived = new Promise<void>(resolve => { requested = resolve; });
   const released = new Promise<void>(resolve => { release = resolve; });
   navigationGate = { requested, released };
-  const result = expect(command(["eval", "fetch('/u508-pending')"], undefined, 600)).rejects.toThrow(/pending.*eval.*u508-pending/s);
+  const result = expect(command(["eval", "fetch('/u508-pending')"])).rejects.toThrow(/pending.*eval.*u508-pending/s);
+
   try {
     await arrived;
     await result;
-    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(performance.now() - started).toBeLessThan(4_500);
   } finally { release(); }
+
   // Drain the released evaluation before cleanup uses this session.
   await page.call("() => true");
-}, 5_000);
+}, 13_000);
