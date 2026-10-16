@@ -1,21 +1,30 @@
 # Selected output in the real-Daemon browser harness
 
-`GET /__daemon/output?terminal=<encoded id>&after=<byte offset>` opens one
-binary response and one dedicated Unix socket. `Content-Type` is
-`application/octet-stream`; `X-Terminal` is the percent-encoded selection and
-`X-Output-After` is its initial byte offset. Read `response.body.getReader()`
-as `Uint8Array` chunks, without a text decoder. HTTP may split or coalesce
-chunks; chunk boundaries carry no meaning. Abort the fetch or cancel its reader
-to release the selection. Never reuse a reader for another selection. The socket
-subscription must answer within 60 seconds; an acknowledged stream has no idle
-timeout and remains owned by its browser request.
+`GET /__daemon/output?terminal=<encoded id>` opens one binary response and one
+dedicated Unix socket, on which the relay sends the Daemon's `terminal.output`
+request (`{"id": ...}`). The Daemon answers `{"offset": N}` and then pushes
+`terminal.output` notifications (`{id, offset, data}` with base64 `data`) and
+`terminal.gap` notifications (`{id, from, to}`) for that Terminal alone. The
+response starts once the Daemon has answered: a NOT_FOUND answer is HTTP 404
+and any other error HTTP 502, each with an `{error: {code, message}}` body.
+`Content-Type` is `application/octet-stream`; `X-Terminal` is the
+percent-encoded selection and `X-Output-After` is the offset of the first byte
+(N). Read `response.body.getReader()` as `Uint8Array` chunks, without a text
+decoder. HTTP may split or coalesce chunks; chunk boundaries carry no meaning.
+Abort the fetch or cancel its reader to release the selection. Never reuse a
+reader for another selection. The socket subscription must answer within 60
+seconds; an acknowledged stream has no idle timeout and remains owned by its
+browser request.
 
-The starting offset must equal the next selected Event's offset. A malformed
-frame, offset gap, invalid base64, overlarge envelope or incomplete final line
-fails the response (the body reader rejects), rather than emitting a clean EOF
-or concatenating discontinuous bytes. Discard that selection and reconcile a
-fresh snapshot before opening another response. No automatic replay or recovery
-is implemented here. An orderly socket EOF ends the body normally.
+Each notification's offset must equal the position the bytes so far imply. A
+malformed frame, offset gap, a `terminal.gap` notification, invalid base64,
+overlarge envelope or incomplete final line fails the response (the body reader
+rejects), rather than emitting a clean EOF or concatenating discontinuous
+bytes. Discard that selection and reconcile a fresh snapshot before opening
+another response; `createServedApp().selectOutput` does this, opening a new
+response and giving its listener a gap message from the last delivered
+position to the new `X-Output-After`. An orderly socket EOF ends the body
+normally.
 
 ## Retention and control
 
@@ -35,23 +44,11 @@ callers own and must release their displayed selections.
 
 Ordinary RPCs and the global Event route retain their own connections. A held
 output connection cannot queue an ordinary call behind output. This is bounded
-dedicated-connection backpressure, not production PTY isolation: today's global
-Event subscription can still lag upstream. An offset discontinuity is fatal to
+dedicated-connection backpressure. An offset discontinuity is fatal to
 this response. Cancellation destroys its socket and pipeline, including pending
 framing; late data has no path to a replacement response.
 
-## Integration owned by #1930
-
-This prerequisite enables no new Terminal RPC and changes no App seam. Its
-socket adapter temporarily selects `terminal.output` from today's
-`events.subscribe` envelopes solely to exercise the transport. In #1930 replace
-that subscription request and envelope decoding with the selected production
-subscription, carrying its offset/recovery facts in control metadata. Do not
-retain `events.subscribe` as an output fallback. Update `createServedApp` with
-its other production callers: open one binary response per displayed Terminal,
-install its reader before attach/snapshot reconciliation, reconcile offsets,
-and abort on disposal, replacement or Project disconnect. The global Event
-reader remains for control events only once the Daemon removes global output.
+## What this proves
 
 The `x14_harness_output_relay_*` observers use fixture-owned Unix sockets and
 actual HTTP; byte fidelity also crosses an isolated headless agent-browser

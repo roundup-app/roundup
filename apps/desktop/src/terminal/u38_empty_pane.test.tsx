@@ -31,12 +31,14 @@ describe("u38 empty Pane", () => {
     expect(await screen.findByText("Select an Agent or a Terminal")).toBeTruthy();
   });
 
-  it("u38_a_base64_decode_failure_hides_the_empty_pane_text_with_nothing_selected", async () => {
-    const { app } = await mountPane([node("a")], [info("t-a")]);
+  it("u38_a_failed_output_subscription_hides_the_empty_pane_text_with_nothing_selected", async () => {
+    const { app, connected } = await mountPane([node("a")], [info("t-a")]);
 
-    app.emit(event({ name: "terminal.output", data: { id: "t-a", offset: 0, data: "***" } }));
+    app.outputFailure = new RpcError(-32603, "channel refused");
+    connected.rail.select("a");
+    await screen.findByRole("alert", { name: "terminal.output: channel refused" });
+    connected.rail.select(null);
 
-    await screen.findByRole("alert", { name: /^terminal\.output:/ });
     expect(screen.queryByText("Select an Agent or a Terminal")).toBeNull();
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });

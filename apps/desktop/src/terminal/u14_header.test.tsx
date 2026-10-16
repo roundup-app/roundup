@@ -2,7 +2,8 @@ import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import pane from "./styles.css?inline";
 import { mountPane } from "./paneHarness";
-import { event, info, node } from "../testing/nodes";
+import { RpcError } from "../app/seam";
+import { info, node } from "../testing/nodes";
 
 const headerOf = (container: HTMLElement) => container.querySelector(".pane-title")?.textContent ?? "";
 
@@ -45,11 +46,11 @@ describe("pane empty states and error sizing", () => {
       return [style.minHeight, style.flexShrink];
     };
 
+    app.outputFailure = new RpcError(-32603, "channel refused");
     connected.rail.select("a");
 
     const before = box();
 
-    app.emit(event({ name: "terminal.output", data: { id: "t-a", data: "***", offset: 0 } }));
     const failure = await screen.findByRole("alert", { name: /^terminal\.output:/ });
 
     const after = box();

@@ -157,26 +157,25 @@ const stream = (daemon: RealDaemon, response: ServerResponse) => {
   );
 };
 
-/** Harness-only selection of today's Event envelopes. #1930 replaces the socket
- * subscription and envelope adapter together with its production callers.
+const NOT_FOUND = -32001;
+
+const startedSchema = v.object({ offset: v.pipe(v.number(), v.safeInteger(), v.minValue(0)) });
+
+const outputSchema = v.object({ id: v.string(), data: v.string(), offset: v.pipe(v.number(), v.safeInteger(), v.minValue(0)) });
+
+/** One Terminal's selected output (X14) as one binary response over one dedicated Unix socket: the Daemon's
+ * `terminal.output` subscription answers with the first offset, then pushes `terminal.output` and `terminal.gap`.
+ * The response starts once the Daemon has answered; `X-Output-After` is that offset and the body is the raw bytes.
  * Each request owns its connection; pipeline backpressure cannot hold an RPC.
  * See realDaemonOutput.md for bounds and the browser recovery contract. */
-const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, after: number) => {
+const output = (daemon: RealDaemon, response: ServerResponse, terminal: string) => {
   const socket = connect(daemon.socket);
   const timer = setTimeout(() => socket.destroy(new Error(`output subscription did not answer within ${RPC_BOUND_MS} ms`)), RPC_BOUND_MS);
   const maxLine = 262_144;
-  let next = after;
+  let next: number | null = null;
 
-  response.writeHead(200, {
-    "Content-Type": "application/octet-stream",
-    "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "X-Terminal": encodeURIComponent(terminal),
-    "X-Output-After": String(after),
-  });
-  response.flushHeaders();
   response.on("close", () => socket.destroy());
-  socket.on("connect", () => socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "events.subscribe", params: null })}\n`));
+  socket.on("connect", () => socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "terminal.output", params: { id: terminal } })}\n`));
 
   socket.once("close", () => clearTimeout(timer));
 
@@ -198,17 +197,33 @@ const output = (daemon: RealDaemon, response: ServerResponse, terminal: string, 
         if (!line.length) continue;
         const frame = v.parse(replySchema, JSON.parse(line.toString("utf8")));
 
-        if (frame.error) throw new Error(frame.error.message);
+        if (frame.id === 1) {
+          clearTimeout(timer);
 
-        if (frame.id === 1) clearTimeout(timer);
+          // The Terminal is unknown or exited: nothing is streamed, and the status says why.
+          if (frame.error) return void json(response, frame.error.code === NOT_FOUND ? 404 : 502, { error: frame.error });
 
-        if (frame.method !== "event") continue;
-        const event = v.parse(v.object({ name: v.string(), data: v.optional(v.unknown()) }), frame.params);
+          next = v.parse(startedSchema, frame.result).offset;
+          response.writeHead(200, {
+            "Content-Type": "application/octet-stream",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "X-Terminal": encodeURIComponent(terminal),
+            "X-Output-After": String(next),
+          });
+          response.flushHeaders();
 
-        if (event.name !== "terminal.output") continue;
-        const data = v.parse(v.object({ id: v.string(), data: v.string(), offset: v.pipe(v.number(), v.safeInteger(), v.minValue(0)) }), event.data);
+          continue;
+        }
 
-        if (data.id !== terminal) continue;
+        if (frame.method === "terminal.gap") throw new Error("output gap; obtain a fresh snapshot");
+
+        if (frame.method !== "terminal.output") continue;
+
+        if (next === null) throw new Error("output before the subscription answered");
+        const data = v.parse(outputSchema, frame.params);
+
+        if (data.id !== terminal) throw new Error("output of another Terminal");
 
         if (data.offset !== next) throw new Error("output offset gap; obtain a fresh snapshot");
         const bytes = Buffer.from(data.data, "base64");
@@ -244,13 +259,10 @@ const serve = (daemon: RealDaemon, request: IncomingMessage, response: ServerRes
   if (path === "output" && request.method === "GET") {
     const query = new URL(request.url ?? "/", "http://localhost").searchParams;
     const terminal = query.get("terminal");
-    const after = query.get("after");
 
-    if (!terminal || terminal.length > 256 || after === null || !/^(0|[1-9][0-9]*)$/.test(after) || !Number.isSafeInteger(Number(after))) {
-      return json(response, 400, { error: "terminal and nonnegative safe integer after required" });
-    }
+    if (!terminal || terminal.length > 256) return json(response, 400, { error: "terminal required" });
 
-    return output(daemon, response, terminal, Number(after));
+    return output(daemon, response, terminal);
   }
 
   if (path === "open" && request.method === "GET") return json(response, 200, { project: { name: basename(daemon.project), path: daemon.project }, proof: daemon.proof });
