@@ -146,8 +146,11 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
       const before = await page.call<Read>(geometry);
 
       await page.call(`() => document.querySelector('.terminal-new').click()`);
-      await page.until(`() => document.querySelector('.terminal-tabs [role="status"].terminal-note')?.textContent === 'Select a Workstream first'`);
+      await page.until(`() => document.querySelector('.resource-strip .terminal-note')?.textContent === 'Select a Workstream first'`);
       const shown = await page.call<Read>(geometry);
+      const note = await page.call<boolean>(`() => { const r = document.querySelector('.terminal-note').getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0; }`);
+
+      expect(note, `${width} ${scheme} note visible`).toBe(true);
 
       expect(shown.bar, `${width} ${scheme} bar`).toEqual(before.bar);
       expect(shown.pane, `${width} ${scheme} pane`).toEqual(before.pane);

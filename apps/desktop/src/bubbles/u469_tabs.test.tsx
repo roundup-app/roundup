@@ -88,7 +88,7 @@ it.each(["plus", "chord"])("u524_an_empty_project_shows_the_message_in_the_bar_a
 
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
-  const note = document.querySelector('.terminal-tabs [role="status"]');
+  const note = document.querySelector('.terminal-note');
   expect(note?.textContent).toBe("Select a Workstream first");
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
   expect(document.activeElement).toBe(add.firstElementChild);
@@ -96,7 +96,7 @@ it.each(["plus", "chord"])("u524_an_empty_project_shows_the_message_in_the_bar_a
 });
 
 it("u524_the_message_clears_on_open_selection_or_creation", async () => {
-  const note = () => document.querySelector('.terminal-tabs [role="status"]');
+  const note = () => document.querySelector('.terminal-note');
   const plus = () => fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   const mounted = await mountBubbles(null, [], [agent("solo", "working", "busy")]);
 

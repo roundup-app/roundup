@@ -66,6 +66,16 @@ export const Bubbles = (props: { screens: Screens }) => {
     ? rail.terminals().filter((terminal) => terminal.id === fromRoot())
     : shownFor(rail.terminals(), rail.nodes, rail.selected()));
 
+  // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
+  createEffect(() => {
+    const stack = layer()?.parentElement;
+
+    if (!stack) return;
+
+    stack.toggleAttribute("data-root-terminal", fromRoot() !== null && shown().length > 0);
+    onCleanup(() => stack.removeAttribute("data-root-terminal"));
+  });
+
   const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
 
   // A bubble's default place is stored when it first shows, so hiding it, moving another or resizing the window never shifts it (U164).
@@ -731,9 +741,9 @@ export const Bubbles = (props: { screens: Screens }) => {
             </Menu.Root>;
           }}</For>
           <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
-          <Show when={selectionMessage()}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Show>
         </div>
       </Portal>}</Show>
+      <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );
