@@ -4209,6 +4209,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         "agent.discard",
         "agent.land",
         "agent.worktreeState",
+        "agent.run",
         "terminal.kill",
         "terminal.snapshot",
         "terminal.screen",
@@ -4251,6 +4252,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         .unwrap();
         let params = match method {
             "rail.rename" => json!({"id":run.child,"name":"after resize"}),
+            "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
             "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
             "rail.remove" | "agent.discard" | "agent.land" | "agent.worktreeState" => {
                 json!({"id":run.child})
@@ -4312,6 +4314,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
         "agent.discard",
         "agent.land",
         "agent.worktreeState",
+        "agent.run",
     ] {
         let (run, _) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
@@ -4356,6 +4359,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
                 json!({"id":run.child,"order":{"kind":"work","ask":"later order","limits":[]}})
             }
             "rail.rename" => json!({"id":run.child,"name":"after every resize"}),
+            "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
             "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
             _ => json!({"id":run.child}),
         };
