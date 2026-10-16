@@ -14,7 +14,16 @@ const profile = mkdtempSync(join(tmpdir(), "u466-browser-"));
 
 const session = `u466-${process.pid}`;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024 })).stdout;
+const command = async (args: string[], input?: string, limit = 4_000) => {
+  const pending = exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024 });
+  pending.child.stdin?.end(input);
+  console.log("U508 command bound", limit);
+  return (await pending).stdout;
+};
+
+const browser = (...args: string[]) => command(args);
+
+let navigationGate: { requested: () => void; released: Promise<void> } | undefined;
 
 let server: ViteDevServer;
 
@@ -42,7 +51,18 @@ const railWidths = [252, 288, 480] as const;
 const art = captureDir("U466");
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
+  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent", plugins: [{
+    name: "u508-navigation-gate",
+    configureServer(server) { server.middlewares.use(async (request, _response, next) => {
+    if (navigationGate && request.url?.startsWith("/harness.html")) {
+      const gate = navigationGate;
+      navigationGate = undefined;
+      gate.requested();
+      await gate.released;
+    }
+    next();
+  }); },
+  }] });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
   await browser("--profile", profile, "open", origin);
@@ -272,3 +292,28 @@ it("u466_editing_keeps_the_title_size_and_name_column", async () => {
   expect(field.size).toBe("15px");
   expect(field.left).toBeCloseTo(left,0);
 },60_000);
+
+it("u508_completed_commands_preserve_load_order", async () => {
+  let requested!: () => void;
+  let release!: () => void;
+  const arrived = new Promise<void>(resolve => { requested = resolve; });
+  const released = new Promise<void>(resolve => { release = resolve; });
+  navigationGate = { requested, released };
+  let completed = false;
+  const loading = load("tree-40", 1280, "light", 480).then(() => { completed = true; });
+
+  try {
+    await arrived;
+    expect(completed).toBe(false);
+  } finally { release(); }
+
+  await loading;
+  expect(await page.call(`() => ({ selected: document.querySelectorAll('.rail-row[data-selected="true"]').length, width: document.querySelector('.rail').getBoundingClientRect().width })`)).toEqual({ selected: 1, width: 480 });
+});
+
+it("u508_pending_or_failed_command_is_identified", async () => {
+  await expect(command(["eval", "throw new Error('u508 failed')"])).rejects.toThrow(/eval.*u508 failed/s);
+  const started = performance.now();
+  await expect(command(["eval", "new Promise(() => {})"], undefined, 600)).rejects.toThrow(/pending.*eval.*new Promise/s);
+  expect(performance.now() - started).toBeLessThan(2_000);
+}, 5_000);
