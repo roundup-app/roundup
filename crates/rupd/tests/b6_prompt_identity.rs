@@ -4210,6 +4210,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         "agent.land",
         "agent.worktreeState",
         "agent.run",
+        "agent.spawnPrompt",
         "terminal.kill",
         "terminal.snapshot",
         "terminal.screen",
@@ -4254,7 +4255,11 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
             "rail.rename" => json!({"id":run.child,"name":"after resize"}),
             "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
             "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
-            "rail.remove" | "agent.discard" | "agent.land" | "agent.worktreeState" => {
+            "rail.remove"
+            | "agent.discard"
+            | "agent.land"
+            | "agent.worktreeState"
+            | "agent.spawnPrompt" => {
                 json!({"id":run.child})
             }
             "terminal.read" => json!({"id":run.terminal,"after":0}),
@@ -4315,6 +4320,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
         "agent.land",
         "agent.worktreeState",
         "agent.run",
+        "agent.spawnPrompt",
     ] {
         let (run, _) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
