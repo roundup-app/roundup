@@ -143,7 +143,7 @@
   text-overflow: clip;
 }
 
-/* The Shelf covers the pane; error text must wrap before its leading edge. */
-.window[data-shelf="open"]:not(:has(.drawer[data-open="true"])) .decision-card > p.ink[role="alert"] {
-  max-width: calc(100% - var(--shelf-span));
+/* Only an overlay Shelf covers the pane. Keep at least a readable measure when it leaves no room. */
+.window[data-shelf="open"][data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])) .decision-card > p.ink[role="alert"] {
+  max-width: max(var(--measure), calc(100% - var(--shelf-span)));
 }
