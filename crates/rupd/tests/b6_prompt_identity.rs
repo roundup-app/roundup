@@ -4597,7 +4597,7 @@ async fn b6_takeover_holds_a_door_rename_without_blocking_user_rename() {
 }
 
 #[tokio::test]
-async fn b6_held_renames_share_resize_order_and_keep_receipts_private() {
+async fn b6_held_renames_share_resize_order_at_most_once() {
     let (run, caller) = door_terminal().await;
     run.user
         .request("takeover.begin", json!({"agent":run.child}))
@@ -4638,34 +4638,6 @@ async fn b6_held_renames_share_resize_order_and_keep_receipts_private() {
             .iter()
             .all(|a| a["outcome"]["status"] == "waiting")
     );
-    let other = run
-        .user
-        .request("rail.createWorkstream", json!({"name":"other"}))
-        .await
-        .unwrap();
-    let outsider = Client::connect(&run.daemon.socket).await.unwrap();
-    outsider
-        .request(
-            "daemon.identify",
-            json!({"actor":{"kind":"agent","id":other["id"]}}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        outsider
-            .request("agent.actionHistory", json!({"id":run.child}))
-            .await
-            .unwrap(),
-        json!([])
-    );
-    let forbidden = outsider
-        .request(
-            "rail.rename",
-            json!({"id":run.child,"name":"outside Reach"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(forbidden.code, rpc::code::FORBIDDEN);
     std::fs::write(run.dir.path().join("effect-gate"), "after-rename").unwrap();
     let child = run.child.clone();
     let user = Arc::clone(&run.user);
@@ -5050,4 +5022,64 @@ async fn b6_existing_resize_receipts_migrate_without_changing_ids_or_outcomes() 
         actions,
         json!([{"id":"42","agent":"old-child","method":"terminal.resize","params":{"id":"old-terminal","cols":101,"rows":37},"outcome":{"status":"completed"}}])
     );
+}
+
+#[tokio::test]
+async fn b6_held_action_history_is_private_to_the_accepting_agent_and_user() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request(
+            "rail.rename",
+            json!({"id":run.child,"name":"private rename"}),
+        )
+        .await
+        .unwrap();
+    let other = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"other"}))
+        .await
+        .unwrap();
+    let outsider = Client::connect(&run.daemon.socket).await.unwrap();
+    outsider
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":other["id"]}}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        outsider
+            .request("agent.actionHistory", json!({"id":run.child}))
+            .await
+            .unwrap(),
+        json!([])
+    );
+    let forbidden = outsider
+        .request(
+            "rail.rename",
+            json!({"id":run.child,"name":"outside Reach"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(forbidden.code, rpc::code::FORBIDDEN);
+
+    assert_eq!(
+        caller
+            .request("agent.actionHistory", json!({"id":run.child}))
+            .await
+            .unwrap(),
+        json!([receipt.clone()])
+    );
+    assert_eq!(
+        run.user
+            .request("agent.actionHistory", json!({"id":run.child}))
+            .await
+            .unwrap(),
+        json!([receipt])
+    );
+    run.finish().await;
 }
