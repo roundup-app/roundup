@@ -44,6 +44,14 @@ STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # The Issue a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names.
 LINKED = re.compile(r'^(?:Refs|Closes|Fixes) #(\d+)', re.M)
 ATTEMPTS = 3
+# L82: causes about a PR's plumbing, not its work, start a fix run that posts no comment and counts no attempt: a conflict
+# with `main`, and a `rules` failure whose every failed step checks PR shape (a base, `Author-Agent` trailers, scenario ids).
+# Actions history counts these runs, and past PLUMBING_RUNS of them on one PR the next such cause counts as any other.
+PLUMBING = ('conflict', 'rules')
+PLUMBING_STEPS = re.compile(r'rules\.sh (?:base|ci-trailers|scenario-ids)\b')
+PLUMBING_RUNS = 6
+# The Issue a build task's first line, `Work order: <url>/issues/<n>`, names.
+WORK_ORDER = re.compile(r'\AWork order: \S+/issues/(\d+)')
 # How long a reject a fix run answered awaits the next verdict before a fix run starts anyway (L82).
 IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
@@ -94,8 +102,31 @@ def prompt(task, output, name='builder'):
     """Append the step output `prompt`: `.agents/<name>.md` (the Builder's unless a role is named), a `## Task` heading,
     then the task."""
     delimiter = 'PROMPT_' + secrets.token_hex(8)
+    work = WORK_ORDER.match(task)
+    if work and name == 'builder' and 'Open no PR' not in task:
+        task = '\n\n'.join(part for part in (task.rstrip(), left_off(int(work[1]))) if part)
     with open(output, 'a') as out:
         out.write(f'prompt<<{delimiter}\n{role(name)}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+
+
+def left_off(issue):
+    """L82: the paragraph that sends a build run to continue from the Issue's last Builder PR that used its fix runs and
+    closed unmerged (its `<!-- fix-exhausted #<pr> -->` comment): its head, `refs/pull/<pr>/head`, and its last review and
+    critic findings; '' when the Issue has none."""
+    exhausted = orders.marked(issue, '<!-- fix-exhausted #')
+    if not exhausted:
+        return ''
+    pr = int(re.match(r'<!-- fix-exhausted #(\d+) -->', exhausted[-1]['body'])[1])
+    closed = orders.gh('pr', 'view', str(pr), '--json', 'state,mergedAt,url')
+    if closed['state'] != 'CLOSED' or closed['mergedAt']:
+        return ''
+    findings = [c['body'] for marker in ('VERDICT:', 'CRITIC:') for c in orders.marked(pr, marker)[-1:]]
+    return '\n\n'.join([
+        f"Continue PR #{pr}, do not start over: it used its {ATTEMPTS} fix runs and was closed unmerged ({closed['url']}). "
+        f"Instead of starting from `origin/main`, create the branch named above from its head: `git fetch origin "
+        f"pull/{pr}/head && git switch -c <that branch> FETCH_HEAD && git merge origin/main`, keeping the behaviour of both "
+        f"sides. Its last verdicts follow; meet each finding, keep the work that stands, and name PR #{pr} in your PR body.",
+        *findings])
 
 
 def asked(answer):
@@ -533,7 +564,7 @@ def strike(issue, why):
 
 def view(pr):
     return orders.gh('pr', 'view', str(pr), '--json',
-                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
+                     'number,url,state,createdAt,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
 
 
 def started(attempt):
@@ -543,15 +574,47 @@ def started(attempt):
     return orders.created(began) if began else None
 
 
-def fix_task(pr, head, cause):
+def rules_plumbing(current):
+    """True when the PR head's latest `rules` failure has failed steps, every one a PLUMBING_STEPS check."""
+    check = max((c for c in current.get('statusCheckRollup') or [] if c.get('name') == 'rules'),
+                key=lambda c: c.get('completedAt') or '', default=None)
+    if not check or check.get('conclusion') != 'FAILURE':
+        return False
+    job = re.search(r'/job/(\d+)', check.get('detailsUrl') or '')
+    if not job:
+        return False
+    steps = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/jobs/{job[1]}')['steps']
+    return (bad := [step['name'] for step in steps if step['conclusion'] == 'failure']) != [] and \
+        all(PLUMBING_STEPS.search(name) for name in bad)
+
+
+def plumbing_runs(pr, opened, run_id):
+    """How many fix runs other than `run_id` answered a PLUMBING cause on PR `pr` since `opened`, read from Actions
+    history: a run counts once its `fix-run` model job started."""
+    title = re.compile(rf"Fix PR #{pr}: (?:{'|'.join(PLUMBING)})\Z")
+    runs = [run for page in orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?created=%3E%3D{opened}&per_page=100',
+                                      '--paginate', '--slurp')
+            for run in page['workflow_runs'] if run['id'] != run_id and title.match(run['display_title'])]
+    return sum(any(job['name'] == 'fix-run' and job['conclusion'] in ('success', 'failure')
+                   for job in orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs'])
+               for run in runs)
+
+
+def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
-    `rules` cause there, or used its ATTEMPTS."""
+    `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
+    to the step output file `output`, so its run posts no attempt."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
+    plumbing = cause in PLUMBING and (cause == 'conflict' or rules_plumbing(current)) and \
+        plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
+    if plumbing and output:
+        with open(output, 'a') as out:
+            out.write('plumbing=true\n')
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
@@ -565,7 +628,7 @@ def fix_task(pr, head, cause):
                                   orders.created(criticisms[-1]['created_at']) > answered):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
-    if len(attempts) >= ATTEMPTS:
+    if len(attempts) >= ATTEMPTS and not plumbing:
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [c['body'] for c in {'review': verdicts, 'critic': criticisms}.get(cause, [])][-1:]
@@ -608,19 +671,20 @@ def exhaust(current, attempts, verdicts, cause):
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
-                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nTake another approach.')
+                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nThe next build run continues from that head.')
     strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
 
-def fixed(pr, cause, ran, run_url, verdict=None):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on with its screen `verdict`.
+def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
+    """After a fix run that worked (`ran`): count the attempt on the PR (a `plumbing` run, L82, counts none), then hand the PR on with its screen `verdict`.
     A ready head that still holds the reject this run answered, with no `check` running on it, gets its review run
     again: with no push or re-ready, no `check` ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
-    comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
+    if not plumbing:
+        comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = view(pr)
     ended(current, verdict, run_url)
     if cause in ('review', 'critic') and not current['isDraft'] and 'check' not in running(current):
@@ -770,9 +834,10 @@ def main(args):
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
                       'repair this PR still needs.', file=sys.stderr)
                 return 3
-            return task_or_nothing(fix_task(int(pr), head, cause))
-        case ['fixed', pr, cause, ran, verdict] if pr.isdigit() and ran in ('true', 'false'):
-            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'))
+            return task_or_nothing(fix_task(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID']), os.environ['GITHUB_OUTPUT']))
+        case ['fixed', pr, cause, ran, verdict, plumbing] if pr.isdigit() and ran in ('true', 'false') and \
+                plumbing in ('true', 'false'):
+            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'), plumbing == 'true')
         case ['review-task', pr, head] if pr.isdigit():
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
@@ -784,7 +849,7 @@ def main(args):
         case _:
             print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
-                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
+                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
                   file=sys.stderr)
             return 2
