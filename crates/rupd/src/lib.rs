@@ -43,7 +43,7 @@ pub struct Daemon {
     pads: Arc<pads::Pads>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    resizes: resize::Resizes,
+    held_actions: resize::HeldActions,
     /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
@@ -179,7 +179,7 @@ impl Daemon {
             pads: Arc::clone(&pads),
             door_first_steers: Default::default(),
             child_effects: Default::default(),
-            resizes: resize::Resizes::open(dir)?,
+            held_actions: resize::HeldActions::open(dir)?,
             touches,
             bus: bus.clone(),
             project: project.to_path_buf(),
@@ -359,6 +359,9 @@ impl Daemon {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
         }
+        if method == "agent.actionHistory" {
+            return self.action_history(conn, params).await;
+        }
         if method == "terminal.resizeHistory" {
             return self.resize_history(conn, params).await;
         }
@@ -375,8 +378,8 @@ impl Daemon {
                     if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
                         return Ok(receipt);
                     }
-                } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                    self.release_resizes(child).await?;
+                } else if let Some(receipt) = self.hold_rename(conn, child, params.clone()).await? {
+                    return Ok(receipt);
                 }
                 Some(guard)
             } else {
@@ -390,12 +393,12 @@ impl Daemon {
             // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
             for child in &children {
                 let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
-                    && self.resizes.waiting(child)?
+                    && self.held_actions.waiting(child)?
                 {
                     let guard = self.child_effects(child).write_owned().await;
                     // A newer begin may have won while this call waited for exclusion.
                     if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                        self.release_resizes(child).await?;
+                        self.release_actions(child).await?;
                     }
                     guard.downgrade()
                 } else {
@@ -564,7 +567,7 @@ impl Daemon {
                 .get()
                 .is_some_and(|messages| messages.takeover_active(&agent))
             {
-                self.release_resizes(&agent).await?;
+                self.release_actions(&agent).await?;
             }
         }
         if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
@@ -1131,11 +1134,27 @@ fn failure(id: &Value, err: &RpcError) -> Value {
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     let mut exits = daemon.bus.subscribe();
+    daemon.reconcile_actions().await.map_err(io::Error::other)?;
     let weak = Arc::downgrade(&daemon);
     tokio::spawn(async move {
         loop {
             match exits.recv().await {
                 Ok(event) => {
+                    if let contracts::EventData::TakeoverChanged(change) = &event.data
+                        && !change.on
+                    {
+                        let Some(daemon) = weak.upgrade() else { return };
+                        let _child = daemon.child_effects(&change.agent).write_owned().await;
+                        if !daemon
+                            .sender
+                            .get()
+                            .is_some_and(|m| m.takeover_active(&change.agent))
+                            && let Err(e) = daemon.release_actions(&change.agent).await
+                        {
+                            eprintln!("rupd: held action release failed: {}", e.message);
+                            return;
+                        }
+                    }
                     if let contracts::EventData::TerminalExited(exit) = event.data {
                         let Some(daemon) = weak.upgrade() else { return };
                         if let Err(e) = daemon.resize_exit(&exit.id).await {
@@ -1147,7 +1166,7 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
                     // A missed exit must not silently strand an accepted resize.
                     let Some(daemon) = weak.upgrade() else { return };
-                    if let Err(e) = daemon.reconcile_resizes().await {
+                    if let Err(e) = daemon.reconcile_actions().await {
                         eprintln!("rupd: resize exit reconciliation failed: {}", e.message);
                         return;
                     }
@@ -1263,7 +1282,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             Ok(children) => children
                 .into_iter()
                 .map(|child| {
-                    daemon.resizes.arrive(
+                    daemon.held_actions.arrive(
                         child,
                         matches!(method.as_deref(), Some("terminal.resize" | "rail.rename")),
                     )
@@ -1311,7 +1330,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                     let _ = request_conn.events.send(reply);
                 }
                 for done in completed {
-                    daemon.resizes.finish_arrival(done);
+                    daemon.held_actions.finish_arrival(done);
                 }
             });
         }

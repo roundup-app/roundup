@@ -264,6 +264,32 @@ or transitions changes or weakens here.
 
 Door `terminal.resize` calls during Takeover are stored in the Daemon's Project database before their receipts return. `terminal.resizeHistory` (MCP `terminal_resizeHistory`) exposes the accepting Agent's own receipts; the user sees all receipts for that Terminal, including after it is gone. The receipt's `ResizeOutcome` distinguishes waiting for Takeover, an effect in progress, completion and a drop reason. Direct user resizing retains its null result and remains available during Takeover.
 
-The socket reader registers each authorized resize’s child order with Tokio oneshot channels before spawning its request, so pipelined frames cannot acquire durable ids in scheduler order. Completed requests release those channels and retire their entries. Release serializes accepted resizes for one child before any later Door resize. Before each physical effect, its in-progress outcome is committed; a crash after that cut never retries it. A restarted Daemon has no surviving Terminals or Takeovers, so unfinished resizes receive a durable drop reason, distinguishing an unavailable original Terminal from an uncertain prior effect. Completed outcomes remain completed. Terminal exit or child Attempt replacement also drops unavailable resizes; later valid resizes proceed.
+The socket reader registers each authorized resize’s child order with Tokio watch channels before spawning its request, so pipelined frames cannot acquire durable ids in scheduler order. Completed requests release those channels and retire their entries. Release serializes accepted resizes for one child before any later Door resize. Before each physical effect, its in-progress outcome is committed; a crash after that cut never retries it. A restarted Daemon has no surviving Terminals or Takeovers, so unfinished resizes receive a durable drop reason, distinguishing an unavailable original Terminal from an uncertain prior effect. Completed outcomes remain completed. Terminal exit or child Attempt replacement also drops unavailable resizes; later valid resizes proceed.
 
 This is an integration-tested B6 slice for resize only, touching M1, M3, M4, M6, M7, M9 and M10. The Message model in `proofs/messages` still models Messages, not Door resizes; none of its laws or Message exceptions changes. #1581 retains the other action paths and full B6 acceptance.
+
+## B6 Door rename actions
+
+Door `rail.rename` calls during Takeover return a durable `HeldAction`, rather
+than the Rail node returned by an executed rename. `agent.actionHistory {id}`
+(MCP `agent_actionHistory`) lists the accepting Agent's own actions on that
+child; the user can read all of them, including after removal. Receipts retain
+method, parameters and the same outcome tags as resize receipts. The MCP tool
+keeps that JSON, so a waiting receipt is never described as an executed rename.
+
+Resizes and renames share one append-only acceptance sequence and outcome
+ledger. Existing resize history migrates with its ids and outcomes intact;
+`terminal.resizeHistory` keeps its existing shape and filters only resizes.
+Release preserves their mixed order and checks current Reach before effect.
+User renames remain immediate. Child removal or lost Reach drops the rename
+with a retained reason and does not block later actions.
+
+No Takeover survives restart. A waiting rename can still name the same
+persistent child, so startup releases it. An in-progress rename is never retried:
+its retained reason explains that its effect may have happened. Terminal resize
+recovery retains the unavailable-original-Terminal rule. A child exit releases
+valid renames through the Takeover change observer.
+
+This slice integration-tests M1, M3, M4, M6, M7, M9 and M10. The existing Message
+proofs model Messages, not held Door actions; no law or Message transition is
+changed. #1581 still owns the remaining action families and full B6 acceptance.

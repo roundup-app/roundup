@@ -529,3 +529,24 @@ pub struct StatusEvent {
     pub status_revision: String,
     pub status: Status,
 }
+
+/// B6: durable acceptance of an action that waits for a child's Takeover.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct HeldAction {
+    pub id: String,
+    pub agent: String,
+    #[serde(flatten)]
+    pub call: HeldCall,
+    pub outcome: crate::terminal::ResizeOutcome,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "method", content = "params")]
+#[ts(export, export_to = "agent/")]
+pub enum HeldCall {
+    #[serde(rename = "terminal.resize")]
+    Resize(crate::terminal::ResizeParams),
+    #[serde(rename = "rail.rename")]
+    Rename(RenameParams),
+}
