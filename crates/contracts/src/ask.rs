@@ -71,7 +71,12 @@ pub struct PickParams {
 #[serde(tag = "kind", rename_all = "lowercase")]
 #[ts(export, export_to = "ask/")]
 pub enum Target {
-    Workstream { id: String },
-    New { title: Option<String> },
+    Workstream {
+        id: String,
+    },
+    New {
+        #[ts(optional)]
+        title: Option<String>,
+    },
     Drop,
 }
