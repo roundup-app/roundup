@@ -931,10 +931,9 @@ async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::R
         fx.held.is_file().then_some(())
     })
     .await;
-    assert!(
-        !resume.is_finished(),
-        "resume completed without SessionStart"
-    );
+    if resume.is_finished() {
+        panic!("resume completed without SessionStart: {:?}", resume.await);
+    }
     resume
 }
 
