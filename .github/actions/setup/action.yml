@@ -11,7 +11,7 @@ inputs:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
   builder:
-    description: Install Codex, which runs a Builder (L23), and Claude Code, which screens its ask and runs its real-`claude` observers.
+    description: Install Claude Code, which runs a Builder (L23), screens its ask and runs its real-`claude` observers, and Codex, the Builder's fallback.
     default: 'false'
 runs:
   using: composite

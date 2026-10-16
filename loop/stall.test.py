@@ -153,9 +153,9 @@ class Stall(unittest.TestCase):
             self.assertIn(text, body)
         self.assertNotIn('run/3', body)
 
-    def test_l94_codex_success_is_model_work(self):
+    def test_l94_engine_success_is_model_work(self):
         github = self.go(stalled(runs=[run(1, 'build', 'success'), run(2, 'fix', 'success')],
-                                jobs={i: [dict(steps=[dict(name='Run Codex', conclusion='success')])]
+                                jobs={i: [dict(steps=[dict(name='Run Claude Code, then Codex', conclusion='success')])]
                                       for i in (1, 2)}))
         create = github.of('issue', 'create')[0]
         body = create[create.index('--body') + 1]
@@ -163,16 +163,16 @@ class Stall(unittest.TestCase):
         self.assertIn('fix https://run/2: success', body)
         self.assertNotIn('no model work', body)
 
-    def test_l94_codex_failure_reports_no_model_work(self):
+    def test_l94_engine_failure_reports_no_model_work(self):
         github = self.go(stalled(runs=[run(1, 'build', 'failure')],
-                                jobs={1: [dict(steps=[dict(name='Run Codex', conclusion='failure')])]}))
+                                jobs={1: [dict(steps=[dict(name='Run Claude Code, then Codex', conclusion='failure')])]}))
         create = github.of('issue', 'create')[0]
         body = create[create.index('--body') + 1]
         self.assertIn('build https://run/1: failure (usage limit or setup failure: the model did no work)', body)
 
-    def test_l94_codex_skipped_reports_no_model_work(self):
+    def test_l94_engine_skipped_reports_no_model_work(self):
         github = self.go(stalled(runs=[run(1, 'build', 'success')],
-                                jobs={1: [dict(steps=[dict(name='Run Codex', conclusion='skipped')])]}))
+                                jobs={1: [dict(steps=[dict(name='Run Claude Code, then Codex', conclusion='skipped')])]}))
         create = github.of('issue', 'create')[0]
         body = create[create.index('--body') + 1]
         self.assertIn('build https://run/1: success (no model work: eligibility checks skipped the run)', body)
@@ -181,8 +181,8 @@ class Stall(unittest.TestCase):
         for workflow in ('build-issue', 'fix'):
             with self.subTest(workflow=workflow):
                 source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
-                step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
-                self.assertIn('        name: Run Codex\n', step)
+                step = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
+                self.assertIn('        name: Run Claude Code, then Codex\n', step)
 
     def test_l94_next_run_comments_not_a_second_issue(self):
         github = self.go(stalled(issues=[READY, stall_issue()]))
