@@ -12,7 +12,7 @@ const fresh = agent("fresh", "idle", "starting");
 
 const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
-const field = () => screen.getByLabelText<HTMLInputElement>("Prompt");
+const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
 
 const submit = (text: string) => {
   fireEvent.input(field(), { target: { value: text } });
@@ -43,7 +43,7 @@ describe("o11 the Door writes the order for a prompt the user types", () => {
     const rows = screen.getAllByRole("treeitem").length;
 
     settle();
-    await waitFor(() => expect(screen.queryByLabelText("Prompt")).toBeNull());
+    await waitFor(() => expect(screen.queryByLabelText("Task")).toBeNull());
     expect(screen.queryByText("Asking the supervisor…")).toBeNull();
     expect(screen.getAllByRole("treeitem").length).toBe(rows);
     expect(mounted.rail.selected()).toBe("g");

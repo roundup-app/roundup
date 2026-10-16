@@ -207,7 +207,15 @@
   font: inherit;
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: 0;
+  resize: none;
+  overflow-y: auto;
+  line-height: inherit;
+  max-height: calc(6lh + 2 * var(--space-1));
+}
+
+.spawn-prompt-field:focus-visible {
+  outline-width: 0;
 }
 
 .spawn-prompt-field:hover {
