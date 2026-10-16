@@ -4334,6 +4334,10 @@ async fn d12_a_client_resumes_after_a_killed_daemon() {
         .map(|(seq, _)| seq)
         .collect();
     let last = *got.last().unwrap();
-    assert_eq!(got, (n + 1..=last).collect::<Vec<_>>(), "each number once, in order");
+    assert_eq!(
+        got,
+        (n + 1..=last).collect::<Vec<_>>(),
+        "each number once, in order"
+    );
     assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
 }

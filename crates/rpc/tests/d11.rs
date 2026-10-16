@@ -21,7 +21,12 @@ impl EventLog for Memory {
 
     fn read(&self, after: u64, limit: usize) -> Result<Vec<Event>, RpcError> {
         let saved = self.0.lock().unwrap();
-        Ok(saved.iter().skip(after as usize).take(limit).cloned().collect())
+        Ok(saved
+            .iter()
+            .skip(after as usize)
+            .take(limit)
+            .cloned()
+            .collect())
     }
 
     fn bounds(&self) -> Result<(u64, u64), RpcError> {
