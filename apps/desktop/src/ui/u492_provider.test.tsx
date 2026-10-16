@@ -1,13 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
-import { ToastProvider } from "./Toast";
+import { createToast, ToastProvider } from "./Toast";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 it("u492_hover_focus_restart_full_duration", async () => {
   vi.useFakeTimers();
-  render(() => <ToastProvider cards={[{ id: "agent", name: "Agent", content: "Needs you" }]} />);
+  const toast = createToast({ limit: 3, newestFirst: true });
+  render(() => <ToastProvider toast={toast} label="Updates" />);
+  toast.show({ id: "agent", name: "Agent", content: "Needs you" });
   await vi.advanceTimersByTimeAsync(2000);
   const card = screen.getByRole("button", { name: "Agent Needs you" });
   fireEvent.pointerEnter(card);
@@ -29,9 +30,11 @@ it("u492_hover_focus_restart_full_duration", async () => {
 it("u492_configurable_provider_lifecycle", async () => {
   vi.useFakeTimers();
   const activate = vi.fn();
-  const [cards, setCards] = createSignal([{ id: "a", name: "Old", content: "First" }]);
-  render(() => <ToastProvider cards={cards()} limit={3} onActivate={activate} />);
-  setCards([{ id: "a", name: "Updated", content: "Changed" }]);
+  const toast = createToast({ limit: 3, newestFirst: true, onActivate: activate });
+  render(() => <ToastProvider toast={toast} label="Updates" />);
+  toast.show({ id: "a", name: "Old", content: "First" });
+  toast.show({ id: "a", name: "Updated", content: "Changed" });
+  await vi.advanceTimersToNextFrame();
   expect(screen.getAllByRole("button")).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { name: "Updated Changed" }));
   await vi.advanceTimersByTimeAsync(200);
