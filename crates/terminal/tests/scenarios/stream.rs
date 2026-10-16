@@ -12,7 +12,11 @@ use crate::common::{PATIENCE, drain, open, sh, until_exit};
 /// `stty -opost` keeps the tty from rewriting the program's bytes, so offset parity names each byte.
 const RAW: &str = "stty -opost -echo; ";
 
-/// Drain `stream` to its end, checking `yes x`'s alternating bytes at every offset; returns the bytes
+/// A line of `yes` is 63 `x` and a line feed; long lines keep the Output log's parser cheap in a debug build.
+const LINE: u64 = 64;
+const LINE_TEXT: &str = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+
+/// Drain `stream` to its end, checking `yes`'s 64-byte lines at every offset; returns the bytes
 /// delivered and the gaps reported.
 async fn check_alternating(mut stream: OutputStream) -> (u64, Vec<(u64, u64)>) {
     let (mut delivered, mut gaps) = (0, Vec::new());
@@ -23,10 +27,10 @@ async fn check_alternating(mut stream: OutputStream) -> (u64, Vec<(u64, u64)>) {
                 Output::Bytes { offset, bytes } => {
                     assert_eq!(offset, next, "bytes must follow the last delivered byte");
                     for (index, byte) in bytes.iter().enumerate() {
-                        let expected = if (offset + index as u64).is_multiple_of(2) {
-                            b'x'
-                        } else {
+                        let expected = if (offset + index as u64) % LINE == LINE - 1 {
                             b'\n'
+                        } else {
+                            b'x'
                         };
                         assert_eq!(*byte, expected, "offset {}", offset + index as u64);
                     }
@@ -57,7 +61,10 @@ async fn x14_output_is_isolated_from_other_terminals_and_the_bus() {
     let flood = 12_000_000;
     assert!(flood / 8192 > bus.capacity());
     let a = terminals
-        .spawn(sh(dir.path(), &format!("{RAW}yes x | head -c {flood}")))
+        .spawn(sh(
+            dir.path(),
+            &format!("{RAW}yes {LINE_TEXT} | head -c {flood}"),
+        ))
         .await
         .unwrap();
     let mut b = terminals

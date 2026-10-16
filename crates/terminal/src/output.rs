@@ -52,10 +52,15 @@ impl Log {
         self.end += chunk.len() as u64;
         let extra = self.bytes.len().saturating_sub(LOG_BYTES);
         if extra > 0 {
-            let first = self.start();
+            let mut offset = self.start();
             let checkpoint = self.checkpoint.get_or_insert_with(Box::default);
-            for (index, byte) in self.bytes.iter().take(extra).enumerate() {
-                checkpoint.feed(*byte, first + index as u64 + 1, None);
+            let mut left = extra;
+            let (head, tail) = self.bytes.as_slices();
+            for slice in [head, tail] {
+                let take = slice.len().min(left);
+                checkpoint.absorb(&slice[..take], offset);
+                offset += take as u64;
+                left -= take;
             }
             self.bytes.drain(..extra);
         }
@@ -111,6 +116,7 @@ impl Window {
             return;
         }
         let mut replay = self.checkpoint.clone().unwrap_or_default();
+        replay.resync();
         let mut rows = Rows::new(self.from, self.end, sink);
         for (index, byte) in self.bytes.iter().enumerate() {
             let at = self.start + index as u64 + 1;
@@ -166,6 +172,8 @@ struct Marks {
     /// The offset after the last line feed.
     line_start: u64,
     serial: u64,
+    /// Set while the checkpoint takes in evicted bytes: their cells are never read, so only line feeds are tagged.
+    absorbing: bool,
 }
 
 impl Marks {
@@ -188,6 +196,9 @@ impl Marks {
 
 impl Callbacks for Marks {
     fn text(&mut self, screen: &mut vt100::Screen, _: char) {
+        if self.absorbing {
+            return;
+        }
         self.visit(screen);
         // The cell written ends just before the cursor; a wide character's second half is a continuation.
         let (row, col) = screen.cursor_position();
@@ -241,6 +252,31 @@ impl Default for Replay {
 }
 
 impl Replay {
+    /// Take in bytes that left the log, whose rows nobody reads: a line at a time, so that each
+    /// line feed is exact, and without watching for scrolled rows. `resync` catches up at a read.
+    /// The cells written here ended before the log's first byte, so a read never keeps them and
+    /// their offsets need only be no later than the segment's end.
+    fn absorb(&mut self, bytes: &[u8], first: u64) {
+        let mut done = 0;
+        self.parser.callbacks_mut().absorbing = true;
+        while done < bytes.len() {
+            let end = bytes[done..]
+                .iter()
+                .position(|byte| matches!(byte, 10..=12))
+                .map_or(bytes.len(), |line_feed| done + line_feed + 1);
+            self.parser.callbacks_mut().at = first + end as u64;
+            self.parser.process(&bytes[done..end]);
+            done = end;
+        }
+        self.parser.callbacks_mut().absorbing = false;
+    }
+
+    /// Catch the row and screen tracking up with what `absorb` did.
+    fn resync(&mut self) {
+        self.alt = self.parser.screen().alternate_screen();
+        self.tag_rows();
+    }
+
     /// Feed the byte that ends at offset `at`; rows it scrolled into history go to `rows`.
     fn feed(&mut self, byte: u8, at: u64, rows: Option<&mut Rows>) {
         self.parser.callbacks_mut().at = at;

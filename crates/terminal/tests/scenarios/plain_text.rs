@@ -31,7 +31,7 @@ printf 'f\377g\n'",
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let id = spawned.id;
     let whole = terminals.read(&read(&id, 0, None)).unwrap();
     assert_eq!(
@@ -69,7 +69,7 @@ printf 'f\377g\n'",
         ))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let id = spawned.id;
     let cut = terminals.read(&read(&id, 0, None)).unwrap();
     assert_eq!(
