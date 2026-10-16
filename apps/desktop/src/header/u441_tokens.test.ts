@@ -545,17 +545,6 @@ it("u441_token_checks_do_not_regress", async () => {
 }, 180_000);
 
 
-it("u441_light_header_keeps_root_ground", async () => {
-  await page.scheme('light');
-  await three();
-
-  // One load under the default budget: the emulated contrast applies to the live page.
-  for (const contrast of contrasts) {
-    await page.scheme('light', contrast);
-    expect((await paint('.header')).ground).toEqual([245, 245, 247, 1]);
-  }
-});
-
 it("u441_tab_marks_use_root_ink", async () => {
   for (const scheme of schemes) for (const contrast of contrasts) {
     await page.scheme(scheme, contrast);

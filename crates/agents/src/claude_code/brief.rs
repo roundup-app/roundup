@@ -125,7 +125,10 @@ const TOOLS: &[(&str, &str)] = &[
         "move a node in your Reach; a Workstream moves only to the root",
     ),
     ("rail_remove", "remove a node in your Reach, never yourself"),
-    ("agent_stop", "stop an Agent in your Reach, never yourself"),
+    (
+        "agent_stop",
+        "stop an Agent in your Reach, never yourself; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+    ),
     (
         "agent_interrupt",
         "interrupt the turn of an Agent in your Reach",

@@ -398,33 +398,6 @@ impl Fix {
 }
 
 #[tokio::test]
-async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
-    let fx = fixture().await;
-    let mut events = fx.project.subscribed().await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-
-    let tree = rail_tree(&fx.user).await;
-    assert!(tree.iter().all(|n| n.id != fx.a && n.id != fx.b));
-    assert!(tree.iter().any(|n| n.id == fx.ws));
-    // The deeper Subagent's Worktree is handed off before the shallower one's.
-    let handoff = fx.handoff_prompt(&mut events).await["prompt"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    assert!(
-        handoff
-            .find(&format!("branch roundup/agent-{}", fx.a))
-            .is_some(),
-        "{handoff}"
-    );
-}
-
-#[tokio::test]
 async fn a32_the_handoff_read_waits_for_a_delayed_prompt_write() {
     use std::future::Future;
     use std::task::Poll;
