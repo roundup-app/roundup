@@ -44,6 +44,18 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 );
 
 
+/** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
+const ignoringControls = <T extends { onPointerMove?: unknown }>(props: T): T => {
+  const move = props.onPointerMove as ((event: PointerEvent) => void) | undefined;
+
+  return {
+    ...props,
+    onPointerMove: (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest("button, input")) move?.(event);
+    },
+  };
+};
+
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
@@ -116,13 +128,13 @@ export const RailRowView = (props: {
     <Tooltip.Trigger
       asChild={(trigger) => (
     <div
-      {...trigger({
+      {...ignoringControls(trigger({
         onClick: props.onSelect,
         onPointerDown: (press: PointerEvent) => {
           if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
         },
         ...handlers,
-      })}
+      }))}
       class="rail-row"
       role="treeitem"
       aria-level={props.row.depth + 1}

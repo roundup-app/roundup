@@ -49,4 +49,7 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add-label")!.closest("button")!;
   expect(add.title).not.toBe(NAME);
   expect(add.title).not.toBe("");
+  fireEvent.pointerMove(add, { pointerType: "mouse" });
+  await new Promise((done) => setTimeout(done, 600));
+  expect(screen.queryByRole("tooltip")).toBeNull();
 });
