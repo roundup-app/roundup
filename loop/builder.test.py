@@ -9,7 +9,7 @@ import time
 import unittest
 from contextlib import chdir, redirect_stderr, redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('builder', ROOT / 'loop/builder.py')
@@ -39,6 +39,8 @@ def ran(name, conclusion, ago, workflow='check'):
 
 # What `link` leaves in a body that holds the Issue and its scenarios.
 LINKED_BODY = 'Refs #1\nScenarios: U1\n\n'
+NO_VERDICT = 'The screen gave no verdict, so a Builder settles the question itself.'
+NO_VERDICT_SENT = 'The run https://run/1 stopped on: {ask}\n\nThe screen sent it back to the loop: ' + NO_VERDICT
 
 
 # A head whose `check` and `rules` runs failed.
@@ -452,8 +454,7 @@ class Built(unittest.TestCase):
             'user': ('flag:needs-user', [f'<!-- needs-user -->\nDecide it.\n\n---\n\n{stop}'], []),
             'mac': ('flag:needs-mac', [f'<!-- needs-mac -->\nDecide it.\n\n{stop}'], []),
             'loop': (None, [sent], unfinished),
-            None: ('flag:needs-user', [f'<!-- needs-user -->\n{stop}\n\nThe screen gave no verdict, so this reached you '
-                                       'unscreened: https://run/1'], []),
+            None: (None, [NO_VERDICT_SENT.replace('{ask}', stop.removeprefix('Stopped:').strip())], unfinished),
         }
         for verdict, (label, bodies, fixes) in sent_to.items():
             with self.subTest(verdict=verdict), GitHub(prs=[pr(isDraft=True, body=body)]) as github:
@@ -463,7 +464,8 @@ class Built(unittest.TestCase):
                 self.assertEqual([w[3] for w in github.writes if w[1].endswith('/labels')], [f'labels[]={label}'] if label else [])
                 self.assertEqual(github.fixes(), fixes)
                 edits = [w[5].removeprefix('body=') for w in github.writes if w[:3] == ('api', '-X', 'PATCH')]
-                self.assertEqual(edits, [f'Refs #1\nScenarios: U1\n\n{sent}\n\n## What changed\n- x\n'] if verdict == 'loop' else [])
+                resumed = sent if verdict == 'loop' else NO_VERDICT_SENT.replace('{ask}', stop.removeprefix('Stopped:').strip())
+                self.assertEqual(edits, [f'Refs #1\nScenarios: U1\n\n{resumed}\n\n## What changed\n- x\n'] if verdict in ('loop', None) else [])
                 self.assertTrue(all(builder.stopped(dict(body=edit)) == '' for edit in edits))
 
     def test_l81_a_fix_run_that_stops_is_screened_the_same_way(self):
@@ -476,9 +478,9 @@ class Built(unittest.TestCase):
                       github.bodies())
         with GitHub(view=stopped) as github:
             builder.fixed(9, 'review', True, 'https://run/2')
-        self.assertTrue(github.flagged())
-        self.assertIn('unscreened: https://run/2', github.bodies()[-1])
-        self.assertEqual(github.fixes(), [])
+        self.assertFalse(github.flagged())
+        self.assertIn('The screen sent it back to the loop: The screen gave no verdict', github.bodies()[-1])
+        self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=unfinished')])
 
     def test_l81_the_stopped_paragraph_runs_to_the_next_blank_line(self):
         for body, paragraph in (('Scenarios: U1\n\nStopped: which colour?\nRecommended: blue.\n\nrest', 'Stopped: which colour?\nRecommended: blue.'),
@@ -510,7 +512,7 @@ class Built(unittest.TestCase):
             'user': ('flag:needs-user', '<!-- needs-user -->\nDecide it.\n\n---\n\n' + ask),
             'mac': ('flag:needs-mac', '<!-- needs-mac -->\nDecide it.\n\n' + ask),
             'loop': (None, f'<!-- strike -->\nThe build run https://run/1 asked: {ask}\n\nThe screen sent it back to the loop: why'),
-            None: ('flag:needs-user', f'<!-- needs-user -->\n{ask}\n\nThe screen gave no verdict, so this reached you unscreened: https://run/1'),
+            None: (None, f'<!-- strike -->\nThe build run https://run/1 asked: {ask}\n\nThe screen sent it back to the loop: {NO_VERDICT}'),
         }
         for verdict, (label, body) in sent.items():
             with self.subTest(verdict=verdict), GitHub(labels=READY) as github:
@@ -563,6 +565,35 @@ class Built(unittest.TestCase):
                 self.assertTrue(given.endswith('## Ask\n\nCheck it?\n'))
         with patch.object(builder.subprocess, 'run', side_effect=builder.subprocess.CalledProcessError(1, 'claude')):
             self.assertIsNone(builder.screen('Check it?'))
+
+    def test_l79_an_empty_verdict_never_asks_the_user_and_the_run_summary_says_so(self):
+        ask = 'Should the Rail hide archived Agents?'
+        for verdict in ('', 'null', 'not base64!', builder.encode(dict(verdict='later'))):
+            decoded = builder.decode(verdict)
+            self.assertIsNone(decoded)
+            with self.subTest(verdict=verdict), GitHub(labels=READY) as github, \
+                    patch.dict(builder.os.environ, GITHUB_STEP_SUMMARY=str(Path(tempfile.mkdtemp()) / 'summary.md')):
+                builder.built(1, 'U1', True, json.dumps(dict(ask=ask)), 'https://run/1', decoded)
+                self.assertFalse(github.flagged())
+                self.assertEqual(github.bodies(), [f'<!-- strike -->\nThe build run https://run/1 asked: {ask}\n\n'
+                                                   f'The screen sent it back to the loop: {NO_VERDICT}'])
+                self.assertIn('The screen gave no verdict after 2 tries on #1', Path(builder.os.environ['GITHUB_STEP_SUMMARY']).read_text())
+
+    def test_l79_a_verdict_survives_the_step_output_with_no_brace_a_masked_login_line_could_drop(self):
+        verdict = dict(verdict='user', reason='why', preview='Decide it.')
+        self.assertEqual(builder.decode(builder.encode(verdict)), verdict)
+        self.assertFalse({'{', '}'} & set(builder.encode(verdict)))
+        self.assertEqual(builder.encode(None), '')
+
+    def test_l79_the_screen_tries_twice_before_giving_no_verdict(self):
+        verdict = dict(verdict='loop', reason='why', preview='Go.')
+        good = Mock(stdout=json.dumps(dict(structured_output=verdict)))
+        with patch.object(builder.subprocess, 'run', side_effect=[Mock(stdout='{}'), good]) as run:
+            self.assertEqual(builder.screen('Check it?'), verdict)
+            self.assertEqual(run.call_count, 2)
+        with patch.object(builder.subprocess, 'run', return_value=Mock(stdout='{}')) as run:
+            self.assertIsNone(builder.screen('Check it?'))
+            self.assertEqual(run.call_count, 2)
 
 
 SCENARIO_FILE = '# x\n**U1 First.** a\n- *clause changed*\n**U2 Second.** b\n- *clause b*\n**U4 New.** d\n**U3 Third.** c\n'

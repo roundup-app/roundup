@@ -182,7 +182,7 @@ impl Daemon {
             held_actions: resize::HeldActions::open(dir)?,
             touches,
             bus: bus.clone(),
-            project: project.to_path_buf(),
+            project: std::path::absolute(project).unwrap_or_else(|_| project.to_path_buf()),
             attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
