@@ -536,13 +536,13 @@ The matching spellings of one displayed Help chord.
 
 ### Ask placement
 
-**Ask**:
+**Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
 One message the user sends from the Ask bar; distinct from an Agent's Decision.
 
 **Ask part** (`AskPart`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 
-**Placement** (`Placement`, `Destination`):
+**Placement** (`Placement`, `Destination`, `Target`):
 An Ask part's proposed destination: routed to a Workstream, new with an Order title, or unclear with a question and up to three candidate Workstreams.
 
 **Placement request** (`placement::Request`, `EarlierAsk`):

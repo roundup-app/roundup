@@ -276,6 +276,7 @@ pub(super) mod tests {
             let adapter_clock = Arc::clone(&clock);
             let (dir, bus, shared) = shared_over_temp_dir(clock);
             let run = Run {
+                startup_context: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,
@@ -546,6 +547,7 @@ pub(super) mod tests {
         shared.runs().insert(
             id.clone(),
             Slot::Running(Run {
+                startup_context: true,
                 attempt: "1".into(),
                 status_revision: 1,
                 closing: false,

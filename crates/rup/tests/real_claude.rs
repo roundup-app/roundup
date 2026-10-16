@@ -1159,3 +1159,42 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
     }
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn a41_a_leading_slash_runs_the_skill() {
+    let project = daemon::start_real("a41_skill", &[]);
+    let skill = project.dir.path().join("claude-config/skills/a41-proof");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(skill.join("SKILL.md"), "---\nname: a41-proof\ndescription: Prove Ask delivery preserves skill invocation.\n---\nA41_SKILL_MARKER. Reply with Skill received.\n").unwrap();
+    let mut client = project.client().await;
+    client
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let node = client.request("rail.createWorkstream", json!({"name":"Skill","order":{"kind":"work","title":"Skill","ask":"A41 initial","limits":[]}})).await.unwrap();
+    let id = node["id"].as_str().unwrap();
+    client
+        .request("rail.startDoor", json!({"id":id}))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    let ask = client
+        .request("ask.send", json!({"text":"@Skill /a41-proof x"}))
+        .await
+        .unwrap();
+    next(&mut client, |event| matches!(event, EventData::AskChanged { ask: changed } if changed.id == ask["id"].as_str().unwrap() && changed.parts[0].state == contracts::ask::State::Typed).then_some(())).await;
+    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    let journal = project.model.as_ref().unwrap().journal();
+    let text = serde_json::to_string(&journal).unwrap();
+    assert!(text.contains("A41_SKILL_MARKER"), "{text}");
+    assert!(
+        journal.iter().all(|entry| entry["response"]["status"]
+            .as_i64()
+            .is_some_and(|status| status < 400)),
+        "{journal:#?}"
+    );
+    assert!(
+        !text.contains("claude-haiku"),
+        "named routing made a Placement call"
+    );
+}
