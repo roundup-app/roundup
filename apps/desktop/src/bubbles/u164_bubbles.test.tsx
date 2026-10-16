@@ -117,7 +117,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(bubble("1").getAttribute("style")).toBe(style);
   });
 
-  it("u511_opacity_is_removed_and_legacy_storage_is_ignored", async () => {
+  it("u512_opacity_is_removed_and_legacy_storage_is_ignored", async () => {
     window.localStorage.setItem("roundup:bubble-transparency:/p", "not json");
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
