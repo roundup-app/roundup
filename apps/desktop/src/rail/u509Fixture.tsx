@@ -16,7 +16,7 @@ const list: ModelList = dense
 
 const app = createFakeApp();
 
-app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, models: { roles: [{ role: "subagent", model: null, effort: null }], allowed: [] } });
+app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: "subagent", model: null, effort: null }], allowed: [] } });
 
 const Fixture = () => {
   const [pair, setPair] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });

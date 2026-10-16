@@ -301,7 +301,7 @@ const TOOL_METHODS: [&str; 62] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 41] = [
+const NO_TOOL: [&str; 42] = [
     // A40, P9: each carries a Steer from the user.
     "ask.send",
     "ask.list",
@@ -336,6 +336,8 @@ const NO_TOOL: [&str; 41] = [
     // A36, A37: the user's own settings, which spend the user's usage (P8)
     "models.list",
     "project.setModels",
+    // M2219: the user's setting for whether Agents get these tools at all
+    "project.setMcp",
     "agent.setModel",
     // D8: the App's Resource strip
     "project.resources",
