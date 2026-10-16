@@ -56,7 +56,9 @@ pub async fn until_exit(spawned: &mut Spawned) -> (String, Option<i32>) {
     let printed = drain(&mut spawned.output).await;
     tokio::time::timeout(PATIENCE, async {
         loop {
-            if let EventData::TerminalExited(done) = spawned.events.recv().await.expect("events stay open") {
+            if let EventData::TerminalExited(done) =
+                spawned.events.recv().await.expect("events stay open")
+            {
                 return (printed.clone(), done.code);
             }
         }

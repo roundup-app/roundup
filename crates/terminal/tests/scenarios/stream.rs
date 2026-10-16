@@ -23,7 +23,11 @@ async fn check_alternating(mut stream: OutputStream) -> (u64, Vec<(u64, u64)>) {
                 Output::Bytes { offset, bytes } => {
                     assert_eq!(offset, next, "bytes must follow the last delivered byte");
                     for (index, byte) in bytes.iter().enumerate() {
-                        let expected = if (offset + index as u64) % 2 == 0 { b'x' } else { b'\n' };
+                        let expected = if (offset + index as u64).is_multiple_of(2) {
+                            b'x'
+                        } else {
+                            b'\n'
+                        };
                         assert_eq!(*byte, expected, "offset {}", offset + index as u64);
                     }
                     next += bytes.len() as u64;
@@ -66,7 +70,10 @@ async fn x14_output_is_isolated_from_other_terminals_and_the_bus() {
     let b_printed = drain(&mut b.output).await;
     assert_eq!(b_printed, "marker");
     let (delivered, gaps) = a_bytes.await.unwrap();
-    assert!(delivered > 0 && delivered + gaps.iter().map(|(from, to)| to - from).sum::<u64>() == flood as u64);
+    assert!(
+        delivered > 0
+            && delivered + gaps.iter().map(|(from, to)| to - from).sum::<u64>() == flood as u64
+    );
     // A's title and exit events stay on its own receiver and the Bus.
     loop {
         if matches!(a_events.recv().await.unwrap(), EventData::TerminalExited(_)) {
@@ -86,7 +93,10 @@ async fn x14_output_is_isolated_from_other_terminals_and_the_bus() {
 }
 
 /// Rebuild a screen from a snapshot plus the stream bytes the snapshot does not cover.
-fn restore(snapshot: &contracts::terminal::Snapshot, chunks: &[(u64, std::sync::Arc<[u8]>)]) -> String {
+fn restore(
+    snapshot: &contracts::terminal::Snapshot,
+    chunks: &[(u64, std::sync::Arc<[u8]>)],
+) -> String {
     let mut parser = vt100::Parser::new(snapshot.rows, snapshot.cols, 0);
     parser.process(&STANDARD.decode(&snapshot.data).unwrap());
     let mut next = snapshot.after;
@@ -123,10 +133,15 @@ async fn x14_attach_reconciles_snapshot_and_live_offsets() {
     let mut late = terminals.subscribe_output(&full.id).unwrap();
     let start = late.start();
     let snapshot = terminals.snapshot(&full.id).unwrap();
-    assert!(snapshot.after >= start, "the snapshot is not older than the subscription");
+    assert!(
+        snapshot.after >= start,
+        "the snapshot is not older than the subscription"
+    );
     let mut chunks = Vec::new();
     while let Some(output) = late.next().await {
-        let Output::Bytes { offset, bytes } = output else { panic!("a gap in a small output") };
+        let Output::Bytes { offset, bytes } = output else {
+            panic!("a gap in a small output")
+        };
         chunks.push((offset, bytes));
     }
     // The first stream delivered everything from offset 0; its end is where the late one ends.

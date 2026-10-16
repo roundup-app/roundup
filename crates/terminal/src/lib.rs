@@ -19,8 +19,8 @@ use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{
-    ExitedEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams,
-    TerminalId, TerminalInfo, TitleEvent, WriteParams,
+    ExitedEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams, TerminalId,
+    TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};

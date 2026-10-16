@@ -172,7 +172,10 @@ async fn read_loop(
             eprintln!("rpc: dropped a frame that is not JSON");
             continue;
         };
-        if matches!(frame["method"].as_str(), Some("terminal.output" | "terminal.gap")) {
+        if matches!(
+            frame["method"].as_str(),
+            Some("terminal.output" | "terminal.gap")
+        ) {
             let params = frame.get_mut("params").map_or(Value::Null, Value::take);
             let parsed = if frame["method"] == "terminal.output" {
                 serde_json::from_value(params).map(OutputFrame::Bytes)

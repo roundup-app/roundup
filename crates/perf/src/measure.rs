@@ -578,7 +578,10 @@ pub mod flood {
                 let mut selected = Client::connect(&socket).await?;
                 let mut frames = selected.take_output().ok_or("output already taken")?;
                 call(&selected, "terminal.output", json!({"id":id})).await?;
-                counted.lock().expect("counters").insert(id.clone(), (0, 0, 0));
+                counted
+                    .lock()
+                    .expect("counters")
+                    .insert(id.clone(), (0, 0, 0));
                 let (id, counted) = (id.clone(), Arc::clone(&counted));
                 collectors.spawn(async move {
                     // Keeps the connection, and so the selection, until the collector is dropped.
@@ -586,7 +589,8 @@ pub mod flood {
                     loop {
                         let frame = frames.recv().await;
                         let mut counters = counted.lock().expect("counters");
-                        let (chunks, gaps, lagged) = counters.get_mut(&id).expect("counted Terminal");
+                        let (chunks, gaps, lagged) =
+                            counters.get_mut(&id).expect("counted Terminal");
                         match frame {
                             Ok(OutputFrame::Bytes(bytes)) if bytes.id == id => *chunks += 1,
                             Ok(OutputFrame::Bytes(_)) => {}

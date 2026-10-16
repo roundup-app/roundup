@@ -182,15 +182,16 @@ async fn u104_snapshot_screen_and_after_name_the_same_output_cut() {
         .await
         .unwrap();
     let mut chunks = Vec::new();
-    let snapshot = loop {
-        match spawned.output.next().await.expect("burst produced no output") {
-            Output::Bytes { offset, bytes } => {
-                chunks.push((offset, bytes));
-                break terminals.snapshot(&spawned.id).unwrap();
-            }
-            Output::Gap { .. } => panic!("a gap in a small output"),
-        }
+    let Output::Bytes { offset, bytes } = spawned
+        .output
+        .next()
+        .await
+        .expect("burst produced no output")
+    else {
+        panic!("a gap in a small output");
     };
+    chunks.push((offset, bytes));
+    let snapshot = terminals.snapshot(&spawned.id).unwrap();
     while let Some(output) = spawned.output.next().await {
         if let Output::Bytes { offset, bytes } = output {
             chunks.push((offset, bytes));

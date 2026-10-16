@@ -1318,7 +1318,9 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         // Actor and subscription changes must commit before the next wire request is read.
         if matches!(
             method.as_deref(),
-            Some("daemon.identify" | "events.subscribe" | "terminal.output" | "terminal.outputStop")
+            Some(
+                "daemon.identify" | "events.subscribe" | "terminal.output" | "terminal.outputStop"
+            )
         ) {
             if let Some(reply) = daemon.dispatch(&mut conn, &line, None).await {
                 let _ = frames.send(reply);

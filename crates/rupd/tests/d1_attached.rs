@@ -5,10 +5,10 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use serde_json::json;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{SpawnParams, TerminalId};
+use serde_json::json;
 
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
@@ -91,7 +91,10 @@ async fn spawn_stubborn_program(client: &mut rpc::Client, cwd: &Path) -> Program
         .unwrap();
     // The program waits for this line, so no output precedes the selection.
     client
-        .request("terminal.write", json!({ "id": id, "data": STANDARD.encode("\n") }))
+        .request(
+            "terminal.write",
+            json!({ "id": id, "data": STANDARD.encode("\n") }),
+        )
         .await
         .unwrap();
     let mut printed = String::new();

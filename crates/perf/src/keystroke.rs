@@ -72,7 +72,11 @@ async fn read_report(socket: &Path) -> io::Result<Value> {
             .filter_map(|terminal| terminal["id"].as_str())
         {
             let (after, text) = printed.entry(id.to_owned()).or_default();
-            let read = ask("terminal.read", serde_json::json!({ "id": id, "after": *after })).await?;
+            let read = ask(
+                "terminal.read",
+                serde_json::json!({ "id": id, "after": *after }),
+            )
+            .await?;
 
             *after = read["next"].as_u64().unwrap_or(*after);
             text.push_str(read["text"].as_str().unwrap_or_default());
