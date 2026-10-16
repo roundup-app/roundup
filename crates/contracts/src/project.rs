@@ -13,12 +13,20 @@ pub struct Worktrees {
     pub check: Option<String>,
 }
 
+/// M2219: whether Agents launch with the roundup MCP server; a Project that never set it reads `on: true`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct Mcp {
+    pub on: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "project/")]
 pub struct ProjectSettings {
     pub worktrees: Worktrees,
     /// A36: the Model and Effort the user set per Role, and the Models a Door may start a child on.
     pub models: ProjectModels,
+    pub mcp: Mcp,
 }
 
 /// A36: one Model or Effort the Adapter offers. Outside the Adapter `id` is opaque (P4).
