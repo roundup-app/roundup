@@ -187,6 +187,7 @@ const FORMAT_SAMPLES = {
   exit: (count: number) => copy.exit(count),
   noteForOrYourOwnAnswer: (count: number) => copy.noteForOrYourOwnAnswer(count),
   answeredDecisionsFor: (count: number) => copy.answeredDecisionsFor(count),
+  answeredOutcome: (count: number) => copy.answeredOutcome(count),
   answeredBy: (count: number) => copy.answeredBy(count),
   decisionFor: (count: number) => copy.decisionFor(count),
   digestOf: (count: number) => copy.digestOf(count),

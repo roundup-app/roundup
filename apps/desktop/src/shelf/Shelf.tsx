@@ -1,6 +1,7 @@
+import { ScrollShadow } from "../ui";
 import { copy } from "../copy";
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import type { Accessor, JSX } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import type { Accessor } from "solid-js";
 import { ScopeControl } from "./ScopeControl";
 import { useShelfScope } from "../todos/shelfScope";
 import { ShelfActions } from "./BulkDelete";
@@ -32,42 +33,6 @@ export const ShelfToggle = (props: { open: boolean; onToggle: () => void }) => (
     <Icon name={props.open ? "right" : "left"} />
   </button>
 );
-
-/** U371: a scroll shadow shows on an edge only where content is clipped there. */
-const ScrollShadow = (props: { children: JSX.Element }) => {
-  const [top, setTop] = createSignal(false);
-  const [bottom, setBottom] = createSignal(false);
-  let area: HTMLDivElement | undefined;
-
-  const measure = () => {
-    if (!area) return;
-
-    setTop(area.scrollTop > 0);
-    setBottom(area.scrollTop + area.clientHeight < area.scrollHeight - 1);
-  };
-
-  onMount(() => {
-    measure();
-
-    if (typeof ResizeObserver === "undefined" || !area) return;
-
-    const observer = new ResizeObserver(measure);
-
-    observer.observe(area);
-
-    for (const child of area.children) observer.observe(child);
-
-    onCleanup(() => observer.disconnect());
-  });
-
-  return (
-    <div class="shelf-scroll" data-clipped-top={top()} data-clipped-bottom={bottom()}>
-      <div class="shelf-area" ref={(element) => (area = element)} onScroll={measure}>
-        {props.children}
-      </div>
-    </div>
-  );
-};
 
 /** U373: a tablist of `Todos` and `Pads` with a quiet count each, and the open tab's list as the only panel. */
 export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) => void; onHide: () => void }) => {

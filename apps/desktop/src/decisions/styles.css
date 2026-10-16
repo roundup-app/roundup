@@ -150,19 +150,72 @@
 }
 
 
-/* Keep retained answers readable without displacing the primary Terminal. */
+/* Retained requests start collapsed so the Terminal keeps its working space. */
 .decision-history {
   flex: 0 1 auto;
   min-height: 0;
   max-height: 35%;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
   padding: var(--space-2);
-  background: var(--sunken);
+  background: var(--ground);
   overflow-wrap: anywhere;
 }
 
-.decision-record + .decision-record {
+.decision-history-disclosure {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.decision-history-disclosure > button {
+  flex: none;
+  align-self: flex-start;
+}
+
+.decision-history-records {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.decision-history-records .shelf-area {
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.decision-history-records .shelf-area::-webkit-scrollbar {
+  display: none;
+}
+
+.decision-record,
+.decision-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+.decision-outcome {
+  font-weight: 600;
+}
+
+.decision-record + .decision-record,
+.decision-choice {
   margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--hairline);
+}
+
+.decision-history-records > .shelf-scroll {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.decision-history-records .shelf-area {
+  min-height: 0;
+  height: auto;
+}
+
+.decision-outcome span {
+  white-space: pre-wrap;
 }

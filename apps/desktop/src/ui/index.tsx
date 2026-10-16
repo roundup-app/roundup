@@ -1,10 +1,13 @@
+import { Collapsible as ArkCollapsible } from "@ark-ui/solid/collapsible";
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
 import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
-import { mergeProps, splitProps, type JSX } from "solid-js";
+import { createSignal, onMount, onCleanup, mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import "./styles.css";
+
+export const Collapsible = ArkCollapsible;
 
 export const Dialog = {
   ...ArkDialog,
@@ -65,4 +68,40 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Tooltip.Trigger asChild={(trigger) => <button {...trigger(mergeProps({ type: "button" as const }, rest, { onClick: click }))} data-button="icon" class={`word ${local.class ?? ""}`} />} />
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
+};
+
+/** U371: a scroll shadow shows on an edge only where content is clipped there. */
+export const ScrollShadow = (props: { children: JSX.Element }) => {
+  const [top, setTop] = createSignal(false);
+  const [bottom, setBottom] = createSignal(false);
+  let area: HTMLDivElement | undefined;
+
+  const measure = () => {
+    if (!area) return;
+
+    setTop(area.scrollTop > 0);
+    setBottom(area.scrollTop + area.clientHeight < area.scrollHeight - 1);
+  };
+
+  onMount(() => {
+    measure();
+
+    if (typeof ResizeObserver === "undefined" || !area) return;
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(area);
+
+    for (const child of area.children) observer.observe(child);
+
+    onCleanup(() => observer.disconnect());
+  });
+
+  return (
+    <div class="shelf-scroll" data-clipped-top={top()} data-clipped-bottom={bottom()}>
+      <div class="shelf-area" ref={(element) => (area = element)} onScroll={measure}>
+        {props.children}
+      </div>
+    </div>
+  );
 };

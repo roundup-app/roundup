@@ -2,6 +2,7 @@ import { copy } from "../copy";
 import { createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
+import { Collapsible, ScrollShadow } from "../ui";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
@@ -124,29 +125,36 @@ export const AnsweredDecisions = (props: { agent: string | null; name: string })
           <Show when={loaded().failure}>
             {(message) => <><ErrorLine message={message()} /><button data-button="quiet" type="button" class="word" aria-disabled={daemonExit() !== null ? true : undefined} onClick={() => { if (daemonExit() === null) void refetch(); }}>{copy.retry}</button></>}
           </Show>
-          <For each={loaded().answers}>
-            {(record) => {
-              const parsed = v.safeParse(json, record.prompt);
-              const prompt = parsed.success ? JSON.stringify(parsed.output, null, 2) : record.prompt;
+          <Show when={loaded().answers.length > 0}>
+            <Collapsible.Root class="decision-history-disclosure">
+              <Collapsible.Trigger data-button="quiet" class="word">{copy.answeredRequests}</Collapsible.Trigger>
+              <Collapsible.Content class="decision-history-records">
+                <ScrollShadow>
+                  <For each={loaded().answers}>
+                    {(record) => {
+                      const parsed = v.safeParse(json, record.prompt);
+                      const prompt = parsed.success ? JSON.stringify(parsed.output, null, 2) : record.prompt;
 
-              return <article class="decision-record">
-                <p class="decision-title">{props.name} <span class="light">{record.decision.tool}</span></p>
-                <Show when={record.kind === "question" ? questionOf(record.prompt) : null} fallback={<pre class="decision-args">{prompt}</pre>}>
-                  {(question) => <>
-                    <Markdown class="decision-question" body={question().question} />
-                    <For each={question().answers}>{(answer) => <div>
-                      <p>{answer.label}</p>
-                      <Markdown class="decision-question" body={answer.description} />
-                      <Show when={answer.preview}>{(preview) => <Markdown class="decision-question" body={preview()} />}</Show>
-                    </div>}</For>
-                  </>}
-                </Show>
-                <p>{copy.answeredBy(rail.nodes.find((node) => node.id === record.answered_by.id)?.name ?? record.answered_by.id)}</p>
-                <Show when={record.answer !== null}><pre class="decision-args" aria-label={copy.acceptedAnswer}>{record.answer}</pre></Show>
-                <Show when={record.note !== ""}><pre class="decision-args">{record.note}</pre></Show>
-            </article>;
-            }}
-          </For>
+                      return <article class="decision-record">
+                        <p class="decision-outcome">{copy.answeredOutcome(rail.nodes.find((node) => node.id === record.answered_by.id)?.name ?? record.answered_by.id)} <span aria-label={copy.acceptedAnswer}>{record.answer ?? record.note}</span></p>
+                        <p class="light">{record.decision.tool} · <time dateTime={new Date(record.answered_at).toISOString()}>{new Date(record.answered_at).toLocaleString()}</time></p>
+                        <Show when={record.kind === "question" ? questionOf(record.prompt) : null} fallback={<pre class="decision-args">{prompt}</pre>}>
+                          {(question) => <>
+                            <Markdown class="decision-question" body={question().question} />
+                            <For each={question().answers.filter((answer) => answer.label === record.answer)}>{(answer) => <div class="decision-choice">
+                              <Markdown class="decision-question" body={answer.description} />
+                              <Show when={answer.preview}>{(preview) => <Markdown class="decision-question" body={preview()} />}</Show>
+                            </div>}</For>
+                          </>}
+                        </Show>
+                        <Show when={record.note !== "" && record.answer !== null}><pre class="decision-args">{record.note}</pre></Show>
+                      </article>;
+                    }}
+                  </For>
+                </ScrollShadow>
+              </Collapsible.Content>
+            </Collapsible.Root>
+          </Show>
         </section>
       </Show>}
     </Show>
