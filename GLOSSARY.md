@@ -56,8 +56,7 @@ An OSC 133 (prompt, command start and end with its exit code) or OSC 7 (director
 _Avoid_: shell integration (as a name; it is the means)
 
 **Turn** (user label: command):
-One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514). Not a Block, which is a Checkpoint part.
-_Avoid_: Block, command block
+One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514).
 
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
