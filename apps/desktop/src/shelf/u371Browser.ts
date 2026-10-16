@@ -5,6 +5,8 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import { afterAll, beforeAll } from "vitest";
+import { appServer } from "../testing/appServer";
+import type { AppServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
@@ -12,7 +14,7 @@ const exec = promisify(execFile);
 type Server = Awaited<ReturnType<typeof createServer>>;
 
 interface Servers {
-  server: Server;
+  server: AppServer;
   main: Server | undefined;
 }
 
@@ -29,8 +31,7 @@ export function shelfBrowser() {
   const rig: Servers = { server: undefined!, main: undefined };
 
   beforeAll(async () => {
-    rig.server = await createServer({ cacheDir, server: { port: 0, hmr: false }, logLevel: "silent" });
-    await rig.server.listen();
+    rig.server = await appServer();
 
     const root = process.env["ROUNDUP_U371_MAIN"];
 
@@ -57,7 +58,7 @@ export function shelfBrowser() {
     return true;
   })()`);
 
-  const openShelf = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light", origin = rig.server.resolvedUrls!.local[0]) => {
+  const openShelf = async (seed = "tree-40", rail = 288, shelf = 320, width = 1280, scheme = "light", origin = rig.server.resolvedUrls.local[0]) => {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
     const url = `${origin}harness.html?seed=${seed}`;

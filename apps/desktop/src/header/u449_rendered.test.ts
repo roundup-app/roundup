@@ -8,11 +8,12 @@ import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { captureDir, readCapture } from "../testing/captures";
 import type { Observation } from "./u449Observation";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const run = captureDir("U449") ? describe : describe.skip;
 
 run("u449 isolated rendered window bar", () => {
-  let server: ViteDevServer | undefined;
+  let server: AppServer | undefined;
   let cacheDir: string | undefined;
   let baselineServer: ViteDevServer | undefined;
   let records: Observation[] = [];
@@ -23,8 +24,7 @@ run("u449 isolated rendered window bar", () => {
     }
 
     cacheDir = mkdtempSync(join(tmpdir(), "u449-vite-"));
-    server = await createServer({ cacheDir, server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
-    await server.listen();
+    server = await appServer();
     const origin = server.resolvedUrls?.local[0];
 
     if (!origin) throw new Error("U449 harness has no URL");
