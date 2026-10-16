@@ -12,6 +12,8 @@ afterEach(cleanup);
 
 const chip = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
 
+const shown = (): string[] => [...document.querySelectorAll(".bubble:not([hidden])")].map((bubble) => bubble.getAttribute("data-bubble") ?? "");
+
 const pressed = (id: string): boolean => chip(id).getAttribute("aria-pressed") === "true";
 
 describe("u2224 selecting shows output with nothing over it", () => {
@@ -44,8 +46,10 @@ describe("u2224 selecting shows output with nothing over it", () => {
     mounted.connected.rail.select("a");
     await waitFor(() => expect(chip("1")).not.toBeNull());
     fireEvent.click(chip("1"));
-    await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
-    expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1);
+    await waitFor(() => expect(shown()).toEqual(["1"]));
+    fireEvent.click(chip("2"));
+    await waitFor(() => expect(shown()).toEqual(["2"]));
+    expect(pressed("1")).toBe(false);
   });
 
   it("u2224_the_fold_closes_nothing_writes_nothing_and_keeps_place_and_size", async () => {
@@ -53,24 +57,31 @@ describe("u2224 selecting shows output with nothing over it", () => {
 
     await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
 
-    const calls = (): number => ["terminal.close"].flatMap((method) => bubbleCalls(mounted.app, method)).length;
+    // The newly selected Agent's own screens attach and size themselves; the fold must send nothing for the bubble it folds.
+    const calls = (): number => ["terminal.close", "terminal.write", "terminal.resize"].flatMap((method) => bubbleCalls(mounted.app, method)).filter((params) => (params as { id?: string }).id === "2").length;
 
     const sent = calls();
 
-    const geometry = (): Record<string, Place> => {
+    const geometry = (): Record<string, Omit<Place, "min">> => {
       // SAFETY: the bubble store writes this key as a map of Place records.
       const stored = JSON.parse(window.sessionStorage.getItem("roundup:bubble-places:/p") ?? "{}") as Record<string, Place>;
 
-      return Object.fromEntries(Object.entries(stored).map(([id, place]) => [id, { ...place, min: false }]));
+      return Object.fromEntries(Object.entries(stored).map(([id, { min: _min, ...place }]) => [id, place]));
     };
 
     const before = geometry();
 
-    mounted.connected.rail.select("a");
-    await waitFor(() => expect(chip("1")).not.toBeNull());
-    expect(calls()).toBe(sent);
-    expect(geometry()["2"]).toEqual(before["2"]);
     expect(Object.keys(before).length).toBeGreaterThan(0);
+    expect(shown()).toEqual(["2"]);
+
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(shown()).toEqual([]));
+    expect(calls()).toBe(sent);
+    expect(mounted.connected.rail.selected()).toBe("a");
+
+    const after = geometry();
+
+    for (const id of Object.keys(before)) expect(after[id]).toEqual(before[id]);
   });
 
   it("u2224_a_new_run_bubble_does_not_fold_on_its_own", async () => {

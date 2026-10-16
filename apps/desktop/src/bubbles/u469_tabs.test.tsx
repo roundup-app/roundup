@@ -102,7 +102,7 @@ it("u469_selection_and_reload_restore_at_most_one_bubble", async () => {
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
   cleanup();
   await mountBubbles();
-  expect(document.querySelectorAll('.bubble:not([hidden])').length).toBeLessThanOrEqual(1);
+  expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
 });
 
 it("u469_minimise_keeps_the_terminal_running_and_its_saved_geometry", async () => {
