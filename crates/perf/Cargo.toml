@@ -10,6 +10,7 @@ base64.workspace = true
 clap = { version = "4", features = ["derive"] }
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
+rupd = { path = "../rupd" }
 serde = { workspace = true }
 serde_json.workspace = true
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }

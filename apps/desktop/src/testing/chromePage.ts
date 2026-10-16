@@ -35,8 +35,8 @@ export type ChromePage = {
   load(path: string, width: number, height: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
-  /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; it holds across loads. */
-  scheme(name: "light" | "dark", contrast?: "more"): Promise<void>;
+  /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; optional reduced motion or transparency; all hold across loads. */
+  scheme(name: "light" | "dark", contrast?: "more", reduced?: "motion" | "transparency"): Promise<void>;
   /** Runs a constant function declaration with `args` passed as data; rejects after 20 s without a DevTools reply. */
   call<T>(declaration: string, ...args: Json[]): Promise<T>;
   /** Resolves when the page function returns truthy, or throws after `ms` (15 s by default). */
@@ -377,8 +377,8 @@ export const openPage = async (
     resize: async (width, height) => {
       await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, session);
     },
-    scheme: async (scheme, contrast) => {
-      media = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : [])];
+    scheme: async (scheme, contrast, reduced) => {
+      media = [{ name: "prefers-color-scheme", value: scheme }, ...(contrast ? [{ name: "prefers-contrast", value: contrast }] : []), ...(reduced ? [{ name: `prefers-reduced-${reduced}`, value: "reduce" }] : [])];
 
       await send("Emulation.setEmulatedMedia", { features: media }, session);
     },
