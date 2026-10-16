@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import type { AnsweredDecision } from "@contracts/decision/AnsweredDecision";
 import { NOW_TICK_MS } from "../state/clock";
 import { asking, card, cleared, decision, opened, mountApp, rpcCalls, select } from "./decisionsFixture";
 
@@ -111,4 +112,34 @@ describe("u468 refused Door answers", () => {
     expect(note instanceof HTMLInputElement && note.value).toBe("");
   });
 
+});
+
+
+describe("u468 retained answers", () => {
+  it.each(["permission", "question"])("u468_a_door_answer_remains_visible_with_its_identity (%s)", async (kind) => {
+    const original = kind === "permission" ? decision("d1", "a") : asking("d1", "a", "keep v1 routes?", ["keep", "drop"]);
+    const record: AnsweredDecision = {
+      decision: original, kind: kind === "permission" ? "permission" : "question",
+      prompt: original.args, attempt: "attempt-a", answer: kind === "permission" ? "allow" : "keep",
+      note: "preserve compatibility", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 2,
+    };
+    const prepare = (app: Parameters<Parameters<typeof mountApp>[1]>[0]) => {
+      app.handlers["decision.answers"] = ({ agent }) => agent === "a" ? [record] : [];
+    };
+    await mountApp([], prepare);
+    select("alpha");
+    const answers = await screen.findByRole("region", { name: "Answered requests for alpha" });
+    expect(answers.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
+    expect(answers.textContent).toContain(kind === "permission" ? "allow" : "keep");
+    expect(answers.textContent).toContain("preserve compatibility");
+    expect(answers.textContent).toContain("harbor");
+    expect(within(answers).queryByRole("button", { name: "Allow" })).toBeNull();
+
+    cleanup();
+    await mountApp([], prepare);
+    select("alpha");
+    const reopened = await screen.findByRole("region", { name: "Answered requests for alpha" });
+    expect(reopened.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
+    expect(reopened.textContent).toContain("harbor");
+  });
 });
