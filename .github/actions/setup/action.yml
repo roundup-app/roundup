@@ -31,14 +31,14 @@ runs:
         setsid bash -c 'npm install -g --prefix "$1" agent-browser@0.27.0 && PATH="$1/bin:$PATH" agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}; echo $? >"$2"' _ "$prefix" "$RUNNER_TEMP/browser.status" >"$RUNNER_TEMP/browser.log" 2>&1 </dev/null &
     # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
-    # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives, one per runner image,
-    # leaves only the unpacking. apt keeps the archives of the version it installs; a newer package downloads anew.
+    # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives leaves only the
+    # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of.
     - if: inputs.rust == 'true' && runner.os == 'Linux'
       id: apt-archives
       uses: actions/cache@v5
       with:
-        path: ~/apt-archives
-        key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ env.ImageVersion }}
+        path: ~/apt-archives/*.deb
+        key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup/action.yml') }}
     - if: inputs.rust == 'true' && runner.os == 'Linux'
       name: Start Tauri packages
       shell: bash
