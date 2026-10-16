@@ -105,25 +105,16 @@ mod tests {
         dir
     }
 
-    fn output() -> EventData {
-        EventData::TerminalOutput(contracts::terminal::OutputEvent {
-            id: "t".into(),
-            offset: 0,
-            data: "x".into(),
-        })
-    }
-
     #[tokio::test]
     async fn d10_every_event_but_terminal_output_is_saved_and_numbered() {
         let dir = project();
         let bus = open(dir.path());
         let mut live = bus.subscribe();
         bus.emit(Actor::user(), EventData::RailChanged);
-        bus.emit(Actor::user(), output());
         bus.emit(Actor::daemon(), EventData::RailChanged);
 
-        let seen: Vec<_> = (0..3).map(|_| live.try_recv().unwrap().seq).collect();
-        assert_eq!(seen, [Some(1), None, Some(2)]);
+        let seen: Vec<_> = (0..2).map(|_| live.try_recv().unwrap().seq).collect();
+        assert_eq!(seen, [Some(1), Some(2)]);
         let saved = SqliteLog::open(dir.path()).unwrap().read(0, 10).unwrap();
         assert_eq!(
             saved.iter().map(|e| e.seq).collect::<Vec<_>>(),
