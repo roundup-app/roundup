@@ -47,6 +47,8 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   });
 
   const list = async (): Promise<void> => {
+    if (reading !== null || daemonExit() !== null) return;
+
     const touched = new Set<string>();
 
     reading = touched;
@@ -54,7 +56,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     try {
       const listed = await app.rpc("decision.list", null);
 
-      setDecisions((current) => [...current, ...listed.filter((each) => !touched.has(each.id) && !current.some((have) => have.id === each.id))]);
+      setDecisions((current) => [...current.filter((each) => touched.has(each.id)), ...listed.filter((each) => !touched.has(each.id))]);
       setListFailure(null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
