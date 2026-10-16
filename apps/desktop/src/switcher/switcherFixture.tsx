@@ -52,7 +52,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
         <div class="centre-stack">
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-          <Switcher onFailure={(message) => failures.push(message)} />
+          <Switcher onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
       </ConnectedProjectContext.Provider>
     );

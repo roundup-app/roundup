@@ -456,6 +456,11 @@
   background-color: var(--sunken);
 }
 
+/* A resting pointer moves no highlight: only typing and the arrows do, and a hovered row changes its text colour alone. */
+.app-combobox-item:hover:not([data-highlighted]) {
+  color: var(--text);
+}
+
 .app-combobox-empty {
   margin: 0;
   padding: var(--space-2) var(--space-3);

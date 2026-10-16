@@ -352,7 +352,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <Switcher onFailure={setJumpFailure} />
+                    <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle(); }} />
                     <Thread selectionOf={tracked.selectionOf} />
                     <ResourceStrip />
                   </div>

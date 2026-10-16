@@ -17,8 +17,8 @@ const focusTarget = (): void => {
   target?.focus();
 };
 
-/** U529, U530: `⌘K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message. */
-export const Switcher = (props: { onFailure: (message: string | null) => void }) => {
+/** U529, U530: `⌘K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
+export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
   const { rail, takeover, daemonExit } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
   const [text, setText] = createSignal("");
@@ -75,6 +75,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void })
 
   const show = (): void => {
     returnTo = document.activeElement;
+    props.onOpen();
     setText("");
     setOpen(true);
   };
