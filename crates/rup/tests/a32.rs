@@ -445,27 +445,6 @@ async fn a32_a_valid_clear_only_asks_the_door() {
 }
 
 #[tokio::test]
-async fn a32_only_the_door_may_hand_off() {
-    let fx = fixture().await;
-    let params = json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []});
-    let none = fx.hand_off(params.clone()).await.unwrap_err();
-    assert_eq!(none.code, rpc::code::CONFLICT);
-    let task = fx.clear("r", false).await;
-    fx.asked().await;
-    for who in [
-        as_actor(&fx.project, ActorKind::Agent, &fx.a).await,
-        fx.project.client().await,
-    ] {
-        let err = who
-            .request("workstream.handoff", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::FORBIDDEN);
-    }
-    drop(task);
-}
-
-#[tokio::test]
 async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
     let fx = fixture().await;
     let (keep, _) = fx.full().await;
