@@ -33,7 +33,7 @@ describe("u392 the Agent add is an icon button", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Prompt");
+    const field = await screen.findByLabelText("Task");
 
     fireEvent.click(await add());
 

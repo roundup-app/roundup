@@ -127,13 +127,13 @@ describe("u133 click targets", () => {
 
   it("u133_the_prompt_field_hovers_presses_and_takes_the_same_ring", async () => {
     document.head.prepend(shell);
-    render(() => <SpawnPromptField onSubmit={() => {}} onCancel={() => {}} ref={() => {}} />);
+    render(() => <SpawnPromptField value="" onInput={() => {}} onSubmit={() => {}} onCancel={() => {}} ref={() => {}} />);
     undrive = driveStates();
-    const field = screen.getByLabelText("Prompt");
+    const field = screen.getByLabelText("Task");
 
     expect(styleIn(field, "hover").getPropertyValue("background-color")).not.toBe(styleIn(field, "rest").getPropertyValue("background-color"));
     expect(styleIn(field, "pressed").getPropertyValue("background-color")).not.toBe(styleIn(field, "hover").getPropertyValue("background-color"));
-    expect(outlineRulesIn(field, "focus")).toEqual(["[data-state-focus]"]);
+    expect(outlineRulesIn(field, "focus")).toEqual(["[data-state-focus]", ".spawn-prompt-field[data-state-focus]"]);
   });
 
   it("u133_the_shared_ring_only_moves_for_tick_boxes_and_full_width_rail_rows", async () => {
@@ -150,13 +150,15 @@ describe("u133 click targets", () => {
     const relocated = withOutline.filter((rule) => rule !== ring[0]);
 
     expect(relocated.map(({ file, selector }) => ({ file, selector }))).toEqual([
+      { file: "rail/styles.css", selector: ".spawn-prompt-field:focus-visible" },
       { file: "rail/styles.css", selector: ".rail-row:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible::before" },
     ]);
-    expect(relocated[0]!.body.trim()).toBe("outline-offset: calc(-1 * var(--space-1));");
-    expect(relocated[1]!.body.trim()).toBe("outline-width: 0;");
-    expect(relocated[2]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
+    expect(relocated[0]!.body.trim()).toBe("outline-width: 0;");
+    expect(relocated[1]!.body.trim()).toBe("outline-offset: calc(-1 * var(--space-1));");
+    expect(relocated[2]!.body.trim()).toBe("outline-width: 0;");
+    expect(relocated[3]!.body).toMatch(/outline:\s*inherit;\s*outline-width:\s*2px;\s*outline-offset:\s*2px;/);
   });
 
   it("u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface", () => {
