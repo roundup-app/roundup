@@ -17,7 +17,12 @@
   display: flex;
   flex-direction: column;
   isolation: isolate;
-  border: 1px solid var(--hairline);
+  overflow: hidden;
+  background: var(--ground);
+  border-radius: var(--radius-drawer);
+  box-shadow: var(--shadow-drawer);
+  padding: var(--space-3);
+  gap: var(--space-2);
   pointer-events: auto;
 }
 
@@ -25,21 +30,10 @@
   display: none;
 }
 
-/* The ground fades by its own opacity; the text, header and controls above it stay opaque. */
-.bubble::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--ground);
-  opacity: var(--bubble-ground);
-}
-
-/* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the app's ground (U164), which the bubble's own layer fades. */
-.bubble .xterm,
+/* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the panel's ground. */
 .bubble .xterm .xterm-viewport,
 .bubble .xterm .xterm-scrollable-element {
-  background-color: transparent;
+  background-color: var(--ground);
 }
 
 /* U371: the open Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins. */
@@ -54,7 +48,7 @@
   gap: var(--space-2);
   flex-wrap: wrap;
   min-height: var(--space-5);
-  padding: 0 var(--space-2);
+  padding: 0;
   cursor: grab;
 }
 
@@ -71,35 +65,6 @@
   color: var(--grey);
 }
 
-/* D2, D6, D7: the slider is a click target, so it takes a type step, a 24 px hit area and the states of a button. */
-.bubble-header input[type="range"] {
-  box-sizing: border-box;
-  min-height: var(--space-5);
-  flex: 0 1 72px;
-  width: 72px;
-  min-width: 40px;
-  margin: 0;
-  font-size: var(--text-small);
-  color: var(--text);
-  cursor: pointer;
-  background-color: transparent;
-}
-
-.bubble-header input[type="range"]:hover {
-  color: var(--text);
-  background-color: var(--hover);
-}
-
-.bubble-header input[type="range"]:focus-visible {
-  outline: 2px solid var(--accent);
-}
-
-.bubble-header input[type="range"]:active {
-  color: var(--text);
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
 .bubble-header button {
   display: inline-flex;
   align-items: center;
@@ -112,6 +77,13 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/* The emulator's host fills the body but the fit leaves under one row spare: it goes under the header, so the bottom inset stays `--space-3`. */
+.bubble-body > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .bubble-corner {

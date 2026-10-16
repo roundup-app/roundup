@@ -3,7 +3,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { event, info } from "../testing/nodes";
 import { bubbleNames, bubbleCalls, mountBubbles, TERMINALS } from "./bubblesFixture";
-import { clamped, DEFAULT_TRANSPARENCY, MIN_HEIGHT, MIN_WIDTH } from "./places";
+import { clamped, MIN_HEIGHT, MIN_WIDTH } from "./places";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -13,9 +13,6 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const bubble = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"]`)!;
-
-// SAFETY: getAllByRole returns HTMLElements and the transparency slider is an input.
-const slider = (): HTMLInputElement => screen.getAllByRole("slider", { name: "Transparency" })[0] as HTMLInputElement;
 
 describe("u164 a bubble floats over the centre pane", () => {
   it("u164_a_bubble_floats_over_the_pane_and_adds_no_rail_row_or_switcher_entry", async () => {
@@ -119,26 +116,14 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(bubble("1").getAttribute("style")).toBe(style);
   });
 
-  it("u164_transparency_fades_the_ground_only_and_persists_per_project", async () => {
-    await mountBubbles("a");
-    await waitFor(() => bubble("1"));
-
-    expect(slider().value).toBe(String(DEFAULT_TRANSPARENCY));
-    expect(slider().getAttribute("aria-valuetext")).toBe("8%");
-    fireEvent.input(slider(), { target: { value: "60" } });
-
-    expect(bubble("1").style.getPropertyValue("--bubble-ground")).toBe("0.4");
-    expect(bubble("2").style.getPropertyValue("--bubble-ground")).toBe("0.4");
-    expect(window.localStorage.getItem("roundup:bubble-transparency:/p")).toBe("60");
-    expect(getComputedStyle(bubble("1")).getPropertyValue("backdrop-filter")).not.toContain("blur");
-  });
-
-  it("u164_an_unreadable_stored_transparency_is_the_default", async () => {
+  it("u523_opacity_is_removed_and_legacy_storage_is_ignored", async () => {
     window.localStorage.setItem("roundup:bubble-transparency:/p", "not json");
     await mountBubbles("a");
     await waitFor(() => bubble("1"));
 
-    expect(slider().value).toBe("8");
+    expect(screen.queryAllByRole("slider")).toEqual([]);
+    expect(bubble("1").style.getPropertyValue("--bubble-ground")).toBe("");
+    expect(window.localStorage.getItem("roundup:bubble-transparency:/p")).toBe("not json");
   });
 
   it("u164_a_new_run_bubble_never_moves_selection_or_focus", async () => {
