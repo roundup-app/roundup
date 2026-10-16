@@ -5083,3 +5083,48 @@ async fn b6_held_action_history_is_private_to_the_accepting_agent_and_user() {
     );
     run.finish().await;
 }
+
+#[tokio::test]
+async fn b6_a_child_cannot_queue_a_parent_rename_during_the_parents_takeover() {
+    let (run, _) = door_terminal().await;
+    let (door, _) = start_answer_door(&run).await;
+    let child = Client::connect(&run.daemon.socket).await.unwrap();
+    child
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    let params = json!({"id":door,"name":"forbidden parent rename"});
+    let before = child
+        .request("rail.rename", params.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(before.code, rpc::code::FORBIDDEN);
+    run.user
+        .request("takeover.begin", json!({"agent":door}))
+        .await
+        .unwrap();
+    let during = child.request("rail.rename", params).await;
+    let history = run
+        .user
+        .request("agent.actionHistory", json!({"id":door}))
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(
+        during.unwrap_err(),
+        before,
+        "Takeover must not expand Reach"
+    );
+    assert_eq!(
+        history,
+        json!([]),
+        "a forbidden action must never be accepted"
+    );
+}
