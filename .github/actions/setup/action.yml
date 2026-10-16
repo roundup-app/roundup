@@ -10,12 +10,22 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
+  node:
+    description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
+    default: 'true'
   builder:
     description: Install Claude Code, which runs a Builder (L23), screens its ask and runs its real-`claude` observers, and Codex, the Builder's fallback.
     default: 'false'
 runs:
   using: composite
   steps:
+    # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
+    # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
+    - if: inputs.rust == 'true' && runner.os == 'Linux'
+      name: Start Tauri packages
+      shell: bash
+      run: |
+        setsid sudo bash -c 'apt-get update && apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
     - if: inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
@@ -36,17 +46,13 @@ runs:
     - uses: actions/setup-python@v6
       with:
         python-version: '3.12'
-    - uses: pnpm/action-setup@v5
-    - uses: actions/setup-node@v5
+    - if: inputs.node != 'false'
+      uses: pnpm/action-setup@v5
+    - if: inputs.node != 'false'
+      uses: actions/setup-node@v5
       with:
         node-version: 22
         cache: pnpm
-    - if: inputs.rust == 'true' && runner.os == 'Linux'
-      name: Tauri packages
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq
     - if: inputs.rust == 'true' && runner.os == 'macOS'
       name: GNU coreutils and jq
       shell: bash
@@ -54,8 +60,16 @@ runs:
         brew install coreutils jq
         echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
     - uses: taiki-e/install-action@just
-    - shell: bash
+    - if: inputs.node != 'false'
+      shell: bash
       run: pnpm install --frozen-lockfile
+    - if: inputs.rust == 'true' && runner.os == 'Linux'
+      name: Wait for Tauri packages
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/apt.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/apt.log"
+        [ "$(cat "$RUNNER_TEMP/apt.status")" = 0 ]
     - if: inputs.browser == 'true'
       shell: bash
       run: |
