@@ -1,6 +1,6 @@
-import { type createToaster, Toaster, Toast } from "@ark-ui/solid/toast";
+import { type CreateToasterReturn, Toaster, Toast } from "@ark-ui/solid/toast";
 
-export function u492Fixture(toaster: ReturnType<typeof createToaster>, library = { Toaster, Toast }) {
+export function u492Fixture(toaster: CreateToasterReturn, library = { Toaster, Toast }) {
   return <>
     <button onClick={() => toaster.create({ title: "First result saved", duration: Infinity })}>First result</button>
     <button onClick={() => toaster.create({ title: "Second result saved", duration: Infinity })}>Second result</button>

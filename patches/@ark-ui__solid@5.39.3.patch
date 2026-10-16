@@ -37,7 +37,7 @@ index a24e2ead77f37f9aae2d5cc024ece4a5f2bc4568..5491cda69723da13a5baf44e98238fda
  var ToastActor = (props) => {
    const env = useEnvironmentContext();
 diff --git a/dist/chunk/XCGPB47W.js b/dist/chunk/XCGPB47W.js
-index fd17b3b6f34b09bf914f3f0c921f526b361879a7..2b0eb791731d39f63a1c60f6c8e6cf30d7cc7698 100644
+index fd17b3b6f34b09bf914f3f0c921f526b361879a7..04a8dcd78f880b17b32d17b59b16272eafc7efef 100644
 --- a/dist/chunk/XCGPB47W.js
 +++ b/dist/chunk/XCGPB47W.js
 @@ -6,7 +6,7 @@ import { __export } from './ESLJRKWD.js';
@@ -54,7 +54,7 @@ index fd17b3b6f34b09bf914f3f0c921f526b361879a7..2b0eb791731d39f63a1c60f6c8e6cf30
    return createComponent(ark.div, mergeProps$1(mergedProps, {
      get children() {
 -      return [createComponent(ark.div, mergeProps$1(() => toast3().getGhostBeforeProps())), memo(() => props.children), createComponent(ark.div, mergeProps$1(() => toast3().getGhostAfterProps()))];
-+      return [createComponent(ark.div, mergeProps$1(() => toast3().getGhostBeforeProps())), memo(() => toast3().getRootProps()["data-mounted"] !== void 0 ? props.children : void 0), createComponent(ark.div, mergeProps$1(() => toast3().getGhostAfterProps()))];
++      return [createComponent(ark.div, mergeProps$1(() => toast3().getGhostBeforeProps())), memo(() => memo(() => toast3().getRootProps()["data-mounted"] !== void 0)() ? props.children : void 0), createComponent(ark.div, mergeProps$1(() => toast3().getGhostAfterProps()))];
      }
    }));
  };
