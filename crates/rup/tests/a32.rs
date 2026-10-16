@@ -934,6 +934,10 @@ async fn a32_message_list_spans_iterations() {
 /// Leave Subagent `fx.a` mid-resume, which no stop can claim: it was stopped, and the fake
 /// `claude` holds the `SessionStart` that would acknowledge its resume.
 async fn hold_a_resume(fx: &Fix) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
+    // Spawn returns before SessionStart: a needs a saved conversation, and b must clear the
+    // shared start gate so only a's resumed Attempt can create the held-start marker.
+    idle(&fx.user, &fx.a).await;
+    idle(&fx.user, &fx.b).await;
     fx.user
         .request("agent.stop", json!({"id": fx.a}))
         .await
