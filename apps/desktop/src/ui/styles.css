@@ -143,8 +143,20 @@
   }
 }
 
+.app-listbox {
+  margin: var(--space-2) 0;
+}
+
+.app-listbox:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .app-listbox-item {
-  padding: var(--space-2);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-row);
   cursor: pointer;
 }
@@ -155,6 +167,10 @@
 
 .app-listbox-item[data-selected] {
   background-color: var(--selected);
+}
+
+.app-listbox-item[data-selected]:not([data-disabled]):hover {
+  background-color: var(--selected-hover);
 }
 
 .app-listbox-item[data-disabled],
@@ -169,21 +185,17 @@
 
 .app-listbox-description {
   display: block;
+  grid-column: 1 / -1;
   color: var(--grey);
   font-size: var(--text-small);
 }
 
 .app-listbox-note {
-  cursor: pointer;
+  cursor: text;
 }
 
 .app-listbox-note:not([aria-disabled="true"]):hover {
   background-color: var(--hover);
-}
-
-.app-listbox-note:not([aria-disabled="true"]):active {
-  background-color: var(--selected);
-  transition-duration: 0s;
 }
 
 .app-listbox-item [data-part="item-text"] {
