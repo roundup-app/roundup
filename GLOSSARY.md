@@ -387,6 +387,12 @@ complete prompt, request kind (`RequestKind`: question or permission), requestin
 Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
 Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
 
+**Failed answer** (`FailedAnswer`, `Decision.failure`):
+The latest refused authenticated Agent answer on one original live Decision,
+read through `decision.list` with its Reach filtering: requesting Attempt,
+answering Actor, failure time and exact RPC error code and message. It is not a
+successful answer record; replacement, clearing or successful delivery discards it.
+
 **Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
 An `ask_user` question the user reads and answers in its Agent's primary Terminal.
 The answer belongs to the original Decision and Attempt and retains its authenticated
