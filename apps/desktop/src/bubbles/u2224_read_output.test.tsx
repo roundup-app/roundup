@@ -58,6 +58,7 @@ describe("u2224 selecting shows output with nothing over it", () => {
     await waitFor(() => expect(document.querySelectorAll('.terminal-tab[aria-pressed="true"]')).toHaveLength(1));
 
     // The newly selected Agent's own screens attach and size themselves; the fold must send nothing for the bubble it folds.
+    // SAFETY: the fake App records each call's params as the request object, which carries `id` for terminal methods.
     const calls = (): number => ["terminal.close", "terminal.write", "terminal.resize"].flatMap((method) => bubbleCalls(mounted.app, method)).filter((params) => (params as { id?: string }).id === "2").length;
 
     const sent = calls();
