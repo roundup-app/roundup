@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
-import { shelfBrowser } from "./u371_browser";
+import { shelfBrowser } from "./u371Browser";
 
 const { rig, browser, evaluate, settle, openShelf, boxes, toggle, capture } = shelfBrowser();
 

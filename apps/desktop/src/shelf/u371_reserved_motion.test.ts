@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
-import { shelfBrowser } from "./u371_browser";
+import { shelfBrowser } from "./u371Browser";
 
 const { rig, browser, evaluate, settle, openShelf, boxes, toggle } = shelfBrowser();
 
