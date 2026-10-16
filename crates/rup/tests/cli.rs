@@ -29,7 +29,7 @@ fn on(socket: &Path) -> Run {
 }
 
 impl Run {
-    fn as_agent(self, agent: Option<&str>) -> Self {
+    fn acting_as(self, agent: Option<&str>) -> Self {
         Run {
             agent: agent.map(str::to_owned),
             ..self
@@ -493,7 +493,7 @@ async fn i4_a_hook_command_with_bad_usage_exits_1_not_2() {
 #[tokio::test]
 async fn i5_a_call_is_the_touch_of_the_agent_named() {
     let project = start_daemon();
-    let by = on(&project.socket).as_agent(Some("a7"));
+    let by = on(&project.socket).acting_as(Some("a7"));
     assert_eq!(code(&by.rup(&["pad", "create", "notes"]).await), 0);
     let history = out(&by
         .rup(&["provenance", "history", "pad:notes", "--json"])
@@ -505,7 +505,7 @@ async fn i5_a_call_is_the_touch_of_the_agent_named() {
 #[tokio::test]
 async fn i5_the_agent_flag_overrides_the_variable() {
     let project = start_daemon();
-    let run = on(&project.socket).as_agent(Some("a8"));
+    let run = on(&project.socket).acting_as(Some("a8"));
     run.rup(&["pad", "create", "notes", "--agent", "a9"]).await;
     let history = out(&run
         .rup(&["--json", "provenance", "history", "pad:notes"])
@@ -518,7 +518,7 @@ async fn i5_the_agent_flag_overrides_the_variable() {
 async fn i5_no_agent_id_says_so_and_exits_2() {
     let project = start_daemon();
     let output = on(&project.socket)
-        .as_agent(None)
+        .acting_as(None)
         .rup(&["pad", "list"])
         .await;
     assert_eq!(code(&output), 2);
