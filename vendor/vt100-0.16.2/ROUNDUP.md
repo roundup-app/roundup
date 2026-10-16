@@ -214,3 +214,65 @@ Final `just check origin/main` after merging main `3aea34ad4` exits **0**:
 1586 Rust tests passed (6 skipped), 61 web tests passed (2 skipped), with lint,
 contract freshness and `ALL PROOFS CHECK` passing. No full X14 integration or
 matched performance acceptance is claimed by these library observers.
+
+## Screen continuation state (X14 prerequisite, #2160)
+
+The additional licensed vt100 source delta extends `Screen::state_formatted`:
+
+```text
+reset margins/origin → saved attributes/cursor → repaint visible cells
+                    → drawing margins/origin/cursor → input modes
+```
+
+`Grid` reads its existing saved position, saved origin mode and scrolling bounds;
+`Screen` reads its existing saved attributes. Private ANSI writers emit DECSTBM
+and DECOM beside the existing CUP, DECSC and SGR writers. A saved delayed-wrap
+position is established with a temporary last-column space before the repaint.
+Final cursor formatting reuses the existing cell/attribute/wide-character path,
+with origin-relative CUP coordinates when required. No parser input path, vte
+source, dependency configuration or callback changes. The live parser and its
+callbacks are neither cloned nor mutated by export.
+
+No retained state is added. Screen output is bounded by the configured visible
+rows/columns and their bounded cells, plus fixed cursor/attribute/margin/mode
+sequences (the observer allows 128 bytes per cell plus 512 fixed bytes).
+Configured scrollback storage remains unchanged; this formatter exports the
+visible screen, not scrollback or the inactive alternate grid. Pending recognition
+is still exported separately with its existing 1280-byte bound. There is no raw
+replay history or additional ANSI/UTF-8 recognizer.
+
+Reuse rechecked 2026-10-16: `gh api` on vt100 main and vte master each exited 0
+and returned the same revisions/dates recorded above. The installed
+[vt100 Screen](https://docs.rs/vt100/0.16.2/vt100/struct.Screen.html) owns formatting
+and private saved/margin state, but upstream `state_formatted` only composes
+contents and input modes. Current cursor getters cannot export the saved cursor
+or margins. The installed
+[vte Parser](https://docs.rs/vte/0.15.0/vte/struct.Parser.html) owns recognition but
+has no screen/grid or screen formatter. Selected: extend the pinned vt100
+formatter using its state and existing ANSI machinery; neither pending recognition
+nor vte alone can restore ground-state screen continuation. Exact package pins,
+archive hashes and MIT / Apache-2.0 OR MIT licence texts remain unchanged.
+
+`x14_library_screen_restore_preserves_saved_cursor_and_margins` in
+`crates/terminal/tests/library_attach.rs` fails before the patch (exit 101,
+`Xbc` versus `abcX`). After the patch it checks both Issue reproductions with
+literal contents and cursor results, every byte cut, three exports per cut,
+saved bold/red attributes, default/non-default margins, saved/current origin
+modes and a saved delayed-wrap position. A later restore/movement/erase probes the retained state; non-Clone
+callbacks and continued live parsing check export isolation.
+
+`x14_library_screen_restore_state_is_bounded` fills configured history, installs
+saved red/bold cursor state and restricted margins, then overwrites/scrolls with
+fixed 8192-byte chunks. At 1 MiB and 64 MiB (beyond the production Output log's
+1 MiB cap), exports are identical: 96 bytes for 4×80 with 8 history rows and
+144 bytes for 12×40 with 16 history rows; pending is empty. Restored continuation
+still writes red/bold `X` at the literal saved position. An isolated Linux
+observer checks RSS within 1024 KiB of its 1 MiB reading; observed increases were
+40 KiB and 24 KiB. These are library retention observations, not performance
+budget evidence. No existing test was removed: pending/OSC export, Clone replay,
+replacement, handled-write and executed-control observers prove distinct clauses.
+
+Actual final command exits are retained on #2160 and its PR. Production snapshot
+integration, selected transport, parser projection, Contract callers, raw Tauri
+bytes, exact xterm observation, flood/journey and matched performance remain #1930.
+This prerequisite does not claim full X14 acceptance.

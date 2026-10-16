@@ -64,6 +64,31 @@ impl BufWrite for RestoreCursor {
     }
 }
 
+#[derive(Debug)]
+pub struct ScrollRegion {
+    pub top: u16,
+    pub bottom: u16,
+}
+
+impl BufWrite for ScrollRegion {
+    fn write_buf(&self, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(b"\x1b[");
+        extend_itoa(buf, self.top + 1);
+        buf.push(b';');
+        extend_itoa(buf, self.bottom + 1);
+        buf.push(b'r');
+    }
+}
+
+#[derive(Debug)]
+pub struct OriginMode(pub bool);
+
+impl BufWrite for OriginMode {
+    fn write_buf(&self, buf: &mut Vec<u8>) {
+        buf.extend_from_slice(if self.0 { b"\x1b[?6h" } else { b"\x1b[?6l" });
+    }
+}
+
 #[derive(Default, Debug)]
 #[must_use = "this struct does nothing unless you call write_buf"]
 pub struct MoveTo {
