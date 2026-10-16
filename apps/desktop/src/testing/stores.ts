@@ -161,14 +161,14 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
     if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
-    const created: Pad = { name, owner: actor(), text: text ?? "", updated_at: Date.now(), home: null };
+    const created: Pad = { name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
     store.pads = [...store.pads, created];
     announce({ name: "pad.changed", data: { name } });
 
     return { ...created };
   },
-  "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now() })),
-  "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now() })),
+  "pad.write": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text, updated_at: Date.now(), revision: pad.revision + 1 })),
+  "pad.append": ({ name, text }) => changePad(store, announce, name, (pad) => ({ ...pad, text: pad.text + text, updated_at: Date.now(), revision: pad.revision + 1 })),
   "pad.move": ({ name, home }) => changePad(store, announce, name, (pad) => ({ ...pad, home })),
   "pad.setOwner": ({ name, owner }) => changePad(store, announce, name, (pad) => ({ ...pad, owner })),
   "pad.delete": ({ name }) => {
