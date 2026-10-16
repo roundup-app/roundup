@@ -138,15 +138,10 @@ impl RestartHarness {
     }
 
     async fn status(&self, attempt: &str, revision: &str, kind: Kind) {
-        // A later receiver-gone event acknowledges that the listener processed this Status.
-        let fence = format!("fence-{attempt}-{revision}");
-        self.rail
-            .0
-            .lock()
-            .unwrap()
-            .push(agent_node(&fence, Kind::Working));
-        let message = self.send(Actor::daemon(), &fence, "fence").await;
-        let mut events = self.ctx.bus.subscribe();
+        // Reopened harnesses have no runtime at open; start their listener before emitting.
+        start_listener(&self.messages.inner);
+        // on_status completion includes reconciliation and settling, without a synthetic receiver.
+        let mut completed = self.messages.inner.completed.subscribe();
         self.ctx.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
@@ -160,30 +155,11 @@ impl RestartHarness {
                 },
             })),
         );
-        self.ctx.bus.emit(
-            Actor::daemon(),
-            EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
-                id: fence,
-                attempt: "1".into(),
-                status_revision: "2".into(),
-                status: Status {
-                    kind: Kind::Done,
-                    label: "fence".into(),
-                    since: 0,
-                },
-            })),
-        );
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
-            loop {
-                if let EventData::MessageDropped(m) = events.recv().await.unwrap().data
-                    && m.id == message.id
-                {
-                    break;
-                }
-            }
+            while completed.recv().await.unwrap() != "on_status" {}
         })
         .await
-        .unwrap();
+        .expect("status reconciliation completed");
     }
 }
 
