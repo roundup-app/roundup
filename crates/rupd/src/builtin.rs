@@ -18,6 +18,8 @@ pub(crate) fn call(
     Some(match (namespace, method) {
         (_, "daemon.ping") => Ok(json!({
             "pong": true,
+            "pid": std::process::id(),
+            "project": daemon.project,
             "contract": { "fingerprint": methods::fingerprint(), "methods": methods::method_names() },
         })),
         (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
