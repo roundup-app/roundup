@@ -17,6 +17,9 @@ const fn m(name: &'static str, params: &'static str, result: &'static str) -> Me
 }
 
 pub const METHODS: &[Method] = &[
+    m("ask.send", "ask_SendParams", "ask_Ask"),
+    m("ask.list", "null", "ask_Ask[]"),
+    m("ask.pick", "ask_PickParams", "ask_Ask"),
     m(
         "daemon.ping",
         "null",

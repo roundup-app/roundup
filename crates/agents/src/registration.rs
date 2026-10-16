@@ -229,6 +229,7 @@ impl Shared {
         }
         let clock = Arc::clone(&self.clock);
         let mut run = Run {
+            startup_context: true,
             attempt: attempt.clone(),
             status_revision: 1,
             closing: false,
