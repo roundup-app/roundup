@@ -4204,6 +4204,12 @@ async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
 async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
     for method in [
         "rail.rename",
+        "rail.move",
+        "rail.remove",
+        "agent.discard",
+        "agent.land",
+        "agent.worktreeState",
+        "agent.run",
         "terminal.kill",
         "terminal.snapshot",
         "terminal.screen",
@@ -4246,6 +4252,11 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         .unwrap();
         let params = match method {
             "rail.rename" => json!({"id":run.child,"name":"after resize"}),
+            "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
+            "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
+            "rail.remove" | "agent.discard" | "agent.land" | "agent.worktreeState" => {
+                json!({"id":run.child})
+            }
             "terminal.read" => json!({"id":run.terminal,"after":0}),
             "terminal.search" => json!({"id":run.terminal,"pattern":"READY"}),
             _ => json!({"id":run.terminal}),
@@ -4259,8 +4270,20 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         .await;
         std::fs::remove_file(gate).unwrap();
         end.await.unwrap().unwrap();
-        run.finish().await;
-        effect.unwrap().unwrap();
+        if method == "rail.remove" {
+            drop(run);
+        } else {
+            run.finish().await;
+        }
+        let effect = effect.unwrap();
+        if matches!(
+            method,
+            "agent.discard" | "agent.land" | "agent.worktreeState"
+        ) {
+            assert_eq!(effect.unwrap_err().code, rpc::code::NOT_FOUND);
+        } else {
+            effect.unwrap();
+        }
         assert_eq!(
             history.unwrap().unwrap()[0]["outcome"]["status"],
             "completed",
@@ -4286,6 +4309,12 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
         "terminal.kill",
         "terminal.close",
         "rail.rename",
+        "rail.move",
+        "rail.remove",
+        "agent.discard",
+        "agent.land",
+        "agent.worktreeState",
+        "agent.run",
     ] {
         let (run, _) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
@@ -4330,6 +4359,8 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
                 json!({"id":run.child,"order":{"kind":"work","ask":"later order","limits":[]}})
             }
             "rail.rename" => json!({"id":run.child,"name":"after every resize"}),
+            "agent.run" => json!({"id":run.child,"command":["/bin/true"]}),
+            "rail.move" => json!({"id":run.child,"parent":null,"index":0}),
             _ => json!({"id":run.child}),
         };
         batch.extend(format!("{}\n", json!({"id":110,"method":method,"params":params})).as_bytes());
@@ -4346,7 +4377,11 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
         .unwrap();
         if barrier["id"] != 111 {
             run.release();
-            run.finish().await;
+            if method == "rail.remove" {
+                drop(run);
+            } else {
+                run.finish().await;
+            }
             panic!("{method} overtook earlier resizes before the wire barrier: {barrier}");
         }
         run.release();
@@ -4360,7 +4395,14 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
                     .unwrap(),
             )
             .unwrap();
-            if reply["id"] == 110 && method == "agent.resume" {
+            if reply["id"] == 110
+                && matches!(
+                    method,
+                    "agent.discard" | "agent.land" | "agent.worktreeState"
+                )
+            {
+                assert_eq!(reply["error"]["code"], rpc::code::NOT_FOUND, "{reply}");
+            } else if reply["id"] == 110 && method == "agent.resume" {
                 assert_eq!(reply["error"]["code"], rpc::code::CONFLICT, "{reply}");
             } else if reply["id"] == 110 && method == "agent.interrupt" {
                 // A fake Claude need not acknowledge Escape; its accounted unknown is final.
@@ -4382,7 +4424,11 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             }
             order.push(reply["id"].as_u64().unwrap());
         }
-        run.finish().await;
+        if method == "rail.remove" {
+            drop(run);
+        } else {
+            run.finish().await;
+        }
         assert_eq!(
             order,
             [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
