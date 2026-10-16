@@ -432,6 +432,9 @@ The Daemon's table in `project.db` of every Event but Terminal output, kept to t
 **Event number** (`seq`):
 The positive integer the Event log gives an Event as its row id: it rises by one per saved Event, never repeats across a Daemon restart, and rides on the Event every subscriber sees. Terminal output has none (D10).
 
+**Event head** (`head`):
+The highest Event number saved when an `events.subscribe` was accepted, 0 for an empty log: its answer is `{head}`, and `rup events` without `--follow` stops once it has printed that Event (`scenarios/cli.md` I9).
+
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 
