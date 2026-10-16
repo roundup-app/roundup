@@ -151,7 +151,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  --button-inline: var(--space-1);
+  --button-inline: 0;
   border: var(--rule) solid var(--hairline);
   --button-radius: 0;
   --button-surface: var(--sunken);
@@ -160,7 +160,7 @@
 
 .strip-edge .tab-mark {
   align-self: center;
-  margin-top: 0;
+  margin: 0 var(--space-1);
 }
 
 .close-dialog {
