@@ -409,9 +409,9 @@ impl Daemon {
                 door_effects.push(guard);
             }
         }
-        // A released Stop names the original Attempt. User Stop/Resume may run alongside
+        // A released Stop names the original Attempt. Direct Stop/Resume may run alongside
         // ordinary steering, but cannot replace that Attempt between its check and effect.
-        let _user_attempt = if conn.actor.kind == ActorKind::User
+        let _direct_attempt = if conn.actor.kind != ActorKind::Agent
             && matches!(method, "agent.stop" | "agent.resume")
         {
             let NodeId { id } = rpc::params(params.clone())?;
