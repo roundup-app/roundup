@@ -8,5 +8,6 @@ mod owned;
 mod read;
 mod snapshot;
 mod spawn;
+mod stream;
 mod stuck;
 mod title;
