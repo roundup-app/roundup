@@ -464,6 +464,7 @@ impl Shared {
         id: &str,
         text: &str,
         first: Option<&str>,
+        original: Option<&str>,
         verbatim: bool,
     ) -> Result<(), SteerError> {
         let not_found = || PromptError::NotFound { id: id.to_owned() };
@@ -480,6 +481,8 @@ impl Shared {
                     }));
                 };
                 if first.is_some_and(|attempt| attempt != run.attempt)
+                    // B6: a held prompt never reaches a replacement Attempt.
+                    || original.is_some_and(|attempt| attempt != run.attempt)
                     || run.ended
                     || run.closing
                     || run.adapter.is_ended()
