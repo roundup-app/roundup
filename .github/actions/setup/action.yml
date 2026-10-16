@@ -19,6 +19,16 @@ inputs:
 runs:
   using: composite
   steps:
+    # The browser downloads and its system packages install in about 30 s of waiting on the network: where no Tauri
+    # install holds apt's lock, they run in the background while the toolchain, caches and Node install, and `Wait for
+    # browser` joins them. The package goes to its own prefix: this runs before `setup-node`, on the runner's own Node.
+    - if: inputs.browser == 'true' && inputs.rust != 'true'
+      name: Start browser install
+      shell: bash
+      run: |
+        prefix="$HOME/.agent-browser-npm"
+        echo "$prefix/bin" >>"$GITHUB_PATH"
+        setsid bash -c 'npm install -g --prefix "$1" agent-browser@0.27.0 && PATH="$1/bin:$PATH" agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}; echo $? >"$2"' _ "$prefix" "$RUNNER_TEMP/browser.status" >"$RUNNER_TEMP/browser.log" 2>&1 </dev/null &
     # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
     - if: inputs.rust == 'true' && runner.os == 'Linux'
@@ -70,11 +80,18 @@ runs:
         until [ -s "$RUNNER_TEMP/apt.status" ]; do sleep 1; done
         cat "$RUNNER_TEMP/apt.log"
         [ "$(cat "$RUNNER_TEMP/apt.status")" = 0 ]
-    - if: inputs.browser == 'true'
+    - if: inputs.browser == 'true' && inputs.rust == 'true'
       shell: bash
       run: |
         npm install -g agent-browser@0.27.0
         agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}
+    - if: inputs.browser == 'true' && inputs.rust != 'true'
+      name: Wait for browser
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/browser.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/browser.log"
+        [ "$(cat "$RUNNER_TEMP/browser.status")" = 0 ]
     # Codex, and Claude Code at the version claude-code-action 1 pins.
     - if: inputs.builder == 'true'
       shell: bash
