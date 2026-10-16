@@ -14,9 +14,11 @@ const list: ModelList = dense
   ? { models: Array.from({ length: 20 }, (_, at) => ({ id: `m${at}`, label: `Model ${at} ${"長い名前".repeat(2)} ${"x".repeat(24)}` })), efforts: [{ id: "e1", label: "Low" }, { id: "e2", label: "High" }] }
   : { models: [{ id: "m-opus", label: "Opus" }, { id: "m-sonnet", label: "Sonnet" }], efforts: [{ id: "e1", label: "Low" }, { id: "e2", label: "High" }] };
 
+const failing = new URLSearchParams(location.search).has("fail");
+
 const app = createFakeApp();
 
-app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: "subagent", model: null, effort: null }], allowed: [] } });
+app.handlers["project.get"] = () => failing ? Promise.reject(new Error(`Could not read the Project settings ${"x".repeat(40)}`)) : ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: "subagent", model: null, effort: null }], allowed: [] } });
 
 const Fixture = () => {
   const [pair, setPair] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
