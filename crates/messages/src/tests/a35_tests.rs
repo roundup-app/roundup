@@ -322,10 +322,10 @@ async fn a35_lag_resync_preserves_reserved_messages() {
     h.send(Actor::user(), "door", "queued").await;
     h.messages.reserve_restart("door", "c", None).await.unwrap();
     h.rail.0.lock().unwrap()[0] = agent_node("door", Kind::Done);
-    // Bus uses broadcast::channel(1024) in rpc::Bus::new; no await lets this listener
-    // consume events before its buffer overflows on the current-thread test runtime.
-    for _ in 0..1100 {
-        h.ctx.bus.emit(Actor::daemon(), EventData::RailChanged);
+    // No await lets the current-thread listener consume events before overflow.
+    // Unrelated events exercise Lagged without also requesting a resync per event.
+    for _ in 0..=h.ctx.bus.capacity() {
+        h.ctx.bus.emit(Actor::daemon(), EventData::TerminalChanged);
     }
     h.status("1", "2", Kind::Error).await;
     assert_eq!(
@@ -1004,12 +1004,13 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
             }
             recovered.status("2", "3", Kind::Idle).await;
             recovered.rail.0.lock().unwrap().retain(|n| n.id != "door");
-            // Overflow forces the listener to read the Rail and reconcile the missing receiver.
-            for _ in 0..1100 {
+            // Overflow forces the listener to reconcile the missing receiver once,
+            // without requesting another database resync for every retained event.
+            for _ in 0..=recovered.ctx.bus.capacity() {
                 recovered
                     .ctx
                     .bus
-                    .emit(Actor::daemon(), EventData::RailChanged);
+                    .emit(Actor::daemon(), EventData::TerminalChanged);
             }
             recovered.status("1", "99", Kind::Done).await;
             recovered
