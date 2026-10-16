@@ -341,3 +341,31 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
     }
   }, 90_000);
 }
+
+
+it("u492_installed_toaster_recreates_polite_accessible_content_after_idle", async () => {
+  await browser("open", new URL("/src/ui/u492.html", origin).href);
+  await browser("wait", "--fn", `!!document.querySelector('button')`);
+  expect(await read<number>(`document.querySelectorAll('[data-scope="toast"]').length`)).toBe(0);
+
+  for (const name of ["First", "Second"]) {
+    await browser("eval", `window.toastInsertions = []; window.toastObserver = new MutationObserver(() => {
+      const group = document.querySelector('[data-scope="toast"][data-part="group"]');
+      if (group) window.toastInsertions.push(group.textContent);
+    }); window.toastObserver.observe(document.body, { childList: true, subtree: true });`);
+    await browser("find", "role", "button", "click", "--name", `${name} result`, "--exact");
+    await browser("wait", "--fn", `document.querySelector('[role=status]')?.hasAttribute('data-mounted')`);
+    expect(await read<string>(`document.querySelector('[role=region]').getAttribute('aria-live')`)).toBe("polite");
+    expect(await read<string>(`document.getElementById(document.querySelector('[role=status]').getAttribute('aria-labelledby')).textContent`)).toBe(`${name} result saved`);
+    const insertions = await read<string[]>(`window.toastInsertions`);
+    expect(insertions[0]).toBe("");
+    expect(insertions.some((text) => text.includes(`${name} result saved`))).toBe(true);
+    await browser("eval", `window.toastObserver.disconnect()`);
+    const snapshot = await browser("snapshot");
+    expect(snapshot).toContain(`${name} result saved`);
+    expect(snapshot).toContain("status");
+    await browser("find", "role", "button", "click", "--name", "Dismiss", "--exact");
+    await browser("wait", "--fn", `document.querySelectorAll('[data-scope="toast"]').length === 0`);
+    expect(await read<number>(`document.querySelectorAll('[data-scope="toast"]').length`)).toBe(0);
+  }
+}, 60_000);
