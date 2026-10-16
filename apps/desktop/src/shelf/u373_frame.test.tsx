@@ -180,7 +180,7 @@ describe("u470 the shared scope toggle", () => {
 
     for (const name of ["Todos", "Pads"]) {
       fireEvent.click(tabNamed(name));
-      expect(within(screen.getByRole("tabpanel")).queryByRole("group", { name: "Show Todos" })).toBeNull();
+      expect(within(within(shelf()).getByRole("tabpanel")).queryByRole("group", { name: "Show Todos" })).toBeNull();
       expect(shelf().querySelector('input[type="radio"]')).toBeNull();
     }
   });
