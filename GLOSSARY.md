@@ -542,17 +542,17 @@ The matching spellings of one displayed Help chord.
 
 ### Ask placement
 
-**Ask**:
-One message the user sends from the Ask bar; distinct from an Agent's Decision.
+**Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
+One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
-**Ask part** (`AskPart`):
+**Ask part** (`AskPart`, `ask::State`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 
-**Placement** (`Placement`, `Destination`):
+**Placement** (`Placement`, `Destination`, `Target`):
 An Ask part's proposed destination: routed to a Workstream, new with an Order title, or unclear with a question and up to three candidate Workstreams.
 
 **Placement request** (`placement::Request`, `EarlierAsk`):
 An Ask's text and its context: the five newest earlier Asks' parts and destinations, and every Workstream's name, Order and Status Kind.
 
-**Placement call** (`PlacementCall`):
+**Placement call** (`PlacementCall`, `Agents::placement_call`):
 The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.
