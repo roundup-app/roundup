@@ -12,6 +12,7 @@ import buttonCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import rowCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
+import uiCss from "../ui/styles.css?inline";
 import shelfCss from "./styles.css?inline";
 import { CHORDS } from "../keys/chords";
 
@@ -26,7 +27,7 @@ afterEach(() => {
 const mountApp = async (seed: SeedName = "tree-40", reducedMotion = true) => {
   window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false });
   sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss, stripCss, shelfCss].join("\n");
+  sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss, stripCss, shelfCss, uiCss].join("\n");
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => reducedMotion} clock={Date.now} createEmulator={fakeEmulators().factory} />);
@@ -347,13 +348,13 @@ describe("u369 and u371 the Shelf below the window bar", () => {
   });
 
   it("u371_d8_passes_with_the_new_shadows", () => {
-    const shadows = [...(appCss + shelfCss).matchAll(/box-shadow:\s*([^;]+);/g)].map((m) => m[1]!.trim());
+    const shadows = [...(appCss + shelfCss + uiCss).matchAll(/box-shadow:\s*([^;]+);/g)].map((m) => m[1]!.trim());
 
     for (const value of shadows) expect(value).toMatch(/^(none|var\(--shadow-(drawer|shelf|scroll)\)|var\(--shadow-scroll[^)]*\))/);
   });
 
   it("u371_scroll_shadow_is_a_token", () => {
-    expect(shelfCss).toMatch(/\.shelf-scroll::before,\s*\.shelf-scroll::after {[^}]*box-shadow: var\(--shadow-scroll\)/);
+    expect(uiCss).toMatch(/\.shelf-scroll::before,\s*\.shelf-scroll::after {[^}]*box-shadow: var\(--shadow-scroll\)/);
     expect(shelfCss).not.toMatch(/backdrop-filter/);
   });
 });

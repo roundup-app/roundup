@@ -137,7 +137,7 @@ export const AnsweredDecisions = (props: { agent: string | null; name: string })
 
                       return <article class="decision-record">
                         <p class="decision-outcome">{copy.answeredOutcome(rail.nodes.find((node) => node.id === record.answered_by.id)?.name ?? record.answered_by.id)} <span aria-label={copy.acceptedAnswer}>{record.answer ?? record.note}</span></p>
-                        <p class="light">{record.decision.tool} · <time dateTime={new Date(record.answered_at).toISOString()}>{new Date(record.answered_at).toLocaleString()}</time></p>
+                        <p class="light">{record.decision.tool}{copy.separator}<time dateTime={new Date(record.answered_at).toISOString()}>{new Date(record.answered_at).toLocaleString()}</time></p>
                         <Show when={record.kind === "question" ? questionOf(record.prompt) : null} fallback={<pre class="decision-args">{prompt}</pre>}>
                           {(question) => <>
                             <Markdown class="decision-question" body={question().question} />
