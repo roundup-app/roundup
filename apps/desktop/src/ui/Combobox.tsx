@@ -19,6 +19,7 @@ const Root = (props: {
 
   // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
   let pointerEvent = false;
+
   const notePointer = (): void => {
     pointerEvent = true;
     setTimeout(() => { pointerEvent = false; });
