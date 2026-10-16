@@ -24,6 +24,7 @@ impl Shared {
         id: &str,
         apply: impl FnOnce(&rusqlite::Connection, &mut Removal) -> Result<T, RpcError> + Send + 'static,
     ) -> Result<(Removal, T), RpcError> {
+        let _lifecycle = self.door_lifecycle.write().await;
         let door = self.rail().node(id)?;
         if let Some(worktree) = &door.worktree {
             let git = self.git.bounded();
