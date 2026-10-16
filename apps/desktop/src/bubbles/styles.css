@@ -167,8 +167,12 @@
 
 /* U511: the name's editor takes the button's place with the button's padding and the label's type; only the native focus ring is new. */
 .terminal-tab-editor {
+  --button-surface: var(--selected);
   padding-inline: var(--button-inline);
-  color: var(--grey);
+  min-height: var(--space-5);
+  color: var(--text);
+  background-color: var(--button-surface);
+  border-radius: var(--button-radius);
 }
 
 .terminal-tab-editor [data-part="input"] {
@@ -181,6 +185,24 @@
   color: inherit;
   background: none;
   border-width: 0;
+  field-sizing: content;
+  min-height: var(--space-5);
+  margin-inline-end: var(--space-1);
+  cursor: pointer;
+}
+
+.terminal-tab-editor [data-part="input"]:hover {
+  background-color: var(--selected-hover);
+}
+
+.terminal-tab-editor [data-part="input"]:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+
+.terminal-tab-editor [data-part="input"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .terminal-tab-editor [data-part="preview"] {
