@@ -601,10 +601,6 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     let tree = rail_tree(&fx.user).await;
     assert!(tree.iter().all(|n| n.id != fx.a && n.id != fx.b));
     assert!(tree.iter().any(|n| n.id == fx.ws));
-    let _ = daemon::next(&mut events, |data| {
-        matches!(data, contracts::EventData::WorkstreamCleared(_)).then_some(())
-    })
-    .await;
     // The deeper Subagent's Worktree is handed off before the shallower one's.
     let handoff = fx.handoff_prompt(&mut events).await["prompt"]
         .as_str()
