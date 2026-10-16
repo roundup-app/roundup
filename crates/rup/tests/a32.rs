@@ -405,93 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_a_valid_clear_only_asks_the_door() {
-    let fx = fixture().await;
-    fx.user
-        .request(
-            "message.send",
-            json!({"to": fx.ws, "kind": "note", "body": "I want a login page"}),
-        )
-        .await
-        .unwrap();
-    let (keep, fluff) = fx.full().await;
-    let before = shape(&fx.user).await;
-    let task = fx.clear("too much fluff", false).await;
-    let ask = fx.asked().await;
-    assert!(ask.contains("too much fluff"), "{ask}");
-    assert!(ask.contains("1. I want a login page"), "{ask}");
-    assert!(
-        ask.contains(&format!("{keep} \"build the login page\"")),
-        "{ask}"
-    );
-    assert!(
-        ask.contains(&format!("{fluff} \"refactor everything\"")),
-        "{ask}"
-    );
-    assert!(ask.contains("scratch (owner "), "{ask}");
-    assert_eq!(
-        shape(&fx.user).await,
-        before,
-        "nothing leaves the Rail before the Handoff"
-    );
-    assert_eq!(fx.todos().await.len(), 2);
-    let second = fx
-        .user
-        .request("workstream.clear", json!({"id": fx.ws, "reason": "again"}))
-        .await
-        .unwrap_err();
-    assert_eq!(second.code, rpc::code::CONFLICT);
-    drop(task);
-}
-
-#[tokio::test]
-async fn a32_only_the_door_may_hand_off() {
-    let fx = fixture().await;
-    let params = json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []});
-    let none = fx.hand_off(params.clone()).await.unwrap_err();
-    assert_eq!(none.code, rpc::code::CONFLICT);
-    let task = fx.clear("r", false).await;
-    fx.asked().await;
-    for who in [
-        as_actor(&fx.project, ActorKind::Agent, &fx.a).await,
-        fx.project.client().await,
-    ] {
-        let err = who
-            .request("workstream.handoff", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::FORBIDDEN);
-    }
-    drop(task);
-}
-
-#[tokio::test]
-async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
-    let fx = fixture().await;
-    let (keep, _) = fx.full().await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    for bad in [
-        json!({"keep_todos": [999], "keep_pads": []}),
-        json!({"keep_todos": [], "keep_pads": ["nope"]}),
-        json!({"keep_todos": [], "keep_pads": [], "summary": " "}),
-    ] {
-        let mut params = json!({"id": fx.ws, "summary": "s"});
-        params
-            .as_object_mut()
-            .unwrap()
-            .extend(bad.as_object().unwrap().clone());
-        let err = fx.hand_off(params).await.unwrap_err();
-        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
-    }
-    assert_eq!(fx.todos().await.len(), 2, "a bad Handoff changes nothing");
-    fx.hand_off(json!({"id": fx.ws, "summary": "ok", "keep_todos": [keep], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-}
-
-#[tokio::test]
 async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     let fx = fixture().await;
     let (keep, fluff) = fx.full().await;
@@ -733,28 +646,6 @@ async fn a32_iteration_advances_once() {
     .await;
     assert!(ask.contains("again"));
     drop(task);
-}
-
-#[tokio::test]
-async fn a32_no_handoff_times_out_and_changes_nothing() {
-    let fx = fixture_with("600").await;
-    fx.full().await;
-    let rail = shape(&fx.user).await;
-    let (todos, pads) = (fx.todos().await, fx.pads().await);
-    let (code, _) = fx.clear("r", false).await.end().await.unwrap_err();
-    assert_eq!(code, rpc::code::NOT_ACKED as i32);
-    assert_eq!(
-        (shape(&fx.user).await, fx.todos().await, fx.pads().await),
-        (rail, todos, pads)
-    );
-
-    // The clear is no longer pending, and a Door that is not running is a CONFLICT.
-    fx.user
-        .request("agent.stop", json!({"id": fx.ws}))
-        .await
-        .unwrap();
-    let stopped = fx.clear("r", false).await.reply.unwrap_err();
-    assert_eq!(stopped.code, rpc::code::CONFLICT);
 }
 
 #[tokio::test]

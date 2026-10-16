@@ -14,18 +14,42 @@ const profile = mkdtempSync(join(tmpdir(), "u466-browser-"));
 
 const session = `u466-${process.pid}`;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024 })).stdout;
+// Under controlled contention the warmed batch took 3,422 ms and read 390 ms.
+// Bound commands at 4 s while retaining the observer's existing 5 s limit.
+const command = async (args: string[], input?: string, limit = 4_000) => {
+  const started = performance.now();
+  const label = JSON.stringify(args) + (input ?? "");
+
+  if (process.env.U508_TRACE) console.log("U508 start", label);
+
+  const pending = exec("agent-browser", ["--session", session, "--json", ...args], {
+    maxBuffer: 8 * 1024 * 1024, timeout: limit,
+  });
+
+  pending.child.stdin?.end(input);
+
+  try {
+    const reply = await pending;
+
+    if (process.env.U508_TRACE) console.log("U508 completed", Math.round(performance.now() - started), label);
+
+    return reply.stdout;
+  } catch (error) {
+    const state = error instanceof Error && "killed" in error && error.killed ? "pending" : "failed";
+    const output = error instanceof Error && "stdout" in error ? String(error.stdout) : "";
+    throw new Error(`${state} browser command after ${Math.round(performance.now() - started)} ms (limit ${limit} ms): ${label}: ${String(error)} ${output}`, { cause: error });
+  }
+};
+
+const browser = (...args: string[]) => command(args);
+
+let navigationGate: { requested: () => void; released: Promise<void> } | undefined;
 
 let server: ViteDevServer;
 
 let origin: string;
 
 const page = {
-  scheme: async (scheme: string) => { await browser("set", "media", scheme); },
-  load: async (path: string, width: number, height: number) => {
-    await browser("set", "viewport", String(width), String(height));
-    await browser("open", path.startsWith("http") ? path : origin + path);
-  },
   until: async (predicate: string) => { await browser("wait", "--fn", `(${predicate})()`); },
   call: async <T,>(declaration: string, ...args: unknown[]): Promise<T> => {
     // SAFETY: agent-browser's JSON envelope contains the result of this constant page expression.
@@ -42,10 +66,32 @@ const railWidths = [252, 288, 480] as const;
 const art = captureDir("U466");
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
+  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent", plugins: [{
+    name: "u508-navigation-gate",
+    configureServer(server) {
+      server.middlewares.use(async (request, response, next) => {
+        if (navigationGate && (request.url?.startsWith("/harness.html") || request.url === "/u508-pending")) {
+          const gate = navigationGate;
+          navigationGate = undefined;
+          gate.requested();
+          await gate.released;
+
+          if (request.url === "/u508-pending") {
+            response.end("released");
+
+            return;
+          }
+        }
+
+        next();
+      });
+    },
+  }] });
   await server.listen();
   origin = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
-  await browser("--profile", profile, "open", origin);
+  // index.html loads main.tsx; the tests navigate to harness.tsx. Warm the entry
+  // they actually use so cold harness transforms stay inside the startup hook.
+  await command(["--profile", profile, "open", origin + "/harness.html?seed=tree-40"], undefined, 60_000);
 }, 90_000);
 
 afterAll(async () => {
@@ -54,12 +100,22 @@ afterAll(async () => {
 });
 
 const load = async (seed = "tree-40", viewport = 1280, scheme: "light" | "dark" = "light", width = 288, base = false) => {
-  await page.scheme(scheme);
-  await page.load((base ? process.env.ROUNDUP_RAIL_BASELINE : "") + "/harness.html?seed=" + seed, viewport, 800);
-  await page.until("() => document.querySelectorAll('.rail-row').length > 8");
-  await page.call("() => document.querySelector('.rail-row[data-id]').click()");
-  await page.until("() => Boolean(document.querySelector('.rail-row[data-selected=\"true\"]'))");
-  await page.call("(width) => { document.querySelector('.rail').style.width = width + 'px'; }", width);
+  const commands = [
+    ["set", "media", scheme],
+    ["set", "viewport", String(viewport), "800"],
+    ["open", (base ? process.env.ROUNDUP_RAIL_BASELINE : origin) + "/harness.html?seed=" + seed],
+    ["wait", "--fn", "document.querySelectorAll('.rail-row').length > 8"],
+    ["eval", "document.querySelector('.rail-row[data-id]').click()"],
+    ["wait", "--fn", `Boolean(document.querySelector('.rail-row[data-selected="true"]'))`],
+    ["eval", `document.querySelector('.rail').style.width = ${width} + 'px'`],
+  ];
+
+  // SAFETY: agent-browser batch returns its ordered command/success/error envelopes.
+  const replies = JSON.parse(await command(["batch", "--bail"], JSON.stringify(commands))) as { command: string[]; success: boolean; error: string | null }[];
+
+  for (const reply of replies) {
+    if (!reply.success) throw new Error(`browser command ${JSON.stringify(reply.command)} failed: ${reply.error}`);
+  }
 };
 
 const read = () => page.call<{ padding: string[]; rows: {padding: string[];left:number;right:number;height:number;nameLeft:number;size:string}[]; heads: number[]; glyphs: number[][]; overflow:boolean; bar:string; rail:number[] }>(`() => {
@@ -272,3 +328,42 @@ it("u466_editing_keeps_the_title_size_and_name_column", async () => {
   expect(field.size).toBe("15px");
   expect(field.left).toBeCloseTo(left,0);
 },60_000);
+
+it("u508_completed_commands_preserve_load_order", async () => {
+  let requested!: () => void;
+  let release!: () => void;
+  const arrived = new Promise<void>(resolve => { requested = resolve; });
+  const released = new Promise<void>(resolve => { release = resolve; });
+  navigationGate = { requested, released };
+  let completed = false;
+  const loading = load("tree-40", 1280, "light", 480).then(() => { completed = true; });
+
+  try {
+    await arrived;
+    expect(completed).toBe(false);
+  } finally { release(); }
+
+  await loading;
+  expect(await page.call(`() => ({ selected: document.querySelectorAll('.rail-row[data-selected="true"]').length, width: document.querySelector('.rail').getBoundingClientRect().width })`)).toEqual({ selected: 1, width: 480 });
+});
+
+// The error, pending evaluation and drain each have a 4 s command bound.
+it("u508_pending_or_failed_command_is_identified", async () => {
+  await expect(command(["eval", "throw new Error(['u508', 'failed'].join(' '))"])).rejects.toThrow(/eval.*"error":".*u508 failed/s);
+  const started = performance.now();
+  let release!: () => void;
+  let requested!: () => void;
+  const arrived = new Promise<void>(resolve => { requested = resolve; });
+  const released = new Promise<void>(resolve => { release = resolve; });
+  navigationGate = { requested, released };
+  const result = expect(command(["eval", "fetch('/u508-pending')"])).rejects.toThrow(/pending.*eval.*u508-pending/s);
+
+  try {
+    await arrived;
+    await result;
+    expect(performance.now() - started).toBeLessThan(4_500);
+  } finally { release(); }
+
+  // Drain the released evaluation before cleanup uses this session.
+  await page.call("() => true");
+}, 13_000);
