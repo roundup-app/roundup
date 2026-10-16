@@ -51,6 +51,10 @@ _Avoid_: session, bot, worker
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble.
 _Avoid_: process, console
 
+**Shell mark**:
+An OSC 133 (prompt, command start and end with its exit code) or OSC 7 (directory) sequence a shell the user opened prints, as iTerm2, VS Code and WezTerm read them. The Daemon makes zsh, bash and fish print them by environment only (X15).
+_Avoid_: shell integration (as a name; it is the means)
+
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
@@ -198,7 +202,7 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.appendSection` can require (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Editor**:
