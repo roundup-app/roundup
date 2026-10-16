@@ -329,3 +329,82 @@ fn x14_library_replacement_replay_preserves_cursor_and_offsets() {
         }
     }
 }
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct Controls {
+    writes: Writes,
+    controls: Vec<(usize, u8, (u16, u16))>,
+}
+
+impl vt100::Callbacks for Controls {
+    fn text(&mut self, screen: &mut vt100::Screen, c: char) {
+        self.writes.text(screen, c);
+    }
+
+    fn control(&mut self, screen: &mut vt100::Screen, byte: u8) {
+        self.controls
+            .push((self.writes.after, byte, screen.cursor_position()));
+    }
+
+    fn set_window_title(&mut self, screen: &mut vt100::Screen, title: &[u8]) {
+        self.writes.set_window_title(screen, title);
+    }
+}
+
+fn observe_controls(parser: &mut vt100::Parser<Controls>, bytes: &[u8]) {
+    for byte in bytes {
+        parser.callbacks_mut().writes.after += 1;
+        parser.process(std::slice::from_ref(byte));
+    }
+}
+
+fn history(screen: &vt100::Screen) -> Vec<Vec<u8>> {
+    let mut screen = screen.clone();
+    screen.set_scrollback(usize::MAX);
+    (0..=screen.scrollback())
+        .map(|offset| {
+            screen.set_scrollback(offset);
+            screen.state_formatted()
+        })
+        .collect()
+}
+
+#[test]
+fn x14_library_reports_executed_controls_at_raw_offsets() {
+    let mut ground = vt100::Parser::new_with_callbacks(2, 16, 2, Controls::default());
+    observe_controls(&mut ground, b"\n\n\n\n\n\n\n\n");
+    ground.callbacks_mut().controls.clear();
+    let mut osc = ground.clone();
+    observe_controls(&mut osc, b"\x1b]2;pending");
+    let before = history(ground.screen());
+    assert_eq!(before.len(), 3); // Two retained rows plus the live view.
+    assert_eq!(before, history(osc.screen()));
+    observe_controls(&mut ground, b"\n");
+    observe_controls(&mut osc, b"\n");
+    assert_eq!(before, history(ground.screen()));
+    assert_eq!(before, history(osc.screen()));
+    assert_eq!(ground.screen().cursor_position(), (1, 0));
+    assert_eq!(osc.screen().cursor_position(), (1, 0));
+    assert_eq!(ground.callbacks().controls, [(9, 10, (1, 0))]);
+    assert!(osc.callbacks().controls.is_empty());
+    assert!(ground.callbacks().writes.text.is_empty());
+    assert!(osc.callbacks().writes.text.is_empty());
+
+    // Identical bytes execute only outside OSC, including non-LF line controls.
+    observe_controls(&mut ground, b"\r\t\x08\x0b\x0cC\x1b[C");
+    observe_controls(&mut osc, b"\r\t\x08\x0b\x0cC");
+    assert_eq!(
+        ground.callbacks().controls,
+        [
+            (9, 10, (1, 0)),
+            (10, 13, (1, 0)),
+            (11, 9, (1, 8)),
+            (12, 8, (1, 7)),
+            (13, 11, (1, 7)),
+            (14, 12, (1, 7)),
+        ]
+    );
+    assert_eq!(ground.callbacks().writes.text, [(15, 'C', (1, 8))]);
+    assert!(osc.callbacks().controls.is_empty());
+    assert!(osc.callbacks().writes.text.is_empty());
+}
