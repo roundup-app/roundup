@@ -594,6 +594,11 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
         _ => None,
     })
     .await;
+    // Hold the child's Digests as well as its Decision note: otherwise needs-you can
+    // start an intervening turn before tell_doors has queued the note.
+    user.request("takeover.begin", json!({"agent":door}))
+        .await
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let nodes = rail_tree(&user).await;
@@ -637,6 +642,13 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     })
     .await;
     assert_eq!(decision.id, "d1");
+    next(&mut events, |data| match data {
+        EventData::MessageHeld(m) if m.to == door && m.body.starts_with("[decision d1]") => {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
     user.request(
         "decision.answer",
         json!({"id":"d1","answer":"allow","proof":"0".repeat(64)}),
@@ -644,6 +656,9 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     .await
     .unwrap();
     assert!(permission.await.unwrap().is_ok());
+    user.request("takeover.end", json!({"agent":door}))
+        .await
+        .unwrap();
     next(&mut events, |data| match data {
         EventData::MessageDelivered(m) if m.to == door && m.body.starts_with("[decision d1]") => {
             Some(())
@@ -698,7 +713,16 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
             .unwrap()
             .iter()
             .any(|m| { m["role"] == "user" && m["content"].to_string().contains("[decision d1]") }),
-        "{following:#?}"
+        "Door request sequence: {:#?}",
+        journal
+            .iter()
+            .filter(|e| &e["headers"]["x-claude-code-session-id"] == identity)
+            .map(
+                |e| json!({"stream": e["body"]["stream"], "response": e["response"],
+                "users": e["body"]["messages"].as_array().unwrap().iter()
+                    .filter(|m| m["role"] == "user").collect::<Vec<_>>()})
+            )
+            .collect::<Vec<_>>()
     );
 }
 
@@ -760,6 +784,209 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
     let model = project.model.as_ref().unwrap();
     model.tool_result("toolu_e6_context").await;
     model.assert_matched();
+}
+
+#[tokio::test]
+async fn a39_the_placement_call_is_one_slim_request() {
+    // Inject dirty parent credentials into a test subprocess, without mutating this runner's
+    // shared environment. The production call must strip them before its observer starts.
+    if std::env::var_os("ROUNDUP_A39_OBSERVER_CHILD").is_none() {
+        let mut command = std::process::Command::new(std::env::current_exe().unwrap());
+        command
+            .args([
+                "--exact",
+                "a39_the_placement_call_is_one_slim_request",
+                "--nocapture",
+            ])
+            .env("ROUNDUP_A39_OBSERVER_CHILD", "1");
+        for name in agents::claude_code::MARKERS
+            .into_iter()
+            .chain(agents::claude_code::OFF_PLAN)
+        {
+            command.env(name, "must-be-stripped");
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    use agents::{
+        claude_code::Launcher,
+        placement::{Destination, Request, place},
+    };
+    use std::os::unix::fs::PermissionsExt;
+    let model = aimock::Model::start("a39_placement");
+    let dir = tempfile::tempdir().unwrap();
+    let config = dir.path().join("config");
+    aimock::configure(&config, dir.path(), &model.url);
+    let wrapper = dir.path().join("placement");
+    let log = dir.path().join("launch.json");
+    let script = format!(
+        r#"#!/usr/bin/env python3
+import os, sys, json
+with open({log:?}, 'w') as f:
+    json.dump({{'argv':sys.argv[1:], 'files':os.listdir('.'), 'cwd':os.getcwd(), 'pid':os.getpid(), 'off_plan':[n for n in {off_plan:?} if n in os.environ], 'markers':[n for n in {markers:?} if n in os.environ]}}, f)
+os.environ['CLAUDE_CONFIG_DIR'] = {config:?}
+os.environ['ANTHROPIC_BASE_URL'] = {url:?}
+os.environ['ANTHROPIC_API_KEY'] = {key:?}
+os.environ['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
+os.environ['DISABLE_AUTOUPDATER'] = '1'
+os.environ['CLAUDE_CODE_MAX_RETRIES'] = '0'
+os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
+"#,
+        log = log.to_str().unwrap(),
+        config = config.to_str().unwrap(),
+        url = model.url,
+        key = aimock::KEY,
+        binary = aimock::package_bin("claude").to_str().unwrap(),
+        off_plan = agents::claude_code::OFF_PLAN,
+        markers = agents::claude_code::MARKERS
+    );
+    std::fs::write(&wrapper, script).unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let launcher = Launcher::from_vars(
+        |name| match name {
+            "ROUNDUP_CLAUDE_BIN" => Some(wrapper.as_os_str().to_owned()),
+            "HOME" => Some(dir.path().as_os_str().to_owned()),
+            _ => None,
+        },
+        &std::env::current_exe().unwrap(),
+    )
+    .unwrap();
+    let rail = serde_json::from_value(json!({"id":"work", "kind":"workstream", "name":"Repair", "parent":null, "order":0, "status":null, "attempt":null, "status_revision":null, "terminal_id":null, "worktree":null, "can_resume":false, "channel":null, "work":{"kind":"work", "title":"Repair café", "ask":"Repair the café", "limits":[]}, "stray":[], "model":null, "effort":null})).unwrap();
+    let earlier = (0..7)
+        .map(|at| agents::placement::EarlierAsk {
+            at,
+            parts: vec![agents::placement::AskPart {
+                text: format!("earlier {at}"),
+                destination: Destination::Routed {
+                    workstream: "work".into(),
+                },
+            }],
+        })
+        .collect();
+    let request = Request::new(
+        "A39 fix café; /ship 原文; decide".into(),
+        earlier,
+        vec![rail],
+    );
+    let parts = place(&launcher.placement(), "ask-a39", &request, |id, cause| {
+        panic!("{id}: {cause}")
+    })
+    .await;
+    assert_eq!(
+        parts,
+        vec![
+            agents::placement::AskPart {
+                text: "A39 fix café".into(),
+                destination: Destination::Routed {
+                    workstream: "work".into()
+                }
+            },
+            agents::placement::AskPart {
+                text: "/ship 原文".into(),
+                destination: Destination::New {
+                    title: "Ship".into()
+                }
+            },
+            agents::placement::AskPart {
+                text: "decide".into(),
+                destination: Destination::Unclear {
+                    question: "Which work?".into(),
+                    candidates: vec!["work".into()]
+                }
+            },
+        ]
+    );
+    model.assert_matched();
+    let journal = model.journal();
+    assert_eq!(journal.len(), 1, "{journal:#?}");
+    let body = &journal[0]["body"];
+    assert!(
+        body["model"].as_str().unwrap().starts_with("claude-haiku"),
+        "{body}"
+    );
+    assert!(
+        body.to_string()
+            .contains("You place the user's Ask into Workstreams."),
+        "{body}"
+    );
+    let user = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|message| message["role"] == "user")
+        .map(|message| message["content"].to_string())
+        .collect::<String>();
+    for fact in ["earlier 6", "earlier 2", "Repair the café", "/ship 原文"] {
+        assert!(user.contains(fact), "missing {fact}: {body}");
+    }
+    for omitted in ["earlier 0", "earlier 1"] {
+        assert!(!user.contains(omitted), "{body}");
+    }
+    let tools = body["tools"].as_array().unwrap();
+    assert_eq!(tools.len(), 1, "{tools:?}");
+    assert_eq!(tools[0]["function"]["name"], "StructuredOutput");
+    let launch: Value = serde_json::from_slice(&std::fs::read(log).unwrap()).unwrap();
+    assert!(
+        !std::process::Command::new("kill")
+            .args(["-0", &launch["pid"].to_string()])
+            .output()
+            .unwrap()
+            .status
+            .success(),
+        "Placement process remains running or unreaped"
+    );
+    assert_eq!(launch["files"], json!([]));
+    assert_eq!(launch["off_plan"], json!([]));
+    assert_eq!(launch["markers"], json!([]));
+    assert!(!std::path::Path::new(launch["cwd"].as_str().unwrap()).exists());
+    let argv = launch["argv"].as_array().unwrap();
+    assert_eq!(argv.len(), 18, "{argv:?}");
+    let system = body["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|message| message["role"] == "system")
+        .map(|message| message["content"].to_string())
+        .collect::<String>();
+    assert!(system.contains(argv[17].as_str().unwrap()), "{body}");
+    assert_eq!(
+        &argv[..10],
+        json!([
+            "-p",
+            "--model",
+            "haiku",
+            "--effort",
+            "low",
+            "--no-session-persistence",
+            "--output-format",
+            "json",
+            "--json-schema",
+            argv[9]
+        ])
+        .as_array()
+        .unwrap()
+    );
+    assert_eq!(
+        &argv[10..18],
+        json!([
+            "--tools",
+            "",
+            "--strict-mcp-config",
+            "--disable-slash-commands",
+            "--setting-sources",
+            "",
+            "--system-prompt",
+            argv[17]
+        ])
+        .as_array()
+        .unwrap()
+    );
 }
 
 #[tokio::test]
