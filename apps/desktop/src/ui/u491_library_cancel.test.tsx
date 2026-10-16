@@ -97,7 +97,7 @@ it("u491_escape_restores_preview_without_committing_or_later_drag_events", async
 
   expect(vi.getTimerCount()).toBe(0);
   const previews = probe.preview.mock.calls.length;
-  fireEvent.keyDown(probe.trigger, { key: "Escape" });
+  expect(fireEvent.keyDown(probe.trigger, { key: "Escape" })).toBe(true);
   await settle();
   await probe.move(416);
   fireEvent.pointerUp(document, { clientX: 416, clientY: 100 });

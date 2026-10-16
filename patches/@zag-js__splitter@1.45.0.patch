@@ -1,5 +1,5 @@
 diff --git a/dist/splitter.connect.js b/dist/splitter.connect.js
-index c3344fe70037310f47610b4b8f02cd0914c606db..069423b4653442cca54a248b17302b348b4fae52 100644
+index c3344fe70037310f47610b4b8f02cd0914c606db..02e1c198ddd684c1ce6d8bf1d6baad4d3b92988e 100644
 --- a/dist/splitter.connect.js
 +++ b/dist/splitter.connect.js
 @@ -254,8 +254,7 @@ function connect(service, normalize) {
@@ -12,18 +12,16 @@ index c3344fe70037310f47610b4b8f02cd0914c606db..069423b4653442cca54a248b17302b34
            event.preventDefault();
            event.stopPropagation();
          },
-@@ -294,6 +293,9 @@ function connect(service, normalize) {
+@@ -294,6 +293,7 @@ function connect(service, normalize) {
              delta = 1;
            }
            const keyMap = {
-+            Escape() {
-+              if (dragging) send({ type: "DRAG.CANCEL" });
-+            },
++            Escape: dragging ? () => send({ type: "DRAG.CANCEL" }) : void 0,
              Enter() {
                send({ type: "ENTER", id });
              },
 diff --git a/dist/splitter.connect.mjs b/dist/splitter.connect.mjs
-index 402871ffc803ea0eded45339cfa46e8952ae07bf..71cdfebf640c0080cd3fe771e304edc1828783a3 100644
+index 402871ffc803ea0eded45339cfa46e8952ae07bf..33a1a02f1db9aef9c24603c7389c63a3353ed2c5 100644
 --- a/dist/splitter.connect.mjs
 +++ b/dist/splitter.connect.mjs
 @@ -222,8 +222,7 @@ function connect(service, normalize) {
@@ -36,13 +34,11 @@ index 402871ffc803ea0eded45339cfa46e8952ae07bf..71cdfebf640c0080cd3fe771e304edc1
            event.preventDefault();
            event.stopPropagation();
          },
-@@ -262,6 +261,9 @@ function connect(service, normalize) {
+@@ -262,6 +261,7 @@ function connect(service, normalize) {
              delta = 1;
            }
            const keyMap = {
-+            Escape() {
-+              if (dragging) send({ type: "DRAG.CANCEL" });
-+            },
++            Escape: dragging ? () => send({ type: "DRAG.CANCEL" }) : void 0,
              Enter() {
                send({ type: "ENTER", id });
              },
