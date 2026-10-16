@@ -2528,3 +2528,159 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     assert!(!text.contains("build the login page"), "{text}");
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn a32_kept_items_keep_their_ids_and_owners() {
+    let (project, mut client, door) = clear_fixture("a32_kept_items", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let todos = todos.as_array().unwrap();
+    let keep = todos
+        .iter()
+        .find(|todo| todo["title"] == "build the login page")
+        .unwrap()["id"]
+        .clone();
+    let fluff = todos
+        .iter()
+        .find(|todo| todo["title"] == "refactor everything")
+        .unwrap();
+    let fluff_id = fluff["id"].clone();
+    client
+        .request(
+            "todo.setBlockers",
+            json!({"id": keep, "blockers": [fluff_id]}),
+        )
+        .await
+        .unwrap();
+    let before = client.request("todo.list", Value::Null).await.unwrap();
+    let before = before
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|todo| todo["id"] == keep)
+        .unwrap();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "preserve kept items"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        // A33: the kept Todo is blocked until Clear archives its blocker.
+        if working && status.status.kind == Kind::Blocked {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("preserve kept items")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Kept items survived", "keep_todos": [keep], "keep_pads": ["scratch"]}),
+        )
+        .await
+        .unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text
+                                .contains("Follow this instruction: Kept items survived")))
+                )),
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
+    );
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let after = todos
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|todo| todo["id"] == keep)
+        .unwrap();
+    assert_eq!(
+        after["blockers"],
+        json!([]),
+        "an archived blocker leaves the list"
+    );
+    assert_eq!(
+        (&after["title"], &after["creator"], &after["home"]),
+        (&before["title"], &before["creator"], &before["home"])
+    );
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    let scratch = pads
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|pad| pad["name"] == "scratch")
+        .unwrap();
+    assert_eq!(
+        scratch["owner"]["kind"], "user",
+        "a Pad of a removed Subagent becomes the user's"
+    );
+    assert_eq!(scratch["home"], json!(door));
+    model.assert_matched();
+}
