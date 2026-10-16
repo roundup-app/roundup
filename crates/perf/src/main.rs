@@ -10,6 +10,12 @@ use sysinfo::System;
 /// Measure the Daemon against rule 7 and fail when a metric misses `budgets.json`.
 #[derive(Parser)]
 struct Args {
+    /// Run only X14’s isolated flood observation (exit 1 until output is isolated).
+    #[arg(long)]
+    flood: bool,
+    /// Flood collection deadline in seconds; cleanup has a separate ten-second bound.
+    #[arg(long, default_value_t = 60)]
+    flood_timeout: u64,
     /// Fresh Daemons to measure; each metric is the median over them.
     #[arg(long, default_value_t = 11)]
     runs: usize,
@@ -33,6 +39,19 @@ fn absolute(path: &str) -> std::io::Result<PathBuf> {
 }
 
 async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
+    if args.flood {
+        let report = perf::flood::observe(std::time::Duration::from_secs(args.flood_timeout)).await;
+        if let Some(dir) = args.out.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        let evidence = serde_json::json!({"flood": report, "passed": report.passed(), "load": System::load_average().one});
+        std::fs::write(&args.out, serde_json::to_vec_pretty(&evidence)?)?;
+        println!("{}", serde_json::to_string_pretty(&evidence)?);
+        if let Some(error) = report.error {
+            return Err(error.into());
+        }
+        return Ok(report.passed());
+    }
     let budgets = read_budgets(&args.budgets)?;
     let cpus = std::thread::available_parallelism()?.get();
     let mut loads = Vec::new();
