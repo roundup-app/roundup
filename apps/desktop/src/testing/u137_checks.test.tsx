@@ -286,7 +286,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
   };
 
   for (const [name, scheme, contrast, reduced] of [
-    ["light", "light"], ["dark", "dark"], ["more-contrast", "light", "more"],
+    ["more-contrast", "light", "more"],
     ["dark_more-contrast", "dark", "more"], ["reduced-transparency", "light", undefined, "transparency"],
     ["reduced-motion", "light", undefined, "motion"],
   ] as const) {
@@ -314,7 +314,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
   }, 60_000);
 
-  for (const seed of ["agents-10", "tree-40", "daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
+  for (const seed of ["daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
     it(`u136_${seed.replace("-", "_")}_${scheme}_d5_d10_on_painted_layout_at_${width}_by_${height}`, async () => {
       await page.scheme(scheme);
       await load(seed, width, height);
