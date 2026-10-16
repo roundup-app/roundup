@@ -62,7 +62,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
         )}
       </Show>
       <Show when={unreadable()}>
-        <ErrorLine message="Unreadable question: Answer in the Terminal" />
+        <ErrorLine message={copy.unreadableQuestion} />
       </Show>
       <Show when={!props.decision.answerable && !unreadable()}>
         <p class="light">{copy.answerInTheTerminal}</p>
@@ -120,7 +120,7 @@ export const AnsweredDecisions = (props: { agent: string | null; name: string })
   return (
     <Show when={current()}>
       {(loaded) => <Show when={loaded().failure !== null || loaded().answers.length > 0}>
-        <section class="decision-history" aria-label={`Answered requests for ${props.name}`}>
+        <section class="decision-history" aria-label={copy.answeredDecisionsFor(props.name)}>
           <Show when={loaded().failure}>
             {(message) => <><ErrorLine message={message()} /><button data-button="quiet" type="button" class="word" aria-disabled={daemonExit() !== null ? true : undefined} onClick={() => { if (daemonExit() === null) void refetch(); }}>{copy.retry}</button></>}
           </Show>
@@ -141,8 +141,8 @@ export const AnsweredDecisions = (props: { agent: string | null; name: string })
                     </div>}</For>
                   </>}
                 </Show>
-                <p>Answered by {rail.nodes.find((node) => node.id === record.answered_by.id)?.name ?? record.answered_by.id}</p>
-                <Show when={record.answer !== null}><pre class="decision-args" aria-label="Accepted answer">{record.answer}</pre></Show>
+                <p>{copy.answeredBy(rail.nodes.find((node) => node.id === record.answered_by.id)?.name ?? record.answered_by.id)}</p>
+                <Show when={record.answer !== null}><pre class="decision-args" aria-label={copy.acceptedAnswer}>{record.answer}</pre></Show>
                 <Show when={record.note !== ""}><pre class="decision-args">{record.note}</pre></Show>
             </article>;
             }}
