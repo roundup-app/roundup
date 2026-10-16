@@ -3,6 +3,10 @@ import type { Actor } from "../Actor";
 
 export type Pad = { name: string, owner: Actor, text: string, updated_at: number, 
 /**
+ * 1 at creation, plus one with each change to `text` (P15).
+ */
+revision: number, 
+/**
  * The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
  */
 home: string | null, };
