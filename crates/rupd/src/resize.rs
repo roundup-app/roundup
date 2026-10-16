@@ -42,7 +42,10 @@ impl HeldActions {
                     continue;
                 }
                 ResizeOutcome::Waiting { .. }
-                    if matches!(accepted.action.call, HeldCall::Stop(_)) =>
+                    if matches!(
+                        accepted.action.call,
+                        HeldCall::Stop(_) | HeldCall::Interrupt(_)
+                    ) =>
                 {
                     "original Attempt did not survive Daemon restart"
                 }
@@ -232,6 +235,7 @@ impl Daemon {
         let call = match method {
             "rail.rename" => HeldCall::Rename(rpc::params(params)?),
             "agent.stop" => HeldCall::Stop(rpc::params(params)?),
+            "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
             _ => return Err(RpcError::method_not_found(method)),
         };
         self.agents
@@ -338,12 +342,16 @@ impl Daemon {
                     self.before_prompt_effect(&accepted.actor, method, &params)
                         .await?;
                     let ctx = self.ctx(accepted.actor);
-                    if matches!(action.call, HeldCall::Stop(_)) {
+                    if matches!(action.call, HeldCall::Stop(_) | HeldCall::Interrupt(_)) {
                         let attempt = accepted
                             .attempt
                             .as_deref()
                             .ok_or_else(|| RpcError::conflict("original Attempt is unavailable"))?;
-                        self.agents.stop_attempt(&ctx, child, attempt).await?;
+                        if matches!(action.call, HeldCall::Stop(_)) {
+                            self.agents.stop_attempt(&ctx, child, attempt).await?;
+                        } else {
+                            self.agents.interrupt_attempt(&ctx, child, attempt).await?;
+                        }
                     } else {
                         let namespace = method.split('.').next().unwrap_or_default();
                         self.modules[namespace]
@@ -404,6 +412,7 @@ impl Daemon {
         let boundary = match method {
             "rail.rename" => "after-rename",
             "agent.stop" => "after-stop",
+            "agent.interrupt" => "after-interrupt",
             _ => "after-resize",
         };
         if std::fs::read_to_string(gate).ok().as_deref() != Some(boundary) {
@@ -436,7 +445,10 @@ impl Daemon {
             if !matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. }) {
                 continue;
             }
-            if matches!(accepted.action.call, HeldCall::Stop(_)) {
+            if matches!(
+                accepted.action.call,
+                HeldCall::Stop(_) | HeldCall::Interrupt(_)
+            ) {
                 let child = &accepted.action.agent;
                 let _child = self.child_effects(child).write_owned().await;
                 if !self.held_actions.accepted(Some(child))?.iter().any(|a| {
@@ -447,9 +459,9 @@ impl Daemon {
                 }
                 let node = self.rail().await?.into_iter().find(|n| &n.id == child);
                 let reason = match node {
-                    None => Some("child was removed before Stop"),
+                    None => Some("child was removed before action release"),
                     Some(n) if n.attempt != accepted.attempt => {
-                        Some("original Attempt changed before Stop")
+                        Some("original Attempt changed before action release")
                     }
                     Some(n)
                         if n.status
@@ -565,6 +577,7 @@ fn action_method(call: &HeldCall) -> &'static str {
         HeldCall::Resize(_) => "terminal.resize",
         HeldCall::Rename(_) => "rail.rename",
         HeldCall::Stop(_) => "agent.stop",
+        HeldCall::Interrupt(_) => "agent.interrupt",
     }
 }
 
@@ -572,7 +585,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
     match call {
         HeldCall::Resize(params) => serde_json::to_value(params),
         HeldCall::Rename(params) => serde_json::to_value(params),
-        HeldCall::Stop(params) => serde_json::to_value(params),
+        HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
     }
     .map_err(RpcError::internal)
 }
@@ -580,6 +593,6 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
 fn original_terminal(call: &HeldCall) -> Option<&str> {
     match call {
         HeldCall::Resize(params) => Some(&params.id),
-        HeldCall::Rename(_) | HeldCall::Stop(_) => None,
+        HeldCall::Rename(_) | HeldCall::Stop(_) | HeldCall::Interrupt(_) => None,
     }
 }
