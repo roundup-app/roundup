@@ -230,7 +230,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
     let dir = tempfile::tempdir().unwrap();
     let help = out(&on(&dir.path().join("none")).rup(&["help"]).await);
     let commands = listed_commands(&help);
-    for (door, expected) in [(false, 62), (true, 65)] {
+    for (door, expected) in [(false, 63), (true, 66)] {
         let socket = dir.path().join(format!("{door}.sock"));
         let _requests = stand_in(&socket, door, Vec::new(), &[]);
         let tools: BTreeSet<String> = mcp_tools(&socket)
@@ -246,7 +246,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
         assert_eq!(tools.len(), expected);
         assert_eq!(cli, tools, "door: {door}");
     }
-    assert_eq!(commands.len(), 65);
+    assert_eq!(commands.len(), 66);
     let other = help.split("\n  other\n").nth(1).unwrap();
     let other: Vec<&str> = other
         .lines()
@@ -387,7 +387,7 @@ async fn i2_help_alone_teaches_every_command() {
         );
         seen += 1;
     }
-    assert_eq!(seen, 65);
+    assert_eq!(seen, 66);
 }
 
 #[tokio::test]
