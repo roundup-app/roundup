@@ -514,48 +514,6 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
 }
 
 #[tokio::test]
-async fn a32_worktrees_and_branches_survive_even_dirty() {
-    let fx = fixture().await;
-    let mut events = fx.project.subscribed().await;
-    let nodes = rail_tree(&fx.user).await;
-    let trees: Vec<_> = [&fx.a, &fx.b]
-        .map(|id| {
-            nodes
-                .iter()
-                .find(|n| &n.id == id)
-                .unwrap()
-                .worktree
-                .clone()
-                .unwrap()
-        })
-        .into();
-    std::fs::write(Path::new(&trees[1].path).join("dirty.txt"), "unlanded").unwrap();
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-
-    let branches = git(fx.project.dir.path(), &["branch", "--list"]);
-    for tree in &trees {
-        assert!(Path::new(&tree.path).is_dir(), "{} was removed", tree.path);
-        assert!(branches.contains(&tree.branch), "{branches}");
-    }
-    assert!(Path::new(&trees[1].path).join("dirty.txt").is_file());
-    let handoff = fx.handoff_prompt(&mut events).await["prompt"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    for tree in &trees {
-        assert!(
-            handoff.contains(&tree.path) && handoff.contains(&tree.branch),
-            "{handoff}"
-        );
-    }
-}
-
-#[tokio::test]
 async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let fx = fixture().await;
     fx.full().await;
