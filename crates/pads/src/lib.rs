@@ -4,6 +4,7 @@ mod files;
 mod name;
 #[doc(hidden)]
 pub mod schema;
+mod section;
 mod store;
 
 use std::path::{Path, PathBuf};
@@ -12,8 +13,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::pad::{
-    AppendParams, CreateParams, ExportParams, MoveParams, Pad, PadName, SetOwnerParams,
-    SetStorageParams, WriteParams,
+    AppendParams, AppendSectionParams, CreateParams, ExportParams, MoveParams, Pad, PadName,
+    SetOwnerParams, SetStorageParams, WriteParams,
 };
 use contracts::{Actor, ActorKind, EventData, Verb};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
@@ -101,6 +102,7 @@ impl Pads {
             owner: ctx.actor.clone(),
             text: p.text.unwrap_or_default(),
             updated_at: now_ms(),
+            revision: 1,
             home: None,
         };
         let store = self.store()?;
@@ -139,10 +141,7 @@ impl Pads {
             self.mirror(&store, &pad.name, &p.text)
         })?;
         wrote(ctx, &pad.name)?;
-        reply(&Pad {
-            text: p.text,
-            ..pad
-        })
+        reply(&get(&store, &pad.name)?)
     }
 
     fn append(&self, ctx: &Ctx, p: AppendParams) -> Result<Value, RpcError> {
@@ -153,7 +152,46 @@ impl Pads {
             found(store.set_text(&pad.name, &text, now_ms()), &pad.name)?;
             self.mirror(&store, &pad.name, &text)
         })?;
-        let pad = Pad { text, ..pad };
+        wrote(ctx, &pad.name)?;
+        reply(&get(&store, &pad.name)?)
+    }
+
+    /// P15: the revision check, the insertion and the write happen in one transaction, so of two callers with one expected revision only one succeeds.
+    fn append_section(&self, ctx: &Ctx, p: AppendSectionParams) -> Result<Value, RpcError> {
+        let store = self.store()?;
+        get(&store, &p.name)?;
+        let wanted = section::wanted(&p.heading);
+        if wanted.is_empty() || p.text.is_empty() {
+            return Err(RpcError::new(
+                rpc::code::INVALID_PARAMS,
+                "heading and text must not be empty",
+            ));
+        }
+        let pad = store.atomically(|| {
+            let pad = get(&store, &p.name)?;
+            if let Some(expected) = p.expected_revision
+                && expected != pad.revision
+            {
+                return Err(RpcError::conflict(format!(
+                    "pad {} is at revision {}, not {expected}",
+                    pad.name, pad.revision
+                )));
+            }
+            let text = section::insert(&pad.text, &wanted, &p.text).map_err(|headings| {
+                let listed = if headings.is_empty() {
+                    "the pad has no headings".to_string()
+                } else {
+                    format!("headings: \"{}\"", headings.join("\", \""))
+                };
+                RpcError::new(
+                    rpc::code::INVALID_PARAMS,
+                    format!("no heading \"{}\" in pad {}; {listed}", p.heading, pad.name),
+                )
+            })?;
+            found(store.set_text(&pad.name, &text, now_ms()), &pad.name)?;
+            self.mirror(&store, &pad.name, &text)?;
+            get(&store, &pad.name)
+        })?;
         wrote(ctx, &pad.name)?;
         reply(&pad)
     }
@@ -281,6 +319,7 @@ impl Module for Pads {
             "pad.list" => self.list(),
             "pad.write" => self.write(ctx, params(value)?),
             "pad.append" => self.append(ctx, params(value)?),
+            "pad.appendSection" => self.append_section(ctx, params(value)?),
             "pad.setOwner" => self.set_owner(ctx, params(value)?),
             "pad.move" => self.move_to(ctx, params(value)?),
             "pad.delete" => self.delete(ctx, params(value)?),
