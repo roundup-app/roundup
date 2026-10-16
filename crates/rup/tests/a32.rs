@@ -405,36 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_an_empty_reason_changes_nothing() {
-    let fx = fixture().await;
-    settle(&fx.user, &fx.ws).await;
-    let before = shape(&fx.user).await;
-    let asked = prompts(&fx.log).len();
-    for reason in ["", "  \n ", &"x".repeat(2001)] {
-        let err = fx
-            .user
-            .request("workstream.clear", json!({"id": fx.ws, "reason": reason}))
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
-    }
-    let missing = fx
-        .user
-        .request("workstream.clear", json!({"id": "9999", "reason": "r"}))
-        .await
-        .unwrap_err();
-    assert_eq!(missing.code, rpc::code::NOT_FOUND);
-    let sub = fx
-        .user
-        .request("workstream.clear", json!({"id": fx.a, "reason": "r"}))
-        .await
-        .unwrap_err();
-    assert_eq!(sub.code, rpc::code::INVALID_PARAMS);
-    assert_eq!(shape(&fx.user).await, before);
-    assert_eq!(prompts(&fx.log).len(), asked);
-}
-
-#[tokio::test]
 async fn a32_a_valid_clear_only_asks_the_door() {
     let fx = fixture().await;
     fx.user

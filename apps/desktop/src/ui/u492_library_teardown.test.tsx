@@ -96,8 +96,8 @@ it("u492_five_second_expiry_keeps_exit_then_leaves_no_work", async () => {
   const card = screen.getByRole("status");
   await vi.advanceTimersByTimeAsync(duration - 1);
   expect(card.dataset.state).toBe("open");
-  // Zag setRafTimeout checks elapsed time on a frame, not a parallel timer.
-  await vi.advanceTimersToNextFrame();
+  // Expiry must dispatch at the deadline, before the next animation frame.
+  await vi.advanceTimersByTimeAsync(1);
   expect(card.dataset.state).toBe("closed");
   expect(probe.status).toHaveBeenLastCalledWith({ status: "dismissing", src: "timer" });
   await vi.advanceTimersByTimeAsync(removeDelay - 1);
@@ -124,8 +124,9 @@ it("u492_public_update_supports_caller_full_duration_restart", async () => {
   expect(card.hasAttribute("data-paused")).toBe(false);
   await vi.advanceTimersByTimeAsync(duration - 1);
   expect(card.dataset.state).toBe("open");
-  await vi.advanceTimersToNextFrame();
+  await vi.advanceTimersByTimeAsync(1);
   expect(card.dataset.state).toBe("closed");
+  expect(probe.status).toHaveBeenLastCalledWith({ status: "dismissing", src: "timer" });
   await vi.advanceTimersByTimeAsync(removeDelay);
   await vi.advanceTimersToNextFrame();
   await expectIdle(probe);

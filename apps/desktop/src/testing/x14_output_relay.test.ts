@@ -1,0 +1,262 @@
+import { execFile } from "node:child_process";
+import { once } from "node:events";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { request } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { createServer as unixServer } from "node:net";
+import type { Socket } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { createServer } from "vite";
+import type { ViteDevServer } from "vite";
+import { expect, it } from "vitest";
+import { chromePath } from "./chromePage";
+import { realDaemon } from "./realDaemonPlugin";
+
+const execute = promisify(execFile);
+
+const bound = <T>(promise: Promise<T>) => Promise.race([promise, new Promise<never>((_, reject) => {
+  const timer = setTimeout(() => reject(new Error("fixture barrier exceeded 10 s")), 10_000);
+  timer.unref();
+  void promise.finally(() => clearTimeout(timer)).catch(() => {});
+})]);
+
+const output = (id: string, bytes: number[] | Buffer, offset = 0) => JSON.stringify({ jsonrpc: "2.0", method: "event", params: {
+  actor: { kind: "user", id: "you", parent: null }, name: "terminal.output", data: { id, data: Buffer.from(bytes).toString("base64"), offset },
+} }) + "\n";
+
+const fixture = async () => {
+  const dir = await mkdtemp(join(tmpdir(), "x14-relay-"));
+  const path = join(dir, "daemon.sock");
+  const sockets = new Set<Socket>();
+  const subscriptions: Socket[] = [];
+  const responses: ServerResponse[] = [];
+  const activeResponses = new Set<ServerResponse>();
+
+  const server = unixServer((socket) => {
+    sockets.add(socket);
+    socket.on("error", () => {});
+    socket.on("close", () => sockets.delete(socket));
+    let pending = "";
+    socket.on("data", (chunk) => {
+      pending += chunk.toString();
+      const end = pending.indexOf("\n");
+
+      if (end < 0) return;
+      const frame = JSON.parse(pending.slice(0, end));
+      pending = pending.slice(end + 1);
+
+      if (frame.method === "events.subscribe") subscriptions.push(socket);
+      socket.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, result: frame.method === "events.subscribe" ? null : "control-reply" }) + "\n");
+    });
+  });
+
+  let vite: ViteDevServer | undefined;
+  const clients: IncomingMessage[] = [];
+
+  const close = async () => {
+    for (const client of clients) client.destroy();
+
+    for (const socket of sockets) socket.destroy();
+
+    for (const response of activeResponses) response.destroy();
+    await vite?.close();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(dir, { recursive: true, force: true });
+  };
+
+  try {
+    server.listen(path);
+    await once(server, "listening");
+    vite = await createServer({ configFile: false, root: dir, logLevel: "silent", server: { host: "127.0.0.1", port: 0 }, plugins: [{
+      name: "fixture-response-observer",
+      configureServer(dev) {
+        dev.middlewares.use((req, res, next) => {
+          activeResponses.add(res);
+          res.on("close", () => activeResponses.delete(res));
+
+          if (req.url?.startsWith("/__daemon/output?")) responses.push(res);
+
+          if (req.url === "/") { res.setHeader("Content-Type", "text/html"); res.end("<!doctype html><title>X14 transport</title>"); }
+          else next();
+        });
+      },
+    }, realDaemon({ project: dir, socket: path, proof: "0".repeat(64) })] });
+    await vite.listen();
+  } catch (error) {
+    await close();
+    throw error;
+  }
+
+  const base = vite.resolvedUrls!.local[0]!.replace(/\/$/, "");
+
+  const select = async (id: string) => {
+    const count = subscriptions.length;
+
+    const response = await bound(new Promise<IncomingMessage>((resolve, reject) => {
+      request(`${base}/__daemon/output?terminal=${id}&after=0`, (res) => { res.on("error", () => {}); clients.push(res); resolve(res); }).on("error", reject).end();
+    }));
+
+    expect(response.statusCode).toBe(200);
+    await expect.poll(() => subscriptions.length).toBe(count + 1);
+
+    return { response, socket: subscriptions[count]! };
+  };
+
+  return { dir, base, subscriptions, responses, select, close };
+};
+
+it("x14_harness_output_relay_selects_exact_bytes", async () => {
+  const real = await fixture();
+  const executable = chromePath();
+  const profile = join(real.dir, "profile");
+  const config = join(real.dir, "browser.json");
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+
+  const browser = async (...args: string[]) => {
+    if (!executable) throw new Error("X14 requires isolated Chromium: set CHROME_PATH");
+    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", `x14-${process.pid}`, "--profile", profile, "--json", ...args], { env, timeout: 30_000 });
+    const reply = JSON.parse(stdout);
+    expect(reply.success, stdout).toBe(true);
+
+    return reply.data;
+  };
+
+  try {
+    await writeFile(config, "{}");
+    await browser("open", real.base);
+    await browser("eval", `window.received = {}; window.meta = {}; window.finished = {}; window.start = (id) => {
+      window.received[id] = []; fetch('/__daemon/output?terminal=' + id + '&after=0').then(async response => {
+        window.meta[id] = [response.status, response.headers.get('content-type'), response.headers.get('x-terminal'), response.headers.get('x-output-after')];
+        const reader = response.body.getReader();
+        for (;;) { const { value, done } = await reader.read(); if (done) break; window.received[id].push(...value); }
+        window.finished[id] = true;
+      });
+    }; window.start('A');`);
+    await expect.poll(() => real.subscriptions.length).toBe(1);
+    await browser("eval", "window.start('B')");
+    await expect.poll(() => real.subscriptions.length).toBe(2);
+
+    for (const socket of real.subscriptions) {
+      // Both selections see the same current Event envelopes; only selected bytes may cross HTTP.
+      socket.write(output("A", [0, 27, 255, 226], 0));
+      socket.write(output("B", [66, 0], 0));
+      socket.end(output("A", [130, 172, 128], 4));
+    }
+
+    await browser("wait", "--fn", "window.finished.A && window.finished.B");
+    expect((await browser("eval", "window.received")).result).toEqual({ A: [0, 27, 255, 226, 130, 172, 128], B: [66, 0] });
+    expect((await browser("eval", "window.meta")).result).toEqual({ A: [200, "application/octet-stream", "A", "0"], B: [200, "application/octet-stream", "B", "0"] });
+  } finally {
+    try { await browser("close"); } finally { await real.close(); }
+  }
+}, 90_000);
+
+it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
+  const real = await fixture();
+
+  try {
+    const { response, socket } = await real.select("A");
+    response.pause();
+    const bytes = Buffer.alloc(16_384, 97);
+    let sent = 0;
+    let pendingWrite = false;
+    const socketClosed = new Promise<void>((resolve) => socket.once("close", resolve));
+
+    // Respect socket backpressure. A completed write is the send barrier; a
+    // pending write after HTTP saturation proves the dedicated connection holds.
+    const flood = (async () => {
+      for (; sent < 4096 && !socket.destroyed; sent++) {
+        const written = socket.write(output("A", bytes, sent * bytes.length));
+
+        if (!written) {
+          const drain = once(socket, "drain");
+          pendingWrite = true;
+          await Promise.race([drain, socketClosed]);
+          pendingWrite = false;
+        }
+      }
+    })().catch(() => {});
+
+    await expect.poll(() => real.responses[0]!.writableNeedDrain && pendingWrite, { timeout: 10_000 }).toBe(true);
+    expect(sent).toBeLessThan(4096);
+    expect(real.responses[0]!.writableLength).toBeLessThanOrEqual(real.responses[0]!.writableHighWaterMark + 196_608);
+    const before = sent;
+    // A reply barrier proves control works while output is held, rather than
+    // measuring elapsed time or assuming a particular kernel socket capacity.
+    const rpc = await bound(fetch(`${real.base}/__daemon/rpc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "daemon.ping" }) }));
+    expect(await rpc.json()).toEqual({ result: "control-reply" });
+    expect(sent - before).toBeLessThan(32);
+    expect([socket.destroyed, response.destroyed]).toEqual([false, false]);
+    expect(real.responses[0]!.writableNeedDrain).toBe(true);
+    response.destroy();
+    await bound(socketClosed);
+    await bound(flood);
+
+    // Recovery is explicit: discontinuous bytes fail the body before a second
+    // payload can be joined to it. A fresh selection supplies a new after.
+    const selected = await real.select("gap");
+    const chunks: Buffer[] = [];
+    selected.response.on("data", (chunk: Buffer) => chunks.push(chunk));
+    const closed = new Promise<void>((resolve) => selected.response.once("close", resolve));
+    selected.socket.write(output("gap", [65], 0));
+    await expect.poll(() => Buffer.concat(chunks).length).toBe(1);
+    selected.socket.write(output("gap", [67], 2));
+    await bound(closed);
+    expect(Buffer.concat(chunks)).toEqual(Buffer.from([65]));
+    expect(selected.response.complete).toBe(false);
+    const oversized = await real.select("oversized");
+    const rejected = new Promise<void>((resolve) => oversized.response.once("close", resolve));
+
+    oversized.response.resume();
+    oversized.socket.write(" ".repeat(262_145));
+    await bound(rejected);
+    expect(oversized.response.complete).toBe(false);
+  } finally { await real.close(); }
+}, 30_000);
+
+it("x14_harness_output_relay_cancellation_is_isolated", async () => {
+  const real = await fixture();
+
+  try {
+    const first = await real.select("A");
+    const other = await real.select("B");
+    const otherBytes: Buffer[] = [];
+    other.response.on("data", (chunk: Buffer) => otherBytes.push(chunk));
+    const global = await bound(fetch(`${real.base}/__daemon/events`));
+    const events = global.body!.getReader();
+    const ready = await bound(events.read());
+    expect(new TextDecoder().decode(ready.value)).toContain('"ready":true');
+    const globalSocket = real.subscriptions[2]!;
+    const released = once(first.socket, "close");
+    first.response.destroy();
+    await bound(released);
+    expect(first.socket.destroyed).toBe(true);
+    const replacement = await real.select("A");
+    const replacementBytes: Buffer[] = [];
+    replacement.response.on("data", (chunk: Buffer) => replacementBytes.push(chunk));
+    // A fixture-owned old socket cannot send late data into the replacement.
+    first.socket.write(output("A", [88], 0));
+    replacement.socket.write(output("A", [78], 0));
+    other.socket.write(output("B", [66], 0));
+    globalSocket.write(JSON.stringify({ method: "event", params: { name: "rail.changed" } }) + "\n");
+    expect(new TextDecoder().decode((await bound(events.read())).value)).toContain('"rail.changed"');
+    await events.cancel();
+    await expect.poll(() => Buffer.concat(otherBytes)).toEqual(Buffer.from([66]));
+    await expect.poll(() => Buffer.concat(replacementBytes)).toEqual(Buffer.from([78]));
+    const releasedReplacement = once(replacement.socket, "close");
+    replacement.response.destroy();
+    await bound(releasedReplacement);
+    other.socket.write(output("B", [67], 1));
+    await expect.poll(() => Buffer.concat(otherBytes)).toEqual(Buffer.from([66, 67]));
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Origin: "https://foreign.example" } }))).status).toBe(403);
+
+    const foreign = await bound(new Promise<number>((resolve, reject) => {
+      request(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Host: "foreign.example" } }, (res) => { res.resume(); resolve(res.statusCode!); }).on("error", reject).end();
+    }));
+
+    expect(foreign).toBe(403);
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A&after=-1`))).status).toBe(400);
+  } finally { await real.close(); }
+}, 30_000);
