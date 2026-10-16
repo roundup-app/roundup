@@ -306,7 +306,9 @@ Known Agent processes cannot bypass the hold by claiming the user. Direct user
 Stop remains immediate.
 
 Release rechecks Reach and the original Attempt before stopping. A Terminal
-attaching to that same starting Attempt keeps its waiting Stop valid.
+attaching to that same starting Attempt keeps its waiting Stop valid. During
+pending Resume, the old displayed Terminal does not invalidate a Stop of the
+resuming Attempt. The Agent checks the ordinal atomically with its Stop claim.
 A removed child, an exited Terminal or a replaced Attempt produces a retained
 drop reason; later actions still proceed. Stop completion waits for the Agent's
 existing exit confirmation. An uncertain effect remains explained by its
