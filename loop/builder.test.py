@@ -908,6 +908,7 @@ class Critic(unittest.TestCase):
         with GitHub(view=pr(), files=UI, notes=[note(first, 30), note(second, 10)]):
             task = builder.critic_task(9, HEAD)
         self.assertIn('`git diff second...HEAD`', task)
+        self.assertIn('never block on an earlier `NOTE:`', task)
 
     def test_l103_the_critic_task_without_earlier_findings_has_no_history_section(self):
         with GitHub(view=pr(), files=UI, notes=[note('VERDICT: approve')]):
@@ -980,6 +981,30 @@ class Critic(unittest.TestCase):
         with GitHub(view=pr()) as github:
             self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3'))
         self.assertEqual(github.bodies(), [f'CRITIC: reject\nHead: {HEAD}\n\n{FINDING}\n\nReviewed-by-Agent: critic-1'])
+
+    def test_l103_a_polish_only_finding_set_approves_and_starts_no_fix_run(self):
+        # PR #2198: four rounds and eight blocks, each fix drawing new polish (hover ladder, 0 px ring gap, hover radius).
+        earlier = note(f'CRITIC: reject\nHead: first\n\n{FINDING}\nNOTE: hover ladder 0.07 against 0.04', 30)
+        polish = 'NOTE: focus ring gap is 0 px\nNOTE: hover fill corner radius\nideas: a softer ladder'
+        with GitHub(view=pr(headRefName='build/x'), notes=[earlier]) as github:
+            self.assertTrue(builder.critic_post(9, HEAD, 'critic-1', json.dumps(dict(verdict='reject', findings=polish)),
+                                                True, 'https://run/3'))
+        self.assertTrue(github.bodies()[0].startswith(f'CRITIC: approve\nHead: {HEAD}'))
+        self.assertTrue(any('state=success' in w and 'context=critic' in w for w in github.writes))
+        self.assertEqual(github.fixes(), [])
+
+    def test_l103_a_reject_with_a_block_and_notes_stays_a_reject_and_the_fix_run_gets_both(self):
+        answer = json.dumps(dict(verdict='reject', findings=f'- {FINDING}\n- NOTE: line-height is 1.4'))
+        with GitHub(view=pr(headRefName='build/x')) as github:
+            builder.critic_post(9, HEAD, 'critic-1', answer, True, 'https://run/3')
+        self.assertIn(f'{FINDING}\nNOTE: line-height is 1.4', github.bodies()[0])
+        self.assertTrue(any('state=failure' in w and 'context=critic' in w for w in github.writes))
+        self.assertEqual(len(github.fixes()), 1)
+        reject = note(github.bodies()[0], ago=100)
+        with GitHub(view=pr(), notes=[reject]):
+            task = builder.fix_task(9, HEAD, 'critic')
+        self.assertIn('NOTE: line-height is 1.4', task)
+        self.assertIn('meet each `NOTE:` line too', task)
 
     def test_l103_critic_approve_sets_the_status_success(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:

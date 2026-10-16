@@ -64,7 +64,8 @@ CAUSES = {
     'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below.',
     'critic': 'The design critic rejected this head (L103); its findings are the last `CRITIC:` comment below. Meet each '
-              'finding, or the bar it names, without loosening `docs/design-system.md`.',
+              'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
+              'the notes are polish the critic raises once and never blocks on again.',
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
@@ -803,6 +804,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 BAR = 'elegant, well designed and tasteful. That is the bar'
 # L103: a reject posts as the critic wrote it, up to this many characters.
 CRITIC_CAP = 6000
+# L103: a finding line starting so is polish or an idea; it never blocks.
+POLISH = re.compile(r'(NOTE:|ideas\b)')
 
 
 def touches_desktop(pr):
@@ -831,7 +834,9 @@ def critic_task(pr, head):
     if earlier:
         last = orders.field(earlier[-1], 'Head', '')
         lines += ['\nThis is a later round (`.agents/design-critic.md`, Later rounds): judge the earlier findings below and '
-                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only.',
+                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only. Block '
+                  'only on a block: an unfixed earlier block, a new block, a failure of the scenario\'s goal, or ugly or '
+                  'hacky UI or code; raise no new polish and never block on an earlier `NOTE:`.',
                   '\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
@@ -857,6 +862,8 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         status(head, 'error', 'The critic run gave no usable verdict', run_url, 'critic')
         flag(pr, f'The critic run {run_url} gave no usable verdict on {head}; rerun it from that page.')
         return False
+    if verdict == 'reject' and all(POLISH.match(line) for line in findings if line.strip()):
+        verdict = 'approve'  # polish alone never blocks, in any round
     text = '\n'.join(findings)
     if len(text) > CRITIC_CAP:
         text = text[:CRITIC_CAP].rstrip() + '\n[cut: the critic wrote more than ' + str(CRITIC_CAP) + ' characters]'
