@@ -9,7 +9,7 @@ import { resolvedWorkstream } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, DEFAULT_TRANSPARENCY, MAX_TRANSPARENCY, MIN_HEIGHT, MIN_WIDTH, placesStorage, shownFor, shownName, STEP, TRANSPARENCY_STEP, transparencyStorage,
+  clamped, defaultPlace, MIN_HEIGHT, MIN_WIDTH, placesStorage, shownFor, shownName, STEP,
 } from "./places";
 import type { Place, Extent } from "./places";
 import "./styles.css";
