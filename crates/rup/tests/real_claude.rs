@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1300,4 +1300,226 @@ async fn a41_a_leading_slash_runs_the_skill() {
             .is_some_and(|model| model.starts_with("claude-haiku"))),
         "named routing made a Placement call"
     );
+}
+
+#[tokio::test]
+async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
+ {
+    use std::os::unix::fs::PermissionsExt;
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-hook-observer");
+    let log = probe.path().join("hooks.jsonl");
+    std::fs::write(&wrapper, r##"#!/usr/bin/env python3
+import json, os, subprocess, sys
+if sys.argv[1] != "signal":
+    os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
+payload = sys.stdin.buffer.read()
+result = subprocess.run([os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]], input=payload, stdout=subprocess.PIPE, timeout=5)
+with open(os.environ["REAL_CLAUDE_HOOK_LOG"], "a") as log:
+    log.write(json.dumps({"event": json.loads(payload)["hook_event_name"], "exit": result.returncode}) + "\n")
+sys.stdout.buffer.write(result.stdout)
+sys.exit(result.returncode)
+"##).unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "h15_hundred_tools",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("REAL_CLAUDE_HOOK_LOG", log.to_str().unwrap()),
+        ],
+    );
+    for index in 0..100 {
+        std::fs::write(
+            project.dir.path().join(format!("h15-{index:03}.txt")),
+            "H15 hook round\n",
+        )
+        .unwrap();
+    }
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "H15 exercise one hundred tools"}),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
+    )
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(180), async {
+        let mut working = false;
+        loop {
+            let event = client
+                .next_event()
+                .await
+                .expect("the connection stays open");
+            if let EventData::AgentStatus(status) = event.data
+                && status.id == agent.id
+            {
+                if status.status.kind == Kind::Working {
+                    working = true;
+                } else if status.status.kind == Kind::Idle && working {
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .expect("the hundred-tool turn completes");
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    let journal = model.journal();
+    // Aimock truncates long request bodies at 64 KB. Its selected fixture records the
+    // last-result ID and content constraints that actually matched even after that cap.
+    for index in 0..100 {
+        let id = format!("toolu_h15_{index:03}");
+        assert!(
+            journal.iter().any(|entry| {
+                let matched = &entry["response"]["fixture"]["match"];
+                matched["toolCallId"] == id && matched["toolResultContains"] == "H15 hook round"
+            }),
+            "missing successful tool result {id}"
+        );
+    }
+    let hooks: Vec<Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert!(hooks.iter().all(|hook| hook["exit"] == 0), "{hooks:#?}");
+    let uses: Vec<_> = hooks
+        .iter()
+        .filter(|hook| matches!(hook["event"].as_str(), Some("PreToolUse" | "PostToolUse")))
+        .collect();
+    assert_eq!(uses.len(), 200, "{hooks:#?}");
+    assert!(
+        uses.chunks(2).all(|pair| pair[0]["event"] == "PreToolUse"
+            && pair[1]["event"] == "PostToolUse"
+            && pair.iter().all(|hook| hook["exit"] == 0)),
+        "{hooks:#?}"
+    );
+    let tree = rail_tree(&client).await;
+    assert_eq!(
+        tree.iter()
+            .find(|node| node.id == agent.id)
+            .unwrap()
+            .status
+            .as_ref()
+            .map(|status| status.label.as_str()),
+        Some("idle")
+    );
+}
+
+#[tokio::test]
+async fn a32_an_empty_reason_changes_nothing() {
+    let project = daemon::start_real("a32_invalid_clear", &[]);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut client = project.subscribed().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a32_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a32_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
+    }
+    let before: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .map(|n| (n.id, n.parent, n.iteration, n.worktree))
+        .collect();
+    let asked = model.journal().len();
+    for reason in ["", "  \n ", &"x".repeat(2001)] {
+        let error = client
+            .request("workstream.clear", json!({"id": door, "reason": reason}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::INVALID_PARAMS);
+    }
+    let missing = client
+        .request("workstream.clear", json!({"id": "9999", "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(missing.code, rpc::code::NOT_FOUND);
+    let sub = client
+        .request("workstream.clear", json!({"id": a.id, "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(sub.code, rpc::code::INVALID_PARAMS);
+    let after: Vec<_> = rail_tree(&client)
+        .await
+        .into_iter()
+        .map(|n| (n.id, n.parent, n.iteration, n.worktree))
+        .collect();
+    assert_eq!(after, before);
+    assert_eq!(
+        model.journal().len(),
+        asked,
+        "invalid clear sends no prompt to Claude"
+    );
+    model.assert_matched();
 }
