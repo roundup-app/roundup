@@ -188,6 +188,18 @@ git merge -q --no-ff --allow-unrelated-histories --no-edit origin/main -m "Merge
 clean_code 1 "L54 a merge of unrelated history fails closed in merge-tree" "merge-tree"
 expect_exit 2 "L54 clean-merge needs a commit" loop/rules.sh clean-merge
 
+# L120 merge-loss: own files come from the branch's non-merge commits, never from a PR body.
+loss_code() {
+  local want=$1 name=$2 why=${3:-} got=0 out
+  out=$(loop/rules.sh merge-loss 2>&1) || got=$?
+  if [ "$got" -eq "$want" ] && [[ $out == *"$why"* ]]; then echo "ok:   $name"; else echo "FAIL: $name (wanted exit $want, got $got: $out)"; failures=$((failures + 1)); fi
+}
+merge_repo; loss_code 0 "L120 a branch whose changed files are all its own commits' passes"
+merge_repo; git rm -q scenarios/loop.md; commit "remove it" 'Author-Agent: t'
+loss_code 0 "L120 a deletion made in an own commit passes"
+merge_repo; main_commit scenarios/loop.md changed; merge_main; echo a >scenarios/loop.md; finish_merge
+loss_code 1 "L120 a merge that drops a main hunk in an untouched file fails, listing it" "scenarios/loop.md"
+
 # L2, L33, L37 read only fake GitHub data, with real commit trees.
 gate_repo() {
   new_repo

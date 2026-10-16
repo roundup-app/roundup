@@ -8,6 +8,7 @@ mod context;
 pub mod data;
 mod decision_notes;
 mod digest;
+mod event_log;
 mod handshake;
 mod removal;
 mod resize;
@@ -124,7 +125,7 @@ impl Daemon {
     ) -> Result<Self, OpenError> {
         std::fs::create_dir_all(dir)?;
         storage::open(dir)?;
-        let bus = Bus::new();
+        let bus = Bus::with_log(Arc::new(event_log::SqliteLog::open(dir)?));
         let terminals = Arc::new(
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
                 .with_input_writer(terminal_input_observer())
