@@ -87,9 +87,10 @@ not tests claimed to exist in this specification PR.
 8. **Regression and journey.** Policy: run all `terminal.md` scenarios, X11/X12,
    RPC and Daemon regressions, and `just check origin/main`. Report matched
    before/after `just perf` values with source/binary hashes, commands, exits,
-   host/toolchain/profile and loads. Preserve `docs/perf.md`'s absolute limits,
-   10% regression gates and R16 qualification; skipped latency comparisons do
-   not demonstrate acceptance. Report `write_to_output_p95_ms` explicitly as the
+   host/toolchain/profile and loads, as unqualified evidence. Preserve
+   `docs/perf.md`'s absolute limits and 10% regression gates. R16 machine-class
+   qualification is not required; skipped latency comparisons do not
+   demonstrate acceptance. Report `write_to_output_p95_ms` explicitly as the
    headless Daemon bound, never as full keystroke-to-render. Preserve R11/R12's
    native WKWebView observation and consent requirements; any required native
    measurement uses that observer and reports before/after p95 and renderer.
