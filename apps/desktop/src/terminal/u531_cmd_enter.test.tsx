@@ -87,6 +87,7 @@ describe("u531 ⌘⏎ takes control of the selected Agent", () => {
     const button = row.appendChild(document.createElement("button"));
 
     press("Enter", { metaKey: true }, button);
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(begins(app)).toEqual([]);
   });
 
