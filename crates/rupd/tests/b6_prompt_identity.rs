@@ -1283,7 +1283,8 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             });
             tokio::time::timeout(BOUND, async {
                 let mut output = String::new();
-                let expected: String = b"occupying steer\x1b[201~\r"
+                // The paste ends with the B39 id line, then the bracketed-paste end and the Enter.
+                let expected: String = b"]\x1b[201~\r"
                     .iter()
                     .map(|byte| format!("BYTE:{byte:02x}\n"))
                     .collect();
