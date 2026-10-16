@@ -1110,3 +1110,362 @@ async fn p12_the_home_survives_open() {
     let listed = reopened.call(&ctx, "pad.list", Value::Null).await.unwrap();
     assert_eq!(listed[0]["home"], "r1");
 }
+
+const DOC: &str = "# Notes\n\n## Plan\n- one\n\n### Detail\nmore\n\n## Done\n- x\n";
+
+async fn section(rig: &Rig, who: &Actor, heading: &str, text: &str) -> Value {
+    let params = json!({"name": "notes", "heading": heading, "text": text});
+    rig.ok(who, "pad.appendSection", params).await
+}
+
+#[tokio::test]
+async fn p15_appends_at_section_end() {
+    let rig = Rig::new();
+    rig.create("notes", DOC).await;
+    let a = agent("a");
+
+    let pad = section(&rig, &a, "Done", "- y\n").await;
+    assert_eq!(pad["text"], DOC.replace("- x\n", "- x\n- y\n"));
+
+    rig.create("tail", "## A\nx").await;
+    let tail = rig
+        .ok(
+            &a,
+            "pad.appendSection",
+            json!({"name": "tail", "heading": "a", "text": "y"}),
+        )
+        .await;
+    assert_eq!(tail["text"], "## A\nx\ny");
+
+    let blank = rig
+        .ok(
+            &a,
+            "pad.appendSection",
+            json!({"name": "tail", "heading": "a", "text": "z\n\n"}),
+        )
+        .await;
+    assert_eq!(blank["text"], "## A\nx\ny\nz\n");
+}
+
+#[tokio::test]
+async fn p15_deeper_heading_stays_inside_section() {
+    let rig = Rig::new();
+    rig.create("notes", DOC).await;
+
+    let pad = section(&rig, &agent("a"), "## Plan", "- two").await;
+
+    assert_eq!(
+        pad["text"],
+        "# Notes\n\n## Plan\n- one\n\n### Detail\nmore\n- two\n\n## Done\n- x\n"
+    );
+    let inner = section(&rig, &agent("a"), "Detail", "deep").await;
+    assert!(
+        inner["text"]
+            .as_str()
+            .unwrap()
+            .contains("more\ndeep\n- two")
+    );
+}
+
+#[tokio::test]
+async fn p15_fenced_hash_is_no_heading() {
+    let rig = Rig::new();
+    rig.create(
+        "notes",
+        "## Plan\n```\n# not a heading\n```\nafter\n## Done\n",
+    )
+    .await;
+
+    let pad = section(&rig, &agent("a"), "Plan", "added").await;
+    assert_eq!(
+        pad["text"],
+        "## Plan\n```\n# not a heading\n```\nafter\nadded\n## Done\n"
+    );
+    let missing = rig
+        .fail(
+            &agent("a"),
+            "pad.appendSection",
+            json!({"name": "notes", "heading": "not a heading", "text": "x"}),
+        )
+        .await;
+    assert_eq!(missing.code, code::INVALID_PARAMS);
+}
+
+#[tokio::test]
+async fn p15_heading_match_ignores_case_and_space() {
+    let rig = Rig::new();
+    rig.create("notes", "## Plan  Ahead\n## Plan Ahead\n").await;
+    let a = agent("a");
+
+    for heading in ["  plan   ahead ", "PLAN AHEAD", "### Plan Ahead"] {
+        section(&rig, &a, heading, "x").await;
+    }
+
+    let pad = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
+    assert_eq!(pad["text"], "## Plan  Ahead\nx\nx\nx\n## Plan Ahead\n");
+}
+
+#[tokio::test]
+async fn p15_missing_heading_lists_headings() {
+    let rig = Rig::new();
+    rig.create("notes", "# Notes\n## Plan\n## Done\n").await;
+    rig.create("bare", "no headings").await;
+    let a = agent("a");
+
+    let err = rig
+        .fail(
+            &a,
+            "pad.appendSection",
+            json!({"name": "notes", "heading": "Risks", "text": "x"}),
+        )
+        .await;
+    let bare = rig
+        .fail(
+            &a,
+            "pad.appendSection",
+            json!({"name": "bare", "heading": "Risks", "text": "x"}),
+        )
+        .await;
+    let empty_heading = rig
+        .fail(
+            &a,
+            "pad.appendSection",
+            json!({"name": "notes", "heading": " # ", "text": "x"}),
+        )
+        .await;
+    let empty_text = rig
+        .fail(
+            &a,
+            "pad.appendSection",
+            json!({"name": "notes", "heading": "Plan", "text": ""}),
+        )
+        .await;
+
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert_eq!(
+        err.message,
+        r###"no heading "Risks" in pad notes; headings: "# Notes", "## Plan", "## Done""###
+    );
+    assert!(bare.message.ends_with("the pad has no headings"));
+    assert_eq!(empty_heading.code, code::INVALID_PARAMS);
+    assert_eq!(empty_text.code, code::INVALID_PARAMS);
+    let pad = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
+    assert_eq!(pad["revision"], 1);
+}
+
+#[tokio::test]
+async fn p15_any_actor_appends_with_touch_and_event() {
+    let rig = Rig::new();
+    rig.create("notes", DOC).await;
+    let mut events = rig.bus.subscribe();
+    let b = agent("b");
+
+    let denied = rig
+        .fail(&b, "pad.write", json!({"name": "notes", "text": "x"}))
+        .await;
+    let pad = section(&rig, &b, "Plan", "- b").await;
+
+    assert_eq!(denied.code, code::FORBIDDEN);
+    assert_eq!(pad["revision"], 2);
+    assert!(matches!(
+        events.try_recv().unwrap().data,
+        EventData::PadChanged(_)
+    ));
+    assert!(events.try_recv().is_err());
+    let by_b = rig.touches.touched("b").unwrap();
+    assert_eq!(by_b.len(), 1);
+    assert_eq!(by_b[0].verb, Verb::Wrote);
+    assert_eq!(by_b[0].item, "pad:notes");
+}
+
+#[tokio::test]
+async fn p15_stale_revision_conflicts() {
+    let rig = Rig::new();
+    rig.create("notes", DOC).await;
+    let a = agent("a");
+    let send = |revision: u64| json!({"name": "notes", "heading": "Plan", "text": "x", "expectedRevision": revision});
+
+    rig.ok(&a, "pad.appendSection", send(1)).await;
+    let stale = rig.fail(&a, "pad.appendSection", send(1)).await;
+    let ahead = rig.fail(&a, "pad.appendSection", send(9)).await;
+    let current = rig.ok(&a, "pad.appendSection", send(2)).await;
+
+    assert_eq!(stale.code, code::CONFLICT);
+    assert!(stale.message.contains("revision 2"));
+    assert_eq!(ahead.code, code::CONFLICT);
+    assert_eq!(current["revision"], 3);
+    assert_eq!(current["text"].as_str().unwrap().matches("x\n").count(), 2);
+}
+
+#[tokio::test]
+async fn p15_two_writers_one_wins() {
+    for order in [["a", "b"], ["b", "a"]] {
+        let rig = Rig::new();
+        rig.create("notes", DOC).await;
+        let params = |who: &str| json!({"name": "notes", "heading": "Done", "text": who, "expectedRevision": 1});
+        let first = rig
+            .call(&agent(order[0]), "pad.appendSection", params(order[0]))
+            .await;
+        let second = rig
+            .call(&agent(order[1]), "pad.appendSection", params(order[1]))
+            .await;
+
+        assert!(first.is_ok());
+        assert_eq!(second.unwrap_err().code, code::CONFLICT);
+        let pad = rig
+            .ok(&agent("a"), "pad.read", json!({"name": "notes"}))
+            .await;
+        assert!(
+            pad["text"]
+                .as_str()
+                .unwrap()
+                .ends_with(&format!("- x\n{}\n", order[0]))
+        );
+    }
+}
+
+#[tokio::test]
+async fn p15_rejected_call_leaves_no_trace() {
+    for files in [false, true] {
+        let rig = Rig::new();
+        rig.create("notes", DOC).await;
+        if files {
+            rig.ok(&Actor::user(), "pad.setStorage", json!({"files": true}))
+                .await;
+        }
+        let mut events = rig.bus.subscribe();
+        let touches = rig.touches.history("pad:notes").unwrap().len();
+        let a = agent("a");
+
+        let unknown = rig
+            .fail(
+                &a,
+                "pad.appendSection",
+                json!({"name": "ghost", "heading": "Plan", "text": "x"}),
+            )
+            .await;
+        let bad_name = rig
+            .fail(
+                &a,
+                "pad.appendSection",
+                json!({"name": "a/b", "heading": "Plan", "text": "x"}),
+            )
+            .await;
+        let no_heading = rig
+            .fail(
+                &a,
+                "pad.appendSection",
+                json!({"name": "notes", "heading": "Risks", "text": "x"}),
+            )
+            .await;
+        let stale = rig
+            .fail(
+                &a,
+                "pad.appendSection",
+                json!({"name": "notes", "heading": "Plan", "text": "x", "expectedRevision": 7}),
+            )
+            .await;
+
+        assert_eq!(unknown.code, code::NOT_FOUND);
+        assert_eq!(bad_name.code, code::INVALID_PARAMS);
+        assert_eq!(no_heading.code, code::INVALID_PARAMS);
+        assert_eq!(stale.code, code::CONFLICT);
+        assert!(events.try_recv().is_err());
+        assert_eq!(rig.touches.history("pad:notes").unwrap().len(), touches);
+        let pad = rig.ok(&a, "pad.read", json!({"name": "notes"})).await;
+        assert_eq!(
+            (pad["text"].as_str().unwrap(), pad["revision"].clone()),
+            (DOC, json!(1))
+        );
+        if files {
+            assert_eq!(rig.file_text("notes.md"), DOC);
+        }
+    }
+}
+
+#[tokio::test]
+async fn p15_file_storage_follows_the_section_append() {
+    let rig = Rig::new();
+    rig.create("notes", DOC).await;
+    rig.ok(&Actor::user(), "pad.setStorage", json!({"files": true}))
+        .await;
+
+    let pad = section(&rig, &agent("a"), "Done", "- y").await;
+
+    assert_eq!(rig.file_text("notes.md"), pad["text"].as_str().unwrap());
+}
+
+#[tokio::test]
+async fn p15_revision_follows_text_changes() {
+    let rig = Rig::new();
+    rig.create("notes", "one").await;
+    let (a, user) = (agent("a"), Actor::user());
+    let revision = |pad: Value| pad["revision"].as_u64().unwrap();
+    assert_eq!(
+        revision(rig.ok(&a, "pad.read", json!({"name": "notes"})).await),
+        1
+    );
+
+    let written = rig
+        .ok(&a, "pad.write", json!({"name": "notes", "text": "two"}))
+        .await;
+    let same = rig
+        .ok(&a, "pad.write", json!({"name": "notes", "text": "two"}))
+        .await;
+    let appended = rig
+        .ok(&a, "pad.append", json!({"name": "notes", "text": "+"}))
+        .await;
+    let nothing = rig
+        .ok(&a, "pad.append", json!({"name": "notes", "text": ""}))
+        .await;
+    let moved = rig
+        .ok(&user, "pad.move", json!({"name": "notes", "home": "r1"}))
+        .await;
+    let handed = rig
+        .ok(
+            &user,
+            "pad.setOwner",
+            json!({"name": "notes", "owner": agent("b")}),
+        )
+        .await;
+
+    assert_eq!(
+        [written, same, appended, nothing, moved, handed].map(revision),
+        [2, 2, 3, 3, 3, 3]
+    );
+}
+
+#[tokio::test]
+async fn p15_revision_survives_reopen() {
+    let rig = Rig::new();
+    rig.create("notes", "one").await;
+    rig.ok(
+        &agent("a"),
+        "pad.append",
+        json!({"name": "notes", "text": "+"}),
+    )
+    .await;
+    let Rig { dir, bus, .. } = rig;
+    let reopened = Pads::open(dir.path(), bus.clone()).unwrap();
+    let ctx = Ctx {
+        actor: Actor::user(),
+        bus,
+        touches: Arc::new(Touches::in_memory().unwrap()),
+    };
+
+    let listed = reopened.call(&ctx, "pad.list", Value::Null).await.unwrap();
+
+    assert_eq!(listed[0]["revision"], 2);
+}
+
+#[tokio::test]
+async fn p15_a_pad_stored_before_revisions_reads_revision_1() {
+    let rig = Rig::new();
+    rig.store_row("old");
+
+    let pad = rig
+        .ok(&agent("a"), "pad.read", json!({"name": "old"}))
+        .await;
+
+    assert_eq!(pad["revision"], 1);
+}
