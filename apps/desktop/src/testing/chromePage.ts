@@ -4,8 +4,7 @@ import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, r
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { finished } from "node:stream/promises";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
+import { appServer } from "./appServer.ts";
 
 /** A headless Chromium on a fresh profile, driven over its DevTools pipe, with Vite serving the U26 harness; never the user's browser. */
 
@@ -93,11 +92,7 @@ export const openPage = async (
 
   completed("executable-read");
 
-  // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
-  const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
-  const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
-
-  await server.listen();
+  const server = await appServer({ root });
 
   completed("server-listening");
 
@@ -307,12 +302,6 @@ export const openPage = async (
     await exited;
     clearTimeout(fallback);
     await server.close();
-
-    try {
-      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    } catch {
-      // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
-    }
 
     try {
       rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

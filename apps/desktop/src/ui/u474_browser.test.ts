@@ -8,6 +8,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const art = captureDir("U477");
 
@@ -17,7 +18,7 @@ const profile = mkdtempSync(join(tmpdir(), "u474-"));
 
 const session = `u474-${process.pid}`;
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -37,9 +38,8 @@ const read = async <T,>(expression: string): Promise<T> => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   const baseRoot = process.env.U477_BASE_ROOT;
 
   if (baseRoot) {

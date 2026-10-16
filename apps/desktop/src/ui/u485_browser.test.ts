@@ -3,9 +3,9 @@ import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
+import { appServer, type AppServer } from "../testing/appServer";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
@@ -18,7 +18,7 @@ const session = `u485-${process.pid}`;
 
 const art = captureDir("U485");
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -34,9 +34,8 @@ const read = async <T,>(expression: string): Promise<T> => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   await browser("--profile", profile, "open", new URL("/src/ui/u483.html", origin).href);
 
   if (art) mkdirSync(art, { recursive: true });

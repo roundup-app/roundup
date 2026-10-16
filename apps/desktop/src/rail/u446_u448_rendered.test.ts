@@ -3,11 +3,10 @@ import { promisify } from "node:util";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { captureDir } from "../testing/captures";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
@@ -19,7 +18,7 @@ const art = captureDir("U446");
 
 const railArt = captureDir("U448");
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -42,9 +41,8 @@ const load = async (seed = "tree-40", scheme = "light") => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   await browser("--profile", profile, "open", origin);
 
   if (art) mkdirSync(art, { recursive: true });
