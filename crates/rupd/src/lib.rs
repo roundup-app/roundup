@@ -628,8 +628,17 @@ impl Daemon {
                     .find(|d| d.id == answer.id)
                     .map(|d| d.agent))
             }
-            "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
-            | "agent.stop" | "rail.rename" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
+            "agent.prompt"
+            | "agent.setOrder"
+            | "agent.interrupt"
+            | "agent.resume"
+            | "agent.stop"
+            | "agent.discard"
+            | "agent.land"
+            | "agent.worktreeState"
+            | "rail.rename"
+            | "rail.move"
+            | "rail.remove" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
             _ => Ok(None),
         }
     }
