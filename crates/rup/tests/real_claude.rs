@@ -3321,3 +3321,447 @@ async fn a32_subagents_stop_deepest_first_and_leave_the_rail() {
     .await
     .expect("fresh Door Handoff observer did not complete");
 }
+
+/// A launch gate over real Claude: starts pass while `hold` exists; a start without it waits and creates `held`.
+struct Gate {
+    dir: tempfile::TempDir,
+    hold: std::path::PathBuf,
+    held: std::path::PathBuf,
+    launches: std::path::PathBuf,
+}
+
+impl Gate {
+    fn new() -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let hold = dir.path().join("hold-start");
+        std::fs::write(&hold, "").unwrap();
+        Self {
+            hold,
+            held: dir.path().join("held-start"),
+            launches: dir.path().join("launches.jsonl"),
+            dir,
+        }
+    }
+
+    fn wrapper(&self) -> String {
+        aimock::launch_wrapper(self.dir.path(), &self.hold, &self.held, &self.launches)
+            .to_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    /// The Agent starts; the Daemon's own `claude plugin test` runs pass through the gate too.
+    fn rows(&self) -> Vec<Value> {
+        std::fs::read_to_string(&self.launches)
+            .unwrap_or_default()
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|row| row["argv"][0] == "--settings")
+            .collect()
+    }
+}
+
+async fn gated_clear_fixture(fixture: &str, gate: &Gate) -> (daemon::Project, rpc::Client, String) {
+    let wrapper = gate.wrapper();
+    clear_fixture(
+        fixture,
+        &[
+            ("ROUNDUP_CLAUDE_BIN", &wrapper),
+            ("ROUNDUP_HANDOFF_BOUND_MS", "60000"),
+        ],
+    )
+    .await
+}
+
+async fn until<T>(what: &str, mut probe: impl FnMut() -> Option<T>) -> T {
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(found) = probe() {
+                return found;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("never: {what}"))
+}
+
+async fn idle(client: &rpc::Client, id: &str) {
+    until_async(&format!("{id} idle"), || async {
+        rail_tree(client)
+            .await
+            .into_iter()
+            .find(|n| n.id == id)
+            .and_then(|n| n.status)
+            .is_some_and(|s| s.kind == Kind::Idle)
+            .then_some(())
+    })
+    .await;
+}
+
+async fn until_async<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(found) = probe().await {
+                return found;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("never: {what}"))
+}
+
+/// The Door is asked to hand off once the model's journal holds the Clear prompt.
+async fn asked(model: &aimock::Model) {
+    until("the Door was asked", || {
+        model
+            .journal()
+            .iter()
+            .any(|entry| {
+                entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|m| {
+                            m["role"] == "user"
+                                && m["content"]
+                                    .as_str()
+                                    .is_some_and(|t| t.contains("workstream_handoff"))
+                        })
+                    })
+            })
+            .then_some(())
+    })
+    .await;
+}
+
+async fn as_door(project: &daemon::Project, door: &str) -> rpc::Client {
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.to_owned(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    actor
+}
+
+async fn child_of(client: &rpc::Client, parent: &str) -> String {
+    rail_tree(client)
+        .await
+        .into_iter()
+        .find(|node| node.parent.as_deref() == Some(parent))
+        .unwrap()
+        .id
+}
+
+/// Leave Subagent `a` mid-resume, which no stop can claim: it was stopped, and its start waits
+/// before real Claude runs, so no SessionStart acknowledges the resume.
+async fn hold_a_resume(
+    client: &rpc::Client,
+    project: &daemon::Project,
+    gate: &Gate,
+    a: &str,
+) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
+    client
+        .request("agent.stop", json!({"id": a}))
+        .await
+        .unwrap();
+    std::fs::remove_file(&gate.hold).unwrap();
+    let resumer = project.client().await;
+    let id = a.to_owned();
+    let resume =
+        tokio::spawn(async move { resumer.request("agent.resume", json!({"id": id})).await });
+    until("resume held before SessionStart", || {
+        gate.held.is_file().then_some(())
+    })
+    .await;
+    assert!(
+        !resume.is_finished(),
+        "resume completed without SessionStart"
+    );
+    resume
+}
+
+#[tokio::test]
+async fn a32_resume_is_held_until_session_start() {
+    let gate = Gate::new();
+    let (project, client, door) = gated_clear_fixture("a32_resume_held", &gate).await;
+    let a = child_of(&client, &door).await;
+    let resume = hold_a_resume(&client, &project, &gate, &a).await;
+    std::fs::write(&gate.hold, "").unwrap();
+    tokio::time::timeout(Duration::from_secs(30), resume)
+        .await
+        .expect("resume did not receive SessionStart")
+        .unwrap()
+        .unwrap();
+    idle(&client, &a).await;
+    project.model.as_ref().unwrap().assert_matched();
+}
+
+#[tokio::test]
+async fn a32_a_failed_stop_retries_without_double_archive() {
+    let gate = Gate::new();
+    let (project, mut client, door) = gated_clear_fixture("a32_failed_stop", &gate).await;
+    let model = project.model.as_ref().unwrap();
+    let a = child_of(&client, &door).await;
+    let b = child_of(&client, &a).await;
+    let sections = |pads: &Value| {
+        let archive = pads
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "archive-1")
+            .unwrap();
+        let text = archive["text"].as_str().unwrap();
+        text.matches("\n## ").count() + usize::from(text.starts_with("## "))
+    };
+    assert_eq!(
+        client
+            .request("workstream.clear", json!({"id": door, "reason": "bloat"}))
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    asked(model).await;
+    hold_a_resume(&client, &project, &gate, &a).await;
+    as_door(&project, &door)
+        .await
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Retry the Handoff.", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+    let failed = next(&mut client, |event| match event {
+        EventData::WorkstreamClearFailed(failed) if failed.id == door => Some(failed),
+        _ => None,
+    })
+    .await;
+    assert_eq!(
+        failed.code,
+        rpc::code::CONFLICT as i32,
+        "{}",
+        failed.message
+    );
+
+    let ids: Vec<_> = rail_tree(&client).await.into_iter().map(|n| n.id).collect();
+    assert!(!ids.contains(&b), "the deepest Subagent stopped first");
+    assert!(ids.contains(&a), "{ids:?}");
+    assert!(ids.contains(&door));
+    assert_eq!(
+        rail_tree(&client)
+            .await
+            .iter()
+            .find(|n| n.id == door)
+            .unwrap()
+            .iteration,
+        Some(1)
+    );
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    assert_eq!(sections(&pads), 4, "every item archived once");
+
+    std::fs::write(&gate.hold, "").unwrap();
+    idle(&client, &a).await;
+    assert_eq!(
+        client
+            .request("workstream.clear", json!({"id": door, "reason": "bloat"}))
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let ids: Vec<_> = rail_tree(&client).await.into_iter().map(|n| n.id).collect();
+    assert_eq!(ids.iter().filter(|id| **id == door).count(), 1);
+    assert!(!ids.contains(&a));
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    assert_eq!(sections(&pads), 4, "a retry archives nothing twice");
+    until(
+        "the restarted Door received the Handoff and archive pointer",
+        || {
+            model
+                .journal()
+                .iter()
+                .any(|entry| {
+                    entry["body"]["messages"]
+                        .as_array()
+                        .is_some_and(|messages| {
+                            messages.iter().any(|m| {
+                                m["role"] == "user"
+                                    && m["content"].as_str().is_some_and(|t| {
+                                        t.contains("Retry the Handoff.") && t.contains("archive-1")
+                                    })
+                            })
+                        })
+                })
+                .then_some(())
+        },
+    )
+    .await;
+    idle(&client, &door).await;
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_a_failed_restart_keeps_the_workstream() {
+    let gate = Gate::new();
+    let (project, mut client, door) = gated_clear_fixture("a32_failed_restart", &gate).await;
+    let model = project.model.as_ref().unwrap();
+    let a = child_of(&client, &door).await;
+    let b = child_of(&client, &a).await;
+    let before = rail_tree(&client)
+        .await
+        .into_iter()
+        .find(|n| n.id == door)
+        .unwrap();
+    std::fs::remove_file(&gate.hold).unwrap();
+    assert_eq!(
+        client
+            .request("workstream.clear", json!({"id": door, "reason": "bloat"}))
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    asked(model).await;
+    as_door(&project, &door)
+        .await
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+    let failed = next(&mut client, |event| match event {
+        EventData::WorkstreamClearFailed(failed) if failed.id == door => Some(failed),
+        _ => None,
+    })
+    .await;
+    assert_eq!(
+        failed.code,
+        rpc::code::CONFLICT as i32,
+        "{}",
+        failed.message
+    );
+
+    let tree = rail_tree(&client).await;
+    let after = tree.iter().find(|n| n.id == door).unwrap();
+    assert_eq!(after.iteration, Some(1), "the Iteration stays");
+    assert_eq!(after.terminal_id, None, "the Door stays stopped");
+    assert_eq!(after.name, before.name);
+    assert!(tree.iter().all(|n| n.id != a && n.id != b));
+
+    std::fs::write(&gate.hold, "").unwrap();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let resumed = rail_tree(&client)
+        .await
+        .into_iter()
+        .find(|n| n.id == door)
+        .unwrap();
+    assert!(resumed.terminal_id.is_some());
+    assert_eq!(resumed.iteration, Some(1));
+    idle(&client, &door).await;
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
+    let gate = Gate::new();
+    let (project, mut client, door) = gated_clear_fixture("a32_plugins", &gate).await;
+    let a = child_of(&client, &door).await;
+    until("initial Door and children launched", || {
+        (gate.rows().len() == 3).then_some(())
+    })
+    .await;
+    for id in [&door, &a] {
+        client
+            .request("agent.stop", json!({"id": id}))
+            .await
+            .unwrap();
+        client
+            .request(
+                if id == &door {
+                    "rail.startDoor"
+                } else {
+                    "agent.resume"
+                },
+                json!({"id": id}),
+            )
+            .await
+            .unwrap();
+    }
+    until("Door and child resumed", || {
+        (gate.rows().len() == 5).then_some(())
+    })
+    .await;
+    let before_clear = gate.rows();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "start a fresh iteration", "without_handoff": true})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    until("fresh Door launched", || {
+        (gate.rows().len() == 6).then_some(())
+    })
+    .await;
+    let after_clear = gate.rows();
+    let resumes = |row: &Value| {
+        row["argv"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|arg| arg == "--resume")
+    };
+    assert!(resumes(&before_clear[3]) && resumes(&before_clear[4]));
+    assert!(!resumes(&after_clear[5]));
+    for row in &after_clear {
+        let argv = row["argv"].as_array().unwrap();
+        let paths: Vec<_> = argv
+            .windows(2)
+            .filter(|pair| pair[0] == "--plugin-dir")
+            .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
+            .collect();
+        assert_eq!(paths.len(), 4);
+        for (path, (name, version)) in paths.iter().zip([
+            ("hope", "13.1.0"),
+            ("hunch", "0.9.4"),
+            ("hold", "0.0.9"),
+            ("roundup-question", "0.0.1"),
+        ]) {
+            let manifest: Value = serde_json::from_slice(
+                &std::fs::read(path.join(".claude-plugin/plugin.json")).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(manifest["name"], name);
+            assert_eq!(manifest["version"], version);
+        }
+        assert_eq!(row["functionHooks"], "1");
+    }
+    idle(&client, &door).await;
+    project.model.as_ref().unwrap().assert_matched();
+}
