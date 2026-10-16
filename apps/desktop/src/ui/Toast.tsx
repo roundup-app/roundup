@@ -77,8 +77,10 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
             if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
             focused = false; restart();
           }}>
-          <span aria-hidden="true">{card().meta?.glyph}</span>
-          <Toast.Title asChild={(title) => <span {...title()} />}>{card().title}</Toast.Title>{" "}
+          <span class="app-toast-heading">
+            <span class="app-toast-glyph" aria-hidden="true">{card().meta?.glyph}</span>
+            <Toast.Title asChild={(title) => <span {...title()} />}>{card().title}</Toast.Title>
+          </span>{" "}
           <Toast.Description asChild={(description) => <span {...description()} />}>{card().description}</Toast.Description>
         </button>
       </Toast.Root>;

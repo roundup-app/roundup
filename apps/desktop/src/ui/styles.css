@@ -95,12 +95,30 @@
   font: inherit;
   font-size: var(--text-small);
   text-align: left;
-  --button-surface: var(--selected);
+  --button-surface: var(--selected-hover);
   border-radius: var(--radius-control);
   overflow-wrap: anywhere;
 }
 
+.app-toast-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.app-toast-glyph {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 1lh;
+}
+
+.app-toast-glyph:empty {
+  display: none;
+}
+
 .app-toast [data-part="title"] {
+  min-width: 0;
   color: var(--text);
   font-weight: 600;
 }
@@ -110,6 +128,12 @@
   min-width: 0;
   color: var(--grey);
   white-space: pre-wrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-toast-action {
+    --button-surface: var(--selected);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
