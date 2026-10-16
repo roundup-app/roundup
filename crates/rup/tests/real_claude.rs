@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, D2, E3, E6, E11, E12, F3, M9, O12, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1311,7 +1311,9 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
         .filter(|message| message["role"] == "user")
         .filter_map(|message| message["content"].as_str())
         .find(|text| text.ends_with(TYPED))
-        .expect("the model received the user's words");
+        .expect("the model received the user's words")
+        .strip_prefix("Follow this instruction: ")
+        .expect("Claude wraps the delivered prompt as an instruction");
     let stored = client
         .request("agent.spawnPrompt", json!({"id": spawned.id}))
         .await
