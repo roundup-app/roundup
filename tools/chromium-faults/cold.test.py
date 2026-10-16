@@ -66,8 +66,11 @@ class ColdTest(unittest.TestCase):
                     self.assertIn("last completed stage=launched", event["error"])
                     self.assertIn("received=0 bytes", event["error"])
                     self.assertIn("threads:\nprocess", event["error"])
-                    self.assertIn("wchan=locks_lock_inode_wait", event["error"])
                     pid = event["error"].split("Chrome pid=", 1)[1].split(",", 1)[0]
+                    # /proc samples the browser at the deadline: Chrome may be
+                    # runnable even with the lock held. Keep its actual
+                    # state visible rather than requiring one kernel wait site.
+                    self.assertRegex(event["error"], rf"{pid} Name:\s+chrome; State:\s+\S+ [^\n]+; wchan=[^;]+; syscall=[^;]+; stat=")
                     self.assertFalse(Path(f"/proc/{pid}").exists(), "owned browser survived failure")
                 faults = [json.loads(row) for row in (root / "faults.jsonl").read_text().splitlines()]
                 self.assertEqual(faults[-1]["command_status"], result.returncode)

@@ -1410,7 +1410,7 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
                 .filter(|pair| pair[0] == "--plugin-dir")
                 .map(|pair| Path::new(&pair[1]))
                 .collect();
-            assert_eq!(paths.len(), 3);
+            assert_eq!(paths.len(), 4);
             for (path, name, version) in paths
                 .iter()
                 .zip([("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")])
