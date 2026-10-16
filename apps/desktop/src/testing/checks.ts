@@ -449,7 +449,7 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
 // U353, U511: a text field answers with a caret and a focus mark, so D6's hover and cursor and D7's pressed style do not apply to it.
-const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA" && !el.matches("input[type=text]"));
+const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA" && !(el instanceof el.ownerDocument.defaultView!.HTMLInputElement && el.type === "text"));
 
 // D6: each click target has a hover and a focus style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
