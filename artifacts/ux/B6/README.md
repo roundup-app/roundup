@@ -16,8 +16,8 @@ retains both completed receipts. The run's browser, server and Daemon are closed
 
 ## Held Stop observer
 
-Source: `7e32d8bac` plus this PR's Stop implementation, before merging main
-`3ae35ad08`. Real Daemon, fake Claude, isolated Project, and a fresh headless
+Source: `5722d35c6`, including main `3ae35ad08`. Real Daemon, fake Claude,
+isolated Project, and a fresh headless
 Chromium profile. The test-owned browser, Vite and Daemon are closed.
 
 At 1280×800 and 1440×800, `stop-<width>-watch.png`, `stop-<width>-held.png`
