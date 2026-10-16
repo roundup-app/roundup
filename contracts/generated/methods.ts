@@ -50,6 +50,7 @@ import type { SendParams as message_SendParams } from "./message/SendParams";
 import type { SetRouteParams as message_SetRouteParams } from "./message/SetRouteParams";
 import type { TakeoverParams as message_TakeoverParams } from "./message/TakeoverParams";
 import type { AppendParams as pad_AppendParams } from "./pad/AppendParams";
+import type { AppendSectionParams as pad_AppendSectionParams } from "./pad/AppendSectionParams";
 import type { CreateParams as pad_CreateParams } from "./pad/CreateParams";
 import type { ExportParams as pad_ExportParams } from "./pad/ExportParams";
 import type { MoveParams as pad_MoveParams } from "./pad/MoveParams";
@@ -129,6 +130,7 @@ export type RpcMethods = {
   "pad.list": { params: null; result: pad_Pad[] };
   "pad.write": { params: pad_WriteParams; result: pad_Pad };
   "pad.append": { params: pad_AppendParams; result: pad_Pad };
+  "pad.appendSection": { params: pad_AppendSectionParams; result: pad_Pad };
   "pad.setOwner": { params: pad_SetOwnerParams; result: pad_Pad };
   "pad.move": { params: pad_MoveParams; result: pad_Pad };
   "pad.delete": { params: pad_PadName; result: null };
