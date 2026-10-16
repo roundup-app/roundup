@@ -1270,6 +1270,15 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
             })
             .await
             .unwrap();
+            let mut selector = Client::connect(&run.daemon.socket).await.unwrap();
+            let mut selected = selector.take_output().unwrap();
+            let terminals = run.user.request("terminal.list", ()).await.unwrap();
+            for terminal in terminals.as_array().unwrap() {
+                selector
+                    .request("terminal.output", json!({"id":terminal["id"]}))
+                    .await
+                    .unwrap();
+            }
             std::fs::write(run.dir.path().join("background-gate"), "").unwrap();
             let sender = Arc::clone(&run.user);
             let receiver = door.clone();
@@ -1288,8 +1297,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
                     .map(|byte| format!("BYTE:{byte:02x}\n"))
                     .collect();
                 loop {
-                    if let EventData::TerminalOutput(out) = monitor.next_event().await.unwrap().data
-                    {
+                    if let rpc::OutputFrame::Bytes(out) = selected.recv().await.unwrap() {
                         output.push_str(&String::from_utf8_lossy(
                             &STANDARD.decode(out.data).unwrap(),
                         ));

@@ -14,10 +14,8 @@ async fn reply(stream: UnixStream, flood: bool) {
     let request: Value = serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
     if flood {
         for offset in 0..256 {
-            let frame = json!({"jsonrpc":"2.0","method":"event","params":{
-                "actor":{"kind":"user","id":"daemon","parent":null},
-                "name":"terminal.output","data":{"id":"1","offset":offset * 8192,
-                "data":"YWFh".repeat(2730) + "YWE="}}});
+            let frame = json!({"jsonrpc":"2.0","method":"terminal.output","params":{
+                "id":"1","offset":offset * 8192,"data":"YWFh".repeat(2730) + "YWE="}});
             write
                 .write_all(format!("{frame}\n").as_bytes())
                 .await
@@ -94,9 +92,11 @@ async fn x14_rpc_output_intake_is_bounded_without_stranding_replies() {
         }
         assert_eq!(output.recv().await.unwrap_err(), RecvError::Lagged(192));
         for offset in 192..256 {
-            let event = serde_json::to_value(output.recv().await.unwrap()).unwrap();
-            assert_eq!(event["data"]["offset"], offset * 8192);
-            assert_eq!(event["data"]["data"].as_str().unwrap().len(), 10924);
+            let rpc::OutputFrame::Bytes(event) = output.recv().await.unwrap() else {
+                panic!("a gap frame");
+            };
+            assert_eq!(event.offset, offset * 8192);
+            assert_eq!(event.data.len(), 10924);
         }
         assert!(matches!(output.try_recv(), Err(TryRecvError::Empty)));
         drop(client);
