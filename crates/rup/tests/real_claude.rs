@@ -1930,10 +1930,10 @@ async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
         }
     }
     assert!(
-        model
-            .journal()
-            .iter()
-            .any(|entry| entry["body"]["messages"]
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
                 .as_array()
                 .is_some_and(
                     |messages| messages.iter().any(|message| message["role"] == "user"
@@ -2001,18 +2001,18 @@ async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
         }
     }
     assert!(
-        model
-            .journal()
-            .iter()
-            .any(|entry| entry["body"]["messages"]
+        model.journal().iter().any(|entry| entry["body"]["tools"]
+            .as_array()
+            .is_some_and(|tools| !tools.is_empty())
+            && entry["body"]["messages"]
                 .as_array()
                 .is_some_and(
                     |messages| messages.iter().any(|message| message["role"] == "user"
-                        && message["content"]
-                            .as_str()
-                            .is_some_and(|text| text.starts_with("Valid handoff after bad ids")))
+                        && message["content"].as_str().is_some_and(|text| text
+                            .contains("Follow this instruction: Valid handoff after bad ids")))
                 )),
-        "the real Door must receive the valid Handoff"
+        "the real Door must receive the valid Handoff: {:#?}",
+        model.journal()
     );
     model.assert_matched();
 }
