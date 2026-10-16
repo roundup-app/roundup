@@ -271,8 +271,10 @@ async fn g5_remove_keeps_unlanded_work_and_deletes_a_clean_agents_worktree() {
 
 #[tokio::test]
 async fn g5_a_write_while_stopping_keeps_the_stopped_agent_and_its_files() {
+    // portable-pty allows 200 ms before SIGKILL. A builtin read lets HUP run
+    // the trap immediately instead of spending that grace waiting for a sleep child.
     let f = Fixture::in_git_project(
-        "trap 'echo late > late.txt; exit' HUP TERM\necho up > up\nwhile :; do sleep 0.1; done",
+        "trap 'echo late > late.txt; exit' HUP TERM\necho up > up\nwhile :; do read -r line; done",
         Git::from_env(),
     );
     let (id, path, branch) = on(&f, None).await;
