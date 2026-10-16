@@ -1,6 +1,6 @@
 # U501 shared answer Listbox
 
-Source: `44195e7b29213f81499c243fa7f94516ec1be9a2`; main baseline: `32198b7297869ddc237030cf14b754fb8084206f`. Scope is `ui/`; #2004 owns lane adoption. No lane, App, contracts, Tokens, package or loop file changes.
+Source: `faa8743e2f9b0313d7d03983e7ee71dc8530ff7b`; main baseline: `32198b7297869ddc237030cf14b754fb8084206f`. Scope is `ui/`; #2004 owns lane adoption. No lane, App, contracts, Tokens, package or loop file changes.
 
 ```text
 controlled answer/highlight → Ark collection + Root → supplied options
@@ -16,6 +16,7 @@ Installed `@ark-ui/solid` 5.39.3 and Zag Listbox 1.45.0 are mounted without mock
 | First-answer default; all supplied answers and null; wrap both ways; unchanged note | `u501_arrows_visit_supplied_answers_and_null_in_both_directions`, `u501_own_answer_callbacks_report_null_to_the_owner`; `u501_browser_navigation_keeps_note_focus_and_text` exercises both list and note |
 | Controlled selection and highlight; names, descriptions, disabled items | `u501_owner_controls_selection_and_highlight_independently`, `u501_names_and_descriptions_come_from_the_caller`, `u501_disabled_answer_is_named_but_skipped_by_ark` |
 | Pending/disabled retain text and focus; repeated Enter blocked; recovery | `u501_disabled_blocks_answer_changes_and_preserves_the_note`, `u501_pending_blocks_answer_changes_and_preserves_the_note`, `u501_browser_pending_keeps_note_focus_and_blocks_repeat_enter` |
+| Caller recommendation metadata keeps the supplied name/description | `u501_supplied_metadata_keeps_the_option_name_and_description` |
 | Pointer selects without submitting; note Enter stays with caller | `u501_browser_pointer_never_submits_and_enter_stays_with_note_owner` |
 | No supplied answers; teardown removes DOM, timers and callbacks | `u501_empty_answers_keep_an_own_answer_input`, `u501_disposal_removes_navigation_and_callbacks` |
 | Paired rendered Checks | `u501_rendered_checks`: light/dark, 1280×800/1440×800, normal/increased contrast, initial/hover/focus/null/pending plus tree-40 multiline failure |
@@ -50,14 +51,17 @@ Both `just perf` invocations use the same Ubuntu 24.04 x86_64 AMD EPYC 7763 host
 
 | Metric | Main | Head | Gate |
 | --- | ---: | ---: | --- |
-| Cold start | 38.541 ms | 19.736 ms | Both below 300 ms |
-| Ten idle Agents extra RSS | 1.926 MB | 2.051 MB | Both below 150 MB; both miss shipped 1.810 MB regression ceiling |
-| Hook loop | 1207.376 ms | 408.284 ms | Both below 2000 ms |
-| Rail-10 p95 | 2.994 ms | 0.339 ms | Main misses 2 ms; head passes |
-| Cold plugin materialization | 33.631 ms | 15.234 ms | Both below 300 ms; regression comparisons skipped |
-| Ping / Rail-40 / Terminal write / write-to-output p95 | See JSON | See JSON | Regression comparisons skipped for load |
+| Cold plugin materialization | 11.750 ms | 11.691 ms | Pass absolute and regression limits |
+| Cold start | 13.609 ms | 13.658 ms | Both below 300 ms |
+| Hook loop | 288.366 ms | 289.873 ms | Both below 2000 ms |
+| Ping p95 | 0.133 ms | 0.125 ms | Both miss shipped 0.029 ms regression ceiling |
+| Rail-10 p95 | 0.250 ms | 0.244 ms | Both below 2 ms |
+| Rail-40 p95 | 0.556 ms | 0.566 ms | Both miss shipped 0.293 ms regression ceiling |
+| Ten idle Agents extra RSS | 2.598 MB | 2.625 MB | Both below 150 MB; both miss shipped 1.810 MB regression ceiling |
+| Terminal write p95 | 0.495 ms | 0.469 ms | Both miss shipped 0.062 ms regression ceiling |
+| Write-to-output p95 | 0.607 ms | 0.579 ms | Both below 16 ms; both miss shipped 0.074 ms regression ceiling |
 
-Each command exits 1. Main median load is 4.61 per CPU, head 2.73; each skips five regression comparisons under the existing load rule. These are matched source/host observations under different busy loads, not a latency improvement claim or a clean perf pass. Main also misses its Rail-10 absolute limit. The RSS miss exists on unchanged main, and head's RSS median is 6.5% above this main observation; no limits, baselines or machinery change and #1990 is not revived. No native keystroke result is claimed or requested.
+Each lower-load command exits 1 on the same five shipped regression baselines. No comparison is skipped: median load is 0.653 per CPU on main and 0.865 on head. Every absolute limit passes on both revisions. All matched head/main medians stay within 10%; the largest positive difference is Rail-40 at 1.81%. These observations do not claim a clean perf pass or establish native App latency. Earlier busy observations and their load skips remain in the bundle. No limits, baselines or machinery change and #1990 is not revived. No native keystroke result is claimed or requested.
 
 ## Repairs demonstrated during the run
 
