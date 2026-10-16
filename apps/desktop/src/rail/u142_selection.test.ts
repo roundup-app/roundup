@@ -192,6 +192,10 @@ beforeAll(async () => {
   });
   await server.listen();
   origin = (server.resolvedUrls?.local[0] ?? "").replace(/\/$/, "");
+  // Prepare Vite separately so its cold transforms do not consume the App readiness bound.
+  const ready = await fetch(`${origin}/__roundup_ready`, { signal: AbortSignal.timeout(90_000) });
+
+  if (!ready.ok) throw new Error(`U142 Vite preparation failed (${ready.status}): ${await ready.text()}`);
   profile = mkdtempSync(join(tmpdir(), "u142-"));
   child = spawn(
     found,
@@ -202,7 +206,7 @@ beforeAll(async () => {
   await browser.open();
   await browser.page("Page.enable");
   await browser.page("Runtime.enable");
-  // Warm the module graph so no later wait covers Vite's first transform.
+  // Observe App readiness only after the server has prepared its module graph.
   await load(SIZES[0]);
 }, 90_000);
 
