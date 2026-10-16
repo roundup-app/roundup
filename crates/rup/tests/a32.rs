@@ -445,27 +445,6 @@ async fn a32_a_valid_clear_only_asks_the_door() {
 }
 
 #[tokio::test]
-async fn a32_only_the_door_may_hand_off() {
-    let fx = fixture().await;
-    let params = json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []});
-    let none = fx.hand_off(params.clone()).await.unwrap_err();
-    assert_eq!(none.code, rpc::code::CONFLICT);
-    let task = fx.clear("r", false).await;
-    fx.asked().await;
-    for who in [
-        as_actor(&fx.project, ActorKind::Agent, &fx.a).await,
-        fx.project.client().await,
-    ] {
-        let err = who
-            .request("workstream.handoff", params.clone())
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, rpc::code::FORBIDDEN);
-    }
-    drop(task);
-}
-
-#[tokio::test]
 async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
     let fx = fixture().await;
     let (keep, _) = fx.full().await;
@@ -733,28 +712,6 @@ async fn a32_iteration_advances_once() {
     .await;
     assert!(ask.contains("again"));
     drop(task);
-}
-
-#[tokio::test]
-async fn a32_no_handoff_times_out_and_changes_nothing() {
-    let fx = fixture_with("600").await;
-    fx.full().await;
-    let rail = shape(&fx.user).await;
-    let (todos, pads) = (fx.todos().await, fx.pads().await);
-    let (code, _) = fx.clear("r", false).await.end().await.unwrap_err();
-    assert_eq!(code, rpc::code::NOT_ACKED as i32);
-    assert_eq!(
-        (shape(&fx.user).await, fx.todos().await, fx.pads().await),
-        (rail, todos, pads)
-    );
-
-    // The clear is no longer pending, and a Door that is not running is a CONFLICT.
-    fx.user
-        .request("agent.stop", json!({"id": fx.ws}))
-        .await
-        .unwrap();
-    let stopped = fx.clear("r", false).await.reply.unwrap_err();
-    assert_eq!(stopped.code, rpc::code::CONFLICT);
 }
 
 #[tokio::test]

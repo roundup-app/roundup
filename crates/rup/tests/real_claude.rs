@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, A32, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1521,5 +1521,280 @@ async fn a32_an_empty_reason_changes_nothing() {
         asked,
         "invalid clear sends no prompt to Claude"
     );
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_only_the_door_may_hand_off() {
+    let project = daemon::start_real("a32_handoff_authority", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    let actor = |id: String| async {
+        let who = project.client().await;
+        who.request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id,
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+        who
+    };
+    let owner = actor(door.clone()).await;
+    let params = json!({"id": door, "summary": "s", "keep_todos": [], "keep_pads": []});
+    let error = owner
+        .request("workstream.handoff", params.clone())
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "authority check"}),
+        )
+        .await
+        .unwrap();
+    // Digest turns also emit Working/Idle, so only the request proves Clear arrived.
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            model.assert_matched();
+            if model.journal().iter().any(|entry| {
+                entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("authority check")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+            }) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| {
+        panic!(
+            "clear prompt missing from aimock journal: {:#?}",
+            model.journal()
+        )
+    });
+    // Spawn the child during Clear, so its startup digests cannot race Clear's Steer.
+    let result = model.tool_result("toolu_a32_child").await;
+    let child: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    for who in [actor(child.id).await, project.client().await] {
+        let error = who
+            .request("workstream.handoff", params.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::FORBIDDEN);
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn a32_no_handoff_times_out_and_changes_nothing() {
+    let project = daemon::start_real("a32_no_handoff", &[("ROUNDUP_HANDOFF_BOUND_MS", "10000")]);
+    let path = project.dir.path();
+    for args in [
+        vec!["init", "-q", "-b", "main"],
+        vec!["config", "user.name", "roundup"],
+        vec!["config", "user.email", "roundup@example.com"],
+    ] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    std::fs::write(path.join("README"), "keep").unwrap();
+    for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+        assert!(
+            std::process::Command::new("git")
+                .current_dir(path)
+                .args(args)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    let mut client = project.subscribed().await;
+    client
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
+        .await
+        .unwrap();
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    // Hold child Digests so Clear cannot race a startup or Todo/Pad update turn.
+    // Clear steers the Door directly; Takeover only holds Message delivery here.
+    client
+        .request("takeover.begin", json!({"agent": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let first = model.tool_result("toolu_a32_child").await;
+    let a: contracts::agent::RailNode =
+        serde_json::from_str(first["content"].as_str().unwrap()).unwrap();
+    let second = model.tool_result("toolu_a32_grandchild").await;
+    let b: contracts::agent::RailNode =
+        serde_json::from_str(second["content"].as_str().unwrap()).unwrap();
+    // Wait through all three real turns so late unmatched requests cannot escape the observer.
+    let mut working = std::collections::BTreeSet::new();
+    let mut idle = std::collections::BTreeSet::new();
+    while idle.len() < 3 {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if [&door, &a.id, &b.id].contains(&&status.id) => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        if status.status.kind == Kind::Working {
+            working.insert(status.id.clone());
+        }
+        if status.status.kind == Kind::Idle && working.contains(&status.id) {
+            idle.insert(status.id);
+        }
+    }
+
+    for (owner, title, name) in [
+        (&door, "build the login page", "notes"),
+        (&a.id, "refactor everything", "scratch"),
+    ] {
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: owner.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "todo.create",
+                json!({"title": title, "body": format!("{title} body")}),
+            )
+            .await
+            .unwrap();
+        actor
+            .request(
+                "pad.create",
+                json!({"name": name, "text": format!("{name} text")}),
+            )
+            .await
+            .unwrap();
+    }
+    let before = rail_tree(&client).await;
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let pads = client.request("pad.list", Value::Null).await.unwrap();
+    let reply = client
+        .request(
+            "workstream.clear",
+            json!({"id": door, "reason": "no handoff observer"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reply, json!({"pending": true}));
+    let failed = next(&mut client, |event| match event {
+        EventData::WorkstreamClearFailed(failed) if failed.id == door => Some(failed),
+        _ => None,
+    })
+    .await;
+    assert_eq!(failed.code, rpc::code::NOT_ACKED as i32, "{failed:?}");
+    let after = rail_tree(&client).await;
+    let shape = |nodes: Vec<contracts::agent::RailNode>| {
+        nodes
+            .into_iter()
+            .map(|node| (node.id, node.parent, node.iteration, node.worktree))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(shape(after), shape(before));
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos
+    );
+    assert_eq!(client.request("pad.list", Value::Null).await.unwrap(), pads);
+    assert!(
+        model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("no handoff observer")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude: {:#?}",
+        model.journal()
+    );
+    client
+        .request("agent.stop", json!({"id": door}))
+        .await
+        .unwrap();
+    let stopped = client
+        .request("workstream.clear", json!({"id": door, "reason": "r"}))
+        .await
+        .unwrap_err();
+    assert_eq!(stopped.code, rpc::code::CONFLICT);
     model.assert_matched();
 }
