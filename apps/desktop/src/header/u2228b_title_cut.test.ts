@@ -41,3 +41,14 @@ it("u2228b_resize_recuts_the_title", () => {
   middleCut(el, text);
   expect(el.textContent!.length).toBe(40);
 });
+
+it("u2228b_the_cut_never_splits_an_emoji", () => {
+  const el = box(20);
+  const family = "👩‍👩‍👧‍👦";
+  middleCut(el, `ab${family}`.repeat(15));
+
+  const [start, end] = el.textContent!.split("…");
+  const whole = new RegExp(`^(a|b|${family})*$`, "u");
+  expect(start).toMatch(whole);
+  expect(end).toMatch(whole);
+});
