@@ -308,12 +308,7 @@ impl Daemon {
     }
 
     /// Answer one request line. Notifications (no `id`) get no answer.
-    async fn dispatch(
-        &self,
-        conn: &mut Conn,
-        line: &str,
-        decision_actor: Option<Actor>,
-    ) -> Option<Value> {
+    async fn dispatch(&self, conn: &mut Conn, line: &str, actor: Option<Actor>) -> Option<Value> {
         let Ok(request) = serde_json::from_str::<Value>(line) else {
             return Some(failure(
                 &Value::Null,
@@ -325,7 +320,9 @@ impl Daemon {
         let params = request.get("params").cloned().unwrap_or(Value::Null);
         if method.starts_with("decision.") {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
-            conn.actor = decision_actor.unwrap_or_else(|| self.decision_actor(conn));
+            conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
+        } else if matches!(method, "rail.rename" | "agent.actionHistory") {
+            conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = self.route(conn, method, params).await;
         let id = id?;
@@ -595,6 +592,17 @@ impl Daemon {
             return outcome;
         }
         outcome
+    }
+
+    /// A known Agent process cannot gain the user's control or receipt access by identifying
+    /// as the user. The wire reader captures this before an earlier action can delay dispatch.
+    fn action_actor(&self, conn: &Conn) -> Actor {
+        let actor = self.terminal_writer(conn);
+        if actor.kind == ActorKind::Agent {
+            actor
+        } else {
+            conn.actor.clone()
+        }
     }
 
     fn terminal_writer(&self, conn: &Conn) -> Actor {
@@ -1270,6 +1278,11 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .is_some_and(|m| m.starts_with("decision."))
         {
             daemon.decision_actor(&conn)
+        } else if matches!(
+            method.as_deref(),
+            Some("rail.rename" | "agent.actionHistory")
+        ) {
+            daemon.action_actor(&conn)
         } else {
             conn.actor.clone()
         };
