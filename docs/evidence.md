@@ -33,3 +33,72 @@ Historical payload partition: `artifacts/ux/U451/head/`. The result stays unobse
 | On `9784d5439888c0fe847050943305b330b0c192a1`, U55 records a white notch about 7×15 px at x272–279/y70–85 in a selected empty Terminal. Its drawing element and cause were the requested diagnosis, not a result established by this migration. | Follow [U55](../scenarios/ui.md) on that disposable baseline after `pnpm install`: run `just harness <seed>`, select a Terminal with no output at 1280 px in an isolated headless browser, inspect the specified element/style facts and then feed one line of output; publish both screenshots when U55 is cited. |
 
 `docs/evidence-relocation.md` lists the observer sources, their required inputs and their regeneration paths. Historical checkout commands above refer to the files at those recorded revisions.
+
+## U468 primary Terminal questions
+
+The backend observer is `cargo test -p rup --test u468`: eight real-Daemon tests use
+an isolated primary PTY and the production `rup mcp` → `agent.ask` call. They assert
+exact answers, resumed execution and cleared needs-you state, consecutive and
+replaced requests, dismissal, subprocess/claimed-user refusal, Door answers,
+Takeover. Captured Prompt identity remains covered by
+`b6_terminal_input_invalidates_identity_before_the_next_signal` in
+`crates/rupd/tests/b6_prompt_identity.rs`. `e2e/u468_claude.py` renders the shim's actual
+MCP form request and returns its actual tool response; it supplies no answer route.
+This is separate from #1497's App selection, focus, attention and Toast observer.
+
+On 2026-10-15, the native observer passed on Linux with the pinned **Claude Code
+2.1.300 executable**, a fresh configuration, a real Daemon and a 120×40 primary
+PTY. Aimock supplied only the model's tool call and continuation. Claude displayed:
+
+```text
+MCP server “roundup” requests your input
+Cats or dogs?
+cats — Quiet
+dogs — Walks
+✔ Answer: dogs
+❯ Accept    Decline
+```
+
+The observer typed `dogs`, navigated to Accept, then a separate Terminal write of
+Return submitted the form. The original tool returned exactly
+`{"answer":"dogs","note":""}`; Claude rendered `U468 child resumed with dogs.` and
+the Decision cleared. This proves vendor rendering/input and routing, not a live
+model's compliance, a logged-in account or native App presentation. The native
+observer is explicitly invoked because final confirmation is an observed action,
+not a guessed renderer delay.
+
+To repeat after `pnpm install`, run the observer (it checks both vendor executables
+and builds the Daemon and shim):
+
+```sh
+pnpm observe:terminal-question
+```
+
+It prints its isolated socket and Terminal id at confirmation. Within 30 seconds,
+use another shell to inspect and submit that Terminal, substituting those two values:
+
+```sh
+python3 - /path/to/isolated/rupd.sock 1 <<'PY'
+import base64, json, socket, sys
+with socket.socket(socket.AF_UNIX) as connection:
+    connection.connect(sys.argv[1])
+    replies = connection.makefile()
+    def call(n, method, params):
+        connection.sendall((json.dumps(dict(jsonrpc='2.0', id=n, method=method, params=params))+'\n').encode())
+        result = json.loads(replies.readline())
+        assert 'error' not in result, result
+        return result['result']
+    screen = call(1, 'terminal.screen', {'id':sys.argv[2]})
+    print('\n'.join(screen['lines']))
+    assert any('❯' in row and 'Accept' in row for row in screen['lines'])
+    call(2, 'terminal.write', {'id':sys.argv[2], 'data':base64.b64encode(b'\r').decode()})
+PY
+```
+
+The authenticated callback requires the native program itself as the primary
+executable. A non-exec shell wrapper retains a different PID and is refused;
+point `ROUNDUP_CLAUDE_BIN` at the native binary. The pinned observer does so.
+The shim negotiates MCP 2025-11-25: installed Claude rejects the old
+`elicitation/create` request in its 2026 protocol. rmcp 3.5.1 supplies the upstream
+[bootstrap-neutral discovery fix](https://github.com/modelcontextprotocol/rust-sdk/releases/tag/rmcp-v3.5.1)
+that permits the supported negotiation without a custom protocol implementation.
