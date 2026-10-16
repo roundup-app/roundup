@@ -129,6 +129,15 @@ button[data-feedback="ink"]:is(:hover, :active):not([aria-disabled="true"]) {
   color: var(--text);
 }
 
+/* U510: a toggled control rests one ink step below hover, which reaches --text; a press dims to --ink-pressed. */
+:is([data-button="icon"], .terminal-tab)[aria-pressed="true"]:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+  color: var(--ink-rest-selected);
+}
+
+:is([data-button="icon"], .terminal-tab)[aria-pressed="true"]:hover:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+  color: var(--text);
+}
+
 /* Disabled stays focusable and keeps `aria-disabled`, so its reason can be read as its `title` (U171). */
 button[aria-disabled="true"] {
   color: var(--disabled);
