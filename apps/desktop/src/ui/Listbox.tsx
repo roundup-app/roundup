@@ -64,11 +64,17 @@ const NoteInput = (props: JSX.InputHTMLAttributes<HTMLInputElement>) => {
     return { input, onKeyDown };
   });
 
-  return <input type="text" {...binding().input} {...rest} class={`app-listbox-note ${props.class ?? ""}`} disabled={props.disabled} readOnly={listbox().disabled || props.readOnly}
+  return <input type="text" {...binding().input} {...rest} class={`app-listbox-note ${props.class ?? ""}`} disabled={props.disabled ?? false} readOnly={listbox().disabled || props.readOnly}
     aria-disabled={listbox().disabled || props["aria-disabled"]}
     aria-controls={listbox().collection.size > 1 ? binding().input["aria-controls"] : ""}
     aria-activedescendant={answerOf(listbox().highlightedValue) === null ? "" : binding().input["aria-activedescendant"]}
     onKeyDown={event => {
+      if (listbox().disabled) {
+        if (event.key === "Enter") event.preventDefault();
+
+        return;
+      }
+
       const handler = local.onKeyDown;
 
       if (handler) {
@@ -76,7 +82,7 @@ const NoteInput = (props: JSX.InputHTMLAttributes<HTMLInputElement>) => {
         else handler(event);
       }
 
-      if (!listbox().disabled && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         const navigate = binding().onKeyDown;
 
         if (navigate) {
