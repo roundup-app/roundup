@@ -4533,3 +4533,65 @@ async fn b6_child_snapshots_keep_reach_restrictions() {
     assert_eq!(denied.unwrap_err().code, rpc::code::FORBIDDEN);
     assert_eq!(absent.unwrap_err().code, rpc::code::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn b6_takeover_holds_a_door_rename_without_blocking_user_rename() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let accepted = caller
+        .request("rail.rename", json!({"id":run.child,"name":"Door rename"}))
+        .await;
+    let before = run
+        .user
+        .request("rail.tree", ())
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()
+        .clone();
+    run.user
+        .request("rail.rename", json!({"id":run.child,"name":"User rename"}))
+        .await
+        .unwrap();
+    let user_name = run
+        .user
+        .request("rail.tree", ())
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()
+        .clone()["name"]
+        .clone();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let after = run
+        .user
+        .request("rail.tree", ())
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()
+        .clone();
+    run.finish().await;
+    assert_eq!(
+        accepted.unwrap()["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert_ne!(before["name"], "Door rename");
+    assert_eq!(user_name, "User rename");
+    assert_eq!(after["name"], "Door rename");
+}
