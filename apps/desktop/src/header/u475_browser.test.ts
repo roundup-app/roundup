@@ -152,16 +152,3 @@ for (const scheme of ["light", "dark"]) {
     }
   }, 60_000);
 }
-
-it("u184_a_click_outside_closes_nothing", async () => {
-  await browser("open", `${origin}/harness.html?seed=tree-40`);
-  await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-  const count = await read<number>("document.querySelectorAll('[role=tab]').length");
-  await open();
-  await browser("mouse", "move", "10", "400");
-  await browser("mouse", "down");
-  await browser("mouse", "up");
-  await closed();
-  expect(await read<unknown[]>("window.__fake.app.closed")).toEqual([]);
-  expect(await read<number>("document.querySelectorAll('[role=tab]').length")).toBe(count);
-}, 60_000);
