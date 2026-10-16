@@ -443,6 +443,33 @@ const OTHER: &[(&str, &str)] = &[
     ),
 ];
 
+/// CL4: what `rup help` prints.
+const WHO_MAY_RUN: &str = "\
+rup drives rupd, the roundup Daemon, from a shell or an MCP client.
+
+usage: rup [--as ext:<name>] [--json] <command>
+
+commands, and who may run each (User: a shell outside every Agent; Ext: --as ext:<name>):
+  ping        show which Daemon answered
+              User: yes   Ext: yes
+  mcp         serve the roundup tools over MCP on stdio (rup mcp <agent-id> for an Agent)
+              User: yes   Ext: yes
+  signal      an Agent's hook (rup signal <agent-id>)
+              User: no    Ext: no
+  context     an Agent's hook (rup context <agent-id>)
+              User: no    Ext: no
+  permission  an Agent's hook (rup permission <agent-id>)
+              User: no    Ext: no
+  help        print this text
+
+options, before the command:
+  --as ext:<name>  act as the Ext Actor ext:<name> (1 to 64 of a-z 0-9 - _), so calls are Touches under that name
+  --json           with ping, print {actor, socket, result}, who rup acted as included
+
+RUPD_SOCKET names the Daemon's socket; unset, rup uses ~/.roundup/rupd.sock.
+`rup ping` shows which Daemon answered.
+";
+
 /// I2: what roundup and `rup` are, examples, the commands by noun, the exit codes.
 pub fn help_text() -> String {
     let specs = specs(true);
@@ -487,6 +514,8 @@ pub fn help_text() -> String {
          1  failed: the Daemon refused, did not answer within 10 s, or was not there\n    \
          2  bad usage: an unknown command, a missing or invalid argument, no Agent id, a Door-only command run by an Agent\n",
     );
+    text.push('\n');
+    text.push_str(WHO_MAY_RUN);
     text
 }
 
@@ -575,6 +604,10 @@ fn usage_error(root: &Command, args: &[String], err: &clap::Error) -> ExitCode {
                 eprintln!("did you mean {:?}?", format!("{prefix}{closest}"));
             }
             eprintln!("run \"rup help\" to see the commands");
+            if prefix.is_empty() {
+                // CL4: an unknown command is followed by who may run what.
+                eprint!("\n{WHO_MAY_RUN}");
+            }
             ExitCode::from(BAD_USAGE)
         }
         _ => {
