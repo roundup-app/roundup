@@ -19,13 +19,88 @@ const MAYBE_ARRIVED: &str = "the Signal may or may not have arrived";
 mod cli;
 mod mcp;
 
+/// What comes before the command.
+#[derive(Default)]
+struct Options {
+    ext: Option<Actor>,
+    json: bool,
+}
+
+impl Options {
+    fn actor(&self) -> Actor {
+        self.ext.clone().unwrap_or_else(Actor::user)
+    }
+}
+
+/// CL2: `ext:<name>`, the name 1 to 64 of lowercase letters, digits, `-` and `_`.
+fn ext_actor(value: &str) -> Result<Actor, String> {
+    let rule = "--as takes ext:<name>, the name 1 to 64 of a-z, 0-9, - and _";
+    let name = value.strip_prefix("ext:").ok_or(rule)?;
+    let valid = (1..=64).contains(&name.len())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_');
+    if !valid {
+        return Err(rule.into());
+    }
+    Ok(Actor {
+        kind: ActorKind::Ext,
+        id: value.to_owned(),
+        parent: None,
+    })
+}
+
 /// H15: `rup` never runs more than one task at a time, so one OS thread is enough; the thread test in
 /// `crates/rup/tests/signal.rs` fails if tokio starts a second.
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let outcome = match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
-        ["ping"] => ping().await,
+    let mut rest = args.iter().map(String::as_str).peekable();
+    let mut options = Options::default();
+    while let Some(&option) = rest.peek() {
+        match option {
+            "--json" => options.json = true,
+            "--as" => {
+                rest.next();
+                match rest
+                    .peek()
+                    .map_or_else(|| Err("--as needs a value".to_owned()), |v| ext_actor(v))
+                {
+                    Ok(actor) => options.ext = Some(actor),
+                    Err(why) => {
+                        eprintln!("rup: {why}");
+                        return ExitCode::from(2);
+                    }
+                }
+            }
+            _ => break,
+        }
+        rest.next();
+    }
+    let command: Vec<&str> = rest.collect();
+    let hook = options.ext.is_some()
+        && matches!(
+            command.first(),
+            Some(&("signal" | "context" | "permission"))
+        );
+    if hook {
+        // Exit 2 would tell Claude Code to block its tool call or prompt (H8, E3, H15).
+        eprintln!("rup: signal, context and permission are Agent hooks; --as does not apply");
+        return ExitCode::FAILURE;
+    }
+    if options.json
+        && matches!(
+            command.first(),
+            Some(&("mcp" | "signal" | "context" | "permission"))
+        )
+    {
+        eprintln!(
+            "rup: --json applies to ping and the commands of rup help; mcp owns stdout for the protocol"
+        );
+        return ExitCode::from(2);
+    }
+    let outcome = match command[..] {
+        ["ping"] => ping(&options).await,
         ["signal", agent_id] if !agent_id.starts_with('-') => match signal(agent_id).await {
             // B39: the one reason to exit 2, which blocks a prompt that repeats delivered Messages.
             Ok(true) => {
@@ -43,8 +118,30 @@ async fn main() -> ExitCode {
         ["permission", agent_id] if !agent_id.starts_with('-') => permission(agent_id).await,
         // As for `signal`: exit 2 would block the tool call.
         ["permission", ..] => Err("usage: rup permission <agent-id>".into()),
-        ["mcp"] => return mcp::run(None).await,
-        ["mcp", agent_id] => return mcp::run(Some(agent_id.to_owned())).await,
+        ["mcp"] => match options.ext {
+            Some(actor) => return mcp::run(actor).await,
+            None => {
+                eprintln!("usage: rup mcp <agent-id> | rup --as ext:<name> mcp");
+                return ExitCode::from(2);
+            }
+        },
+        ["mcp", _] if options.ext.is_some() => {
+            eprintln!("rup: an Agent id and --as ext:<name> cannot both be given");
+            return ExitCode::from(2);
+        }
+        ["mcp", agent_id] => {
+            let agent = Actor {
+                kind: ActorKind::Agent,
+                id: agent_id.to_owned(),
+                parent: None,
+            };
+            return mcp::run(agent).await;
+        }
+        [] | ["help" | "--help" | "-h"] => {
+            print!("{}", cli::help_text());
+            return ExitCode::SUCCESS;
+        }
+        // I1-I8 own every other command and the help of a noun or verb; they read the arguments as given.
         _ => return cli::run(args).await,
     };
     match outcome {
@@ -63,13 +160,37 @@ async fn connect() -> Result<rpc::Client, String> {
         .map_err(|err| err.to_string())
 }
 
-async fn ping() -> Result<(), String> {
-    let reply = connect()
-        .await?
+/// CL1: one line naming the Daemon that answered, or with `--json` `{actor, socket, result}`.
+async fn ping(options: &Options) -> Result<(), String> {
+    let socket = rpc::socket_path().map_err(|err| err.to_string())?;
+    let client = rpc::Client::connect(&socket)
+        .await
+        .map_err(|err| format!("no Daemon at {}: {err}", socket.display()))?;
+    let actor = options.actor();
+    if options.ext.is_some() {
+        client
+            .request("daemon.identify", json!({ "actor": actor }))
+            .await
+            .map_err(hung_up)?;
+    }
+    let reply = client
         .request("daemon.ping", Value::Null)
         .await
         .map_err(|err| err.to_string())?;
-    println!("{}", json!({ "result": reply }));
+    if options.json {
+        println!(
+            "{}",
+            json!({ "actor": actor, "socket": socket.display().to_string(), "result": reply })
+        );
+        return Ok(());
+    }
+    let word = |key: &str| reply[key].as_str().map(str::to_owned);
+    println!(
+        "rupd {} at {} for {}",
+        reply["pid"],
+        socket.display(),
+        word("project").unwrap_or_default()
+    );
     Ok(())
 }
 

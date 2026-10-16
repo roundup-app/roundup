@@ -97,7 +97,7 @@ export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
-  "daemon.ping": { params: null; result: { pong: true, contract: { fingerprint: string, methods: string[] } } };
+  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } } };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: null; result: null };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };
