@@ -123,6 +123,39 @@ impl Grid {
         self.origin_mode = self.saved_origin_mode;
     }
 
+    pub fn write_saved_cursor_formatted(&self, contents: &mut Vec<u8>) {
+        crate::term::OriginMode(self.saved_origin_mode).write_buf(contents);
+        let mut pos = self.saved_pos;
+        pos.col = pos.col.min(self.size.cols - 1);
+        crate::term::MoveTo::new(pos).write_buf(contents);
+        // DECSC can retain delayed wrap, which CUP alone cannot establish.
+        // The screen repaint after DECSC removes this temporary character.
+        if self.saved_pos.col >= self.size.cols {
+            contents.push(b' ');
+        }
+        crate::term::SaveCursor.write_buf(contents);
+        crate::term::OriginMode(false).write_buf(contents);
+    }
+
+    pub fn write_drawing_state_formatted(
+        &self,
+        contents: &mut Vec<u8>,
+        attrs: crate::attrs::Attrs,
+    ) {
+        crate::term::ScrollRegion {
+            top: self.scroll_top,
+            bottom: self.scroll_bottom,
+        }
+        .write_buf(contents);
+        crate::term::OriginMode(self.origin_mode).write_buf(contents);
+        self.write_cursor_position(
+            contents,
+            None,
+            Some(attrs),
+            self.origin_mode,
+        );
+    }
+
     pub fn visible_rows(&self) -> impl Iterator<Item = &crate::row::Row> {
         let scrollback_len = self.scrollback.len();
         let rows_len = self.rows.len();
@@ -298,6 +331,22 @@ impl Grid {
         prev_pos: Option<Pos>,
         prev_attrs: Option<crate::attrs::Attrs>,
     ) {
+        self.write_cursor_position(contents, prev_pos, prev_attrs, false);
+    }
+
+    fn write_cursor_position(
+        &self,
+        contents: &mut Vec<u8>,
+        prev_pos: Option<Pos>,
+        prev_attrs: Option<crate::attrs::Attrs>,
+        origin_mode: bool,
+    ) {
+        let move_to = |mut pos: Pos| {
+            if origin_mode {
+                pos.row = pos.row.saturating_sub(self.scroll_top);
+            }
+            crate::term::MoveTo::new(pos)
+        };
         let prev_attrs = prev_attrs.unwrap_or_default();
         // writing a character to the last column of a row doesn't wrap the
         // cursor immediately - it waits until the next character is actually
@@ -331,7 +380,7 @@ impl Grid {
                     crate::term::MoveFromTo::new(prev_pos, pos)
                         .write_buf(contents);
                 } else {
-                    crate::term::MoveTo::new(pos).write_buf(contents);
+                    move_to(pos).write_buf(contents);
                 }
                 cell.attrs().write_escape_code_diff(contents, &prev_attrs);
                 contents.extend(cell.contents().as_bytes());
@@ -388,7 +437,7 @@ impl Grid {
                                 );
                             }
                         } else {
-                            crate::term::MoveTo::new(pos).write_buf(contents);
+                            move_to(pos).write_buf(contents);
                             cell.attrs().write_escape_code_diff(
                                 contents,
                                 &prev_attrs,
@@ -423,7 +472,7 @@ impl Grid {
                         crate::term::MoveFromTo::new(prev_pos, pos)
                             .write_buf(contents);
                     } else {
-                        crate::term::MoveTo::new(pos).write_buf(contents);
+                        move_to(pos).write_buf(contents);
                     }
                     contents.push(b' ');
                     // we know that the cell has no contents, but it still may
@@ -448,7 +497,7 @@ impl Grid {
             crate::term::MoveFromTo::new(prev_pos, self.pos)
                 .write_buf(contents);
         } else {
-            crate::term::MoveTo::new(self.pos).write_buf(contents);
+            move_to(self.pos).write_buf(contents);
         }
     }
 
