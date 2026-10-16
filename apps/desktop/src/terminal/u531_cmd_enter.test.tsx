@@ -78,6 +78,18 @@ describe("u531 ⌘⏎ takes control of the selected Agent", () => {
     expect(begins(app)).toEqual([]);
   });
 
+  it("u531_cmd_enter_on_a_shelf_row_button_toggles_and_does_not_take_control", async () => {
+    const { app } = await watch();
+    const row = document.body.appendChild(document.createElement("div"));
+
+    row.className = "shelf-row";
+
+    const button = row.appendChild(document.createElement("button"));
+
+    press("Enter", { metaKey: true }, button);
+    expect(begins(app)).toEqual([]);
+  });
+
   it("u531_the_button_and_help_show_the_chord", async () => {
     await watch();
 
