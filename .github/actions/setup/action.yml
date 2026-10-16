@@ -10,6 +10,9 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
+  node:
+    description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
+    default: 'true'
   builder:
     description: Install Claude Code, which runs a Builder (L23), screens its ask and runs its real-`claude` observers, and Codex, the Builder's fallback.
     default: 'false'
