@@ -538,6 +538,10 @@ impl Shim {
     /// `daemon.identify`) and before any tool call. A refusal or silence is one line on stderr:
     /// the tools still work, and the Daemon's Channel says `missing` on its own.
     async fn report_channel(&self, start: &rpc::Client) {
+        // CL2: an Ext Actor has no Channel to report.
+        if self.actor.kind != ActorKind::Agent {
+            return;
+        }
         let up = start.request(
             "agent.channelUp",
             contracts::agent::NodeId {
@@ -777,12 +781,8 @@ impl ServerHandler for Shim {
     }
 }
 
-pub async fn run(agent_id: Option<String>) -> ExitCode {
-    let Some(id) = agent_id else {
-        eprintln!("usage: rup mcp <agent-id>");
-        return ExitCode::from(2);
-    };
-    match serve(id).await {
+pub async fn run(actor: Actor) -> ExitCode {
+    match serve(actor).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
             eprintln!("rup: {why}");
@@ -792,16 +792,12 @@ pub async fn run(agent_id: Option<String>) -> ExitCode {
     }
 }
 
-async fn serve(id: String) -> Result<(), String> {
+async fn serve(actor: Actor) -> Result<(), String> {
     let socket = rpc::socket_path().map_err(|err| err.to_string())?;
     let (gone, mut gone_rx) = mpsc::channel(1);
     let mut shim = Shim {
         socket,
-        actor: Actor {
-            kind: ActorKind::Agent,
-            id,
-            parent: None,
-        },
+        actor,
         tools: offered_tools(),
         gone,
     };
