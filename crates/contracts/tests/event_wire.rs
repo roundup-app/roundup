@@ -121,6 +121,7 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             _ => panic!("wrong variant for {name}"),
         }
         let event = Event {
+            seq: None,
             actor: Actor::user(),
             data,
         };
