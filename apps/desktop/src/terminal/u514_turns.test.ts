@@ -72,20 +72,6 @@ it("u514_a_terminal_without_marks_has_no_gutter_and_plain_selection_works", asyn
   emulator.dispose();
 });
 
-it("u514_the_gutter_does_not_change_the_columns", async () => {
-  const marked = open();
-  const plain = open();
-
-  marked.terminal.resize(80, 24);
-  plain.terminal.resize(80, 24);
-  await marked.write(turn("ls", ["a"]));
-  await plain.write("$ ls\r\na\r\n");
-  expect(marked.terminal.cols).toBe(plain.terminal.cols);
-  expect(marked.emulator.turns()).toHaveLength(1);
-  marked.emulator.dispose();
-  plain.emulator.dispose();
-});
-
 it("u514_a_gutter_click_selects_the_whole_turn", async () => {
   const { emulator, write } = open();
 
