@@ -153,8 +153,6 @@ jobs:
         with:
           rust: 'build'
           browser: 'true'
-      # The real-`rupd` tests run these binaries: built here from the restored cache, no test waits on the build.
-      - run: cargo build -p rupd -p rup
       - name: U26 Linux fault observer dependencies
         run: |
           sudo apt-get update -qq
