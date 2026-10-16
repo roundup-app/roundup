@@ -2577,7 +2577,8 @@ async fn a32_kept_items_keep_their_ids_and_owners() {
         })
         .await;
         working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
+        // A33: the kept Todo is blocked until Clear archives its blocker.
+        if working && status.status.kind == Kind::Blocked {
             break;
         }
     }
