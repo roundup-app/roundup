@@ -15,7 +15,7 @@ const durations: Seconds = measuredDurations;
 const median = (values: readonly number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
 
-  return sorted.length === 0 ? 1 : sorted[Math.floor(sorted.length / 2)];
+  return sorted[Math.floor(sorted.length / 2)] ?? 1;
 };
 
 /**
@@ -46,8 +46,8 @@ export default class TimedSequencer extends BaseSequencer {
 
     if (!shard) return specs;
     const byFile = new Map(specs.map((spec) => [relative(root, spec.moduleId), spec]));
-    const mine = assignShards([...byFile.keys()], durations, shard.count)[shard.index - 1];
+    const mine = assignShards([...byFile.keys()], durations, shard.count)[shard.index - 1] ?? [];
 
-    return mine.map((file) => byFile.get(file)!);
+    return mine.flatMap((file) => byFile.get(file) ?? []);
   }
 }
