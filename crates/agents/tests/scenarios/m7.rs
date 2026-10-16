@@ -402,7 +402,8 @@ impl World {
 async fn m7_a_spawn_prompt_outside_reach_is_refused_without_effects() {
     let w = World::new().await;
     let target = w.prompt_child().await;
-    for caller in [&w.other, &w.sibling] {
+    let foreign = w.f.workstream("foreign", None).await;
+    for caller in [&foreign, &w.other, &w.sibling] {
         let before = w.touches.sequence().unwrap();
         let mut events = w.f.bus.subscribe();
         let err = w
