@@ -10,10 +10,17 @@ export type Place = { x: number; y: number; w: number; h: number; min: boolean }
 /** One space step (`--space-4`) is what an arrow key moves or resizes a bubble by. */
 export const STEP = 16;
 
-/** A bubble keeps extent for 24 columns by 6 rows of the default text, its header included. */
-export const MIN_WIDTH = 24 * 8 + 2 * STEP;
+/** A bubble's padding (`--space-3`), its header row and gap (`--space-5`, `--space-2`) and the emulator's scrollbar, in px. */
+const PADDING = 12;
 
-export const MIN_HEIGHT = 6 * 17 + 2 * STEP;
+const HEADER = 24 + 8;
+
+const SCROLLBAR = 14;
+
+/** A bubble keeps extent for 24 columns by 6 rows of the default text, its chrome included. */
+export const MIN_WIDTH = 24 * 8 + 2 * PADDING + SCROLLBAR;
+
+export const MIN_HEIGHT = 6 * 17 + 2 * PADDING + HEADER;
 
 export type Extent = { width: number; height: number };
 
@@ -63,16 +70,6 @@ export const placesStorage = (path: string) => {
     },
   };
 };
-
-export const DEFAULT_TRANSPARENCY = 8;
-
-export const MAX_TRANSPARENCY = 60;
-
-export const TRANSPARENCY_STEP = 5;
-
-const transparencySchema = v.pipe(v.number(), v.minValue(0), v.maxValue(MAX_TRANSPARENCY));
-
-export const transparencyStorage = (path: string) => storedValue(`roundup:bubble-transparency:${path}`, transparencySchema);
 
 /** The Terminals the selection shows (engineering call 3): its own, and those of every Workstream above it. */
 export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly RailNode[], selected: string | null): TerminalInfo[] => {
