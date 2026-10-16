@@ -33,3 +33,4 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - Radius only on floating panels: the bubble, menus, popovers (#2176).
 - Tabs: one flat Zed-style bar for Project and Terminal tabs (#2210). The owner: "the borders and design of the tabs is too annoying not elegant and not native - too bad".
 - Floating panels are opaque with a shadow; no opacity slider (#2176). The owner: "we should remove the opacity feature remove it and add proper box shadow and padding and radius to the bubble".
+- One Terminal bubble shows at a time, centred over the centre pane; roundup builds no splitting, tiling or bubble manager, since the Terminal itself (tmux or similar) handles splits (#2211). The owner: "we only need a resizer - terminals them selves could manage splitting and tiling not us".
