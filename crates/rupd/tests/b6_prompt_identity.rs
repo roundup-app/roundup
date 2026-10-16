@@ -4098,19 +4098,23 @@ async fn b6_a_later_door_rename_cannot_overtake_a_released_resize() {
     })
     .await
     .unwrap();
-    let renamed = caller
-        .request("rail.rename", json!({"id":run.child,"name":"after resize"}))
-        .await;
-    let history = run
-        .user
-        .request("terminal.resizeHistory", json!({"id":run.terminal}))
-        .await;
+    let renamed = tokio::time::timeout(
+        BOUND,
+        caller.request("rail.rename", json!({"id":run.child,"name":"after resize"})),
+    )
+    .await;
+    let history = tokio::time::timeout(
+        BOUND,
+        run.user
+            .request("terminal.resizeHistory", json!({"id":run.terminal})),
+    )
+    .await;
     std::fs::remove_file(gate).unwrap();
     end.await.unwrap().unwrap();
     run.finish().await;
-    renamed.unwrap();
+    renamed.unwrap().unwrap();
     assert_eq!(
-        history.unwrap()[0]["outcome"]["status"],
+        history.unwrap().unwrap()[0]["outcome"]["status"],
         "completed",
         "a later Door rename returned before the older resize ran"
     );
