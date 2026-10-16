@@ -1,4 +1,8 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
+import { CHECK_IDS, type Checks } from "../testing/checks";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 const source = new URL("./u509Fixture.tsx", import.meta.url).pathname;
@@ -84,3 +88,44 @@ it("u509_form_fits_dense_and_long_choices", async () => {
 
   expect(fit).toEqual({ page: true, list: true, last: true });
 }, 90_000);
+
+const art = captureDir("U509");
+
+const MOVED: readonly string[] = ["D1", "D2", "D5", "D6", "D7"];
+
+for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+  it(`u509_form_preserves_checks ${scheme}-${width}`, async () => {
+    await browser("set", "media", scheme);
+    const readings: Record<string, Checks> = {};
+
+    const capture = async (name: string) => {
+      await browser("set", "viewport", String(width), "800");
+      const checks = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
+
+      readings[name] = checks;
+
+      if (art) {
+        mkdirSync(join(art, "head"), { recursive: true });
+        await browser("screenshot", join(art, "head", `${scheme}-${width}-${name}.png`));
+        writeFileSync(join(art, "head", `${scheme}-${width}-${name}.checks.json`), JSON.stringify(checks));
+      }
+    };
+
+    await load("?dense");
+    await capture("closed");
+    await browser("click", `[aria-label="Model"]`);
+    await wait(`document.querySelector('[role=listbox]')`);
+    await capture("open-options");
+    await browser("click", `[role=option]:nth-child(3)`);
+    await wait(`window.__form.pair().model !== null`);
+    await capture("changed-pair");
+    await browser("eval", `window.__form.setDisabled(true)`);
+    await wait(`document.querySelector('.rail-agent-actions > button').getAttribute('aria-disabled') === 'true'`);
+    await capture("disabled");
+    await browser("open", url(`${fixture}?dense&fail`));
+    await wait(`document.querySelector('[role=alert]')`);
+    await capture("failed");
+
+    for (const [name, checks] of Object.entries(readings)) for (const id of CHECK_IDS) if (MOVED.includes(id)) expect(checks[id].status, `${name} ${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
+  }, 180_000);
+}
