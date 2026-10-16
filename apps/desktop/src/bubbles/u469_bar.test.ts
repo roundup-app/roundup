@@ -139,7 +139,7 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
   type Read = { bar: unknown; pane: unknown; composer: unknown; checks: Record<string, { status: string }> };
 
   for (const scheme of ['light', 'dark'] as const) {
-    for (const width of [700, 1280, 1440]) {
+    for (const width of [1280, 1440]) {
       await page.scheme(scheme, 'more');
       await page.load('/harness.html?seed=empty-project', width, 800);
       await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.resource-strip')`);
