@@ -1,6 +1,7 @@
-import { createToaster } from "@ark-ui/solid/toast";
+import * as sourceToast from "@ark-ui/solid/toast";
+import * as compiledToast from "../../node_modules/@ark-ui/solid/dist/components/toast/index.js";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { u492Fixture } from "./u492Fixture";
 
 const duration = 5000;
@@ -15,15 +16,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe.each([["Solid", sourceToast], ["JS", compiledToast]] as const)("u492_%s_published_entry", (_name, library) => {
 function mount() {
   vi.useFakeTimers();
   const status = vi.fn();
   // Call through to the real observer; detect installation after disposal.
   const observe = vi.spyOn(MutationObserver.prototype, "observe");
   const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-  const toaster = createToaster({ placement: "bottom-end", removeDelay });
+  const toaster = library.createToaster({ placement: "bottom-end", removeDelay });
 
-  const mounted = render(() => u492Fixture(toaster));
+  const mounted = render(() => u492Fixture(toaster, library));
 
   const create = () => toaster.create({ title: "Saved", duration, onStatusChange: status });
 
@@ -151,4 +153,6 @@ it("u492_subsequent_cards_restore_announcements_then_return_to_idle", async () =
     await vi.advanceTimersToNextFrame();
     await expectIdle(probe);
   }
+});
+
 });
