@@ -4271,3 +4271,61 @@ async fn m17_decision_answer_names_the_decision_and_answer() {
         assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
     }
 }
+
+/// The next Event `client` is pushed that is a Todo created with `title`, with every number seen on the way.
+async fn until_created(client: &mut rpc::Client, title: &str) -> Vec<(u64, bool)> {
+    let mut seen = Vec::new();
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(30), client.next_event())
+            .await
+            .expect("the Daemon sends the Events")
+            .expect("the connection stays open");
+        let hit = matches!(&event.data, EventData::TodoCreated(todo) if todo.title == title);
+        seen.extend(event.seq.map(|seq| (seq, hit)));
+        if hit {
+            return seen;
+        }
+    }
+}
+
+#[tokio::test]
+async fn d12_a_client_resumes_after_a_killed_daemon() {
+    let mut project = start(&[]);
+    let mut first = project.subscribed().await;
+    let caller = project.client().await;
+    caller
+        .request("todo.create", json!({ "title": "a" }))
+        .await
+        .unwrap();
+    let n = until_created(&mut first, "a").await.last().unwrap().0;
+    // Saved before the kill, never read by `first`.
+    for title in ["b", "c"] {
+        caller
+            .request("todo.create", json!({ "title": title }))
+            .await
+            .unwrap();
+    }
+    drop((first, caller));
+    project.crash();
+    project.restart(&[]);
+
+    let mut resumed = project.client().await;
+    resumed
+        .request("events.subscribe", json!({ "after": n }))
+        .await
+        .unwrap();
+    project
+        .client()
+        .await
+        .request("todo.create", json!({ "title": "d" }))
+        .await
+        .unwrap();
+    let got: Vec<u64> = until_created(&mut resumed, "d")
+        .await
+        .into_iter()
+        .map(|(seq, _)| seq)
+        .collect();
+    let last = *got.last().unwrap();
+    assert_eq!(got, (n + 1..=last).collect::<Vec<_>>(), "each number once, in order");
+    assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
+}
