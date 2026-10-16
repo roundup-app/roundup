@@ -13,6 +13,8 @@ use tokio::sync::broadcast::Receiver;
 use tokio::time::timeout;
 
 const BOUND: Duration = Duration::from_secs(30);
+/// Ten saturating Terminals each overflow the Bus on a shared CI runner; 16 s alone on a quiet one.
+const FLOOD_BOUND: Duration = Duration::from_secs(120);
 
 struct Fixture {
     dir: tempfile::TempDir,
@@ -284,7 +286,7 @@ async fn x14_ten_busy_terminals_do_not_lag_rail_events() {
     };
     marker("first").await;
     let mut counts = std::collections::HashMap::<String, usize>::new();
-    timeout(BOUND, async {
+    timeout(FLOOD_BOUND, async {
         // The receiver stays unread while every Terminal exceeds the Bus capacity in chunks.
         while ids
             .iter()
