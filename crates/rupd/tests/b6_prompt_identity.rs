@@ -5578,22 +5578,17 @@ async fn b6_stop_crashes_explain_waiting_and_uncertain_effects_without_repeating
 }
 
 #[tokio::test]
-async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
+async fn b6_a_held_stop_never_stops_a_replacement_attempt() {
     for kind in ["user", "ext"] {
-        let (run, caller) = order_child().await;
-        let direct = if kind == "user" {
-            Arc::clone(&run.user)
-        } else {
-            let direct = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
-            direct
-                .request(
-                    "daemon.identify",
-                    json!({"actor":{"kind":kind,"id":"direct-observer"}}),
-                )
-                .await
-                .unwrap();
-            direct
-        };
+        let (mut run, caller) = order_child().await;
+        let direct = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+        direct
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":kind,"id":"direct-observer"}}),
+            )
+            .await
+            .unwrap();
         run.user
             .request("takeover.begin", json!({"agent":run.child}))
             .await
@@ -5608,37 +5603,44 @@ async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
         let end =
             tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
         run.paused().await;
-        let mut mutations = Vec::new();
-        for method in ["agent.stop", "agent.resume"] {
-            let user = Arc::clone(&direct);
-            let child = run.child.clone();
-            mutations.push(tokio::spawn(async move {
-                user.request(method, json!({"id":child})).await
-            }));
-        }
-        for mutation in &mut mutations {
-            // The observer acknowledges the original Stop's pre-effect cut. This is an
-            // absence window: no direct mutation may replace the Attempt at that cut.
-            assert!(
-                tokio::time::timeout(Duration::from_millis(200), mutation)
-                    .await
-                    .is_err()
-            );
-        }
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            direct.request("agent.stop", json!({"id":run.child})),
+        )
+        .await
+        .expect("direct Stop remains available")
+        .unwrap();
+        let resumed = direct
+            .request("agent.resume", json!({"id":run.child}))
+            .await
+            .unwrap();
+        assert_ne!(resumed["attempt"], run.attempt);
+        run.terminal = resumed["terminal_id"].clone();
         run.release();
         end.await.unwrap().unwrap();
-        for mutation in mutations {
-            let _ = tokio::time::timeout(BOUND, mutation)
-                .await
-                .unwrap()
-                .unwrap();
-        }
         let history = caller
             .request("agent.actionHistory", json!({"id":run.child}))
             .await
             .unwrap();
-        assert_eq!(history[0]["outcome"]["status"], "completed");
+        let terminals = run.user.request("terminal.list", ()).await.unwrap();
+        let replacement_running = terminals
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == run.terminal && t["running"] == true);
         run.finish().await;
+        assert!(
+            replacement_running,
+            "{kind}: held Stop killed the replacement Attempt"
+        );
+        assert_eq!(history[0]["outcome"]["status"], "dropped");
+        assert!(
+            history[0]["outcome"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("original Attempt"),
+            "{history}"
+        );
     }
 }
 
