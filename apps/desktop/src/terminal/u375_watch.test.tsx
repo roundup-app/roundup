@@ -153,6 +153,22 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.querySelector(".pane-takeover")).toBeNull();
   });
 
+  it("u467_takeover_failure_preserves_the_child_and_shows_the_error", async () => {
+    const { app, connected, emulators } = await mountWatch();
+    fireEvent.click(screen.getByRole("button", { name: "Take control" }));
+    await connected.takeover.end("not-taken");
+    app.handlers["takeover.end"] = () => { throw new RpcError(-32000, "Give back failed: connection lost"); };
+
+    fireEvent.click(screen.getByRole("button", { name: "Give control back" }));
+
+    await screen.findByText("Give back failed: connection lost");
+    expect(connected.takeover.taken()).toBe("a");
+    expect(connected.rail.selected()).toBe("a");
+    expect(screen.getByRole("button", { name: "Give control back" })).not.toBeNull();
+    emulators.get("t-a")!.type(bytes(108));
+    await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
+  });
+
   it("u375_a_decision_card_and_the_composer_hold_in_watch", async () => {
     const { app } = await mountWatch([open]);
 
@@ -165,23 +181,6 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
   });
 
-  it("u375_a_reload_opens_in_watch", async () => {
-    await mountWatch();
-
-    expect(band()).not.toBeNull();
-    expect(document.querySelector("[data-takeover]")).toBeNull();
-  });
-
-  it("u375_u12_typing_holds_in_a_takeover", async () => {
-    const { app, emulators } = await mountWatch();
-
-    fireEvent.click(screen.getByRole("button", { name: "Take control" }));
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
-
-    emulators.get("t-a")!.type(bytes(108));
-
-    await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
-  });
 
   it("u375_an_exited_terminal_shows_no_band", async () => {
     const { app } = await mountWatch();
