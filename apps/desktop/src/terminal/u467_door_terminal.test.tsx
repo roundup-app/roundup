@@ -1,7 +1,7 @@
-import { cleanup, waitFor } from "@solidjs/testing-library";
+import { cleanup, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountCentre } from "../testing/centreFixture";
-import { agent, door } from "../testing/nodes";
+import { agent, door, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
 
@@ -49,5 +49,37 @@ describe("u467 a Workstream shows its Door's Terminal", () => {
 
     await waitFor(() => expect(screens()).toEqual(["t-w1"]));
     expect(emulators.get("t-w1")!.disposed).toBe(false);
+  });
+
+  it("u467_a_late_snapshot_cannot_replace_the_selected_door", async () => {
+    let release: () => void = () => {};
+
+    const held = new Promise<void>((resolve) => { release = resolve; });
+
+    const { app, connected, emulators } = await mountCentre(tree(), {
+      select: null,
+      prepare: (fake) => {
+        fake.handlers["terminal.snapshot"] = async (params) => {
+          if (params.id === "t-w1") await held;
+
+          return { cols: 100, rows: 30, after: 0, data: params.id === "t-w1" ? "first door" : "second door" };
+        };
+      },
+    });
+
+    connected.rail.select("w1");
+    await waitFor(() => expect(app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
+    connected.rail.select("w2");
+    await waitFor(() => expect(emulators.get("t-w2")?.written.length).toBeGreaterThan(0));
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect([screens(), emulators.get("t-w1")?.written.length ?? 0]).toEqual([["t-w2"], 0]);
+  });
+
+  it("u467_a_missing_door_has_an_actionable_state_and_no_input_target", async () => {
+    const { app } = await mountCentre([workstream("w1")]);
+
+    expect([await screen.findByText("Supervisor not started"), screens(), app.calls.filter((call) => call.method === "terminal.write")]).toEqual([expect.anything(), [], []]);
   });
 });
