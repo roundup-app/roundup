@@ -36,3 +36,16 @@ it("u494_modal_blocks_underlying_actions", async () => {
   await browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:']',code:'BracketRight',metaKey:true,shiftKey:true,bubbles:true,cancelable:true}))`);
   expect(await read<string>(`document.querySelector('[role=tab][aria-selected=true]').closest('.project-tab').dataset.path`)).toBe(active);
 }, 90_000);
+
+it("u495_menu_pointer_keyboard_and_return", async () => {
+  await browser("open", url("/harness.html?seed=tabs-8"));
+  await wait(`document.querySelectorAll('.project-tab').length === 8 && !!window.__fake`);
+  await prepareModels();
+  await browser("eval", `document.querySelector('[role=tab]').focus()`);
+  await browser("press", "Shift+F10");
+  await wait(`!!document.querySelector('[role=menu]')`);
+  await browser("press", "ArrowDown");
+  await wait(`document.activeElement?.getAttribute('role') === 'menuitem' || document.querySelector('[role=menuitem][data-highlighted]')`);
+  await browser("press", "Escape");
+  await wait(`!document.querySelector('[role=menu]') && document.activeElement === document.querySelector('[role=tab]')`);
+}, 60_000);
