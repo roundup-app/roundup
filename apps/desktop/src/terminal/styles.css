@@ -179,3 +179,28 @@
 .pane-takeover > button {
   flex: none;
 }
+
+/* U514: a Turn's band spans the row width over the cell grid, so the columns are the same with or without it. */
+.turn-band {
+  width: 100% !important;
+  pointer-events: none;
+}
+
+.turn-band:has(.turn-gutter:hover) {
+  background: var(--hover);
+}
+
+.turn-gutter {
+  display: block;
+  width: 4px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: var(--hairline);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.turn-gutter:hover {
+  background: var(--accent);
+}
