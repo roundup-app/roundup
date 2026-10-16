@@ -18,6 +18,9 @@ import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { StartDoorParams as agent_StartDoorParams } from "./agent/StartDoorParams";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
+import type { Ask as ask_Ask } from "./ask/Ask";
+import type { PickParams as ask_PickParams } from "./ask/PickParams";
+import type { SendParams as ask_SendParams } from "./ask/SendParams";
 import type { SaveParams as attachment_SaveParams } from "./attachment/SaveParams";
 import type { Saved as attachment_Saved } from "./attachment/Saved";
 import type { Checkpoint as checkpoint_Checkpoint } from "./checkpoint/Checkpoint";
@@ -88,6 +91,9 @@ import type { ClearResult as workstream_ClearResult } from "./workstream/ClearRe
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
 
 export type RpcMethods = {
+  "ask.send": { params: ask_SendParams; result: ask_Ask };
+  "ask.list": { params: null; result: ask_Ask[] };
+  "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.ping": { params: null; result: { pong: true, contract: { fingerprint: string, methods: string[] } } };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: null; result: null };
