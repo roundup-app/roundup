@@ -1111,12 +1111,13 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .filter(|pair| pair[0] == "--plugin-dir")
             .map(|pair| Path::new(pair[1].as_str().unwrap()))
             .collect();
-        assert_eq!(paths.len(), 3);
-        for (path, (name, version)) in
-            paths
-                .iter()
-                .zip([("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")])
-        {
+        assert_eq!(paths.len(), 4);
+        for (path, (name, version)) in paths.iter().zip([
+            ("hope", "13.1.0"),
+            ("hunch", "0.9.4"),
+            ("hold", "0.0.9"),
+            ("roundup-question", "0.0.1"),
+        ]) {
             let manifest: Value = serde_json::from_slice(
                 &std::fs::read(path.join(".claude-plugin/plugin.json")).unwrap(),
             )
