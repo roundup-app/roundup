@@ -2684,3 +2684,174 @@ async fn a32_kept_items_keep_their_ids_and_owners() {
     assert_eq!(scratch["home"], json!(door));
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn a32_message_list_spans_iterations() {
+    tokio::time::timeout(Duration::from_secs(60), async {
+        let project = daemon::start_real("a32_message_history", &[]);
+        let path = project.dir.path();
+        for args in [
+            vec!["init", "-q", "-b", "main"],
+            vec!["config", "user.name", "roundup"],
+            vec!["config", "user.email", "roundup@example.com"],
+        ] {
+            assert!(
+                std::process::Command::new("git")
+                    .current_dir(path)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        std::fs::write(path.join("README"), "keep").unwrap();
+        for args in [vec!["add", "README"], vec!["commit", "-qm", "base"]] {
+            assert!(
+                std::process::Command::new("git")
+                    .current_dir(path)
+                    .args(args)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+        }
+        let mut client = project.subscribed().await;
+        client
+            .request("project.setWorktrees", json!({"on": true, "check": null}))
+            .await
+            .unwrap();
+        let door = client
+            .request(
+                "rail.createWorkstream",
+                json!({"name": "team", "parent": null}),
+            )
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        client
+            .request("rail.startDoor", json!({"id": door}))
+            .await
+            .unwrap();
+        let model = project.model.as_ref().unwrap();
+        // Each next input follows the real turn's Working → Stop acknowledgement.
+        async fn stopped(client: &mut rpc::Client, door: &str, attempt: &str) {
+            let mut working = false;
+            loop {
+                let status = next(client, |event| match event {
+                    EventData::AgentStatus(status)
+                        if status.id == door && status.attempt == attempt =>
+                    {
+                        Some(status)
+                    }
+                    _ => None,
+                })
+                .await;
+                working |= status.status.kind == Kind::Working;
+                if working && status.status.kind == Kind::Idle {
+                    return;
+                }
+            }
+        }
+        stopped(&mut client, &door, "1").await;
+        client
+            .request(
+                "message.send",
+                json!({"to": door, "kind": "note", "body": "first ask"}),
+            )
+            .await
+            .unwrap();
+        stopped(&mut client, &door, "1").await;
+        assert_eq!(
+            client
+                .request(
+                    "workstream.clear",
+                    json!({"id": door, "reason": "history clear"})
+                )
+                .await
+                .unwrap(),
+            json!({"pending": true})
+        );
+        stopped(&mut client, &door, "1").await;
+        let actor = project.client().await;
+        actor
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: door.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        actor
+        .request(
+            "workstream.handoff",
+            json!({"id": door, "summary": "History survived", "keep_todos": [], "keep_pads": []}),
+        )
+        .await
+        .unwrap();
+        let cleared = next(&mut client, |event| match event {
+            EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+            _ => None,
+        })
+        .await;
+        assert_eq!(cleared.iteration, 2);
+        stopped(&mut client, &door, "2").await;
+        client
+            .request(
+                "message.send",
+                json!({"to": door, "kind": "note", "body": "second ask"}),
+            )
+            .await
+            .unwrap();
+        stopped(&mut client, &door, "2").await;
+        let listed = client
+            .request("message.list", json!({"id": door}))
+            .await
+            .unwrap();
+        let seen: Vec<(String, u64)> = listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| !m["body"].as_str().unwrap().starts_with("[digest]"))
+            .map(|m| {
+                (
+                    m["body"].as_str().unwrap().to_owned(),
+                    m["iteration"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            [("first ask".to_owned(), 1), ("second ask".to_owned(), 2)]
+        );
+        let journal = model.journal();
+        for expected in [
+            "first ask",
+            "history clear",
+            "History survived",
+            "second ask",
+        ] {
+            assert!(
+                journal.iter().any(|entry| entry["body"]["tools"]
+                    .as_array()
+                    .is_some_and(|tools| !tools.is_empty())
+                    && entry["body"]["messages"]
+                        .as_array()
+                        .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
+                            && m["content"]
+                                .as_str()
+                                .is_some_and(|text| text.contains(expected))))),
+                "real Claude did not receive {expected}: {journal:#?}"
+            );
+        }
+        model.assert_matched();
+    })
+    .await
+    .expect("Message history across Clear did not complete");
+}
