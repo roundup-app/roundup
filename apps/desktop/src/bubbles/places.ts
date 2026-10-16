@@ -83,3 +83,6 @@ export const shownFor = (terminals: readonly TerminalInfo[], nodes: readonly Rai
 
 /** U164: a bubble's name is its program's title, else the program's own name. */
 export const nameOf = (terminal: TerminalInfo): string => terminal.title?.trim() || terminal.program;
+
+/** The window event a Switcher entry for Terminal `detail` sends: show its bubble, restoring it, and focus its emulator (U529). */
+export const REVEAL_BUBBLE = "roundup:reveal-bubble";
