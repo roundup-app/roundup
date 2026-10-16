@@ -14,6 +14,10 @@ interface Shard {
 // its summed file time over this many files at once, whichever is longer.
 const PARALLEL_FILES = 2.8;
 
+// A file's environment and imports cost this much besides the duration vitest prints for it: on `main`, they took 36%
+// of the time of a shard holding 117 files, about two seconds a file.
+const FILE_SETUP_SECONDS = 2;
+
 const durations: Seconds = measuredDurations;
 
 const median = (values: readonly number[]): number => {
@@ -23,7 +27,7 @@ const median = (values: readonly number[]): number => {
 };
 
 /** What a shard holding files of these durations takes, in seconds. */
-export const shardTime = (held: readonly number[]): number => Math.max(0, ...held, held.reduce((sum, seconds) => sum + seconds, 0) / PARALLEL_FILES);
+export const shardTime = (held: readonly number[]): number => Math.max(0, ...held, held.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES);
 
 /** The files, longest measured duration first (a file without one weighs the median), ties by name. */
 export function longestFirst(files: readonly string[], measured: Seconds): string[] {

@@ -1,23 +1,21 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
 import { captureDir } from "../testing/captures";
+import { appServer, type AppServer } from "../testing/appServer";
 
 describe("u440 overflow edges sit beside the tab list", () => {
   type Rect = { left: number; right: number; bottom: number };
 
   type Reading = { case: string; cuts: { start: number; end: number; mask: string }; slots: number; list: Rect; revealed: Rect; selected: Rect; tabs: Rect[]; edges: Rect[] };
 
-  let server: ViteDevServer;
+  let server: AppServer;
   let readings: Reading[];
   let tight: { list: Rect; cuts: { start: number; end: number }; selected: Rect };
 
   beforeAll(async () => {
-    server = await createServer({ server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
-    await server.listen();
-    const { stdout } = await promisify(execFile)("python3", ["src/header/u449_browser.test.py", server.resolvedUrls!.local[0]!, captureDir("U440") ?? "", "", "head", "edges"], { timeout: 600_000, maxBuffer: 4 * 1024 * 1024 });
+    server = await appServer();
+    const { stdout } = await promisify(execFile)("python3", ["src/header/u449_browser.test.py", server.resolvedUrls.local[0]!, captureDir("U440") ?? "", "", "head", "edges"], { timeout: 600_000, maxBuffer: 4 * 1024 * 1024 });
     ({ readings, tight } = JSON.parse(stdout));
   }, 1_200_000);
   afterAll(async () => { await server?.close(); });
