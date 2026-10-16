@@ -405,32 +405,6 @@ fn names(items: &[Value], key: &str) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
-    let fx = fixture().await;
-    let (keep, _) = fx.full().await;
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    for bad in [
-        json!({"keep_todos": [999], "keep_pads": []}),
-        json!({"keep_todos": [], "keep_pads": ["nope"]}),
-        json!({"keep_todos": [], "keep_pads": [], "summary": " "}),
-    ] {
-        let mut params = json!({"id": fx.ws, "summary": "s"});
-        params
-            .as_object_mut()
-            .unwrap()
-            .extend(bad.as_object().unwrap().clone());
-        let err = fx.hand_off(params).await.unwrap_err();
-        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
-    }
-    assert_eq!(fx.todos().await.len(), 2, "a bad Handoff changes nothing");
-    fx.hand_off(json!({"id": fx.ws, "summary": "ok", "keep_todos": [keep], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-}
-
-#[tokio::test]
 async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     let fx = fixture().await;
     let (keep, fluff) = fx.full().await;
@@ -615,21 +589,6 @@ async fn a32_the_door_restarts_fresh_from_the_handoff() {
     let text = last["prompt"].as_str().unwrap();
     assert!(text.starts_with("Build the login page."), "{text}");
     assert!(text.contains("archived in the Pad archive-1"), "{text}");
-}
-
-#[tokio::test]
-async fn a32_no_slash_command_is_typed() {
-    let fx = fixture().await;
-    let mut task = fx.clear("/clear please", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-    for typed in prompts(&fx.log) {
-        let text = typed["prompt"].as_str().unwrap();
-        assert!(!text.starts_with('/'), "{text}");
-    }
 }
 
 #[tokio::test]

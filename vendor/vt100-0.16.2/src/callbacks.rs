@@ -1,6 +1,17 @@
-/// This trait is used by the parser to handle extra escape sequences that
-/// don't have an impact on the terminal screen directly.
+/// Observes handled text and terminal requests during parsing.
 pub trait Callbacks {
+    /// Called synchronously after each handled text character is applied to the
+    /// screen, including writes that leave the glyph unchanged. The screen is
+    /// the post-write state. Controls, escape sequences and unhandled characters
+    /// do not call this method.
+    ///
+    /// To associate writes with raw completion offsets, feed one byte per
+    /// Parser::process call and set the callback's offset before that call.
+    /// UTF-8 decoding and escape recognition remain owned by the parser.
+    /// No observations are retained by the library; callback storage is owned
+    /// by the caller and cloned according to its Clone implementation.
+    fn text(&mut self, _: &mut crate::Screen, _c: char) {}
+
     /// This callback is called when the terminal requests an audible bell
     /// (typically with `^G`).
     fn audible_bell(&mut self, _: &mut crate::Screen) {}
