@@ -295,3 +295,25 @@ valid renames through the Takeover change observer.
 This slice integration-tests M1, M3, M4, M6, M7, M9 and M10. The existing Message
 proofs model Messages, not held Door actions; no law or Message transition is
 changed. #1581 still owns the remaining action families and full B6 acceptance.
+
+## B6 Door Stop actions
+
+Door `agent.stop` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and append-only ledger
+as resizes and renames. MCP preserves both waiting receipts and the null result
+of an immediate Stop; it never describes acceptance as a completed stop.
+Known Agent processes cannot bypass the hold by claiming the user. Direct user
+Stop remains immediate.
+
+Release rechecks Reach and the original Attempt and Terminal before stopping.
+A removed child, an exited Terminal or a replaced Attempt produces a retained
+drop reason; later actions still proceed. Stop completion waits for the Agent's
+existing exit confirmation. An uncertain effect remains explained by its
+recorded reason and is never automatically retried.
+
+No Takeover or Terminal survives restart. A waiting Stop is dropped with the
+original-Terminal reason rather than applied to a replacement Attempt. A Stop
+recorded in progress is dropped as possibly already applied; a completed Stop
+retains its completion. These are integration-tested action guarantees for
+M1, M3, M4, M6, M7, M9 and M10. Message proofs and laws are unchanged. #1581
+retains the remaining action families and full acceptance.

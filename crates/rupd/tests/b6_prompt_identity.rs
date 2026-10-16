@@ -4721,85 +4721,84 @@ async fn b6_held_renames_share_resize_order_at_most_once() {
 }
 
 #[tokio::test]
-async fn b6_a_rename_losing_reach_drops_and_the_new_doors_rename_proceeds() {
-    let (run, caller) = door_terminal().await;
-    run.user
-        .request("takeover.begin", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    caller
-        .request(
-            "rail.rename",
-            json!({"id":run.child,"name":"must not rename"}),
-        )
-        .await
-        .unwrap();
-    let other = run
-        .user
-        .request("rail.createWorkstream", json!({"name":"new owner"}))
-        .await
-        .unwrap();
-    run.user
-        .request(
-            "rail.move",
-            json!({"id":run.child,"parent":other["id"],"index":0}),
-        )
-        .await
-        .unwrap();
-    let new_door = Client::connect(&run.daemon.socket).await.unwrap();
-    new_door
-        .request(
-            "daemon.identify",
-            json!({"actor":{"kind":"agent","id":other["id"]}}),
-        )
-        .await
-        .unwrap();
-    let later = new_door
-        .request(
-            "rail.rename",
-            json!({"id":run.child,"name":"new Doors rename"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(later["outcome"]["status"], "waiting");
-    run.user
-        .request("takeover.end", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    let history = run
-        .user
-        .request("agent.actionHistory", json!({"id":run.child}))
-        .await
-        .unwrap();
-    assert_eq!(history.as_array().unwrap().len(), 2);
-    assert_eq!(history[0]["outcome"]["status"], "dropped");
-    assert!(
-        history[0]["outcome"]["reason"]
-            .as_str()
-            .unwrap()
-            .contains("not in the Reach")
-    );
-    assert_eq!(history[1]["outcome"]["status"], "completed");
-    let tree = run.user.request("rail.tree", ()).await.unwrap();
-    assert_eq!(
-        tree.as_array()
-            .unwrap()
-            .iter()
-            .find(|n| n["id"] == run.child)
-            .unwrap()["name"],
-        "new Doors rename"
-    );
-    assert_eq!(
+async fn b6_a_held_child_action_losing_reach_drops_and_the_new_doors_rename_proceeds() {
+    for method in ["rail.rename", "agent.stop"] {
+        let (run, caller) = door_terminal().await;
+        run.user
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
         caller
+            .request(method, json!({"id":run.child,"name":"must not rename"}))
+            .await
+            .unwrap();
+        let other = run
+            .user
+            .request("rail.createWorkstream", json!({"name":"new owner"}))
+            .await
+            .unwrap();
+        run.user
+            .request(
+                "rail.move",
+                json!({"id":run.child,"parent":other["id"],"index":0}),
+            )
+            .await
+            .unwrap();
+        let new_door = Client::connect(&run.daemon.socket).await.unwrap();
+        new_door
+            .request(
+                "daemon.identify",
+                json!({"actor":{"kind":"agent","id":other["id"]}}),
+            )
+            .await
+            .unwrap();
+        let later = new_door
+            .request(
+                "rail.rename",
+                json!({"id":run.child,"name":"new Doors rename"}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(later["outcome"]["status"], "waiting");
+        run.user
+            .request("takeover.end", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        let history = run
+            .user
             .request("agent.actionHistory", json!({"id":run.child}))
             .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
-    run.finish().await;
+            .unwrap();
+        assert_eq!(history.as_array().unwrap().len(), 2);
+        assert_eq!(history[0]["outcome"]["status"], "dropped");
+        assert!(
+            history[0]["outcome"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("not in the Reach")
+        );
+        assert_eq!(history[1]["outcome"]["status"], "completed");
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        assert_eq!(
+            tree.as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == run.child)
+                .unwrap()["name"],
+            "new Doors rename"
+        );
+        assert_eq!(
+            caller
+                .request("agent.actionHistory", json!({"id":run.child}))
+                .await
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        run.finish().await;
+    }
 }
 
 #[tokio::test]
@@ -5322,4 +5321,308 @@ async fn b6_a_door_stop_waits_for_takeover_release() {
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "completed");
     assert!(stopped, "released Stop did not end the original Terminal");
+}
+
+#[tokio::test]
+async fn b6_held_stops_share_resize_and_rename_release_order() {
+    let (run, caller) = door_terminal().await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let primary = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["terminal_id"]
+        .clone();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    for (method, params) in [
+        (
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":103,"rows":39}),
+        ),
+        ("agent.stop", json!({"id":run.child})),
+        ("rail.rename", json!({"id":run.child,"name":"after Stop"})),
+        (
+            "terminal.resize",
+            json!({"id":run.terminal,"cols":104,"rows":40}),
+        ),
+    ] {
+        let receipt = caller.request(method, params).await.unwrap();
+        assert_eq!(receipt["outcome"]["status"], "waiting");
+    }
+    std::fs::write(run.dir.path().join("effect-gate"), "after-resize").unwrap();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let end =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    run.paused().await;
+    let terminals = run.user.request("terminal.list", ()).await.unwrap();
+    assert!(
+        terminals
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == primary && t["running"] == true)
+    );
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    assert_ne!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap()["name"],
+        "after Stop"
+    );
+    run.release();
+    end.await.unwrap().unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(
+        history
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|a| a["outcome"]["status"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["completed", "completed", "completed", "dropped"]
+    );
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    assert_eq!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap()["name"],
+        "after Stop"
+    );
+    assert!(
+        history[3]["outcome"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("exited")
+    );
+    // Even a stale end must not replay Stop: its Rail Touch is an observable effect.
+    let _ = run
+        .user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await;
+    let touches = run
+        .user
+        .request(
+            "provenance.history",
+            json!({"item":format!("rail:{}",run.child)}),
+        )
+        .await
+        .unwrap();
+    let writes = touches
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["actor"]["kind"] == "agent" && t["verb"] == "wrote")
+        .count();
+    assert_eq!(writes, 2, "exactly one Stop and one rename: {touches}");
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_a_door_process_cannot_claim_user_to_bypass_a_held_stop() {
+    let (run, _) = order_child().await;
+    let (door, terminal) = start_answer_door(&run).await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let replies = door_peer_request(
+        &run,
+        &terminal,
+        json!([
+            {"id":1,"method":"daemon.identify","params":{"actor":{"kind":"user","id":"you"}}},
+            {"id":2,"method":"agent.stop","params":{"id":run.child}}
+        ]),
+    )
+    .await;
+    let reply = replies
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == 2)
+        .unwrap();
+    assert_eq!(
+        reply["result"]["outcome"],
+        json!({"status":"waiting","reason":"takeover"}),
+        "{replies}"
+    );
+    let terminals = run.user.request("terminal.list", ()).await.unwrap();
+    assert!(
+        terminals
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == run.terminal && t["running"] == true)
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = run
+        .user
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(history[0]["outcome"]["status"], "completed");
+    run.user
+        .request("agent.stop", json!({"id":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn b6_stop_crashes_explain_waiting_and_uncertain_effects_without_repeating() {
+    for boundary in ["waiting", "before", "after-stop", "completed"] {
+        let (mut run, caller) = order_child().await;
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        let door = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap()["parent"]
+            .clone();
+        run.user
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        let receipt = caller
+            .request("agent.stop", json!({"id":run.child}))
+            .await
+            .unwrap();
+        if boundary != "waiting" {
+            if boundary != "completed" {
+                std::fs::write(run.dir.path().join("effect-gate"), boundary).unwrap();
+            }
+            let user = Arc::clone(&run.user);
+            let child = run.child.clone();
+            let end =
+                tokio::spawn(
+                    async move { user.request("takeover.end", json!({"agent":child})).await },
+                );
+            if boundary == "completed" {
+                end.await.unwrap().unwrap();
+            } else {
+                run.paused().await;
+                run.daemon.child.kill().unwrap();
+                run.daemon.child.wait().unwrap();
+                assert!(end.await.unwrap().is_err());
+            }
+        }
+        if run.daemon.child.try_wait().unwrap().is_none() {
+            run.daemon.child.kill().unwrap();
+            run.daemon.child.wait().unwrap();
+        }
+        let _ = std::fs::remove_file(run.dir.path().join("effect-gate"));
+        run.daemon = launch(run.dir.path(), run.data.path());
+        run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+        let history = run
+            .user
+            .request("agent.actionHistory", json!({"id":run.child}))
+            .await
+            .unwrap();
+        assert_eq!(history.as_array().unwrap().len(), 1, "{boundary}");
+        assert_eq!(history[0]["id"], receipt["id"]);
+        match boundary {
+            "completed" => assert_eq!(history[0]["outcome"]["status"], "completed"),
+            _ => {
+                assert_eq!(history[0]["outcome"]["status"], "dropped");
+                let reason = history[0]["outcome"]["reason"].as_str().unwrap();
+                assert!(
+                    reason.contains(if boundary == "waiting" {
+                        "did not survive"
+                    } else {
+                        "may have happened"
+                    }),
+                    "{boundary}: {reason}"
+                );
+            }
+        }
+        let _ = run
+            .user
+            .request("takeover.end", json!({"agent":run.child}))
+            .await;
+        let touches = run
+            .user
+            .request(
+                "provenance.history",
+                json!({"item":format!("rail:{}",run.child)}),
+            )
+            .await
+            .unwrap();
+        let effects = touches
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["actor"]["id"] == door && t["verb"] == "wrote")
+            .count();
+        assert_eq!(
+            effects,
+            usize::from(matches!(boundary, "after-stop" | "completed")),
+            "{boundary}: {touches}"
+        );
+        run.finish().await;
+    }
+}
+
+#[tokio::test]
+async fn b6_a_released_stop_keeps_its_original_attempt_until_effect() {
+    let (run, caller) = order_child().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    caller
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.pause();
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let end =
+        tokio::spawn(async move { user.request("takeover.end", json!({"agent":child})).await });
+    run.paused().await;
+    let mut mutations = Vec::new();
+    for method in ["agent.stop", "agent.resume"] {
+        let user = Arc::clone(&run.user);
+        let child = run.child.clone();
+        mutations.push(tokio::spawn(async move {
+            user.request(method, json!({"id":child})).await
+        }));
+    }
+    for mutation in &mut mutations {
+        // The observer acknowledges the original Stop's pre-effect cut. This is an
+        // absence window: neither user mutation may replace the Attempt at that cut.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), mutation)
+                .await
+                .is_err()
+        );
+    }
+    run.release();
+    end.await.unwrap().unwrap();
+    for mutation in mutations {
+        let _ = tokio::time::timeout(BOUND, mutation)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(history[0]["outcome"]["status"], "completed");
+    run.finish().await;
 }
