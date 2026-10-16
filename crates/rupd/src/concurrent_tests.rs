@@ -56,10 +56,24 @@ async fn fixture() -> (
 }
 
 async fn send(write: &mut tokio::net::unix::OwnedWriteHalf, id: Value, method: &str) {
+    // Stop's router exclusion needs its target even when the recording Module holds it.
+    let params = if method == "agent.stop" {
+        json!({"id":"fixture"})
+    } else {
+        Value::Null
+    };
     let mut bytes =
-        serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":id, "method":method})).unwrap();
+        serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":id, "method":method, "params":params}))
+            .unwrap();
     bytes.push(b'\n');
     write.write_all(&bytes).await.unwrap();
+}
+
+async fn entry(entries: &mut mpsc::UnboundedReceiver<String>) -> String {
+    tokio::time::timeout(Duration::from_secs(1), entries.recv())
+        .await
+        .expect("recording Module did not acknowledge entry")
+        .unwrap()
 }
 
 async fn reply(read: &mut tokio::io::Lines<BufReader<tokio::net::unix::OwnedReadHalf>>) -> Value {
@@ -77,7 +91,7 @@ async fn d9_a_held_call_does_not_hold_the_next_reply() {
     let (read, mut write) = stream.into_split();
     let mut read = BufReader::new(read).lines();
     send(&mut write, json!("held"), "agent.stop").await;
-    assert_eq!(entries.recv().await.unwrap(), "agent.stop");
+    assert_eq!(entry(&mut entries).await, "agent.stop");
     send(&mut write, json!(2), "rail.tree").await;
     let tree = reply(&mut read).await;
     assert_eq!(tree, json!({"jsonrpc":"2.0", "id":2, "result":[]}));
@@ -95,7 +109,7 @@ async fn d9_half_close_keeps_ordinary_calls_alive() {
     let (read, mut write) = stream.into_split();
     let mut read = BufReader::new(read).lines();
     send(&mut write, json!(1), "agent.stop").await;
-    entries.recv().await.unwrap();
+    entry(&mut entries).await;
     write.shutdown().await.unwrap();
     assert!(
         tokio::time::timeout(Duration::from_secs(1), entries.recv())
@@ -113,15 +127,15 @@ async fn d9_caller_waits_keep_wire_order_without_holding_other_requests() {
     let (read, mut write) = stream.into_split();
     let mut read = BufReader::new(read).lines();
     send(&mut write, json!(1), "agent.permission").await;
-    assert_eq!(entries.recv().await.unwrap(), "agent.permission");
+    assert_eq!(entry(&mut entries).await, "agent.permission");
     send(&mut write, json!(2), "agent.ask").await;
     send(&mut write, json!(3), "rail.tree").await;
     assert_eq!(reply(&mut read).await["id"], 3);
     assert!(entries.try_recv().is_err(), "queued ask must not enter");
     release.add_permits(1);
     assert_eq!(reply(&mut read).await["id"], 1);
-    assert_eq!(entries.recv().await.unwrap(), "dropped:agent.permission");
-    assert_eq!(entries.recv().await.unwrap(), "agent.ask");
+    assert_eq!(entry(&mut entries).await, "dropped:agent.permission");
+    assert_eq!(entry(&mut entries).await, "agent.ask");
     release.add_permits(1);
     assert_eq!(reply(&mut read).await["id"], 2);
 }
@@ -132,7 +146,7 @@ async fn d9_caller_waits_cancel_after_pipelined_traffic() {
     let (read, mut write) = stream.into_split();
     let mut read = BufReader::new(read).lines();
     send(&mut write, json!(1), "agent.permission").await;
-    assert_eq!(entries.recv().await.unwrap(), "agent.permission");
+    assert_eq!(entry(&mut entries).await, "agent.permission");
     send(&mut write, json!(2), "agent.ask").await;
     send(&mut write, json!(3), "rail.tree").await;
     assert_eq!(reply(&mut read).await["id"], 3);
@@ -172,7 +186,7 @@ async fn d9_replies_events_and_notifications_keep_their_envelopes() {
     send(&mut write, json!(0), "events.subscribe").await;
     assert_eq!(reply(&mut read).await["id"], 0);
     send(&mut write, json!("held"), "agent.stop").await;
-    entries.recv().await.unwrap();
+    entry(&mut entries).await;
     frame(
         &mut write,
         json!({"jsonrpc":"2.0", "method":"agent.setOrder"}),
@@ -223,7 +237,7 @@ async fn d9_connection_state_changes_precede_later_requests() {
     frame(&mut write, json!({"method":"daemon.identify", "params":{"actor":{"kind":"user","id":"first","parent":null}}})).await;
     frame(&mut write, json!({"method":"events.subscribe"})).await;
     send(&mut write, json!(1), "agent.stop").await;
-    assert_eq!(entries.recv().await.unwrap(), "agent.stop");
+    assert_eq!(entry(&mut entries).await, "agent.stop");
     frame(&mut write, json!({"method":"daemon.identify", "params":{"actor":{"kind":"user","id":"second","parent":null}}})).await;
     frame(
         &mut write,

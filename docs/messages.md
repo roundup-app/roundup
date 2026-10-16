@@ -295,3 +295,46 @@ valid renames through the Takeover change observer.
 This slice integration-tests M1, M3, M4, M6, M7, M9 and M10. The existing Message
 proofs model Messages, not held Door actions; no law or Message transition is
 changed. #1581 still owns the remaining action families and full B6 acceptance.
+
+## B6 Door Stop actions
+
+Door `agent.stop` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and append-only ledger
+as resizes and renames. MCP preserves both waiting receipts and the null result
+of an immediate Stop; it never describes acceptance as a completed stop.
+Known Agent processes cannot bypass the hold by claiming the user. Direct user
+Stop remains immediate.
+
+Release rechecks Reach and the original Attempt before stopping. A Terminal
+attaching to that same starting Attempt keeps its waiting Stop valid. During
+pending Resume, the old displayed Terminal does not invalidate a Stop of the
+resuming Attempt. The Agent checks the ordinal atomically with its Stop claim.
+A removed child, an exited Terminal or a replaced Attempt produces a retained
+drop reason; later actions still proceed. Stop completion waits for the Agent's
+existing exit confirmation. An uncertain effect remains explained by its
+recorded reason and is never automatically retried.
+
+No Takeover or Terminal survives restart. A waiting Stop is dropped with the
+original-Attempt reason rather than applied to a replacement Attempt. A Stop
+recorded in progress is dropped as possibly already applied; a completed Stop
+retains its completion. These are integration-tested action guarantees for
+M1, M3, M4, M6, M7, M9 and M10. Message proofs and laws are unchanged. #1581
+retains the remaining action families and full acceptance.
+
+## B6 Door Interrupt actions
+
+Door `agent.interrupt` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and ledger as Stop.
+Without a Takeover an Interrupt still runs under the shared child lock, so it
+reaches an in-flight Steer; the Takeover check is made under that lock, where
+`takeover.begin` cannot interleave. MCP preserves the waiting receipt and tells
+the Door that acceptance is not execution.
+
+Release rechecks Reach and claims the Escape only while the original Attempt
+still runs, so a replacement Attempt's turn is never interrupted. A removed
+child, an exited Terminal or a replaced Attempt gives a retained drop reason and
+later actions proceed. A waiting Interrupt does not survive a Daemon restart: it
+is dropped with the original-Attempt reason; one recorded in progress is dropped
+as possibly applied, and none is retried. These are integration-tested guarantees
+for M1, M3, M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581
+retains the remaining action families and full acceptance.
