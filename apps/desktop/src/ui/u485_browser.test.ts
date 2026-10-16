@@ -49,7 +49,7 @@ afterAll(async () => {
 const baseline = process.env.ROUNDUP_CAPTURE_BASE === "1";
 
 it("u485_rendered_checks", async () => {
-  for (const width of [1280, 700]) for (const scheme of ["light", "dark"]) {
+  for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
 
