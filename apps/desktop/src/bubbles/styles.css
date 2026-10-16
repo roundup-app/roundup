@@ -153,3 +153,8 @@
   pointer-events: auto;
   background: var(--ground);
 }
+
+.terminal-note {
+  flex: none;
+  padding-inline: var(--space-1);
+}
