@@ -5,8 +5,12 @@ import { captureDir } from "../testing/captures";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "./tabsBrowser";
 
+const source = new URL("./u491Fixture.tsx", import.meta.url).pathname;
+
+const fixture = source.slice(source.lastIndexOf("/src/")).replace("Fixture.tsx", ".html");
+
 const load = async () => {
-  await browser("open", url("/src/ui/u491.html"));
+  await browser("open", url(fixture));
   await wait(`document.querySelectorAll('.app-splitter').length === 2`);
 };
 
@@ -92,7 +96,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
     for (const side of process.env.U500_BASE_ROOT ? ["base", "head"] : ["head"]) {
       await browser("set", "media", scheme);
       await browser("set", "viewport", String(width), "800");
-      await browser("open", url("/src/ui/u491.html", side === "base"));
+      await browser("open", url(fixture, side === "base"));
       await wait(`document.querySelectorAll('[role=separator]').length === 2`);
       expect(await read<boolean>(`matchMedia("(prefers-contrast: more)").matches`)).toBe(contrast);
       await browser("find", "role", "button", "click", "--name", "Notify", "--exact");

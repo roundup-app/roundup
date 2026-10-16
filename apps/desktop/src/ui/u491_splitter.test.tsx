@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
-import { u491Fixture } from "./u491Fixture";
 import { Splitter } from "./Splitter";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
@@ -46,13 +45,23 @@ it.each([1, -1] as const)("u491_keys_limits_and_reset_direction_%s", async (dire
 });
 
 
-it("u491_hidden_edge_is_not_focusable", () => {
+it.each(["hidden", "disabled"] as const)("u491_hidden_edge_is_not_focusable_%s", (mode) => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
-  render(u491Fixture);
-  expect(screen.getByRole("separator", { name: "Resize work items" }).tabIndex).toBe(0);
-  fireEvent.click(screen.getByRole("button", { name: "Shelf" }));
-  expect(screen.queryByRole("separator", { name: "Resize work items" })).toBeNull();
+  const [off, setOff] = createSignal(false);
+
+  render(() => <div data-layout-root=""><section data-layout-panel="rail" /><section data-layout-panel="centre" /><section data-layout-panel="shelf" hidden />
+    <Splitter hidden={mode === "hidden" && off()} disabled={mode === "disabled" && off()}
+      side={{ label: "Shelf width", direction: -1, min: 240, fallback: 320, now: () => 320, room: () => 560, preview() {}, commit() {} }} />
+  </div>);
+  const edge = screen.getByRole("separator");
+
+  expect(edge.tabIndex).toBe(0);
+  setOff(true);
+  expect(edge.tabIndex).toBe(-1);
+
+  if (mode === "hidden") expect(edge.hidden).toBe(true);
 });
+
 
 it("u491_disposal_during_drag_leaves_no_callbacks_or_work", async () => {
   vi.useFakeTimers();
