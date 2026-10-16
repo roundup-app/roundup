@@ -5,6 +5,7 @@ import type { ChromePage } from "../testing/chromePage";
 let page: ChromePage;
 
 beforeAll(async () => { page = await openPage(chromePath()!); }, 90_000);
+
 afterAll(async () => { await page?.close(); });
 
 const eight = async (width: number, scheme: "light" | "dark", runs = 8): Promise<void> => {
@@ -30,6 +31,7 @@ const each = async (body: (width: number, scheme: "light" | "dark") => Promise<v
 it("u534_the_tab_region_ends_before_the_resource_values_and_the_shelf", async () => {
   await each(async (width, scheme) => {
     await eight(width, scheme);
+
     const r = await page.call<{ host: [number, number, number, number]; pane: [number, number, number, number]; values: [number, number, number, number][]; tabs: number[][]; shelf: number | null; overflow: string }>(`() => {
       const b = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
       const host = document.querySelector('.terminal-tabs-host');
@@ -38,11 +40,14 @@ it("u534_the_tab_region_ends_before_the_resource_values_and_the_shelf", async ()
         values: [...document.querySelectorAll('.resource-agent, .resource-stale')].map(b),
         tabs: [...document.querySelectorAll('.terminal-tab-pair')].map(b), overflow: getComputedStyle(host).overflowX };
     }`);
+
     const tag = `${width} ${scheme}`;
 
     expect(r.host[0], tag).toBeGreaterThanOrEqual(r.pane[0] - 1);
     expect(r.host[2], tag).toBeLessThanOrEqual(r.pane[2] + 1);
+
     if (r.shelf !== null) expect(r.host[2], `${tag} shelf`).toBeLessThanOrEqual(r.shelf + 1);
+
     for (const v of r.values) expect(r.host[2] <= v[0] + 1 || r.host[3] <= v[1] || v[3] <= r.host[1], `${tag} values`).toBe(true);
     expect(r.overflow, tag).not.toBe("visible");
   });
@@ -52,6 +57,7 @@ it("u534_every_tab_is_reachable_by_pointer_after_scrolling", async () => {
   await each(async (width, scheme) => {
     await eight(width, scheme);
     await dismissOverlay();
+
     const misses = await page.call<string[]>(`() => {
       const tabs = document.querySelector('.terminal-tabs');
       return [...tabs.querySelectorAll('.terminal-tab, .terminal-tab-pair button:last-child')].flatMap((c) => {
@@ -69,24 +75,21 @@ it("u534_every_tab_is_reachable_by_pointer_after_scrolling", async () => {
 it("u534_a_scrollable_region_shows_which_edge_has_more_tabs", async () => {
   await each(async (width, scheme) => {
     await eight(width, scheme);
-    const read = `() => { const t = document.querySelector('.terminal-tabs'), s = getComputedStyle(t); return { start: parseFloat(s.getPropertyValue('--tabs-fade-start')), end: parseFloat(s.getPropertyValue('--tabs-fade-end')), scrolls: t.scrollWidth > t.clientWidth }; }`;
-    const first = await page.call<{ start: number; end: number; scrolls: boolean }>(read);
+    const read = `() => { const t = document.querySelector('.terminal-tabs'); return { more: t.dataset.more ?? '', faded: getComputedStyle(t).maskImage !== 'none' }; }`;
+    const first = await page.call<{ more: string; faded: boolean }>(read);
     const tag = `${width} ${scheme}`;
 
-    expect(first.scrolls, tag).toBe(true);
-    expect(first.start, `${tag} nothing before the first tab`).toBe(0);
-    expect(first.end, `${tag} more after`).toBeGreaterThan(0);
+    expect(first, `${tag} more after`).toEqual({ more: "end", faded: true });
     await page.call(`() => { const t = document.querySelector('.terminal-tabs'); t.scrollLeft = t.scrollWidth; }`);
-    await page.until(`() => parseFloat(getComputedStyle(document.querySelector('.terminal-tabs')).getPropertyValue('--tabs-fade-end')) === 0`);
-    const last = await page.call<{ start: number; end: number }>(read);
-
-    expect(last.start, `${tag} more before`).toBeGreaterThan(0);
-    expect(last.end, `${tag} nothing after the last tab`).toBe(0);
+    await page.until(`() => document.querySelector('.terminal-tabs').dataset.more === 'start'`);
+    expect(await page.call<{ more: string; faded: boolean }>(read), `${tag} more before`).toEqual({ more: "start", faded: true });
+    await page.call(`() => { const t = document.querySelector('.terminal-tabs'); t.scrollLeft = t.scrollWidth / 2 - t.clientWidth / 2; }`);
+    await page.until(`() => document.querySelector('.terminal-tabs').dataset.more === 'start end'`);
   });
   await eight(1280, "light", 1);
-  const quiet = await page.call<number>(`() => parseFloat(getComputedStyle(document.querySelector('.terminal-tabs')).getPropertyValue('--tabs-fade-end'))`);
+  const quiet = await page.call<string>(`() => getComputedStyle(document.querySelector('.terminal-tabs')).maskImage`);
 
-  expect(quiet, "one tab fits: no cue").toBe(0);
+  expect(quiet, "one tab fits: no cue").toBe("none");
 }, 180_000);
 
 it("u534_eight_runs_keep_the_bar_height", async () => {

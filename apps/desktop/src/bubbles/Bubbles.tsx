@@ -648,11 +648,29 @@ export const Bubbles = (props: { screens: Screens }) => {
     );
   };
 
+  /** U534: name the edges that still hide tabs, for the fade. */
+  const watchEdges = (strip: HTMLElement) => {
+    const mark = () => {
+      const more = [strip.scrollLeft > 1 ? "start" : "", strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1 ? "end" : ""].filter(Boolean).join(" ");
+
+      if (more) strip.dataset["more"] = more;
+      else delete strip.dataset["more"];
+    };
+    const resize = new ResizeObserver(mark);
+    const children = new MutationObserver(mark);
+
+    strip.addEventListener("scroll", mark, { passive: true });
+    resize.observe(strip);
+    children.observe(strip, { childList: true, subtree: true });
+    mark();
+    onCleanup(() => { strip.removeEventListener("scroll", mark); resize.disconnect(); children.disconnect(); });
+  };
+
   return (
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-tabs-host")}>
-        <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
+        <div class="terminal-tabs" role="group" aria-label={copy.terminals} ref={watchEdges} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
           <For each={shownIds()}>{(id) => {
