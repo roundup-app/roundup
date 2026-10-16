@@ -1,4 +1,4 @@
-/// Observes handled text and terminal requests during parsing.
+/// Observes handled text, screen controls and terminal requests during parsing.
 pub trait Callbacks {
     /// Called synchronously after each handled text character is applied to the
     /// screen, including writes that leave the glyph unchanged. The screen is
@@ -11,6 +11,17 @@ pub trait Callbacks {
     /// No observations are retained by the library; callback storage is owned
     /// by the caller and cloned according to its Clone implementation.
     fn text(&mut self, _: &mut crate::Screen, _c: char) {}
+
+    /// Called synchronously after applying BS (8), HT (9), LF (10), VT (11),
+    /// FF (12) or CR (13), even when the screen remains unchanged. The screen
+    /// is the post-control state. Hidden OSC bytes, text, CSI/escape finals,
+    /// bells and unhandled controls do not call this method.
+    ///
+    /// For raw completion offsets, feed one byte per Parser::process call and
+    /// set the callback's offset before that call, as for Self::text.
+    /// The library retains no observations; storage and Clone isolation belong
+    /// to the caller. The default implementation does nothing.
+    fn control(&mut self, _: &mut crate::Screen, _b: u8) {}
 
     /// This callback is called when the terminal requests an audible bell
     /// (typically with `^G`).
