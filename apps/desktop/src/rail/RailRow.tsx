@@ -44,10 +44,6 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 );
 
 
-const call = (handler: unknown, event: Event) => {
-  if (typeof handler === "function") handler(event);
-};
-
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
@@ -120,7 +116,13 @@ export const RailRowView = (props: {
     <Tooltip.Trigger
       asChild={(trigger) => (
     <div
-      {...trigger()}
+      {...trigger({
+        onClick: props.onSelect,
+        onPointerDown: (press: PointerEvent) => {
+          if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
+        },
+        ...handlers,
+      })}
       class="rail-row"
       role="treeitem"
       aria-level={props.row.depth + 1}
@@ -135,20 +137,10 @@ export const RailRowView = (props: {
       title={workstream() ? undefined : props.row.node.status?.label}
       tabIndex={props.tabbable ? 0 : -1}
       style={{ "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` }}
-      onClick={(click) => {
-        call(trigger().onClick, click);
-        props.onSelect();
-      }}
       onContextMenu={(press) => {
         press.preventDefault();
         props.onOpenMenu(press);
       }}
-      onPointerDown={(press) => {
-        call(trigger().onPointerDown, press);
-
-        if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
-      }}
-      {...handlers}
     >
       <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
       <p class="line">
@@ -239,11 +231,13 @@ export const RailRowView = (props: {
     </div>
       )}
     />
-    <Portal>
-      <Tooltip.Positioner>
-        <Tooltip.Content>{props.row.node.name}</Tooltip.Content>
-      </Tooltip.Positioner>
-    </Portal>
+    <Show when={cut()}>
+      <Portal>
+        <Tooltip.Positioner>
+          <Tooltip.Content>{props.row.node.name}</Tooltip.Content>
+        </Tooltip.Positioner>
+      </Portal>
+    </Show>
     </Tooltip.Root>
     <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
