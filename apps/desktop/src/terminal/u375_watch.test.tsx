@@ -176,6 +176,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
   it("u468_a_child_that_needs_you_takes_its_answer_in_its_terminal", async () => {
     const { app, connected, emulators } = await mountCentre(tree(), { select: "workstream" });
+
     const status = (kind: "needs-you" | "working", revision: string) =>
       app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW } } }));
 
