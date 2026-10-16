@@ -3182,12 +3182,7 @@ async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|todo| {
-            todo["title"]
-                .as_str()
-                .unwrap()
-                .contains("[rup messages: 1]")
-        })
+        .filter(|todo| todo["title"].as_str().unwrap().contains("hello"))
         .count();
     assert_eq!(turns, 1, "a second turn ran");
 }

@@ -201,10 +201,16 @@ def typed_prompts():
                 yield text
 
 
+def shown(prompt):
+    """The prompt as its sender wrote it, without the id line the Daemon appends (B39)."""
+    head, sep, tail = prompt.rpartition("\n\n[rup messages: ")
+    return head if sep and tail.endswith("]") and "\n" not in tail else prompt
+
+
 def ask_permission(ask, prompt, report=None):
     """Play a PermissionRequest and wait for `rup permission` to exit; whether the Decision was allowed."""
     command = json.load(open(flag("--settings")))["hooks"]["PermissionRequest"][0]["hooks"][0]["command"]
-    tool_input = {key: value.replace("$prompt", prompt) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
+    tool_input = {key: value.replace("$prompt", shown(prompt)) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
     payload = {"hook_event_name": "PermissionRequest", "tool_name": ask["tool_name"], "tool_input": tool_input}
     ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
     received = json.loads(ran.stdout or "{}")
@@ -292,7 +298,7 @@ def play_prompts(tool):
             hook("Stop")
             continue
         for decision in decisions if answers_decisions else [""]:
-            mcp_session([{**call, "arguments": {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
+            mcp_session([{**call, "arguments": {key: value.replace("$prompt", shown(prompt)).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
         log_marked(marked, ready=True)
 
