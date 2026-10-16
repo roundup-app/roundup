@@ -22,6 +22,9 @@ use super::plugins;
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
 pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch";
 
+/// M2219: a Door's tools with no roundup server; its Brief no longer tells it to load tools, so `ToolSearch` goes.
+pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob";
+
 /// F4: what the shim for a vendor program prints on stderr before it exits 1.
 const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
 
@@ -123,6 +126,8 @@ impl std::fmt::Debug for Launcher {
 pub struct Pair {
     pub model: Option<String>,
     pub effort: Option<String>,
+    /// M2219: launch with no roundup MCP server; false (the default) keeps it.
+    pub mcp_off: bool,
 }
 
 impl Pair {
@@ -309,25 +314,40 @@ impl Launcher {
         if role == Role::Door {
             write_shims(&shims).map_err(RpcError::internal)?;
         }
-        replace_file(&settings, &self.settings_json(id, attempt, &path))
+        let mcp = !pair.mcp_off;
+        replace_file(&settings, &self.settings_json(id, attempt, &path, mcp))
             .map_err(RpcError::internal)?;
-        replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
+        if mcp {
+            replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
+        } else if is_symlink(&mcp_config) {
+            return Err(invalid(format!("{} is a symlink", mcp_config.display())));
+        } else {
+            // An earlier launch with MCP on left its config; the Agent must not find it.
+            match std::fs::remove_file(&mcp_config) {
+                Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                    return Err(RpcError::internal(err));
+                }
+                _ => {}
+            }
+        }
         let brief_file = brief_path(&dir, id);
-        replace_text(&brief_file, &brief::text(role)).map_err(RpcError::internal)?;
+        replace_text(&brief_file, &brief::text(role, mcp)).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
         // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![
             self.bin.clone(),
             "--settings".into(),
             settings.to_string_lossy().into_owned(),
-            "--mcp-config".into(),
-            mcp_config.to_string_lossy().into_owned(),
-            "--append-system-prompt-file".into(),
-            brief_file.to_string_lossy().into_owned(),
         ];
+        if mcp {
+            argv.push("--mcp-config".into());
+            argv.push(mcp_config.to_string_lossy().into_owned());
+        }
+        argv.push("--append-system-prompt-file".into());
+        argv.push(brief_file.to_string_lossy().into_owned());
         if role == Role::Door {
             argv.push("--tools".into());
-            argv.push(DOOR_TOOLS.into());
+            argv.push(if mcp { DOOR_TOOLS } else { DOOR_TOOLS_NO_MCP }.into());
         }
         for (flag, value) in [("--model", &pair.model), ("--effort", &pair.effort)] {
             if let Some(value) = value {
@@ -517,7 +537,7 @@ impl Launcher {
 
     /// A20: the hook command, not the program, carries the launch's Attempt.
     /// A43: `path` is the Agent's `PATH` in Claude Code's `env`, and `ROUNDUP_AGENT_ID` its id.
-    fn settings_json(&self, id: u64, attempt: &str, path: &OsStr) -> Value {
+    fn settings_json(&self, id: u64, attempt: &str, path: &OsStr, mcp: bool) -> Value {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
         let id = shell_quote(&id.to_string());
@@ -549,8 +569,10 @@ impl Launcher {
             })
             .collect();
         // Allowed here so a roundup tool never raises a permission dialog.
-        let mut settings =
-            json!({ "hooks": hooks, "permissions": { "allow": ["mcp__roundup__*"] } });
+        let mut settings = json!({ "hooks": hooks });
+        if mcp {
+            settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });
+        }
         // M11: ask for tool search, so the roundup tools' schemas load on demand; the user's own value wins.
         let mut env = Map::new();
         env.insert("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into());
