@@ -3,6 +3,7 @@ import { createSignal, For, onMount, Show } from "solid-js";
 import type { ModelList } from "@contracts/project/ModelList";
 import type { RoleModels } from "@contracts/project/RoleModels";
 import type { AppSeam } from "../app/seam";
+import { Select } from "../ui";
 import { ErrorLine } from "../ink/ErrorLine";
 
 export const AddAgentPicker = (props: {
@@ -33,24 +34,48 @@ export const AddAgentPicker = (props: {
 
   onMount(() => void loadDefaults());
 
-  const label = (field: "model" | "effort") => {
+  const NONE = "";
+
+  const inherited = (field: "model" | "effort") => {
     const id = defaults()?.[field];
     const list = field === "model" ? props.list.models : props.list.efforts;
 
-    return copy.defaultModel(id == null ? copy.claudeCode : list.find((choice) => choice.id === id)?.label ?? id);
+    return id == null ? null : copy.defaultModel(list.find((choice) => choice.id === id)?.label ?? id);
+  };
+
+  const choices = (field: "model" | "effort") => [
+    { value: NONE, label: inherited(field) ?? copy.defaultChoice },
+    ...(field === "model" ? props.list.models : props.list.efforts).map((choice) => ({ value: choice.id, label: choice.label })),
+  ];
+
+  const unresolved = () => loaded() ? (["model", "effort"] as const).filter((field) => inherited(field) === null) : [];
+
+  const explanation = () => {
+    const fields = unresolved();
+
+    if (fields.length === 0) return null;
+    const phrase = copy.unsetDefault(copy.claudeCode);
+
+    if (fields.length === 2) return phrase;
+
+    return copy.fieldDefault(fields[0] === "model" ? copy.model : copy.effort, phrase);
   };
 
   return <div class="rail-agent-picker" onKeyDown={(event) => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.onClose(); }
   }}>
-    <For each={["model", "effort"] as const}>{(field) => <label>
-      {field === "model" ? copy.model : copy.effort}
-      <select class="choice-select" aria-label={field === "model" ? copy.model : copy.effort} onChange={(event) => props.onChange({ ...props.pair, [field]: event.currentTarget.value || null })}>
-        <option value="" selected={props.pair[field] === null}>{label(field)}</option>
-        <For each={field === "model" ? props.list.models : props.list.efforts}>{(choice) => <option value={choice.id} selected={props.pair[field] === choice.id}>{choice.label}</option>}</For>
-      </select>
-    </label>}</For>
-    <button type="button" data-button="quiet" aria-disabled={props.disabled || !loaded() || undefined} onClick={() => { if (!props.disabled && loaded()) props.onAdd(); }}>{copy.addAgent}</button>
+    <div class="rail-agent-fields">
+      <For each={["model", "effort"] as const}>{(field) => <Select
+        label={field === "model" ? copy.model : copy.effort}
+        choices={choices(field)}
+        value={props.pair[field] ?? NONE}
+        onValueChange={(value) => props.onChange({ ...props.pair, [field]: value || null })}
+      />}</For>
+      <Show when={explanation()}>{(text) => <p class="rail-agent-note">{text()}</p>}</Show>
+    </div>
+    <div class="rail-agent-actions">
+      <button type="button" data-button="primary" data-button-surface aria-disabled={props.disabled || !loaded() || undefined} onClick={() => { if (!props.disabled && loaded()) props.onAdd(); }}>{copy.addAgent}</button>
+    </div>
     <Show when={failure()}>{(message) => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void loadDefaults()}>{copy.retry}</button></>}</Show>
   </div>;
 };
