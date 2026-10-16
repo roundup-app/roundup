@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen <pr> | architect-words | clean-merge <commit> [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -395,6 +395,16 @@ clean_merge() {
   [ -z "$f" ] || { echo "clean-merge: $c: rule c: $f differs from the trial merge" >&2; return 1; }
 }
 
+# L120: a file that differs from main but that no commit of the branch's own touched changed only through a merge, so a merge dropped
+# the work there for certain. Never reads the PR body.
+merge_loss() {
+  local main_ref=$1 own changed lost
+  own=$(git -c core.quotePath=false log --no-merges --no-renames --name-only --format= "$main_ref..HEAD") || { echo "merge-loss: could not list own commits against $main_ref" >&2; return 1; }
+  changed=$(git -c core.quotePath=false diff --no-renames --name-only "$main_ref" HEAD) || { echo "merge-loss: could not diff against $main_ref" >&2; return 1; }
+  lost=$(comm -13 <(sort -u <<<"$own") <(sort -u <<<"$changed") | sed '/^$/d')
+  [ -z "$lost" ] || { echo "merge-loss: these files differ from $main_ref but no own commit touched them, so a merge lost the work there:" >&2; sed 's/^/  /' <<<"$lost" >&2; return 1; }
+}
+
 # PR trees are data: never check them out or execute their copy of this script.
 pr_rule() {
   python3 - "$1" "$2" <<'PY'
@@ -561,5 +571,6 @@ case "${1:-}" in
   delta) delta "${2:-}" "${3:-}" ;;
   clean-merge) [ -n "${2:-}" ] || { echo "usage: loop/rules.sh clean-merge <commit> [main-ref]" >&2; exit 2; }
     clean_merge "$2" "${3:-origin/main}" ;;
+  merge-loss) merge_loss "${2:-origin/main}" ;;
   *) sed -n '2p' "$0" >&2; exit 2 ;;
 esac
