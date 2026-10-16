@@ -150,6 +150,7 @@ impl Agents {
                 format!("{id} is not an Agent"),
             ));
         }
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
         let cwd = cwd
             .or_else(|| node.worktree.map(|worktree| worktree.path))
             .or(saved_cwd)
