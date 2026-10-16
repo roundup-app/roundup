@@ -1,0 +1,19 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "A39 fix café",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_placement",
+            "name": "StructuredOutput",
+            "arguments": "{\"parts\": [{\"text\": \"A39 fix café\", \"kind\": \"routed\", \"workstream\": \"work\"}, {\"text\": \"/ship 原文\", \"kind\": \"new\", \"title\": \"Ship\"}, {\"text\": \"decide\", \"kind\": \"unclear\", \"question\": \"Which work?\", \"candidates\": [\"work\"]}]}"
+          }
+        ]
+      }
+    }
+  ]
+}
