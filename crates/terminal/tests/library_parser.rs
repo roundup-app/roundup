@@ -86,7 +86,7 @@ fn x14_library_replay_preserves_pending_state() {
         (b"\x1b]2;privatehidden\x07visible".as_slice(), "visible"),
         (b"\x1b]2;privatehidden\x1b\\visible".as_slice(), "visible"),
         ("é🦀".as_bytes(), "é🦀"),
-        (b"old\rnew\x1b[K\xff!".as_slice(), "new!"),
+        (b"old\rnew\x1b[K\xff!".as_slice(), "new�!"),
     ] {
         let mut continuous = vt100::Parser::new(3, 80, 0);
         continuous.process(input);
@@ -219,5 +219,113 @@ fn x14_library_write_observation_survives_checkpoint_replay() {
         assert_eq!(live.screen().state_formatted(), before_screen);
         observe(&mut live, &input[cut..]);
         assert_eq!(live.callbacks(), continuous.callbacks());
+    }
+}
+
+#[test]
+fn x14_library_renders_replacement_characters() {
+    for (input, expected, writes) in [
+        (
+            b"A\xffB".as_slice(),
+            "A�B",
+            vec![(1, 'A', (0, 1)), (2, '�', (0, 2)), (3, 'B', (0, 3))],
+        ),
+        (
+            "A�B".as_bytes(),
+            "A�B",
+            vec![(1, 'A', (0, 1)), (4, '�', (0, 2)), (5, 'B', (0, 3))],
+        ),
+        (
+            b"A\xff\x1b[1DB".as_slice(),
+            "AB",
+            vec![(1, 'A', (0, 1)), (2, '�', (0, 2)), (7, 'B', (0, 2))],
+        ),
+        (
+            b"A\xe2\x82B".as_slice(),
+            "A�B",
+            vec![(1, 'A', (0, 1)), (4, '�', (0, 2)), (4, 'B', (0, 3))],
+        ),
+        (
+            b"A\xe2!B".as_slice(),
+            "A�!B",
+            vec![
+                (1, 'A', (0, 1)),
+                (3, '�', (0, 2)),
+                (3, '!', (0, 3)),
+                (4, 'B', (0, 4)),
+            ],
+        ),
+        (
+            "AéB".as_bytes(),
+            "AéB",
+            vec![(1, 'A', (0, 1)), (3, 'é', (0, 2)), (4, 'B', (0, 3))],
+        ),
+    ] {
+        let mut parser = vt100::Parser::new_with_callbacks(3, 80, 0, Writes::default());
+        observe(&mut parser, input);
+        assert_eq!(parser.screen().contents(), expected, "{input:?}");
+        assert_eq!(parser.callbacks().text, writes, "{input:?}");
+        assert_eq!(parser.screen().cursor_position(), writes.last().unwrap().2);
+        let mut batched = vt100::Parser::new(3, 80, 0);
+        batched.process(input);
+        assert_eq!(
+            batched.screen().state_formatted(),
+            parser.screen().state_formatted()
+        );
+    }
+}
+
+#[test]
+fn x14_library_replacement_replay_preserves_cursor_and_offsets() {
+    for input in [
+        b"A\xffB".as_slice(),
+        "A�B".as_bytes(),
+        b"A\xff\x1b[1DB",
+        b"A\xe2\x82B",
+        b"A\xe2!B",
+        "Aé🦀B".as_bytes(),
+        b"A\xe2\x82\x1b[1DB",
+        b"A\x1b]2;\xff\xef\xbf\xbdhidden\x07B",
+        b"A\x1b]2;\xffhidden\x1b\\B",
+    ] {
+        let mut continuous = vt100::Parser::new_with_callbacks(3, 80, 0, Writes::default());
+        observe(&mut continuous, input);
+        if input.starts_with(b"A\x1b]") {
+            assert_eq!(continuous.screen().contents(), "AB");
+            assert_eq!(
+                continuous.callbacks().text,
+                [(1, 'A', (0, 1)), (input.len(), 'B', (0, 2))]
+            );
+        }
+        for cut in 0..=input.len() {
+            let mut live = vt100::Parser::new_with_callbacks(3, 80, 0, Writes::default());
+            observe(&mut live, &input[..cut]);
+            let before = live.clone();
+            for _ in 0..3 {
+                let mut replay = live.clone();
+                observe(&mut replay, &input[cut..]);
+                assert_eq!(
+                    replay.screen().state_formatted(),
+                    continuous.screen().state_formatted(),
+                    "cut={cut} {input:?}"
+                );
+                assert_eq!(
+                    replay.screen().cursor_position(),
+                    continuous.screen().cursor_position()
+                );
+                assert_eq!(
+                    replay.callbacks(),
+                    continuous.callbacks(),
+                    "cut={cut} {input:?}"
+                );
+            }
+            assert_eq!(
+                live.screen().state_formatted(),
+                before.screen().state_formatted()
+            );
+            assert_eq!(live.callbacks(), before.callbacks());
+            observe(&mut live, &input[cut..]);
+            assert_eq!(live.callbacks(), continuous.callbacks());
+        }
     }
 }
