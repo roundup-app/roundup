@@ -1,7 +1,7 @@
 import { globSync } from "node:fs";
 import { expect, test } from "vitest";
 import measuredDurations from "./shardDurations.json" with { type: "json" };
-import { assignShards, shardTime } from "./shardSequencer";
+import { assignShards, longestFirst, shardTime } from "./shardSequencer";
 
 const durations: Record<string, number> = measuredDurations;
 
@@ -28,4 +28,9 @@ test("t_l89_web_shards_keep_a_file_longer_than_a_fair_share_apart_and_place_a_ne
   const shards = assignShards(["src/big.test.ts", "src/a.test.ts", "src/b.test.ts", "src/new.test.ts"], { "src/big.test.ts": 100, "src/a.test.ts": 10, "src/b.test.ts": 10 }, 2);
 
   expect(shards).toEqual([["src/big.test.ts"], ["src/a.test.ts", "src/b.test.ts", "src/new.test.ts"]]);
+});
+
+// L89: a shard starts its longest files first, so no long browser test starts last and sets the shard's tail.
+test("t_l89_web_shards_start_the_longest_file_first", () => {
+  expect(longestFirst(["src/a.test.ts", "src/new.test.ts", "src/big.test.ts", "src/b.test.ts"], { "src/big.test.ts": 100, "src/a.test.ts": 10, "src/b.test.ts": 10 })).toEqual(["src/big.test.ts", "src/a.test.ts", "src/b.test.ts", "src/new.test.ts"]);
 });
