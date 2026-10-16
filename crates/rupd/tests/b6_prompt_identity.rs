@@ -4268,7 +4268,7 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         .await;
         std::fs::remove_file(gate).unwrap();
         end.await.unwrap().unwrap();
-        if matches!(method, "rail.remove" | "agent.discard") {
+        if method == "rail.remove" {
             drop(run);
         } else {
             run.finish().await;
@@ -4373,7 +4373,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
         .unwrap();
         if barrier["id"] != 111 {
             run.release();
-            if matches!(method, "rail.remove" | "agent.discard") {
+            if method == "rail.remove" {
                 drop(run);
             } else {
                 run.finish().await;
@@ -4420,7 +4420,7 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             }
             order.push(reply["id"].as_u64().unwrap());
         }
-        if matches!(method, "rail.remove" | "agent.discard") {
+        if method == "rail.remove" {
             drop(run);
         } else {
             run.finish().await;
