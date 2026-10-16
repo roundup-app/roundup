@@ -67,7 +67,6 @@
   inset: auto !important;
   max-width: calc(var(--shelf-width) - var(--space-6));
   background-color: var(--ground);
-  box-shadow: var(--shadow-drawer);
   border-radius: var(--radius-control);
   opacity: 1;
   transform: translateY(0);
@@ -96,12 +95,13 @@
   font: inherit;
   font-size: var(--text-small);
   text-align: left;
-  --button-surface: var(--ground);
+  --button-surface: var(--selected);
   border-radius: var(--radius-control);
   overflow-wrap: anywhere;
 }
 
 .app-toast [data-part="title"] {
+  color: var(--text);
   font-weight: 600;
 }
 
