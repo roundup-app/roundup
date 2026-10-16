@@ -11,6 +11,9 @@ overrides:
   katex@<0.18.2: ^0.18.10
 
 patchedDependencies:
+  '@zag-js/splitter@1.45.0':
+    hash: cacf85211b395ef8d3d3b897229898e9ed82acc338ca576ca4a63d33fe16e88e
+    path: patches/@zag-js__splitter@1.45.0.patch
   '@zag-js/toast@1.45.0':
     hash: a39891f11edb05d3f14b224b0d8fac7263fd42c1af7ad573ef8cb12b96fffbdf
     path: patches/@zag-js__toast@1.45.0.patch
@@ -4140,7 +4143,7 @@ snapshots:
       '@zag-js/signature-pad': 1.45.0
       '@zag-js/slider': 1.45.0
       '@zag-js/solid': 1.45.0(solid-js@1.9.17)
-      '@zag-js/splitter': 1.45.0
+      '@zag-js/splitter': 1.45.0(patch_hash=cacf85211b395ef8d3d3b897229898e9ed82acc338ca576ca4a63d33fe16e88e)
       '@zag-js/steps': 1.45.0
       '@zag-js/switch': 1.45.0
       '@zag-js/tabs': 1.45.0
@@ -6383,7 +6386,7 @@ snapshots:
       '@zag-js/utils': 1.45.0
       solid-js: 1.9.17
 
-  '@zag-js/splitter@1.45.0':
+  '@zag-js/splitter@1.45.0(patch_hash=cacf85211b395ef8d3d3b897229898e9ed82acc338ca576ca4a63d33fe16e88e)':
     dependencies:
       '@zag-js/anatomy': 1.45.0
       '@zag-js/core': 1.45.0
