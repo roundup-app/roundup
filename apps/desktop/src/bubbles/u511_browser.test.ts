@@ -129,3 +129,24 @@ it("u511_keyboard_context_menu_renames_and_click_away_commits_without_swallowing
   await page.until(`() => document.querySelector('.terminal-tab-pair:nth-child(1) .terminal-tab')?.getAttribute('aria-label') === 'xy'`);
   expect(await page.call<string | null>(`() => document.querySelector('.terminal-tab-pair:nth-child(2) .terminal-tab').getAttribute('aria-pressed')`)).not.toBe(pressed);
 }, 90_000);
+
+type Readings = Record<string, { status: "pass" | "fail" }>;
+
+const readings = () => page.call<Readings>(`() => import('/src/testing/checks.ts').then(module => module.runChecks())`);
+
+for (const scheme of ["light", "dark"] as const) for (const width of [1280, 1440]) for (const reduced of [undefined, "motion"] as const) {
+  it(`u511_rendered_checks ${scheme}-${width}-${reduced ?? "normal"}`, async () => {
+    await page.scheme(scheme, undefined, reduced);
+    await open(width);
+
+    const before = await readings();
+
+    await enter();
+    await page.call(`() => { const i = document.activeElement; i.value = 'gjpqy ÅÉ 終端 🧪 ' + 'W'.repeat(60); i.dispatchEvent(new Event('input', {bubbles: true})); }`);
+
+    const during = await readings();
+
+    for (const id of Object.keys(before)) if (before[id]!.status === "pass") expect(`${id} ${during[id]!.status}`).toBe(`${id} pass`);
+    for (const id of ["D2", "D5", "D6"]) expect(`${id} ${during[id]!.status}`).toBe(`${id} pass`);
+  }, 90_000);
+}
