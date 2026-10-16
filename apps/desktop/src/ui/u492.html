@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><title>Installed Ark Toast lifecycle</title></head>
+<body><div id="root"></div><script type="module">
+import { createToaster } from "@ark-ui/solid/toast";
+import { render } from "solid-js/web";
+import { u492Fixture } from "./u492Fixture.tsx";
+const toaster = createToaster({ placement: "bottom-end", removeDelay: 150 });
+render(() => u492Fixture(toaster), document.getElementById("root"));
+</script></body></html>

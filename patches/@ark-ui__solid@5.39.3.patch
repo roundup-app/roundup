@@ -1,0 +1,81 @@
+diff --git a/dist/chunk/JIYKM3PF.jsx b/dist/chunk/JIYKM3PF.jsx
+index a24e2ead77f37f9aae2d5cc024ece4a5f2bc4568..5491cda69723da13a5baf44e98238fdae12840a1 100644
+--- a/dist/chunk/JIYKM3PF.jsx
++++ b/dist/chunk/JIYKM3PF.jsx
+@@ -62,7 +62,7 @@ var ToastRoot = (props) => {
+   const mergedProps = mergeProps4(() => toast3().getRootProps(), props);
+   return <ark.div {...mergedProps}>
+       <ark.div {...toast3().getGhostBeforeProps()} />
+-      {props.children}
++      {toast3().getRootProps()["data-mounted"] !== void 0 ? props.children : void 0}
+       <ark.div {...toast3().getGhostAfterProps()} />
+     </ark.div>;
+ };
+@@ -78,7 +78,7 @@ var ToastTitle = (props) => {
+ // src/components/toast/toaster.tsx
+ import { Key, mergeProps as mergeProps6, normalizeProps, useMachine } from "@zag-js/solid";
+ import * as toast2 from "@zag-js/toast";
+-import { createMemo, createUniqueId, splitProps } from "solid-js";
++import { createMemo, createUniqueId, splitProps, Show } from "solid-js";
+ var Toaster = (props) => {
+   const [toasterProps, machineProps, groupProps, localProps] = splitProps(
+     props,
+@@ -97,13 +97,13 @@ var Toaster = (props) => {
+   const api = createMemo(() => toast2.group.connect(service, normalizeProps));
+   const toasts = createMemo(() => api().getToasts());
+   const mergedProps = mergeProps6(() => api().getGroupProps(groupProps), localProps);
+-  return <ark.div {...mergedProps}>
++  return <Show when={toasts().length > 0}><ark.div {...mergedProps}>
+       <Key each={toasts()} by="id">
+         {(toast3, index) => <ToastActor value={toast3} index={index} parent={service}>
+             {(ctx) => toasterProps.children(ctx)}
+           </ToastActor>}
+       </Key>
+-    </ark.div>;
++    </ark.div></Show>;
+ };
+ var ToastActor = (props) => {
+   const env = useEnvironmentContext();
+diff --git a/dist/chunk/XCGPB47W.js b/dist/chunk/XCGPB47W.js
+index fd17b3b6f34b09bf914f3f0c921f526b361879a7..04a8dcd78f880b17b32d17b59b16272eafc7efef 100644
+--- a/dist/chunk/XCGPB47W.js
++++ b/dist/chunk/XCGPB47W.js
+@@ -6,7 +6,7 @@ import { __export } from './ESLJRKWD.js';
+ import * as toast2 from '@zag-js/toast';
+ import { createComponent, mergeProps as mergeProps$1, memo } from 'solid-js/web';
+ import { mergeProps, useMachine, normalizeProps, Key } from '@zag-js/solid';
+-import { splitProps, createUniqueId, createMemo } from 'solid-js';
++import { splitProps, createUniqueId, createMemo, Show } from 'solid-js';
+ 
+ var createToaster = (props) => {
+   return toast2.createStore(props);
+@@ -42,7 +42,7 @@ var ToastRoot = (props) => {
+   const mergedProps = mergeProps(() => toast3().getRootProps(), props);
+   return createComponent(ark.div, mergeProps$1(mergedProps, {
+     get children() {
+-      return [createComponent(ark.div, mergeProps$1(() => toast3().getGhostBeforeProps())), memo(() => props.children), createComponent(ark.div, mergeProps$1(() => toast3().getGhostAfterProps()))];
++      return [createComponent(ark.div, mergeProps$1(() => toast3().getGhostBeforeProps())), memo(() => memo(() => toast3().getRootProps()["data-mounted"] !== void 0)() ? props.children : void 0), createComponent(ark.div, mergeProps$1(() => toast3().getGhostAfterProps()))];
+     }
+   }));
+ };
+@@ -64,7 +64,9 @@ var Toaster = (props) => {
+   const api = createMemo(() => toast2.group.connect(service, normalizeProps));
+   const toasts = createMemo(() => api().getToasts());
+   const mergedProps = mergeProps(() => api().getGroupProps(groupProps), localProps);
+-  return createComponent(ark.div, mergeProps$1(mergedProps, {
++  return createComponent(Show, {
++    get when() { return toasts().length > 0; },
++    get children() { return createComponent(ark.div, mergeProps$1(mergedProps, {
+     get children() {
+       return createComponent(Key, {
+         get each() {
+@@ -79,7 +81,8 @@ var Toaster = (props) => {
+         })
+       });
+     }
+-  }));
++  })); }
++  });
+ };
+ var ToastActor = (props) => {
+   const env = useEnvironmentContext();
