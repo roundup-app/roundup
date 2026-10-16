@@ -1161,6 +1161,107 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
 }
 
 #[tokio::test]
+async fn e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count() {
+    use contracts::agent::Channel;
+    use std::os::unix::fs::PermissionsExt;
+
+    let probe = tempfile::tempdir().unwrap();
+    let wrapper = probe.path().join("rup-without-mcp");
+    let log = probe.path().join("hooks.jsonl");
+    std::fs::write(
+        &wrapper,
+        r#"#!/usr/bin/env python3
+import json, os, sys
+if sys.argv[1] == "mcp":
+    sys.exit(1)
+if sys.argv[1] == "signal":
+    payload = sys.stdin.read()
+    with open(os.environ["E6_HOOK_LOG"], "a") as log:
+        log.write(json.dumps(json.loads(payload)) + "\n")
+    import subprocess
+    sys.exit(subprocess.run([os.environ["E6_RUP_BIN"], *sys.argv[1:]], input=payload, text=True).returncode)
+os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let project = daemon::start_real(
+        "e6_no_shim",
+        &[
+            ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
+            ("E6_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
+            ("E6_HOOK_LOG", log.to_str().unwrap()),
+            ("ROUNDUP_CHANNEL_DEADLINE_MS", "100"),
+        ],
+    );
+    let mut events = project.subscribed().await;
+    let agent = events
+        .request(
+            "agent.spawn",
+            json!({"cwd": project.dir.path(), "prompt": "E6 no shim"}),
+        )
+        .await
+        .unwrap();
+    let id = agent["id"].as_str().unwrap();
+    assert_eq!(agent["channel"], "pending");
+    let mut initial = None;
+    let mut working = false;
+    let mut stopped = false;
+    let mut missing = false;
+    while !stopped || !missing {
+        let event = next(&mut events, |event| match event {
+            EventData::AgentStatus(status) if status.id == id => {
+                Some(EventData::AgentStatus(status))
+            }
+            EventData::AgentChannel(channel) if channel.id == id => {
+                Some(EventData::AgentChannel(channel))
+            }
+            _ => None,
+        })
+        .await;
+        match event {
+            EventData::AgentStatus(status) => {
+                initial.get_or_insert(status.status.kind);
+                working |= status.status.kind == Kind::Working;
+                stopped |= working && status.status.kind == Kind::Idle;
+            }
+            EventData::AgentChannel(channel) => {
+                assert_eq!(channel.channel, Channel::Missing);
+                missing = true;
+            }
+            _ => unreachable!(),
+        }
+    }
+    let node = rail_tree(&events)
+        .await
+        .into_iter()
+        .find(|node| node.id == id)
+        .unwrap();
+    assert_eq!(node.channel, Some(Channel::Missing));
+    assert_eq!(node.status.unwrap().kind, initial.unwrap());
+    let hooks: Vec<Value> = std::fs::read_to_string(log)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    for name in ["SessionStart", "UserPromptSubmit", "Stop"] {
+        assert!(
+            hooks.iter().any(|hook| hook["hook_event_name"] == name),
+            "{hooks:#?}"
+        );
+    }
+    let model = project.model.as_ref().unwrap();
+    model.assert_matched();
+    assert!(
+        model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["tools"].is_array()
+                && entry["body"]["messages"].to_string().contains("E6 no shim"))
+    );
+}
+
+#[tokio::test]
 async fn a41_a_leading_slash_runs_the_skill() {
     let project = daemon::start_real("a41_skill", &[]);
     let skill = project.dir.path().join("claude-config/skills/a41-proof");
