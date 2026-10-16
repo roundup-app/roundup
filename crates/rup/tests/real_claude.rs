@@ -1,4 +1,4 @@
-//! A26, D2, E3, E6, E11, E12, F3, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, D2, E3, E6, E11, E12, F3, H15, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1314,7 +1314,7 @@ import json, os, subprocess, sys
 if sys.argv[1] != "signal":
     os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
 payload = sys.stdin.buffer.read()
-result = subprocess.run([os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]], input=payload, stdout=subprocess.PIPE)
+result = subprocess.run([os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]], input=payload, stdout=subprocess.PIPE, timeout=5)
 with open(os.environ["REAL_CLAUDE_HOOK_LOG"], "a") as log:
     log.write(json.dumps({"event": json.loads(payload)["hook_event_name"], "exit": result.returncode}) + "\n")
 sys.stdout.buffer.write(result.stdout)
@@ -1329,50 +1329,59 @@ sys.exit(result.returncode)
             ("REAL_CLAUDE_HOOK_LOG", log.to_str().unwrap()),
         ],
     );
-    std::fs::write(project.dir.path().join("h15.txt"), "H15 hook round\n").unwrap();
+    for index in 0..100 {
+        std::fs::write(
+            project.dir.path().join(format!("h15-{index:03}.txt")),
+            "H15 hook round\n",
+        )
+        .unwrap();
+    }
     let mut client = project.subscribed().await;
     let agent: contracts::agent::RailNode = serde_json::from_value(
-        client
-            .request(
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            client.request(
                 "agent.spawn",
                 json!({"cwd": project.dir.path(), "prompt": "H15 exercise one hundred tools"}),
-            )
-            .await
-            .unwrap(),
+            ),
+        )
+        .await
+        .expect("agent.spawn answers within the bound")
+        .unwrap(),
     )
     .unwrap();
     tokio::time::timeout(Duration::from_secs(180), async {
-        for kind in [Kind::Working, Kind::Idle] {
-            next(&mut client, |event| match event {
-                EventData::AgentStatus(status)
-                    if status.id == agent.id && status.status.kind == kind =>
-                {
-                    Some(())
+        let mut working = false;
+        loop {
+            let event = client
+                .next_event()
+                .await
+                .expect("the connection stays open");
+            if let EventData::AgentStatus(status) = event.data
+                && status.id == agent.id
+            {
+                if status.status.kind == Kind::Working {
+                    working = true;
+                } else if status.status.kind == Kind::Idle && working {
+                    break;
                 }
-                _ => None,
-            })
-            .await;
+            }
         }
     })
     .await
     .expect("the hundred-tool turn completes");
     let model = project.model.as_ref().unwrap();
-    model.tool_result("toolu_h15_099").await;
     model.assert_matched();
     let journal = model.journal();
+    // Aimock truncates long request bodies at 64 KB. Its selected fixture records the
+    // last-result ID and content constraints that actually matched even after that cap.
     for index in 0..100 {
         let id = format!("toolu_h15_{index:03}");
         assert!(
-            journal
-                .iter()
-                .any(|entry| entry["body"]["messages"]
-                    .as_array()
-                    .is_some_and(|messages| messages.iter().any(|message| message["role"]
-                        == "tool"
-                        && message["tool_call_id"] == id
-                        && message["content"]
-                            .as_str()
-                            .is_some_and(|text| text.contains("H15 hook round"))))),
+            journal.iter().any(|entry| {
+                let matched = &entry["response"]["fixture"]["match"];
+                matched["toolCallId"] == id && matched["toolResultContains"] == "H15 hook round"
+            }),
             "missing successful tool result {id}"
         );
     }
@@ -1381,6 +1390,7 @@ sys.exit(result.returncode)
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
+    assert!(hooks.iter().all(|hook| hook["exit"] == 0), "{hooks:#?}");
     let uses: Vec<_> = hooks
         .iter()
         .filter(|hook| matches!(hook["event"].as_str(), Some("PreToolUse" | "PostToolUse")))
