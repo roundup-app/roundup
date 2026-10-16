@@ -98,7 +98,7 @@ run("u2228b the window title keeps the name's start and end", () => {
 
     const wide = await page.call<Read>(READ);
 
-    await page.resize(900, 800);
+    await page.resize(1280, 800);
     await page.until(`() => document.querySelector(".window-title").textContent.length < ${wide.shown.length}`);
 
     const narrow = await page.call<Read>(READ);
