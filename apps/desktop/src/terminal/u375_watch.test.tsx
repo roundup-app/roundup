@@ -96,6 +96,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await connected.takeover.end("not-taken");
 
     expect(connected.takeover.taken()).toBe(id);
+    expect(document.activeElement?.closest("[data-terminal]")?.getAttribute("data-terminal")).toBe(`t-${id}`);
     const give = screen.getByRole("button", { name: "Give control back" });
     expect(give.tagName).toBe("BUTTON");
     fireEvent.click(give);
