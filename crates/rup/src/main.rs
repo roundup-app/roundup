@@ -16,34 +16,8 @@ const CONTEXT_DEADLINE: Duration = Duration::from_secs(4);
 /// What `rup signal` says when it cannot know whether the Daemon took the Signal.
 const MAYBE_ARRIVED: &str = "the Signal may or may not have arrived";
 
+mod cli;
 mod mcp;
-
-/// CL4: what `rup help` prints.
-const HELP: &str = "\
-rup drives rupd, the roundup Daemon, from a shell or an MCP client.
-
-usage: rup [--as ext:<name>] [--json] <command>
-
-commands, and who may run each (User: a shell outside every Agent; Ext: --as ext:<name>):
-  ping        show which Daemon answered
-              User: yes   Ext: yes
-  mcp         serve the roundup tools over MCP on stdio (rup mcp <agent-id> for an Agent)
-              User: yes   Ext: yes
-  signal      an Agent's hook (rup signal <agent-id>)
-              User: no    Ext: no
-  context     an Agent's hook (rup context <agent-id>)
-              User: no    Ext: no
-  permission  an Agent's hook (rup permission <agent-id>)
-              User: no    Ext: no
-  help        print this text
-
-options, before the command:
-  --as ext:<name>  act as the Ext Actor ext:<name> (1 to 64 of a-z 0-9 - _), so calls are Touches under that name
-  --json           with ping, print {actor, socket, result}, who rup acted as included
-
-RUPD_SOCKET names the Daemon's socket; unset, rup uses ~/.roundup/rupd.sock.
-`rup ping` shows which Daemon answered.
-";
 
 /// What comes before the command.
 #[derive(Default)]
@@ -114,19 +88,26 @@ async fn main() -> ExitCode {
         eprintln!("rup: signal, context and permission are Agent hooks; --as does not apply");
         return ExitCode::FAILURE;
     }
-    if options.json && command.first() != Some(&"ping") {
-        eprintln!("rup: --json applies to ping only; mcp owns stdout for the protocol");
+    if options.json
+        && matches!(
+            command.first(),
+            Some(&("mcp" | "signal" | "context" | "permission"))
+        )
+    {
+        eprintln!(
+            "rup: --json applies to ping and the commands of rup help; mcp owns stdout for the protocol"
+        );
         return ExitCode::from(2);
     }
     let outcome = match command[..] {
         ["ping"] => ping(&options).await,
-        ["signal", agent_id] => signal(agent_id).await,
+        ["signal", agent_id] if !agent_id.starts_with('-') => signal(agent_id).await,
         // Exit 2 would tell Claude Code to block its tool call or prompt; `signal` only ever exits 1.
         ["signal", ..] => Err("usage: rup signal <agent-id>".into()),
-        ["context", agent_id] => return context(agent_id).await,
+        ["context", agent_id] if !agent_id.starts_with('-') => return context(agent_id).await,
         // As for `signal`: only exit 1, never 2.
         ["context", ..] => Err("usage: rup context <agent-id>".into()),
-        ["permission", agent_id] => permission(agent_id).await,
+        ["permission", agent_id] if !agent_id.starts_with('-') => permission(agent_id).await,
         // As for `signal`: exit 2 would block the tool call.
         ["permission", ..] => Err("usage: rup permission <agent-id>".into()),
         ["mcp"] => match options.ext {
@@ -149,14 +130,11 @@ async fn main() -> ExitCode {
             return mcp::run(agent).await;
         }
         [] | ["help" | "--help" | "-h"] => {
-            print!("{HELP}");
+            print!("{}", cli::help_text());
             return ExitCode::SUCCESS;
         }
-        [other, ..] => {
-            eprintln!("rup: unknown command {other:?}");
-            eprint!("{HELP}");
-            return ExitCode::from(2);
-        }
+        // I1-I8 own every other command and the help of a noun or verb; they read the arguments as given.
+        _ => return cli::run(args).await,
     };
     match outcome {
         Ok(()) => ExitCode::SUCCESS,
