@@ -1,11 +1,12 @@
 name: fix
-run-name: "${{ inputs.pr && format('Fix PR #{0}: {1}', inputs.pr, inputs.cause) || format('Fix {0}', github.event.workflow_run.head_branch) }}"
+run-name: "${{ format('Fix PR #{0}: {1}', inputs.pr || github.event.workflow_run.pull_requests[0].number, inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check')) }}"
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
 # draft its run left unfinished. A PR gets three fix runs that worked; the fourth cause closes the PR, deletes its
 # branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
-# A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt.
+# A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
+# does a plumbing cause (a conflict, a `rules` failure about PR shape): it gets a run with no comment, up to six per PR.
 on:
   workflow_run:
     workflows: [check, loop]
@@ -56,6 +57,7 @@ jobs:
       pr: ${{ steps.task.outputs.pr }}
       branch: ${{ steps.task.outputs.branch }}
       cause: ${{ steps.task.outputs.cause }}
+      plumbing: ${{ steps.task.outputs.plumbing }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
       - uses: actions/checkout@v5
@@ -180,7 +182,8 @@ jobs:
           CAUSE: ${{ needs.task.outputs.cause }}
           RAN: ${{ needs.fix-run.outputs.ran || 'false' }}
           VERDICT: ${{ needs.fix-run.outputs.verdict }}
-        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT"
+          PLUMBING: ${{ needs.task.outputs.plumbing || 'false' }}
+        run: python3 loop/builder.py fixed "$PR" "$CAUSE" "$RAN" "$VERDICT" "$PLUMBING"
       # L23: as a build's `after` does, a fix run whose model worked starts `pick`, so the slot it freed fills and a repair
       # a full slot count refused starts; a run where no model worked (a usage limit) ends the chain.
       - if: always() && needs.fix-run.outputs.ran == 'true'

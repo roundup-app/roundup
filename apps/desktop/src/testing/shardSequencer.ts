@@ -14,6 +14,10 @@ interface Shard {
 // its summed file time over this many files at once, whichever is longer.
 const PARALLEL_FILES = 2.8;
 
+// A file's environment and imports cost this much besides the duration vitest prints for it: on `main`, they took 36%
+// of the time of a shard holding 117 files, about two seconds a file.
+const FILE_SETUP_SECONDS = 2;
+
 const durations: Seconds = measuredDurations;
 
 const median = (values: readonly number[]): number => {
@@ -23,7 +27,15 @@ const median = (values: readonly number[]): number => {
 };
 
 /** What a shard holding files of these durations takes, in seconds. */
-export const shardTime = (held: readonly number[]): number => Math.max(0, ...held, held.reduce((sum, seconds) => sum + seconds, 0) / PARALLEL_FILES);
+export const shardTime = (held: readonly number[]): number => Math.max(0, ...held, held.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES);
+
+/** The files, longest measured duration first (a file without one weighs the median), ties by name. */
+export function longestFirst(files: readonly string[], measured: Seconds): string[] {
+  const fallback = median(Object.values(measured));
+  const weight = (file: string) => measured[file] ?? fallback;
+
+  return [...files].sort((a, b) => weight(b) - weight(a) || (a < b ? -1 : 1));
+}
 
 /**
  * Longest first, each file goes to the shard it makes finish soonest (the emptier one on a tie), so a file longer than
@@ -35,7 +47,7 @@ export function assignShards(files: readonly string[], measured: Seconds, count:
   const weight = (file: string) => measured[file] ?? fallback;
   const shards = Array.from({ length: count }, (): Shard => ({ weights: [], files: [] }));
 
-  for (const file of [...files].sort((a, b) => weight(b) - weight(a) || (a < b ? -1 : 1))) {
+  for (const file of longestFirst(files, measured)) {
     const finishes = (shard: Shard) => shardTime([...shard.weights, weight(file)]);
 
     const soonest = shards.reduce((best, shard) => {
@@ -62,5 +74,15 @@ export default class TimedSequencer extends BaseSequencer {
     const mine = assignShards([...byFile.keys()], durations, shard.count)[shard.index - 1] ?? [];
 
     return mine.flatMap((file) => byFile.get(file) ?? []);
+  }
+
+  // Vitest sorts after it shards, by file size when it has no earlier run to read: a browser test is a small file that
+  // runs for minutes, so left to that order it starts last and the shard waits on its tail. Start the longest first.
+  // fallow-ignore-next-line unused-class-member -- vitest calls it before every run
+  override async sort(specs: TestSpecification[]): Promise<TestSpecification[]> {
+    const { root } = this.ctx.config;
+    const byFile = new Map(specs.map((spec) => [relative(root, spec.moduleId), spec]));
+
+    return longestFirst([...byFile.keys()], durations).flatMap((file) => byFile.get(file) ?? []);
   }
 }

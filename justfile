@@ -23,7 +23,7 @@ lint-rust:
 clippy:
     cargo clippy --all-targets -- -D warnings
 
-# The Rust tests; CI passes nextest a partition, a thread count or the `mac` profile (L89).
+# The Rust tests; CI passes nextest a lane's profile (`ci1` to `ci5`), a thread count or the `mac` profile (L89).
 [script('loop/keep-going.sh')]
 test-rust *args:
     cargo build --quiet -p rupd -p rup

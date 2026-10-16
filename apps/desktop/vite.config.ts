@@ -82,7 +82,7 @@ export default defineConfig({
     // L89: `--shard` balances by measured time, not path hash.
     sequence: { sequencer: TimedSequencer },
     setupFiles: ["src/testing/domStubs.ts"],
-    globalSetup: ["src/testing/warmChrome.ts"],
+    globalSetup: ["src/testing/warmChrome.ts", "src/testing/globalAppServer.ts"],
     // jsdom resolves the server build of solid-js unless told to use the browser one.
     server: { deps: { inline: [/solid-js/, /@excalidraw/] } },
   },
