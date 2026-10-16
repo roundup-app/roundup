@@ -139,11 +139,12 @@ mod tests {
                 M::up(ANSWERS),
                 M::up(RESIZES),
                 M::up(ASKS),
-                M::up(ACTIONS)
+                M::up(ACTIONS),
+                M::up(PAD_REVISIONS)
             ])
             .current_version(&db)
             .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(5).unwrap())
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(6).unwrap())
         );
         standalone::write_ask(&db);
         let ws = call(

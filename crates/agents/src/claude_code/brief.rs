@@ -47,6 +47,10 @@ const TOOLS: &[(&str, &str)] = &[
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     ("pad_append", "add text to the end of any Pad"),
+    (
+        "pad_appendSection",
+        "add text at the end of the section under a Markdown heading of any Pad",
+    ),
     ("pad_setOwner", "give a Pad to another Actor"),
     ("pad_delete", "delete a Pad you no longer need"),
     (
