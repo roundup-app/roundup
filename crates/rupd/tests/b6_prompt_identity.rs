@@ -4119,3 +4119,72 @@ async fn b6_a_later_door_rename_cannot_overtake_a_released_resize() {
         "a later Door rename returned before the older resize ran"
     );
 }
+
+#[tokio::test]
+async fn b6_a_wire_later_rename_waits_for_all_earlier_resizes() {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    let (run, _) = door_terminal().await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let door = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == run.child)
+        .unwrap()["parent"]
+        .clone();
+    let client = tokio::net::UnixStream::connect(&run.daemon.socket)
+        .await
+        .unwrap();
+    let (read, mut write) = client.into_split();
+    let mut replies = BufReader::new(read).lines();
+    write.write_all(format!("{}\n", json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}})).as_bytes()).await.unwrap();
+    let identified: Value = serde_json::from_str(
+        &tokio::time::timeout(BOUND, replies.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(identified.get("result").is_some(), "{identified}");
+    run.pause();
+    write.write_all(format!("{}\n", json!({"id":2,"method":"terminal.resize","params":{"id":run.terminal,"cols":101,"rows":37}})).as_bytes()).await.unwrap();
+    run.paused().await;
+    let mut batch = Vec::new();
+    for cols in 102..110 {
+        batch.extend(format!("{}\n", json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}})).as_bytes());
+    }
+    batch.extend(format!("{}\n", json!({"id":110,"method":"rail.rename","params":{"id":run.child,"name":"after every resize"}})).as_bytes());
+    // This reply acknowledges that the reader has scheduled every earlier wire frame.
+    batch.extend(format!("{}\n", json!({"id":111,"method":"rail.tree"})).as_bytes());
+    write.write_all(&batch).await.unwrap();
+    let barrier: Value = serde_json::from_str(
+        &tokio::time::timeout(BOUND, replies.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(barrier["id"], 111, "{barrier}");
+    run.release();
+    let mut order = Vec::new();
+    for _ in 0..10 {
+        let reply: Value = serde_json::from_str(
+            &tokio::time::timeout(BOUND, replies.next_line())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(reply.get("result").is_some(), "{reply}");
+        order.push(reply["id"].as_u64().unwrap());
+    }
+    run.finish().await;
+    assert_eq!(
+        order,
+        [2, 102, 103, 104, 105, 106, 107, 108, 109, 110],
+        "rename overtook an already-arrived resize"
+    );
+}
