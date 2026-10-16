@@ -578,9 +578,8 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                actor.kind == ActorKind::Agent
-            }
+            "agent.stop" | "rail.rename" | "terminal.kill" | "terminal.close"
+            | "terminal.resize" => actor.kind == ActorKind::Agent,
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
             _ => false,

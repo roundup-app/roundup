@@ -4018,3 +4018,46 @@ async fn b6_a_new_takeover_does_not_wait_for_an_end_delivering_a_recorded_messag
     assert_eq!(snapshot["cols"], 101);
     run.finish().await;
 }
+
+#[tokio::test]
+async fn b6_begin_racing_a_door_rename_waits_for_the_child_effect() {
+    let (run, caller) = order_child().await;
+    run.pause();
+    let child = run.child.clone();
+    let rename = tokio::spawn(async move {
+        caller
+            .request(
+                "rail.rename",
+                json!({"id":child,"name":"renamed before Takeover"}),
+            )
+            .await
+    });
+    run.paused().await;
+    let user = Arc::clone(&run.user);
+    let child = run.child.clone();
+    let mut begin =
+        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
+    // The observer acknowledges arrival before the rename. This window checks no acquisition.
+    let acquired_early = tokio::time::timeout(Duration::from_millis(200), &mut begin)
+        .await
+        .is_ok();
+    run.release();
+    let renamed = tokio::time::timeout(BOUND, rename)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    if !acquired_early {
+        tokio::time::timeout(BOUND, begin)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+    }
+    run.finish().await;
+    assert!(
+        !acquired_early,
+        "Takeover acquired before Door rename completed"
+    );
+    assert_eq!(renamed["name"], "renamed before Takeover");
+}
