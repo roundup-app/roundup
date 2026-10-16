@@ -97,6 +97,7 @@ mod tests {
             actor: Actor::user(),
             peer: None,
             events,
+            output: None,
         };
         daemon.route(&mut conn, method, params).await
     }
