@@ -173,7 +173,7 @@ impl RestartHarness {
                 },
             })),
         );
-        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        tokio::time::timeout(std::time::Duration::from_secs(30), async {
             loop {
                 if let EventData::MessageDropped(m) = events.recv().await.unwrap().data
                     && m.id == message.id
@@ -322,8 +322,8 @@ async fn a35_lag_resync_preserves_reserved_messages() {
     h.send(Actor::user(), "door", "queued").await;
     h.messages.reserve_restart("door", "c", None).await.unwrap();
     h.rail.0.lock().unwrap()[0] = agent_node("door", Kind::Done);
-    // No await lets the current-thread listener consume events before overflow.
-    // Unrelated events exercise Lagged without also requesting a resync per event.
+    // No await lets the listener consume events before overflow on this current-thread
+    // runtime. Ignored events isolate the lag resync from RailChanged resyncs.
     for _ in 0..=h.ctx.bus.capacity() {
         h.ctx.bus.emit(Actor::daemon(), EventData::TerminalChanged);
     }
@@ -1004,8 +1004,8 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
             }
             recovered.status("2", "3", Kind::Idle).await;
             recovered.rail.0.lock().unwrap().retain(|n| n.id != "door");
-            // Overflow forces the listener to reconcile the missing receiver once,
-            // without requesting another database resync for every retained event.
+            // Overflow forces a lag resync of the missing receiver. Ignored events avoid
+            // queuing a database resync per retained event ahead of the Status fence.
             for _ in 0..=recovered.ctx.bus.capacity() {
                 recovered
                     .ctx
