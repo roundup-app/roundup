@@ -1,56 +1,18 @@
-//! O12: the Door spawns the Agent with the order it wrote, against a real `rupd` and a fake `claude`.
-#![allow(dead_code)]
-
+//! O12: real Claude must keep the Door's order separate from the user's words.
 #[path = "e2e/daemon.rs"]
+#[allow(dead_code)]
 mod daemon;
 
-use std::path::Path;
-use std::time::{Duration, Instant};
+use contracts::{EventData, Kind};
+use daemon::{next, rail_tree};
+use serde_json::json;
 
-use contracts::Kind;
-use daemon::{Project, rail_tree};
-use serde_json::{Value, json};
-
-/// A digest of the Door's Subagents arrives as a prompt too, and is not a user's words.
-const DIGEST: &str = r"\[from rupd";
-const TYPED: &str = "fix the build, it fails on main since Friday";
-
-async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
-    let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        if let Some(found) = probe().await {
-            return found;
-        }
-        assert!(Instant::now() < deadline, "never: {what}");
-        tokio::time::sleep(Duration::from_millis(25)).await;
-    }
-}
-
-/// A Door that, on each prompt, spawns an Agent with its own `ask` and the prompt it was typed,
-/// retaining the order/prompt distinction of O8 and O9.
-async fn door_that_spawns(log: &Path) -> (Project, rpc::Client, String) {
-    let dir = tempfile::tempdir().unwrap();
-    let project_dir = dir.path().to_owned();
-    let calls = json!([
-        {"name": "agent_spawn", "skip_prompt": DIGEST, "arguments": {
-            "cwd": project_dir,
-            "order": {"kind": "work", "ask": "Make the build pass on main.", "done": "just check is green", "limits": ["no force push"]},
-            "prompt": "$prompt",
-            "name": "fix the build",
-        }},
-    ]);
-    let project = daemon::start_in(
-        dir,
-        tempfile::tempdir().unwrap(),
-        &[
-            ("FAKE_CLAUDE_ON_PROMPT", &calls.to_string()),
-            ("FAKE_CLAUDE_PASTE_WHOLE", "1"),
-            ("FAKE_CLAUDE_ORDER_PROMPTS", "1"),
-            ("FAKE_CLAUDE_PROMPT_LOG", log.to_str().unwrap()),
-        ],
-    );
-    let user = project.client().await;
-    let door = user
+#[tokio::test]
+async fn o12_the_door_spawns_with_order_and_the_users_words() {
+    const TYPED: &str = "fix the build, it fails on main since Friday";
+    let project = daemon::start_real("o12_order", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
         .request(
             "rail.createWorkstream",
             json!({"name": "team", "parent": null}),
@@ -60,72 +22,66 @@ async fn door_that_spawns(log: &Path) -> (Project, rpc::Client, String) {
         .as_str()
         .unwrap()
         .to_owned();
-    user.request("rail.startDoor", json!({"id": door}))
+    client
+        .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
-    until("the Door is idle", async || {
-        rail_tree(&user)
-            .await
-            .into_iter()
-            .find(|n| n.id == door)
-            .and_then(|n| n.status)
-            .filter(|s| s.kind == Kind::Idle)
-    })
-    .await;
-    (project, user, door)
-}
-
-async fn run() -> (Project, rpc::Client, String, String, String) {
-    let scratch = tempfile::tempdir().unwrap().keep();
-    let log = scratch.join("prompts.jsonl");
-    let (project, user, door) = door_that_spawns(&log).await;
-    user.request(
-        "message.send",
-        json!({"to": door, "kind": "note", "body": TYPED}),
-    )
-    .await
-    .unwrap();
-    let agent = until("the Door's Agent", async || {
-        rail_tree(&user)
-            .await
-            .into_iter()
-            .find(|n| n.parent.as_deref() == Some(&door))
-            .map(|n| n.id)
-    })
-    .await;
-    let typed = until("the Door's prompt", async || {
-        std::fs::read_to_string(&log)
-            .unwrap_or_default()
-            .lines()
-            .map(|l| {
-                serde_json::from_str::<Value>(l).unwrap()["prompt"]
-                    .as_str()
-                    .unwrap()
-                    .to_owned()
-            })
-            .find(|p| p.contains(TYPED))
-    })
-    .await;
-    (project, user, door, agent, typed)
-}
-
-#[tokio::test]
-async fn o12_the_door_spawns_with_order_and_the_users_words() {
-    let (_project, user, _door, agent, typed) = run().await;
-
-    let stored = user
-        .request("agent.spawnPrompt", json!({"id": agent}))
+    let mut working = false;
+    loop {
+        let kind = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status.status.kind),
+            _ => None,
+        })
+        .await;
+        working |= kind == Kind::Working;
+        if working && kind == Kind::Idle {
+            break;
+        }
+    }
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": TYPED}),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_o12_spawn").await;
+    let spawned: contracts::agent::RailNode =
+        serde_json::from_str(result["content"].as_str().unwrap()).unwrap();
+    let journal = model.journal();
+    let typed = journal
+        .iter()
+        .filter_map(|entry| entry["body"]["messages"].as_array())
+        .flatten()
+        .filter(|message| message["role"] == "user")
+        .filter_map(|message| message["content"].as_str())
+        .find(|text| text.ends_with(TYPED))
+        .expect("the model received the user's words")
+        .strip_prefix("Follow this instruction: ")
+        .expect("Claude wraps the delivered prompt as an instruction");
+    let stored = client
+        .request("agent.spawnPrompt", json!({"id": spawned.id}))
         .await
         .unwrap();
     assert_eq!(stored["prompt"], typed);
-    assert!(typed.ends_with(TYPED), "{typed}");
-    let node = rail_tree(&user)
-        .await
-        .into_iter()
-        .find(|n| n.id == agent)
-        .unwrap();
-    let order = serde_json::to_value(&node).unwrap();
-    let ask = order["work"]["ask"].as_str().unwrap();
-    assert_eq!(ask, "Make the build pass on main.");
-    assert_ne!(ask, typed);
+    let tree = rail_tree(&client).await;
+    let node = tree.iter().find(|node| node.id == spawned.id).unwrap();
+    let order = serde_json::to_value(node).unwrap();
+    assert_eq!(order["work"]["ask"], "Make the build pass on main.");
+    assert_ne!(order["work"]["ask"], typed);
+    assert_eq!(node.parent.as_deref(), Some(door.as_str()));
+    let mut working = false;
+    loop {
+        let kind = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == spawned.id => Some(status.status.kind),
+            _ => None,
+        })
+        .await;
+        working |= kind == Kind::Working;
+        if working && kind == Kind::Idle {
+            break;
+        }
+    }
+    model.assert_matched();
 }

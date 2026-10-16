@@ -1132,18 +1132,25 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             }
             continue;
         }
-        let resize_arrival = if method.as_deref() == Some("terminal.resize")
+        let child_arrival = if matches!(method.as_deref(), Some("terminal.resize" | "rail.rename"))
             && conn.actor.kind == ActorKind::Agent
         {
             let params = request
                 .as_ref()
                 .and_then(|r| r.get("params"))
                 .unwrap_or(&Value::Null);
-            match daemon.guard_terminal_read(&conn.actor, params).await {
+            let child = if method.as_deref() == Some("rail.rename") {
+                rpc::params::<NodeId>(params.clone()).map(|node| Some(node.id))
+            } else {
+                daemon.guard_terminal_read(&conn.actor, params).await
+            };
+            // Both ordered effects join before spawning: a rename must not take the
+            // child lock ahead of a resize still waiting for its arrival predecessor.
+            match child {
                 Ok(Some(child)) => Some(daemon.resizes.arrive(child)),
                 Ok(None) => None,
                 Err(error) => {
-                    // Reject the original target; a later Terminal must not revive an invalid call.
+                    // Reject the original target; a later target must not revive an invalid call.
                     if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
                         let _ = frames.send(failure(id, &error));
                     }
@@ -1174,7 +1181,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             });
         } else {
             ordinary.spawn(async move {
-                let done = if let Some((before, done)) = resize_arrival {
+                let done = if let Some((before, done)) = child_arrival {
                     if let Some(before) = before {
                         let _ = before.await;
                     }
