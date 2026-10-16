@@ -625,10 +625,10 @@ export const Bubbles = (props: { screens: Screens }) => {
           }} onKeyDown={onHeaderKey}>
           <span class="bubble-name">{nameOf(terminal()!)}</span>
           <span class="bubble-state">{stateText(terminal()!)}</span>
-          <IconButton aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
+          <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
             <Icon name="down" />
           </IconButton>
-          <IconButton aria-label={copy.close} onClick={() => void close(id)}>
+          <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}>
             <Icon name="x" />
           </IconButton>
         </header>

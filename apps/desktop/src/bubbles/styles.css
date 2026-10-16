@@ -30,6 +30,12 @@
   display: none;
 }
 
+/* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the panel's ground. */
+.bubble .xterm .xterm-viewport,
+.bubble .xterm .xterm-scrollable-element {
+  background-color: var(--ground);
+}
+
 /* U371: the open Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins. */
 .window[data-shelf="open"] .bubbles {
   right: max(0px, calc(var(--shelf-span) - var(--space-4)));
@@ -40,6 +46,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
   min-height: var(--space-5);
   padding: 0;
   cursor: grab;
