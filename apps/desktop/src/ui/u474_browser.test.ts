@@ -347,6 +347,7 @@ it("u492_installed_toaster_recreates_polite_accessible_content_after_idle", asyn
   await browser("open", new URL("/src/ui/u492.html", origin).href);
   await browser("wait", "--fn", `!!document.querySelector('button')`);
   expect(await read<number>(`document.querySelectorAll('[data-scope="toast"]').length`)).toBe(0);
+
   for (const name of ["First", "Second"]) {
     await browser("eval", `window.toastInsertions = []; window.toastObserver = new MutationObserver(() => {
       const group = document.querySelector('[data-scope="toast"][data-part="group"]');

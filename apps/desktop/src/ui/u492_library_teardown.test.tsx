@@ -1,6 +1,7 @@
-import { createToaster, Toaster, Toast } from "@ark-ui/solid/toast";
+import { createToaster } from "@ark-ui/solid/toast";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
+import { u492Probe } from "./u492_probe";
 
 const duration = 5000;
 
@@ -22,9 +23,7 @@ function mount() {
   const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
   const toaster = createToaster({ placement: "bottom-end", removeDelay });
 
-  const mounted = render(() => <Toaster toaster={toaster}>
-    {(toast) => <Toast.Root><Toast.Title>{toast().title}</Toast.Title></Toast.Root>}
-  </Toaster>);
+  const mounted = render(() => u492Probe(toaster));
 
   const create = () => toaster.create({ title: "Saved", duration, onStatusChange: status });
 
@@ -135,6 +134,7 @@ it("u492_public_update_supports_caller_full_duration_restart", async () => {
 
 it("u492_subsequent_cards_restore_announcements_then_return_to_idle", async () => {
   const probe = mount();
+
   for (const title of ["First result saved", "Second result saved"]) {
     const id = probe.toaster.create({ title, duration: Infinity, onStatusChange: probe.status });
     const region = screen.getByRole("region");
