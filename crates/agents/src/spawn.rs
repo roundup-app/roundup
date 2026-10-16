@@ -192,16 +192,7 @@ impl Agents {
         let spawned = self
             .shared
             .terminals
-            .spawn_owned(
-                TerminalSpawn {
-                    cwd: self.project_dir().to_string_lossy().into_owned(),
-                    command: Some(vec![shell, "-l".into()]),
-                    env: BTreeMap::new(),
-                    cols: 80,
-                    rows: 24,
-                },
-                &workstream,
-            )
+            .spawn_shell_owned(&self.project_dir().to_string_lossy(), &shell, &workstream, BTreeMap::new())
             .await?;
         Ok(Opened {
             terminal_id: spawned.id,
