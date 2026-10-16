@@ -51,12 +51,12 @@ it.each(["immediate", "settled", "hovered", "focused", "hovered-focused", "settl
     const probe = mount();
     const id = probe.create();
     const card = screen.getByRole("status");
-    expect(screen.getByText("Saved")).toBeDefined();
 
     if (state.includes("settled")) {
       // Zag's mount/height effects each schedule one RAF; let both run.
       await vi.advanceTimersToNextFrame();
       expect(card.hasAttribute("data-mounted")).toBe(true);
+      expect(screen.getByText("Saved")).toBeDefined();
       expect(probe.observe).toHaveBeenCalled();
     }
 
@@ -130,4 +130,24 @@ it("u492_public_update_supports_caller_full_duration_restart", async () => {
   await vi.advanceTimersByTimeAsync(removeDelay);
   await vi.advanceTimersToNextFrame();
   await expectIdle(probe);
+});
+
+
+it("u492_subsequent_cards_restore_announcements_then_return_to_idle", async () => {
+  const probe = mount();
+  for (const title of ["First result saved", "Second result saved"]) {
+    const id = probe.toaster.create({ title, duration: Infinity, onStatusChange: probe.status });
+    const region = screen.getByRole("region");
+    expect(region.textContent).toBe("");
+    await vi.advanceTimersToNextFrame();
+    const card = screen.getByRole("status");
+    expect(region.getAttribute("aria-live")).toBe("polite");
+    expect(region.contains(card)).toBe(true);
+    expect(document.getElementById(card.getAttribute("aria-labelledby")!)?.textContent).toBe(title);
+    probe.toaster.dismiss(id);
+    await vi.advanceTimersByTimeAsync(removeDelay - 1);
+    expect(screen.getByText(title)).toBeDefined();
+    await vi.advanceTimersToNextFrame();
+    await expectIdle(probe);
+  }
 });
