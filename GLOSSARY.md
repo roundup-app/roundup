@@ -540,6 +540,12 @@ A Token-styled set of named App views, with one selected view and its panel visi
 **IconButton**:
 An App button of the icon kind, named for its action for assistive technology.
 
+**TreeView**:
+A shared navigable hierarchy preserving caller-rendered rows.
+
+**Sortable**:
+A shared reorderable region with named drag handles and caller-owned committed order.
+
 ### Keyboard registration
 
 **KeyScope**:
