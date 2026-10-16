@@ -342,7 +342,7 @@ impl Daemon {
                     self.guard_terminal_read(&conn.actor, &params).await?
                 }
                 "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
-                | "agent.stop" => Some(rpc::params::<NodeId>(params.clone())?.id),
+                | "agent.stop" | "rail.rename" => Some(rpc::params::<NodeId>(params.clone())?.id),
                 _ => None,
             }
         } else {
