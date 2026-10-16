@@ -28,7 +28,7 @@ const tabTo = async (selector: string) => {
   expect(await read<boolean>(`document.activeElement?.matches('${selector}')`)).toBe(true);
 };
 
-const widths = () => read<number[]>(`['rail','shelf'].map(name => document.querySelector('[data-layout-panel='+name+']').getBoundingClientRect().width)`);
+const widths = () => read<{ rail: number; shelf: number }>(`Object.fromEntries(['rail','shelf'].map(name => [name, document.querySelector('[data-layout-panel='+name+']').getBoundingClientRect().width]))`);
 
 it.each([
   ["Resize Rail", [304, 368, 480, 252, 288]],
@@ -58,16 +58,16 @@ it.each([
 it("u491_existing_layout_binding", async () => {
   await browser("set", "viewport", "1280", "800");
   await load();
-  expect(await widths()).toEqual([288, 320]);
+  expect(await widths()).toEqual({ rail: 288, shelf: 320 });
   await key("Resize Rail", "ArrowRight");
   await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 304`);
-  expect(await widths()).toEqual([304, 320]);
+  expect(await widths()).toEqual({ rail: 304, shelf: 320 });
   await key("Resize work items", "ArrowLeft");
   await wait(`document.querySelector('[data-layout-panel=shelf]').getBoundingClientRect().width === 336`);
-  expect(await widths()).toEqual([304, 336]);
+  expect(await widths()).toEqual({ rail: 304, shelf: 336 });
   await browser("find", "role", "button", "click", "--name", "Wide", "--exact");
   await wait(`document.querySelector('[data-layout-root]').dataset.shelfMode === 'overlay'`);
-  expect(await widths()).toEqual([480, 560]);
+  expect(await widths()).toEqual({ rail: 480, shelf: 560 });
   await key("Resize work items", "ArrowRight");
   await wait(`document.querySelector('[data-layout-panel=shelf]').getBoundingClientRect().width === 544`);
   expect(await read<string>(`getComputedStyle(document.querySelector('[data-layout-root]')).display`)).toBe("grid");
