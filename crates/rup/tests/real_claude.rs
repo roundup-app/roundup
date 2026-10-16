@@ -1900,3 +1900,119 @@ async fn a32_a_valid_clear_only_asks_the_door() {
     }
     model.assert_matched();
 }
+
+#[tokio::test]
+async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
+    let (project, mut client, door) = clear_fixture("a32_bad_handoff", &[]).await;
+    let model = project.model.as_ref().unwrap();
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let keep = todos[0]["id"].clone();
+    assert_eq!(
+        client
+            .request(
+                "workstream.clear",
+                json!({"id": door, "reason": "bad handoff observer"})
+            )
+            .await
+            .unwrap(),
+        json!({"pending": true})
+    );
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("bad handoff observer")
+                                && text.contains("workstream_handoff")))
+                )),
+        "Clear must reach real Claude"
+    );
+    let actor = project.client().await;
+    actor
+        .request(
+            "daemon.identify",
+            contracts::IdentifyParams {
+                actor: contracts::Actor {
+                    kind: contracts::ActorKind::Agent,
+                    id: door.clone(),
+                    parent: None,
+                },
+            },
+        )
+        .await
+        .unwrap();
+    for bad in [
+        json!({"keep_todos": [999], "keep_pads": []}),
+        json!({"keep_todos": [], "keep_pads": ["nope"]}),
+        json!({"keep_todos": [], "keep_pads": [], "summary": " "}),
+    ] {
+        let mut params = json!({"id": door, "summary": "s"});
+        params
+            .as_object_mut()
+            .unwrap()
+            .extend(bad.as_object().unwrap().clone());
+        let err = actor
+            .request("workstream.handoff", params)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::INVALID_PARAMS);
+    }
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        todos,
+        "a bad Handoff changes nothing"
+    );
+    actor.request("workstream.handoff", json!({"id": door, "summary": "Valid handoff after bad ids", "keep_todos": [keep], "keep_pads": []})).await.unwrap();
+    let cleared = next(&mut client, |event| match event {
+        EventData::WorkstreamCleared(cleared) if cleared.id == door => Some(cleared),
+        _ => None,
+    })
+    .await;
+    assert_eq!(cleared.iteration, 2);
+    let mut working = false;
+    loop {
+        let status = next(&mut client, |event| match event {
+            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
+    assert!(
+        model
+            .journal()
+            .iter()
+            .any(|entry| entry["body"]["messages"]
+                .as_array()
+                .is_some_and(
+                    |messages| messages.iter().any(|message| message["role"] == "user"
+                        && message["content"]
+                            .as_str()
+                            .is_some_and(|text| text.starts_with("Valid handoff after bad ids")))
+                )),
+        "the real Door must receive the valid Handoff"
+    );
+    model.assert_matched();
+}
