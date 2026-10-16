@@ -27,7 +27,9 @@ impl Shared {
                     Err(_) => eprintln!("agents: startup Context for {id} timed out"),
                 }
             }
-            let result = shared.prompt(&id, &prompt, Some(&attempt)).await;
+            let result = shared
+                .prompt(&id, &prompt, Some(&attempt), !startup_context)
+                .await;
             if let Err(err) = &result {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
                 shared.refuse_prompt(&id, &attempt);
@@ -139,9 +141,17 @@ impl Agents {
         }
     }
 
-    pub async fn prompt(&self, id: &str, text: &str) -> Result<(), PromptError> {
+    pub async fn prompt<'a>(
+        &self,
+        id: &str,
+        text: impl Into<Steer<'a>>,
+    ) -> Result<(), PromptError> {
+        let (text, verbatim) = match text.into() {
+            Steer::Instruction(text) => (text, false),
+            Steer::User(text) => (text, true),
+        };
         self.shared
-            .prompt(id, text, None)
+            .prompt(id, text, None, verbatim)
             .await
             .map_err(PromptError::from)
     }

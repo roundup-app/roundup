@@ -529,7 +529,7 @@ impl DoorHarness {
     }
 }
 fn paste(text: &str) -> Vec<u8> {
-    format!("{}\x1b[200~{text}\x1b[201~\r", agents::claude_code::LEAD_IN).into_bytes()
+    format!("\x1b[200~{text}\x1b[201~\r").into_bytes()
 }
 
 #[tokio::test]
@@ -798,4 +798,86 @@ fn a41_a_killed_daemon_never_types_a_part_twice() {
             .unwrap();
         assert_eq!(tree[0]["status"]["kind"], "done");
     });
+}
+
+#[tokio::test]
+async fn a40_an_ambiguous_name_waits_without_a_call() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    for _ in 0..2 {
+        h.agents
+            .call(&h.ctx, "rail.createWorkstream", json!({"name":"Same"}))
+            .await
+            .unwrap();
+    }
+    let mut events = h.ctx.bus.subscribe();
+    let ask = h.send("@same words").await;
+    loop {
+        let wire = serde_json::to_value(
+            tokio::time::timeout(Duration::from_secs(2), events.recv())
+                .await
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        if wire["data"]["ask"]["id"] == ask["id"]
+            && wire["data"]["ask"]["parts"][0]["state"] == "waiting"
+        {
+            assert_eq!(
+                wire["data"]["ask"]["parts"][0]["placement"]["question"],
+                "2 Workstreams are named same"
+            );
+            assert_eq!(
+                wire["data"]["ask"]["parts"][0]["placement"]["candidates"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                2
+            );
+            break;
+        }
+    }
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn a42_picking_new_uses_the_first_six_words_as_its_title() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let ask = f.h.waiting("one two three four five six seven").await;
+    let mut events = f.h.ctx.bus.subscribe();
+    f.h.asks
+        .call(
+            &f.h.ctx,
+            "ask.pick",
+            json!({"id":ask["id"],"part":0,"target":{"kind":"new"}}),
+        )
+        .await
+        .unwrap();
+    let id = loop {
+        if matches!(
+            tokio::time::timeout(Duration::from_secs(5), events.recv())
+                .await
+                .unwrap()
+                .unwrap()
+                .data,
+            contracts::EventData::RailChanged
+        ) {
+            let tree =
+                f.h.agents
+                    .call(&f.h.ctx, "rail.tree", Value::Null)
+                    .await
+                    .unwrap();
+            if tree[0]["terminal_id"].is_string() {
+                assert_eq!(tree[0]["work"]["title"], "one two three four five six");
+                break tree[0]["id"].as_str().unwrap().to_owned();
+            }
+        }
+    };
+    f.signal(&id, "SessionStart").await;
+    assert_eq!(f.read().await, paste("one two three four five six seven"));
+    f.signal(&id, "UserPromptSubmit").await;
+    f.changed(&mut events, &ask["id"], "typed").await;
+    assert_eq!(f.h.count.load(Ordering::SeqCst), 1);
+    f.stop().await;
 }

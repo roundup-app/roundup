@@ -125,7 +125,8 @@ impl Intake {
             let ids: Vec<_> = rail
                 .iter()
                 .filter(|node| {
-                    node.kind == NodeKind::Workstream && node.name.eq_ignore_ascii_case(name)
+                    node.kind == NodeKind::Workstream
+                        && node.name.to_lowercase() == name.to_lowercase()
                 })
                 .map(|node| node.id.clone())
                 .collect();
@@ -412,7 +413,11 @@ impl Intake {
                     if !self.store().update(&id, ord, &part, State::Queued)? {
                         continue;
                     }
-                    match self.agents.prompt(workstream, &part.text).await {
+                    match self
+                        .agents
+                        .prompt(workstream, Steer::User(&part.text))
+                        .await
+                    {
                         Ok(()) => {
                             self.emit(&id)?;
                             continue;

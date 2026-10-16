@@ -95,7 +95,7 @@ impl Agents {
                 me: me.clone(),
                 resume_effect: None,
                 steer_bound: STEER_BOUND,
-                steer: crate::Steer {
+                steer: crate::SteerSettings {
                     before_steer: None,
                     interrupt_bound: INTERRUPT_BOUND,
                 },
@@ -472,7 +472,7 @@ pub(super) mod tests {
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
-            steer: crate::Steer {
+            steer: crate::SteerSettings {
                 before_steer: None,
                 interrupt_bound: crate::INTERRUPT_BOUND,
             },
@@ -519,7 +519,7 @@ pub(super) mod tests {
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
-            steer: crate::Steer {
+            steer: crate::SteerSettings {
                 before_steer: None,
                 interrupt_bound: crate::INTERRUPT_BOUND,
             },
@@ -599,7 +599,7 @@ pub(super) mod tests {
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
-            steer: crate::Steer {
+            steer: crate::SteerSettings {
                 before_steer: None,
                 interrupt_bound: crate::INTERRUPT_BOUND,
             },
