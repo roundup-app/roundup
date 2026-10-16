@@ -23,7 +23,7 @@ pub const METHODS: &[Method] = &[
     m(
         "daemon.ping",
         "null",
-        "{ pong: true, contract: { fingerprint: string, methods: string[] } }",
+        "{ pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } }",
     ),
     m("daemon.identify", "common_IdentifyParams", "null"),
     m("events.subscribe", "common_SubscribeParams | null", "null"),

@@ -27,4 +27,4 @@ for _ in {1..60}; do
   if ! kill -0 "$daemon" 2>/dev/null; then cat "$dir/stderr" >&2; exit 1; fi
   sleep 0.25
 done
-[[ $("${2:-$root/target/debug/rup}" ping) == *pong* ]]
+[[ $("${2:-$root/target/debug/rup}" ping) == rupd\ * ]]

@@ -120,6 +120,13 @@ describe("u133 click targets", () => {
 
       if (!selected) expect(paint(hover), `${name} hover`).not.toBe(paint(rest));
       expect(paint(pressed), `${name} pressed`).not.toBe(paint(hover));
+
+      // U510: a ghost, icon or disclosure target answers hover and press with ink and paints no fill.
+      if (/^(quiet|add|row-action|icon)$/.test(el.getAttribute("data-button") ?? "") && !el.matches('[role="tab"], .tab-name-button, .todo-project-root')) {
+        expect(hover.getPropertyValue("background-color"), `${name} hover paints no fill`).toBe(rest.getPropertyValue("background-color"));
+        expect(pressed.getPropertyValue("background-color"), `${name} press paints no fill`).toBe(rest.getPropertyValue("background-color"));
+      }
+
       expect(pressed.getPropertyValue("transition-duration"), name).toBe("0s");
       expect(px(rest.getPropertyValue("min-height")), `${name} hit area`).toBeGreaterThanOrEqual(24);
     }
