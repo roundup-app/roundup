@@ -19,7 +19,41 @@ const key = async (name: string, key: string) => {
   await browser("press", key);
 };
 
+const tabTo = async (selector: string) => {
+  for (let step = 0; step < 12; step++) {
+    if (await read<boolean>(`document.activeElement?.matches('${selector}')`)) return;
+    await browser("press", "Tab");
+  }
+
+  expect(await read<boolean>(`document.activeElement?.matches('${selector}')`)).toBe(true);
+};
+
 const widths = () => read<number[]>(`['rail','shelf'].map(name => document.querySelector('[data-layout-panel='+name+']').getBoundingClientRect().width)`);
+
+it.each([
+  ["Resize Rail", [304, 368, 480, 252, 288]],
+  ["Resize work items", [304, 240, 560, 240, 320]],
+] as const)("u491_keys_limits_and_reset_%s", async (name, expected) => {
+  await load();
+  const selector = `[aria-label="${name}"]`;
+  const keys = ["ArrowRight", "Shift+ArrowRight", "End", "Home", "Enter"];
+
+  for (const [index, input] of keys.entries()) {
+    await key(name, input);
+    await wait(`document.querySelector('${selector}').getAttribute('aria-valuenow') === '${expected[index]}'`);
+    expect(await read<string>(`document.querySelector('[aria-label=Ends]').textContent`)).toBe(String(index + 1));
+  }
+
+  expect(await read<unknown>(`(() => {
+    const edge = document.querySelector('${selector}');
+    return [edge.getAttribute('aria-orientation'), edge.getAttribute('aria-valuemin'), edge.getAttribute('aria-valuemax')];
+  })()`)).toEqual(["vertical", name === "Resize Rail" ? "252" : "240", name === "Resize Rail" ? "480" : "560"]);
+  await key(name, "Home");
+  await wait(`document.querySelector('[aria-label=Ends]').textContent === '6'`);
+  await browser("dblclick", selector);
+  await wait(`document.querySelector('[aria-label=Ends]').textContent === '7'`);
+  expect(await read<string>(`document.querySelector('${selector}').getAttribute('aria-valuenow')`)).toBe(String(expected[4]));
+}, 90_000);
 
 it("u491_existing_layout_binding", async () => {
   await browser("set", "viewport", "1280", "800");
@@ -80,6 +114,12 @@ it("u491_drag_preview_end_and_escape", async () => {
   await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 480`);
   await browser("mouse", "up");
   await wait(`document.querySelector('[aria-label=Ends]').textContent === '1'`);
+  await browser("mouse", "move", "478", "200");
+  await browser("mouse", "down");
+  await browser("mouse", "move", "0", "200");
+  await wait(`document.querySelector('[data-layout-panel=rail]').getBoundingClientRect().width === 252`);
+  await browser("mouse", "up");
+  await wait(`document.querySelector('[aria-label=Ends]').textContent === '2'`);
   expect(await read<unknown>(`(() => {
     const draft = document.querySelector('[aria-label=Draft]');
     return [draft.value, draft.selectionStart, draft.selectionEnd, document.querySelector('.centre > div').scrollTop];
@@ -107,11 +147,11 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
       for (const state of ["default", "edge-hover", "edge-focus", "hover", "focus", "dismissed"]) {
         if (state === "edge-hover") await browser("hover", ".resize-edge.rail-edge");
 
-        if (state === "edge-focus") await browser("focus", ".resize-edge.rail-edge");
+        if (state === "edge-focus") await tabTo(".resize-edge.rail-edge");
 
         if (state === "hover") await browser("hover", card);
 
-        if (state === "focus") await browser("focus", card);
+        if (state === "focus") await tabTo(card);
 
         if (state === "dismissed") {
           await browser("press", "Escape");
@@ -151,7 +191,7 @@ it.each(["click", "Enter", "Space"])("u492_accessible_activation_%s", async (inp
 
   if (input === "click") await browser("click", ".app-toast-action");
   else {
-    await browser("focus", ".app-toast-action");
+    await tabTo(".app-toast-action");
     await browser("press", input);
   }
 
@@ -163,7 +203,7 @@ it("u492_escape_dismisses", async () => {
   await load();
   await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
   await wait(`document.querySelector('.app-toast-action')`);
-  await browser("focus", ".app-toast-action");
+  await tabTo(".app-toast-action");
   await browser("press", "Escape");
   await wait(`!document.querySelector('.app-toast')`);
   expect(await read<string>(`document.querySelector('[aria-label=Activations]').textContent`)).toBe("0");

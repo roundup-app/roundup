@@ -5,46 +5,6 @@ import { Splitter } from "./Splitter";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
-it.each([1, -1] as const)("u491_keys_limits_and_reset_direction_%s", async (direction) => {
-  vi.useFakeTimers();
-  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-    const width = this.dataset.layoutPanel === "rail" ? 288 : 1280;
-
-    return { x: 0, y: 0, left: 0, top: 0, width, height: 800, right: width, bottom: 800, toJSON() {} };
-  });
-  const [width, setWidth] = createSignal(direction === 1 ? 288 : 320);
-  const preview = vi.fn();
-  const commit = vi.fn(setWidth);
-  render(() => <div data-layout-root=""><section data-layout-panel="rail" /><section data-layout-panel="centre" /><section data-layout-panel="shelf" hidden={direction === 1} />
-    <Splitter side={{ label: "Rail width", direction, min: direction === 1 ? 252 : 240, fallback: direction === 1 ? 288 : 320, now: width, room: () => direction === 1 ? 480 : 560, preview, commit }} />
-  </div>);
-  const edge = screen.getByRole("separator", { name: "Rail width" });
-  edge.focus();
-  await vi.advanceTimersByTimeAsync(0);
-  fireEvent.keyDown(edge, { key: "ArrowRight" });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(commit).toHaveBeenLastCalledWith(304);
-  fireEvent.keyDown(edge, { key: "ArrowRight", shiftKey: true });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(commit).toHaveBeenLastCalledWith(direction === 1 ? 368 : 240);
-  fireEvent.keyDown(edge, { key: "End" });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(commit).toHaveBeenLastCalledWith(direction === 1 ? 480 : 560);
-  fireEvent.keyDown(edge, { key: "Home" });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(commit).toHaveBeenLastCalledWith(direction === 1 ? 252 : 240);
-  fireEvent.keyDown(edge, { key: "Enter" });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(commit).toHaveBeenLastCalledWith(direction === 1 ? 288 : 320);
-  expect(commit).toHaveBeenCalledTimes(5);
-  expect(edge.getAttribute("aria-valuenow")).toBe(direction === 1 ? "288" : "320");
-  expect(edge.getAttribute("aria-valuemin")).toBe(direction === 1 ? "252" : "240");
-  expect(edge.getAttribute("aria-valuemax")).toBe(direction === 1 ? "480" : "560");
-  expect(edge.getAttribute("aria-orientation")).toBe("vertical");
-});
-
-
 it.each(["hidden", "disabled"] as const)("u491_hidden_edge_is_not_focusable_%s", (mode) => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   const [off, setOff] = createSignal(false);
