@@ -321,7 +321,7 @@ it("u507_layout_checks", async () => {
 
     for (const width of [1280, 1440]) {
       await browser("set", "viewport", String(width), "800");
-      const url = `${origin}harness.html?seed=tree-40${side === "head" ? "&bound=1" : ""}`;
+      const url = `${origin}harness.html?seed=tree-40${side === "head" && !captureDir("U495") ? "&bound=1" : ""}`;
       await browser("open", url);
       await browser("wait", "--fn", "Boolean(window.__fake) && Boolean(document.querySelector('[data-layout-root]'))");
       await evaluate("localStorage.clear()");
