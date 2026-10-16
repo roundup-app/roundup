@@ -1,0 +1,70 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: Make the build pass on main."
+      },
+      "response": {
+        "content": "{\"title\":\"Fix the build\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make the build pass on main.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Build repair noted."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_o12_spawn",
+        "toolResultContains": "\"parent\":\"1\""
+      },
+      "response": {
+        "content": "The build repair is assigned."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "fix the build, it fails on main since Friday",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_o12_spawn",
+            "name": "mcp__roundup__agent_spawn",
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"ask\": \"Make the build pass on main.\", \"done\": \"just check is green\", \"limits\": [\"no force push\"]}, \"prompt\": \"[from you, note] fix the build, it fails on main since Friday\", \"name\": \"fix the build\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
