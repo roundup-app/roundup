@@ -3,6 +3,7 @@ import { createMemo, createResource, createSignal, For, on, onCleanup, Show } fr
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
 import { Collapsible, ScrollShadow } from "../ui";
+import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
@@ -127,7 +128,7 @@ export const AnsweredDecisions = (props: { agent: string | null; name: string })
           </Show>
           <Show when={loaded().answers.length > 0}>
             <Collapsible.Root class="decision-history-disclosure">
-              <Collapsible.Trigger data-button="quiet" class="word">{copy.answeredRequests}</Collapsible.Trigger>
+              <Collapsible.Trigger data-button="quiet" class="word"><Icon name="right" />{copy.answeredRequests(loaded().answers.length)}</Collapsible.Trigger>
               <Collapsible.Content class="decision-history-records">
                 <ScrollShadow>
                   <For each={loaded().answers}>

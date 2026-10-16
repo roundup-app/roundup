@@ -34,7 +34,7 @@ export const copy = {
   answerRefused: (name: CopyValue, message: CopyValue) => `${name} could not answer: ${message}`,
   answeredDecisionsFor: (name: CopyValue) => `Answered requests for ${name}`,
   answeredBy: (name: CopyValue) => `Answered by ${name}`,
-  answeredRequests: "Answered requests",
+  answeredRequests: (count: number) => `${count} answered request${count === 1 ? "" : "s"}`,
   answeredOutcome: (name: CopyValue) => `${name} answered:`,
   acceptedAnswer: "Accepted answer",
   unreadableQuestion: "Unreadable question: Answer in the Terminal",

@@ -133,8 +133,8 @@ describe("u468 retained answers", () => {
     await mountApp([], prepare);
     select("alpha");
     const answers = await screen.findByRole("region", { name: "Answered requests for alpha" });
-    expect(within(answers).getByRole("button", { name: "Answered requests" }).getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(within(answers).getByRole("button", { name: "Answered requests" }));
+    expect(within(answers).getByRole("button", { name: "1 answered request" }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(within(answers).getByRole("button", { name: "1 answered request" }));
     expect(answers.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
     expect(within(answers).getByLabelText("Accepted answer").textContent).toBe(kind === "permission" ? "allow" : "keep");
     expect(answers.querySelector("article > :first-child")?.textContent).toContain("harbor answered:");
@@ -155,7 +155,7 @@ describe("u468 retained answers", () => {
     await mountApp([], prepare);
     select("alpha");
     const reopened = await screen.findByRole("region", { name: "Answered requests for alpha" });
-    fireEvent.click(within(reopened).getByRole("button", { name: "Answered requests" }));
+    fireEvent.click(within(reopened).getByRole("button", { name: "1 answered request" }));
     expect(reopened.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
     expect(reopened.textContent).toContain("harbor");
   });
@@ -171,7 +171,7 @@ describe("u468 retained answers", () => {
     // The clear event is sent after the accepted answer is stored.
     app.emit(cleared("d1", "deny"));
     const history = await screen.findByRole("region", { name: "Answered requests for alpha" });
-    fireEvent.click(within(history).getByRole("button", { name: "Answered requests" }));
+    fireEvent.click(within(history).getByRole("button", { name: "1 answered request" }));
     expect(history.textContent).toContain("deny");
     expect(card()).toBeNull();
     expect(document.activeElement).toBe(terminal);
@@ -187,7 +187,7 @@ describe("u468 retained answers", () => {
     expect(within(history).getByRole("alert").textContent).toContain("answers unavailable");
     app.handlers["decision.answers"] = () => [{ decision: decision("d1", "a"), kind: "permission", prompt: '{"command":"run tests"}', attempt: "attempt-a", answer: "allow", note: "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 3 }];
     fireEvent.click(within(history).getByRole("button", { name: "Retry" }));
-    fireEvent.click(await within(history).findByRole("button", { name: "Answered requests" }));
+    fireEvent.click(await within(history).findByRole("button", { name: "1 answered request" }));
     await waitFor(() => expect(history.textContent).toContain("run tests"));
     expect(within(history).queryByRole("alert")).toBeNull();
   });
@@ -203,7 +203,7 @@ describe("u468 retained answers", () => {
     await waitFor(() => expect(rpcCalls(app, "decision.answers")).toContainEqual({ agent: "a" }));
     select("beta");
     const history = await screen.findByRole("region", { name: "Answered requests for beta" });
-    fireEvent.click(within(history).getByRole("button", { name: "Answered requests" }));
+    fireEvent.click(within(history).getByRole("button", { name: "1 answered request" }));
     late.resolve([{ decision: decision("d1", "a"), kind: "permission", prompt: '{"command":"alpha command"}', attempt: "attempt-a", answer: "allow", note: "", answered_by: { kind: "agent", id: "r", parent: null }, answered_at: 3 }]);
     await late.promise;
     expect(history.textContent).toContain("beta command");

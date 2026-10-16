@@ -173,7 +173,11 @@
   align-self: flex-start;
 }
 
-.decision-history-records {
+.decision-history-disclosure > button[aria-expanded="true"] .icon {
+  transform: rotate(90deg);
+}
+
+.decision-history-records[data-state="open"] {
   min-height: 0;
   display: flex;
   flex-direction: column;
