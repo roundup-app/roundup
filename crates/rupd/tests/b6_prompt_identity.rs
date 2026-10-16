@@ -4239,7 +4239,22 @@ async fn b6_later_door_effects_cannot_overtake_a_released_resize() {
         let (run, caller) = door_terminal().await;
         std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
         let digest_door = if method == "agent.digest" {
-            Some(start_answer_door(&run).await.0)
+            let door = start_answer_door(&run).await.0;
+            let tree = run.user.request("rail.tree", ()).await.unwrap();
+            let stopped = tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["kind"] == "agent" && n["parent"].is_null())
+                .unwrap();
+            run.user
+                .request(
+                    "rail.move",
+                    json!({"id":stopped["id"],"parent":door,"index":0}),
+                )
+                .await
+                .unwrap();
+            Some(door)
         } else {
             None
         };
@@ -4361,6 +4376,21 @@ async fn b6_wire_later_door_effects_wait_for_all_earlier_resizes() {
             .find(|n| n["id"] == run.child)
             .unwrap()["parent"]
             .clone();
+        if method == "agent.digest" {
+            let stopped = tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["kind"] == "agent" && n["parent"].is_null())
+                .unwrap();
+            run.user
+                .request(
+                    "rail.move",
+                    json!({"id":stopped["id"],"parent":door,"index":0}),
+                )
+                .await
+                .unwrap();
+        }
         let client = tokio::net::UnixStream::connect(&run.daemon.socket)
             .await
             .unwrap();
