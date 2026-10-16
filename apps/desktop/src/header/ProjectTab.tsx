@@ -12,16 +12,19 @@ import type { StripTab } from "./tab";
 const RenameField = (props: { name: string; onDone: (saved: string | null, refocus: boolean) => void }) => {
   let field: HTMLInputElement | undefined;
   let finished = false;
+
   const finish = (saved: string | null, refocus: boolean) => {
     if (finished) return;
     finished = true;
     props.onDone(saved, refocus);
   };
+
   registerKeys({ kind: "layer", element: () => field, active: () => !finished, modal: true }, [
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
     { chords: ["Escape"], when: (press) => !press.isComposing, run: () => finish(null, true) },
   ]);
   onMount(() => { field?.focus(); field?.select(); });
+
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onBlur={() => finish(field?.value ?? "", false)} />;
 };
@@ -58,6 +61,7 @@ export const ProjectTab = (props: {
     onExitComplete={() => {
       if (!modelsRequested) return;
       modelsRequested = false;
+
       if (button?.isConnected) button.focus();
       props.onModels();
     }}>
@@ -68,7 +72,9 @@ export const ProjectTab = (props: {
       onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}>
       <Show when={editing() === null} fallback={<RenameField name={props.tab.name} onDone={(saved, refocus) => {
         setEditing(null);
+
         if (refocus) button?.focus();
+
         if (saved !== null) props.onRename(saved);
       }} />}>
         <Tooltip.Root ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} closeOnEscape={false} positioning={{ strategy: "fixed" }}>

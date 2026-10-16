@@ -11,29 +11,40 @@ import "../tokens.css";
 import "../styles.css";
 
 const app = createFakeApp();
+
 app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, models: { roles: [{ role: 'door', model: null, effort: null }], allowed: [] } });
+
 app.handlers['models.list'] = () => ({ models: [{ id: 'opus', label: 'Authored 雪 Model' }], efforts: [{ id: 'high', label: 'High' }] });
+
 const connected = await connectProject(app, { path: '/fixture', name: 'Fixture' }, () => true, () => 0);
+
 const Fixture = () => {
   const [models, setModels] = createSignal(false);
+
   const [tabs, setTabs] = createSignal<StripTab[]>(Array.from({ length: 8 }, (_, at) => ({
     path: `/project ${at} 雪`, name: `Project number ${at}`, busy: false, exitText: null,
     needsYou: at === 1 ? 1 : 0, error: at === 7 ? 1 : 0, running: ['Authored Agent'],
   })));
+
   const [active, setActive] = createSignal(tabs()[0]!.path);
   const [marks, setMarks] = createSignal(0);
   const reverse = new URLSearchParams(location.search).has('reverse');
+
   const Top = () => <>
     <div style={{ height: 'calc(var(--space-6) * 2)', width: 'calc(var(--space-6) * 10)' }}>
       <Strip tabs={tabs()} active={active()} onSelect={setActive}
         onMark={(path) => { setActive(path); setMarks(marks() + 1); }}
         onRename={(path, name) => setTabs(tabs().map(tab => tab.path === path ? { ...tab, name } : tab))}
-        onClose={(path) => { const next = tabs().filter(tab => tab.path !== path); setTabs(next); if (active() === path) setActive(next[0]!.path); }}
+        onClose={(path) => { const next = tabs().filter(tab => tab.path !== path); setTabs(next);
+
+ if (active() === path) setActive(next[0]!.path); }}
         onChoose={() => {}} onModels={() => setModels(true)} />
     </div>
     <Show when={models()}><ModelsSheet onClose={() => setModels(false)} /></Show>
   </>;
+
   const Draw = () => <div><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></div>;
+
   return <ConnectedProjectContext.Provider value={connected}>
     <Tabs.Root value={active()} onValueChange={({ value }) => setActive(value)} activationMode="manual"
       ids={{ trigger: value => `tab-${encodeURIComponent(value)}`, content: value => `panel-${encodeURIComponent(value)}` }}>
@@ -49,4 +60,5 @@ const Fixture = () => {
     </Tabs.Root>
   </ConnectedProjectContext.Provider>;
 };
+
 render(() => <Fixture />, document.getElementById('root')!);
