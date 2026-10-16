@@ -405,9 +405,9 @@
 /* U404: the owned control is `◇<n>` in --grey (the row action's) at --text-caption. */
 .rail-row .rail-pads-control {
   --button-inline: 0;
-  --button-lead: var(--space-1);
+  --button-lead: 0;
   flex: 0 0 auto;
-  gap: 0;
+  gap: var(--space-1);
   font-size: var(--text-caption);
 }
 

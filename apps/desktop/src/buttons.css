@@ -74,8 +74,8 @@ button {
 }
 
 /* U137: the Add Agent icon and label share stronger ink on the selected wash to keep D5. */
-.rail-row[data-selected="true"] button:has(.rail-add-label):not([aria-disabled="true"]),
-.rail-row[data-selected="true"] .rail-split-add [data-button="icon"]:not([aria-disabled="true"]) {
+.rail-row[data-selected="true"] button:has(.rail-add-label):not([aria-disabled="true"], :active, [data-pressed="true"]),
+.rail-row[data-selected="true"] .rail-split-add [data-button="icon"]:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--text);
 }
 
