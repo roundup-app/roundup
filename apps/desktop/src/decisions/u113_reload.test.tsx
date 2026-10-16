@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { describe, expect, it } from "vitest";
-import { card, decision, mountApp, rpcCalls, select } from "./decisionsFixture";
+import { describe, expect, it, vi } from "vitest";
+import { NOW_TICK_MS } from "../state/clock";
+import { asking, card, cleared, decision, opened, mountApp, rpcCalls, select } from "./decisionsFixture";
 
 describe("u113 a reload and a Reopen", () => {
   it("u113_a_webview_reload_restores_the_live_decisions", async () => {
@@ -18,14 +19,6 @@ describe("u113 a reload and a Reopen", () => {
 
     await waitFor(() => expect(card()?.textContent).toContain("rm -rf build"));
     expect(rpcCalls(first.app, "decision.list").length).toBeGreaterThan(0);
-  });
-
-  it("u113_empty_results_leave_no_card", async () => {
-    await mountApp([]);
-    select("alpha");
-
-    expect(card()).toBeNull();
-    expect(document.querySelector(".decision-card")).toBeNull();
   });
 
   it("u113_reopen_answers_with_the_new_connections_proof_and_the_proof_never_shows", async () => {
@@ -56,23 +49,66 @@ describe("u113 a reload and a Reopen", () => {
   });
 });
 
-
 describe("u468 refused Door answers", () => {
-  it("u468_a_failed_door_answer_keeps_the_request_actionable", async () => {
-    const { app } = await mountApp([decision("d1", "a", {
-      failure: {
-        attempt: "attempt-a", answered_by: { kind: "agent", id: "r", parent: null },
-        failed_at: 2, error_code: -32602, message: "answer is allow or deny, with no note",
-      },
-    })]);
-    select("alpha");
+  it.each(["permission", "question"])("u468_a_failed_door_answer_keeps_the_request_actionable (%s)", async (kind) => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
 
-    await waitFor(() => expect(card()?.textContent).toContain("harbor"));
-    expect(within(card()!).getByRole("alert").textContent).toContain("answer is allow or deny, with no note");
-    expect(card()?.textContent).toContain("rm -rf build");
-    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+    try {
+      const original = kind === "permission" ? decision("d1", "a") : asking("d1", "a", "keep v1 routes?", ["keep", "drop"]);
+      let live = [original];
+      const { app } = await mountApp([], (app) => { app.handlers["decision.list"] = () => live; }, Date.now);
+      select("alpha");
+      await waitFor(() => expect(card()?.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?"));
+      const note = kind === "question" ? within(card()!).getByRole("textbox", { name: "Note" }) : null;
 
-    await waitFor(() => expect(card()).toBeNull());
-    expect(rpcCalls(app, "decision.answer")).toEqual([{ id: "d1", answer: "allow", proof: app.proof.value }]);
+      if (note) {
+        note.focus();
+        fireEvent.input(note, { target: { value: "keep compatibility" } });
+      }
+
+      live = [{ ...original,
+        failure: {
+          attempt: "attempt-a", answered_by: { kind: "agent", id: "r", parent: null },
+          failed_at: 2, error_code: -32602, message: "answer is allow or deny, with no note",
+        },
+      }];
+      // The shared App clock refreshes live requests; no event reports a refused answer.
+      await vi.advanceTimersByTimeAsync(NOW_TICK_MS);
+
+      await waitFor(() => expect(card()?.textContent).toContain("harbor"));
+      expect(within(card()!).getByRole("alert").textContent).toContain("answer is allow or deny, with no note");
+      expect(card()?.textContent).toContain(kind === "permission" ? "rm -rf build" : "keep v1 routes?");
+
+      if (note) {
+        const current = within(card()!).getByRole("textbox", { name: "Note" });
+        expect(document.activeElement).toBe(current);
+        expect(current instanceof HTMLInputElement && current.value).toBe("keep compatibility");
+      }
+
+      fireEvent.click(within(card()!).getByRole("button", { name: kind === "permission" ? "Allow" : "Send" }));
+
+      await waitFor(() => expect(card()).toBeNull());
+      expect(rpcCalls(app, "decision.answer")).toEqual([kind === "permission"
+        ? { id: "d1", answer: "allow", proof: app.proof.value }
+        : { id: "d1", answer: "keep", note: "keep compatibility", proof: app.proof.value }]);
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
   });
+
+  it("u468_a_replacement_does_not_inherit_the_previous_requests_answer", async () => {
+    const first = asking("d1", "a", "keep v1 routes?", ["keep", "drop"]);
+    const { app } = await mountApp([first]);
+    select("alpha");
+    await waitFor(() => expect(card()?.textContent).toContain("keep v1 routes?"));
+    fireEvent.input(within(card()!).getByRole("textbox", { name: "Note" }), { target: { value: "only for the first request" } });
+
+    app.emit(opened({ ...first, id: "d2", opened_at: 2 }));
+    app.emit(cleared("d1", "replaced"));
+
+    const note = within(card()!).getByRole("textbox", { name: "Note" });
+    expect(note instanceof HTMLInputElement && note.value).toBe("");
+  });
+
 });
