@@ -305,14 +305,15 @@ of an immediate Stop; it never describes acceptance as a completed stop.
 Known Agent processes cannot bypass the hold by claiming the user. Direct user
 Stop remains immediate.
 
-Release rechecks Reach and the original Attempt and Terminal before stopping.
+Release rechecks Reach and the original Attempt before stopping. A Terminal
+attaching to that same starting Attempt keeps its waiting Stop valid.
 A removed child, an exited Terminal or a replaced Attempt produces a retained
 drop reason; later actions still proceed. Stop completion waits for the Agent's
 existing exit confirmation. An uncertain effect remains explained by its
 recorded reason and is never automatically retried.
 
 No Takeover or Terminal survives restart. A waiting Stop is dropped with the
-original-Terminal reason rather than applied to a replacement Attempt. A Stop
+original-Attempt reason rather than applied to a replacement Attempt. A Stop
 recorded in progress is dropped as possibly already applied; a completed Stop
 retains its completion. These are integration-tested action guarantees for
 M1, M3, M4, M6, M7, M9 and M10. Message proofs and laws are unchanged. #1581
