@@ -241,7 +241,7 @@ export const copy = {
   pasteFailedTheSystemClipboardRefusedItPress: "Paste failed: The system clipboard refused it. Press ⌘V again, or drop a file on the pane.",
   copyFailedTheSystemClipboardRefusedItPress: "Copy failed: The system clipboard refused it. Press ⌘C again.",
   doesNotExist: (value1: CopyValue) => `${value1} does not exist`,
-  whyClear: "Why clear ",
+  whyClear: "Why clear?",
   theDoorIsWritingTheHandoff: "The supervisor is writing the summary",
   theDoorWritesAHandoffKeepsWhatYou: (value1: CopyValue) => `The supervisor writes a summary, keeps what you asked for, archives the rest, and stops ${value1} ${value1 === 1 ? "Subagent" : "Subagents"}; their files stay`,
   clearWithHandoff: "Clear and keep a summary",
