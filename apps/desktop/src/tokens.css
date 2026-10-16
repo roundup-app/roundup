@@ -207,3 +207,8 @@
   --red: var(--root-red);
   --hairline: var(--root-hairline);
 }
+
+/* U510: a pressed ghost button dims its ink; read per button so a scoped `--text` (the header) still applies. */
+button {
+  --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
+}

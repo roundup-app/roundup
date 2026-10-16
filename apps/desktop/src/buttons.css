@@ -30,15 +30,17 @@ button {
 
 /* quiet: a grey label, no surface at rest. */
 [data-button="quiet"] {
+  --button-radius: 0;
+  gap: var(--space-1);
   color: var(--grey);
 }
 
 /* add: a `+` mark and a label, trailing a list or group. */
 [data-button="add"] {
   display: inline-flex;
+  --button-radius: 0;
   gap: var(--space-1);
   align-items: center;
-  --button-inline: var(--space-1);
   color: var(--grey);
 }
 
@@ -49,12 +51,13 @@ button {
   align-items: center;
   justify-content: center;
   min-width: var(--space-5);
-  --button-inline: var(--space-1);
+  --button-radius: 0;
   color: var(--grey);
 }
 
 /* icon button: a 16 px mark in a 24 px square. */
 [data-button="icon"] {
+  --button-radius: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -85,7 +88,7 @@ button {
   color: var(--red);
 }
 
-button:hover:not([aria-disabled="true"]) {
+button:hover:not([aria-disabled="true"]):not(:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not(:where([aria-pressed="true"], [role="tab"], .tab-name-button))) {
   background-color: var(--button-hover);
 }
 
@@ -101,6 +104,12 @@ button:active:not([aria-disabled="true"]),
 button[data-pressed="true"]:not([aria-disabled="true"]) {
   background-color: var(--pressed);
   transition-duration: 0s;
+}
+
+/* Ghost, icon and disclosure buttons answer with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
+:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not([aria-pressed="true"], [role="tab"], .tab-name-button):is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+  background-color: var(--button-surface);
+  color: var(--ink-pressed);
 }
 
 /* U470: an icon toggle keeps its library mark and shows its state on a selected surface. */

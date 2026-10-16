@@ -66,6 +66,8 @@ const PAINT = `selector => {
   const rgb = value => {
     const hex = /^#([0-9a-f]{6})$/i.exec(value.trim());
     if (hex) return [0, 2, 4].map(i => parseInt(hex[1].slice(i, i + 2), 16)).concat(1);
+    const srgb = /^color\\(srgb ([^)]+)\\)$/.exec(value.trim());
+    if (srgb) { const c = srgb[1].split(/[\\s/]+/).filter(Boolean).map(Number); return [c[0] * 255, c[1] * 255, c[2] * 255, c[3] ?? 1]; }
     const match = /^rgba?\\(([^)]+)\\)$/.exec(value.trim());
     if (!match) throw new Error('unresolved colour: ' + value);
     const channels = match[1].split(/[\\s,/]+/).filter(Boolean).map(Number);
@@ -274,7 +276,12 @@ it("u441_token_surfaces_keep_contrast", async () => {
       const p = await point(selector);
       await page.down(p.x, p.y);
       const pressed = await paint(selector);
-      expect(pressed.background, selector + ' distinct press').not.toBe(before.background);
+      // U510: a covered icon button answers a press with dimmed ink and no fill; the tab name keeps its surface.
+      if (selector === '.tab-name-button') expect(pressed.background, selector + ' distinct press').not.toBe(before.background);
+      else {
+        expect(pressed.colour, selector + ' distinct press').not.toBe(before.colour);
+        expect(pressed.background, selector + ' press paints no fill').toBe(before.background);
+      }
       expect(pressed.duration).toBe('0s');
       await save(`${capture}-${selector.slice(1)}-pressed`, { pressed, textRatio: ratio(pressed.ink, pressed.ground) });
       expect(ratio(pressed.ink, pressed.ground), selector + ' pressed').toBeGreaterThanOrEqual(4.5);
@@ -397,9 +404,15 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
       expect(activation, name).not.toBeNull();
       const pressed = activation.paint;
 
-      expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(56, 56, 58)');
-      expect(pressed.background).not.toBe(rest.background);
-      expect(pressed.background).not.toBe(hovered.background);
+      if (selector === '.tab-name-button') {
+        expect(pressed.background, name).toBe(scheme === 'light' ? 'rgb(248, 248, 248)' : 'rgb(56, 56, 58)');
+        expect(pressed.background).not.toBe(rest.background);
+        expect(pressed.background).not.toBe(hovered.background);
+      } else {
+        // U510: the close icon dims its ink and paints no fill.
+        expect(pressed.background, name).toBe(rest.background);
+        expect(pressed.colour).not.toBe(hovered.colour);
+      }
       expect(pressed.duration).toBe('0s');
 
       const channels = pressed.ground.slice(0, 3).map(c => c / 255);
