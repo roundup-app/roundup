@@ -38,7 +38,8 @@ const mount = async (dark = false) => {
 const style = (selector: string) => getComputedStyle(document.querySelector(selector)!);
 
 // The Checks that pass on main for this screen in both schemes (the base captures of U161); D1, D6, D7 and D10 fail there too.
-const PASSING_ON_MAIN = new Set(["D2", "D3", "D4", "D5", "D8", "D9"]);
+// D5 needs painted boxes: u161_checks_<scheme>_d5_on_painted_layout_at_<width>_by_800 in u137_checks.test.tsx retains both schemes.
+const PASSING_ON_MAIN = new Set(["D2", "D3", "D4", "D8", "D9"]);
 
 describe("u161 the first window reads as designed", () => {
   it("u161_a_hairline_on_the_rails_trailing_edge_and_the_shelfs_leading_edge_and_no_other_region_edge", async () => {
