@@ -370,11 +370,17 @@ impl Daemon {
         } else {
             None
         };
-        let _resize = if method == "terminal.resize" {
+        let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename") {
             if let Some(child) = &child {
                 let guard = self.child_effects(child).write_owned().await;
-                if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
-                    return Ok(receipt);
+                if method == "terminal.resize" {
+                    if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
+                        return Ok(receipt);
+                    }
+                } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                    // End may still be delivering a recorded Message. Its older actions
+                    // must run before this rename, without waiting for Message typing.
+                    self.release_resizes(child).await?;
                 }
                 Some(guard)
             } else {
@@ -384,7 +390,7 @@ impl Daemon {
             None
         };
         let _door_effect = match child {
-            Some(child) if method != "terminal.resize" => {
+            Some(child) if !matches!(method, "terminal.resize" | "rail.rename") => {
                 Some(self.child_effects(&child).read_owned().await)
             }
             _ => None,
