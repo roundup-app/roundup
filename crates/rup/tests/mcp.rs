@@ -1265,7 +1265,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "exported Pad notes to /tmp/notes.md",
             ),
             "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
-            "agent.interrupt" => (json!({"id":"child"}), "interrupted Agent child"),
             "agent.prompt" => (
                 json!({"id":"child","prompt":"hello"}),
                 "sent prompt to Agent child",
@@ -1362,6 +1361,12 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
             json!({"id":"3","agent":"child","method":"agent.stop","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
         ),
         ("agent_stop", json!({"id":"child"}), Value::Null),
+        (
+            "agent_interrupt",
+            json!({"id":"child"}),
+            json!({"id":"4","agent":"child","method":"agent.interrupt","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("agent_interrupt", json!({"id":"child"}), Value::Null),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),
