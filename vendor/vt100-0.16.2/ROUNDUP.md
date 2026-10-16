@@ -126,3 +126,37 @@ The rendering test before the correction exited 101 (`AB` versus `A�B`).
 Both new tests and the four existing library prerequisite tests pass after it.
 This is library-only evidence, not selected streams, raw Tauri transport,
 production parser migration, flood journey or matched performance acceptance.
+
+## Executed controls (X14 prerequisite, #2150)
+
+The additional vt100 source delta is `Callbacks::control` (default no-op) and
+one synchronous notification in `WrappedScreen::execute` after applying BS (8),
+HT (9), LF (10), VT (11), FF (12) or CR (13). It reports execution even when the
+screen and retained history remain identical. Hidden OSC bytes, CSI finals,
+text, bells and unhandled controls do not invoke it. No observations or offsets
+are retained by the library. Feed one byte per `Parser::process` call and set a
+caller-owned completion offset before that call, as for `Callbacks::text`.
+Clones retain callback state according to the callback's Clone implementation;
+shared external effects still require caller isolation. No vte change is needed.
+
+`x14_library_reports_executed_controls_at_raw_offsets` checks saturated blank
+scrollback against a pending OSC clone, literal post-control cursor states and
+completion offsets, hidden controls and separation from text/CSI finals.
+`x14_library_control_observation_survives_checkpoint_replay` checks literal
+controls/text/offsets and repeated read-only replay at every byte cut through
+CSI, OSC, UTF-8 and CRLF, including callback and retained-history isolation.
+Both use the real installed parser. Existing bounded-state, handled-write and
+replacement-rendering observers retain their distinct assertions; none is cut.
+
+Reuse rechecked 2026-10-16: `gh api` for vt100 main and vte master each exited 0
+and returned the same revisions/dates recorded above. The pinned upstream
+`perform.rs` and vte `lib.rs` were fetched through `gh api` (exit 0). Unmodified
+vt100 applies controls without exposing the execution fact; its Screen/Clone
+and text callbacks cannot distinguish a ground LF from an OSC LF on saturated
+blank history. vte's existing `Perform::execute` supplies that recognition but
+vte alone lacks vt100's screen emulator and cannot observe vt100's private
+recognizer. Selected: extend the existing vt100 callback boundary, reusing its
+installed vte recognizer. Exact dependency pins, archive hashes and licence
+texts are unchanged. Actual command exits are recorded on #2150 and its PR.
+This supplies no production projection/migration, selected streams, transport,
+flood/journey or matched performance evidence; those remain with #1930.
