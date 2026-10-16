@@ -124,6 +124,7 @@ beforeAll(async () => {
           .replace('import { copy }', 'import { Tabs } from "../ui";\nconst TabList = (props: Parameters<typeof Tabs.List>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
           .replace('<div class="tablist"', '<TabList class="tablist"')
           .replace('        </div>\n        {edge(copy.right', '        </TabList>\n        {edge(copy.right');
+
         if (id.endsWith("/header/ProjectTab.tsx")) return source
           .replace('import { copy }', 'import { Tabs } from "../ui";\nconst ProjectTrigger = (props: Parameters<typeof Tabs.Trigger>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
           .replace('<button data-button="quiet"\n          type="button"\n          role="tab"', '<ProjectTrigger value={props.tab.path} data-button="quiet"\n          type="button"\n          role="tab"')
@@ -363,9 +364,10 @@ it("u507_layout_checks", async () => {
 it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tabs-8&tabs=1`);
   await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab][aria-busy=false]').length === 8");
-  await evaluate(`document.querySelector('[data-path="/Users/you/harness"] [role=tab]').click()`);
-  await browser("wait", "--fn", "Boolean(document.querySelector('.rail [data-id=agent-1]'))");
+  await evaluate(`document.querySelector('[data-path="/Users/you/project-number-2"] [role=tab]').click()`);
+  await browser("wait", "--fn", "Boolean(document.querySelector('.rail [data-id=p2-agent]'))");
   await settle();
+
   const linked = () => evaluate(`(() => {
     const tab = document.querySelector('.header [role=tab][aria-selected=true]');
     const panel = document.getElementById(tab?.getAttribute('aria-controls'));
@@ -374,13 +376,14 @@ it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
       && ['rail','centre','shelf'].every(part => panel.contains(document.querySelector('[data-layout-panel='+part+']')))
       && !panel.contains(tab) && !panel.hidden);
   })()`);
+
   expect(await linked()).toBe(true);
   await browser("click", '.header [role=tab][aria-selected=true]');
   await browser("press", "ArrowRight");
   await browser("wait", "--fn", "document.activeElement?.getAttribute('data-value') !== document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('data-value')");
-  expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/harness");
+  expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-2");
   await browser("press", "Enter");
-  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]') && Boolean(document.querySelector('.rail [data-id=p2-agent]'))");
+  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]') && Boolean(document.querySelector('.rail [data-id=p3-agent]'))");
   expect(await linked()).toBe(true);
 }, 90_000);
 
