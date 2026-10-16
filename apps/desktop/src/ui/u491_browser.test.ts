@@ -204,6 +204,17 @@ it.each(["click", "Enter", "Space"])("u492_accessible_activation_%s", async (inp
   expect(await read<string>(`document.querySelector('[aria-label=Activations]').textContent`)).toBe("1");
 }, 90_000);
 
+it("u492_tab_leaves_toast_for_next_document_control", async () => {
+  await load();
+  await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
+  await wait(`document.querySelector('.app-toast-action')`);
+  await browser("focus", ".app-toast-action");
+  await browser("press", "Tab");
+  expect(await read<string>(`document.activeElement?.getAttribute('aria-label')`)).toBe("Resize work items");
+  await browser("press", "Shift+Tab");
+  expect(await read<boolean>(`document.activeElement?.matches('.app-toast-action')`)).toBe(true);
+}, 90_000);
+
 it("u492_escape_dismisses", async () => {
   await load();
   await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
