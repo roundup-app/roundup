@@ -56,7 +56,7 @@ export const AddAgentPicker = (props: {
     if (fields.length === 0) return null;
     const phrase = copy.unsetDefault(copy.claudeCode);
 
-    if (fields.length === 2) return phrase;
+    if (fields.length === 2) return copy.fieldDefault(copy.modelAndEffort, phrase);
 
     return copy.fieldDefault(fields[0] === "model" ? copy.model : copy.effort, phrase);
   };

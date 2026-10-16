@@ -173,6 +173,7 @@ export const copy = {
   defaultModel: (value1: CopyValue) => `Default (${value1})`,
   model: "Model",
   effort: "Effort",
+  modelAndEffort: "Model and Effort",
   addAgent: "Add agent",
   retry: "Retry",
   projectRoot: "Project root",

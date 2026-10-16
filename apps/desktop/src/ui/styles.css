@@ -311,6 +311,9 @@
   z-index: 3;
   max-height: calc(var(--space-5) * 8);
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
   padding: var(--space-1);
   color: var(--text);
   background-color: var(--sunken);
@@ -324,6 +327,7 @@
   min-height: var(--space-5);
   padding-inline: var(--space-2);
   border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 
