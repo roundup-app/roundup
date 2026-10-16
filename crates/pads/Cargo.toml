@@ -16,6 +16,7 @@ tempfile.workspace = true
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
 unicode-normalization = "0.1"
+pulldown-cmark = { version = "0.13.4", default-features = false }
 
 [dev-dependencies]
 provenance = { path = "../provenance" }
