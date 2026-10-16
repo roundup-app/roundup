@@ -264,6 +264,7 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         .await
         .unwrap();
     let hook: Value = serde_json::from_str(brief["stdout"].as_str().unwrap()).unwrap();
+    assert_eq!(hook["hookSpecificOutput"]["hookEventName"], "SessionStart");
     assert!(
         messages.contains(
             hook["hookSpecificOutput"]["additionalContext"]
