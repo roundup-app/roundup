@@ -6,6 +6,8 @@ import "./styles.css";
 /** Binds U507's host from an edge, leaving grid and absolute panel styles with Layout. */
 export function Splitter(props: { side: Side; class?: string; disabled?: boolean; hidden?: boolean; onDragging?: (dragging: boolean) => void }) {
   let edge!: HTMLDivElement;
+  let pointerResize = false;
+  let previewed = false;
   const id = createUniqueId();
   const [host, setHost] = createSignal<HTMLElement>();
   const [extent, setExtent] = createSignal(1);
@@ -47,9 +49,15 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     },
     get size() { return sizes(); },
     get keyboardResizeBy() { return percent(step()); },
-    onResize: ({ size }) => publish(size),
-    onResizeStart: () => props.onDragging?.(true),
-    onResizeEnd: ({ size }) => { publish(size, true); props.onDragging?.(false); },
+    onResize: ({ size }) => { previewed = true; publish(size); },
+    onResizeStart: () => {
+      props.onDragging?.(api().dragging);
+    },
+    onResizeEnd: ({ size }) => {
+      // Ark ends pointer clicks too; committing those would triple a double-click reset.
+      if (!pointerResize || previewed) publish(size, true);
+      props.onDragging?.(false);
+    },
   });
 
   const triggerId = () => props.side.direction === 1 ? "rail:centre" as const : "centre:shelf" as const;
@@ -109,7 +117,22 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     props.side.commit(px);
   };
 
+  const pointerDown: JSX.EventHandler<HTMLDivElement, PointerEvent> = (event) => {
+    if (!api().dragging) { pointerResize = true; previewed = false; }
+
+    const handler = trigger().onPointerDown;
+
+    if (handler) {
+      if (0 in handler) handler[0](handler[1], event);
+      else handler(event);
+    }
+  };
+
   const keyDown: JSX.EventHandler<HTMLDivElement, KeyboardEvent> = (event) => {
+    if (event.defaultPrevented) return;
+
+    if (!api().dragging) pointerResize = false;
+
     if (event.key === "Enter") { event.preventDefault(); reset();
 
  return; }
@@ -140,5 +163,5 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   return <div {...trigger()} ref={(element) => { edge = element; }} class={`resize-edge app-splitter ${props.class ?? ""}`} hidden={props.hidden}
     tabIndex={props.disabled || props.hidden ? -1 : 0}
     aria-label={props.side.label} aria-orientation="vertical" aria-valuenow={pixels()} aria-valuemin={props.side.min} aria-valuemax={maximum()}
-    onKeyDown={keyDown} onDblClick={reset} />;
+    onPointerDown={pointerDown} onKeyDown={keyDown} onDblClick={reset} />;
 }
