@@ -1,7 +1,6 @@
 import { copy } from "../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import * as v from "valibot";
-import type { Decision } from "@contracts/decision/Decision";
 import { Markdown } from "../plain/Markdown";
 
 const json = v.pipe(v.string(), v.parseJson());
@@ -19,15 +18,12 @@ export const questionOf = (args: string): Question | null => {
   return result.success ? result.output : null;
 };
 
-/** U423: the question of an `ask_user` Decision the Thread can draw: readable and answerable here. */
-export const askedOf = (decision: Decision): Question | null => (decision.tool === "ask_user" && decision.answerable ? questionOf(decision.args) : null);
-
 const RECOMMENDED = " (recommended)";
 
 const NOTE_MAX = 2000;
 
 /** U423: the position after an arrow key among `count` answers and none (`null`), or `undefined` when the key moves nothing. */
-export const moved = (count: number, focus: number | null, key: string): number | null | undefined => {
+const moved = (count: number, focus: number | null, key: string): number | null | undefined => {
   if (count === 0 || (key !== "ArrowDown" && key !== "ArrowUp")) return undefined;
 
   // The positions are the rows, then none.
@@ -37,7 +33,7 @@ export const moved = (count: number, focus: number | null, key: string): number 
 };
 
 /** U406: the answers of an `ask_user` Decision with their tradeoffs, and the focused answer's preview. `focus` is the focused row; `null` is none: the user's own answer. */
-export const AskAnswers = (props: { question: Question; stuck: () => boolean; focus: () => number | null; setFocus: (at: number | null) => void; onKeyDown?: (key: KeyboardEvent) => void }) => {
+const AskAnswers = (props: { question: Question; stuck: () => boolean; focus: () => number | null; setFocus: (at: number | null) => void; onKeyDown?: (key: KeyboardEvent) => void }) => {
   const answers = () => props.question.answers;
 
   const focused = () => {

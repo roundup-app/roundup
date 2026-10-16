@@ -4,13 +4,11 @@ import type { Decision } from "@contracts/decision/Decision";
 import { RpcError } from "../app/seam";
 import { callsTo } from "./paneHarness";
 import { agent, door, event } from "../testing/nodes";
-import { chooseFromMenu, message, mountThread, sent } from "../thread/threadFixture";
-import { USER } from "../testing/nodes";
+import { mountCentre } from "../testing/centreFixture";
 
 const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent("a", "working", "x", { parent: "workstream", name: "ann", terminal_id: "t-a" })];
 
-/** U187's one release of a Door's Takeover (`takeover.end` on the Door) comes first and is not these tests' subject. */
-const calls = (app: { calls: { method: string }[] }, prefix: string) => app.calls.filter((call) => call.method.startsWith(prefix)).map((call) => call.method).slice(prefix === "takeover." ? 1 : 0);
+const calls = (app: { calls: { method: string }[] }, prefix: string) => app.calls.filter((call) => call.method.startsWith(prefix)).map((call) => call.method);
 
 const band = () => document.querySelector(".pane-watch");
 
@@ -19,7 +17,7 @@ const bytes = (...values: number[]) => Uint8Array.from(values);
 const open: Decision = { id: "d1", agent: "a", tool: "Bash", args: JSON.stringify({ command: "rm -rf build" }), opened_at: 1, answerable: true };
 
 const mountWatch = async (decisions: Decision[] = []) => {
-  const mounted = await mountThread(tree(), { select: "a", prepare: (app) => {
+  const mounted = await mountCentre(tree(), { select: "a", prepare: (app) => {
     app.handlers["decision.list"] = () => decisions;
     app.handlers["decision.answer"] = () => null;
   } });
@@ -60,7 +58,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.querySelector(".pane-takeover")).toBeNull();
   });
 
-  it("u375_watch_scrolls_copies_and_holds_no_message", async () => {
+  it("u375_watch_scrolls_and_copies", async () => {
     const { app, emulators } = await mountWatch();
     const emulator = emulators.get("t-a")!;
 
@@ -78,18 +76,11 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(calls(app, "takeover.")).toEqual([]);
     expect(callsTo(app, "terminal.resize").length).toBeGreaterThan(0);
 
-    // B1, B6: another Actor's Message to the watched Agent shows with the status the Daemon reports, and Watch begins no Takeover to hold it.
-    app.emit(sent(message(8, { from: USER, to: "a", body: "second", status: "delivered" })));
-    fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
-    await chooseFromMenu("All Messages");
-    await vi.waitFor(() => expect(document.querySelector("[data-message-body]")?.textContent).toBe("second"));
-    expect(document.querySelector("[data-message-body]")?.getAttribute("data-status")).toBe("delivered");
-    expect(calls(app, "takeover.")).toEqual([]);
     expect(callsTo(app, "terminal.write")).toEqual([]);
   });
 
   it.each(["a", "nested"])("u467_each_child_keeps_takeover_and_give_back_controls (%s)", async (id) => {
-    const { app, connected } = await mountThread([...tree(), agent("nested", "working", "x", { parent: "a", name: "nested", terminal_id: "t-nested" })], { select: id });
+    const { app, connected } = await mountCentre([...tree(), agent("nested", "working", "x", { parent: "a", name: "nested", terminal_id: "t-nested" })], { select: id });
     const take = screen.getByRole("button", { name: "Take control" });
     expect(take.tagName).toBe("BUTTON");
     fireEvent.click(take);
@@ -103,7 +94,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await connected.takeover.end("not-taken");
 
     expect(connected.takeover.taken()).toBeNull();
-    expect(app.calls.filter((call) => call.method.startsWith("takeover.")).slice(1)).toEqual([
+    expect(app.calls.filter((call) => call.method.startsWith("takeover."))).toEqual([
       { method: "takeover.begin", params: { agent: id } },
       { method: "takeover.end", params: { agent: id } },
     ]);
@@ -171,12 +162,11 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
   });
 
-  it("u375_a_decision_card_and_the_composer_hold_in_watch", async () => {
+  it("u375_a_decision_card_holds_in_watch", async () => {
     const { app } = await mountWatch([open]);
 
     await vi.waitFor(() => expect(document.querySelector(".decision-card")).not.toBeNull());
     expect(document.querySelector(".decision-card")!.textContent).toContain("rm -rf build");
-    expect(document.querySelector("[data-thread-input]")).not.toBeNull();
     expect(band()).not.toBeNull();
 
     fireEvent.click(within(document.querySelector<HTMLElement>(".decision-card")!).getByRole("button", { name: "Allow" }));

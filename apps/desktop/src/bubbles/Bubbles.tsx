@@ -20,8 +20,7 @@ const PULL_DISTANCE = 8;
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 const focusPane = (): void => {
-  const target = document.querySelector<HTMLElement>('.thread[data-mode="thread"] .thread-composer textarea:not(:disabled)')
-    ?? document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
+  const target = document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
 
   target?.focus();
 
@@ -125,10 +124,10 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (!host || typeof ResizeObserver === "undefined") return;
 
-    // U469: the layer ends above the composer, or above the bar when no composer is present.
+    // U469: the layer ends above the bar.
     const sync = (): void => {
       const stack = host.parentElement?.getBoundingClientRect();
-      const composer = host.parentElement?.querySelector(".thread-composer, .resource-strip")?.getBoundingClientRect();
+      const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
 
       host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
     };

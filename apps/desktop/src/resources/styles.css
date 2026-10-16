@@ -1,6 +1,6 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-/* U444: the centre's last line, the composer's width, its gap above the Thread's padding; it holds its height empty or filled, so the composer never moves. */
+/* U444: the centre's last line, the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
 .resource-strip {
   display: grid;
   grid-template-columns: minmax(var(--space-6), 1fr) auto auto;

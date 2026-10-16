@@ -1,7 +1,7 @@
 import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import { mountThread, threadInput } from "../thread/threadFixture";
+import { mountCentre } from "../testing/centreFixture";
 import { agent, door, event } from "../testing/nodes";
 
 const tree = () => [
@@ -12,18 +12,15 @@ const tree = () => [
 
 const alt = (digit: number, target: Element = document.body) => fireEvent.keyDown(target, { key: "¡", code: `Digit${digit}`, altKey: true });
 
-// U187: the Thread ends a Takeover a reload may have left once for the first Door it shows; these tests count what the keys call.
-const RELEASES = 1;
-
 // SAFETY: the filter keeps `takeover.*` calls, whose params are `TakeoverParams`.
 const takeoverCalls = (app: { calls: { method: string; params: unknown }[] }) =>
-  app.calls.filter((call) => call.method.startsWith("takeover.")).slice(RELEASES).map((call) => `${call.method} ${(call.params as { agent: string }).agent}`);
+  app.calls.filter((call) => call.method.startsWith("takeover.")).map((call) => `${call.method} ${(call.params as { agent: string }).agent}`);
 
 afterEach(cleanup);
 
 describe("u107 jump to an Agent", () => {
   it("u107_alt_n_selects_the_nth_agent_row_and_begins_a_takeover", async () => {
-    const { app, connected } = await mountThread(tree());
+    const { app, connected } = await mountCentre(tree());
 
     alt(3);
 
@@ -31,17 +28,18 @@ describe("u107 jump to an Agent", () => {
     await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin b"]));
   });
 
-  it("u107_the_door_row_counts_as_the_first_agent", async () => {
-    const { app, connected } = await mountThread(tree());
+  it("u107_the_door_row_counts_as_the_first_agent_and_is_selected_without_a_takeover", async () => {
+    const { app, connected } = await mountCentre(tree());
 
     alt(1);
 
     expect(connected.rail.selected()).toBe("workstream");
-    await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin workstream"]));
+    await Promise.resolve();
+    expect(takeoverCalls(app)).toEqual([]);
   });
 
   it("u107_a_second_jump_ends_the_first_takeover_before_the_next_begins", async () => {
-    const { app } = await mountThread(tree());
+    const { app } = await mountCentre(tree());
 
     alt(2);
     await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin a"]));
@@ -50,19 +48,18 @@ describe("u107 jump to an Agent", () => {
     await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin a", "takeover.end a", "takeover.begin b"]));
   });
 
-  it("u107_alt_0_ends_the_takeover_and_returns_focus_to_the_threads_input", async () => {
-    const { app } = await mountThread(tree());
+  it("u107_alt_0_ends_the_takeover", async () => {
+    const { app } = await mountCentre(tree());
 
     alt(2);
     await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin a"]));
     alt(0);
 
     await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin a", "takeover.end a"]));
-    expect(document.activeElement).toBe(threadInput());
   });
 
   it("u107_a_number_with_no_agent_does_nothing", async () => {
-    const { app, connected } = await mountThread(tree(), { select: null });
+    const { app, connected } = await mountCentre(tree(), { select: null });
 
     alt(9);
 
@@ -71,7 +68,7 @@ describe("u107 jump to an Agent", () => {
   });
 
   it("u107_a_conflict_still_moves_the_selection", async () => {
-    const { app, connected } = await mountThread(tree());
+    const { app, connected } = await mountCentre(tree());
 
     app.handlers["takeover.begin"] = () => {
       throw new RpcError(-32002, "agent is done");
@@ -85,7 +82,7 @@ describe("u107 jump to an Agent", () => {
 
   // Narrows `u12_each_keystroke_goes_to_terminal_write_as_base64_in_order`: every keystroke but these chords still goes to the Terminal.
   it("u107_the_chord_does_not_reach_terminal_write_from_a_pane_and_narrows_u12", async () => {
-    const { app, emulators, connected } = await mountThread(tree());
+    const { app, emulators, connected } = await mountCentre(tree());
 
     connected.rail.select("a");
     const screen = document.querySelector<HTMLElement>(".pane-screen [data-terminal]")!;
@@ -100,7 +97,7 @@ describe("u107 jump to an Agent", () => {
   });
 
   it("u107_a_takeover_the_daemon_ended_is_not_ended_again", async () => {
-    const { app } = await mountThread(tree());
+    const { app } = await mountCentre(tree());
 
     alt(2);
     await vi.waitFor(() => expect(takeoverCalls(app)).toEqual(["takeover.begin a"]));

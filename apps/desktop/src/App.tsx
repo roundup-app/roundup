@@ -44,8 +44,6 @@ import { Bubbles } from "./bubbles/Bubbles";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
-import { Thread } from "./thread/Thread";
-import { trackSelections } from "./thread/emulators";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, ShelfToggle } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
@@ -273,7 +271,7 @@ export const App = (props: {
 
   onCleanup(shelfFocus.stop);
 
-  const emulators = () => trackSelections(props.createEmulator ?? createXtermEmulators());
+  const emulators = () => props.createEmulator ?? createXtermEmulators();
 
   return (
     <Show when={projects.loaded()}>
@@ -349,9 +347,8 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <Thread selectionOf={tracked.selectionOf} />
                     <ResourceStrip />
                   </div>
                 );
