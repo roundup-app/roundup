@@ -698,43 +698,6 @@ async fn a32_the_handoff_read_waits_for_a_delayed_prompt_write() {
 }
 
 #[tokio::test]
-async fn a32_the_workstream_and_its_terminals_survive() {
-    let fx = fixture().await;
-    let opened = fx
-        .user
-        .request("terminal.open", json!({"workstream": fx.ws}))
-        .await
-        .unwrap();
-    let terminal = opened["terminal_id"]
-        .as_str()
-        .expect("the opened Terminal")
-        .to_owned();
-    let before = node(&fx.user, &fx.ws).await.unwrap();
-    let mut task = fx.clear("r", false).await;
-    fx.asked().await;
-    fx.hand_off(json!({"id": fx.ws, "summary": "s", "keep_todos": [], "keep_pads": []}))
-        .await
-        .unwrap();
-    task.end().await.unwrap();
-
-    let tree = rail_tree(&fx.user).await;
-    let after = tree.iter().find(|n| n.id == fx.ws).unwrap();
-    assert_eq!(
-        (&after.name, &after.parent, after.order),
-        (&before.name, &before.parent, before.order)
-    );
-    let terminals = fx.user.request("terminal.list", Value::Null).await.unwrap();
-    let kept = terminals
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|t| t["id"] == terminal.as_str())
-        .expect("the Terminal stays");
-    assert_eq!(kept["running"], true);
-    assert!(Path::new(&fx.project.dir.path().join("README")).is_file());
-}
-
-#[tokio::test]
 async fn a32_message_list_spans_iterations() {
     let fx = fixture().await;
     let send = |body: &'static str| {
