@@ -86,7 +86,7 @@ run("u373 the tabs", () => {
 
     const order = await page.call<string[]>(`() => {
       const tabbable = [...document.querySelectorAll(".shelf button, .shelf input, .shelf [tabindex]")].filter((el) => el.tabIndex >= 0);
-      return tabbable.map((el) => el.getAttribute("role") === "tab" ? "tab" : el.closest('[role="tabpanel"]') ? "list" : "bar");
+      return tabbable.map((el) => el.getAttribute("role") === "tab" ? "tab" : el.closest('.shelf [role="tabpanel"]') ? "list" : "bar");
     }`);
 
     expect(order.indexOf("list")).toBeGreaterThan(order.lastIndexOf("tab"));
