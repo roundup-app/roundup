@@ -27,6 +27,7 @@
   --root-pressed: var(--pressed);
   --root-text: var(--text);
   --root-grey: var(--grey);
+  --ink-rest-selected: color-mix(in srgb, var(--root-grey) 50%, var(--root-text));
   --root-disabled: var(--disabled);
   --root-accent: var(--accent);
   --root-amber: var(--amber);
@@ -206,4 +207,9 @@
   --amber: var(--root-amber);
   --red: var(--root-red);
   --hairline: var(--root-hairline);
+}
+
+/* U510: a pressed ghost button dims its ink; read per button so a scoped `--text` (the header) still applies. */
+button {
+  --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
 }
