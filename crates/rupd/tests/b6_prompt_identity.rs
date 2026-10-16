@@ -5904,3 +5904,67 @@ async fn b6_a_failed_launch_accounts_for_a_held_stop_without_terminal_exit() {
         "{history}"
     );
 }
+
+async fn working_child_with_held_interrupt() -> (Run, Arc<Client>, Value) {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"UserPromptSubmit","prompt":"working"}})).await.unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.interrupt", json!({"id":run.child}))
+        .await
+        .unwrap();
+    (run, caller, receipt)
+}
+
+#[tokio::test]
+async fn b6_a_door_interrupt_waits_for_takeover_release() {
+    let (run, caller, receipt) = working_child_with_held_interrupt().await;
+    assert_eq!(receipt["method"], "agent.interrupt");
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert!(
+        !recorded_bytes(&run).await.contains(&0x1b),
+        "Door Interrupt wrote its Escape during Takeover"
+    );
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let escapes = recorded_bytes(&run)
+        .await
+        .iter()
+        .filter(|byte| **byte == 0x1b)
+        .count();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    // The fake Claude never changes its title, so the released Escape's outcome is an
+    // unacknowledged one; the receipt records it and the Escape went out exactly once.
+    assert_ne!(history[0]["outcome"]["status"], "waiting", "{history}");
+    assert_eq!(escapes, 1);
+}
+
+#[tokio::test]
+async fn b6_a_held_interrupt_is_dropped_when_the_child_exits() {
+    let (run, caller, receipt) = working_child_with_held_interrupt().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
