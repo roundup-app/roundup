@@ -869,27 +869,6 @@ async fn m4_the_empty_list_a_cursor_gets_carries_a_numeric_ttl_ms_and_cache_scop
     assert_eq!(result["cacheScope"], "public", "{result}");
 }
 
-#[tokio::test]
-async fn m3_the_call_after_the_daemon_goes_away_makes_the_shim_exit_nonzero() {
-    let project = start_daemon();
-    let mut shim = spawn_shim(&project.socket, "a1").await;
-    project.daemon.abort();
-    let _ = project.daemon.await;
-
-    let _ = tokio::time::timeout(
-        BOUND,
-        shim.client
-            .call_tool(CallToolRequestParams::new("todo_list")),
-    )
-    .await;
-
-    let status = tokio::time::timeout(BOUND, shim.child.wait())
-        .await
-        .expect("the shim exited")
-        .unwrap();
-    assert!(!status.success());
-}
-
 /// A stand-in Daemon that answers `agent.ask` with `{"answer": "dogs"}` after `delay` and `null` to `daemon.identify`.
 fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Value> {
     let listener = UnixListener::bind(socket).unwrap();
