@@ -34,7 +34,7 @@ const WASH = (selector: string) => `() => getComputedStyle(${selector}).backgrou
 
 const PRESSED_WASH = `() => { const probe = document.createElement("i"); probe.style.backgroundImage = "linear-gradient(var(--pressed), var(--pressed))"; document.body.append(probe); const c = getComputedStyle(probe).backgroundImage; probe.remove(); return c; }`;
 
-const PRESSED = `() => { const probe = document.createElement("i"); probe.style.backgroundColor = "var(--pressed)"; document.body.append(probe); const c = getComputedStyle(probe).backgroundColor; probe.remove(); return c; }`;
+const INK = (selector: string) => `() => getComputedStyle(${selector}).color`;
 
 run("u386 a press shows on the target under the pointer only", () => {
   for (const scheme of ["light", "dark"] as const) {
@@ -46,7 +46,6 @@ run("u386 a press shows on the target under the pointer only", () => {
       await page.until(`() => { const left = ${BUTTON}.getBoundingClientRect().left; const same = window.__left === left; window.__left = left; return same; }`);
 
       const [rowX, rowY] = await page.call<[number, number]>(`() => { const r = ${ROW}.querySelector(".name").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }`);
-      const pressed = await page.call<string>(PRESSED);
       const pressedWash = await page.call<string>(PRESSED_WASH);
 
       await page.hover(0, 0);
@@ -57,12 +56,13 @@ run("u386 a press shows on the target under the pointer only", () => {
       const [x, y] = await page.call<[number, number]>(CENTRE(BUTTON));
 
       await page.hover(x, y);
-      const hover = await page.call<string>(BG(BUTTON));
+      const hover = await page.call<string>(INK(BUTTON));
 
       await page.down(x, y);
       expect(await page.call<string>(WASH(ROW))).toBe(rest);
-      expect(await page.call<string>(BG(BUTTON))).not.toBe(hover);
-      expect(await page.call<string>(BG(BUTTON))).toBe(pressed);
+      // U510: a press dims the chevron's ink and paints no fill.
+      expect(await page.call<string>(INK(BUTTON))).not.toBe(hover);
+      expect(await page.call<string>(BG(BUTTON))).toBe("rgba(0, 0, 0, 0)");
       await page.release(x, y);
 
       await page.hover(0, 0);
