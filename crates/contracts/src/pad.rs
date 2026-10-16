@@ -14,6 +14,9 @@ pub struct Pad {
     pub text: String,
     #[ts(type = "number")]
     pub updated_at: i64,
+    /// 1 at creation, plus one with each change to `text` (P15).
+    #[ts(type = "number")]
+    pub revision: u64,
     /// The Rail id of the Workstream the Pad belongs to, or `None` for the Project root (P12).
     pub home: Option<String>,
 }
@@ -46,6 +49,19 @@ pub struct WriteParams {
 pub struct AppendParams {
     pub name: String,
     pub text: String,
+}
+
+/// Add under a Markdown heading: at the end of its section. Anyone; counts as a write in Provenance (P15).
+/// `heading` ignores case, runs of whitespace and leading `#`. With `expectedRevision`, the call fails with `CONFLICT` when the Pad's revision differs.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "pad/")]
+pub struct AppendSectionParams {
+    pub name: String,
+    pub heading: String,
+    pub text: String,
+    #[serde(default, rename = "expectedRevision")]
+    #[ts(type = "number | null", rename = "expectedRevision", optional)]
+    pub expected_revision: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
