@@ -17,6 +17,8 @@ import {
   ConnectedProjectContext,
 } from "../state/connectedProject";
 import { Pads } from "./Pads";
+// PadDrawer loads the editor lazily; evaluating it here keeps its cold load (seconds on a loaded CI runner) out of the first test's 5 s.
+import "./PadRichEditor";
 
 // jsdom has no layout; ProseMirror asks a Range for its rectangles when a selection moves.
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
