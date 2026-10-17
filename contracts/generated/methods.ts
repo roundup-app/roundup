@@ -155,7 +155,7 @@ export type RpcMethods = {
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.wake": { params: agent_WakeParams; result: agent_Woken };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
-  "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
+  "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode | agent_HeldAction };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };

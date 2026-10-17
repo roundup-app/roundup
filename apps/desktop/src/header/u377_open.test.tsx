@@ -24,7 +24,7 @@ describe("u377 opening the Models sheet", () => {
     const { app } = await open();
 
     fireEvent.contextMenu(tab("api"), { clientX: 5, clientY: 5 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Models" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Models" }));
 
     expect(await screen.findByRole("dialog", { name: "Models" })).toBeTruthy();
     await waitFor(() => expect(app.of(path("api")).calls.some((call) => call.method === "project.get")).toBe(true));

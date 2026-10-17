@@ -360,6 +360,7 @@ impl Daemon {
                 | "agent.stop"
                 | "agent.interrupt"
                 | "agent.prompt"
+                | "agent.setOrder"
                 | "agent.actionHistory"
         ) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
@@ -462,8 +463,10 @@ impl Daemon {
                     self.child_effects(child).read_owned().await
                 };
                 // Begin needs the write lock, so this check under the read guard is final.
-                let guard = if matches!(method, "agent.interrupt" | "agent.prompt")
-                    && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                let guard = if matches!(
+                    method,
+                    "agent.interrupt" | "agent.prompt" | "agent.setOrder"
+                ) && self.sender.get().is_some_and(|m| m.takeover_active(child))
                 {
                     drop(guard);
                     let write = self.child_effects(child).write_owned().await;
@@ -1366,6 +1369,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                     | "agent.stop"
                     | "agent.interrupt"
                     | "agent.prompt"
+                    | "agent.setOrder"
                     | "agent.actionHistory"
             )
         ) {
