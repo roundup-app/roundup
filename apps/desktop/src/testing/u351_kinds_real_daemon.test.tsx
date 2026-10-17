@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 // @vitest-environment jsdom
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
@@ -304,7 +305,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
     const visited: (string | null)[] = [];
 
     for (let press = 0; press <= urgent.length; press += 1) {
-      fireEvent.keyDown(document, { key: "j", metaKey: true });
+      leaderKey("KeyJ");
       await waitFor(() => expect(selected()).not.toBe(visited.at(-1) ?? working));
       visited.push(selected());
 

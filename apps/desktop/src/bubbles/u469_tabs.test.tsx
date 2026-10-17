@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
@@ -166,24 +167,12 @@ it("u469_minimise_keeps_the_terminal_running_and_its_saved_geometry", async () =
   expect(bubble.getAttribute("style")).toBe(geometry);
 });
 
-it("u469_cmd_b_cycles_one_bubble_then_the_pane_in_both_directions", async () => {
-  const { bubbleChord } = await import("./bubblesFixture");
-
-  await mountBubbles();
-
-  for (const [shiftKey, expected] of [[false,"1"],[false,"2"],[false,null],[true,"2"],[true,"1"]] as const) {
-    bubbleChord("b", {shiftKey});
-    expect([...document.querySelectorAll('.bubble:not([hidden])')].map(e => e.getAttribute("data-bubble"))).toEqual(expected === null ? [] : [expected]);
-  }
-});
-
-it("u469_bubble_chords_work_from_tabs_without_reaching_the_terminal", async () => {
-  const { bubbleChord } = await import("./bubblesFixture");
+it("u469_leader_keys_work_from_tabs_without_reaching_the_terminal", async () => {
   const mounted = await mountBubbles();
   const tab = document.querySelector<HTMLButtonElement>('.terminal-tab[data-bubble="1"]')!;
 
   tab.focus();
-  expect(bubbleChord(".", {}, tab).defaultPrevented).toBe(true);
+  expect(leaderKey("KeyM", {}, tab)).toBe(false);
   expect(document.querySelector('.terminal-tab[data-bubble="1"]')?.getAttribute("aria-pressed")).toBe("true");
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });

@@ -416,6 +416,29 @@ p {
   min-width: 8ch;
 }
 
+/* U2240: the keys ⌘K waits for; it appears and goes in the frame of the key, takes no focus and no pointer events, and has no motion. */
+.leader {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  max-width: calc(100vw - 2 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  overflow: hidden;
+  pointer-events: none;
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+}
+
+.leader-line {
+  margin: 0;
+  white-space: pre;
+}
+
+.leader-keys {
+  display: inline-block;
+  min-width: 3ch;
+}
+
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
 .rail-row[data-drop] {
   position: relative;

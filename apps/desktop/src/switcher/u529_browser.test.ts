@@ -57,6 +57,7 @@ it("u529_switcher_keeps_d2_d5_d6_on_tree_40", async () => {
     const before = await read<Checks>(`window.__checks()`);
 
     await browser("press", "Meta+k");
+    await browser("press", "k");
     await browser("wait", "--fn", `document.activeElement?.closest('.switcher') !== null`);
     await browser("keyboard", "type", "agent");
 

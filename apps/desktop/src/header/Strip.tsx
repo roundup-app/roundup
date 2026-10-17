@@ -1,5 +1,7 @@
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { leaderChord } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
 import { MARKS, markOf } from "./tab";
@@ -23,18 +25,12 @@ const edgeOf = (hidden: StripTab[], nearestFirst: boolean): Edge | null => {
   return { mark: marked.some((entry) => entry.mark === "error") ? "error" : "needs-you", count: marked.length, nearest };
 };
 
-const stepFrom = (tabs: readonly StripTab[], path: string | null, step: 1 | -1): string | undefined => {
-  const at = tabs.findIndex((tab) => tab.path === path);
-
-  return tabs[(at + step + tabs.length) % tabs.length]?.path;
-};
-
 /** The header's strip (U179): one tab per open Project in the order they were opened, then a quiet `+`. */
 export const Strip = (props: {
   tabs: StripTab[];
   active: string | null;
   onSelect: (path: string) => void;
-  /** A click on a Tab mark, and `⇧⌘J`: that Project opens and its most urgent Agent is selected (U181). */
+  /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
   onMark: (path: string) => void;
   onRename: (path: string, name: string) => void;
   onClose: (path: string) => void;
@@ -180,41 +176,20 @@ export const Strip = (props: {
     onCleanup(() => observer.disconnect());
   });
 
-  // U186: `⇧⌘]`, `⇧⌘[` and `⇧⌘J` by key position, so Caps Lock and the layout do not matter; the webview takes them wherever focus is.
-  const onKey = (press: KeyboardEvent) => {
-    if (asking()) return;
+  // U186: leader `⇧J` marks the next Project that needs you, or this one; the webview takes it wherever focus is.
+  registerKeys({ kind: "leader" }, [{
+    chords: leaderChord("⇧J"),
+    when: () => !asking(),
+    run: () => {
+      if (props.tabs.length < 2) return;
 
-    if (!press.metaKey || !press.shiftKey || press.ctrlKey || press.altKey) return;
+      const at = props.tabs.findIndex((tab) => tab.path === props.active);
+      const marked = [...props.tabs.slice(at + 1), ...props.tabs.slice(0, at)].find((tab) => markOf(tab) !== null);
 
-    if (press.target instanceof Element && press.target.closest(".tab-rename")) return;
-
-    const step = press.code === "BracketRight" ? 1 : press.code === "BracketLeft" ? -1 : 0;
-
-    if (step === 0 && press.code !== "KeyJ") return;
-
-    press.preventDefault();
-    press.stopPropagation();
-
-    if (press.repeat || props.tabs.length < 2) return;
-
-    if (step !== 0) {
-      const next = stepFrom(props.tabs, props.active, step);
-
-      if (next) props.onSelect(next);
-
-      return;
-    }
-
-    const at = props.tabs.findIndex((tab) => tab.path === props.active);
-    const marked = [...props.tabs.slice(at + 1), ...props.tabs.slice(0, at)].find((tab) => markOf(tab) !== null);
-
-    if (marked) props.onMark(marked.path);
-    else if (props.active) props.onMark(props.active);
-  };
-
-  // Document capture, after Help's window capture: while Help is open these chords do nothing.
-  document.addEventListener("keydown", onKey, true);
-  onCleanup(() => document.removeEventListener("keydown", onKey, true));
+      if (marked) props.onMark(marked.path);
+      else if (props.active) props.onMark(props.active);
+    },
+  }]);
 
   const edge = (side: "left" | "right", shown: Edge | null) => (
     <Show when={shown}>

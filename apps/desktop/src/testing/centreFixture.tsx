@@ -3,7 +3,6 @@ import type { DaemonExit } from "../app/seam";
 import { render } from "@solidjs/testing-library";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Message } from "@contracts/message/Message";
-import { Jump } from "../rail/Jump";
 import { Rail } from "../rail/Rail";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -57,7 +56,6 @@ export const mountCentre = async (tree: RailNode[], options: Options = {}) => {
 
   const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Jump onFailure={() => {}} />
       <div class="window">
         <section class="rail"><Rail /></section>
         <section class="centre">

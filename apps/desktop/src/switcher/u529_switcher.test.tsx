@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { callsTo } from "../terminal/paneHarness";
-import { cmdK, field, mountSwitcher, press, rows } from "./switcherFixture";
+import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
 
 afterEach(cleanup);
 
@@ -12,7 +12,7 @@ const methods = (app: { calls: { method: string }[] }) => app.calls.map((call) =
 describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   it("u529_cmd_k_lists_agents_doors_groups_and_terminals_and_filters_as_you_type", async () => {
     await mountSwitcher();
-    cmdK();
+    openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
 
     expect(document.activeElement).toBe(field());
@@ -31,7 +31,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     const { connected, app } = await mountSwitcher();
     const before = app.calls.length;
 
-    cmdK();
+    openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
     type("dee");
     await waitFor(() => expect(rows()).toEqual(["Dee"]));
@@ -46,7 +46,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   it("u529_enter_on_a_terminal_shows_its_bubble_and_focuses_its_emulator", async () => {
     const { connected } = await mountSwitcher();
 
-    cmdK();
+    openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
     type("build");
     await waitFor(() => expect(rows()).toEqual(["build shell ops"]));
@@ -64,28 +64,12 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
 
     const calls = app.calls.length;
 
-    cmdK();
+    openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
     press("Escape", {}, field()!);
 
     await waitFor(() => expect(field()).toBeNull());
     expect(document.activeElement).toBe(origin);
     expect(app.calls.length).toBe(calls);
-  });
-
-  it("u529_cmd_k_again_closes_and_other_modifier_sets_and_other_chords_do_nothing", async () => {
-    const { connected } = await mountSwitcher();
-
-    press("k", { metaKey: true, shiftKey: true });
-    press("k");
-    expect(field()).toBeNull();
-
-    cmdK();
-    await waitFor(() => expect(field()).not.toBeNull());
-    press("j", { metaKey: true }, field()!);
-    expect(connected.rail.selected()).toBeNull();
-    cmdK();
-    await waitFor(() => expect(field()).toBeNull());
-    expect(callsTo((await mountSwitcher()).app, "terminal.write")).toEqual([]);
   });
 });
