@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 // @vitest-environment jsdom
 import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -153,7 +154,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     const visited: (string | null)[] = [];
 
     for (let press = 0; press <= urgent.length; press += 1) {
-      fireEvent.keyDown(document, { key: "j", metaKey: true });
+      leaderKey("KeyJ");
       await waitFor(() => expect(selected()).not.toBe(visited.at(-1) ?? working));
       visited.push(selected());
 
