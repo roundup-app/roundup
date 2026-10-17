@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { workstream } from "../testing/nodes";
 import { captureDir } from "../testing/captures";
@@ -44,8 +44,8 @@ it("u469_the_bar_is_the_last_line_with_tabs_left_and_resources_right", async () 
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
       await page.until(`() => document.querySelector('.terminal-tabs') && document.querySelector('.resource-agent .resource-num')`);
@@ -82,8 +82,8 @@ it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => 
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=resources', width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load('/harness.html?seed=resources', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="worktree-agent"]').click(); }`);
       await page.until(`() => document.querySelector('.resource-agent .resource-num')`);
@@ -137,9 +137,9 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
   type Read = { bar: unknown; pane: unknown; composer: unknown; checks: Record<string, { status: string }> };
 
   for (const scheme of ['light', 'dark'] as const) {
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       await page.scheme(scheme, 'more');
-      await page.load('/harness.html?seed=empty-project', width, 800);
+      await page.load('/harness.html?seed=empty-project', width, FULLSCREEN.height);
       await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.resource-strip')`);
       const before = await page.call<Read>(geometry);
 
@@ -222,8 +222,8 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
   for (const scheme of ['light', 'dark'] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);

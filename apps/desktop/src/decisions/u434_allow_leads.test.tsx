@@ -1,11 +1,12 @@
 import { waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { card, decision, mountApp, select } from "./decisionsFixture";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const destructive = decision("d1", "a", { args: JSON.stringify({ command: "rm -rf build && cargo build --release" }) });
 
 describe("u434 on a permission Card allow leads", () => {
-  for (const width of [1280]) {
+  for (const width of [FULLSCREEN.width]) {
     it(`u434_allow_leads_and_differs_in_colour_at_${width}`, async () => {
       window.innerWidth = width;
       await mountApp([destructive]);

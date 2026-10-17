@@ -8,6 +8,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer, type AppServer } from "../testing/appServer";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const exec = promisify(execFile);
 
@@ -127,7 +128,7 @@ it("u481_help_preserves_rendered_checks_and_failure", async () => {
       await browser("--profile", profile, "--args", "--force-high-contrast,--disable-blink-features=ForcedColors", "open", origin);
     }
 
-    for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
+    for (const width of [FULLSCREEN.width]) for (const scheme of ["light", "dark"]) {
       await browser("set", "viewport", String(width), "800");
       await browser("set", "media", scheme);
       await load();
