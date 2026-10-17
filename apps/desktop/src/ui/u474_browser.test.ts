@@ -278,6 +278,9 @@ for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) 
       await browser("wait", "--fn", `!!document.querySelector('.todo-delete-confirm')`);
       await browser("eval", `window.__fake.failNext(-32003, 'Cannot delete this Todo: retained for review'); document.querySelector('.todo-delete-confirm button').click()`);
       await browser("wait", "--fn", `document.body.textContent.includes('Cannot delete this Todo: retained for review') && !document.querySelector('.todo-delete-confirm button').disabled`);
+      await browser("eval", `[...document.querySelectorAll('.todo-delete-confirm button')].find(b => b.textContent.trim() === 'Keep').click()`);
+      await browser("wait", "--fn", `!document.querySelector('.todo-delete-confirm') && document.activeElement === document.querySelector('.todo-delete')`);
+      await browser("wait", "--fn", `document.body.textContent.includes('Cannot delete this Todo: retained for review') && !!document.querySelector('.todo-delete')`);
     };
 
     await rejected(baselineOrigin ?? origin);
