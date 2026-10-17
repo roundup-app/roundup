@@ -89,6 +89,7 @@ it.each(["plus", "chord"])("u524_an_empty_project_shows_the_message_in_the_bar_a
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
   const note = document.querySelector('.terminal-note');
+  expect(note?.getAttribute("role")).toBe("status");
   expect(note?.textContent).toBe("Select a Workstream first");
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
   expect(document.activeElement).toBe(add.firstElementChild);
