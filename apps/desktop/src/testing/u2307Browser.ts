@@ -1,5 +1,5 @@
-import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
-import type { ChromePage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "./chromePage";
+import type { ChromePage } from "./chromePage";
 
 /** U2307: the isolated Chromium page with one open bubble at 1512 by 950. */
 export const openBubblePage = async (): Promise<ChromePage> => {
