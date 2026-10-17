@@ -470,11 +470,19 @@ impl DoorHarness {
             .await
             .unwrap();
     }
-    async fn read(&mut self) -> Vec<u8> {
+    async fn read_write(&mut self) -> Vec<u8> {
         tokio::time::timeout(Duration::from_secs(5), self.bytes.recv())
             .await
             .unwrap()
             .unwrap()
+    }
+    /// Every write of one Steer, joined: they end with the `\r` that submits it.
+    async fn read(&mut self) -> Vec<u8> {
+        let mut steer = vec![];
+        while !steer.ends_with(b"\r") {
+            steer.extend(self.read_write().await);
+        }
+        steer
     }
     async fn workstream(&self) -> String {
         self.h.agents.call(&self.h.ctx,"rail.createWorkstream",json!({"name":"Work","order":{"kind":"work","title":"Work","ask":"initial","limits":[]}})).await.unwrap()["id"].as_str().unwrap().into()
@@ -548,6 +556,21 @@ async fn a41_the_door_gets_the_users_words_byte_for_byte() {
     f.signal(&id, "UserPromptSubmit").await;
     f.changed(&mut events, &ask["id"], "typed").await;
     assert_eq!(f.h.count.load(Ordering::SeqCst), 0);
+    f.stop().await;
+}
+
+#[tokio::test]
+async fn a41_the_enter_is_its_own_write_after_the_paste() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    f.start(&id).await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask = f.h.send("@Work hello").await;
+    assert_eq!(f.read_write().await, b"\x1b[200~hello\x1b[201~");
+    assert_eq!(f.read_write().await, b"\r");
+    f.signal(&id, "UserPromptSubmit").await;
+    f.changed(&mut events, &ask["id"], "typed").await;
     f.stop().await;
 }
 
