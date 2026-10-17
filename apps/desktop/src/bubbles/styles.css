@@ -173,6 +173,8 @@
   align-items: center;
   align-self: stretch;
   min-height: var(--space-5);
+  /* The name's button pad and the close control's icon inset are --space-1 each, so the name and the × both sit --space-2 from the tab's edges, as the + does. */
+  padding-inline: var(--space-1);
 }
 
 .terminal-tab {
@@ -240,6 +242,7 @@
 }
 
 .terminal-new {
+  --button-inline: var(--space-2);
   flex: none;
   min-width: var(--space-5);
 }
