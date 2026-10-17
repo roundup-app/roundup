@@ -57,6 +57,8 @@ ATTEMPTS = 3
 PLUMBING = ('conflict', 'rules')
 PLUMBING_STEPS = re.compile(r'rules\.sh (?:base|ci-trailers|scenario-ids)\b')
 PLUMBING_RUNS = 6
+# L82, L120: a `rules` failure whose only failed step is this one is a merge that kept a stale side of a file.
+MERGE_LOSS_STEP = re.compile(r'rules\.sh merge-loss\b')
 # L82: the paths a fix run's script regenerates instead of a model resolving them, and the command that regenerates them
 # (`crates/contracts` writes `contracts/generated/`).
 GENERATED = ('contracts/generated/',)
@@ -676,8 +678,8 @@ def started(attempt):
     return orders.created(began) if began else None
 
 
-def rules_plumbing(current):
-    """True when the PR head's latest `rules` failure has failed steps, every one a PLUMBING_STEPS check."""
+def rules_failed_only(current, steps):
+    """True when the PR head's latest `rules` failure has failed steps, every one matching the pattern `steps`."""
     check = max((c for c in current.get('statusCheckRollup') or [] if c.get('name') == 'rules'),
                 key=lambda c: c.get('completedAt') or '', default=None)
     if not check or check.get('conclusion') != 'FAILURE':
@@ -685,9 +687,9 @@ def rules_plumbing(current):
     job = re.search(r'/job/(\d+)', check.get('detailsUrl') or '')
     if not job:
         return False
-    steps = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/jobs/{job[1]}')['steps']
-    return (bad := [step['name'] for step in steps if step['conclusion'] == 'failure']) != [] and \
-        all(PLUMBING_STEPS.search(name) for name in bad)
+    ran = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/jobs/{job[1]}')['steps']
+    return (bad := [step['name'] for step in ran if step['conclusion'] == 'failure']) != [] and \
+        all(steps.search(name) for name in bad)
 
 
 def plumbing_runs(pr, opened, run_id):
@@ -747,6 +749,33 @@ def resolve_generated(regenerate=REGENERATE):
     return not commit.returncode or undo(f'the commit failed: {commit.stderr.strip()} {commit.stdout.strip()}')
 
 
+def restore_merge_loss(main_ref='origin/main', rules=None):
+    """L120: when `rules.sh merge-loss` fails on the checked-out branch, restore main's version of each file it lists
+    (removing one main lacks), commit that, and rerun it. Returns whether it then passes; a rerun that still fails
+    resets the branch to where it began, so the engine runs as for any fix."""
+    rules = rules or ROOT / 'loop/rules.sh'
+    check = lambda: subprocess.run(['bash', str(rules), 'merge-loss', main_ref], text=True, capture_output=True, timeout=600)
+    start = git('rev-parse', 'HEAD').stdout.strip()
+    first = check()
+    lost = [line.strip() for line in first.stderr.splitlines() if line.startswith('  ')]
+    if not first.returncode or not lost:
+        print(f'restore-merge-loss: no file to restore: {first.stderr.strip()}', file=sys.stderr)
+        return False
+    for path in lost:
+        if git('cat-file', '-e', f'{main_ref}:{path}').returncode:
+            git('rm', '-q', '-f', '--', path)
+        else:
+            git('checkout', main_ref, '--', path)
+    author = os.environ.get('GITHUB_RUN_ID', '0')
+    commit = git('commit', '-q', '-m', f"Restore main's version of {len(lost)} file(s) a merge lost",
+                 '-m', f'Author-Agent: builder-{author}')
+    after = commit if commit.returncode else check()
+    if after.returncode:
+        print(f'restore-merge-loss: {after.stderr.strip()}; the branch is left as it was', file=sys.stderr)
+        git('reset', '-q', '--hard', start)
+    return not after.returncode
+
+
 def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
     `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
@@ -757,11 +786,13 @@ def fix_task(pr, head, cause, run_id=0, output=None):
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
-    plumbing = cause in PLUMBING and (cause == 'conflict' or rules_plumbing(current)) and \
+    plumbing = cause in PLUMBING and (cause == 'conflict' or rules_failed_only(current, PLUMBING_STEPS)) and \
         plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
-    if plumbing and output:
+    # L120: the restore script may repair it before any model runs; it counts no attempt (`fixed` sees no model work).
+    merge_loss = cause == 'rules' and rules_failed_only(current, MERGE_LOSS_STEP)
+    if output:
         with open(output, 'a') as out:
-            out.write('plumbing=true\n')
+            out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
@@ -1006,6 +1037,8 @@ def main(args):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
         case ['resolve-generated']:
             return 0 if resolve_generated() else 1
+        case ['restore-merge-loss']:
+            return 0 if restore_merge_loss() else 1
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
@@ -1024,7 +1057,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | resolve-generated | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
