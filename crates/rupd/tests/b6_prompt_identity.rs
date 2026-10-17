@@ -1028,38 +1028,16 @@ async fn b6_a_child_ending_after_order_bytes_never_authorizes_a_retry() {
 }
 
 #[tokio::test]
-async fn b6_a_busy_or_taken_over_child_reports_a_refused_order_steer() {
-    for takeover in [false, true] {
-        let (run, caller) = order_child().await;
-        if takeover {
-            run.user
-                .request("takeover.begin", json!({"agent":run.child}))
-                .await
-                .unwrap();
-        } else {
-            run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"UserPromptSubmit"}})).await.unwrap();
-        }
-        let err = order_result(&run, caller).await.await.unwrap().unwrap_err();
-        assert_eq!(
-            err.code,
-            if takeover {
-                rpc::code::CONFLICT
-            } else {
-                rpc::code::BUSY
-            }
-        );
-        assert!(err.message.contains("Order stored"), "{err:?}");
-        assert!(err.message.contains("no bytes written"), "{err:?}");
-        let tree = run.user.request("rail.tree", ()).await.unwrap();
-        assert!(
-            tree.as_array()
-                .unwrap()
-                .iter()
-                .any(|node| node["id"] == run.child && node["work"]["ask"] == "first order")
-        );
-        assert!(recorded_bytes(&run).await.is_empty());
-        run.finish().await;
-    }
+async fn b6_a_busy_child_reports_a_refused_order_steer() {
+    let (run, caller) = order_child().await;
+    run.user.request("agent.signal", json!({"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"UserPromptSubmit"}})).await.unwrap();
+    let err = order_result(&run, caller).await.await.unwrap().unwrap_err();
+    assert_eq!(err.code, rpc::code::BUSY);
+    assert!(err.message.contains("Order stored"), "{err:?}");
+    assert!(err.message.contains("no bytes written"), "{err:?}");
+    assert_eq!(ordered_ask(&run).await, "first order");
+    assert!(recorded_bytes(&run).await.is_empty());
+    run.finish().await;
 }
 
 #[tokio::test]
@@ -6065,6 +6043,81 @@ async fn b6_a_door_prompt_waits_for_takeover_release() {
 #[tokio::test]
 async fn b6_a_held_prompt_is_dropped_when_the_child_exits() {
     let (run, caller, receipt) = idle_child_with_held_prompt().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
+
+async fn ordered_ask(run: &Run) -> Value {
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    tree.as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == run.child)
+        .map(|node| node["work"]["ask"].clone())
+        .unwrap()
+}
+
+async fn idle_child_with_held_order() -> (Run, Arc<Client>, Value) {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = order_result(&run, Arc::clone(&caller))
+        .await
+        .await
+        .unwrap()
+        .unwrap();
+    (run, caller, receipt)
+}
+
+#[tokio::test]
+async fn b6_a_door_order_waits_for_takeover_release() {
+    let (run, caller, receipt) = idle_child_with_held_order().await;
+    assert_eq!(receipt["method"], "agent.setOrder");
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert_ne!(
+        ordered_ask(&run).await,
+        "first order",
+        "Door Order changed the child during Takeover"
+    );
+    assert!(!run.recorded_input().await.contains("BYTE:"));
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let ask = ordered_ask(&run).await;
+    let typed = String::from_utf8_lossy(&recorded_bytes(&run).await)
+        .matches("first order")
+        .count();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert_eq!(ask, "first order");
+    assert_eq!(typed, 1);
+}
+
+#[tokio::test]
+async fn b6_a_held_order_is_dropped_when_the_child_exits() {
+    let (run, caller, receipt) = idle_child_with_held_order().await;
     run.user
         .request("agent.stop", json!({"id":run.child}))
         .await
