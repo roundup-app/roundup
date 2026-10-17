@@ -83,7 +83,7 @@ it("u481_help_escape_restores_focus_without_underlying_action", async () => {
   await browser("click", ".terminal-new");
   await wait(`!!document.querySelector(".bubble .xterm-screen")`);
   await prepare(); await open();
-  await browser("press", "Meta+Comma");
+  await browser("press", "Meta+k");
   await browser("press", "Meta+n");
   await browser("press", "Escape"); await closed();
   expect(await read(`({selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === window.__selected,

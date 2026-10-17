@@ -4,7 +4,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { chordsFor, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
+import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
 import type { Entry } from "./entries";
@@ -17,9 +17,9 @@ const focusTarget = (): void => {
   target?.focus();
 };
 
-/** U529, U530: `⌘K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
+/** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { rail, takeover, daemonExit } = useConnectedProject();
+  const { rail, takeover } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
   const [text, setText] = createSignal("");
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
@@ -80,13 +80,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setOpen(true);
   };
 
-  registerKeys({ kind: "app" }, [{
-    chords: chordsFor("⌘K"),
-    when: () => daemonExit() === null && document.querySelector(".spawn-prompt-field") === null,
-    run: (press) => { if (!press.repeat) show(); },
-  }]);
+  registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
-    { chords: chordsFor("⌘K"), run: (press) => { if (!press.repeat) close(true); } },
     { chords: SWITCHER_CLOSE, run: () => close(true) },
     { chords: SWITCHER_TAKE, run: () => chooseHighlighted(true) },
   ]);

@@ -20,18 +20,6 @@ const open = async () => {
 };
 
 describe("u377 opening the Models sheet", () => {
-  it("u377_cmd_comma_opens_the_sheet_of_the_open_project", async () => {
-    const { app } = await open();
-
-    const press = new KeyboardEvent("keydown", { code: "Comma", key: ",", metaKey: true, bubbles: true, cancelable: true });
-
-    document.body.dispatchEvent(press);
-
-    expect(press.defaultPrevented).toBe(true);
-    expect(await screen.findByRole("dialog", { name: "Models" })).toBeTruthy();
-    await waitFor(() => expect(app.of(path("web")).calls.some((call) => call.method === "project.get")).toBe(true));
-  });
-
   it("u377_the_tab_menu_offers_models_for_that_project", async () => {
     const { app } = await open();
 

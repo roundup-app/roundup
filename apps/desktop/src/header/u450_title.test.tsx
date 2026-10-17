@@ -22,7 +22,7 @@ it("u450_switch_restores_the_projects_title", async () => {
   fireEvent.click(tab("api"));
   await waitFor(() => expect(document.querySelector('[data-id="a"]')).toBeTruthy());
   fireEvent.click(document.querySelector('[data-id="a"]')!);
-  fireEvent.keyDown(document, { code: "BracketRight", metaKey: true, shiftKey: true });
+  fireEvent.click(tab("web"));
   await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("web — w"));
 });
 

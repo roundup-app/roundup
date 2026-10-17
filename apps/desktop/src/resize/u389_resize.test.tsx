@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -259,7 +260,7 @@ describe("u390 the Shelf's width is the user's", () => {
 
   it("u390_closed_has_no_edge", async () => {
     await mountApp();
-    fireEvent.keyDown(document.body, { code: "Backslash", key: "\\", metaKey: true });
+    leaderKey("KeyS");
     await waitFor(() => expect(document.querySelector(".shelf-edge-slot")!.hasAttribute("hidden")).toBe(true));
     expect(screen.queryByRole("separator", { name: "Resize work items" })).toBeNull();
   });

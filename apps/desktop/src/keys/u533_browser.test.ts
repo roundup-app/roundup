@@ -56,6 +56,7 @@ it("u533_message_an_agent_in_two_chords_on_tree_40", async () => {
   const chord = async (keys: string) => { chords.push(keys); await browser("press", keys); };
 
   await chord("Meta+k");
+  await browser("press", "k");
   await browser("wait", "--fn", `document.activeElement?.closest('.switcher') !== null`);
   await browser("keyboard", "type", "agent-23");
   await browser("wait", "--fn", `document.querySelectorAll('.switcher .app-combobox-item').length === 1`);

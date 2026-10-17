@@ -120,17 +120,6 @@ describe("u183 rename in place", () => {
     await waitFor(() => expect(tab("payments")).toBeDefined());
   });
 
-  it("u183_keys_in_the_field_reach_no_chord", async () => {
-    await openTabs({ api: [], web: [] });
-    await edit();
-
-    const jump = new KeyboardEvent("keydown", { key: "j", metaKey: true, bubbles: true, cancelable: true });
-
-    field().dispatchEvent(jump);
-
-    expect(jump.defaultPrevented).toBe(false);
-  });
-
   it("u183_the_title_of_each_tab_holds_its_absolute_path", async () => {
     await openTabs({ api: [], web: [] });
 

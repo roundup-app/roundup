@@ -1,5 +1,5 @@
 import { registerKeys } from "./registry";
-import { chordsFor, RAIL_KEYS } from "./chords";
+import { RAIL_KEYS } from "./chords";
 import { useConnectedProject } from "../state/connectedProject";
 import { placeOf } from "./places";
 import { railStep } from "./railStep";
@@ -32,12 +32,7 @@ const firstVisibleChildOf = (row: HTMLElement): string | undefined => {
 const rowElement = (id: string): HTMLElement | null =>
   document.querySelector<HTMLElement>(`[role="tree"] [data-id="${id}"]`);
 
-const focusTabbableRow = (): void => document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')?.focus();
-
-const focusPane = (): void =>
-  document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
-
-/** `⌘1`, `⌘2`, `←`, `→` and `F2`, the Rail keys U31 leaves to U41 (GLOSSARY.md, Rail). No UI of its own. */
+/** `←`, `→` and `F2`, the Rail keys U31 leaves to U41 (GLOSSARY.md, Rail). No UI of its own. */
 export const Keys = () => {
   const { rail } = useConnectedProject();
 
@@ -70,12 +65,6 @@ export const Keys = () => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   };
 
-  const outsideTabRename = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.matches(".tab-rename"));
-
-  registerKeys({ kind: "app" }, [
-    { chords: chordsFor("⌘1"), when: outsideTabRename, run: focusTabbableRow },
-    { chords: chordsFor("⌘2"), when: outsideTabRename, run: focusPane },
-  ]);
   registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>('[role="tree"]') ?? undefined }, [
     { chords: RAIL_KEYS,
       when: (press) => placeOf(press.target instanceof Element ? press.target : null) === "rail" && isRow(press.target),

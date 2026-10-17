@@ -1,3 +1,5 @@
+import { leaderChord } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { Editable, IconButton, Menu } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
@@ -269,24 +271,6 @@ export const Bubbles = (props: { screens: Screens }) => {
     return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
   };
 
-  const cycle = (direction: 1 | -1): void => {
-    const ids = shown().map((terminal) => terminal.id);
-
-    if (ids.length === 0) return;
-
-    const at = focusedId();
-    const index = at === null ? 0 : ids.indexOf(at) + 1;
-    const next = (index + direction + ids.length + 1) % (ids.length + 1);
-
-    if (next === 0) {
-      show(null);
-      focusPane();
-    } else {
-      show(ids[next - 1]!);
-      focusItem(ids[next - 1]!);
-    }
-  };
-
   const toggleMinimised = (id: string): void => {
     const place = placeOf(id);
 
@@ -553,30 +537,24 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (press.target instanceof Element && press.target.closest(".terminal-tab-editor")) return;
 
     // Help is modal: while it is open no chord acts (U54).
-    if (!press.metaKey || press.ctrlKey || press.altKey || document.querySelector(".help, .switcher") !== null) return;
+    if (!press.metaKey || press.ctrlKey || press.altKey || press.shiftKey || press.key.toLowerCase() !== "t" || document.querySelector(".help, .switcher") !== null) return;
 
-    const key = press.key.toLowerCase();
-    const backspace = press.shiftKey && (press.key === "Backspace" || press.code === "Backspace");
-    const period = !press.shiftKey && (press.key === "." || press.code === "Period");
-    const opens = !press.shiftKey && key === "t";
-    const cycles = key === "b";
-
-    if (!opens && !cycles && !period && !backspace) return;
-
-    // Window capture runs before any Terminal sees the key: a chord is never a key of the program inside.
+    // Window capture runs before any Terminal sees the key: `⌘T` is never a key of the program inside (U2238).
     press.preventDefault();
     press.stopPropagation();
 
-    if (press.repeat) return;
+    if (!press.repeat) void open();
+  };
 
-    if (opens) void open();
-    else if (cycles) cycle(press.shiftKey ? -1 : 1);
-    else if (period) {
+  // U165: leader `M` minimises or restores the focused Bubble, leader `W` closes it; with none focused they do nothing.
+  registerKeys({ kind: "leader" }, [
+    { chords: leaderChord("M"), run: () => {
       const id = focusedId();
 
       if (id !== null) toggleMinimised(id);
-    } else closeFocused();
-  };
+    } },
+    { chords: leaderChord("W"), run: closeFocused },
+  ]);
 
   const onFocusIn = (event: FocusEvent): void => {
     if (!(event.target instanceof Element) || event.target.closest("[data-bubble]")) return;
