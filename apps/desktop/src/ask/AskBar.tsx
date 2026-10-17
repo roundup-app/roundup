@@ -22,7 +22,8 @@ export const AskBar = () => {
   let field: HTMLTextAreaElement | undefined;
   let returnTo: Element | null = null;
 
-  const shown = () => over() || rail.selected() === null;
+  // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
+  const shown = () => over() || (rail.selected() === null && rail.nodes.length > 0);
 
   asks.load();
 
