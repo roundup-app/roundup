@@ -335,7 +335,7 @@ impl Daemon {
                     Some("child Attempt changed before action release")
                 }
                 Some(n)
-                    if !node_bound(&action.call)
+                    if !matches!(action.call, HeldCall::Rename(_))
                         && n.status
                             .as_ref()
                             .is_some_and(|s| s.kind == contracts::Kind::Done) =>
