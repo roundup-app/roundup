@@ -233,9 +233,10 @@ it("u2232_tab_text_keeps_contrast", async () => {
 
 it("u2231_no_other_stylesheet_styles_a_tab", () => {
   const root = join(__dirname, "..");
-  const sheets = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? sheets(join(dir, entry.name)) : entry.name.endsWith(".css") && entry.name !== "flat-tab.styles.css" ? [join(dir, entry.name)] : []);
+  const sheets = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? sheets(join(dir, entry.name)) : entry.name.endsWith(".css") && !["flat-tab.styles.css", "buttons.css"].includes(entry.name) ? [join(dir, entry.name)] : []);
   const tab = /\.(project-tab|terminal-tab-pair|terminal-tab)(?![\w-])|\[data-flat-(tab|add)\]/;
   const look = /^\s*(border(-[a-z]+)*|background(-[a-z]+)*|box-shadow|color|--button-(surface|hover|radius)):/;
+  // buttons.css holds the ink of a button in any state (U170); the tab's own box and rest colour are in flat-tab.styles.css.
   const found: string[] = [];
 
   for (const file of sheets(root)) for (const rule of readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
