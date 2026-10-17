@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { browser, read, wait, url } from "../ui/tabsBrowser";
@@ -17,6 +18,12 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
   rendered(`u497_rendered_checks_and_failures_${seed}_${width}_${scheme}_${contrast}`, async () => {
     const baseline = new Map<string, Checks>();
 
+    // Increased contrast needs a browser launched in forced-colours-free high-contrast mode (as u481), in its own fresh profile.
+    if (contrast === 'more') {
+      await browser('close');
+      await browser('--profile', mkdtempSync(join(tmpdir(), 'u497-contrast-')), '--args', '--force-high-contrast,--disable-blink-features=ForcedColors', 'open', url('/harness.html?seed=tabs-8'));
+    }
+
     for (const base of [true, false]) {
       const side = base ? 'base' : 'head';
       const directory = join(art!, side);
@@ -29,7 +36,7 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       await browser('eval', `(() => {
         for (const tab of document.querySelectorAll('.project-tab')) {
           const app = window.__fake.app.of(tab.dataset.path);
-          app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}});
+          app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}});
           app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Authored 雪 Model'}],efforts:[{id:'high',label:'High'}]});
           app.handlers['project.setModels'] = () => { throw new Error(${JSON.stringify(failure)}); };
         }

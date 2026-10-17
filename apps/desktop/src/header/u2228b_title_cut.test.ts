@@ -29,7 +29,7 @@ const READ = `() => {
   const box = title.getBoundingClientRect();
   const range = document.createRange();
   range.selectNodeContents(title);
-  return { shown: title.textContent, full: title.getAttribute("title"), name: title.getAttribute("aria-label"), fits: title.scrollWidth <= title.clientWidth, lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size, mid: box.left + box.width / 2, width: innerWidth };
+  return { shown: title.textContent, full: title.getAttribute("aria-label"), name: title.getAttribute("aria-label"), fits: title.scrollWidth <= title.clientWidth, lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size, mid: box.left + box.width / 2, width: innerWidth };
 }`;
 
 type Read = { shown: string; full: string; name: string; fits: boolean; lines: number; mid: number; width: number };
@@ -48,7 +48,7 @@ run("u2228b the window title keeps the name's start and end", () => {
     await load(1280);
     await page.call(select);
     await page.call(RENAME, "pay");
-    await page.until(`() => document.querySelector(".window-title").getAttribute("title").endsWith("pay")`);
+    await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("pay")`);
 
     const read = await page.call<Read>(READ);
 
@@ -61,7 +61,7 @@ run("u2228b the window title keeps the name's start and end", () => {
       await load(width);
       await page.call(select);
       await page.call(RENAME, `payments ${TAIL}`);
-      await page.until(`() => document.querySelector(".window-title").getAttribute("title").endsWith("-the-end")`);
+      await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
 
       const read = await page.call<Read>(READ);
 
@@ -79,7 +79,7 @@ run("u2228b the window title keeps the name's start and end", () => {
     await load(1280);
     await page.call(select);
     await page.call(RENAME, `payments ${TAIL}`);
-    await page.until(`() => document.querySelector(".window-title").getAttribute("title").endsWith("-the-end")`);
+    await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
 
     const read = await page.call<Read>(READ);
     const sent = await page.call<string[]>(`() => window.__fake.app.windowOperations.filter((op) => op.kind === "title").map((op) => op.title)`);
@@ -94,7 +94,7 @@ run("u2228b the window title keeps the name's start and end", () => {
     await load(1600);
     await page.call(select);
     await page.call(RENAME, `payments ${TAIL}`);
-    await page.until(`() => document.querySelector(".window-title").getAttribute("title").endsWith("-the-end")`);
+    await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
 
     const wide = await page.call<Read>(READ);
 
