@@ -427,7 +427,7 @@ p {
   min-height: var(--header-height, calc(var(--space-5) * 2));
   box-sizing: border-box;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);

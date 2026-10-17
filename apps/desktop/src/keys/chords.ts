@@ -19,20 +19,19 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
-  { keys: "⇧⌘]", what: copy.nextProject, presses: ["meta+shift+BracketRight"] },
-  { keys: "⇧⌘[", what: copy.previousProject, presses: ["meta+shift+BracketLeft"] },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
-export type LeaderKey = { keys: string; what: string; press: string };
+/** `what` is Help's line; `short` is the panel's, which fits the six keys on one line of the header band (U2240). */
+export type LeaderKey = { keys: string; what: string; short: string; press: string };
 
 export const LEADER: readonly LeaderKey[] = [
-  { keys: "J", what: copy.jumpToWhatNeedsYou, press: "KeyJ" },
-  { keys: "⇧J", what: copy.jumpToWhatNeedsYouInAnotherProject, press: "Shift+KeyJ" },
-  { keys: "K", what: copy.switchToARowByName, press: "KeyK" },
-  { keys: "M", what: copy.minimiseOrRestoreTheBubble, press: "KeyM" },
-  { keys: "W", what: copy.closeTheBubble, press: "KeyW" },
-  { keys: "S", what: copy.showOrHideTheShelf, press: "KeyS" },
+  { keys: "J", what: copy.jumpToWhatNeedsYou, short: copy.leaderShortNeedsYou, press: "KeyJ" },
+  { keys: "⇧J", what: copy.jumpToWhatNeedsYouInAnotherProject, short: copy.leaderShortAnotherProject, press: "Shift+KeyJ" },
+  { keys: "K", what: copy.switchToARowByName, short: copy.leaderShortRow, press: "KeyK" },
+  { keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
+  { keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
+  { keys: "S", what: copy.showOrHideTheShelf, short: copy.leaderShortShelf, press: "KeyS" },
 ];
 
 /** Help's rows: the chords, with the leader's keys after `⌘K` (U2241). */
