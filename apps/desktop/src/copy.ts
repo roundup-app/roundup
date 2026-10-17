@@ -93,7 +93,7 @@ export const copy = {
   remove: "Remove",
   leaderChord: "⌘K",
   leaderPanel: "Press a key",
-  leaderWaitsForAKey: "Then press a key from the list",
+  leaderWaitsForAKey: "Wait for one more key",
   switchToARowByName: "Switch to a row by name",
   takeControlInTheSwitcher: "Take control, in the switcher",
   takeControlChord: "Take control",
