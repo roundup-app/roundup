@@ -247,7 +247,8 @@ class L89(unittest.TestCase):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
         files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
         self.assertEqual(['crates/agents/tests/working_files.rs', 'crates/checkpoints/src/marks_tests.rs',
-                          'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
+                          'crates/desktop/Cargo.toml', 'crates/desktop/src/lib.rs', 'crates/desktop/src/open.rs',
+                          'crates/desktop/tests/s2297a.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
                           'crates/rupd/src/data.rs'], files.split())
 
     def test_l89_every_setup_input_a_step_reads_or_a_job_passes_is_declared(self):
