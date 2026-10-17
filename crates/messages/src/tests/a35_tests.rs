@@ -11,7 +11,7 @@ async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
     let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
     let seen = typed.clone();
     let deliver: Deliver = Arc::new(move |_, text| {
-        seen.lock().unwrap().push(text);
+        seen.lock().unwrap().push(shown(text));
         Box::pin(async { Ok(()) })
     });
     let m = Messages::open(dir.path(), bus.clone(), rail.clone(), deliver).unwrap();
@@ -70,7 +70,7 @@ impl RestartHarness {
         let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
         let seen = typed.clone();
         let deliver: Deliver = Arc::new(move |_, text| {
-            seen.lock().unwrap().push(text);
+            seen.lock().unwrap().push(shown(text));
             Box::pin(async { Ok(()) })
         });
         let fail: Arc<StdMutex<Option<String>>> = Arc::default();
