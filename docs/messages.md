@@ -377,3 +377,15 @@ reason. A waiting write does not survive a Daemon restart (dropped with the
 original-Terminal reason) and none is retried. The user's own writes are never held.
 Integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs and
 laws are unchanged.
+
+## B6 Door Orders
+
+Door `agent.setOrder` calls on a taken-over child use the same durable `HeldAction`
+receipts, per-child arrival order and ledger as rename. Nothing is stored and no
+Steer is typed while the Takeover lasts; an invalid Order is refused at once.
+Release rechecks Reach, stores the Order and Steers the child's current Attempt,
+so a replacement Attempt takes it as the child's own. A waiting Order that a
+Daemon restart finds is released in order; one recorded in progress is dropped as
+possibly applied, and none is retried. An Agent's own Order is never held.
+Integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs and
+laws are unchanged.

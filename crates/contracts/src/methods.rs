@@ -128,7 +128,11 @@ pub const METHODS: &[Method] = &[
         "agent_NodeId",
         "{ prompt: string | null }",
     ),
-    m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
+    m(
+        "agent.setOrder",
+        "agent_SetOrderParams",
+        "agent_RailNode | agent_HeldAction",
+    ),
     m("agent.channelUp", "agent_NodeId", "null"),
     m("agent.signal", "agent_SignalParams", "null"),
     m(
