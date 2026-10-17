@@ -22,8 +22,8 @@ import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { createChoices } from "../models/choices";
 import { AddAgentPicker } from "./AddAgentPicker";
-import { ClearPrompt } from "../thread/ClearPrompt";
-import { clearingOf } from "../thread/clear";
+import { ClearPrompt } from "./ClearPrompt";
+import { clearingOf } from "./clear";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -37,12 +37,11 @@ export const Rail = () => {
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
   const menu = createRailMenu(app, rail, setFailure, connected.events);
-  const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
 
   const clearPrompt = createMemo(() => {
-    const node = clearTarget();
+    const node = menu.clearTarget();
 
-    return node !== null && rail.selected() !== node.id && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
+    return node !== null && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
   });
 
   const [wanted, setWanted] = createSignal<string | null>(null);
@@ -85,17 +84,23 @@ export const Rail = () => {
 
   let clearElement: HTMLDivElement | undefined;
 
+  /** U350: the prompt stays within the Rail, so its ground never runs into the centre pane's ground and reads as cut off. */
   const placeClear = () => {
     const node = clearPrompt();
     const row = node ? rowElement(node.id)?.getBoundingClientRect() : undefined;
+    const rail = container()?.getBoundingClientRect();
 
-    if (!row || !clearElement) return;
+    if (!row || !rail || !clearElement) return;
+
+    const inset = parseFloat(getComputedStyle(clearElement).paddingLeft);
+
+    // The box is content-box: its width leaves out its own padding, which equals the inset kept on each side.
+    clearElement.style.maxWidth = `${Math.max(0, rail.width - 4 * inset)}px`;
 
     const box = clearElement.getBoundingClientRect();
-    const inset = parseFloat(getComputedStyle(clearElement).paddingLeft);
     const top = row.bottom + box.height <= window.innerHeight - inset ? row.bottom : row.top - box.height;
 
-    clearElement.style.left = `${Math.max(inset, Math.min(row.left, window.innerWidth - box.width - inset))}px`;
+    clearElement.style.left = `${Math.max(rail.left + inset, Math.min(row.left, rail.right - box.width - inset))}px`;
     clearElement.style.top = `${Math.max(inset, Math.min(top, window.innerHeight - box.height - inset))}px`;
   };
 
@@ -261,10 +266,7 @@ export const Rail = () => {
         },
       };
 
-      if (menu.isClearable(node)) actions.clear = () => {
-        setClearTarget(node);
-        menu.requestClear(node);
-      };
+      if (menu.isClearable(node)) actions.clear = () => menu.requestClear(node);
 
       return actions;
     }

@@ -2,7 +2,7 @@ import { registerKeys } from "./keys/registry";
 import { chordsFor } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -45,8 +45,6 @@ import { Switcher } from "./switcher/Switcher";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
-import { Thread } from "./thread/Thread";
-import { trackSelections } from "./thread/emulators";
 import { createShelfFrame } from "./shelf/frame";
 import { Shelf, ShelfToggle } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
@@ -120,7 +118,8 @@ const Connection = (props: {
 
     if (!open || open instanceof Error) return;
 
-    onCleanup(watchProject(open, props.toasts.push, props.show, props.active));
+    // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active)));
   });
 
   onCleanup(() => {
@@ -274,7 +273,7 @@ export const App = (props: {
 
   onCleanup(shelfFocus.stop);
 
-  const emulators = () => trackSelections(props.createEmulator ?? createXtermEmulators());
+  const emulators = () => props.createEmulator ?? createXtermEmulators();
 
   return (
     <Show when={projects.loaded()}>
@@ -350,10 +349,9 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked.create} screensRef={setScreens} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle(); }} />
-                    <Thread selectionOf={tracked.selectionOf} />
                     <ResourceStrip />
                   </div>
                 );

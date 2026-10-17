@@ -51,7 +51,7 @@ const parsedCommand = <Schema extends v.GenericSchema>(
  * (`wkwebview/drag_drop.rs`, `draggingLocation`; `tauri-runtime-wry` wraps them in `PhysicalPosition` as they are),
  * which already are CSS pixels. Other platforms report physical pixels, so only they divide by the ratio.
  */
-export const dropScale = (platform: string, ratio: number): number => (/mac/i.test(platform) ? 1 : ratio);
+const dropScale = (platform: string, ratio: number): number => (/mac/i.test(platform) ? 1 : ratio);
 
 /** The webview lays out in CSS pixels; `ratio` is the divisor the platform's drop point needs. */
 export const tauriFileDrop = (

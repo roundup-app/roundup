@@ -352,4 +352,16 @@ Daemon restart: it is dropped with the original-Attempt reason; one recorded in
 progress is dropped as possibly typed, and none is retried. These are
 integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs
 and laws are unchanged. #1581 retains the remaining action families (resume,
-Terminal writes, close and kill, answers, rewind, reads) and full acceptance.
+Terminal writes, answers, rewind, reads) and full acceptance.
+
+## B6 Door Terminal close and kill actions
+
+Door `terminal.close` and `terminal.kill` calls on a taken-over child's Terminal
+use the same durable `HeldAction` receipts, `agent.actionHistory`, per-child
+arrival order and ledger as resize. Release rechecks that the child still owns
+the original Terminal and that it still runs; an exited Terminal, a removed or
+replaced child gives a retained drop reason and later actions proceed. A waiting
+call does not survive a Daemon restart: it is dropped with the original-Terminal
+reason, and none is retried. These are integration-tested guarantees for M1, M3,
+M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581 retains
+Terminal writes, answers, rewind and reads.

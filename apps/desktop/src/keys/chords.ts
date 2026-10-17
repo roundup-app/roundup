@@ -20,7 +20,6 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘1", what: copy.focusTheRail, presses: ["meta+Digit1"], match: ["meta+1"] },
   { keys: "⌘2", what: copy.focusThePane, presses: ["meta+Digit2"], match: ["meta+2"] },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true },
-  { keys: "⌃O", what: copy.expandOrFoldTheThread, presses: ["ctrl+KeyO"] },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true },
   { keys: "⌥1–⌥9", what: copy.takeOverTheNThAgent, presses: digits(1, 9) },
   { keys: "⌥0", what: copy.endTheTakeover, presses: digits(0, 0) },

@@ -26,7 +26,11 @@ pub const METHODS: &[Method] = &[
         "{ pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } }",
     ),
     m("daemon.identify", "common_IdentifyParams", "null"),
-    m("events.subscribe", "common_SubscribeParams | null", "null"),
+    m(
+        "events.subscribe",
+        "common_SubscribeParams | null",
+        "common_SubscribeResult",
+    ),
     m(
         "provenance.history",
         "common_HistoryParams",
@@ -43,7 +47,11 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
     ),
     m("terminal.open", "terminal_OpenParams", "terminal_Opened"),
-    m("terminal.close", "terminal_TerminalId", "null"),
+    m(
+        "terminal.close",
+        "terminal_TerminalId",
+        "null | agent_HeldAction",
+    ),
     m("terminal.write", "terminal_WriteParams", "null"),
     m(
         "terminal.resize",
@@ -55,7 +63,11 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "terminal_ResizeAction[]",
     ),
-    m("terminal.kill", "terminal_TerminalId", "null"),
+    m(
+        "terminal.kill",
+        "terminal_TerminalId",
+        "null | agent_HeldAction",
+    ),
     m("terminal.list", "null", "terminal_TerminalInfo[]"),
     m(
         "terminal.snapshot",
@@ -148,6 +160,7 @@ pub const METHODS: &[Method] = &[
     m("rail.startDoor", "agent_StartDoorParams", "agent_RailNode"),
     m("agent.run", "agent_RunParams", "terminal_Opened"),
     m("project.setWorktrees", "project_Worktrees", "null"),
+    m("project.setMcp", "project_Mcp", "null"),
     m("project.get", "null", "project_ProjectSettings"),
     m("project.setModels", "project_ProjectModels", "null"),
     m("models.list", "null", "project_ModelList"),
