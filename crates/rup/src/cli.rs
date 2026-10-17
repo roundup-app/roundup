@@ -251,8 +251,16 @@ fn specs(door: bool) -> Vec<Spec> {
             if offer.method == "terminal.write" {
                 fields = terminal_write_fields(fields);
             }
+            if offer.method == "agent.wake" {
+                // B45: `rup agent wake <id>... [--any]` names the Agents without a flag.
+                for field in fields.iter_mut().filter(|field| field.name == "ids") {
+                    field.positional = true;
+                    field.required = true;
+                }
+                fields.sort_by_key(|field| !field.positional);
+            }
             if offer.method == "terminal.read" {
-                // `rup terminal read 3 --after 120`: a loop of reads names the offset, a first read starts at 0.
+                // `rup terminal read 3 --after 120`: a read without it returns what is new since your last read (X16).
                 for field in fields.iter_mut().filter(|field| field.name == "after") {
                     field.positional = false;
                     field.required = false;
@@ -303,6 +311,7 @@ fn usage(spec: &Spec) -> String {
     for field in &spec.fields {
         let flag = field.flag();
         let part = match (field.positional, field.required, &field.kind) {
+            (true, true, Kind::Array(_)) => format!(" <{}>...", flag.trim_end_matches('s')),
             (true, true, _) => format!(" <{flag}>"),
             (true, false, _) => format!(" [<{flag}>]"),
             (false, true, Kind::Bool) => format!(" --{flag}"),
@@ -324,6 +333,7 @@ fn example(spec: &Spec) -> String {
     let mut line = invocation(spec);
     for field in spec.fields.iter().filter(|f| f.positional) {
         let sample = match (&field.kind, field.name.as_str()) {
+            (Kind::Array(_), "ids") => "3 4 --any".to_owned(),
             (Kind::Int | Kind::Number, _) => "1".to_owned(),
             (_, "id") => "3".to_owned(),
             (_, "name") => "notes".to_owned(),
@@ -350,7 +360,7 @@ fn type_name(kind: &Kind) -> &'static str {
 fn arg_for(field: &Field) -> Arg {
     let flag = field.flag();
     let help = match (&field.kind, field.positional) {
-        (Kind::Text(_), true) => field.doc.clone(),
+        (Kind::Text(_) | Kind::Array(_), true) => field.doc.clone(),
         _ => format!("{} ({})", field.doc, type_name(&field.kind))
             .trim()
             .to_owned(),
@@ -376,6 +386,9 @@ fn arg_for(field: &Field) -> Arg {
         _ => arg,
     };
     match (&field.kind, field.positional) {
+        (Kind::Array(_), true) => arg
+            .num_args(1..)
+            .value_name(flag.trim_end_matches('s').to_owned()),
         (_, true) => arg,
         (Kind::Bool, false) => arg.long(flag).action(ArgAction::SetTrue).required(false),
         // A repeated text flag is often an argv (`--command sh --command -c`), so its values may start with `-`.
@@ -785,9 +798,6 @@ fn arguments(spec: &Spec, leaf: &ArgMatches) -> Result<JsonObject, Usage> {
         };
         out.insert("data".into(), Value::String(data));
     }
-    if spec.method == "terminal.read" && !leaf.contains_id("after") {
-        out.insert("after".into(), Value::from(0));
-    }
     for field in &spec.fields {
         if spec.method == "terminal.write"
             && matches!(field.name.as_str(), "text" | "no-enter" | "base64")
@@ -993,6 +1003,12 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
             eprintln!("next: {}", result["next"]);
             if result["truncated"] == true {
                 eprintln!("truncated");
+            }
+        }
+        "agent.wake" => {
+            println!("woken: {}", result["id"]);
+            if let Some(why) = result["why"].as_str() {
+                println!("why: {why}");
             }
         }
         _ => {

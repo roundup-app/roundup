@@ -19,14 +19,19 @@ pub fn package_bin(name: &str) -> PathBuf {
 
 impl Model {
     pub fn start(fixture: &str) -> Self {
+        Self::start_at(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/e2e/fixtures")
+                .join(format!("{fixture}.json")),
+        )
+    }
+
+    pub fn start_at(fixture: &Path) -> Self {
         let port = std::net::TcpListener::bind("127.0.0.1:0")
             .unwrap()
             .local_addr()
             .unwrap()
             .port();
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/e2e/fixtures")
-            .join(format!("{fixture}.json"));
         let child = Command::new(package_bin("llmock"))
             .env("AIMOCK_API_KEYS", KEY)
             .args(["--port", &port.to_string(), "--host", "127.0.0.1"])

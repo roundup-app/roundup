@@ -3,7 +3,7 @@ import { createSignal, For, Show } from "solid-js";
 import { CHORDS, HELP_KEYS } from "./chords";
 import { placeOf } from "./places";
 import { registerKeys } from "./registry";
-import { Dialog } from "../ui";
+import { Dialog } from "../ui/Dialog";
 
 const inTextField = (target: Element): boolean => target.closest('input, textarea, select, [contenteditable="true"]') !== null;
 

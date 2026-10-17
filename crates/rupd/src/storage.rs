@@ -14,28 +14,40 @@ const MCP: &str = include_str!("../../agents/migrations/005/up.sql");
 
 const EVENTS: &str = include_str!("../migrations/006/up.sql");
 const FLIGHT: &str = include_str!("../../messages/migrations/002/up.sql");
+const WAKES: &str = include_str!("../../messages/migrations/003/up.sql");
 
 const SCHEMA: &str = include_str!("../migrations/001/up.sql");
+
+mod added {
+    include!(concat!(env!("OUT_DIR"), "/added_migrations.rs"));
+}
+
+/// The frozen head (1 to 10), then every `migrations/project/*.sql` that `build.rs` found.
+fn migrations() -> Vec<M<'static>> {
+    let head = [
+        SCHEMA,
+        ANSWERS,
+        RESIZES,
+        ASKS,
+        ACTIONS,
+        PAD_REVISIONS,
+        EVENTS,
+        MCP,
+        FLIGHT,
+        WAKES,
+    ];
+    head.into_iter()
+        .chain(added::ADDED.iter().copied())
+        .map(M::up)
+        .collect()
+}
 
 pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let path = dir.join("project.db");
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
-        apply(
-            &mut db,
-            vec![
-                M::up(SCHEMA),
-                M::up(ANSWERS),
-                M::up(RESIZES),
-                M::up(ASKS),
-                M::up(ACTIONS),
-                M::up(PAD_REVISIONS),
-                M::up(EVENTS),
-                M::up(MCP),
-                M::up(FLIGHT),
-            ],
-        )
+        apply(&mut db, migrations())
     };
     run().map_err(|e| error(format!("{}: {e}", path.display())))
 }
@@ -143,20 +155,8 @@ mod tests {
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
         assert_eq!(
-            Migrations::new(vec![
-                M::up(SCHEMA),
-                M::up(ANSWERS),
-                M::up(RESIZES),
-                M::up(ASKS),
-                M::up(ACTIONS),
-                M::up(PAD_REVISIONS),
-                M::up(EVENTS),
-                M::up(MCP),
-                M::up(FLIGHT),
-            ])
-            .current_version(&db)
-            .unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(9).unwrap())
+            Migrations::new(migrations()).current_version(&db).unwrap(),
+            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(10).unwrap())
         );
         standalone::write_ask(&db);
         let ws = call(
@@ -293,6 +293,152 @@ mod tests {
             call(&daemon, "route.list", Json::Null).await[0]["delivery"],
             "ask-first"
         );
+    }
+
+    /// Compiles `build.rs` and runs it over the crate copy in `root`; returns the added list.
+    fn generated(root: &Path) -> Vec<String> {
+        use std::process::Command;
+        let out = root.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let bin = out.join("build_rs");
+        let built = Command::new("rustc")
+            .args(["--edition", "2024", "-o"])
+            .arg(&bin)
+            .arg(root.join("crate/build.rs"))
+            .status()
+            .unwrap();
+        assert!(built.success());
+        let ran = Command::new(&bin)
+            .env("CARGO_MANIFEST_DIR", root.join("crate"))
+            .env("OUT_DIR", &out)
+            .output()
+            .unwrap();
+        assert!(
+            ran.status.success(),
+            "{}",
+            String::from_utf8_lossy(&ran.stderr)
+        );
+        std::fs::read_to_string(out.join("added_migrations.rs"))
+            .unwrap()
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("include_str!(\""))
+            .map(|l| {
+                l.trim_end_matches("\"),")
+                    .rsplit('/')
+                    .next()
+                    .unwrap()
+                    .to_owned()
+            })
+            .collect()
+    }
+
+    fn crate_copy(root: &Path) {
+        let src = Path::new(env!("CARGO_MANIFEST_DIR"));
+        std::fs::create_dir_all(root.join("crate")).unwrap();
+        std::fs::copy(src.join("build.rs"), root.join("crate/build.rs")).unwrap();
+    }
+
+    fn git(root: &Path, args: &[&str]) -> std::process::Output {
+        std::process::Command::new("git")
+            .args([
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "commit.gpgsign=false",
+            ])
+            .args(args)
+            .current_dir(root)
+            .output()
+            .unwrap()
+    }
+
+    fn add(root: &Path, name: &str) {
+        let dir = root.join("crate/migrations/project");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(name),
+            format!("CREATE TABLE t_{}(x);", &name[5..name.len() - 4]),
+        )
+        .unwrap();
+        git(root, &["add", "."]);
+        assert!(git(root, &["commit", "-m", name]).status.success());
+    }
+
+    /// N21: two branches each add one migration file; the merge is clean and both run, `a` first.
+    #[test]
+    fn n21_two_migrations_added_on_two_branches_merge_cleanly() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        crate_copy(root);
+        git(root, &["init", "-b", "main"]);
+        git(root, &["add", "."]);
+        assert!(git(root, &["commit", "-m", "base"]).status.success());
+        git(root, &["checkout", "-b", "b"]);
+        add(root, "0011-b.sql");
+        git(root, &["checkout", "main"]);
+        git(root, &["checkout", "-b", "a"]);
+        add(root, "0011-a.sql");
+        let merged = git(root, &["merge", "b", "-m", "merge"]);
+        assert!(
+            merged.status.success(),
+            "{}",
+            String::from_utf8_lossy(&merged.stdout)
+        );
+        assert!(
+            git(root, &["diff", "--name-only", "--diff-filter=U"])
+                .stdout
+                .is_empty()
+        );
+        assert_eq!(generated(root), ["0011-a.sql", "0011-b.sql"]);
+    }
+
+    /// N21: files added out of order run after the head in name order, and a bad name fails the build.
+    #[test]
+    fn n21_a_migration_file_runs_after_the_head_in_name_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        crate_copy(root);
+        git(root, &["init", "-b", "main"]);
+        add(root, "0012-second.sql");
+        add(root, "0011-first.sql");
+        let names = generated(root);
+        assert_eq!(names, ["0011-first.sql", "0012-second.sql"]);
+        let base = migrations().len();
+        let sql: Vec<String> = names
+            .iter()
+            .map(|n| {
+                std::fs::read_to_string(root.join("crate/migrations/project").join(n)).unwrap()
+            })
+            .collect();
+        let mut db = Connection::open_in_memory().unwrap();
+        let all: Vec<M> = migrations()
+            .into_iter()
+            .chain(sql.iter().map(|s| M::up(s)))
+            .collect();
+        apply(&mut db, all).unwrap();
+        assert_eq!(base, 10);
+        let applied: i64 = db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(applied, 12);
+        let tables: i64 = db
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name IN ('t_first','t_second')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 2);
+        std::fs::write(root.join("crate/migrations/project/notes.txt"), "").unwrap();
+        let bad = std::process::Command::new(root.join("out/build_rs"))
+            .env("CARGO_MANIFEST_DIR", root.join("crate"))
+            .env("OUT_DIR", root.join("out"))
+            .output()
+            .unwrap();
+        assert!(!bad.status.success());
+        assert!(String::from_utf8_lossy(&bad.stderr).contains("notes.txt"));
     }
 
     /// N17: a data folder from before `project.db` still holds per-store databases, one of them

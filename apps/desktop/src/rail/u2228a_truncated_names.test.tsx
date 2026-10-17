@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
+import { copy } from "../copy";
 import { workstream } from "../testing/nodes";
 import { mountRail, rowOf } from "./railFixture";
 
@@ -47,10 +48,11 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   await mountRail([workstream("w", { name: NAME })]);
 
   const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add-label")!.closest("button")!;
-  expect(add.title).not.toBe(NAME);
-  expect(add.title).not.toBe("");
   hoverRow(NAME);
+  await screen.findByRole("tooltip");
   fireEvent.pointerMove(add, { pointerType: "mouse" });
-  await new Promise((done) => setTimeout(done, 600));
-  expect(screen.queryByRole("tooltip")).toBeNull();
+  await waitFor(() => expect(screen.queryByText(NAME, { selector: "[role=tooltip] *, [role=tooltip]" })).toBeNull());
+  fireEvent.keyDown(document, { key: "Tab" });
+  add.focus();
+  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(copy.addAgentN));
 });

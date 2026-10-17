@@ -5,7 +5,7 @@ import { App } from "../App";
 import { SEEDS, seedApp } from "../testing/seeds";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { chord, mountRail, pinnedAdd, railCallsTo, rowNames } from "./railFixture";
+import { chord, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -83,11 +83,12 @@ describe("u162 one add opens a Workstream", () => {
     await screen.findAllByLabelText("Add Agent");
 
     expect(rowNames()).toEqual(["g", "h"]);
-    const row = document.querySelector<HTMLElement>('[data-id="g"]')!;
+    const row = rowOf("g");
 
     row.focus();
     fireEvent.keyDown(row, { key: "ArrowDown" });
-    expect(document.activeElement?.getAttribute("data-id")).toBe("h");
+    await settled();
+    expect(document.activeElement).toBe(rowOf("h"));
   });
 
   it("u191_cmd_n_keep_their_parent_rule_with_no_workstream", async () => {

@@ -1,6 +1,5 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import type { Listbox } from "./index";
-import { AskAnswers, moved } from "../decisions/AskCard";
+import type { Listbox } from "./Listbox";
 import { Markdown } from "../plain/Markdown";
 import { copy } from "../copy";
 import "../tokens.css";
@@ -8,7 +7,7 @@ import "../styles.css";
 import "../buttons.css";
 import "../decisions/styles.css";
 
-export const u501Fixture = (props: { listbox?: typeof Listbox } = {}) => {
+export const u501Fixture = (props: { listbox: typeof Listbox }) => {
   const answers = [
     { value: "brief", label: "A · Brief", description: "Keep the summary short", preview: "**Brief**\n\nKeep `these bytes`." },
     { value: "detail", label: "B · Detailed explanation with a long supplied answer name", description: "Include the reasoning and the tradeoffs\nwithout losing the supplied text", preview: "## Details\n\n- First\n- Second" },
@@ -43,28 +42,6 @@ export const u501Fixture = (props: { listbox?: typeof Listbox } = {}) => {
 
   const Answers = () => {
     const Controls = props.listbox;
-
-    // The baseline observer mounts main's existing surface; production never takes this fixture branch.
-    if (!Controls) return <>
-      <span>{copy.answers}</span>
-      <AskAnswers question={{ question: "Choose an answer", answers }} stuck={pending}
-        focus={() => {
-          const at = answers.findIndex(item => item.value === value());
-
-          return at < 0 ? null : at;
-        }}
-        setFocus={at => setValue(at === null ? null : answers[at]!.value)}
-        onKeyDown={event => {
-          const at = answers.findIndex(item => item.value === value());
-          const next = moved(answers.length, at < 0 ? null : at, event.key);
-
-          if (next !== undefined) { event.preventDefault(); setValue(next === null ? null : answers[next]!.value); }
-        }} />
-      <div class="ask-note">
-        <input type="text" aria-label={copy.note} value={note()} readOnly={pending()} onInput={event => setNote(event.currentTarget.value)} />
-        <button type="button" data-button="quiet" onClick={send}>{copy.send}</button>
-      </div>
-    </>;
 
     return <Controls.Root answers={answers} value={value()} highlightedValue={value()} onValueChange={setValue} onHighlightChange={setValue} pending={pending()}>
           <Controls.Label>{copy.answers}</Controls.Label>

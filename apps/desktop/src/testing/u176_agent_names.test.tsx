@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -11,7 +12,8 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeEach(async () => {
-  real = await startRealDaemon({ FAKE_CLAUDE_ORDER_PROMPTS: "2", FAKE_CLAUDE_ON_PROMPT_ASK: JSON.stringify({ tool_name: "Bash", tool_input: { command: "echo $prompt" } }), FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }) });
+  // E10: the Agent's Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u176_agent_names.json"));
 }, 120_000);
 
 afterEach(async () => {
@@ -63,4 +65,5 @@ it("u176_two_agents_added_to_one_workstream_are_told_apart_in_the_rail", async (
   await waitFor(async () => expect((await app.rpc("decision.list", null)).map((decision) => decision.agent)).toContain(second.id), { timeout: 60_000 });
   fireEvent.click(rail.querySelector(`[data-id="${second.id}"] .name`) ?? rail);
   expect(await screen.findByRole("region", { name: `Decision for ${second.name}` }, { timeout: 30_000 })).toBeTruthy();
+  await real.model!.assertMatched();
 }, 180_000);

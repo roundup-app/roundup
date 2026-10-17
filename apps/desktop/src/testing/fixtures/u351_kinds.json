@@ -1,0 +1,199 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What should this Agent do?"
+      },
+      "response": {
+        "content": "{\"title\":\"Agent work\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 2. It never changes.",
+        "hasToolResult": false
+      },
+      "latency": 900000,
+      "response": {
+        "content": "Working."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 3. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Idle."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 4. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u351_4",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch u351_4\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 5. It never changes.",
+        "hasToolResult": false
+      },
+      "latency": 900000,
+      "response": {
+        "content": "Working."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 6. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Idle."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 8. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "error": {
+          "message": "scripted server error",
+          "type": "api_error"
+        },
+        "status": 500
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 9. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u351_9",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch u351_9\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 10. It never changes.",
+        "hasToolResult": false
+      },
+      "latency": 900000,
+      "response": {
+        "content": "Working."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 11. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "error": {
+          "message": "scripted server error",
+          "type": "api_error"
+        },
+        "status": 500
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 12. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u351_12",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch u351_12\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: [from rupd, note]"
+      },
+      "response": {
+        "content": "{\"title\":\"Status\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: [from rupd, note]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>"
+      },
+      "response": {
+        "content": "{\"title\":\"Session\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What should this Agent do?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[from rupd",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    }
+  ]
+}

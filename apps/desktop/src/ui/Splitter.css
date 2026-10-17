@@ -1,0 +1,4 @@
+.app-splitter {
+  cursor: col-resize;
+  touch-action: none;
+}

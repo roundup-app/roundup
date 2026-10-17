@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
-import { exitedTerminal, mountRail, rowOf } from "./railFixture";
+import { exitedTerminal, mountRail, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -39,25 +39,30 @@ describe("u426 a Rail row shows its icons", () => {
     expect(css).not.toMatch(/\.row-icons\s*{[^}]*(display: none|visibility: hidden)/);
   });
 
-  it("u426_every_icon_is_an_icon_button_with_label_and_title", async () => {
+  it("u426_every_icon_is_an_icon_button_with_label_and_tooltip", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
+    fireEvent.keyDown(document, { key: "Tab" });
 
     for (const name of ["g", "a"]) {
-      for (const button of iconsOf(name).filter((button) => !button.closest(".rail-split-add"))) {
+      for (const button of iconsOf(name).filter((each) => !each.classList.contains("rail-add"))) {
         expect([button.tagName, button.dataset.button, button.querySelectorAll("svg.icon").length]).toEqual(["BUTTON", "icon", 1]);
         expect(button.getAttribute("aria-label")).toBeTruthy();
-        expect(button.title.startsWith(button.getAttribute("aria-label")!)).toBe(true);
+        button.focus();
+        await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(button.getAttribute("aria-label")));
+        button.blur();
+        await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
       }
     }
   });
 
-  it("u426_railstep_skips_icons", async () => {
+  it("u426_arrow_down_skips_icons", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i", { parent: "g" })]);
     const row = rowOf("g");
 
     row.focus();
     fireEvent.keyDown(row, { key: "ArrowDown" });
-    expect(document.activeElement?.getAttribute("data-id")).toBe("a");
+    await settled();
+    expect(document.activeElement).toBe(rowOf("a"));
     expect(iconsOf("g").every((button) => button.tagName === "BUTTON" && button.tabIndex === 0)).toBe(true);
   });
 
@@ -89,7 +94,7 @@ describe("u426 a Rail row shows its icons", () => {
 
     fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Model…", "Remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Remove"]);
   });
 
   it("u426_a_stopped_agent_offers_no_stop_icon", async () => {

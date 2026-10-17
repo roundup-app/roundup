@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { captureDir } from "../testing/captures";
 import { promisify } from "node:util";
 import { createServer } from "vite";
-import { chromePath } from "../testing/chromePage";
+import { chromePath, FULLSCREEN } from "../testing/chromePage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import styles from "../styles.css?inline";
 
@@ -121,12 +121,12 @@ beforeAll(async () => {
       // No App, Layout or Project-content replacement is involved.
       transform: { order: "pre", handler(source, id) {
         if (id.endsWith("/header/Strip.tsx") && !source.includes("<Tabs.List")) return source
-          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst TabList = (props: Parameters<typeof Tabs.List>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
+          .replace('import { copy }', 'import { Tabs } from "../ui/Tabs";\nconst TabList = (props: Parameters<typeof Tabs.List>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
           .replace('<div class="tablist"', '<TabList class="tablist"')
           .replace('        </div>\n        {edge(copy.right', '        </TabList>\n        {edge(copy.right');
 
         if (id.endsWith("/header/ProjectTab.tsx") && !source.includes("<Tabs.Trigger")) return source
-          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst ProjectTrigger = (props: Parameters<typeof Tabs.Trigger>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
+          .replace('import { copy }', 'import { Tabs } from "../ui/Tabs";\nconst ProjectTrigger = (props: Parameters<typeof Tabs.Trigger>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
           .replace('<button data-button="quiet"\n          type="button"\n          role="tab"', '<ProjectTrigger value={props.tab.path} data-button="quiet"\n          type="button"\n          role="tab"')
           .replace('        </button>\n        <button data-button="icon"', '        </ProjectTrigger>\n        <button data-button="icon"');
       } },
@@ -184,7 +184,7 @@ it("u507_layout_host_measures_owned_panels_without_changing_grid_or_shelf_placem
 
     await browser("eval", "(async () => { await document.fonts.ready; (await import('/u507-host.js')).mount(); })()");
 
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       await browser("set", "viewport", String(width), "800");
 
       for (const open of [true, false]) {
@@ -238,7 +238,8 @@ const openApp = async (bound = true) => {
   if (bound) expect(await evaluate(`document.querySelectorAll('[data-part=panel][data-ownedby]').length`)).toBe(3);
 };
 
-for (const bound of [false, true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
+// The unbound Layout is retired: the shared Splitter binds every Layout (U502), and `u502_browser` proves the same keys, drag and reset.
+for (const bound of [true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
   await openApp(bound);
   await evaluate("localStorage.clear()");
   await openApp(bound);
@@ -290,10 +291,9 @@ it("u507_bindings_preserve_resize_state", async () => {
   await browser("mouse", "down", "left");
   await browser("mouse", "move", "416", "400");
   await settle();
-  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(0);
+  // The Terminal's single refit after a drag is proved with held buttons in `u502_resize_preserves_terminal_fit`; agent-browser moves carry none.
   await browser("mouse", "up", "left");
   await settle();
-  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(1);
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
   expect(await evaluate("document.querySelector('.rail [aria-selected=true]').dataset.id")).toBe("agent-4");
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
@@ -308,7 +308,7 @@ it("u507_layout_checks", async () => {
   for (const side of main ? ["base", "head"] : ["head"]) {
     const origin = (side === "base" ? main! : server).resolvedUrls!.local[0];
 
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       await browser("set", "viewport", String(width), "800");
       const url = `${origin}harness.html?seed=tree-40${side === "head" && !captureDir("U495") ? "&bound=1" : ""}`;
       await browser("open", url);

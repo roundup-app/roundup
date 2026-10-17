@@ -59,7 +59,7 @@ describe("u405 owned Pads and Todos hang as leaves", () => {
   it("u405_a_pad_leaf_is_a_diamond_and_a_grey_name", async () => {
     await mount([], [padOf("notes")]);
 
-    const pad = screen.getByTitle("notes");
+    const pad = screen.getByRole("button", { name: "notes" });
 
     expect(pad.querySelector("svg")).not.toBeNull();
     expect(pad.textContent).toBe("notes");

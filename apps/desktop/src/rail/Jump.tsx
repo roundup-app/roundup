@@ -1,4 +1,5 @@
-import { onCleanup } from "solid-js";
+import { registerKeys } from "../keys/registry";
+import { chordsFor } from "../keys/chords";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** `⌥1` to `⌥9` by key position: ⌥ makes another character on a Mac, so the character is never read. */
@@ -31,42 +32,40 @@ export const Jump = (props: { onFailure: (message: string | null) => void }) => 
     else focusPane();
   };
 
-  const onKey = (press: KeyboardEvent): void => {
-    if (!press.altKey || press.metaKey || press.ctrlKey || press.shiftKey) return;
-
-    const digit = digitOf(press);
-
-    if (digit === null) return;
-
-    if (digit === 0) {
-      press.preventDefault();
-      press.stopPropagation();
-      focusPane();
-      void takeover.end().then((failure) => {
-        if (failure !== null) props.onFailure(failure);
-
-        focusPane();
-      });
-
-      return;
-    }
-
+  const agentAt = (press: KeyboardEvent): string | undefined => {
     const kinds = new Map(rail.nodes.map((node) => [node.id, node.kind]));
-    const target = shownAgentIds(kinds)[digit - 1];
 
-    if (target === undefined) return;
-
-    press.preventDefault();
-    press.stopPropagation();
-    props.onFailure(null);
-    rail.select(target);
-    focusPane();
-    void jump(target);
+    return shownAgentIds(kinds)[(digitOf(press) ?? 0) - 1];
   };
 
-  // Capture, and before the Pane or xterm sees it: the chord is the webview's wherever focus is (it narrows U12).
-  document.addEventListener("keydown", onKey, true);
-  onCleanup(() => document.removeEventListener("keydown", onKey, true));
+  // The chord is the webview's wherever focus is (it narrows U12): the registry sees it before the Pane or xterm does.
+  registerKeys({ kind: "app" }, [
+    {
+      chords: chordsFor("⌥0"),
+      run: () => {
+        focusPane();
+        void takeover.end().then((failure) => {
+          if (failure !== null) props.onFailure(failure);
+
+          focusPane();
+        });
+      },
+    },
+    {
+      chords: chordsFor("⌥1–⌥9"),
+      when: (press) => agentAt(press) !== undefined,
+      run: (press) => {
+        const target = agentAt(press);
+
+        if (target === undefined) return;
+
+        props.onFailure(null);
+        rail.select(target);
+        focusPane();
+        void jump(target);
+      },
+    },
+  ]);
 
   return null;
 };

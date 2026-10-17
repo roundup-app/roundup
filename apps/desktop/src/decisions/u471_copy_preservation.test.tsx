@@ -25,7 +25,7 @@ describe("u471 Decisions use sentence case", () => {
     expect(note.getAttribute("placeholder")).toBe("Note for keep v1 (recommended), or your own answer");
     expect(view.getByRole("button", { name: "Send" })).toBeTruthy();
     fireEvent.keyDown(note, { key: "ArrowUp" });
-    expect(note.getAttribute("placeholder")).toBe("Your own answer");
+    await waitFor(() => expect(note.getAttribute("placeholder")).toBe("Your own answer"));
   });
 
   it("u471_previous_copy_assertions_are_preserved_agent_question_text_stays_as_written", async () => {

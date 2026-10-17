@@ -2,6 +2,7 @@ import { copy } from "../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import * as v from "valibot";
 import { Markdown } from "../plain/Markdown";
+import { Listbox } from "../ui/Listbox";
 
 const json = v.pipe(v.string(), v.parseJson());
 
@@ -22,56 +23,11 @@ const RECOMMENDED = " (recommended)";
 
 const NOTE_MAX = 2000;
 
-/** U423: the position after an arrow key among `count` answers and none (`null`), or `undefined` when the key moves nothing. */
-export const moved = (count: number, focus: number | null, key: string): number | null | undefined => {
-  if (count === 0 || (key !== "ArrowDown" && key !== "ArrowUp")) return undefined;
+const value = (at: number | null) => (at === null ? null : String(at));
 
-  // The positions are the rows, then none.
-  const next = ((focus ?? count) + (key === "ArrowDown" ? 1 : count)) % (count + 1);
+const position = (answer: string | null) => (answer === null ? null : Number(answer));
 
-  return next === count ? null : next;
-};
-
-/** U406: the answers of an `ask_user` Decision with their tradeoffs, and the focused answer's preview. `focus` is the focused row; `null` is none: the user's own answer. */
-export const AskAnswers = (props: { question: Question; stuck: () => boolean; focus: () => number | null; setFocus: (at: number | null) => void; onKeyDown?: (key: KeyboardEvent) => void }) => {
-  const answers = () => props.question.answers;
-
-  const focused = () => {
-    const at = props.focus();
-
-    return at === null ? undefined : answers()[at];
-  };
-
-  return (
-    <>
-      <Show when={answers().length > 0}>
-        <div class="ask-answers" role="listbox" aria-label={copy.answers} tabIndex={0} onKeyDown={props.onKeyDown}>
-          <For each={answers()}>
-            {(each, index) => (
-              <div class="ask-answer" role="option" aria-selected={props.focus() === index()} aria-disabled={props.stuck() ? true : undefined} onClick={() => { if (!props.stuck()) props.setFocus(index()); }}>
-                <span class="ask-label">{each.label.endsWith(RECOMMENDED) ? each.label.slice(0, -RECOMMENDED.length) : each.label}</span>
-                <Show when={each.label.endsWith(RECOMMENDED)}>
-                  <span class="ask-recommended light">{copy.recommended}</span>
-                </Show>
-                <span class="ask-description">{each.description}</span>
-              </div>
-            )}
-          </For>
-        </div>
-      </Show>
-      <Show when={focused()?.preview}>
-        {(preview) => (
-          <div class="ask-preview">
-            <p class="ask-preview-head light">{focused()!.label}</p>
-            <Markdown class="decision-preview" body={preview()} />
-          </div>
-        )}
-      </Show>
-    </>
-  );
-};
-
-/** U406: `AskAnswers` with a note field and `send` of its own. */
+/** U406: the answers of an `ask_user` Decision with their tradeoffs, the focused answer's preview, and the note. `focus` is the focused row; `null` is none: the user's own answer. Ark's Listbox moves it, wrapping through none. */
 export const AskCard = (props: { question: Question; stuck: () => boolean; send: (answer: string | null, note: string) => void }) => {
   const answers = () => props.question.answers;
   const [focus, setFocus] = createSignal<number | null>(answers().length > 0 ? 0 : null);
@@ -85,39 +41,53 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
 
   const sendable = () => !props.stuck() && (focused() !== undefined || note().trim() !== "");
 
-  const move = (key: KeyboardEvent) => {
-    const next = moved(answers().length, focus(), key.key);
-
-    if (next === undefined) return;
-
-    key.preventDefault();
-    setFocus(next);
-  };
-
   const send = () => {
     if (sendable()) props.send(focused()?.label ?? null, note());
   };
 
+  const items = () => answers().map((each, at) => ({
+    value: String(at),
+    label: each.label.endsWith(RECOMMENDED) ? each.label.slice(0, -RECOMMENDED.length) : each.label,
+    description: each.description,
+    recommended: each.label.endsWith(RECOMMENDED),
+  }));
+
+  const select = (at: number | null) => setFocus(at !== null && answers()[at] === undefined ? null : at);
+
   return (
-    <>
-      <AskAnswers question={props.question} stuck={props.stuck} focus={focus} setFocus={setFocus} onKeyDown={move} />
-      <div class="ask-note">
-        <input
-          type="text"
+    <Listbox.Root answers={items()} value={value(focus())} highlightedValue={value(focus())} pending={props.stuck()}
+      onValueChange={(answer) => select(position(answer))} onHighlightChange={(answer) => select(position(answer))}>
+      <Show when={answers().length > 0}>
+        <Listbox.Content class="ask-answers" aria-label={copy.answers}>
+          <For each={items()}>
+            {(each) => (
+              <Listbox.Item item={each}>
+                <Show when={each.recommended}>
+                  <span class="ask-recommended light">{copy.recommended}</span>
+                </Show>
+              </Listbox.Item>
+            )}
+          </For>
+        </Listbox.Content>
+      </Show>
+      <Show when={focused()?.preview}>
+        {(preview) => (
+          <div class="ask-preview">
+            <p class="ask-preview-head light">{focused()!.label}</p>
+            <Markdown class="decision-preview" body={preview()} />
+          </div>
+        )}
+      </Show>
+      <form class="ask-note" onSubmit={(submit) => { submit.preventDefault(); send(); }}>
+        <Listbox.NoteInput
           maxLength={NOTE_MAX}
           aria-label={copy.note}
           placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
           value={note()}
-          readOnly={props.stuck()}
-          aria-disabled={props.stuck() ? true : undefined}
           onInput={(input) => setNote(input.currentTarget.value)}
-          onKeyDown={(key) => {
-            if (key.key === "Enter") send();
-            else move(key);
-          }}
         />{" "}
-        <button data-button="quiet" type="button" class="word" aria-disabled={sendable() ? undefined : true} onClick={send}>{copy.send}</button>
-      </div>
-    </>
+        <button data-button="quiet" type="submit" class="word" aria-disabled={sendable() ? undefined : true}>{copy.send}</button>
+      </form>
+    </Listbox.Root>
   );
 };

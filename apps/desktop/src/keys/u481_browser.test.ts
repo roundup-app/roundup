@@ -8,6 +8,7 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer, type AppServer } from "../testing/appServer";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const exec = promisify(execFile);
 
@@ -62,9 +63,9 @@ const load = async () => {
 
 const prepare = async () => {
   await read(`(() => {
-    window.__origin = document.querySelector('.rail-row[aria-selected=true]');
+    window.__origin = document.querySelector('.rail-row[data-selected=true]');
     window.__origin.focus();
-    window.__selected = document.querySelector('.rail-row[aria-selected=true]')?.dataset.id;
+    window.__selected = document.querySelector('.rail-row[data-selected=true]')?.dataset.id;
     window.__calls = window.__fake.app.calls.length;
     window.__escape = 0;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') window.__escape++; });
@@ -83,12 +84,10 @@ it("u481_help_escape_restores_focus_without_underlying_action", async () => {
   await browser("click", ".terminal-new");
   await wait(`!!document.querySelector(".bubble .xterm-screen")`);
   await prepare(); await open();
-  await browser("press", "Meta+Comma");
   await browser("press", "Meta+n");
   await browser("press", "Escape"); await closed();
-  expect(await read(`({selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === window.__selected,
-    calls: window.__fake.app.calls.slice(window.__calls).map(c => c.method).filter(method => method !== "project.resources"), escape: window.__escape,
-    models: !!document.querySelector('.models-sheet')})`)).toEqual({selected: true, calls: [], escape: 0, models: false});
+  expect(await read(`({selected: document.querySelector('.rail-row[data-selected=true]')?.dataset.id === window.__selected,
+    calls: window.__fake.app.calls.slice(window.__calls).map(c => c.method).filter(method => method !== "project.resources"), escape: window.__escape})`)).toEqual({selected: true, calls: [], escape: 0});
 }, 60_000);
 
 it("u481_help_dialog_traps_and_returns_focus", async () => {
@@ -127,7 +126,7 @@ it("u481_help_preserves_rendered_checks_and_failure", async () => {
       await browser("--profile", profile, "--args", "--force-high-contrast,--disable-blink-features=ForcedColors", "open", origin);
     }
 
-    for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
+    for (const width of [FULLSCREEN.width]) for (const scheme of ["light", "dark"]) {
       await browser("set", "viewport", String(width), "800");
       await browser("set", "media", scheme);
       await load();

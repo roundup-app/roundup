@@ -1,210 +1,90 @@
 import { copy } from "../copy";
-import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, onMount, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
-import { MARKS, markOf, tipOf } from "./tab";
-import { nameParts } from "./tab";
+import { IconButton } from "../ui/IconButton";
+import { Tabs } from "../ui/Tabs";
+import { Tooltip } from "../ui/Tooltip";
+import { registerKeys } from "../keys/registry";
+import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
 
-/** The field that takes a tab's place (U183): `Enter` saves, `Escape` cancels, a click elsewhere saves; no key in it reaches anything else. */
+/** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
 const RenameField = (props: { name: string; onDone: (saved: string | null, refocus: boolean) => void }) => {
   let field: HTMLInputElement | undefined;
   let finished = false;
 
   const finish = (saved: string | null, refocus: boolean) => {
     if (finished) return;
-
     finished = true;
     props.onDone(saved, refocus);
   };
 
-  // Window capture runs before every other listener: a key typed here is never a chord, and never reaches a Terminal.
-  const onKey = (press: KeyboardEvent) => {
-    if (press.target !== field) return;
+  registerKeys({ kind: "layer", element: () => field, active: () => !finished, modal: true }, [
+    { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
+    { chords: ["Escape"], when: (press) => !press.isComposing, run: () => finish(null, true) },
+  ]);
+  onMount(() => { field?.focus(); field?.select(); });
 
-    press.stopPropagation();
-
-    if (press.isComposing) return;
-
-    if (press.key === "Enter") {
-      press.preventDefault();
-      finish(field?.value ?? "", true);
-    } else if (press.key === "Escape") {
-      press.preventDefault();
-      finish(null, true);
-    }
-  };
-
-  window.addEventListener("keydown", onKey, true);
-  onCleanup(() => window.removeEventListener("keydown", onKey, true));
-
-  return (
-    <input
-      class="tab-rename"
-      aria-label={copy.projectName}
-      value={props.name}
-      ref={(element) => {
-        field = element;
-        queueMicrotask(() => {
-          element.focus();
-          element.select();
-        });
-      }}
-      onBlur={() => finish(field?.value ?? "", false)}
-    />
-  );
+  return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
+    onBlur={() => finish(field?.value ?? "", false)} />;
 };
 
-/** The right-click menu of a tab (U377): `Models`, as U56's row menu is a menu at the pointer. `Esc` or a click elsewhere closes it. */
-const TabMenu = (props: { x: number; y: number; onModels: () => void; onClose: () => void }) => {
-  let element: HTMLDivElement | undefined;
-
-  const dismiss = (press: Event) => {
-    if (press instanceof KeyboardEvent ? press.key === "Escape" : !(press.target instanceof Node && element?.contains(press.target))) props.onClose();
-  };
-
-  document.addEventListener("pointerdown", dismiss);
-  document.addEventListener("keydown", dismiss);
-  onCleanup(() => {
-    document.removeEventListener("pointerdown", dismiss);
-    document.removeEventListener("keydown", dismiss);
-  });
-
-  return (
-    <div class="rail-menu tab-menu" role="menu" aria-label={copy.projectActions} style={{ left: `${props.x}px`, top: `${props.y}px` }} ref={(node) => { element = node; queueMicrotask(() => node.querySelector<HTMLElement>("[role=menuitem]")?.focus()); }}>
-      <button data-button="quiet" type="button" role="menuitem" onClick={() => { props.onClose(); props.onModels(); }}>{copy.models}</button>
-    </div>
-  );
-};
-
-// Chromium activates Enter without retaining :active, so the control holds its pressed Token until keyup or blur.
-const onPress = (event: { key: string; currentTarget: HTMLButtonElement }) => {
-  if (event.key === "Enter") event.currentTarget.dataset.pressed = "true";
-};
-
-const onRelease = (event: { currentTarget: HTMLButtonElement }) => {
-  delete event.currentTarget.dataset.pressed;
-};
-
-/** One Project tab (U179): its name and one Tab mark, and nothing else until the pointer or focus is on it (U182, U184). */
+/** One Project's library-owned tab, with a sibling close control. */
 export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
   closeFocus?: boolean;
-  onSelect: () => void;
   onMark: () => void;
   onRename: (name: string) => void;
   onClose: () => void;
-  onModels: () => void;
   ref?: (element: HTMLElement) => void;
 }) => {
-  const tip = createUniqueId();
   const { near, handlers } = createNear();
-  const [place, setPlace] = createSignal({ left: 0, top: 0 });
   const [editing, setEditing] = createSignal<number | null>(null);
-  const [menu, setMenu] = createSignal<{ x: number; y: number } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
-
   const mark = () => markOf(props.tab);
-
-  const measure = () => {
-    const box = wrap?.getBoundingClientRect();
-    const viewport = wrap?.closest(".tablist")?.getBoundingClientRect();
-
-    setPlace({ left: Math.max(box?.left ?? 0, viewport?.left ?? 0), top: box?.bottom ?? 0 });
-  };
-
   const parts = createMemo(() => nameParts(props.tab.name));
   const edit = () => setEditing(wrap?.offsetWidth ?? 0);
+  registerKeys({ kind: "region", element: () => wrap }, [
+    { chords: ["F2"], when: (press) => press.target === button, run: edit },
+  ]);
 
-  return (
-    <div
-      class="project-tab"
-      data-selected={props.selected}
-      role="presentation"
-      data-path={props.tab.path}
+  return <Tabs.Context>{(tabs) => <>
+    <div class="project-tab" data-selected={props.selected} role="presentation" data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
-      ref={(element) => {
-        wrap = element;
-        props.ref?.(element);
-      }}
-      onPointerEnter={() => {
-        measure();
-        handlers.onMouseEnter();
-      }}
-      onPointerLeave={handlers.onMouseLeave}
-      onContextMenu={(press) => {
-        press.preventDefault();
-        const bottom = wrap?.closest(".window-bar")?.getBoundingClientRect().bottom ?? 0;
+      ref={(element) => { wrap = element; props.ref?.(element); }}
+      onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
+      onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}>
+      <Show when={editing() === null} fallback={<RenameField name={props.tab.name} onDone={(saved, refocus) => {
+        setEditing(null);
 
-        setMenu({ x: press.clientX, y: Math.max(press.clientY, bottom) });
-      }}
-      onFocusIn={() => {
-        measure();
-        handlers.onFocusIn();
-      }}
-      onFocusOut={handlers.onFocusOut}
-    >
-      <Show
-        when={editing() === null}
-        fallback={
-          <RenameField
-            name={props.tab.name}
-            onDone={(saved, refocus) => {
-              setEditing(null);
+        if (refocus) button?.focus();
 
-              if (refocus) button?.focus();
-
-              if (saved !== null) props.onRename(saved);
-            }}
-          />
-        }
-      >
-        <button data-button="quiet"
-          type="button"
-          role="tab"
-          class="tab-name-button"
-          aria-selected={props.selected}
-          aria-busy={props.tab.busy}
-          data-selected={props.selected}
-          aria-describedby={near() && mark() !== null ? tip : undefined}
-          title={props.tab.path}
-          ref={(element) => (button = element)}
-          onClick={(click) => (click.target instanceof Element && click.target.closest(".tab-mark") ? props.onMark() : props.onSelect())}
-          onKeyUp={onRelease}
-          onBlur={onRelease}
-          onKeyDown={(press) => {
-            onPress(press);
-
-            if (press.key === "F2" && !press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey) {
-              press.preventDefault();
-              edit();
-            }
-          }}
-        >
-          <span class="tab-name" onDblClick={edit}>
-            <span class="tab-head">{parts()[0]}</span>
-            <span class="tab-tail">{parts()[1]}</span>
-          </span>
-          <Show when={mark()}>
-            {(shown) => (
-              <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />
-            )}
-          </Show>
-        </button>
-        <button data-button="icon" type="button" class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onKeyDown={onPress} onKeyUp={onRelease} onBlur={onRelease} onClick={() => props.onClose()}>
-          <Icon name="x" />
-        </button>
-      </Show>
-      <Show when={menu()}>
-        {(at) => <TabMenu x={at().x} y={at().y} onModels={props.onModels} onClose={() => setMenu(null)} />}
-      </Show>
-      <Show when={near() && mark() !== null}>
-        <span class="tab-tip" id={tip} role="tooltip" style={{ left: `${place().left}px`, top: `${place().top}px` }}>
-          {tipOf(props.tab)}
-        </span>
+        if (saved !== null) props.onRename(saved);
+      }} />}>
+        <Tooltip.Root ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
+          <Tooltip.Trigger asChild={(tooltip) =>
+              <Tabs.Trigger {...tooltip({})} value={props.tab.path} class="tab-name-button"
+                data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
+                onClick={(click) => {
+                  if (click.target instanceof Element && click.target.closest('.tab-mark')) {
+                    click.preventDefault();
+                    props.onMark();
+                  }
+                }}>
+                <span class="tab-name" onDblClick={edit}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
+              </Tabs.Trigger>
+          } />
+          <Portal><Tooltip.Positioner><Tooltip.Content class="tab-tip">
+            {props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show>
+          </Tooltip.Content></Tooltip.Positioner></Portal>
+        </Tooltip.Root>
+        <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
       </Show>
     </div>
-  );
+  </>}</Tabs.Context>;
 };

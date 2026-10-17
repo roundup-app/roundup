@@ -17,9 +17,9 @@ export const showEverything = async (connected: ConnectedProject): Promise<void>
 export const showEverythingInApp = async (name = /backend/): Promise<void> => {
   const { fireEvent, screen } = await import("@solidjs/testing-library");
   const { showShelfTab } = await import("./shelfTabs");
-  const row = await screen.findByRole("treeitem", { name });
+  const item = await screen.findByRole("treeitem", { name });
 
-  fireEvent.click(row);
+  fireEvent.click(item.querySelector<HTMLElement>('[data-part="branch-control"]') ?? item);
   showShelfTab("Todos");
   const scope = await screen.findByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
 

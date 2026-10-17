@@ -1,3 +1,4 @@
+import "./Select.css";
 import { Select as ArkSelect, createListCollection } from "@ark-ui/solid/select";
 import { createMemo, createSignal, For, onCleanup, type JSX } from "solid-js";
 import ChevronDown from "lucide-solid/icons/chevron-down";

@@ -193,7 +193,7 @@ describe("u470 the shared scope toggle", () => {
     for (const id of ["migrate", "scope-terminal"]) {
       await selectWorkstream();
       fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
-      expect(within(shelf()).queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ })).toBeNull();
+      await waitFor(() => expect(within(shelf()).queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ })).toBeNull());
     }
   });
 
@@ -387,7 +387,7 @@ describe("u370 the Shelf closes and opens", () => {
 
   it("u370_focus_returns_where_it_was", async () => {
     await mountApp();
-    const row = screen.getAllByRole("treeitem")[0]!;
+    const row = document.querySelector<HTMLElement>(".rail-row")!;
 
     row.focus();
     chord();

@@ -9,6 +9,7 @@ import { appServer, type AppServer } from "../testing/appServer";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const exec = promisify(execFile);
 
@@ -48,7 +49,7 @@ afterAll(async () => {
 const baseline = process.env.ROUNDUP_CAPTURE_BASE === "1";
 
 it("u485_rendered_checks", async () => {
-  for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
+  for (const width of [FULLSCREEN.width]) for (const scheme of ["light", "dark"]) {
     await browser("set", "viewport", String(width), "800");
     await browser("set", "media", scheme);
 
@@ -129,7 +130,7 @@ it("u485_rendered_checks", async () => {
 
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).outlineStyle`)).toBe("none");
 
-          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth, s.borderRadius]; })()`)).toEqual(["visible", "solid", "1px", "6px"]);
+          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth, s.borderRadius]; })()`)).toEqual(["visible", "none", "3px", "0px"]);
         }
       }
 

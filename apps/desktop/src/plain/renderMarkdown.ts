@@ -4,6 +4,8 @@ const safeTarget = /^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i;
 
 const escaped = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+const attribute = (name: string, value: string) => ` ${name}="${escaped(value)}"`;
+
 const markdown = new Marked({ gfm: true, breaks: false });
 
 markdown.use({
@@ -16,7 +18,7 @@ markdown.use({
 
       if (!safeTarget.test(href.trim())) return text;
 
-      return `<a href="${escaped(href)}"${title ? ` title="${escaped(title)}"` : ""} rel="noreferrer noopener" target="_blank">${text}</a>`;
+      return `<a href="${escaped(href)}"${title ? attribute("title", title) : ""} rel="noreferrer noopener" target="_blank">${text}</a>`;
     },
     // An image is not drawn from generated text: it shows its alt text.
     image: ({ text }: Tokens.Image) => escaped(text),

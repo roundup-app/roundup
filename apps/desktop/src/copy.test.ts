@@ -107,6 +107,10 @@ const candidates = (source: string): { line: number; text: string }[] => {
     if (attribute && !uiAttribute && !inContent) return;
 
     if (parent?.type === "ObjectProperty" && parent.key === node || parent?.type === "MemberExpression") return;
+
+    const holder = ancestors.at(-2);
+
+    if (parent?.type === "ArrayExpression" && holder?.type === "ObjectProperty" && holder.key.type === "Identifier" && holder.key.name === "chords") return;
     let text: string;
 
     if (node.type === "JSXText") text = node.value.trim();
@@ -118,7 +122,7 @@ const candidates = (source: string): { line: number; text: string }[] => {
       if (text.endsWith('px') || /^(alt\+Digit|<a href=|no (row|node)|WebGL renderer)/.test(text)) return;
     } else return;
 
-    if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
+    if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|calc\(|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
 
     if (node.type === "JSXText" || uiAttribute || uiSetter || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
       found.push({ line: node.loc?.start.line ?? 0, text });
@@ -195,8 +199,6 @@ const FORMAT_SAMPLES = {
   closeTerminal: (count: number) => copy.closeTerminal(count),
   hiddenAttention: (count: number) => copy.hiddenAttention(count, count, count),
   needYouError: (count: number) => copy.needYouError(count, count),
-  modelFor: (count: number) => copy.modelFor(count),
-  effortFor: (count: number) => copy.effortFor(count),
   fullOrderOf: (count: number) => copy.fullOrderOf(count),
   orderOf: (count: number) => copy.orderOf(count),
   limits: (count: number) => copy.limits(count),
@@ -208,7 +210,6 @@ const FORMAT_SAMPLES = {
   padEditorToolbarActionHasNoName: (count: number) => copy.padEditorToolbarActionHasNoName(count),
   drawing: (count: number) => copy.drawing(count),
   mermaid: (count: number) => copy.mermaid(count),
-  defaultModel: (count: number) => copy.defaultModel(count),
   clearName: (count: number) => copy.clearName(count),
   agents: (count: number) => copy.agents(count),
   doorStoppedWithExit: (count: number) => copy.doorStoppedWithExit(count),
@@ -232,7 +233,6 @@ const FORMAT_SAMPLES = {
   waitsOnTitles: (count: number) => copy.waitsOnTitles(count),
   openBlocker: (count: number) => copy.openBlocker(count),
   actionsFor: (count: number) => copy.actionsFor(count),
-  changeToItReReadsItsConversationOn: (count: number) => copy.changeToItReReadsItsConversationOn(count, count),
   unlandedWorkAhead: (count: number) => copy.unlandedWorkAhead(count),
   goes: (count: number) => copy.goes(count),
   staysAtTheProjectRoot: (count: number) => copy.staysAtTheProjectRoot(count),
@@ -248,8 +248,6 @@ const FORMAT_SAMPLES = {
   counted: (count: number) => copy.counted(count, "1"),
   orderWithLimits: () => copy.orderWithLimits("1", "1"),
   daemonExit: () => copy.daemonExit("exited"),
-  fieldDefault: () => copy.fieldDefault("Model", "Unset"),
-  unsetDefault: (count: number) => copy.unsetDefault(count),
   noField: () => copy.noField("title"),
   stopQuestion: () => copy.stopQuestion("authored"),
   stopAndRemoveQuestion: () => copy.stopAndRemoveQuestion("authored"),

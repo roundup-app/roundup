@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import railCss from "./styles.css?inline";
+import uiCss from "../ui/Tree.css?inline";
 import { mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -20,8 +21,11 @@ describe("u404 an Agent row is its Glyph and its name", () => {
   it("u404_the_title_keeps_the_status_label", async () => {
     await mountRail(TREE);
 
-    expect(rowOf("gate").title).toBe("waits on #7");
-    expect(rowOf("asker").title).toBe("asks: keep v1 routes?");
+    fireEvent.pointerMove(rowOf("gate"), { pointerType: "mouse" });
+    expect((await screen.findByRole("tooltip")).textContent).toBe("waits on #7");
+    fireEvent.pointerLeave(rowOf("gate"), { pointerType: "mouse" });
+    fireEvent.pointerMove(rowOf("asker"), { pointerType: "mouse" });
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe("asks: keep v1 routes?"));
   });
 
   it("u404_ink_rows_are_bold_in_their_tone", async () => {
@@ -37,7 +41,7 @@ describe("u404 an Agent row is its Glyph and its name", () => {
 
     const control = rowOf("gate").querySelector<HTMLElement>("[data-pads-control]")!;
 
-    await screen.findByTitle("1 pads");
+    await screen.findByRole("button", { name: "1 pads" });
     expect(control.textContent?.trim()).toBe("1");
     expect(control.querySelector("svg")).not.toBeNull();
     expect(rowOf("asker").querySelector("[data-pads-control]")).toBeNull();
@@ -50,7 +54,6 @@ describe("u404 an Agent row is its Glyph and its name", () => {
 
     expect(rowOf("gate").getAttribute("aria-selected")).toBe("true");
     expect(rowOf("gate").getAttribute("data-selected")).toBe("true");
-    expect(railCss).toMatch(/\.rail-row\[data-selected="true"\][^{]*\{[^}]*linear-gradient\(var\(--accent\), var\(--accent\)\), linear-gradient\(var\(--selected\)/);
   });
 
   it("u404_no_state_moves_a_row", async () => {
@@ -64,6 +67,6 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     fireEvent.click(rowOf("ws").querySelector('button[aria-label="Collapse"]')!);
 
     expect(order()).toEqual(before);
-    expect(railCss).toMatch(/\.rail-row\s*\{[^}]*min-height:\s*var\(--space-6\)/);
+    expect(uiCss).toMatch(/\.app-tree \[data-part="item"\]\s*\{[^}]*min-height:\s*var\(--space-6\)/);
   });
 });

@@ -52,7 +52,8 @@ const mount = async (seed: "tree-40" | "daemon-exits") => {
 // A document-wide role query scans unrelated buttons while those reads are pending.
 const exportButton = () => found(() => document.querySelector<HTMLButtonElement>('[aria-label="Drawer"] button[aria-label="Export .md"]'));
 
-const CLICK_TARGET = "button, [role=treeitem], .spawn-prompt-field";
+// A Workstream's treeitem wraps its row; the row (branch-control) is the target.
+const CLICK_TARGET = "button, [role=treeitem]:not([data-part=branch]), [data-part=branch-control], .spawn-prompt-field";
 
 const targetsIn = (root: ParentNode) => [...root.querySelectorAll(CLICK_TARGET)].filter((el) => !el.matches('[aria-disabled="true"]') && el.getAttribute("aria-disabled") !== "true");
 
@@ -158,7 +159,7 @@ describe("u133 click targets", () => {
 
     expect(relocated.map(({ file, selector }) => ({ file, selector }))).toEqual([
       { file: "rail/styles.css", selector: ".spawn-prompt-field:focus-visible" },
-      { file: "rail/styles.css", selector: ".rail-row:focus-visible" },
+      { file: "rail/styles.css", selector: ".rail-tree .app-tree .rail-row:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible" },
       { file: "todos/rowButton.styles.css", selector: ".todo-tick:focus-visible::before" },
     ]);
@@ -174,12 +175,12 @@ describe("u133 click targets", () => {
 
   it("u133_a_row_the_prompt_the_drawer_buttons_and_a_todo_field_show_the_same_ring", async () => {
     const regions = await openEverything();
-    const row = regions.rail.querySelector("[role=treeitem]")!;
+    const row = regions.rail.querySelector(".rail-row")!;
     const close = within(regions.drawer).getByRole("button", { name: "Close" });
     const fields = [document.body.appendChild(document.createElement("input")), document.body.appendChild(document.createElement("textarea"))];
 
     for (const el of [row, close, ...fields]) {
-      expect(outlineRulesIn(el, "focus"), el.tagName).toEqual(el === row ? ["[data-state-focus]", ".rail-row[data-state-focus]"] : ["[data-state-focus]"]);
+      expect(outlineRulesIn(el, "focus"), el.tagName).toEqual(el === row ? ["[data-state-focus]", '.app-tree [data-part="branch-control"][data-state-focus],\n.app-tree [data-part="item"][data-state-focus]', ".rail-tree .app-tree .rail-row[data-state-focus]"] : ["[data-state-focus]"]);
       expect(styleIn(el, "focus").getPropertyValue("outline-width")).toBe("2px");
       expect(styleIn(el, "focus").getPropertyValue("outline-offset")).toBe(el === row ? "calc(-1 * var(--space-1))" : "1px");
     }
@@ -258,7 +259,7 @@ describe("u133 click targets", () => {
 
   it("u133_a_rail_menu_button_reads_its_font_size_from_a_type_step", async () => {
     await mount("tree-40");
-    fireEvent.contextMenu(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))[0]!);
+    fireEvent.contextMenu(document.querySelector(".rail-row")!);
     const buttons = within(await screen.findByRole("menu")).getAllByRole("menuitem");
 
     expect(buttons.length).toBeGreaterThan(0);

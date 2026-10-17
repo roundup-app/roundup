@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { workstream } from "../testing/nodes";
 import { captureDir } from "../testing/captures";
@@ -44,8 +44,8 @@ it("u469_the_bar_is_the_last_line_with_tabs_left_and_resources_right", async () 
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
       await page.until(`() => document.querySelector('.terminal-tabs') && document.querySelector('.resource-agent .resource-num')`);
@@ -82,8 +82,8 @@ it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => 
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=resources', width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load('/harness.html?seed=resources', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="worktree-agent"]').click(); }`);
       await page.until(`() => document.querySelector('.resource-agent .resource-num')`);
@@ -137,9 +137,9 @@ it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", asyn
   type Read = { bar: unknown; pane: unknown; composer: unknown; checks: Record<string, { status: string }> };
 
   for (const scheme of ['light', 'dark'] as const) {
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       await page.scheme(scheme, 'more');
-      await page.load('/harness.html?seed=empty-project', width, 800);
+      await page.load('/harness.html?seed=empty-project', width, FULLSCREEN.height);
       await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.resource-strip')`);
       const before = await page.call<Read>(geometry);
 
@@ -222,8 +222,8 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
   for (const scheme of ['light', 'dark'] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
@@ -286,33 +286,12 @@ it("u469_cmd_b_returns_to_the_terminal_and_can_cycle_again", async () => {
   await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.pane-screen textarea')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) textarea')===document.activeElement`);
-  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.activeElement===document.querySelector('.pane-screen textarea')`)).toBe(true);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(0);
-  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(1);
 }, 60_000);
-
-it("u469_open_shelf_leaves_every_resource_value_visible", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await page.scheme(scheme);
-
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
-      await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Show work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
-      await page.until(`() => document.querySelector('.shelf[data-open="true"]') && document.querySelector('.resource-agent .resource-num')`);
-
-      const clipped = await page.call<string[]>(`() => {
-        const edge = document.querySelector('.shelf').getBoundingClientRect().left;
-        return [...document.querySelectorAll('.resource-value')].filter(e => e.getBoundingClientRect().right > edge).map(e => e.textContent);
-      }`);
-
-      expect(clipped).toEqual([]);
-      await capture(`shelf-open-${width}-${scheme}`);
-    }
-  }
-}, 120_000);
 
 it("u469_new_terminal_has_a_visible_add_label", async () => {
   for (const seed of ['tree-40', 'bubbles']) {

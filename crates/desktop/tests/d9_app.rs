@@ -45,7 +45,9 @@ fn d9_the_app_shared_client_is_not_held_by_clear() {
             .rpc(path, "rail.startDoor", json!({"id":ws}))
             .await
             .unwrap();
-        fixture.ready().await;
+        fixture
+            .ready(async || state.rpc(path, "rail.tree", Value::Null).await.unwrap())
+            .await;
         let (clear, tree) = tokio::join!(
             tokio::time::timeout(
                 Duration::from_secs(1),
@@ -67,6 +69,7 @@ fn d9_the_app_shared_client_is_not_held_by_clear() {
         .unwrap()
         .unwrap();
         assert!(tree.as_array().unwrap().iter().any(|node| node["id"] == ws));
+        fixture.clear_requests(true).await;
         state.close_project(path).unwrap();
     });
 }

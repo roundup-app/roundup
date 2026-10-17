@@ -1,5 +1,6 @@
 import { Portal } from "solid-js/web";
-import { Dialog, Menu } from "../ui";
+import { Dialog } from "../ui/Dialog";
+import { Menu } from "../ui/Menu";
 import { registerKeys } from "./registry";
 import { render } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
