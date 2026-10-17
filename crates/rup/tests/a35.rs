@@ -155,8 +155,8 @@ async fn fixture() -> Fix {
         b,
     };
     // Claude Code writes a turn's records to its conversation file after the turn's Stop Signal.
-    // A Mark recorded before then holds no message, a rewind's resume of it finds no
-    // conversation, and a file removed before then is written again.
+    // A Mark recorded before then holds no message, and a rewind's resume of it finds no
+    // conversation.
     for node in rail_tree(&fx.user).await {
         let cwd = node.worktree.map_or_else(
             || fx.project.dir.path().to_owned(),
@@ -521,6 +521,8 @@ async fn a35_the_original_conversation_is_untouched() {
 #[tokio::test]
 async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
     let fx = fixture().await;
+    // Real Claude may still be writing the file, and would recreate it.
+    idle(&fx.user, &fx.b).await;
     let cwd = roots(&fx)
         .await
         .into_iter()
