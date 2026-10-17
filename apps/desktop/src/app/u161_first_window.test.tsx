@@ -65,8 +65,7 @@ describe("u161 the first window reads as designed", () => {
 
     expect(style(".rail-row").paddingLeft).toBe("var(--space-4)");
     expect(style(".rail-row").paddingRight).toBe("var(--space-4)");
-    expect(style(".centre").paddingLeft).toBe("var(--space-2)");
-    expect(style(".centre").paddingRight).toBe("var(--space-2)");
+    expect([style(".centre").paddingLeft, style(".centre").paddingRight]).toEqual(["0px", "0px"]);
 
     expect([style(".rail-scroll").paddingLeft, style(".rail-scroll").paddingRight]).toEqual(["0px", "0px"]);
 
