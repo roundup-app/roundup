@@ -617,7 +617,8 @@ impl Daemon {
                 | "terminal.kill"
                 | "terminal.close"
         ) {
-            self.guard_terminal_read(&conn.actor, &params).await?;
+            self.guard_terminal_read(&conn.actor, method, &params)
+                .await?;
         }
         if method == "terminal.open" {
             self.guard_terminal_open(&conn.actor, &params)?;
@@ -808,7 +809,7 @@ impl Daemon {
         match method {
             "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
             | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                self.guard_terminal_read(actor, params).await
+                self.guard_terminal_read(actor, method, params).await
             }
             "decision.answers" => {
                 let answers: contracts::decision::AnswersParams = rpc::params(params.clone())?;
@@ -937,6 +938,7 @@ impl Daemon {
     async fn guard_terminal_read(
         &self,
         actor: &Actor,
+        method: &str,
         params: &Value,
     ) -> Result<Option<String>, RpcError> {
         if actor.kind != ActorKind::Agent {
@@ -957,7 +959,7 @@ impl Daemon {
         match infos.iter().find(|info| info.id == id) {
             Some(info) => self
                 .agents
-                .guard_terminal_read(actor, id, info.owner.as_deref())
+                .guard_terminal_read(actor, id, info.owner.as_deref(), is_child_read(method))
                 .map(|()| info.owner.clone()),
             None if id.parse::<u64>().is_ok_and(|n| n.to_string() == id) => {
                 Err(RpcError::not_found(format!("terminal {id}")))
@@ -971,7 +973,7 @@ impl Daemon {
         match params["workstream"].as_str() {
             Some(workstream) if actor.kind == ActorKind::Agent => {
                 self.agents
-                    .guard_terminal_read(actor, workstream, Some(workstream))
+                    .guard_terminal_read(actor, workstream, Some(workstream), false)
             }
             _ => Ok(()),
         }
