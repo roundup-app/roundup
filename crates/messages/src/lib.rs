@@ -719,6 +719,7 @@ impl Messages {
                         at,
                         owner.ended,
                         owner.status_revision.is_none(),
+                        false,
                         &mut events,
                     )?;
                     match store.require_generation(&owner.id, at) {
@@ -1101,7 +1102,7 @@ async fn on_status(inner: &Arc<Inner>, agent: &str, attempt: &str, revision: &st
         if let Err(cause) = (inner.fault)("on_status") {
             panic!("{cause}");
         }
-        reconcile(inner, &mut store, agent, at, closed, false).expect("message store");
+        reconcile(inner, &mut store, agent, at, closed, false, false).expect("message store");
     }
     if !closed && ready {
         on_idle(inner, agent, at, Pick::Next).await;
@@ -1137,8 +1138,16 @@ async fn resync(inner: &Arc<Inner>) -> bool {
             // B8: a removed Agent cannot be resumed, so nothing in flight waits for it.
             store.clear_flights_to(&id).expect("message store");
             let attempt = generation.map_or(0, |state| state.attempt);
-            reconcile(inner, &mut store, &id, (attempt, i64::MAX), true, true)
-                .expect("message store");
+            reconcile(
+                inner,
+                &mut store,
+                &id,
+                (attempt, i64::MAX),
+                true,
+                true,
+                true,
+            )
+            .expect("message store");
         }
     }
     for node in nodes {
@@ -1149,6 +1158,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
             binding(&node),
             ended(&node),
             permanently_ended(&node),
+            false,
         )
         .expect("message store");
     }
@@ -1445,6 +1455,7 @@ fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<
         binding(node),
         ended(node),
         permanently_ended(node),
+        false,
     )?;
     store.require_generation(&node.id, binding(node))
 }
@@ -1460,6 +1471,7 @@ fn accept_reservation(inner: &Inner, store: &mut Store, node: &RailNode) -> Resu
         at,
         ended(node),
         permanently_ended(node),
+        false,
     )?;
     if ended(node) {
         if store
@@ -1481,9 +1493,10 @@ fn reconcile(
     at: store::Binding,
     closed: bool,
     permanent: bool,
+    removed: bool,
 ) -> Result<(), RpcError> {
     let mut events = Vec::new();
-    let result = reconcile_into(store, agent, at, closed, permanent, &mut events);
+    let result = reconcile_into(store, agent, at, closed, permanent, removed, &mut events);
     for event in events {
         inner.bus.emit(Actor::daemon(), event);
     }
@@ -1496,6 +1509,7 @@ fn reconcile_into(
     at: store::Binding,
     closed: bool,
     permanent: bool,
+    removed: bool,
     events: &mut Vec<EventData>,
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
@@ -1532,9 +1546,14 @@ fn reconcile_into(
         // B8: a Message typed and not confirmed waits for the Agent to be resumed.
         let rebind = (through.0 < at.0).then_some((at.0, 0));
         let keep = Some(rebind);
-        for message in
-            store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops, keep)?
-        {
+        for message in store.drop_all_pending(
+            agent,
+            Reason::ReceiverGone,
+            through,
+            gone_drops,
+            keep,
+            !removed,
+        )? {
             events.push(EventData::MessageDropped(message.into()));
         }
     }

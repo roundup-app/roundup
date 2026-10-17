@@ -4,6 +4,8 @@
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
+#[path = "e2e/notes.rs"]
+mod notes;
 #[path = "e2e/wake.rs"]
 mod wake;
 
