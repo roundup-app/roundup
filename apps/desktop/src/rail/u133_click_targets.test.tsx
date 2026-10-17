@@ -136,7 +136,7 @@ describe("u133 click targets", () => {
     document.head.prepend(shell);
     render(() => <SpawnPromptField value="" onInput={() => {}} onSubmit={() => {}} onCancel={() => {}} ref={() => {}} />);
     undrive = driveStates();
-    const field = screen.getByLabelText("Ask");
+    const field = screen.getByLabelText("Task");
 
     expect(styleIn(field, "hover").getPropertyValue("background-color")).not.toBe(styleIn(field, "rest").getPropertyValue("background-color"));
     expect(styleIn(field, "pressed").getPropertyValue("background-color")).not.toBe(styleIn(field, "hover").getPropertyValue("background-color"));
