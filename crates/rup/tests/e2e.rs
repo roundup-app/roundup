@@ -22,12 +22,6 @@ use daemon::{
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-/// Recorded Claude Code hook payloads, one of each event D2 plays.
-const RECORDED: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../spikes/hooks-state/log.run1.jsonl"
-);
-
 /// A Daemon whose one Agent has called `todo_create`; the Todo exists once this returns.
 async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
     let project = daemon::start_real(fixture, &[]);
@@ -207,10 +201,8 @@ fn resident_kb(pid: u32) -> u64 {
 
 #[tokio::test]
 async fn d4_ten_idle_agents_cost_the_daemon_less_than_150_mb() {
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-    ]);
+    let launches = tempfile::NamedTempFile::new().unwrap();
+    let project = start(&[("FAKE_CLAUDE_LAUNCH_LOG", launches.path().to_str().unwrap())]);
     let mut client = project.subscribed().await;
     let before = resident_kb(project.pid());
 
@@ -3628,10 +3620,8 @@ async fn d8_nothing_runs_between_calls() {
 
 #[tokio::test]
 async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-    ]);
+    let launches = tempfile::NamedTempFile::new().unwrap();
+    let project = start(&[("FAKE_CLAUDE_LAUNCH_LOG", launches.path().to_str().unwrap())]);
     let mut client = project.subscribed().await;
     let before = resident_kb(project.pid());
     let sampler = project.client().await;
