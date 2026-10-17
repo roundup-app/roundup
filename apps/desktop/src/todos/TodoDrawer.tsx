@@ -1,5 +1,5 @@
 import { registerKeys } from "../keys/registry";
-import { IconButton } from "../ui";
+import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
