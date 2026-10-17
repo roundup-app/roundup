@@ -242,12 +242,33 @@ fn workstream_rewind() -> Offered {
     }
 }
 
+/// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
+macro_rules! bubble_rule {
+    () => {
+        " Use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools."
+    };
+}
+
+/// M16: the tools a Door is not offered, since each starts a Terminal.
+pub(crate) const DOOR_WITHOUT: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];
+
+/// M16: what `rup mcp` offers a Door: the Door-only tools, and no tool that starts a Terminal.
+/// Leaving a name out of the list is also its enforcement: a call to it is an unknown tool, and reaches no Daemon.
+pub(crate) fn door_tools() -> Vec<Offered> {
+    let mut list = tools(true);
+    list.retain(|offer| !DOOR_WITHOUT.contains(&&*offer.tool.name));
+    list
+}
+
 /// X11: `agent.run` takes `{id, command, cwd?}`; the shim fills `id`, so a Run is always the caller's own.
 fn agent_run() -> Offered {
     with_own_id::<agent::RunParams>(
         "agent.run",
         "agent_run",
-        "Run a command in a Terminal of your own that the user can watch, in your Worktree or in `cwd`. Returns the Terminal's id.",
+        concat!(
+            "Run a command in a Terminal of your own that the user can watch, in your Worktree or in `cwd`. Returns the Terminal's id.",
+            bubble_rule!()
+        ),
     )
 }
 
@@ -466,11 +487,17 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::SpawnParams>(
             "terminal.spawn",
-            "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
+            concat!(
+                "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
+                bubble_rule!()
+            ),
         ),
         offered::<terminal::OpenParams>(
             "terminal.open",
-            "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+            concat!(
+                "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+                bubble_rule!()
+            ),
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
@@ -901,7 +928,7 @@ async fn serve(actor: Actor) -> Result<(), String> {
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
-        shim.tools = tools(true);
+        shim.tools = door_tools();
     }
     drop(start);
     let running = shim
