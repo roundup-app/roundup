@@ -153,6 +153,19 @@ impl World {
         std::fs::read_to_string(self.dir.path().join("input")).unwrap_or_default()
     }
 
+    /// The input log once startup prompts have stopped arriving.
+    async fn settled_typed(&self) -> String {
+        let mut last = self.typed();
+        loop {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            let now = self.typed();
+            if now == last {
+                return now;
+            }
+            last = now;
+        }
+    }
+
     async fn touches(&self, item: &str) -> Value {
         self.user
             .request("provenance.history", json!({"item":item}))
@@ -200,7 +213,7 @@ async fn b54_a_door_reads_its_own_childs_terminal() {
     let w = World::start().await;
     let r = w.rail().await;
     let pane = w.pane(&r.c).await;
-    let typed = w.typed();
+    let typed = w.settled_typed().await;
     reads_ok(&w.as_agent(&r.m).await, &r.c, &pane).await;
     assert_eq!(w.typed(), typed);
     // The user has no limit.
@@ -212,7 +225,7 @@ async fn b54_a_door_reads_a_grandchilds_terminal() {
     let w = World::start().await;
     let r = w.rail().await;
     let pane = w.pane(&r.g).await;
-    let typed = w.typed();
+    let typed = w.settled_typed().await;
     reads_ok(&w.as_agent(&r.m).await, &r.g, &pane).await;
     assert_eq!(w.typed(), typed);
 }
@@ -267,7 +280,7 @@ async fn b54_a_refused_read_reads_nothing_and_logs_no_touch() {
         w.touches(&format!("agent:{}", r.d)).await,
         w.touches(&format!("terminal:{pane}")).await,
     );
-    let typed = w.typed();
+    let typed = w.settled_typed().await;
     refused(&w.as_agent(&r.m).await, &r.m, &pane).await;
     let after = (
         w.touches(&format!("agent:{}", r.d)).await,
