@@ -174,14 +174,17 @@ impl Agents {
         self.shared.guard_reach(actor, id, itself)
     }
 
-    /// M13: whether `actor` may read Terminal `terminal`, whose `owner` is as `terminal.list` says.
+    /// M13, B54: whether `actor` may use Terminal `terminal`, whose `owner` is as `terminal.list` says;
+    /// `pane_readable` lets an ownerless pane of an Agent in its Reach through, as a read does.
     pub fn guard_terminal_read(
         &self,
         actor: &Actor,
         terminal: &str,
         owner: Option<&str>,
+        pane_readable: bool,
     ) -> Result<(), RpcError> {
-        self.shared.guard_terminal_read(actor, terminal, owner)
+        self.shared
+            .guard_terminal_read(actor, terminal, owner, pane_readable)
     }
 
     /// B53: whether `actor` may ask the App to show Terminal `terminal`.
