@@ -964,6 +964,14 @@ impl Module for Terminals {
                 let TerminalId { id } = params(value)?;
                 self.kill(&id).await.and(reply(&()))
             }
+            "terminal.show" => {
+                let TerminalId { id } = params(value)?;
+                self.screen(&id)?;
+                self.shared
+                    .bus
+                    .emit(Actor::daemon(), EventData::TerminalShown(TerminalId { id }));
+                reply(&())
+            }
             "terminal.list" => reply(&self.list()),
             "terminal.snapshot" => {
                 let TerminalId { id } = params(value)?;
