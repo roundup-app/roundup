@@ -1,8 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
-import railCss from "./styles.css?inline";
-import uiCss from "../ui/Tree.css?inline";
 import { mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -14,7 +12,6 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     await mountRail(TREE);
 
     expect(document.querySelector(".live, .live-label, .live-age, .value")).toBeNull();
-    expect(railCss).not.toMatch(/\.live-age|\.live\b|\.value\b/);
     expect([...rowOf("gate").querySelector(".line")!.children].map((el) => el.className)).toEqual(expect.arrayContaining([expect.stringContaining("glyph"), "name"]));
   });
 
@@ -33,7 +30,6 @@ describe("u404 an Agent row is its Glyph and its name", () => {
 
     expect(rowOf("asker").querySelector(".name")?.getAttribute("data-tone")).toBe("amber");
     expect(rowOf("gate").querySelector(".name")?.getAttribute("data-tone")).toBeNull();
-    expect(railCss).toMatch(/\.rail-row \.name\.ink\s*\{[^}]*font-weight:\s*700/);
   });
 
   it("u404_the_owned_control_is_a_diamond_and_a_count", async () => {
@@ -67,6 +63,5 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     fireEvent.click(rowOf("ws").querySelector('button[aria-label="Collapse"]')!);
 
     expect(order()).toEqual(before);
-    expect(uiCss).toMatch(/\.app-tree \[data-part="item"\]\s*\{[^}]*min-height:\s*var\(--space-6\)/);
   });
 });

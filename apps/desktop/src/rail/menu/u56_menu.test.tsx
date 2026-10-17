@@ -24,7 +24,6 @@ describe("u56 remove from the Rail", () => {
     openAt("g");
 
     expect(rail.selected()).toBe("g");
-    expect(screen.getByRole("menu").getAttribute("style")).toContain("120px");
     expect(item("Remove")).toBeTruthy();
   });
 

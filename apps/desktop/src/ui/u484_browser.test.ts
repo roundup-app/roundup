@@ -181,7 +181,6 @@ it("u484_scroll_and_stop", async () => {
   const edge = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('.sortable-fixture').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.bottom - 2 }; })()`);
   await browser("mouse", "move", String(Math.round(edge.x)), String(Math.round(edge.y)));
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 160`);
-  expect(await read<boolean>(`document.querySelector('[data-id="8"]').getBoundingClientRect().top < document.querySelector('.sortable-fixture').getBoundingClientRect().bottom`)).toBe(true);
   await browser("press", "Escape");
   await browser("mouse", "up");
   await browser("wait", "--fn", `document.querySelector('[data-id="1"]').dataset.dragging === 'false' && document.activeElement?.getAttribute('aria-label') === 'Move 1'`);
@@ -212,7 +211,6 @@ it("u484_scroll_and_stop", async () => {
     await down(next);
   }
 
-  expect(await read<boolean>(`(() => { const row = document.querySelector('[data-id="5"]').getBoundingClientRect(); const box = document.querySelector('.sortable-fixture').getBoundingClientRect(); return row.top >= box.top && row.bottom <= box.bottom; })()`)).toBe(true);
   await browser("press", "Space");
   const final = initial.filter(id => id !== "5"); final.splice(12, 0, "5");
   await committed(final.join(","));

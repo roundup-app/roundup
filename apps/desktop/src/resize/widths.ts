@@ -9,7 +9,7 @@ type Limits = { min: number; max: number; fallback: number };
 /** U389, U390: each width's minimum, maximum and default in px; tokens.css holds the same two defaults. */
 export const RAIL: Limits = { min: 252, max: 480, fallback: 288 };
 
-export const SHELF: Limits = { min: 240, max: 560, fallback: 320 };
+const SHELF: Limits = { min: 240, max: 560, fallback: 320 };
 
 const limited = (px: number, limits: Limits): number => Math.min(limits.max, Math.max(limits.min, px));
 

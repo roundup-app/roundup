@@ -235,7 +235,7 @@ class L89(unittest.TestCase):
             self.assertEqual(crates, affected.crates(changed, workspace), changed)
         test = 'apps/desktop/src/rail/u1_rail.test.tsx'
         for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
-                               (['scenarios/loop-rules.md'], ['apps/desktop/src/testing/u453_viewports.test.ts']),
+                               (['scenarios/loop-rules.md'], []),
                                (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
                                ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
                                (['pnpm-lock.yaml'], 'all')):
@@ -248,7 +248,7 @@ class L89(unittest.TestCase):
         from unittest.mock import patch
         sys.path.insert(0, str(ROOT / 'loop'))
         import affected
-        test = 'apps/desktop/src/rail/u385_row_gap.test.ts'
+        test = 'apps/desktop/src/rail/u357_fold_line.test.ts'
         out = {'merge-base': 'fork\n', 'diff': 'docs/perf.md\n', 'ls-files': f'{test}\n'}
         calls = []
 

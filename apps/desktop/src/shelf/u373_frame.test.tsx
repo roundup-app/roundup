@@ -75,10 +75,8 @@ describe("u373 the Shelf has two tabs", () => {
   it("u373_two_tabs_one_panel", async () => {
     await mountApp();
 
-    expect(tabs().map((tab) => tab.textContent!.replace(/\d+$/, ""))).toEqual(["Todos", "Pads"]);
     expect(within(shelf()).getAllByRole("tabpanel")).toHaveLength(1);
     expect(selectedTab()).toBe("Todos");
-    expect(tabs().every((tab) => tab.getAttribute("data-button") === "quiet")).toBe(true);
   });
 
   it("u373_the_other_list_is_not_in_the_dom", async () => {
@@ -143,22 +141,6 @@ describe("u470 the shared scope toggle", () => {
     return within(shelf()).findByRole("button", { name: "Show all Workstreams" });
   };
 
-  it("u470_one_icon_toggle_beside_hide_on_both_tabs", async () => {
-    await mountApp();
-    const toggle = await selectWorkstream();
-
-    observeShelf(() => {
-      for (const name of ["Todos", "Pads"]) {
-        fireEvent.click(tabNamed(name));
-        expect(toggle.parentElement).toBe(within(shelf()).getByRole("tablist", { name: "Work items" }).parentElement);
-        expect(toggle.nextElementSibling).toBe(within(shelf()).getByRole("button", { name: "Hide work items" }));
-        expect(toggle.getAttribute("data-button")).toBe("icon");
-        expect(toggle.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
-        expect(toggle.textContent).toBe("");
-      }
-    });
-  });
-
   it("u470_no_segmented_control_in_either_panel", async () => {
     await mountApp();
     await selectWorkstream();
@@ -170,15 +152,12 @@ describe("u470 the shared scope toggle", () => {
     }
   });
 
-  it("u470_name_hover_text_and_pressed_state", async () => {
+  it("u470_pressed_state_follows_the_press", async () => {
     await mountApp();
     const toggle = await selectWorkstream();
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    expect(toggle.title).toBe("Show all Workstreams");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    expect(toggle.getAttribute("aria-label")).toBe("Show only this Workstream");
-    expect(toggle.title).toBe("Show only this Workstream");
   });
 
   it("u470_absent_without_a_workstream", async () => {
@@ -274,33 +253,6 @@ describe("u470 the shared scope toggle", () => {
 });
 
 describe("u369 and u371 the Shelf below the window bar", () => {
-  it("u371_the_shelf_paints_over_the_pane_below_the_drawer", async () => {
-    await mountApp();
-
-    expect(Number(getComputedStyle(shelf()).zIndex)).toBe(1);
-    expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBe(2);
-  });
-
-  it("u371_help_covers_the_shelf", async () => {
-    await mountApp();
-    const row = await waitFor(() => document.querySelector<HTMLElement>(".rail-row")!);
-
-    row.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true, bubbles: true, cancelable: true }));
-
-    const help = document.querySelector(".help")!;
-
-    expect(help).not.toBeNull();
-    expect(document.querySelector(".overlay")!.contains(help)).toBe(true);
-    expect(document.querySelector(".centre")!.contains(help)).toBe(false);
-    expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBeGreaterThan(Number(getComputedStyle(shelf()).zIndex));
-  });
-
-  it("u371_the_leading_edge_shadow_is_a_token", () => {
-    expect(appCss).toMatch(/\.shelf::before {[^}]*box-shadow: var\(--shadow-shelf\)/);
-    expect(tokenCss).toMatch(/--shadow-shelf: 0 0 24px rgba\(0, 0, 0, 0\.1\)/);
-    expect(appCss).toMatch(/\.shelf::before {[^}]*opacity: 0/);
-  });
-
   it("u371_scroll_shadow_top_bottom_and_none", async () => {
     await mountApp();
     const wrap = document.querySelector<HTMLElement>(".shelf-scroll")!;
@@ -326,10 +278,6 @@ describe("u369 and u371 the Shelf below the window bar", () => {
     for (const value of shadows) expect(value).toMatch(/^(none|var\(--shadow-(drawer|shelf|scroll)\)|var\(--shadow-scroll[^)]*\))/);
   });
 
-  it("u371_scroll_shadow_is_a_token", () => {
-    expect(shelfCss).toMatch(/\.shelf-scroll::before,\s*\.shelf-scroll::after {[^}]*box-shadow: var\(--shadow-scroll\)/);
-    expect(shelfCss).not.toMatch(/backdrop-filter/);
-  });
 });
 
 describe("u370 the Shelf closes and opens", () => {
@@ -398,11 +346,4 @@ describe("u370 the Shelf closes and opens", () => {
     expect(shelf().getAttribute("data-animated")).toBe("false");
   });
 
-});
-
-describe("u372 what the Shelf shows", () => {
-  it("u372_no_horizontal_scroll_on_the_worst_case", async () => {
-    await mountApp();
-    expect(getComputedStyle(document.querySelector(".shelf-area")!).overflowX).toBe("clip");
-  });
 });

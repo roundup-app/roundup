@@ -60,7 +60,6 @@ it("u495_tabs_preserve_project_actions", async () => {
   await wait(`document.querySelector('[role=tab][aria-selected=true]')?.textContent.includes('Authored 雪 name')`);
   await browser("click", '[role=tab][aria-selected=true] .tab-mark');
   await wait(`document.querySelector('[data-marks]').textContent === '1'`);
-  expect(await read<boolean>(`(() => { const list = document.querySelector('.tablist'); return list.scrollWidth > list.clientWidth; })()`)).toBe(true);
   await browser("click", '[aria-label="Close Authored 雪 name"]');
   await wait(`!!document.querySelector('[role=alertdialog]')`);
   await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");

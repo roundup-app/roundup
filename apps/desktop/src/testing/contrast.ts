@@ -97,7 +97,7 @@ export const applyFilter = (hex: string, filter: string): string => {
 };
 
 /** The greyed Rail's own rule body, straight from `rail/styles.css`'s text, never a hard-coded copy. */
-export const greyedRailRule = (railCss: string): string => {
+const greyedRailRule = (railCss: string): string => {
   const rule = /\[aria-disabled="true"\]\s*\{([^}]*)\}/.exec(railCss)?.[1];
 
   if (!rule) throw new Error("no [aria-disabled] rule in rail/styles.css");

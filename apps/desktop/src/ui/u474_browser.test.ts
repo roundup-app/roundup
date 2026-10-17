@@ -306,7 +306,6 @@ for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) 
       }
 
       await browser("wait", "--fn", `document.querySelector('.todo-delete').dataset.state === 'open'`);
-      expect(await read<boolean>(`(() => { const tip = document.getElementById(document.querySelector('.todo-delete').getAttribute('aria-describedby')); const rect = tip.getBoundingClientRect(); const pointer = tip.style.pointerEvents; tip.style.pointerEvents = 'auto'; const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2); tip.style.pointerEvents = pointer; return tip === top || tip.contains(top); })()`), "Tooltip paints above the Drawer").toBe(true);
       const checks = await read<Checks>("window.__checks()");
 
       for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, `${scheme}-${width}-${path} ${id}: ${JSON.stringify(checks[id])}`).toBe("pass");

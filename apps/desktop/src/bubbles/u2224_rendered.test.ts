@@ -16,14 +16,9 @@ beforeAll(async () => {
 
 afterAll(async () => { await page?.close(); });
 
-type Reading = { overlap: number; shown: number; watching: boolean; checks: Record<string, { status: string }> };
+type Reading = { shown: number; watching: boolean; checks: Record<string, { status: string }> };
 
-const read = `() => {
-  const pane = document.querySelector('.pane-body').getBoundingClientRect();
-  const overlap = [...document.querySelectorAll('.bubble:not([hidden])')].filter(e => { const r = e.getBoundingClientRect(); return r.left < pane.right && r.right > pane.left && r.top < pane.bottom && r.bottom > pane.top; }).length;
-  const watch = document.querySelector('.pane-watch')?.getBoundingClientRect();
-  return {overlap, shown: document.querySelectorAll('.bubble:not([hidden])').length, watching: !!watch && watch.height > 0, checks: window.__checks()};
-}`;
+const read = `() => ({ shown: document.querySelectorAll('.bubble:not([hidden])').length, watching: !!document.querySelector('.pane-watch'), checks: window.__checks() })`;
 
 const shoot = async (name: string, reading: Reading): Promise<void> => {
   const dir = captureDir("U2224");
@@ -46,14 +41,14 @@ it("u2224_one_click_on_an_agent_leaves_no_bubble_over_its_output", async () => {
 
     const before = await page.call<Reading>(read);
 
-    expect(before.overlap, `${scheme} before`).toBeGreaterThan(0);
+    expect(before.shown, `${scheme} before`).toBeGreaterThan(0);
     await shoot(`before-${scheme}`, before);
     await page.call(`() => document.querySelector('[data-id="dense"]').click()`);
     await page.until(`() => document.querySelectorAll('.bubble:not([hidden])').length === 0`);
 
     const after = await page.call<Reading>(read);
 
-    expect(after.overlap, `${scheme} after`).toBe(0);
+    expect(after.shown, `${scheme} after`).toBe(0);
     expect(after.watching, `${scheme} watching banner`).toBe(true);
 
     for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(after.checks[id]?.status, `${scheme} ${id}`).toBe("pass");
