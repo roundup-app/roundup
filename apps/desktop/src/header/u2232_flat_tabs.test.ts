@@ -71,6 +71,8 @@ it("u2234_a_rename_field_opens_without_selecting_the_tab", async () => {
     else await runs("light");
 
     // The first tab in this state the region shows whole.
+    await page.until(`() => { const list = document.querySelector(${JSON.stringify(tab)} === '.project-tab' ? '.tablist' : '.terminal-tabs-host')?.getBoundingClientRect(); return Boolean(list) && [...document.querySelectorAll(${JSON.stringify(tab)} + '[data-selected=${state === "selected"}]')].some(t => { const r = t.getBoundingClientRect(); return r.left >= list.left && r.right <= list.right; }); }`);
+
     const at = await page.call<{ x: number; y: number }>(`(tab, name, selected) => { const list = document.querySelector(tab === '.project-tab' ? '.tablist' : '.terminal-tabs-host').getBoundingClientRect(); const node = [...document.querySelectorAll(tab + '[data-selected=' + selected + ']')].find(t => { const r = t.getBoundingClientRect(); return r.left >= list.left && r.right <= list.right; }); node.id = 'renamed'; const r = node.querySelector(name).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, tab, name, String(state === "selected"));
 
     // F2 on a Project tab's name renames without selecting it; a double click would select it first.
