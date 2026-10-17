@@ -177,7 +177,7 @@ describe("u2230 shortcut hints", () => {
       }
     }
 
-    expect(label("agent")).toEqual(["⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
+    expect(label("agent")).toEqual(["⌘⏎ Take control", "⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
     expect(label("bubble")).toEqual(["⌘. Minimise", "⇧⌘⌫ Close", "⌘B Next"]);
     expect(label("rail")).toEqual(["⌘⏎ Take control", "⌘⌫ Remove"]);
     expect(label("rail", false)).toEqual(["⌘⌫ Remove"]);

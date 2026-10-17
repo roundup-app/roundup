@@ -28,7 +28,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘↑", what: copy.previousAgent, presses: ["meta+ArrowUp"], hint: { label: copy.hintPrevious, at: { agent: 3 } } },
   { keys: "⌘↓", what: copy.nextAgent, presses: ["meta+ArrowDown"], hint: { label: copy.hintNext, at: { agent: 4 } } },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
-  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1 }, watching: true } },
+  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
   { keys: "⌥1–⌥9", what: copy.takeOverTheNThAgent, presses: digits(1, 9) },
   { keys: "⌥0", what: copy.endTheTakeover, presses: digits(0, 0) },
   { keys: "⇧⌘J", what: copy.jumpToWhatNeedsYouInAnotherProject, presses: ["meta+shift+KeyJ"] },
