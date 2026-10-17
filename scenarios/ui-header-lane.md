@@ -39,7 +39,7 @@ Policy: inspect production subscriptions including alternate quotes and helper-b
 | Observer | Pass | Failure rows |
 |---|---|---|
 | Owned-directory search below | Exit 1, no matches | Exit 0: one row per native title or listener; exit 2: command failure |
-| `rg -n 'Window capture runs before' apps/desktop/src` | Exit 1, no matches | Exit 0: one row per capture-order comment; exit 2: command failure |
+| `rg -n 'Window capture runs before' apps/desktop/src/header apps/desktop/src/models apps/desktop/src/drawer` | Exit 1, no matches | Exit 0: one row per capture-order comment; exit 2: command failure |
 
 ```sh
 rg -n ' title=|addEventListener\("keydown"' apps/desktop/src/header apps/desktop/src/models apps/desktop/src/drawer --glob '!*test*'

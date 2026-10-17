@@ -72,6 +72,8 @@ export const fakeEmulators = () => {
         linkListener = next;
       },
       selection: () => emulator.selectedText,
+      turns: () => [],
+      selectTurn: () => {},
       paste: (text) => {
         emulator.pasted.push(text);
         inputListener(new TextEncoder().encode(text));

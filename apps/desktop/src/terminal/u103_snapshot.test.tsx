@@ -46,6 +46,8 @@ const recordingEmulators = () => {
         parsed?.();
       },
       selection: () => "",
+      turns: () => [],
+      selectTurn: () => {},
       onLink: () => {},
       paste: () => {},
       onInput: () => {},
