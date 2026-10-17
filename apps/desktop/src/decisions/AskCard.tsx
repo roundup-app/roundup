@@ -2,7 +2,7 @@ import { copy } from "../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import * as v from "valibot";
 import { Markdown } from "../plain/Markdown";
-import { Listbox } from "../ui";
+import { Listbox } from "../ui/Listbox";
 
 const json = v.pipe(v.string(), v.parseJson());
 
