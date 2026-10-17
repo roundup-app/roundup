@@ -202,7 +202,7 @@
 
 .todo-steps:focus-within { gap: var(--space-1); background: var(--ground); }
 
-.todo-steps:not(:focus-within) .todo-step { width: 0; height: 0; min-width: 0; min-height: 0; padding: 0; border: 0; overflow: hidden; }
+.todo-steps:not(:focus-within) { clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
 
 .todo-step::before { content: "↑"; }
 
