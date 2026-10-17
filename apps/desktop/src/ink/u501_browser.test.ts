@@ -26,7 +26,9 @@ const failClose = async () => {
 it("u501_controls_have_names", async () => {
   for (const seed of ["tree-40", "decisions", "bubbles", "resources"]) {
     await open(seed);
+
     if (seed === "bubbles") await browser("click", '[data-id="runner"]');
+
     await wait(`document.querySelector('.bubbles, .rail') !== null`);
 
     const names = await read<{ named: string[]; unnamed: number; titled: number }>(`(() => {
@@ -113,10 +115,12 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
       for (const [seed, label, reveal] of SURFACES) {
         await open(seed, side === "base");
         expect(await read<boolean>(`matchMedia("(prefers-contrast: more)").matches`)).toBe(contrast);
+
         if (seed === "bubbles") await browser("click", '[data-id="runner"]').catch(() => {});
 
         for (const state of ["initial", "revealed", "focus"]) {
           if (state === "revealed") await reveal();
+
           if (state === "focus") await browser("press", "Tab");
 
           const checks = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks())`);

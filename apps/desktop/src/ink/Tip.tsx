@@ -1,8 +1,8 @@
 import { Portal } from "solid-js/web";
-import type { ComponentProps, JSX } from "solid-js";
+import type { JSX } from "solid-js";
 import { Tooltip } from "../ui";
 
-type Trigger = Parameters<Extract<ComponentProps<typeof Tooltip.Trigger>["asChild"], (...args: never[]) => unknown>>[0];
+type Trigger = () => Omit<JSX.HTMLAttributes<HTMLElement>, "ref" | "children">;
 
 /** U501: the full, unchanged `content` of a truncated or multiline element in the shared Tooltip, on hover and keyboard focus. `children` receives the trigger's props and returns the focusable element. */
 export const Tip = (props: { content: string; children: (trigger: Trigger) => JSX.Element }) => (
