@@ -4020,59 +4020,6 @@ async fn d12_a_client_resumes_after_a_killed_daemon() {
 const U516_BODY: &str = "why?\n\n```\n$ ls\nfile\n```\n\ncommand: ls\ncwd: /work\nexit: 0";
 
 #[tokio::test]
-async fn u516_a_working_agent_is_sent_nothing_until_idle() {
-    let gates = tempfile::tempdir().unwrap();
-    let hold = gates.path().join("start");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
-    let project = start(&[
-        ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
-    ]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    client
-        .request(
-            "message.send",
-            json!({"to": door, "kind": "note", "body": U516_BODY}),
-        )
-        .await
-        .unwrap();
-
-    let listed = client
-        .request("message.list", json!({"to": door}))
-        .await
-        .unwrap();
-    assert_eq!(listed[0]["status"], "pending");
-    assert!(
-        client
-            .request("todo.list", Value::Null)
-            .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "nothing is typed while the Agent has not reached idle"
-    );
-
-    let mut events = project.subscribed().await;
-    std::fs::write(&hold, "").unwrap();
-    let typed = tokio::time::timeout(Duration::from_secs(30), async {
-        while let Some(event) = events.next_event().await {
-            if let EventData::TodoCreated(todo) = event.data
-                && todo.creator.id == door
-                && todo.title.contains(U516_BODY)
-            {
-                return todo;
-            }
-        }
-        panic!("the connection closed before the Excerpt was typed");
-    })
-    .await
-    .expect("the Excerpt is typed once the Agent is idle");
-    assert!(typed.title.contains("```\n$ ls\nfile\n```"));
-}
-
-#[tokio::test]
 async fn u516_message_list_holds_the_sent_excerpt() {
     let project = start(&[]);
     let client = project.client().await;

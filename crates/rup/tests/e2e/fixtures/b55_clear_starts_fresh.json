@@ -1,0 +1,56 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "start over",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Waiting for Handoff."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: Build the",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Handoff received."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "QUOKKA plan",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}
