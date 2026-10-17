@@ -299,8 +299,11 @@ const TOOL_METHODS: [&str; 63] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 6] = [
+const DOOR_METHODS: [&str; 8] = [
     "agent.digest",
+    // LC7, LC8
+    "agent.extras",
+    "agent.extras_add",
     // B53
     "terminal.show",
     "checkpoint.write",

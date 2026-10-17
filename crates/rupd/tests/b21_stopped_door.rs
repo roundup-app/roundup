@@ -243,10 +243,10 @@ fn launch(
     }
     let claude = project.join("claude");
     if !claude.exists() {
-        std::os::unix::fs::symlink(aimock::package_bin("claude"), &claude).unwrap();
+        std::os::unix::fs::symlink(aimock::routed_claude(project), &claude).unwrap();
     }
     let config = project.join("config");
-    aimock::configure(&config, project, &model.url);
+    aimock::configure(&config, project);
     let mut daemon = rupd_harness::start(
         Path::new(env!("CARGO_BIN_EXE_rupd")),
         project,
@@ -258,6 +258,7 @@ fn launch(
                 .env("ROUNDUP_RUP_BIN", rup)
                 .env("ROUNDUP_CLAUDE_BIN", &claude)
                 .env("CLAUDE_CODE_OAUTH_TOKEN", "")
+                .env("AIMOCK_URL", &model.url)
                 .env("RUPD_DIGEST_OBSERVER", project.join("comparisons"))
                 .env("RUPD_MESSAGES_CLOCK", project.join("clock"))
                 .env("RUPD_MESSAGES_OBSERVER", project.join("attempts"))
