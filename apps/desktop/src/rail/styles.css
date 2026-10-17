@@ -146,7 +146,8 @@
 }
 
 .rail-row .line > .ink-count {
-  color: var(--amber);
+  /* U3704: the count stays beside the name on a hovered or selected row; its amber Glyph marks it and its number keeps 4.5:1 on their wash. */
+  color: var(--text);
 }
 
 /* U403: the name keeps the room; the Door's Glyph and the right side follow it. */
