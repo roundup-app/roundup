@@ -41,7 +41,7 @@ const shelf: List = {
   rows: ".shelf .todo-list .todo-row-button",
   setup: async () => {
     await page.load("/harness.html?seed=tree-40", 1280, 820);
-    await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
+    await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(document.querySelector('.rail-row[aria-expanded]')) && Boolean(window.__fake)`);
     await page.call(`() => {
       [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
       document.querySelector('.rail-row[aria-expanded]').click();
