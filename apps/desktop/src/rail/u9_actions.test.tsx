@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
-import { chord, glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf } from "./railFixture";
+import { chord, glyphOf, mountRail, pinnedAdd, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream, door } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -322,6 +322,7 @@ it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () 
   fireEvent.click(screen.getByText(/^start supervisor$/i));
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
   fireEvent.click(screen.getByText("other"));
+  await settled();
 
   expect(mounted.rail.selected()).toBe("other");
   expect(document.querySelector<HTMLElement>(".pane")?.getAttribute("style") ?? null).toBe(before);

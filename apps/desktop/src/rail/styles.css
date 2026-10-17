@@ -25,11 +25,6 @@
   --button-inline: 0;
 }
 
-.rail-row {
-  min-height: var(--space-6);
-  cursor: pointer;
-}
-
 /* U357: a depth is an --indent column, not padding, so the indent is a Token step times the depth and no spacing value of its own (D2). */
 .rail-row,
 .rail-fold,
@@ -37,10 +32,17 @@
   --elbow-y: calc(var(--space-6) / 2);
 }
 
-.rail-row,
-.rail-fold {
+/* The tree's row is a flex line with its own inset; a Rail row is the indent column and the line. */
+.rail-tree .app-tree {
+  padding: 0;
+}
+
+.rail-tree .app-tree .rail-row {
   display: grid;
   grid-template-columns: var(--indent) minmax(0, 1fr);
+  gap: 0;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
 }
 
 .rail-row > :not(.rail-pass, .rail-branch, .rail-stem),
@@ -49,6 +51,8 @@
 }
 
 .rail-fold {
+  display: grid;
+  grid-template-columns: var(--indent) minmax(0, 1fr);
   position: relative;
   min-height: var(--space-6);
 }
@@ -85,43 +89,16 @@
   pointer-events: auto;
 }
 
-/* U381: one mechanism draws every wash: a `background-image` layer of one Token, one wash per state, never stacked; no cascade order picks between them. */
-.rail-row:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-.rail-row:active {
-  background-image: linear-gradient(var(--pressed), var(--pressed));
-}
-
-/* U172, U381: the one selected mark: a `--selected` band with a 2 px `--accent` bar on its leading edge, drawn as a background, never a border (D8); the bar stays in every selected state and the wash steps up under the pointer. */
-.rail-row[data-selected="true"],
-.rail-row[data-selected="true"]:hover,
-.rail-row[data-selected="true"]:active {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-position: left top;
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
-}
-
-.rail-row[data-selected="true"]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
-}
-
-.rail-row[data-selected="true"]:active {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
-}
-
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
 .rail-row {
   position: relative;
 }
 
-[role="tree"] > .rail-row[aria-expanded]:not(:first-child) {
+[role="tree"] > [data-part="branch"]:not(:first-child) {
   margin-top: var(--space-3);
 }
 
-[role="tree"] > .rail-row[aria-expanded]:not(:first-child)::before {
+[role="tree"] > [data-part="branch"]:not(:first-child) > .rail-row::before {
   content: "";
   position: absolute;
   top: calc(var(--space-3) / -2);
@@ -152,7 +129,7 @@
   font-size: var(--text-title);
 }
 
-.rail-row[aria-expanded] .name {
+[data-part="branch-control"].rail-row .name {
   font-weight: 600;
 }
 
@@ -246,10 +223,6 @@
 .rail > .ink {
   flex: none;
   background: var(--sunken);
-}
-
-.rail-row {
-  user-select: none;
 }
 
 /* U142: the whole Rail (rows, done summary, pinned bar and the gaps between) selects rows, never text; a field the user types in, the error line and the menu keep theirs. */
@@ -582,14 +555,14 @@
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
 @container rail (width <= 360px) {
-  .rail-row[aria-expanded] .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
+  [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]) {
     position: absolute;
     right: 0;
     opacity: 0;
     pointer-events: none;
   }
 
-  .rail-row[aria-expanded] .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
+  [data-part="branch-control"].rail-row .row-icons > :is([aria-label="Open folder"], [aria-label="Open in editor"]):focus {
     opacity: 1;
     pointer-events: auto;
     --button-surface: var(--sunken);
@@ -638,7 +611,6 @@
 }
 
 /* U466: backgrounds span the Rail; each content row owns its inset. */
-.rail-row,
 .rail-fold,
 .rail-leaf,
 .rail .section-head {
@@ -691,7 +663,7 @@
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
 @container rail (width < 220px) {
-  .rail-row,
+  .rail-tree .app-tree .rail-row,
   .rail-fold,
   .rail-leaf {
     padding-left: 0;
@@ -726,7 +698,7 @@
 }
 
 /* Full-width rows keep their keyboard ring inside the clipping Rail. */
-.rail-row:focus-visible {
+.rail-tree .app-tree .rail-row:focus-visible {
   outline-offset: calc(-1 * var(--space-1));
 }
 
@@ -782,4 +754,31 @@
 /* Quiet words paint no box, so they drop the menu's inline pad: with it, `Keep` no longer fits beside the action on the 288 px Rail's card. */
 .clear-words button {
   --button-inline: 0;
+}
+
+/* U520: the tree's name is for a screen reader; the section head speaks to the eye. */
+.rail-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* U348: while files are dragged, a Rail row takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
+.rail-row[data-drop] {
+  position: relative;
+}
+
+.rail-row[data-drop]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+}
+
+.rail-row[data-drop="hover"] {
+  background: var(--hover);
 }

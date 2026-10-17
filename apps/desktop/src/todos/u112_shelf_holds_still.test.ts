@@ -237,7 +237,7 @@ run("u347 choosing all under a Workstream moves no row the scope already listed"
       await call(
         `async () => { const rpc = window.__fake.app.rpc; await rpc("todo.move", { id: 2, home: "backend" }); await rpc("todo.move", { id: 4, home: "backend" }); await rpc("pad.move", { name: "a-pad-with-a-very-long-name-here", home: "backend" }); }`,
       );
-      await call(`() => document.querySelector('[role="treeitem"][data-id="backend"]').click()`);
+      await call(`() => document.querySelector('.rail-row[data-id="backend"]').click()`);
       await until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] [data-id]').length === 2`);
 
       const scoped = await settled();

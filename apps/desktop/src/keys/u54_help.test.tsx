@@ -183,7 +183,19 @@ describe("u54 keyboard help", () => {
 
     // `⌘⏎` binds from a Rail row, not from a text field (U531); a Rail row prevents any modified `⏎`, so only ⌘⏎ is probed.
     const row = rowOf("a");
-    const railBound = [...new Set([...boundPresses(row), ...boundPresses(row, [{ metaKey: true }], ["Enter"])])].sort();
+
+    // The tree types ahead on ⌥ and a letter, which a Mac makes into another character and Help lists as no chord (U520); ⌥1 to ⌥9 bind from the Terminal's probe above.
+    // ⌘A is the tree's select-all, which one selected row makes no chord either.
+    const railPresses = boundPresses(row, MODS.filter((mods) => !("altKey" in mods)), CODES.filter((code) => code !== "KeyA"));
+
+    // A Rail chord binds while focus is in the Rail, and ⌘2 above moved it to the pane.
+    const railOnly = ["Enter", "Backspace"].flatMap((code) => {
+      row.focus();
+
+      return boundPresses(row, [{ metaKey: true }], [code]);
+    });
+
+    const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     const field = document.activeElement;
 
     fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });

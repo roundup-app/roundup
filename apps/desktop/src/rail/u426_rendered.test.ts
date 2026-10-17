@@ -113,7 +113,7 @@ for (const railWidth of [288]) {
 
     for (const label of labels) {
       await page.press("Tab", "Tab");
-      await page.until(`() => document.activeElement.getAttribute('aria-label') === ${JSON.stringify(label)}`);
+      await page.until(`() => document.activeElement.getAttribute('aria-label')?.startsWith(${JSON.stringify(label)})`);
     }
 
     const selected = await page.call(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id ?? null`);
@@ -130,9 +130,9 @@ for (const railWidth of [288]) {
 
 it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async () => {
   await load("tree-40", 1280, "light");
-  await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
-  await page.until(`() => document.querySelector('[data-id="backend"]').dataset.selected === 'true'`);
-  await page.call(`() => document.querySelector('[data-id="auth"] [aria-label="Clear"]').click()`);
+  await page.call(`() => document.querySelector('.rail-row[data-id="backend"]').click()`);
+  await page.until(`() => document.querySelector('.rail-row[data-id="backend"]').dataset.selected === 'true'`);
+  await page.call(`() => document.querySelector('.rail-row[data-id="auth"] [aria-label^="Clear"]').click()`);
   await page.until(`() => Boolean(document.querySelector('[role="dialog"] [data-clear-prompt] textarea'))`);
   expect(await page.call(`() => document.querySelector('.rail-row[data-selected="true"]').dataset.id`)).toBe("backend");
   expect(await page.call(`() => document.activeElement === document.querySelector('[role="dialog"] textarea')`)).toBe(true);
@@ -141,7 +141,7 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
     return box.left>=0 && box.right<=innerWidth && box.top>=0 && box.bottom<=innerHeight && document.elementFromPoint(box.left+box.width/2,box.top+box.height/2)?.closest('[role="dialog"]')===dialog;
   }`)).toBe(true);
   expect(await page.call(`() => {
-    const row=document.querySelector('[data-id="auth"]').getBoundingClientRect();
+    const row=document.querySelector('.rail-row[data-id="auth"]').getBoundingClientRect();
     const prompt=document.querySelector('[role="dialog"]').getBoundingClientRect();
     return Math.abs(prompt.left-row.left)<=16 && Math.abs(prompt.top-row.bottom)<=1;
   }`)).toBe(true);
@@ -158,7 +158,7 @@ it("u427_the_clear_icon_opens_a_visible_reason_prompt_without_selecting", async 
   await capture("U427", "unselected-workstream-reason-clamped");
   await page.resize(1280, 800);
   await page.until(`() => {
-    const row=document.querySelector('[data-id="auth"]').getBoundingClientRect();
+    const row=document.querySelector('.rail-row[data-id="auth"]').getBoundingClientRect();
     return Math.abs(document.querySelector('[role="dialog"]').getBoundingClientRect().top-row.bottom)<=1;
   }`);
   await page.call(`() => [...document.querySelectorAll('[role="dialog"] button')].find(b=>b.textContent.trim()==='Keep').click()`);
@@ -169,9 +169,9 @@ for (const scheme of ["light", "dark"] as const) {
   it(`u427_clear_flips_above_its_row_near_the_viewport_bottom ${scheme}`, async () => {
     await load("tree-40", 1440, scheme);
     await page.resize(1440, 400);
-    await page.call(`() => document.querySelector('[data-id="payments"] [aria-label="Clear"]').click()`);
+    await page.call(`() => document.querySelector('.rail-row[data-id="payments"] [aria-label^="Clear"]').click()`);
     await page.until(`() => {
-      const row=document.querySelector('[data-id="payments"]').getBoundingClientRect();
+      const row=document.querySelector('.rail-row[data-id="payments"]').getBoundingClientRect();
       const prompt=document.querySelector('.rail-clear')?.getBoundingClientRect();
       return prompt && Math.abs(prompt.bottom-row.top)<=1;
     }`);
@@ -221,16 +221,16 @@ for (const scheme of ["light"] as const) {
     it(`u426_the_stopped_door_keeps_a_readable_control_beside_the_group ${scheme} ${railWidth}`, async () => {
       if (process.env.ROUNDUP_RAIL_BASELINE) {
         await load("tree-40", 1280, scheme, true);
-        await page.call(`() => { document.querySelector(".rail").style.width="${railWidth}px"; document.querySelector('[data-id="auth"]').focus(); }`);
+        await page.call(`() => { document.querySelector(".rail").style.width="${railWidth}px"; document.querySelector('.rail-row[data-id="auth"]').focus(); }`);
         await capture("U426", `base/auth-focused-${scheme}${railWidth === 288 ? "-default" : ""}`);
       }
 
       await load("tree-40", 1280, scheme);
-      await page.call(`() => { document.querySelector(".rail").style.width="${railWidth}px"; document.querySelector('[data-id="auth"]').focus(); }`);
-      await page.until(`() => document.querySelector('[data-id="auth"]').dataset.near === 'true'`);
+      await page.call(`() => { document.querySelector(".rail").style.width="${railWidth}px"; document.querySelector('.rail-row[data-id="auth"]').focus(); }`);
+      await page.until(`() => document.querySelector('.rail-row[data-id="auth"]').dataset.near === 'true'`);
 
       const read = await page.call<{width:number; height:number; nameWidth:number; fits:boolean; label:string}>(`() => {
-        const row=document.querySelector('[data-id="auth"]'), button=row.querySelector('.door-action');
+        const row=document.querySelector('.rail-row[data-id="auth"]'), button=row.querySelector('.door-action');
         const b=button.getBoundingClientRect(), n=row.querySelector('.name').getBoundingClientRect(), icons=row.querySelector('.row-icons').getBoundingClientRect();
         return {width:b.width,height:b.height,nameWidth:n.width,fits:n.right<=b.left && b.left>=icons.left && b.right<=icons.right && icons.right<=row.getBoundingClientRect().right,label:button.getAttribute('aria-label')};
       }`);
@@ -240,7 +240,7 @@ for (const scheme of ["light"] as const) {
       expect(read.nameWidth).toBeGreaterThanOrEqual(16);
       expect(read.fits).toBe(true);
       expect(read.label).toBe("Start supervisor");
-      expect(await page.call(`() => Boolean(document.querySelector('[data-id="auth"] .door-action svg.lucide-play'))`)).toBe(true);
+      expect(await page.call(`() => Boolean(document.querySelector('.rail-row[data-id="auth"] .door-action svg.lucide-play'))`)).toBe(true);
       await capture("U426", `head/auth-focused-${scheme}${railWidth === 288 ? "-default" : ""}`);
     }, 60_000);
   }
@@ -252,19 +252,19 @@ for (const [scheme, states] of [["light", ["hovered", "selected"]], ["dark", ["s
     it(`u426_agent_actions_replace_the_pads_count_at_the_right_edge ${state} ${scheme}`, async () => {
       await load("tree-40", 1280, scheme);
       await page.hover(600, 10);
-      await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
-      await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'false' && document.querySelector('[data-id="tokens"] .rail-pads-control')?.getBoundingClientRect().width > 0`);
-      expect(await page.call(`() => document.querySelector('[data-id="tokens"] .rail-pads-control').getBoundingClientRect().width`)).toBeGreaterThan(0);
+      await page.call(`() => document.querySelector('.rail-row[data-id="backend"]').click()`);
+      await page.until(`() => document.querySelector('.rail-row[data-id="tokens"]').dataset.near === 'false' && document.querySelector('.rail-row[data-id="tokens"] .rail-pads-control')?.getBoundingClientRect().width > 0`);
+      expect(await page.call(`() => document.querySelector('.rail-row[data-id="tokens"] .rail-pads-control').getBoundingClientRect().width`)).toBeGreaterThan(0);
 
       const before = await page.call<Checks>(`() => window.__checks()`);
-      const point = await page.call<{x:number; y:number}>(`() => { const r=document.querySelector('[data-id="tokens"]'), b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
+      const point = await page.call<{x:number; y:number}>(`() => { const r=document.querySelector('.rail-row[data-id="tokens"]'), b=r.getBoundingClientRect(); return {x:b.left+10,y:b.top+10}; }`);
 
-      if (state === "selected") await page.call(`() => document.querySelector('[data-id="tokens"]').click()`);
+      if (state === "selected") await page.call(`() => document.querySelector('.rail-row[data-id="tokens"]').click()`);
       else await page.hover(point.x, point.y);
-      await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'true'`);
+      await page.until(`() => document.querySelector('.rail-row[data-id="tokens"]').dataset.near === 'true'`);
 
       const read = await page.call<{nameWidth:number; edge:number; overlaps:boolean; padsShown:boolean; ellipsis:string}>(`() => {
-        const r=document.querySelector('[data-id="tokens"]'), n=r.querySelector('.name').getBoundingClientRect(), i=r.querySelector('.row-icons').getBoundingClientRect();
+        const r=document.querySelector('.rail-row[data-id="tokens"]'), n=r.querySelector('.name').getBoundingClientRect(), i=r.querySelector('.row-icons').getBoundingClientRect();
         return {ellipsis:getComputedStyle(r.querySelector(".name")).textOverflow,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
       }`);
 
@@ -292,8 +292,8 @@ for (const scheme of ["light"] as const) {
       await page.hover(600, 10);
       await page.call(`() => { document.querySelector('.rail').style.width='${railWidth}px'; if (document.querySelector('[data-id="payments"]').getAttribute('aria-expanded') === 'true') document.querySelector('[data-id="payments"] .rail-chevron').click(); }`);
       await page.until(`() => document.querySelector('[data-id="payments"]').getAttribute('aria-expanded') === 'false'`);
-      await page.call(`() => document.querySelector('[data-id="auth"]').click()`);
-      await page.until(`() => document.querySelector('[data-id="tokens"]').dataset.near === 'false' && document.querySelector('[data-id="payments"] .folded-agents')?.getBoundingClientRect().width > 0`);
+      await page.call(`() => document.querySelector('.rail-row[data-id="auth"]').click()`);
+      await page.until(`() => document.querySelector('.rail-row[data-id="tokens"]').dataset.near === 'false' && document.querySelector('.rail-row[data-id="payments"] .folded-agents')?.getBoundingClientRect().width > 0`);
       const insets = await page.call<number[]>(`() => [...document.querySelectorAll('.rail-row .ink-count, .rail-row .rail-pads-control, .rail-row .folded-agents')].filter(e => e.getBoundingClientRect().width > 0).flatMap(e => { const edge=e.closest('.rail-row').getBoundingClientRect().right, text=document.createRange(); text.selectNodeContents(e.lastChild); return [edge-e.getBoundingClientRect().right, edge-text.getBoundingClientRect().right]; })`);
 
       expect(insets.length).toBeGreaterThan(2);

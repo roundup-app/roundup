@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -68,10 +69,10 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     await app.rpc("agent.signal", { id, attempt, payload: { hook_event_name: "Stop" } });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("blocked"), { timeout: 60_000 });
 
-    const row = (): HTMLElement => rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`)!;
+    const row = (): HTMLElement => rail.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
 
     await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Blocked"));
-    expect(row().title).toBe("waits on #1");
+    expect(await rowStatusLabel(row())).toBe("waits on #1");
 
     await app.rpc("todo.complete", { id: 1 });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });

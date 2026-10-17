@@ -5,7 +5,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
 import type { DaemonExit } from "../app/seam";
 import { dragFrom, pointerAt, release, stubLayout, stubVariableLayout } from "./dragFixture";
-import { mountRail, railCallsTo, rowNames, rowOf } from "./railFixture";
+import { mountRail, railCallsTo, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream, MINUTE, NOW } from "../testing/nodes";
 
 /** a, g { x }, b */
@@ -30,10 +30,8 @@ const doneAgent = (id: string, order: number, over: Partial<RailNode> = {}): Rai
 
 const shiftsOf = () =>
   Object.fromEntries(
-    screen
-      .getAllByRole("treeitem")
-      .filter((row) => row.dataset.shift !== "0")
-      .map((row) => [row.dataset.id, row.dataset.shift]),
+    [...document.querySelectorAll<HTMLElement>('[data-part="item"], [data-part="branch-control"]')]
+      .flatMap((row) => (row.dataset.shift === "0" ? [] : [[row.dataset.id, row.dataset.shift]])),
   );
 
 const dropLine = () => document.querySelector<HTMLElement>(".drop-line");
@@ -357,6 +355,7 @@ describe("u22 drag", () => {
     fireEvent.pointerDown(rowOf("b"), { button: 0, clientX: 5, clientY: 5 });
     release({ clientX: 5, clientY: 5 });
     fireEvent.click(rowOf("b"));
+    await settled();
 
     expect([railCallsTo(mounted.app, "rail.move"), dropLine(), mounted.rail.selected()]).toEqual([[], null, "b"]);
   });

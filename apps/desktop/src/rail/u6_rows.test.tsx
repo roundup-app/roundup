@@ -1,6 +1,6 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
+import { glyphOf, itemOf, mountRail, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -15,7 +15,7 @@ describe("u6 rows", () => {
     ]);
 
     expect(rowNames()).toEqual(["checkout", "migrate", "backfill", "rename-cols"]);
-    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.style.getPropertyValue("--indent"))).toEqual(["calc(0 * var(--rail-step) + var(--rail-inset))", "calc(0 * var(--rail-step) + var(--rail-inset))", "calc(1 * var(--rail-step) + var(--rail-inset))", "calc(1 * var(--rail-step) + var(--rail-inset))"]);
+    expect(rowNames().map((name) => rowOf(name).style.getPropertyValue("--indent"))).toEqual(["calc(0 * var(--rail-step) + var(--rail-inset))", "calc(0 * var(--rail-step) + var(--rail-inset))", "calc(1 * var(--rail-step) + var(--rail-inset))", "calc(1 * var(--rail-step) + var(--rail-inset))"]);
   });
 
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {
@@ -41,13 +41,14 @@ describe("u6 rows", () => {
 
     rail.select("b");
 
-    expect([rowOf("a").dataset.selected, rowOf("b").dataset.selected]).toEqual(["false", "true"]);
+    expect([itemOf("a").getAttribute("aria-selected"), itemOf("b").getAttribute("aria-selected")]).toEqual(["false", "true"]);
   });
 
   it("u6_clicking_a_row_selects_it", async () => {
     const { rail } = await mountRail([agent("a", "working", "w")]);
 
     fireEvent.click(rowOf("a"));
+    await settled();
 
     expect(rail.selected()).toBe("a");
   });

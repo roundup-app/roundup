@@ -4,7 +4,7 @@ import { agent, event, workstream, MINUTE, NOW, terminal } from "../testing/node
 import type { EmulatorFactory } from "../terminal/emulator";
 import styles from "./styles.css?inline";
 import appStyles from "../styles.css?inline";
-import { mountRail, rowOf, tabbableRows } from "./railFixture";
+import { mountRail, rowOf, settled, tabbableRows } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -68,6 +68,8 @@ describe("u31 rail keyboard", () => {
 
     press("ArrowDown");
 
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("b"));
   });
 
@@ -77,6 +79,8 @@ describe("u31 rail keyboard", () => {
     rowOf("c").focus();
 
     press("ArrowUp");
+
+    await settled();
 
     expect(document.activeElement).toBe(rowOf("b"));
   });
@@ -88,6 +92,8 @@ describe("u31 rail keyboard", () => {
 
     press("ArrowDown");
 
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("c"));
   });
 
@@ -96,8 +102,11 @@ describe("u31 rail keyboard", () => {
     rail.select("a");
     rowOf("b").focus();
     press("Enter");
+    await settled();
 
     press("ArrowDown");
+
+    await settled();
 
     expect(document.activeElement).toBe(rowOf("c"));
     expect(rail.selected()).toBe("b");
@@ -109,6 +118,8 @@ describe("u31 rail keyboard", () => {
 
     press("ArrowDown");
 
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("c"));
   });
 
@@ -118,15 +129,20 @@ describe("u31 rail keyboard", () => {
 
     press("ArrowUp");
 
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("a"));
   });
 
   it("u31_a_collapsed_groups_children_are_skipped", async () => {
     await mountRail([workstream("g"), agent("hidden", "idle", "x", { parent: "g" }), agent("after", "idle", "x")]);
     fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    await settled();
     rowOf("g").focus();
 
     press("ArrowDown");
+
+    await settled();
 
     expect(document.activeElement).toBe(rowOf("after"));
   });
@@ -142,6 +158,8 @@ describe("u31 rail keyboard", () => {
 
       press("ArrowDown");
 
+      await settled();
+
       expect(getComputedStyle(rowOf("b")).outlineStyle).toBe("solid");
     } finally {
       sheet.remove();
@@ -152,8 +170,11 @@ describe("u31 rail keyboard", () => {
     const { rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     rowOf("a").focus();
     press("ArrowDown");
+    await settled();
 
     press("Enter");
+
+    await settled();
 
     expect(rail.selected()).toBe("b");
   });
@@ -162,9 +183,12 @@ describe("u31 rail keyboard", () => {
     const { app, rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     rowOf("a").focus();
     press("ArrowDown");
+    await settled();
     const before = app.calls.length;
 
     press("Enter");
+
+    await settled();
 
     expect(rail.selected()).toBe("b");
     expect(app.calls.length).toBe(before);
@@ -189,6 +213,8 @@ describe("u31 rail keyboard", () => {
     rowOf("a").focus();
 
     press("ArrowDown");
+
+    await settled();
 
     expect(document.activeElement).toBe(rowOf("b"));
     expect(rowOf("a").tabIndex).toBe(0);
@@ -223,6 +249,8 @@ describe("u31 rail keyboard", () => {
     rail.select("child");
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+
+    await settled();
 
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
     expect(tabbableRows()).toEqual([rowOf("g")]);
@@ -282,6 +310,8 @@ describe("u31 rail keyboard", () => {
 
     press("ArrowDown");
 
+    await settled();
+
     expect(document.activeElement).toBe(field);
     expect(rowOf("a").tabIndex).toBe(0);
     expect(rowOf("b").tabIndex).toBe(-1);
@@ -322,6 +352,8 @@ describe("u31 rail keyboard", () => {
 
     press("ArrowDown");
 
+    await settled();
+
     expect(document.activeElement).toBe(field);
     expect(rowOf("a").tabIndex).toBe(0);
     expect(rowOf("b").tabIndex).toBe(-1);
@@ -332,7 +364,10 @@ describe("u31 rail keyboard", () => {
     rowOf("first").focus();
 
     press("ArrowDown");
+
+    await settled();
     press("Enter");
+    await settled();
 
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent)).toEqual([
       "first",
@@ -345,6 +380,8 @@ describe("u31 rail keyboard", () => {
     rowOf("a").focus();
 
     press("ArrowDown");
+
+    await settled();
 
     expect(document.activeElement).toBe(rowOf("t"));
   });
@@ -370,8 +407,11 @@ describe("u31 rail keyboard", () => {
   it("u31_the_selected_row_stays_tabbable_after_an_arrow_press_elsewhere", async () => {
     const { rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x"), agent("c", "idle", "x")]);
     fireEvent.click(rowOf("b"));
+    await settled();
 
     press("ArrowDown");
+
+    await settled();
 
     const tabbable = tabbableRows();
     expect(tabbable).toEqual([rowOf("b")]);
@@ -381,8 +421,11 @@ describe("u31 rail keyboard", () => {
   it("u31_reselecting_the_same_row_after_an_arrow_move_keeps_it_tabbable", async () => {
     await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     fireEvent.click(rowOf("a"));
+    await settled();
     press("ArrowDown");
+    await settled();
     fireEvent.click(rowOf("a"));
+    await settled();
 
     const tabbable = tabbableRows();
     expect(tabbable).toEqual([rowOf("a")]);
@@ -392,6 +435,7 @@ describe("u31 rail keyboard", () => {
     const { rail } = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     rowOf("a").focus();
     press("ArrowDown");
+    await settled();
 
     rail.select("a");
 
@@ -403,6 +447,7 @@ describe("u31 rail keyboard", () => {
     const mounted = await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
     rowOf("a").focus();
     press("ArrowDown");
+    await settled();
 
     mounted.app.handlers["rail.tree"] = () => [agent("a", "idle", "x")];
     mounted.app.emit(event({ name: "rail.changed" }));
@@ -439,6 +484,8 @@ describe("u31 rail keyboard", () => {
 
     fireEvent.click(rowOf("b"));
 
+    await settled();
+
     expect(document.activeElement?.tagName).toBe("TEXTAREA");
   });
 
@@ -453,8 +500,11 @@ describe("u31 rail keyboard", () => {
 
     rowOf("a").focus();
     press("ArrowDown");
+    await settled();
 
     press("Enter");
+
+    await settled();
 
     expect(rail.selected()).toBe("b");
     expect(document.querySelector(".pane-screen textarea")).not.toBeNull();

@@ -111,10 +111,10 @@ for (const input of ["keyboard", "pointer"] as const) {
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
       await observe("workstream");
-      await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('[role="treeitem"][data-kind="idle"]')`);
+      await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('.rail-row[data-kind="idle"]')`);
       const tree = await app.rpc("rail.tree", null);
       const workstream = tree.find((node) => node.kind === "workstream")!;
-      const rendered = (await browser("eval", `({id: document.querySelector('[role="treeitem"][data-id]').dataset.id, terminal: window.__u463Calls.find(call => call.method === 'terminal.snapshot')?.params.id})`)).result;
+      const rendered = (await browser("eval", `({id: document.querySelector('.rail-row[data-id]').dataset.id, terminal: window.__u463Calls.find(call => call.method === 'terminal.snapshot')?.params.id})`)).result;
 
       expect(rendered.id).toBe(workstream.id);
       expect(rendered.terminal).toBe(workstream.terminal_id);
