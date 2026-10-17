@@ -60,6 +60,7 @@ jobs:
       cause: ${{ steps.task.outputs.cause }}
       plumbing: ${{ steps.task.outputs.plumbing }}
       merge_loss: ${{ steps.task.outputs.merge_loss }}
+      issue: ${{ steps.task.outputs.issue }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
       - uses: actions/checkout@v5
@@ -141,7 +142,7 @@ jobs:
           restored=false
           if python3 "$RUNNER_TEMP/main/loop/builder.py" restore-merge-loss; then restored=true; fi
           echo "restored=$restored" >>"$GITHUB_OUTPUT"
-      # L23: Claude Code on Sonnet with the Max token, Codex on the user's ChatGPT plan when it did no work.
+      # L23: Codex or Claude Code first by the parity of the Issue number the PR's `Refs` names, else the PR number's, the other when it did no work.
       - id: engine
         if: steps.resolve.outputs.resolved != 'true' && steps.restore.outputs.restored != 'true'
         name: Run Claude Code, then Codex
@@ -152,6 +153,7 @@ jobs:
           # Claude Code runs on it, and a Builder's real-`claude` observers sign in with it.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PROMPT: ${{ needs.task.outputs.prompt }}
+          ISSUE: ${{ needs.task.outputs.issue || needs.task.outputs.pr }}
         run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/main/loop/builder.py" engine
       # L82: a fix run that outlives the App token's hour keeps its commits through main's `keep` (L23).
       - id: keep
