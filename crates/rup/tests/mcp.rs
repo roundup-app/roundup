@@ -470,6 +470,20 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
 }
 
 #[tokio::test]
+async fn b45_agent_wake_is_offered_to_every_agent() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    let tool = tools.iter().find(|t| t.name == "agent_wake").unwrap();
+    assert_eq!(
+        Value::Object((*tool.input_schema).clone()),
+        serde_json::to_value(schemars::schema_for!(contracts::agent::WakeParams)).unwrap()
+    );
+}
+
+#[tokio::test]
 async fn m1_input_schemas_are_the_contract_schemas() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
