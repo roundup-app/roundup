@@ -600,34 +600,17 @@ impl Rail {
                     })
             })
             .collect();
-        let mut allowed = self
-            .db
-            .prepare("SELECT model FROM allowed_models ORDER BY ord")
-            .map_err(sql)?;
-        let allowed = allowed
-            .query_map([], |row| row.get(0))
-            .map_err(sql)?
-            .collect::<Result<_, _>>()
-            .map_err(sql)?;
-        Ok(ProjectModels { roles, allowed })
+        Ok(ProjectModels { roles })
     }
 
     /// A36: replace the Project's Models whole.
     pub fn set_models(&mut self, models: &ProjectModels) -> Result<(), RpcError> {
         let tx = self.db.transaction().map_err(sql)?;
         tx.execute("DELETE FROM role_models", []).map_err(sql)?;
-        tx.execute("DELETE FROM allowed_models", []).map_err(sql)?;
         for role in &models.roles {
             tx.execute(
                 "INSERT INTO role_models (role, model, effort) VALUES (?, ?, ?)",
                 params![role.role, role.model, role.effort],
-            )
-            .map_err(sql)?;
-        }
-        for (ord, model) in models.allowed.iter().enumerate() {
-            tx.execute(
-                "INSERT OR IGNORE INTO allowed_models (ord, model) VALUES (?, ?)",
-                params![ord as i64, model],
             )
             .map_err(sql)?;
         }

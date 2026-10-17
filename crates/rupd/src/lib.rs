@@ -168,7 +168,7 @@ impl Daemon {
                     let todos: Vec<contracts::todo::Todo> =
                         serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
                             .map_err(RpcError::internal)?;
-                    let context = context::compose(&nodes, &todos, Vec::new(), &id)?;
+                    let context = context::compose(&nodes, &todos, &id)?;
                     Ok(context::text(&nodes, &context))
                 }
             })
@@ -1180,11 +1180,7 @@ impl Daemon {
             serde_json::from_value(read("rail", "rail.tree").await?).map_err(RpcError::internal)?;
         let todos: Vec<contracts::todo::Todo> =
             serde_json::from_value(read("todo", "todo.list").await?).map_err(RpcError::internal)?;
-        let settings: contracts::project::ProjectSettings =
-            serde_json::from_value(read("project", "project.get").await?)
-                .map_err(RpcError::internal)?;
-        let allowed = agents::model_choices(&settings.models.allowed);
-        let context = context::compose(&nodes, &todos, allowed, &id)?;
+        let context = context::compose(&nodes, &todos, &id)?;
         let allowed = match conn.actor.kind {
             ActorKind::User => true,
             ActorKind::Agent => conn.actor.id == id,
