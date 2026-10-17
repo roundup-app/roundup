@@ -78,17 +78,16 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
           </div>
         )}
       </Show>
-      <div class="ask-note">
+      <form class="ask-note" onSubmit={(submit) => { submit.preventDefault(); send(); }}>
         <Listbox.NoteInput
           maxLength={NOTE_MAX}
           aria-label={copy.note}
           placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
           value={note()}
           onInput={(input) => setNote(input.currentTarget.value)}
-          onKeyDown={(key) => { if (key.key === "Enter") send(); }}
         />{" "}
-        <button data-button="quiet" type="button" class="word" aria-disabled={sendable() ? undefined : true} onClick={send}>{copy.send}</button>
-      </div>
+        <button data-button="quiet" type="submit" class="word" aria-disabled={sendable() ? undefined : true}>{copy.send}</button>
+      </form>
     </Listbox.Root>
   );
 };

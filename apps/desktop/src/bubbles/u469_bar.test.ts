@@ -286,10 +286,10 @@ it("u469_cmd_b_returns_to_the_terminal_and_can_cycle_again", async () => {
   await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.pane-screen textarea')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) textarea')===document.activeElement`);
-  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.activeElement===document.querySelector('.pane-screen textarea')`)).toBe(true);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(0);
-  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(1);
 }, 60_000);
 

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { event, info } from "../testing/nodes";
 import { bubbleCalls, bubbleChord, mountBubbles, TERMINALS } from "./bubblesFixture";
@@ -32,7 +32,10 @@ it("u511a_every_name_surface_updates", async () => {
   fireEvent.keyDown(field()!, { key: "Enter" });
   await waitFor(() => expect(tab("2")).not.toBeNull());
   expect(tab("2")!.getAttribute("aria-label")).toBe("build");
-  expect(tab("2")!.getAttribute("title")).toBe("build");
+  expect(tab("2")!.hasAttribute("title")).toBe(false);
+  fireEvent.keyDown(document, { key: "Tab" });
+  tab("2")!.focus();
+  expect((await screen.findByRole("tooltip")).textContent).toBe("build");
   expect(tab("2")!.textContent).toContain("build");
   expect(document.querySelector('[aria-label="Close build"]')).not.toBeNull();
   expect(document.querySelector('.bubble[data-bubble="2"] .bubble-name')?.textContent).toBe("build");
