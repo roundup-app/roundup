@@ -47,6 +47,15 @@ export const Rail = () => {
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
+  /** U2227: the typed task, kept per Project across Esc until it is emptied or a spawn from the field succeeds. */
+  const [drafts, setDrafts] = createSignal<Record<string, string>>({});
+  const draft = () => drafts()[project.path] ?? "";
+  const keepDraft = (text: string) => setDrafts((all) => ({ ...all, [project.path]: text }));
+
+  const endCompose = () => {
+    keepDraft("");
+    setComposing(false);
+  };
 
   const [dragged, setDragged] = createSignal<string | null>(null);
 
@@ -78,7 +87,7 @@ export const Rail = () => {
   };
 
   const [container, setContainer] = createSignal<HTMLElement>();
-  const [field, setField] = createSignal<HTMLInputElement>();
+  const [field, setField] = createSignal<HTMLTextAreaElement>();
 
   const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${id}"]`);
 
@@ -213,7 +222,8 @@ export const Rail = () => {
 
       if (fromPicker) focusPicker();
       setWanted(spawned.id);
-      setComposing(false);
+
+      if (composing()) endCompose();
     });
 
   const focusPicker = () => document.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(modelUnder() ?? "")}"] [aria-label="Choose Model and Effort"]`)?.focus();
@@ -306,7 +316,7 @@ export const Rail = () => {
     guarded(async () => {
       try {
         await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
-        setComposing(false);
+        endCompose();
       } finally {
         clearTimeout(slow);
         setAsking(false);
@@ -410,6 +420,8 @@ export const Rail = () => {
       <Show when={composing()}>
         <SpawnPromptField
           ref={setField}
+          value={draft()}
+          onInput={keepDraft}
           onSubmit={(prompt) => {
             if (canSpawn()) submitPrompt(prompt);
           }}
