@@ -14,7 +14,7 @@ beforeAll(() => {
   const fixture = readFileSync(join(process.cwd(), "src/ui/u501Fixture.tsx"), "utf8");
 
   const html = readFileSync(join(process.cwd(), "src/ui/u501.html"), "utf8")
-    .replace('import { Listbox } from "./index.tsx";\n', "")
+    .replace('import { Listbox } from "./Listbox.tsx";\n', "")
     .replace('u501Fixture({ listbox: Listbox })', 'u501Fixture()');
 
   writeFileSync(join(base, "src/ui/u501Fixture.tsx"), fixture);

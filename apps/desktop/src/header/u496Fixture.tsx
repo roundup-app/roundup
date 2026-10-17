@@ -3,7 +3,7 @@ import { render } from "solid-js/web";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { DrawerHost } from "../drawer/DrawerHost";
-import { Tabs } from "../ui";
+import { Tabs } from "../ui/Tabs";
 import { Strip } from "./Strip";
 import type { StripTab } from "./tab";
 import "../tokens.css";

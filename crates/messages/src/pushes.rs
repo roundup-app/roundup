@@ -188,7 +188,11 @@ pub(crate) fn counted(body: &str, weight: u32) -> String {
 /// `header`, then `entries` (newest first, one per child) one to a line, at most 8 and 4096 bytes
 /// in all; the children left out are named on one last line, cut at 512 bytes.
 fn compose(header: &str, entries: &[DigestEntry]) -> String {
-    let lines: Vec<String> = entries.iter().map(entry_text).collect();
+    // B49: inside a Rollup or a merge an end note keeps B19's bounds.
+    let lines: Vec<String> = entries
+        .iter()
+        .map(|entry| entry_text(&digest::rolled(entry)))
+        .collect();
     let fit = |reserve: usize| {
         let mut used = header.len();
         let mut taken = 0;

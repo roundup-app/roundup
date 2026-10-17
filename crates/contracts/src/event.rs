@@ -20,6 +20,9 @@ pub enum EventData {
     /// A Terminal with an owner opened, closed or was forgotten (X11, X12): read `terminal.list`.
     #[serde(rename = "terminal.changed")]
     TerminalChanged,
+    /// B53: the Daemon answered a Show request; the App selects the Terminal's owner so the user sees it.
+    #[serde(rename = "terminal.shown")]
+    TerminalShown(terminal::TerminalId),
     #[serde(rename = "todo.created")]
     TodoCreated(Box<todo::Todo>),
     #[serde(rename = "todo.updated")]
