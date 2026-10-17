@@ -56,6 +56,8 @@ export const TAKE_CONTROL = chordsFor("⌘⏎");
 
 export const SWITCHER_CLOSE = "Escape".split(" ");
 
+export const ASK_CLOSE = "Escape".split(" ");
+
 export const SWITCHER_TAKE = "Shift+Enter".split(" ");
 
 /** The keys that would have written a line into a Terminal (U532). */
