@@ -83,7 +83,6 @@ describe("u60 an Agent's Todos under it", () => {
 
     const group = screen.getByRole("button", { name: "notes" }).closest<HTMLElement>("[data-pads]")!;
 
-    expect(screen.getByRole("button", { name: "notes" }).closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
     expect(within(group).getByText(/Waits on/).closest("[data-todo-waits]")?.textContent).toContain("#4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();

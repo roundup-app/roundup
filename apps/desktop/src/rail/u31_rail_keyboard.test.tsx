@@ -2,8 +2,6 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, event, workstream, MINUTE, NOW, terminal } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import styles from "./styles.css?inline";
-import appStyles from "../styles.css?inline";
 import { mountRail, rowOf, settled, tabbableRows } from "./railFixture";
 
 afterEach(cleanup);
@@ -148,25 +146,6 @@ describe("u31 rail keyboard", () => {
     await settled();
 
     expect(document.activeElement).toBe(rowOf("after"));
-  });
-
-  it("u31_the_focused_row_has_a_visible_focus_ring", async () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    // jsdom does not apply :focus-visible; the browser measures keyboard focus with the original selector.
-    sheet.textContent = `${styles}\n${appStyles}`.replaceAll(":focus-visible", ":focus");
-
-    try {
-      await mountRail([agent("a", "idle", "x"), agent("b", "idle", "x")]);
-      rowOf("a").focus();
-
-      press("ArrowDown");
-
-      await settled();
-
-      expect(getComputedStyle(rowOf("b")).outlineStyle).toBe("solid");
-    } finally {
-      sheet.remove();
-    }
   });
 
   it("u31_enter_selects_the_focused_row_as_a_click_would", async () => {

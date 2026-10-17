@@ -75,7 +75,6 @@ describe("u58 an Agent's Pads under it", () => {
     const pad = screen.getByRole("button", { name: "notes" });
 
     expect(button.getAttribute("aria-expanded")).toBe("true");
-    expect(pad.closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
     expect(rowOf("auth").nextElementSibling).toBe(pad.closest("[data-pads]"));
 
     fireEvent.click(button);

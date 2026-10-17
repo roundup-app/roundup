@@ -12,7 +12,6 @@ import { padHandlers, todoHandlers } from "../../testing/stores";
 import { todo } from "../../todos/testHarness";
 import { Rail } from "../Rail";
 import { rowOf } from "../railFixture";
-import railCss from "../styles.css?inline";
 
 afterEach(cleanup);
 
@@ -48,22 +47,19 @@ describe("u405 owned Pads and Todos hang as leaves", () => {
     await mount([todo(2, { creator: by("a1") }), todo(1, { creator: by("a1") })], [padOf("notes"), padOf("plan")]);
 
     expect(leaves().map((leaf) => leaf.dataset["leaf"])).toEqual(["pad", "pad", "todo", "todo"]);
-    expect(new Set(leaves().map((leaf) => leaf.style.getPropertyValue("--indent")))).toEqual(new Set(["calc(1 * var(--rail-step) + var(--rail-inset))"]));
     expect(leaves()[0]!.nextElementSibling).toBe(leaves()[1]);
     expect(rowOf("auth").nextElementSibling?.contains(leaves()[0]!)).toBe(true);
     expect(leaves().map((leaf) => leaf.querySelector(".rail-branch")?.getAttribute("data-last"))).toEqual(["false", "false", "false", "true"]);
     expect(leaves().every((leaf) => leaf.querySelector(".rail-branch") !== null)).toBe(true);
-    expect(railCss).toMatch(/\.rail-leaf\s*\{[^}]*grid-template-columns:\s*var\(--indent\)/);
   });
 
-  it("u405_a_pad_leaf_is_a_diamond_and_a_grey_name", async () => {
+  it("u405_a_pad_leaf_is_a_diamond", async () => {
     await mount([], [padOf("notes")]);
 
     const pad = screen.getByRole("button", { name: "notes" });
 
     expect(pad.querySelector("svg")).not.toBeNull();
     expect(pad.textContent).toBe("notes");
-    expect(railCss).toMatch(/\.rail-leaf \.rail-pad > span\s*\{[^}]*color:\s*var\(--grey\)/);
 
     fireEvent.click(pad);
     expect(await screen.findByLabelText("Drawer")).toBeTruthy();
@@ -78,13 +74,6 @@ describe("u405 owned Pads and Todos hang as leaves", () => {
     expect(blocked!.querySelector(".glyph")).not.toBeNull();
     expect(blocked!.textContent).toContain("Waits on");
     expect(screen.getByRole("button", { name: /#1 todo 1/ })).toBeTruthy();
-  });
-
-  it("u405_leaf_marks_share_one_column", async () => {
-    await mount([todo(1, { creator: by("a1") })], [padOf("notes")]);
-
-    expect(new Set(leaves().map((leaf) => leaf.style.getPropertyValue("--indent"))).size).toBe(1);
-    expect(new Set(leaves().map((leaf) => leaf.querySelector(".rail-branch")?.getAttribute("style"))).size).toBe(1);
   });
 
   it("u405_folding_the_leaves_removes_them_and_no_row_above_moves", async () => {

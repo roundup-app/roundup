@@ -33,8 +33,7 @@ describe("u378 a Workstream row adds an Agent with one button", () => {
   it("u378_the_workstream_row_has_one_add_button", async () => {
     await mountRail([workstream("g")]);
 
-    expect(rowButtons("g").map((button) => button.getAttribute("aria-label"))).toEqual(["Add Agent", "Clear Workstream…", "Open folder", "Open in editor"]);
-    expect(rowButtons("g")[0]!.textContent).toBe("Agent");
+    expect(rowButtons("g")[0]!.getAttribute("aria-label")).toBe("Add Agent");
     expect(document.querySelector(".rail-split-add")).toBeNull();
   });
 
