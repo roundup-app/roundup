@@ -209,3 +209,37 @@ def qcycle(n: Nat) -> +List<M.Ev>:
 
 def qworld(evs: +List<M.Ev>) -> M.Q:
   M.qrun(evs, M.qinit())
+
+# B39, B40: field readers of the in-flight model and its schedule.
+def f_queue(s: M.Fl) -> +List<Nat>:
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      q
+
+def f_inflight(s: M.Fl) -> +List<Nat>:
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      inf
+
+def f_delivered(s: M.Fl) -> +List<Nat>:
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      t
+
+def f_dropped(s: M.Fl) -> +List<Nat>:
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      d
+
+def f_next(s: M.Fl) -> Nat:
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      n
+
+def f_hold(s: M.Fl) -> Bool:
+  match s:
+    case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
+      hold
+
+def fworld(evs: +List<M.FEv>) -> M.Fl:
+  M.frun(evs, M.finit())

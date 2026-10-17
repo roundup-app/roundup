@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use contracts::agent::{RailNode, SignalParams, SpawnParams, StatusEvent};
 use contracts::{EventData, Kind, Status};
 use rpc::Client;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 #[path = "../../../rupd/tests/support/rupd_harness.rs"]
 pub(crate) mod rupd_harness;
@@ -293,4 +293,92 @@ pub fn start_real(fixture: &str, env: &[(&str, &str)]) -> Project {
     let mut project = start_in(dir, tempfile::tempdir().unwrap(), &launch);
     project.model = Some(model);
     project
+}
+
+// H21: an Agent answers the Decisions of the Agents in its Reach, never its own.
+
+/// The proof the harness hands the Daemon, the user's.
+pub const H21_PROOF: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+/// `agent`'s permission request, left open: the call returns once the Decision is cleared.
+pub async fn h21_ask(
+    project: &Project,
+    agent: &str,
+    tool: &str,
+    input: Value,
+) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
+    let client = project.client().await;
+    let (agent, tool) = (agent.to_owned(), tool.to_owned());
+    tokio::spawn(async move {
+        client
+            .request(
+                "agent.permission",
+                json!({"id": agent, "payload": {"hook_event_name": "PermissionRequest",
+                    "tool_name": tool, "tool_input": input}}),
+            )
+            .await
+    })
+}
+
+pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            if let Some(value) = found().await {
+                return value;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
+}
+
+/// The open Decision of `agent` that is not `except`.
+pub async fn h21_decision(client: &Client, agent: &str, except: Option<&str>) -> Value {
+    h21_poll("a Decision", async || {
+        let listed = client.request("decision.list", Value::Null).await.unwrap();
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["agent"] == agent && Some(d["id"].as_str().unwrap()) != except)
+            .cloned()
+    })
+    .await
+}
+
+/// The `[decision <id>]` notes the Daemon sent to `to`, once at least `least` are there.
+pub async fn h21_notes(client: &Client, to: &str, least: usize) -> Vec<Value> {
+    h21_poll("the notes", async || {
+        let listed = client
+            .request("message.list", json!({ "to": to }))
+            .await
+            .unwrap();
+        let notes: Vec<Value> = listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["body"].as_str().unwrap().starts_with("[decision "))
+            .cloned()
+            .collect();
+        (notes.len() >= least).then_some(notes)
+    })
+    .await
+}
+
+pub async fn h21_user_answers(
+    client: &Client,
+    id: &str,
+    answer: &str,
+) -> Result<Value, rpc::RpcError> {
+    client
+        .request(
+            "decision.answer",
+            json!({"id": id, "answer": answer, "proof": H21_PROOF}),
+        )
+        .await
+}
+
+pub fn h21_bash() -> Value {
+    json!({"command": "ls"})
 }

@@ -325,3 +325,90 @@ fn a7_signal_missing_or_malformed_attempt_fails_before_connecting() {
         );
     }
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn b39_the_hook_exits_2_only_for_a_prompt_whose_messages_are_all_delivered() {
+    // The fake `claude` sets the star title and keeps what the Daemon types, so the test knows when
+    // the Message is in flight.
+    let served = Served::start("#!/bin/sh\nprintf '\\033]0;\\342\\234\\263 claude\\007'\ncat > \"$(dirname \"$0\")/typed.txt\"\n", &[]).await;
+    let client = rpc::Client::connect(&served.socket()).await.unwrap();
+    let cwd = served.dir.path().to_string_lossy().into_owned();
+    let agent = client
+        .request(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": null, "parent": null}),
+        )
+        .await
+        .unwrap();
+    let (id, attempt) = (
+        agent["id"].as_str().unwrap(),
+        agent["attempt"].as_str().unwrap(),
+    );
+    let submit = |prompt: &str| {
+        let payload = json!({"hook_event_name": "UserPromptSubmit", "prompt": prompt});
+        served.signal(id, attempt, &payload.to_string())
+    };
+    for payload in [
+        r#"{"hook_event_name":"SessionStart","session_id":"s","source":"startup"}"#,
+        r#"{"hook_event_name":"Stop"}"#,
+    ] {
+        assert!(served.signal(id, attempt, payload).status.success());
+    }
+    // The Agent is idle, so the Message is typed at once and waits in flight for its Signal.
+    let sent = client
+        .request(
+            "message.send",
+            json!({"to": id, "kind": "note", "body": "hi"}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(sent["status"], "pending");
+    let typed = served.dir.path().join("typed.txt");
+    for _ in 0..500 {
+        if std::fs::read_to_string(&typed).is_ok_and(|text| text.contains("[rup messages: 1]")) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let status = || async {
+        client
+            .request("message.get", json!({"id": 1}))
+            .await
+            .unwrap()["status"]
+            .clone()
+    };
+
+    // Exit 0, and the Message still unconfirmed: no line, an id that names nothing, a line that
+    // cannot be read.
+    for prompt in [
+        "[from you, note] hi",
+        "hi\n\n[rup messages: 99]",
+        "hi\n\n[rup messages: x]",
+        "hi\n\n[rup messages: 1 99]x",
+    ] {
+        let out = submit(prompt);
+        assert_eq!(out.status.code(), Some(0), "{prompt}");
+        assert_eq!(status().await, "pending", "{prompt}");
+    }
+    // A Daemon that cannot be reached never blocks a prompt: exit 1, the failure Claude Code
+    // shows without blocking.
+    let down = rup(
+        &served.dir.path().join("no-daemon.sock"),
+        &["signal", id],
+        r#"{"hook_event_name":"UserPromptSubmit","prompt":"hi\n\n[rup messages: 1]"}"#,
+        Some(attempt),
+    );
+    assert_eq!(down.status.code(), Some(1));
+
+    let prompt = "[from you, note] hi\n\n[rup messages: 1]";
+    assert_eq!(submit(prompt).status.code(), Some(0));
+    assert_eq!(status().await, "delivered");
+    let repeated = submit(prompt);
+    assert_eq!(repeated.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&repeated.stderr).contains("already delivered"));
+    assert_eq!(status().await, "delivered");
+    client
+        .request("agent.stop", json!({ "id": id }))
+        .await
+        .unwrap();
+}
