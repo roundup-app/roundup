@@ -56,7 +56,6 @@ const rawIconOwners = new Map([
   ["rail/RailRow.tsx:{props.doorFailure ? copy.retryDoor : copy.startDoor}", "#1607 start/retry Door (label hidden in compact rows)"],
   ["rail/RowIcons.tsx:{props.label}", "#1607 clear/stop/open folder/open editor via RowIcon"],
   ["rail/RowIcons.tsx:{copy.addAgentLabel}", "#1607 add Agent (label hidden in compact rows)"],
-  ["rail/RowIcons.tsx:{copy.chooseModelAndEffort}", "#1607 model and effort"],
   ["shelf/ScopeControl.tsx:{props.showAll ? copy.showOnlyThisWorkstream : copy.showAllWorkstreams}", "#2002 scope"],
   ["shelf/Shelf.tsx:{props.open ? copy.hideShelf : copy.showShelf}", "#2002 toggle Shelf"],
   ["pads/PadDrawer.tsx:{copy.makeYours}", "#1988 cancelled: make yours"],

@@ -10,7 +10,7 @@ export type RowActions = {
   folder: () => void;
   editor: () => void;
 } & (
-  | { kind: "workstream"; add: { disabled: boolean; expanded: boolean; run: (modelPick: boolean) => void }; clear?: () => void }
+  | { kind: "workstream"; add: { disabled: boolean; run: () => void }; clear?: () => void }
   | { kind: "agent"; stop?: () => void }
 );
 
@@ -33,12 +33,9 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
   <span class="row-icons" role="group" aria-label={copy.rowActions}>
     <Show when={props.actions.kind === "workstream" ? props.actions.add : undefined}>
       {(add) => (
-        <span class="rail-split-add">
-          <Tip text={copy.addAgentN}>
-            {(trigger) => <button {...trigger({ ...ownKeys, "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(false); } })} type="button" data-button="quiet"><Icon name="plus" /><span class="rail-add-label">{copy.agent}</span></button>}
+        <Tip text={copy.addAgentN}>
+            {(trigger) => <button {...trigger({ ...ownKeys, "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(); } })} type="button" class="rail-add" data-button="quiet"><Icon name="plus" /><span class="rail-add-label">{copy.agent}</span></button>}
           </Tip>
-          <IconButton {...ownKeys} aria-label={copy.chooseModelAndEffort} aria-expanded={add().expanded} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(true); }}><Icon name="down" /></IconButton>
-        </span>
       )}
     </Show>
     {props.children}
