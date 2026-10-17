@@ -2,7 +2,8 @@ name: fix
 run-name: "${{ format('Fix PR #{0}: {1}', inputs.pr || github.event.workflow_run.pull_requests[0].number, inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check')) }}"
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
-# draft its run left unfinished. A conflict only in generated files is resolved by a script with no model run. A PR gets
+# draft its run left unfinished. A conflict only in generated files is resolved by a script with no model run, and so is a `rules` failure only on `rules.sh merge-loss` (L120), by restoring main's
+# version of each file it lists. A PR gets
 # three fix runs that worked; the fourth cause closes the PR, deletes its branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
 # A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
@@ -58,6 +59,7 @@ jobs:
       branch: ${{ steps.task.outputs.branch }}
       cause: ${{ steps.task.outputs.cause }}
       plumbing: ${{ steps.task.outputs.plumbing }}
+      merge_loss: ${{ steps.task.outputs.merge_loss }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
       - uses: actions/checkout@v5
@@ -130,9 +132,18 @@ jobs:
           resolved=false
           if python3 "$RUNNER_TEMP/main/loop/builder.py" resolve-generated; then resolved=true; fi
           echo "resolved=$resolved" >>"$GITHUB_OUTPUT"
+      # L120: a `rules` failure only on `rules.sh merge-loss` is repaired by a script, which restores main's version of each
+      # file it lists, commits it and reruns `merge-loss`, which `keep` below pushes; the model never starts, no comment is
+      # posted and no attempt counts. A rerun that still fails restores the branch and the engine runs as for any rules failure.
+      - id: restore
+        if: needs.task.outputs.merge_loss == 'true'
+        run: |
+          restored=false
+          if python3 "$RUNNER_TEMP/main/loop/builder.py" restore-merge-loss; then restored=true; fi
+          echo "restored=$restored" >>"$GITHUB_OUTPUT"
       # L23: Claude Code on Sonnet with the Max token, Codex on the user's ChatGPT plan when it did no work.
       - id: engine
-        if: steps.resolve.outputs.resolved != 'true'
+        if: steps.resolve.outputs.resolved != 'true' && steps.restore.outputs.restored != 'true'
         name: Run Claude Code, then Codex
         # L23: inside the job's two hours, so `keep` runs after the longest run.
         timeout-minutes: 105
