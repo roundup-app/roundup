@@ -13,6 +13,8 @@ import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
 import { createReorder } from "../../todos/reorder";
 import { useTodoList } from "../../todos/todoList";
+import { ownKeys } from "../rows";
+import { Tip } from "../Tip";
 import { Trunks } from "../Trunks";
 import { openTodosBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
@@ -57,23 +59,35 @@ const controlName = (pads: number, todos: number): string =>
   todos === 0 ? copy.padCount(pads) : pads === 0 ? copy.todoCount(todos) : copy.padsAndTodos(pads + todos);
 
 /** `◇<n>` at the right end of an Agent's row; absent at 0. */
-export const PadsControl = (props: { pads: AgentPads }) => (
-  <Show when={props.pads.n() > 0}>
-    <button data-button="row-action"
-      class="word rail-pads-control"
-      data-pads-control
-      aria-label={controlName(props.pads.owned().length, props.pads.ownedTodos().length)}
-      title={controlName(props.pads.owned().length, props.pads.ownedTodos().length)}
-      aria-expanded={props.pads.shown()}
-      onClick={(click) => {
-        click.stopPropagation();
-        props.pads.toggle();
-      }}
-    >
-      <Icon name="diamond" />{props.pads.n()}
-    </button>
-  </Show>
-);
+export const PadsControl = (props: { pads: AgentPads }) => {
+  const name = () => controlName(props.pads.owned().length, props.pads.ownedTodos().length);
+
+  return (
+    <Show when={props.pads.n() > 0}>
+      <Tip text={name()}>
+        {(trigger) => (
+          <button
+            {...trigger({
+              ...ownKeys,
+              onClick: (click: MouseEvent) => {
+                click.stopPropagation();
+                props.pads.toggle();
+              },
+            })}
+            type="button"
+            data-button="row-action"
+            class="word rail-pads-control"
+            data-pads-control
+            aria-label={name()}
+            aria-expanded={props.pads.shown()}
+          >
+            <Icon name="diamond" />{props.pads.n()}
+          </button>
+        )}
+      </Tip>
+    </Show>
+  );
+};
 
 /** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
 const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; children: JSX.Element }) => (
@@ -100,20 +114,26 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           <For each={props.pads.owned()}>
             {(pad, at) => (
               <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
-                <button data-button="quiet"
-                  type="button"
-                  class="rail-pad"
-                  title={pad.name}
-                  onClick={() => {
-                    props.pads.setFailure(null);
-                    connected.drawer.open(() => (
-                      <PadDrawer name={pad.name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />
-                    ));
-                  }}
-                >
-                  <Icon name="diamond" />
-                  <span style={cutName}>{pad.name}</span>
-                </button>
+                <Tip text={pad.name}>
+                  {(trigger) => (
+                    <button
+                      {...trigger({
+                        onClick: () => {
+                          props.pads.setFailure(null);
+                          connected.drawer.open(() => (
+                            <PadDrawer name={pad.name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />
+                          ));
+                        },
+                      })}
+                      type="button"
+                      data-button="quiet"
+                      class="rail-pad"
+                    >
+                      <Icon name="diamond" />
+                      <span style={cutName}>{pad.name}</span>
+                    </button>
+                  )}
+                </Tip>
               </Leaf>
             )}
           </For>

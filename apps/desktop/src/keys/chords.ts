@@ -1,7 +1,13 @@
 import { copy } from "../copy";
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inSwitcher?: true };
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inSwitcher?: true; hint?: Hint };
+
+/** Where focus can sit for the hint line (U2230a): a Rail row or a watched Agent's pane. */
+export type HintPlace = "rail" | "agent";
+
+/** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
+export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
 
 /** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⌘K` and `⌘/` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 export const CHORDS: readonly Chord[] = [
@@ -10,8 +16,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
   { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"] },
   { keys: "⇧⏎", what: copy.takeControlInTheSwitcher, presses: ["shift+Enter"], inSwitcher: true },
-  { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true },
-  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true },
+  { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
+  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
 ];
 
@@ -36,6 +42,12 @@ export const HELP_ROWS: readonly { keys: string; what: string }[] = [
 
 /** The leader key that shows as `keys`. */
 export const leaderChord = (keys: string): readonly string[] => [LEADER.find((key) => key.keys === keys)!.press];
+
+/** The hints of `place`, in the order the table gives them (U2230a). A `watching` hint shows only while the selected Agent is in Watch, the one state its key acts in. */
+export const hintsFor = (place: HintPlace, watching = true): readonly { keys: string; label: string }[] =>
+  CHORDS.flatMap((chord) => chord.hint?.at[place] === undefined || (chord.hint.watching && !watching) ? [] : [{ keys: chord.keys, label: chord.hint.label, at: chord.hint.at[place] }])
+    .sort((a, b) => a.at - b.at)
+    .map(({ keys, label }) => ({ keys, label }));
 
 /** The `<mods>+<code>` of a key press, as `Chord.presses` writes it. */
 export const pressOf = (press: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "metaKey" | "shiftKey" | "code">): string =>

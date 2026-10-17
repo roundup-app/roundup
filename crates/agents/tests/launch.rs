@@ -865,7 +865,14 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
 #[test]
 fn f8_each_brief_terminal_description_states_the_bubble_rule() {
     let s = setup();
-    for role in [Role::Agent, Role::Door] {
+    let door = brief(&s, "7", Role::Door);
+    for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
+        assert!(
+            !door.contains(&format!("- `{tool}`:")),
+            "M16: the Door has {tool}"
+        );
+    }
+    for role in [Role::Agent] {
         let text = brief(&s, "7", role);
         for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
             let prefix = format!("- `{tool}`:");

@@ -4620,6 +4620,82 @@ async fn b6_takeover_holds_a_door_rename_without_blocking_user_rename() {
     assert_eq!(after["name"], "Door rename");
 }
 
+async fn child_name(run: &Run, id: &Value) -> Value {
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    tree.as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == *id)
+        .unwrap()["name"]
+        .clone()
+}
+
+#[tokio::test]
+async fn u467_giving_back_releases_only_that_childs_door_actions() {
+    let (run, caller) = door_terminal().await;
+    let other = caller
+        .request(
+            "agent.spawn",
+            json!({"name":"other child","cwd":run.dir.path()}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let output = run
+                .user
+                .request(
+                    "terminal.read",
+                    json!({"id":other["terminal_id"],"after":0}),
+                )
+                .await
+                .unwrap();
+            if output["text"].as_str().unwrap().contains("READY") {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let first = json!(run.child);
+    for id in [&first, &other["id"]] {
+        run.user
+            .request("takeover.begin", json!({"agent":id}))
+            .await
+            .unwrap();
+    }
+    for (id, name) in [(&first, "first held"), (&other["id"], "other held")] {
+        let receipt = caller
+            .request("rail.rename", json!({"id":id,"name":name}))
+            .await
+            .unwrap();
+        assert_eq!(
+            receipt["outcome"],
+            json!({"status":"waiting","reason":"takeover"})
+        );
+    }
+    run.user
+        .request("takeover.end", json!({"agent":first}))
+        .await
+        .unwrap();
+    let released = child_name(&run, &first).await;
+    let still_held = child_name(&run, &other["id"]).await;
+    run.user
+        .request("takeover.end", json!({"agent":other["id"]}))
+        .await
+        .unwrap();
+    let then_released = child_name(&run, &other["id"]).await;
+    run.user
+        .request("agent.stop", json!({"id":other["id"]}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(released, "first held");
+    assert_ne!(still_held, "other held");
+    assert_eq!(then_released, "other held");
+}
+
 #[tokio::test]
 async fn b6_held_renames_share_resize_order_at_most_once() {
     let (run, caller) = door_terminal().await;
@@ -6099,6 +6175,32 @@ async fn b6_a_door_order_waits_for_takeover_release() {
 }
 
 #[tokio::test]
+async fn b6_a_waiting_order_is_dropped_with_a_reason_after_a_daemon_restart() {
+    let (mut run, caller, receipt) = idle_child_with_held_order().await;
+    run.daemon.child.kill().unwrap();
+    run.daemon.child.wait().unwrap();
+    run.daemon = launch(run.dir.path(), run.data.path());
+    run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    // The Attempt does not survive the restart, so the Order is explained, never applied.
+    let ask = ordered_ask(&run).await;
+    let history = run
+        .user
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    drop(caller);
+    run.finish().await;
+    assert_eq!(history.as_array().unwrap().len(), 1, "{history}");
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+    assert!(
+        !history[0]["outcome"]["reason"].as_str().unwrap().is_empty(),
+        "{history}"
+    );
+    assert_ne!(ask, "first order");
+}
+
+#[tokio::test]
 async fn b6_a_held_order_is_dropped_when_the_child_exits() {
     let (run, caller, receipt) = idle_child_with_held_order().await;
     run.user
@@ -6112,6 +6214,86 @@ async fn b6_a_held_order_is_dropped_when_the_child_exits() {
     run.finish().await;
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
+
+async fn child_attempt(run: &Run) -> Value {
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    tree.as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == run.child)
+        .map(|node| node["attempt"].clone())
+        .unwrap()
+}
+
+async fn idle_child_with_held_resume() -> (Run, Arc<Client>, Value) {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.resume", json!({"id":run.child}))
+        .await
+        .unwrap();
+    (run, caller, receipt)
+}
+
+#[tokio::test]
+async fn b6_a_door_resume_waits_for_takeover_release() {
+    let (run, caller, receipt) = idle_child_with_held_resume().await;
+    assert_eq!(receipt["method"], "agent.resume");
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert_eq!(child_attempt(&run).await, run.attempt);
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let attempt = child_attempt(&run).await.clone();
+    let original = run.attempt.clone();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    // The child never exited, so there is nothing to resume: why is recorded.
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+    assert_eq!(attempt, original);
+}
+
+#[tokio::test]
+async fn b6_a_held_resume_runs_once_when_the_child_exits_during_takeover() {
+    let (run, caller, receipt) = idle_child_with_held_resume().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = tokio::time::timeout(BOUND, async {
+        loop {
+            let history = caller
+                .request("agent.actionHistory", json!({"id":run.child}))
+                .await
+                .unwrap();
+            if history[0]["outcome"]["status"] != "in-progress" {
+                break history;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the held Resume never finished");
+    let attempt = child_attempt(&run).await.clone();
+    let original = run.attempt.clone();
+    run.finish().await;
+    assert_eq!(history.as_array().unwrap().len(), 1, "{history}");
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert_ne!(attempt, original, "the held Resume started no new Attempt");
 }
 
 async fn held_door_answer(
@@ -6139,7 +6321,7 @@ async fn held_door_answer(
 }
 
 #[tokio::test]
-async fn b6_a_door_answer_waits_for_takeover_release() {
+async fn u468_takeover_holds_door_answers_but_not_user_answers() {
     for kind in ["permission", "ask_user"] {
         let (run, _) = order_child().await;
         let (decision, waiting, receipt) = held_door_answer(&run, kind).await;
@@ -6178,7 +6360,7 @@ async fn b6_a_door_answer_waits_for_takeover_release() {
 }
 
 #[tokio::test]
-async fn b6_a_held_answer_is_dropped_when_the_user_answered_first() {
+async fn u468_an_answered_request_drops_the_held_door_answer_visibly() {
     let (run, _) = order_child().await;
     let (decision, waiting, receipt) = held_door_answer(&run, "permission").await;
     run.user_answer(&decision, "permission").await;
@@ -6195,6 +6377,7 @@ async fn b6_a_held_answer_is_dropped_when_the_user_answered_first() {
     run.finish().await;
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+    assert!(!history[0]["outcome"]["reason"].as_str().unwrap().is_empty());
 }
 
 async fn terminal_running(run: &Run) -> bool {
@@ -6348,4 +6531,33 @@ async fn b6_a_held_terminal_write_is_dropped_when_the_child_exits() {
     run.finish().await;
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
+
+#[tokio::test]
+async fn b6_a_door_read_of_a_taken_over_child_waits_for_the_takeover_end() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let terminal = run.terminal.clone();
+    let read = tokio::spawn(async move {
+        caller
+            .request("terminal.snapshot", json!({"id":terminal}))
+            .await
+    });
+    // The user's own read is never held.
+    run.user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(!read.is_finished(), "a Door read ran during Takeover");
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let snapshot = tokio::time::timeout(BOUND, read).await.unwrap().unwrap();
+    run.finish().await;
+    assert!(snapshot.unwrap()["cols"].is_number());
 }

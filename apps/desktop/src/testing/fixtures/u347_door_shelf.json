@@ -1,0 +1,83 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_u347_1"
+      },
+      "response": {
+        "content": "Done."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u347_0"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u347_1",
+            "name": "mcp__roundup__pad_create",
+            "arguments": "{\"name\": \"j4-notes\", \"text\": \"\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: [from rupd, note]"
+      },
+      "response": {
+        "content": "{\"title\":\"Status\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: [from rupd, note]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u347_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"ship j4\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    }
+  ]
+}

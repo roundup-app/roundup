@@ -1,0 +1,92 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_u177a_0"
+      },
+      "response": {
+        "content": "Done."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u177b_0"
+      },
+      "response": {
+        "content": "Done."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: [from rupd, note]"
+      },
+      "response": {
+        "content": "{\"title\":\"Status\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: [from rupd, note]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship a",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u177a_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"ship a\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship b",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u177b_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"ship b\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    }
+  ]
+}

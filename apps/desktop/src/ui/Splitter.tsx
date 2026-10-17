@@ -51,9 +51,6 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
     get size() { return sizes(); },
     get keyboardResizeBy() { return percent(step()); },
     onResize: ({ size }) => { previewed = true; publish(size); },
-    onResizeStart: () => {
-      props.onDragging?.(api().dragging);
-    },
     onResizeEnd: ({ size }) => {
       // Ark ends pointer clicks too; committing those would triple a double-click reset.
       if (!pointerResize || previewed) publish(size, true);
@@ -65,7 +62,6 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
   const trigger = () => api().getResizeTriggerProps({ id: triggerId(), disabled: props.disabled || props.hidden });
 
   createEffect(on(() => props.side.now(), (value) => setPixels(value)));
-  createEffect(on(() => api().dragging, (dragging) => { if (!dragging) props.onDragging?.(false); }));
 
   onMount(() => {
     const root = edge.closest<HTMLElement>("[data-layout-root]");
@@ -120,6 +116,19 @@ export function Splitter(props: { side: Side; class?: string; disabled?: boolean
 
   const pointerDown: JSX.EventHandler<HTMLDivElement, PointerEvent> = (event) => {
     if (!api().dragging) { pointerResize = true; previewed = false; }
+
+    // The Terminal refits once the hold ends, so the hold is the pointer's, not the machine's moment-to-moment state.
+    if (event.button === 0 && !props.disabled && !props.hidden) {
+      const release = () => {
+        window.removeEventListener("pointerup", release, true);
+        window.removeEventListener("pointercancel", release, true);
+        props.onDragging?.(false);
+      };
+
+      props.onDragging?.(true);
+      window.addEventListener("pointerup", release, true);
+      window.addEventListener("pointercancel", release, true);
+    }
 
     const handler = trigger().onPointerDown;
 

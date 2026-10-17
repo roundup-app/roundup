@@ -34,6 +34,12 @@ const WASH = (selector: string) => `() => getComputedStyle(${selector}).backgrou
 
 const PRESSED_WASH = `() => { const probe = document.createElement("i"); probe.style.backgroundImage = "linear-gradient(var(--pressed), var(--pressed))"; document.body.append(probe); const c = getComputedStyle(probe).backgroundImage; probe.remove(); return c; }`;
 
+/** The pressed colour as the browser computes it, for a row with no selection layers. */
+const PRESSED_COLOR = `() => { const probe = document.createElement("i"); probe.style.backgroundColor = "var(--pressed)"; document.body.append(probe); const c = getComputedStyle(probe).backgroundColor; probe.remove(); return c; }`;
+
+/** Both layers a row can show: the selected row's gradients, an unselected row's colour. */
+const PRESS = (selector: string) => `() => { const s = getComputedStyle(${selector}); return JSON.stringify({ selected: ${selector}.hasAttribute("data-selected"), image: s.backgroundImage, color: s.backgroundColor }); }`;
+
 const INK = (selector: string) => `() => getComputedStyle(${selector}).color`;
 
 run("u386 a press shows on the target under the pointer only", () => {
@@ -69,8 +75,12 @@ run("u386 a press shows on the target under the pointer only", () => {
       expect(await page.call<string>(WASH(ROW))).toBe(rest);
 
       await page.down(rowX, rowY);
-      // A selected row keeps its accent bar layer above the wash (U381).
-      expect(await page.call<string>(WASH(ROW))).toMatch(new RegExp(`${pressedWash.replace(/[()]/g, "\\$&")}$`));
+      // A selected row keeps its accent bar layer above the wash (U381); any other row's wash is its background colour.
+      // SAFETY: PRESS returns this JSON shape.
+      const pressed = JSON.parse(await page.call<string>(PRESS(ROW))) as { selected: boolean; image: string; color: string };
+
+      if (pressed.selected) expect(pressed.image).toMatch(new RegExp(`${pressedWash.replace(/[()]/g, "\\$&")}$`));
+      else expect(pressed.color).toBe(await page.call<string>(PRESSED_COLOR));
       await page.release(rowX, rowY);
     }, 60_000);
   }

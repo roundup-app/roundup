@@ -1,0 +1,83 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m16_spawn"
+      },
+      "response": {
+        "content": "The child is started."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m16_spawn",
+            "name": "mcp__roundup__agent_spawn",
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Run the test\", \"ask\": \"run the test\", \"done\": \"the test ran\", \"limits\": []}, \"parent\": \"999\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: run the test"
+      },
+      "response": {
+        "content": "{\"title\":\"Run the test\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m16_bash"
+      },
+      "response": {
+        "content": "The test passed."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "run the test",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m16_bash",
+            "name": "Bash",
+            "arguments": "{\"command\": \"sh test.sh\", \"description\": \"Run the project test\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[from rupd, note]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Noted."
+      }
+    }
+  ]
+}

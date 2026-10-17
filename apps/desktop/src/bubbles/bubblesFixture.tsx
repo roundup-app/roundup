@@ -67,7 +67,8 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 };
 
 export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window): KeyboardEvent => {
-  const press = new KeyboardEvent("keydown", { key, metaKey: true, bubbles: true, cancelable: true, ...init });
+  const code = key === "." ? "Period" : key.length === 1 ? `Key${key.toUpperCase()}` : key;
+  const press = new KeyboardEvent("keydown", { key, code, metaKey: true, bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(press);
 

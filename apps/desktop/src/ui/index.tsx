@@ -79,7 +79,10 @@ export const TreeView = {
   Tree: (props: ArkTreeView.TreeProps) => <ArkTreeView.Tree {...props} class={`app-tree ${props.class ?? ""}`} />,
 };
 
-export { Sortable } from "./sortable";
+// fallow-ignore-next-line unused-export -- todos/reorder.ts moves its import here in its own change (U535).
+export { Sortable, swallowNextClick } from "./sortable";
+
+export type { SortableMove, TreeRow } from "./sortable";
 
 export { Splitter } from "./Splitter";
 

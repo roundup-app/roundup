@@ -50,7 +50,7 @@ const mountEverything = async () => {
 };
 
 /** A row is not a button (U170): a Rail `treeitem` row, a Shelf row and a Todo's title. */
-const isRow = (el: Element) => (el.getAttribute("role") === "treeitem" && el.hasAttribute("data-id")) || el.matches(".pad-name, .todo-row-button") || el.closest(MILKDOWN) !== null;
+const isRow = (el: Element) => (el.getAttribute("role") === "treeitem" && el.hasAttribute("data-id")) || el.matches(".rail-row[data-id]") || el.matches(".pad-name, .todo-row-button") || el.closest(MILKDOWN) !== null;
 
 describe("u170 button kinds", () => {
   it("u170_design_system_defines_exactly_five_kinds", () => {

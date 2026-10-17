@@ -4,7 +4,9 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
+import { Tip } from "../ink/Tip";
 import { cpuText, MISSING, sizeText } from "./format";
+import { HintLine } from "../keys/HintLine";
 import "./styles.css";
 
 /** U408: how often `project.resources` is called while the strip is shown. */
@@ -15,11 +17,15 @@ const isRunning = (node: RailNode): boolean => node.status !== null && node.stat
 /** U444: one value as an icon and its number, named for a screen reader and on hover; a missing value hides with its icon. */
 const Value = (props: { icon: "memory" | "cpu" | "disk"; name: string; text: string }) => (
   <Show when={props.text !== MISSING}>
-    <span class="resource-value" title={props.name}>
-      <Icon name={props.icon} />
-      <span class="resource-num">{props.text}</span>
-      <span class="resource-name">{props.name}</span>
-    </span>
+    <Tip content={props.name}>
+      {(trigger) => (
+        <span {...trigger()} class="resource-value">
+          <Icon name={props.icon} />
+          <span class="resource-num">{props.text}</span>
+          <span class="resource-name">{props.name}</span>
+        </span>
+      )}
+    </Tip>
   </Show>
 );
 
@@ -105,6 +111,7 @@ export const ResourceStrip = () => {
 
   return (
     <div class="resource-strip" role="status" aria-live="off" aria-hidden="false">
+      <HintLine />
       {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
       <span class="resource-agent">
         <Show when={own() !== null}>

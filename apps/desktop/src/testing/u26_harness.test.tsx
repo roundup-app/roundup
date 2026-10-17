@@ -119,9 +119,10 @@ describe("u26 the harness seeds", () => {
 
     setStatus("agent-3", "needs-you", "asks: keep v1?");
 
-    const row = (await within(await rail()).findByText("agent-3")).closest<HTMLElement>("[role=treeitem]")!;
+    const row = (await within(await rail()).findByText("agent-3")).closest<HTMLElement>(".rail-row")!;
 
-    await waitFor(() => expect(row.title).toBe("asks: keep v1?"));
+    await waitFor(() => fireEvent.pointerMove(row, { pointerType: "mouse" }));
+    expect((await screen.findByRole("tooltip")).textContent).toContain("asks: keep v1?");
   });
 });
 

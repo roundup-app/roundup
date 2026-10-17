@@ -1,7 +1,10 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { Tooltip } from "../ui";
+import { IconButton, Tooltip, TreeView } from "../ui";
+import { ownKeys } from "./rows";
+import { Tip } from "./Tip";
+import type { TriggerProps } from "./Tip";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -15,6 +18,9 @@ import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
 import { RowIcons } from "./RowIcons";
 import type { RowActions } from "./RowIcons";
+
+/** What Ark's item and branch control take for the row's own element. */
+type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 
 /** U403: a folded Workstream shows at most this many Agent Glyphs before its count. */
 const FOLDED_GLYPHS = 5;
@@ -66,9 +72,10 @@ export const RailRowView = (props: {
   /** U403: the Workstream's `needs-you` Agents, shown as an Ink count at its right when open. */
   needsYou: number;
   selected: boolean;
-  /** Roving tabindex: exactly one row in the Rail is reachable by Tab. */
+  /** U31: the one row Tab reaches, the selected row else the first; Ark would rove it with focus. */
   tabbable: boolean;
-  onSelect: () => void;
+  /** Whether Ark's tree walks this row as a branch (a Workstream, or a row with rows of its own below it) or as a leaf. */
+  branch: boolean;
   onToggle: () => void;
   onRename: (name: string) => void;
   onStartDoor: () => void;
@@ -77,9 +84,7 @@ export const RailRowView = (props: {
   /** U164: how many of this Agent's Runs are running; shown as `· n` after the name, and hidden at zero. */
   runs?: number;
   lifted: boolean;
-  /** `1` or `-1` while a drag moves the row into the room it opened, `0` otherwise. */
-  shift: number;
-  onPointerDown: (press: PointerEvent) => void;
+  sortRef: (element: HTMLElement | undefined) => void;
   onOpenMenu: (press: MouseEvent) => void;
   /** U426: the icons of a Workstream or Agent row. */
   actions: RowActions;
@@ -126,136 +131,173 @@ export const RailRowView = (props: {
   /** U172: the Door action takes the place of the right side, so it is whole and the right side never squeezes it. */
   const showsAction = () => near() && workstream() && props.exit !== null;
 
-  return (
-    <>
-    <Tooltip.Root disabled={!cut()} positioning={{ placement: "bottom-start" }}>
+  const needsYouShown = () => workstream() && !showsAction() && !props.row.collapsed && props.needsYou > 0;
+
+  /** U521: what the row's own Tooltip says: the name a cut hides, the status label, and the counts at the row's right. The same text the row shows, unchanged. */
+  const lines = (): string[] => [
+    ...(cut() ? [props.row.node.name] : []),
+    ...(workstream() || !props.row.node.status ? [] : [props.row.node.status.label]),
+    ...(needsYouShown() ? [copy.needYou(props.needsYou)] : []),
+    ...(workstream() && !showsAction() && props.row.collapsed ? [copy.agents(props.row.collapsed.agents.length)] : []),
+  ];
+
+  // The Tooltip anchors to the row itself: the tree item's props replace the id its trigger lookup needs.
+  let rowBox: HTMLElement | undefined;
+
+  const nameId = () => `rail-name-${props.row.node.id}`;
+
+  const rowProps = () => ({
+    class: "rail-row",
+    "data-id": props.row.node.id,
+    // The Rail's selected mark and the drop target both read the row itself.
+    "data-selected": props.selected ? "true" : undefined,
+    tabIndex: props.tabbable ? 0 : -1,
+    "data-near": near(),
+    "data-kind": kind() ?? undefined,
+    "data-lifted": props.lifted,
+    style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
+    onContextMenu: (press: MouseEvent) => {
+      press.preventDefault();
+      props.onOpenMenu(press);
+    },
+    ...handlers,
+  });
+
+  /** The row's own element: Ark's item or branch control, which the Tooltip's trigger props join. */
+  const row = (mine: (extra: RowProps) => RowProps) => (
     <Tooltip.Trigger
       asChild={(trigger) => (
-    <div
-      {...ignoringControls(trigger({
-        onClick: props.onSelect,
-        onPointerDown: (press: PointerEvent) => {
-          if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
-        },
-        ...handlers,
-      }))}
-      class="rail-row"
-      role="treeitem"
-      aria-level={props.row.depth + 1}
-      aria-selected={props.selected}
-      aria-expanded={workstream() ? props.row.collapsed === null : undefined}
-      data-selected={props.selected}
-      data-near={near()}
-      data-id={props.row.node.id}
-      data-kind={kind() ?? undefined}
-      data-lifted={props.lifted}
-      data-shift={props.shift}
-      title={workstream() ? undefined : props.row.node.status?.label}
-      tabIndex={props.tabbable ? 0 : -1}
-      style={{ "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` }}
-      onContextMenu={(press) => {
-        press.preventDefault();
-        props.onOpenMenu(press);
-      }}
-    >
-      <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
-      <p class="line">
-        <Show
-          when={workstream()}
-          fallback={<KindGlyph kind={kind() ?? "idle"} />}
-        >
-          <button data-button="icon"
-            class="word rail-chevron"
-            aria-label={copy.collapse}
-            onClick={(click) => {
-              click.stopPropagation();
-              props.onToggle();
-            }}
-          >
-            <Icon name={props.row.collapsed ? "right" : "down"} />
-          </button>
-        </Show>
-        <Show
-          when={editing()}
-          fallback={
-            <span
-              class="name"
-              ref={nameBox}
-              classList={{ ink: inkTone() !== undefined }}
-              data-tone={inkTone()}
-              onDblClick={() => setEditing(true)}
-            >
-              {props.row.node.name}
-              <Show when={(props.runs ?? 0) > 0}>
-                <span class="runs" >{copy.separator}{props.runs}</span>
-              </Show>
-            </span>
-          }
-        >
-          <NameField
-            node={props.row.node}
-            onCommit={(name) => {
-              props.onRename(name);
-              setEditing(false);
-            }}
-            onCancel={() => setEditing(false)}
-          />
-        </Show>
-        <span class="row-tail">
-          <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
-          <RowIcons actions={props.actions}>
-            <Show when={showsAction()}>
-              <button data-button="icon"
-                class="door-action"
-                aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
-                title={props.doorFailure ? copy.retryDoor : copy.startDoor}
-                aria-disabled={props.doorPending ? true : undefined}
+        // SAFETY: the Tooltip types its trigger for a button; the row is a div, and the props are the same event and ARIA attributes.
+        <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => { rowBox = el; props.sortRef(el); }}>
+          <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
+          <p class="line">
+            <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
+              <IconButton
+                class="rail-chevron"
+                aria-label={copy.collapse}
+                {...ownKeys}
                 onClick={(click) => {
                   click.stopPropagation();
-
-                  if (!props.doorPending) props.onStartDoor();
+                  props.onToggle();
                 }}
               >
-                <Icon name="play" />
-                <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
-              </button>
+                <Icon name={props.row.collapsed ? "right" : "down"} />
+              </IconButton>
             </Show>
-          </RowIcons>
-        </span>
-        <span class="fill" aria-hidden="true" />
-        <Show when={workstream() && !showsAction()}>
-          <Show
-            when={props.row.collapsed}
-            fallback={
-              <Show when={props.needsYou > 0}>
-                <span class="ink-count" data-tone="amber" title={copy.needYou(props.needsYou)}>
-                  <KindGlyph kind="needs-you" decorative /> {props.needsYou}
+            <Show
+              when={editing()}
+              fallback={
+                <span
+                  id={nameId()}
+                  class="name"
+                  ref={nameBox}
+                  classList={{ ink: inkTone() !== undefined }}
+                  data-tone={inkTone()}
+                  onDblClick={() => setEditing(true)}
+                >
+                  {props.row.node.name}
+                  <Show when={(props.runs ?? 0) > 0}>
+                    <span class="runs">{copy.separator}{props.runs}</span>
+                  </Show>
                 </span>
+              }
+            >
+              <NameField
+                node={props.row.node}
+                onCommit={(name) => {
+                  props.onRename(name);
+                  setEditing(false);
+                }}
+                onCancel={() => setEditing(false)}
+              />
+            </Show>
+            <span class="row-tail">
+              <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
+              <RowIcons actions={props.actions}>
+                <Show when={showsAction()}>
+                  <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>
+                    {(tip) => (
+                      <button
+                        {...tip({
+                          ...ownKeys,
+                          "aria-disabled": props.doorPending ? true : undefined,
+                          onClick: (click: MouseEvent) => {
+                            click.stopPropagation();
+
+                            if (!props.doorPending) props.onStartDoor();
+                          },
+                        })}
+                        type="button"
+                        data-button="icon"
+                        class="door-action"
+                        aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
+                      >
+                        <Icon name="play" />
+                        <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
+                      </button>
+                    )}
+                  </Tip>
+                </Show>
+              </RowIcons>
+            </span>
+            <span class="fill" aria-hidden="true" />
+            <Show when={workstream() && !showsAction()}>
+              <Show
+                when={props.row.collapsed}
+                fallback={
+                  <Show when={props.needsYou > 0}>
+                    <span class="ink-count" data-tone="amber">
+                      <KindGlyph kind="needs-you" decorative /> {props.needsYou}
+                    </span>
+                  </Show>
+                }
+              >
+                {(collapsed) => (
+                  <span class="folded-agents">
+                    <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
+                    <span class="light">{collapsed().agents.length}</span>
+                  </span>
+                )}
               </Show>
-            }
-          >
-            {(collapsed) => (
-              <span class="folded-agents" title={copy.agents(collapsed().agents.length)}>
-                <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
-                <span class="light">{collapsed().agents.length}</span>
-              </span>
-            )}
-          </Show>
-        </Show>
-        <PadsControl pads={pads} />
-      </p>
-    </div>
+            </Show>
+            <PadsControl pads={pads} />
+          </p>
+        </div>
       )}
     />
-    <Show when={cut()}>
-      <Portal>
-        <Tooltip.Positioner>
-          <Tooltip.Content class="rail-name-tip">{props.row.node.name}</Tooltip.Content>
-        </Tooltip.Positioner>
-      </Portal>
-    </Show>
-    </Tooltip.Root>
-    <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
+  );
+
+  return (
+    <>
+      <Tooltip.Root disabled={lines().length === 0} closeOnEscape={false} positioning={{ strategy: "fixed", placement: "bottom-start", getAnchorRect: () => rowBox?.getBoundingClientRect() ?? null }}>
+        <Show
+          when={props.branch}
+          fallback={
+            <TreeView.Item data-id={props.row.node.id} aria-labelledby={nameId()} asChild={(item) => row((extra) => item(extra))} />
+          }
+        >
+          <TreeView.Branch
+            data-id={props.row.node.id}
+            aria-labelledby={nameId()}
+            // A click on the treeitem itself, not on a part of it (a script's or a test's `[data-id]` query lands here), is the click of its control.
+            onClick={(click) => {
+              if (click.target === click.currentTarget) click.currentTarget.querySelector<HTMLElement>('[data-part="branch-control"]')?.click();
+            }}
+          >
+            <TreeView.BranchControl asChild={(control) => row((extra) => control(extra))} />
+          </TreeView.Branch>
+        </Show>
+        <Show when={lines().length > 0}>
+          <Portal>
+            <Tooltip.Positioner>
+              <Tooltip.Content class="rail-name-tip">
+                <For each={lines()}>{(line) => <div>{line}</div>}</For>
+              </Tooltip.Content>
+            </Tooltip.Positioner>
+          </Portal>
+        </Show>
+      </Tooltip.Root>
+      <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
   );
 };

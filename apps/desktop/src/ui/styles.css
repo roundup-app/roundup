@@ -46,6 +46,7 @@
 
 .app-tree {
   padding: var(--space-1);
+  --tree-row-radius: var(--radius-row);
 }
 
 .app-tree [data-part="branch-control"],
@@ -101,7 +102,7 @@
   background-position: left top;
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
-  border-radius: var(--radius-row);
+  border-radius: var(--tree-row-radius);
 }
 
 .app-tree [data-part="branch-control"][data-selected]:hover,
@@ -140,11 +141,9 @@
   border-radius: var(--radius-row);
 }
 
+/* The drop line is the only drop marker; the slot keeps the row space the library opens. */
 [data-dnd-placeholder] {
   visibility: visible !important;
-  outline: 1px solid var(--hairline);
-  outline-offset: -1px;
-  border-radius: var(--radius-row);
 }
 
 [data-dnd-placeholder] > * {
@@ -200,7 +199,9 @@
 }
 
 .app-toast-action {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
   width: 100%;
   min-height: var(--space-5);
   padding: var(--space-2) var(--space-3);
@@ -214,8 +215,10 @@
 }
 
 .app-toast-heading {
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: var(--space-1);
 }
 
@@ -232,15 +235,20 @@
 
 .app-toast [data-part="title"] {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text);
   font-weight: 600;
 }
 
 .app-toast [data-part="description"] {
-  display: block;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: 12ch;
   color: var(--grey);
-  white-space: pre-wrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-color-scheme: dark) {

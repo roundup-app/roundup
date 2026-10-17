@@ -2,22 +2,14 @@
 """Stands in for `claude` in the end-to-end tests.
 
 It does only what Claude Code does that roundup can see: it runs the hook command from the
-`--settings` file once per payload, and talks MCP to the `roundup` server from the `--mcp-config`
+`--settings` file, and talks MCP to the `roundup` server from the `--mcp-config`
 file. What it does comes from the environment, so one script serves every scenario:
 
-  FAKE_CLAUDE_PAYLOADS     a JSONL file of recorded hook payloads
-  FAKE_CLAUDE_EVENTS       comma-separated hook event names; the first recorded payload of each is played
-  FAKE_CLAUDE_PROMPT       replaces the prompt of the played UserPromptSubmit
-  FAKE_CLAUDE_TOOL         JSON {"name", "arguments"}: a tool to call on the `roundup` server
-  FAKE_CLAUDE_TOOLS        JSON list of {"name", "arguments"}: tools to call in order on the `roundup`
-                           server; the string "$id" in an argument is the `id` of the previous result,
-                           "$ask" (U376) the `ask.to` of the last `agent_context` result
   FAKE_CLAUDE_BRIEF_REPORT a file path: written with JSON {"brief": the text of the file named by
                            `--append-system-prompt-file`, "tools": the names the server lists}, as
                            the Brief and the real MCP list stand together
   FAKE_CLAUDE_ORDER_PROMPTS a legacy count of nonempty initial work lines: their complete prompts are
                            submitted and stopped, and no ASK or ON_PROMPT behaviour plays for them
-  FAKE_CLAUDE_SHIM_DELAY_MS milliseconds to wait before the `roundup` server is started (E6)
   FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"}, or a list of them played in order (O12), a call with "skip_prompt" (a regex) not played for a prompt it matches (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per submitted prompt typed into
                            the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
                            string argument replaced by the typed text, then Stop
@@ -27,7 +19,6 @@ file. What it does comes from the environment, so one script serves every scenar
                            JSON line {"prompt": the text}; Claude Code runs no turn for it, so neither does this
   FAKE_CLAUDE_HOLD_PROMPT  a file path (B40): a typed prompt that carries Messages is logged, then its UserPromptSubmit waits until the file
                            exists, as a Daemon that is killed meanwhile never gets that Signal
-  FAKE_CLAUDE_PASTE_WHOLE legacy flag: ORDER_PROMPTS counts whole pastes instead of nonempty work lines
   FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
                            UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
                            `tool_input` replaced by the typed text) and wait for its hook command to exit;
@@ -43,15 +34,14 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_GATE         a file path: after the played PermissionRequest hook command (which waits for
                            the user's answer, H9) is started, the next event waits until the file exists,
                            as the user's own act in the Terminal (H7a) happens in its own time
-  FAKE_CLAUDE_DOOR_ONCE    a file path: only the first Door started plays FAKE_CLAUDE_DOOR_TOOLS (it makes Doors itself)
-  FAKE_CLAUDE_DOOR_TOOLS   like FAKE_CLAUDE_TOOLS, but made only when this run has `--tools` in its argv (F2), as a
+  FAKE_CLAUDE_DOOR_TOOLS   JSON list of {"name", "arguments"}: tools called in order on the `roundup` server (the string "$id" in an argument is the `id` of the previous result, "$ask" (U376) the `ask.to` of the last `agent_context` result), made only when this run has `--tools` in its argv (F2), as a
                            Door's has and an Agent's has not
-  FAKE_CLAUDE_AGENT_TOOLS  JSON like FAKE_CLAUDE_TOOLS, made only by the first run with no `--tools` in its argv (A26,
+  FAKE_CLAUDE_AGENT_TOOLS  JSON like FAKE_CLAUDE_DOOR_TOOLS, made only by the first run with no `--tools` in its argv (A26,
                            the first Agent that is not a Door); its results go to FAKE_CLAUDE_AGENT_REPORT. The
                            run that claims it is the one that creates `<FAKE_CLAUDE_AGENT_REPORT>.claimed`
   FAKE_CLAUDE_AGENT_REPORT a file path: written with the JSON list of what FAKE_CLAUDE_AGENT_TOOLS returned
   FAKE_CLAUDE_TOOL_REPORT  a file path: written with the JSON list of what each tool call returned
-  "may_fail": true         in a tool call of FAKE_CLAUDE_TOOLS, FAKE_CLAUDE_DOOR_TOOLS, FAKE_CLAUDE_AGENT_TOOLS and
+  "may_fail": true         in a tool call of FAKE_CLAUDE_DOOR_TOOLS, FAKE_CLAUDE_AGENT_TOOLS and
                            FAKE_CLAUDE_ON_PROMPT (H21): an error result is reported as {"error": ...}, not asserted away
   "after": "<file>"        in the same tool calls (H21): the call is made once the file exists
   FAKE_CLAUDE_HOLD_START   a file path (H21): with FAKE_CLAUDE_ON_PROMPT, SessionStart is played only once the file exists,
@@ -89,33 +79,6 @@ if sys.argv[1:3] == ["plugin", "test"]:
 
 def flag(name):
     return sys.argv[sys.argv.index(name) + 1]
-
-
-def play_hooks():
-    settings = json.load(open(flag("--settings")))
-    events = os.environ["FAKE_CLAUDE_EVENTS"].split(",")
-    recorded = {}
-    for line in open(os.environ["FAKE_CLAUDE_PAYLOADS"]):
-        payload = json.loads(line)["payload"]
-        recorded.setdefault(payload["hook_event_name"], payload)
-    for event in events:
-        payload = dict(recorded[event])
-        if event == "UserPromptSubmit" and "FAKE_CLAUDE_PROMPT" in os.environ:
-            payload["prompt"] = os.environ["FAKE_CLAUDE_PROMPT"]
-        commands = [hook["command"] for hook in settings["hooks"][event][0]["hooks"]]
-        command = commands[0]
-        if event == "PermissionRequest":
-            # `rup permission` stays open until the Decision is answered or cleared; the later
-            # Signal clears it, so the fake does not wait for it.
-            hook = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, text=True)
-            hook.stdin.write(json.dumps(payload))
-            hook.stdin.close()
-            gate = os.environ.get("FAKE_CLAUDE_GATE")
-            while gate and "[rup messages: " in prompt and not os.path.exists(gate):
-                time.sleep(0.02)
-            continue
-        for command in commands:
-            run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
 
 
 def run_commands():
@@ -252,7 +215,7 @@ def play_prompts(tool):
             continue
         if orders:
             # Older observers counted the two nonempty clarification lines separately.
-            count = 1 if "FAKE_CLAUDE_PASTE_WHOLE" in os.environ else len([line for line in prompt.splitlines() if line.strip()])
+            count = len([line for line in prompt.splitlines() if line.strip()])
             orders = max(0, orders - count)
             hook("Stop")
             continue
@@ -419,8 +382,6 @@ def play_session():
 
 if "FAKE_CLAUDE_LAUNCH_LOG" in os.environ:
     log_launch()
-if "FAKE_CLAUDE_EVENTS" in os.environ:
-    play_hooks()
 if "FAKE_CLAUDE_RUN" in os.environ:
     run_commands()
 stray = [subprocess.Popen(["sh", os.environ["FAKE_CLAUDE_STRAY"]])] if "FAKE_CLAUDE_STRAY" in os.environ else []
@@ -430,25 +391,9 @@ if process:
     stray.append(subprocess.Popen(json.loads(process), env={**os.environ, **settings_env}))
 if "FAKE_CLAUDE_MCP_STRAY" in os.environ:
     stray.append(play_mcp_stray(os.environ["FAKE_CLAUDE_MCP_STRAY"]))
-if any(k in os.environ for k in ("FAKE_CLAUDE_TOOL", "FAKE_CLAUDE_TOOLS", "FAKE_CLAUDE_BRIEF_REPORT")):
-    calls = json.loads(os.environ.get("FAKE_CLAUDE_TOOLS", "[]"))
-    if "FAKE_CLAUDE_TOOL" in os.environ:
-        calls.insert(0, json.loads(os.environ["FAKE_CLAUDE_TOOL"]))
-    time.sleep(int(os.environ.get("FAKE_CLAUDE_SHIM_DELAY_MS", "0")) / 1000)
-    mcp_session(calls, os.environ.get("FAKE_CLAUDE_BRIEF_REPORT"))
-def claim_door_tools():
-    """FAKE_CLAUDE_DOOR_ONCE=<file>: only the first Door started plays FAKE_CLAUDE_DOOR_TOOLS (M9: the Door it makes must not make another)."""
-    once = os.environ.get("FAKE_CLAUDE_DOOR_ONCE")
-    if not once:
-        return True
-    try:
-        os.close(os.open(once, os.O_CREAT | os.O_EXCL))
-    except FileExistsError:
-        return False
-    return True
-
-
-if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv and claim_door_tools():
+if "FAKE_CLAUDE_BRIEF_REPORT" in os.environ:
+    mcp_session([], os.environ["FAKE_CLAUDE_BRIEF_REPORT"])
+if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv:
     mcp_session(json.loads(os.environ["FAKE_CLAUDE_DOOR_TOOLS"]))
 if "FAKE_CLAUDE_AGENT_TOOLS" in os.environ and "--tools" not in sys.argv:
     claim_agent_tools()
@@ -457,8 +402,8 @@ if "FAKE_CLAUDE_KINDS" in os.environ and "--tools" not in sys.argv:
     if kind:
         play_kind(kind)
         time.sleep(3600)
-if "FAKE_CLAUDE_ON_PROMPT" in os.environ:
-    play_prompts(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT"]))
+if "FAKE_CLAUDE_ON_PROMPT" in os.environ or "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
+    play_prompts(json.loads(os.environ.get("FAKE_CLAUDE_ON_PROMPT", "[]")))
 if "FAKE_CLAUDE_LAUNCH_LOG" in os.environ:
     play_session()
 time.sleep(3600)
