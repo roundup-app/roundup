@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import { beforeOf } from "./reorder";
+import { beforeOf } from "./beforeOf";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
 afterEach(() => {

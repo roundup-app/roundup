@@ -33,6 +33,14 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
   return openIds[at + 1] ?? openIds[at - 1] ?? null;
 };
 
+/** U490a: what an Agent's list hands one row it orders through `ui/Sortable`: the row's frame and button, the grab that names the moved row, and Alt+Up and Alt+Down. */
+export type SortedRow = {
+  frame: (el: HTMLElement) => void;
+  button: (el: HTMLButtonElement | null) => void;
+  grab: () => void;
+  key: (event: KeyboardEvent, fail: (message: string | null) => void) => void;
+};
+
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
@@ -48,6 +56,8 @@ export const OpenRow = (props: {
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
   /** U155: the list this row moves in. */
   reorder?: Reorder;
+  /** U490a: the Sortable parts of a row that moves within its Agent's list. */
+  sorted?: SortedRow;
 }) => {
   const connected = useConnectedProject();
   const near = props.nested ? createNear() : null;
@@ -75,6 +85,7 @@ export const OpenRow = (props: {
     props.registerRow?.(props.todo.id, null);
     props.reorder?.frame(props.todo.id, null);
     props.reorder?.button(props.todo.id, null);
+    props.sorted?.button(null);
   });
 
   const head = (
@@ -84,16 +95,22 @@ export const OpenRow = (props: {
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
           pressed={props.pressed}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo)}
-          reorderable={props.reorder !== undefined}
+          reorderable={props.reorder !== undefined || props.sorted !== undefined}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
             if (!event.defaultPrevented) props.reorder?.key(props.todo.id, event, setFailure);
+
+            if (!event.defaultPrevented) props.sorted?.key(event, setFailure);
           }}
-          onPointerDown={(event) => props.reorder?.press(props.todo.id, event, setFailure)}
+          onPointerDown={(event) => {
+            props.reorder?.press(props.todo.id, event, setFailure);
+            props.sorted?.grab();
+          }}
           ref={(row) => {
             props.registerRow?.(props.todo.id, row);
             props.reorder?.button(props.todo.id, row);
+            props.sorted?.button(row);
           }}
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
@@ -130,7 +147,10 @@ export const OpenRow = (props: {
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
       {...near?.handlers}
-      ref={(frame) => props.reorder?.frame(props.todo.id, frame)}
+      ref={(frame) => {
+        props.reorder?.frame(props.todo.id, frame);
+        props.sorted?.frame(frame);
+      }}
     >
       <Show when={props.nested}>{head}</Show>
       <Show when={props.todo.body.trim() !== ""}>
