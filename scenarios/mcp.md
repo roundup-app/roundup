@@ -29,7 +29,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.permission`, `agent.ask`, `agent.skills` | the Claude Code hooks' own calls (A11, H18); `agent.ask` is the tool `ask_user` (H14), the Brief (E1) is in the Agent's argv and the skills list is the App's own palette |
 | `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |
 | `project.setMcp` | whether Agents are offered these tools at all (M2219): an Agent that turned it off or on would change what the next Agent can do |
-| `models.list`, `project.setModels`, `agent.setModel` | the user's choice of Model and Effort, and what it spends (P8, `scenarios/models.md`): an Agent that set them could raise its own cost. A Door reads the Models it may use in `agent_context` |
+| `models.list`, `project.setModels`, `agent.setModel` | the user's choice of Model and Effort, and what it spends (P8, `scenarios/models.md`): an Agent that set them could raise its own cost |
 | `attachment.save` | the user's pasted image on its way to a Message (U419): the bytes come from the user's clipboard, and an Agent has no clipboard |
 | `project.resources` | the App's Resource strip (D8, U408): an Agent reading how hungry its peers are would gain nothing it can act on, and each call samples the operating system |
 | `workstream.clear` | the user's act of starting a Workstream over (A32): an Agent that cleared it would remove the Subagents the user watches. A Door answers the user's clear with `workstream_handoff` |

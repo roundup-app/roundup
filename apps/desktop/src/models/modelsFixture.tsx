@@ -11,10 +11,10 @@ export const LIST: ModelList = {
   efforts: [{ id: "e-low", label: "Low" }, { id: "e-high", label: "High" }],
 };
 
-export const settings = (roles: string[], allowed: string[] = []): ProjectSettings => ({
+export const settings = (roles: string[]): ProjectSettings => ({
   worktrees: { on: false, check: null },
   mcp: { on: true },
-  models: { roles: roles.map((role) => ({ role, model: null, effort: null })), allowed },
+  models: { roles: roles.map((role) => ({ role, model: null, effort: null })) },
 });
 
 /** The `Models` sheet on a fake Daemon whose `project.get` answers `get` and `models.list` answers `list`. */

@@ -4,7 +4,7 @@ import { browser, read, wait, url } from "../ui/tabsBrowser";
 /** The Drawer, Models and Project menu mounted together, in either order: `u496Fixture.tsx` through `u496.html`. */
 const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
 
-const prepareModels = () => browser("eval", `(() => { for (const tab of document.querySelectorAll('.project-tab')) { const app = window.__fake.app.of(tab.dataset.path); app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}}); app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Opus'}],efforts:[{id:'high',label:'High'}]}); } })()`);
+const prepareModels = () => browser("eval", `(() => { for (const tab of document.querySelectorAll('.project-tab')) { const app = window.__fake.app.of(tab.dataset.path); app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}]}}); app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Opus'}],efforts:[{id:'high',label:'High'}]}); } })()`);
 
 for (const surface of ["models", "confirmation"]) it(`u494_dialog_keyboard_wrap_escape_and_return_${surface}`, async () => {
   await browser("open", url("/harness.html?seed=tree-40"));

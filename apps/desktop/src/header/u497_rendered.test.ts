@@ -34,7 +34,7 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       await browser('eval', `(() => {
         for (const tab of document.querySelectorAll('.project-tab')) {
           const app = window.__fake.app.of(tab.dataset.path);
-          app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}});
+          app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}]}});
           app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Authored 雪 Model'}],efforts:[{id:'high',label:'High'}]});
           app.handlers['project.setModels'] = () => { throw new Error(${JSON.stringify(failure)}); };
         }

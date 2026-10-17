@@ -103,7 +103,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
       await capture(`${name}-closed`);
       await page.call(`() => {
         window.__fake.app.handlers['models.list'] = () => ({models: Array.from({length:20},(_,i)=>({id:'m'+i,label:('Model '+i+' ').padEnd(40,'x')})), efforts:[{id:'high',label:'High'}]});
-        window.__fake.app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'subagent',model:'m0',effort:'high'}],allowed:[]}});
+        window.__fake.app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'subagent',model:'m0',effort:'high'}]}});
         document.querySelector('[aria-label="Choose Model and Effort"]').click();
       }`);
       await page.until(`() => document.querySelector('[aria-label="Model"]') && !document.querySelector('.rail-agent-actions > button').hasAttribute('aria-disabled')`);
@@ -172,7 +172,7 @@ it("u378_the_split_add_runs_from_the_keyboard", async () => {
   await load("tree-40", "light");
   await page.call(`() => {
     window.__fake.app.handlers['models.list']=()=>({models:[{id:'sonnet',label:'Sonnet'}],efforts:[{id:'high',label:'High'}]});
-    window.__fake.app.handlers['project.get']=()=>({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[],allowed:[]}});
+    window.__fake.app.handlers['project.get']=()=>({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[]}});
     document.querySelector('[aria-label="Add Agent"]').focus();
   }`);
   await page.press("Tab", "Tab");

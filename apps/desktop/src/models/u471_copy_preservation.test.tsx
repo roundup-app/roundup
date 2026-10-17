@@ -20,7 +20,7 @@ it("u471_previous_copy_assertions_are_preserved_model_choices_and_role_ids_stay_
   await selectNamed("Model for lowercase");
 
   expect(screen.getByText("lowercase")).toBeTruthy();
-  expect(screen.getAllByText("keep this MODEL")).toHaveLength(2);
+  expect(screen.getAllByText("keep this MODEL")).toHaveLength(1);
   expect(screen.getByText("keep this EFFORT")).toBeTruthy();
 });
 

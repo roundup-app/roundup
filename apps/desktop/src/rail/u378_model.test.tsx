@@ -92,7 +92,7 @@ describe("u378 the Model at the add", () => {
 
   it("u378_the_picker_opens_on_labelled_project_defaults", async () => {
     const mounted = await mountAdd();
-    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-high"}], allowed: [] } });
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-high"}] } });
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
         await pickerShows("Model", "Default (Sonnet)");
     await pickerShows("Effort", "Default (High)");
@@ -101,7 +101,7 @@ describe("u378 the Model at the add", () => {
 
   it("u509_known_defaults_show_labels_or_ids", async () => {
     const mounted = await mountAdd();
-    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-unlisted"}], allowed: [] } });
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-unlisted"}] } });
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     await pickerShows("Model", "Default (Sonnet)");
     await pickerShows("Effort", "Default (e-unlisted)");
@@ -121,7 +121,7 @@ describe("u378 the Model at the add", () => {
 
   it("u509_one_unresolved_default_names_its_field", async () => {
     const mounted = await mountAdd();
-    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: null}], allowed: [] } });
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: null}] } });
     fireEvent.click(screen.getByLabelText("Choose Model and Effort"));
     await waitFor(() => expect(screen.getByText("Effort: Claude Code default")).toBeTruthy());
   });
@@ -131,7 +131,7 @@ describe("u378 the Model at the add", () => {
     const toggle = screen.getByLabelText("Choose Model and Effort");
     fireEvent.click(toggle);
     await pickerShows("Model", "Default");
-    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-high"}], allowed: [] } });
+    mounted.app.handlers["project.get"] = () => ({ ...settings(["subagent"]), models: { roles: [{role: "subagent", model: "m-sonnet", effort: "e-high"}] } });
     fireEvent.click(toggle);
     fireEvent.click(toggle);
     await pickerShows("Model", "Default (Sonnet)");

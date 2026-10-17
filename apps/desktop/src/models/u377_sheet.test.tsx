@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { checkboxNamed, LIST, mountSheet, selectNamed, settings } from "./modelsFixture";
+import { checkboxNamed, mountSheet, selectNamed, settings } from "./modelsFixture";
 
 afterEach(cleanup);
 
@@ -33,23 +33,11 @@ describe("u377 the Models sheet", () => {
     await waitFor(() => expect(setModelsCalls(app)).toHaveLength(1));
     model.value = "";
     fireEvent.change(model);
-    await waitFor(() => expect(setModelsCalls(app)[1]).toEqual({ roles: [{ role: "door", model: null, effort: null }], allowed: [] }));
-  });
-
-  it("u377_the_allowed_list_starts_empty", async () => {
-    await mountSheet(settings(["door"]));
-    await select("Model for door");
-
-    const boxes = [...document.querySelectorAll<HTMLInputElement>('.models-allowed input[type="checkbox"]')];
-
-    expect(screen.getByText("Supervisors may use")).toBeTruthy();
-    expect(screen.getByText("A supervisor can start a child only on a checked Model.")).toBeTruthy();
-    expect(boxes.map((box) => box.checked)).toEqual([false, false]);
-    expect(boxes).toHaveLength(LIST.models.length);
+    await waitFor(() => expect(setModelsCalls(app)[1]).toEqual({ roles: [{ role: "door", model: null, effort: null }] }));
   });
 
   it("u377_a_change_calls_set_models_once_with_the_whole_state", async () => {
-    const { app } = await mountSheet(settings(["door", "scribe"], ["m-sonnet"]));
+    const { app } = await mountSheet(settings(["door", "scribe"]));
     const effort = await select("Effort for scribe");
 
     effort.value = "e-high";
@@ -58,15 +46,8 @@ describe("u377 the Models sheet", () => {
 
     expect(setModelsCalls(app)[0]).toEqual({
       roles: [{ role: "door", model: null, effort: null }, { role: "scribe", model: null, effort: "e-high" }],
-      allowed: ["m-sonnet"],
     });
 
-    fireEvent.click(screen.getByLabelText("Opus"));
-    await waitFor(() => expect(setModelsCalls(app)).toHaveLength(2));
-    expect(setModelsCalls(app)[1]).toEqual({
-      roles: [{ role: "door", model: null, effort: null }, { role: "scribe", model: null, effort: "e-high" }],
-      allowed: ["m-sonnet", "m-opus"],
-    });
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -83,21 +64,6 @@ describe("u377 the Models sheet", () => {
 
     expect((await screen.findByRole("alert")).textContent).toContain("unknown model m-opus");
     expect(model.value).toBe("");
-
-    const box = checkboxNamed("Sonnet");
-
-    fireEvent.click(box);
-    await waitFor(() => expect(box.checked).toBe(false));
-  });
-
-  it("u377_all_long_authored_labels_are_available", async () => {
-    const long = "L".repeat(40);
-    const list = { models: Array.from({ length: 20 }, (_, at) => ({ id: `m${at}`, label: `${long}${at}` })), efforts: [{ id: "e", label: long }] };
-
-    await mountSheet(settings([long]), list);
-    await select(`Model for ${long}`);
-
-    expect(document.querySelectorAll(".models-allowed .models-check")).toHaveLength(20);
   });
 
   it("m2219_the_mcp_toggle_reads_project_get_and_calls_set_mcp_once", async () => {
