@@ -11,6 +11,31 @@
   pointer-events: none;
 }
 
+/* U2307b: the frame is a zero-size manual popover at the pane's corner, so it sits in the browser top layer and the bubble keeps its place in the pane's own coordinates; the browser's popover box rules are reset. */
+.bubble-frame {
+  position: fixed;
+  inset: auto;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: none;
+  color: inherit;
+  pointer-events: auto;
+}
+
+.bubble[hidden],
+.bubble-zone[hidden] {
+  display: none;
+}
+
+/* The library's open state is the only display rule; the popover is shown in the same turn. */
+.bubble-frame[data-state="open"] {
+  display: block !important;
+}
+
 .bubble {
   position: absolute;
   box-sizing: border-box;
@@ -22,12 +47,9 @@
   border-radius: var(--radius-drawer);
   box-shadow: var(--shadow-drawer);
   padding: var(--space-3);
+  padding-block-start: var(--space-1);
   gap: var(--space-2);
   pointer-events: auto;
-}
-
-.bubble[hidden] {
-  display: none;
 }
 
 /* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the panel's ground. */
@@ -41,36 +63,67 @@
   right: max(0px, calc(var(--shelf-span) - var(--space-4)));
 }
 
+/* U2307c: a macOS panel bar, 28 px: close and minimise dots at the left, the name centred on the bar, a status dot after it. */
 .bubble-header {
   flex: none;
-  display: flex;
+  box-sizing: border-box;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  min-height: var(--space-5);
-  padding: 0;
+  height: calc(var(--space-5) + var(--space-1));
   cursor: grab;
 }
 
+.bubble-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The hit target is the 24 px icon button; only the 10 px dot of ink shows. */
+.bubble-dot {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-2) + var(--space-1) / 2);
+  height: calc(var(--space-2) + var(--space-1) / 2);
+  border-radius: var(--radius-drawer);
+  /* 28 px bar = --space-5 + --space-1; the dot is 10 px. The disc follows the button's ink (hover moves it, press dims it). */
+  background: currentColor;
+  font-size: var(--text-caption);
+  line-height: 1;
+}
+
+/* As a macOS panel does: while the bar is hovered or a dot has focus, each dot shows its glyph so Close reads apart from Minimise before the press. */
+.bubble-header:hover .bubble-dot::after,
+.bubble-header:focus-within .bubble-dot::after {
+  content: attr(data-glyph);
+  color: var(--ground);
+}
+
 .bubble-name {
-  flex: 1 1 8ch;
-  min-width: 8ch;
+  grid-column: 2;
+  max-width: calc(100cqw - 2 * (2 * var(--space-5) + var(--space-1) + var(--space-2)));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--text-body);
 }
 
 .bubble-state {
-  flex: none;
-  color: var(--grey);
+  grid-column: 3;
+  justify-self: start;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-inline-start: var(--space-2);
+  border-radius: var(--radius-drawer);
+  outline: 1px solid var(--grey);
+  outline-offset: -1px;
 }
 
-.bubble-header button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--space-5);
-  min-height: var(--space-5);
+.bubble-state[data-running="true"] {
+  outline-color: var(--accent);
+  background: var(--accent);
 }
 
 .bubble-body {
@@ -94,10 +147,6 @@
   touch-action: none;
 }
 
-.bubble-zone[hidden] {
-  display: none;
-}
-
 /* U469: every Terminal keeps a pair of separate keyboard controls in the last line. */
 .terminal-tabs-host {
   container: terminal-tabs / inline-size;
@@ -105,16 +154,20 @@
   flex: 1;
   min-width: var(--space-6);
   overflow: hidden;
+  position: relative;
 }
 
 .terminal-tabs {
   box-sizing: border-box;
-  padding: var(--space-1);
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: stretch;
+  height: var(--space-5);
+  position: relative;
+  z-index: 1;
   overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-y: hidden;
+  /* The row keeps its full height: the scrollbar would take part of it and cut every label. Wheel, drag and keyboard focus still scroll. */
+  scrollbar-width: none;
   white-space: nowrap;
 }
 
@@ -122,11 +175,11 @@
   display: inline-flex;
   flex: none;
   align-items: center;
-  border: 1px solid var(--hairline);
+  align-self: stretch;
+  min-height: var(--space-5);
 }
 
 .terminal-tab {
-  --button-surface: var(--ground);
   --button-inline: var(--space-1);
   display: inline-flex;
   align-items: center;
@@ -140,15 +193,14 @@
   text-overflow: ellipsis;
 }
 
-/* U511: the name's editor takes the button's place with the button's padding and the label's type; only the native focus ring is new. */
+/* U2234: the name's editor sits in the tab with the label's type and no box of its own. */
 .terminal-tab-editor {
-  --button-hover: var(--hover);
-  --button-radius: var(--radius-control);
-  padding-inline: var(--button-inline);
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--button-inline, var(--space-1));
   min-height: var(--space-5);
-  color: var(--grey);
-  background-color: var(--button-surface);
-  border-radius: var(--button-radius);
+  color: inherit;
+  background: none;
 }
 
 .terminal-tab-editor [data-part="input"] {
@@ -157,52 +209,33 @@
   margin: 0;
   padding: 0;
   font: inherit;
+  line-height: inherit;
   letter-spacing: inherit;
   color: inherit;
   background: none;
   border-width: 0;
   field-sizing: content;
   min-height: var(--space-5);
-  margin-inline-end: var(--space-1);
   cursor: pointer;
-}
-
-.terminal-tab-editor[data-pressed="true"] {
-  --button-surface: var(--selected);
-  color: var(--text);
-}
-
-/* The whole editor box takes the fills, so the tab changes as one surface; the input's own rules only keep its box clear for the checks that read the input. */
-.terminal-tab-editor [data-part="input"]:hover {
-  background-color: transparent;
-}
-
-.terminal-tab-editor [data-part="input"]:active {
-  background-image: none;
-  transition-duration: 0s;
-}
-
-.terminal-tab-editor:has([data-part="input"]:hover) {
-  background-color: var(--button-hover);
-  color: var(--text);
-}
-
-.terminal-tab-editor:has([data-part="input"]:active) {
-  background-color: var(--pressed);
-  transition-duration: 0s;
 }
 
 .terminal-tab-editor [data-part="input"]:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: -2px;
+}
+
+/* The field is a click target to the checks: it keeps a hover and a pressed rule that paint nothing new (U2234). */
+.terminal-tab-editor [data-part="input"]:hover {
+  color: inherit;
+}
+
+.terminal-tab-editor [data-part="input"]:active {
+  color: var(--ink-pressed);
+  transition-duration: 0s;
 }
 
 .terminal-tab-editor [data-part="preview"] {
   text-overflow: clip;
-}
-
-.terminal-tab[aria-pressed="true"] {
-  --button-surface: var(--selected);
 }
 
 .terminal-new {

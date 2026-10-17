@@ -46,7 +46,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => expect(bubble("1")).not.toBeNull());
 
     expect(document.querySelector(".pane")!.outerHTML).toBe(before);
-    expect(bubble("1").parentElement!.className).toBe("bubbles");
+    expect(bubble("1").parentElement!.className).toBe("bubble-frame");
   });
 
   it("u164_the_header_drags_and_the_corner_resizes_and_stay_inside_the_pane", async () => {
@@ -146,9 +146,9 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
 
-    expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("Running");
+    expect(bubble("1").querySelector(".bubble-state")!.getAttribute("aria-label")).toBe("Running");
     mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
-    await waitFor(() => expect(bubble("1").querySelector(".bubble-state")!.textContent).toBe("Exit 3"));
+    await waitFor(() => expect(bubble("1").querySelector(".bubble-state")!.getAttribute("aria-label")).toBe("Exit 3"));
     expect(bubbleNames()).toContain("cargo test");
   });
 

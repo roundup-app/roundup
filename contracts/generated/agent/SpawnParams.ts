@@ -14,8 +14,8 @@ order?: Order,
  */
 name?: string, 
 /**
- * A36, M12: the child's Model, an id; without one the Project's for the Role applies. Only a
- * Model the user allows is accepted: read the ids in `agent_context`'s `models.allowed`.
+ * A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
+ * `models.list` offers is accepted.
  */
 model?: string | null, 
 /**

@@ -59,8 +59,6 @@ pub struct RoleModels {
 #[ts(export, export_to = "project/")]
 pub struct ProjectModels {
     pub roles: Vec<RoleModels>,
-    /// The Models a Door may start a child Agent on; empty for a Project that never set it.
-    pub allowed: Vec<String>,
 }
 
 /// M8: ask the App to open the Project at `path`.

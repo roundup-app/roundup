@@ -58,6 +58,9 @@ _Avoid_: shell integration (as a name; it is the means)
 **Turn** (user label: command):
 One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514).
 
+**Excerpt**:
+The text of a Terminal's selection that "Send to agent" carries to an Agent, cut to 6 000 bytes with its end kept (U515, U516). Sent as a Message `note` fenced with the Turn's facts when known.
+
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 

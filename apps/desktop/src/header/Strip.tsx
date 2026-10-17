@@ -272,7 +272,7 @@ export const Strip = (props: {
         </Tabs.List>
         {edge(copy.right, right())}
       </div>
-      <IconButton class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
+      <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 

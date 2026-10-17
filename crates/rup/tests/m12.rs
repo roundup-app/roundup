@@ -1,4 +1,4 @@
-//! M12: a Door picks a child's Model from the list the user allows. The built `rup mcp <agent-id>`
+//! M12: a Door picks a child's Model from any the Adapter lists. The built `rup mcp <agent-id>`
 //! over stdio against the real `rupd` and the fake `claude`, which records each launch.
 #![allow(dead_code)]
 
@@ -163,12 +163,9 @@ impl Run {
     }
 }
 
-async fn set_models(client: &Client, roles: Value, allowed: Value) {
+async fn set_models(client: &Client, roles: Value) {
     client
-        .request(
-            "project.setModels",
-            json!({ "roles": roles, "allowed": allowed }),
-        )
+        .request("project.setModels", json!({ "roles": roles }))
         .await
         .unwrap();
 }
@@ -214,7 +211,7 @@ async fn children_of(client: &Client, parent: &str) -> Vec<RailNode> {
 async fn m12_a_listed_model_starts_the_child_on_it() {
     let run = Run::start();
     let user = run.project.client().await;
-    set_models(&user, json!([]), json!(["haiku", "opus"])).await;
+    set_models(&user, json!([])).await;
     let (caller, shim) = run.caller(&user).await;
 
     let spawned = spawn_with(&shim, &run, Some("haiku")).await;
@@ -233,7 +230,6 @@ async fn m12_no_model_takes_the_projects() {
     set_models(
         &user,
         json!([{"role": "subagent", "model": "opus", "effort": null}]),
-        json!(["haiku"]),
     )
     .await;
     let (caller, shim) = run.caller(&user).await;
@@ -247,42 +243,9 @@ async fn m12_no_model_takes_the_projects() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn m12_an_off_list_model_is_refused_naming_the_allowed() {
+async fn m12_an_unlisted_model_is_refused_and_starts_nothing() {
     let run = Run::start();
     let user = run.project.client().await;
-    set_models(&user, json!([]), json!(["haiku", "sonnet"])).await;
-    let (_, shim) = run.caller(&user).await;
-
-    let refused = spawn_with(&shim, &run, Some("opus")).await;
-    assert_eq!(refused.is_error, Some(true));
-    let message = text(&refused);
-    assert!(message.contains("-32602"), "{message}");
-    assert!(
-        message.contains("haiku (Haiku)") && message.contains("sonnet (Sonnet)"),
-        "{message}"
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn m12_an_empty_list_refuses_any_model() {
-    let run = Run::start();
-    let user = run.project.client().await;
-    let (_, shim) = run.caller(&user).await;
-
-    let refused = spawn_with(&shim, &run, Some("haiku")).await;
-    assert_eq!(refused.is_error, Some(true));
-    let message = text(&refused);
-    assert!(
-        message.contains("-32602") && message.contains("omit model"),
-        "{message}"
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn m12_a_refusal_starts_nothing() {
-    let run = Run::start();
-    let user = run.project.client().await;
-    set_models(&user, json!([]), json!(["haiku"])).await;
     let (caller, shim) = run.caller(&user).await;
     let (tree, launches, touches) = (
         rail_tree(&user).await.len(),
@@ -290,60 +253,15 @@ async fn m12_a_refusal_starts_nothing() {
         touches_of(&user, &caller.id).await.len(),
     );
 
-    let refused = spawn_with(&shim, &run, Some("opus")).await;
+    let refused = spawn_with(&shim, &run, Some("no-such-model")).await;
     assert_eq!(refused.is_error, Some(true));
+    let message = text(&refused);
+    assert!(
+        message.contains("-32602") && message.contains("no-such-model"),
+        "{message}"
+    );
 
     assert_eq!(rail_tree(&user).await.len(), tree);
     assert_eq!(run.launches().len(), launches);
     assert_eq!(touches_of(&user, &caller.id).await.len(), touches);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn m12_the_list_is_not_in_the_brief_the_settings_or_the_tool_list() {
-    let (one, two) = (Run::start(), Run::start());
-    let mut seen = Vec::new();
-    for (run, allowed) in [(&one, json!(["haiku"])), (&two, json!(["opus", "sonnet"]))] {
-        let user = run.project.client().await;
-        set_models(&user, json!([]), allowed).await;
-        let (_, shim) = run.caller(&user).await;
-        seen.push((run.brief().await, shim.tools().await));
-    }
-    assert_eq!(seen[0], seen[1]);
-    let (brief, tools) = &seen[0];
-    let tools = tools.to_string();
-    for id in ["haiku", "Haiku", "sonnet", "Sonnet"] {
-        assert!(
-            !brief.contains(id) && !tools.contains(id),
-            "{id} is in the session's text"
-        );
-    }
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn m12_a_changed_list_reaches_the_door_through_agent_context_only() {
-    let run = Run::start();
-    let user = run.project.client().await;
-    set_models(&user, json!([]), json!(["haiku"])).await;
-    let (_, shim) = run.caller(&user).await;
-    let (brief, tools, files) = (run.brief().await, shim.tools().await, run.launch_files());
-    let context = |result: CallToolResult| -> Value {
-        serde_json::from_str::<Value>(&text(&result)).unwrap()["models"].clone()
-    };
-    assert_eq!(
-        context(shim.call("agent_context", json!({})).await),
-        json!({"allowed": [{"id": "haiku", "label": "Haiku"}]})
-    );
-
-    set_models(&user, json!([]), json!(["opus", "haiku"])).await;
-
-    assert_eq!(
-        context(shim.call("agent_context", json!({})).await),
-        json!({"allowed": [
-            {"id": "opus", "label": "Opus"},
-            {"id": "haiku", "label": "Haiku"},
-        ]})
-    );
-    assert_eq!(run.brief().await, brief);
-    assert_eq!(shim.tools().await, tools);
-    assert_eq!(run.launch_files(), files);
 }

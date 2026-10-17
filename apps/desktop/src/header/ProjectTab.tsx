@@ -3,6 +3,7 @@ import { createMemo, createSignal, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
+import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
 import { Tooltip } from "../ui/Tooltip";
@@ -53,7 +54,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <Tabs.Context>{(tabs) => <>
-    <div class="project-tab" data-selected={props.selected} role="presentation" data-path={props.tab.path}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
@@ -85,6 +86,6 @@ export const ProjectTab = (props: {
         </Tooltip.Root>
         <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
       </Show>
-    </div>
+    </FlatTab>
   </>}</Tabs.Context>;
 };

@@ -489,7 +489,17 @@ async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
         .1
         .canonicalize()
         .unwrap();
-    std::fs::remove_file(transcript(&fx, &cwd)).unwrap();
+    let saved = transcript(&fx, &cwd);
+    // Idle is Roundup's view; Claude may append trailing records after it, so wait for a quiet file.
+    let mut quiet = 0;
+    let mut size = std::fs::metadata(&saved).unwrap().len();
+    while quiet < 20 {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let now = std::fs::metadata(&saved).map_or(0, |m| m.len());
+        quiet = if now == size { quiet + 1 } else { 0 };
+        size = now;
+    }
+    std::fs::remove_file(&saved).unwrap();
     let error = as_actor(&fx.project, ActorKind::Agent, &fx.ws)
         .await
         .request(

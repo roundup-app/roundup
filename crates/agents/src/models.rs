@@ -43,48 +43,13 @@ pub fn check_listed(model: Option<&str>, effort: Option<&str>) -> Result<(), Rpc
     Ok(())
 }
 
-/// M12: `ids` with the Adapter's labels, in order; an id the Adapter no longer lists is its own label.
-pub fn labelled(ids: &[String]) -> Vec<Choice> {
-    let listed = list().models;
-    ids.iter()
-        .map(|id| Choice {
-            id: id.clone(),
-            label: listed
-                .iter()
-                .find(|choice| &choice.id == id)
-                .map_or_else(|| id.clone(), |choice| choice.label.clone()),
-        })
-        .collect()
-}
-
-/// M12: a call by an Agent. Its `model` must be one the Project allows, and only the user sets an
-/// Effort. The refusal names every allowed Model.
-pub fn check_agents_choice(
-    model: Option<&str>,
-    effort: Option<&str>,
-    allowed: &[String],
-) -> Result<(), RpcError> {
+/// M12: an Agent's call may not set an Effort; only the user does. Its `model` is checked as any
+/// call's is, against the Adapter's list.
+pub fn check_agents_choice(effort: Option<&str>) -> Result<(), RpcError> {
     if effort.is_some() {
         return Err(invalid("only the user sets an effort: omit effort".into()));
     }
-    let Some(model) = model else {
-        return Ok(());
-    };
-    if allowed.iter().any(|id| id == model) {
-        return Ok(());
-    }
-    let names: Vec<String> = labelled(allowed)
-        .into_iter()
-        .map(|choice| format!("{} ({})", choice.id, choice.label))
-        .collect();
-    Err(invalid(if names.is_empty() {
-        format!("model {model:?} is not allowed: the user allows none, so omit model")
-    } else {
-        format!(
-            "model {model:?} is not allowed; the allowed models are {}",
-            names.join(", ")
-        )
-    }))
+    Ok(())
 }
 
 /// `project.setModels`: every role is a known Role once, and every id is one the Adapter lists.
@@ -99,9 +64,6 @@ pub fn check_settings(settings: &ProjectModels) -> Result<(), RpcError> {
         }
         seen.push(entry.role.as_str());
         check_listed(entry.model.as_deref(), entry.effort.as_deref())?;
-    }
-    for id in &settings.allowed {
-        check_listed(Some(id), None)?;
     }
     Ok(())
 }
@@ -141,7 +103,6 @@ mod tests {
                 model: Some("haiku".into()),
                 effort: Some("low".into()),
             }],
-            allowed: vec!["haiku".into()],
         }
     }
 
@@ -155,17 +116,5 @@ mod tests {
     #[test]
     fn a_role_never_set_resolves_to_none() {
         assert_eq!(resolve(&project(), Role::Door, None, None), Pair::default());
-    }
-
-    #[test]
-    fn an_off_list_model_names_the_allowed_ones() {
-        let refusal = check_agents_choice(Some("opus"), None, &["haiku".into()]).unwrap_err();
-        assert!(
-            refusal.message.contains("haiku (Haiku)"),
-            "{}",
-            refusal.message
-        );
-        let none = check_agents_choice(Some("opus"), None, &[]).unwrap_err();
-        assert!(none.message.contains("omit model"), "{}", none.message);
     }
 }
