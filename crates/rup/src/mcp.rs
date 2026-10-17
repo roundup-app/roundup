@@ -190,6 +190,14 @@ fn decision_answer() -> Offered {
     }
 }
 
+/// B41: ask to be woken when named Agents finish. The caller is the Agent itself, so `id` is not a parameter.
+fn agent_wake() -> Offered {
+    offered::<agent::WakeParams>(
+        "agent.wake",
+        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
+    )
+}
+
 /// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
 /// `order`.
 fn agent_set_order() -> Offered {
@@ -455,6 +463,7 @@ fn offered_tools() -> Vec<Offered> {
             "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
         ),
         agent_context(),
+        agent_wake(),
         agent_set_order(),
         agent_run(),
         ask_user(),
