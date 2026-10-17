@@ -72,7 +72,7 @@ p {
 .content-actions {
   position: absolute;
   top: var(--header-height);
-  right: var(--space-4);
+  right: var(--space-2);
   z-index: 1;
 }
 
@@ -99,10 +99,10 @@ p {
   overflow: auto;
 }
 
-/* U2340a: the centre has no inner lane; the Terminal and the bar sit one --space-2 from its edges. */
+/* U2340a, U2340d: the centre has no inner padding; the Terminal's own text area keeps the --space-2 inset (.pane-screen), and the tab bar runs edge to edge. */
 .centre {
-  padding-right: var(--space-2);
-  padding-left: var(--space-2);
+  padding-right: 0;
+  padding-left: 0;
 }
 
 /* U2340a: while the floating Show work items button shows, the order line ends --space-6 from the edge, one --space-2 past the button. */

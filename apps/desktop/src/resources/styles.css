@@ -5,14 +5,14 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
-  grid-template-rows: var(--space-4) var(--space-5);
+  grid-template-rows: var(--space-4) var(--rail-actions-height);
   flex: none;
   box-sizing: border-box;
   align-items: center;
   gap: 0 var(--space-3);
   width: 100%;
-  height: calc(var(--space-4) + var(--space-5));
-  padding: 0 var(--space-2);
+  height: calc(var(--space-4) + var(--rail-actions-height));
+  padding: 0 var(--space-2) 0 0;
   color: var(--grey);
   font-family: var(--font-ui);
   font-size: var(--text-small);

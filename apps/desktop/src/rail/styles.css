@@ -1,5 +1,6 @@
 /* U391: the footer's height (U44); no row reserves scroll room for it now that it sits below the list. */
-.rail {
+/* The Rail footer's height; the Terminal tabs' row (U2340d) is the same height. */
+:root {
   --rail-actions-height: 40px;
 }
 
