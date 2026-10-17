@@ -28,7 +28,7 @@ type Evidence = {base?: Checks; checks: Checks; rows?: Row[]; movedHome?: string
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
   await page.load(`${origin}/harness.html?seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
-  await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(document.querySelector('.rail-row[aria-expanded]')) && Boolean(window.__fake)`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
     document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
@@ -172,7 +172,7 @@ run('u362 rendered Todo drag that moves nothing', () => {
     await setup();
     const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
     const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
-    const home = await point('.rail-row[aria-expanded]');
+    const home = await point('[data-part="branch"][aria-expanded] > .rail-row');
     const elsewhere = await point('.shelf-head, .shelf');
     const calls = () => page.call<string[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move' || c.method === 'todo.reorder').map(c => c.method)`);
 
@@ -190,7 +190,7 @@ run('u362 rendered Todo drag that moves nothing', () => {
     expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
     await page.pointer('up', elsewhere.x + 10, elsewhere.y);
     // An Agent row is no Home.
-    const agent = await point('.rail-row[data-id]:not([aria-expanded])');
+    const agent = await point('.rail-row[data-part="item"]');
     await page.pointer('down', from.x, from.y);
     await page.pointer('move', agent.x, agent.y);
     expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
