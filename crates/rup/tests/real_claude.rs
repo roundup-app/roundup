@@ -1689,7 +1689,12 @@ async fn clear_fixture(
     fixture: &str,
     env: &[(&str, &str)],
 ) -> (daemon::Project, rpc::Client, String) {
-    let project = daemon::start_real(fixture, env);
+    // The new Door waits for the real `claude` to start; a loaded host takes longer than the Daemon's
+    // 8 s default, so a Clear is not failed for it unless the caller sets the bound.
+    let env: Vec<_> = std::iter::once(("ROUNDUP_RESTART_BOUND_MS", "60000"))
+        .chain(env.iter().copied())
+        .collect();
+    let project = daemon::start_real(fixture, &env);
     let path = project.dir.path();
     for args in [
         vec!["init", "-q", "-b", "main"],
@@ -2088,18 +2093,7 @@ async fn a32_no_slash_command_is_typed() {
             .unwrap(),
         json!({"pending": true})
     );
-    let mut working = false;
-    loop {
-        let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door => Some(status),
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
+    received(model, "/clear please").await;
     assert!(
         model.journal().iter().any(|entry| entry["body"]["tools"]
             .as_array()
@@ -2142,20 +2136,7 @@ async fn a32_no_slash_command_is_typed() {
     })
     .await;
     assert_eq!(cleared.iteration, 2);
-    let mut working = false;
-    loop {
-        let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
-                Some(status)
-            }
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
+    turn_done(model, &client, &door, "Slash-free handoff").await;
     assert!(
         model.journal().iter().any(|entry| entry["body"]["tools"]
             .as_array()
@@ -2795,7 +2776,8 @@ async fn a32_message_list_spans_iterations() {
             .await
             .unwrap();
         let model = project.model.as_ref().unwrap();
-        // Each next input follows the real turn's Working → Stop acknowledgement.
+        // The first turn is the Door's start-up: its Working → Idle is the only Status pair there. Every
+        // later input follows the model's journal, because an Idle can arrive while the next turn begins.
         async fn stopped(client: &mut rpc::Client, door: &str, attempt: &str) {
             let mut working = false;
             loop {
@@ -2822,7 +2804,7 @@ async fn a32_message_list_spans_iterations() {
             )
             .await
             .unwrap();
-        stopped(&mut client, &door, "1").await;
+        turn_done(model, &client, &door, "first ask").await;
         assert_eq!(
             client
                 .request(
@@ -2833,7 +2815,7 @@ async fn a32_message_list_spans_iterations() {
                 .unwrap(),
             json!({"pending": true})
         );
-        stopped(&mut client, &door, "1").await;
+        received(model, "history clear").await;
         let actor = project.client().await;
         actor
             .request(
@@ -2861,7 +2843,7 @@ async fn a32_message_list_spans_iterations() {
         })
         .await;
         assert_eq!(cleared.iteration, 2);
-        stopped(&mut client, &door, "2").await;
+        turn_done(model, &client, &door, "History survived").await;
         client
             .request(
                 "message.send",
@@ -2869,7 +2851,7 @@ async fn a32_message_list_spans_iterations() {
             )
             .await
             .unwrap();
-        stopped(&mut client, &door, "2").await;
+        turn_done(model, &client, &door, "second ask").await;
         let listed = client
             .request("message.list", json!({"id": door}))
             .await
@@ -2943,18 +2925,7 @@ async fn a32_iteration_advances_once() {
             )
             .await
             .unwrap();
-        let mut working = false;
-        loop {
-            let status = next(&mut client, |event| match event {
-                EventData::AgentStatus(status) if status.id == door => Some(status),
-                _ => None,
-            })
-            .await;
-            working |= status.status.kind == Kind::Working;
-            if working && status.status.kind == Kind::Idle {
-                break;
-            }
-        }
+        received(model, "advance iteration").await;
         let actor = project.client().await;
         actor
             .request(
@@ -2991,20 +2962,13 @@ async fn a32_iteration_advances_once() {
                 .iteration,
             Some(2)
         );
-        let mut working = false;
-        loop {
-            let status = next(&mut client, |event| match event {
-                EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
-                    Some(status)
-                }
-                _ => None,
-            })
-            .await;
-            working |= status.status.kind == Kind::Working;
-            if working && status.status.kind == Kind::Idle {
-                break;
-            }
-        }
+        // The retired Subagents' Digest would start a turn after the Handoff's; held, only one turn runs
+        // before the next Clear.
+        client
+            .request("takeover.begin", json!({"agent": door}))
+            .await
+            .unwrap();
+        turn_done(model, &client, &door, "Iteration advanced").await;
         client
             .request(
                 "workstream.clear",
@@ -3012,20 +2976,7 @@ async fn a32_iteration_advances_once() {
             )
             .await
             .unwrap();
-        let mut working = false;
-        loop {
-            let status = next(&mut client, |event| match event {
-                EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
-                    Some(status)
-                }
-                _ => None,
-            })
-            .await;
-            working |= status.status.kind == Kind::Working;
-            if working && status.status.kind == Kind::Idle {
-                break;
-            }
-        }
+        received(model, "advance again").await;
         let journal = model.journal();
         for expected in ["advance iteration", "Iteration advanced", "advance again"] {
             assert!(
@@ -3425,6 +3376,8 @@ async fn gated_clear_fixture(fixture: &str, gate: &Gate) -> (daemon::Project, rp
         &[
             ("ROUNDUP_CLAUDE_BIN", &wrapper),
             ("ROUNDUP_HANDOFF_BOUND_MS", "60000"),
+            // These tests wait for a restart that fails, so it keeps the Daemon's own bound.
+            ("ROUNDUP_RESTART_BOUND_MS", "8000"),
         ],
     )
     .await
@@ -3469,9 +3422,9 @@ async fn until_async<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -
     .unwrap_or_else(|_| panic!("never: {what}"))
 }
 
-/// The Door is asked to hand off once the model's journal holds the Clear prompt.
-async fn asked(model: &aimock::Model) {
-    until("the Door was asked", || {
+/// The model's journal holds a user message with `needle`: the prompt reached real Claude.
+async fn received(model: &aimock::Model, needle: &str) {
+    until(&format!("the model received {needle:?}"), || {
         model
             .journal()
             .iter()
@@ -3481,15 +3434,26 @@ async fn asked(model: &aimock::Model) {
                     .is_some_and(|messages| {
                         messages.iter().any(|m| {
                             m["role"] == "user"
-                                && m["content"]
-                                    .as_str()
-                                    .is_some_and(|t| t.contains("workstream_handoff"))
+                                && m["content"].as_str().is_some_and(|t| t.contains(needle))
                         })
                     })
             })
             .then_some(())
     })
     .await;
+}
+
+/// The Door is asked to hand off once the model's journal holds the Clear prompt.
+async fn asked(model: &aimock::Model) {
+    received(model, "workstream_handoff").await;
+}
+
+/// The Door ended the turn that took a prompt holding `needle`. The model's journal proves the prompt
+/// arrived, and an Idle read after that is the turn's end: a Status event is not, because an Idle
+/// can arrive as the next turn begins.
+async fn turn_done(model: &aimock::Model, client: &rpc::Client, door: &str, needle: &str) {
+    received(model, needle).await;
+    idle(client, door).await;
 }
 
 async fn as_door(project: &daemon::Project, door: &str) -> rpc::Client {
