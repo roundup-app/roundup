@@ -7,14 +7,23 @@ import "../buttons.css";
 import "./u485.css";
 
 const u484Fixture = () => {
+  const external = new URLSearchParams(location.search).has("external");
   const dense = new URLSearchParams(location.search).has("dense");
   const [ids, order] = createSignal(dense ? Array.from({ length: 40 }, (_, index) => String(index + 1)) : ["A", "B", "C"]);
   const [commits, commit] = createSignal(0);
   const [actions, action] = createSignal(0);
+  const [dropped, drop] = createSignal<string[]>([]);
   const [files, file] = createSignal<string[]>([]);
 
   return <>
-    <Sortable.Root ids={ids()} onOrderChange={(next) => { order(next); commit(commits() + 1); }}
+    <Sortable.Root ids={ids()} external={external ? {
+      target: (_id, x, y) => {
+        const element = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-outside]");
+
+        return element ? { element } : null;
+      },
+      onDropOutside: (id, target) => drop([...dropped(), `${id}>${target.element.dataset.outside}`]),
+    } : undefined} onOrderChange={(next) => { order(next); commit(commits() + 1); }}
       aria-label="Ordered rows" class="sortable-fixture" onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => { event.preventDefault(); file([...files(), ...Array.from(event.dataTransfer?.files ?? [], (entry) => entry.name)]); }}>
       <For each={ids()}>{(id, index) => <Sortable.Item id={id} index={index()}>{(parts) =>
@@ -25,6 +34,8 @@ const u484Fixture = () => {
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>
+    {external && <div data-outside="Rail" class="sortable-row">Rail</div>}
+    <output aria-label="Dropped">{dropped().join(",")}</output>
     <output aria-label="Committed order">{ids().join(",")}</output>
     <output aria-label="Commits">{commits()}</output>
     <output aria-label="Actions">{actions()}</output>

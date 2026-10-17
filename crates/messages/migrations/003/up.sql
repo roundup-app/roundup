@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS wakes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    waiter TEXT NOT NULL,
+    any_of INTEGER NOT NULL,
+    ids TEXT NOT NULL,
+    finished TEXT NOT NULL,
+    seen INTEGER NOT NULL
+);

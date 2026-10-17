@@ -13,6 +13,7 @@ mod retirement;
 pub mod schema;
 mod step;
 mod store;
+pub mod wake;
 
 use std::future::Future;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -267,6 +268,17 @@ impl Messages {
         p: SendParams,
         merge: bool,
     ) -> Result<Message, RpcError> {
+        self.send_message_with(ctx, p, merge, None).await
+    }
+
+    /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42).
+    async fn send_message_with(
+        &self,
+        ctx: &Ctx,
+        p: SendParams,
+        merge: bool,
+        wake: Option<u32>,
+    ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -317,7 +329,10 @@ impl Messages {
                         format!("replyTo names no Message: {reply_to}"),
                     ));
                 }
-                if !digest && store.count_open(&p.to)? >= OPEN_BOUND {
+                if let Some(wake) = wake {
+                    self.fire_inside(store, wake)?;
+                }
+                if !digest && wake.is_none() && store.count_open(&p.to)? >= OPEN_BOUND {
                     return Err(RpcError::conflict(format!(
                         "{} already has {OPEN_BOUND} pending or held Messages",
                         p.to
@@ -374,6 +389,9 @@ impl Messages {
                     receiver_status.as_ref().map_or((0, 0), binding),
                     None,
                 )?;
+                if wake.is_some() {
+                    (self.inner.fault)("wake").map_err(RpcError::internal)?;
+                }
                 self.answer(ctx, store, &message)?;
                 if let Some(rest) = &chain_rest {
                     store.start_chain(&ctx.actor, &message.body, rest, message.id)?;

@@ -58,7 +58,7 @@ describe("u183 rename in place", () => {
     input.value = "other";
     press("Escape");
 
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Project name" })).toBeNull();
     expect(tab("api").textContent).toBe("api");
     expect(renamed).toBe(0);
     expect(document.activeElement).toBe(tab("api"));
