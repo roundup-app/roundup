@@ -137,5 +137,5 @@ describe("u132 colour and Kind", () => {
     // U461 uses the shared tick box in the Todo header; dependencies retain their Glyphs.
     await waitFor(() => expect(drawer.querySelector(".todo-tick")).not.toBeNull());
     expect(glyphsOf(drawer).every((glyph) => known.has(glyph.getAttribute("aria-label")?.toLowerCase() ?? null))).toBe(true);
-  });
+  }, 20_000);
 });

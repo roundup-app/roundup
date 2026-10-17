@@ -25,6 +25,7 @@ default-filter = '''
 | (package(agents) & binary(working_files) & test(=a35_restore_preserves_modes_symlinks_and_raw_paths))
 | (package(checkpoints) & test(/::n13_(loaded_marks_restore_existing_file_semantics|restoration_is_idempotent|keep_leaves_files_unchanged)$/))
 | (package(desktop) & test(/^open::tests::u(365|429)_/))
+| (package(desktop) & binary(s2297a))
 | (package(rup) & binary(project_data) & test(=n1_fallback_uses_a_nested_temporary_home))
 | (package(rupd) & test(/::n1_the_default_data_folder_is_the_apps$/))
 | (package(rupd) & binary(b6_prompt_identity) & test(/^cleanup_completion::/))
