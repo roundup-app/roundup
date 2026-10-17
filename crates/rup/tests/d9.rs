@@ -14,7 +14,9 @@ async fn observe(completion: bool) {
     std::thread::spawn(move || std::io::copy(&mut stderr, &mut std::io::stderr()));
     let mut client = rpc::Client::connect(&daemon.socket).await.unwrap();
     let ws = fixture::start_door(&client).await;
-    fixture.ready().await;
+    fixture
+        .ready(async || client.request("rail.tree", Value::Null).await.unwrap())
+        .await;
     let before = client.request("rail.tree", Value::Null).await.unwrap();
     let todos = client.request("todo.list", Value::Null).await.unwrap();
     let pads = client.request("pad.list", Value::Null).await.unwrap();
@@ -45,6 +47,7 @@ async fn observe(completion: bool) {
     assert_eq!(tree[0]["id"], before[0]["id"]);
     assert_eq!(tree[0]["iteration"], before[0]["iteration"]);
     fixture::terminal_events(&mut client, &ws, completion).await;
+    fixture.clear_requests(completion).await;
     if !completion {
         let after = client.request("rail.tree", Value::Null).await.unwrap();
         assert_eq!(after[0]["iteration"], before[0]["iteration"]);
