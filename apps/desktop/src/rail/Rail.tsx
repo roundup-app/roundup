@@ -6,14 +6,13 @@ import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { registerKeys } from "../keys/registry";
-import { TreeView } from "../ui";
+import { Sortable, TreeView, type SortableMove } from "../ui";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
-import { createRailDrag } from "./drag";
 import { doorStateOf } from "./doorState";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
-import { agentKindsBelow, isWorkstream, layoutRail } from "./layout";
+import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
 import { focusedRowId, ROW } from "./rows";
@@ -34,7 +33,7 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 
 export const Rail = () => {
   const connected = useConnectedProject();
-  const { app, project, rail, now, reducedMotion, daemonExit } = connected;
+  const { app, project, rail, now, daemonExit } = connected;
 
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
@@ -60,8 +59,6 @@ export const Rail = () => {
     setComposing(false);
   };
 
-  const [dragged, setDragged] = createSignal<string | null>(null);
-
   /** U378: each picker opening starts from the Project defaults. */
   const choices = createChoices(app);
   const [modelOpen, setModelOpen] = createSignal(false);
@@ -69,12 +66,12 @@ export const Rail = () => {
   const [modelUnder, setModelUnder] = createSignal<string | null>(null);
   const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
-  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now(), dragged: dragged() }));
+  const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }));
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
   /** U520: every Workstream open, so Ark can open one that is folded and walk into it; Ark's `expandedValue` keeps the folded ones shut. */
-  const collection = createMemo(() => railCollection(layoutRail(rail.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now(), dragged: dragged() })));
+  const collection = createMemo(() => railCollection(layoutRail(rail.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now() })));
   const expanded = createMemo(() => collection().getBranchValues().filter((id) => !collapsed().has(id)));
 
   /** The tree node and index path Ark's providers need for the row `id`. */
@@ -89,7 +86,8 @@ export const Rail = () => {
 
   const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
-  const layoutKey = createMemo(() => nodeRows().map((row) => `${row.key}@${row.depth}`).join());
+  const indexOf = createMemo(() => new Map(nodeIds().map((id, at) => [id, at])));
+  const treeRows = createMemo(() => nodeRows().map((row) => ({ id: row.node.id, parent: row.node.parent })));
   const keys = createMemo(() => rows().map((row) => row.key));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
@@ -181,15 +179,105 @@ export const Rail = () => {
     }
   };
 
-  const drag = createRailDrag({
-    container,
-    nodes: () => rail.nodes,
-    rows: nodeRows,
-    layoutKey,
-    onDragging: setDragged,
-    enabled: () => daemonExit() === null,
-    onDrop: (id, { parent, index }) => void attempt(() => app.rpc("rail.move", { id, parent, index })),
+  /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
+  const railStep = (): number => {
+    const tree = container();
+
+    if (!tree) return 1;
+
+    const probe = tree.appendChild(document.createElement("span"));
+    probe.style.display = "inline-block";
+    probe.style.width = "var(--rail-step)";
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+
+    return width > 0 ? width : 1;
+  };
+
+  const [drop, setDrop] = createSignal<{ depth: number; top: number } | null>(null);
+
+  /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
+  let pointerPressed = false;
+  let pointerAt: { x: number; y: number } | null = null;
+  /** The row a keyboard lift began on: the library returns focus only to a handle, and the whole row is the Rail's. */
+  let liftedRow: string | null = null;
+
+  const pointerOutside = () => {
+    const box = container()?.getBoundingClientRect();
+
+    return pointerPressed && pointerAt !== null && box !== undefined &&
+      (pointerAt.x < box.left || pointerAt.x >= box.right || pointerAt.y < box.top || pointerAt.y >= box.bottom);
+  };
+
+  onMount(() => {
+    const press = (event: PointerEvent) => {
+      pointerPressed = true;
+      pointerAt = { x: event.clientX, y: event.clientY };
+    };
+
+    const follow = (event: PointerEvent) => { pointerAt = { x: event.clientX, y: event.clientY }; };
+
+    const lift = (key: KeyboardEvent) => {
+      pointerPressed = false;
+
+      if (key.code === "Space" && key.target instanceof HTMLElement && key.target.matches(ROW)) liftedRow = key.target.closest<HTMLElement>("[data-id]")?.dataset.id ?? null;
+
+      // U31: Enter on a row selects it. The library would lift on Enter too, so Enter stops here and selects, and only Space lifts.
+      if (key.key !== "Enter" || key.metaKey || key.ctrlKey || key.altKey || key.shiftKey || !(key.target instanceof HTMLElement) || !key.target.matches(ROW)) return;
+
+      key.stopPropagation();
+      key.preventDefault();
+
+      const id = key.target.closest<HTMLElement>("[data-id]")?.dataset.id;
+
+      if (id !== undefined) rail.select(id);
+    };
+
+    window.addEventListener("pointerdown", press, { capture: true });
+    window.addEventListener("pointermove", follow, { capture: true });
+    window.addEventListener("keydown", lift, { capture: true });
+    onCleanup(() => {
+      window.removeEventListener("pointerdown", press, { capture: true });
+      window.removeEventListener("pointermove", follow, { capture: true });
+      window.removeEventListener("keydown", lift, { capture: true });
+    });
   });
+
+  /** Where the drop line sits: at the top of the room the library opened for the dragged row, once it has moved there. */
+  const placeDrop = (next: { depth: number } | null) => {
+    if (next === null) {
+      const back = liftedRow;
+
+      liftedRow = null;
+      setDrop(null);
+
+      if (back !== null) requestAnimationFrame(() => focusRow(back));
+
+      return;
+    }
+
+    queueMicrotask(() => {
+      const base = container()?.getBoundingClientRect();
+      const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
+
+      setDrop(base && room ? { depth: next.depth, top: room.top - base.top } : null);
+    });
+  };
+
+  /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
+  const trueIndex = (id: string, parent: string | null, shown: number): number => {
+    if (shown === 0) return 0;
+
+    const anchor = treeRows().filter((row) => row.parent === parent && row.id !== id)[shown - 1];
+
+    return anchor === undefined ? shown : siblingsOf(rail.nodes, parent).filter((node) => node.id !== id).findIndex((node) => node.id === anchor.id) + 1;
+  };
+
+  const moveTo = ({ id, parent, index }: SortableMove) => {
+    if (daemonExit() !== null || pointerOutside()) return;
+
+    void attempt(() => app.rpc("rail.move", { id, parent, index: trueIndex(id, parent, index) }));
+  };
 
   const [pending, setPending] = createSignal(false);
 
@@ -396,9 +484,6 @@ export const Rail = () => {
         for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
       }}
       style={{
-        "--room": `${drag.state()?.room ?? 0}px`,
-        "--lift": `${drag.state()?.lift ?? 0}px`,
-        "--shift-ms": reducedMotion() ? "0ms" : "120ms",
       }}
     >
       <SectionHead icon="messages" label={copy.workstreamsHead} />
@@ -413,6 +498,17 @@ export const Rail = () => {
           onCancel={() => setComposing(false)}
         />
       </Show>
+      <Sortable.Root
+        class="rail-sortable"
+        ids={nodeIds()}
+        tree={{
+          rows: treeRows(),
+          indent: railStep(),
+          nests: (id) => rows().some((row) => row.kind === "node" && row.node.id === id && isWorkstream(row.node) && row.collapsed === null),
+          onMove: moveTo,
+          onPreview: (next) => placeDrop(next),
+        }}
+      >
       <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
         <For each={keys()}>
           {(key) => (
@@ -435,6 +531,7 @@ export const Rail = () => {
                     <Show when={node()}>
                       {(view) => (
                         <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
+                        <Sortable.Item id={view().node.id} index={indexOf().get(view().node.id) ?? 0} disabled={daemonExit() !== null}>{(parts) =>
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
@@ -450,12 +547,12 @@ export const Rail = () => {
                           runs={runningRuns(view().node.id)}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
-                          lifted={drag.state()?.lifted.has(view().node.id) ?? false}
-                          shift={drag.state()?.shifts.get(view().node.id) ?? 0}
-                          onPointerDown={(press) => drag.start(view().node.id, press)}
+                          lifted={parts.isDragging()}
+                          sortRef={parts.ref}
                           actions={actionsOf(view().node)}
                           onOpenMenu={(press) => menu.open(view().node, rail.exitOf(view().node), press.clientX, press.clientY)}
                         />
+                        }</Sortable.Item>
                         </TreeView.NodeProvider>
                       )}
                     </Show>
@@ -505,15 +602,10 @@ export const Rail = () => {
           )}
         </For>
       </TreeView.Tree>
-      <Show when={drag.state()}>
-        {(dragging) => (
-          <div
-            class="drop-line"
-            aria-hidden="true"
-            style={{ top: `${dragging().top}px`, "--depth": dragging().drop.depth }}
-          />
-        )}
+      <Show when={drop()}>
+        {(line) => <div class="drop-line" aria-hidden="true" style={{ top: `${line().top}px`, "--depth": line().depth }} />}
       </Show>
+      </Sortable.Root>
     </TreeView.Root>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>

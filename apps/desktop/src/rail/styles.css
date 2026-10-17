@@ -240,18 +240,6 @@
 
 .rail-row[data-lifted="true"] {
   opacity: 0.4;
-  transform: translateY(var(--lift));
-  pointer-events: none;
-}
-
-.rail-row[data-shift="1"] {
-  transform: translateY(var(--room));
-  transition: transform var(--shift-ms) ease-out;
-}
-
-.rail-row[data-shift="-1"] {
-  transform: translateY(calc(-1 * var(--room)));
-  transition: transform var(--shift-ms) ease-out;
 }
 
 .drop-line {

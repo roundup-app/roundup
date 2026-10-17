@@ -16,7 +16,7 @@ describe("u357 fold line", () => {
       agent("y", "idle", "i", { parent: "g", order: 1 }),
     ];
 
-    const rows = layoutRail(nodes, { collapsed: new Set(), unfolded: new Set(), now: NOW, dragged: null });
+    const rows = layoutRail(nodes, { collapsed: new Set(), unfolded: new Set(), now: NOW });
     const fold = rows.find((row) => row.kind === "fold");
     const x = rows.find((row) => row.kind === "node" && row.node.id === "x");
 
