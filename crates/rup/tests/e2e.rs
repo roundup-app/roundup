@@ -12,7 +12,10 @@ use contracts::agent::{Channel, Context, ParentNode, RailNode};
 use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
-use daemon::{Project, TEN_IDLE_BOUND, next, next_kind, rail_tree, signal, start, wait_until_idle};
+use daemon::{
+    Project, TEN_IDLE_BOUND, h21_ask, h21_bash, h21_decision, h21_notes, h21_poll,
+    h21_user_answers, next, next_kind, rail_tree, signal, start, wait_until_idle,
+};
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
@@ -2855,99 +2858,13 @@ async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
 
 // H21: an Agent answers the Decisions of the Agents in its Reach, never its own.
 
-/// The proof the harness hands the Daemon, the user's.
-const H21_PROOF: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-
 fn h21_script() -> String {
     concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e/answer_as.py").to_owned()
-}
-
-/// `agent`'s permission request, left open: the call returns once the Decision is cleared.
-async fn h21_ask(
-    project: &Project,
-    agent: &str,
-    tool: &str,
-    input: Value,
-) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
-    let client = project.client().await;
-    let (agent, tool) = (agent.to_owned(), tool.to_owned());
-    tokio::spawn(async move {
-        client
-            .request(
-                "agent.permission",
-                json!({"id": agent, "payload": {"hook_event_name": "PermissionRequest",
-                    "tool_name": tool, "tool_input": input}}),
-            )
-            .await
-    })
-}
-
-async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            if let Some(value) = found().await {
-                return value;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
-}
-
-/// The open Decision of `agent` that is not `except`.
-async fn h21_decision(client: &rpc::Client, agent: &str, except: Option<&str>) -> Value {
-    h21_poll("a Decision", async || {
-        let listed = client.request("decision.list", Value::Null).await.unwrap();
-        listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|d| d["agent"] == agent && Some(d["id"].as_str().unwrap()) != except)
-            .cloned()
-    })
-    .await
-}
-
-/// The `[decision <id>]` notes the Daemon sent to `to`, once at least `least` are there.
-async fn h21_notes(client: &rpc::Client, to: &str, least: usize) -> Vec<Value> {
-    h21_poll("the notes", async || {
-        let listed = client
-            .request("message.list", json!({ "to": to }))
-            .await
-            .unwrap();
-        let notes: Vec<Value> = listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|m| m["body"].as_str().unwrap().starts_with("[decision "))
-            .cloned()
-            .collect();
-        (notes.len() >= least).then_some(notes)
-    })
-    .await
 }
 
 async fn h21_name(client: &rpc::Client, id: &str) -> String {
     let tree = rail_tree(client).await;
     tree.iter().find(|n| n.id == id).unwrap().name.clone()
-}
-
-async fn h21_user_answers(
-    client: &rpc::Client,
-    id: &str,
-    answer: &str,
-) -> Result<Value, rpc::RpcError> {
-    client
-        .request(
-            "decision.answer",
-            json!({"id": id, "answer": answer, "proof": H21_PROOF}),
-        )
-        .await
-}
-
-fn h21_bash() -> Value {
-    json!({"command": "ls"})
 }
 
 #[tokio::test]
@@ -3058,121 +2975,6 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
     assert_eq!(heard.len(), 1);
     assert!(h21_notes(&client, &door, 0).await.is_empty());
     assert!(h21_notes(&client, &gone, 0).await.is_empty());
-}
-
-#[tokio::test]
-async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
-    let gates = tempfile::tempdir().unwrap();
-    let hold = gates.path().join("start");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
-    let project = start(&[
-        ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
-    ]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    // B7 batches pending Messages. Put another note first so the Decision notice
-    // cannot accidentally pass only because it heads the submitted prompt.
-    client
-        .request(
-            "message.send",
-            json!({"to": door, "kind": "note", "body": "queued before the Decision"}),
-        )
-        .await
-        .unwrap();
-    let child = agent_in(&project, &client, Some(&door)).await;
-    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
-    let decision = h21_decision(&client, &child, None).await;
-    let id = decision["id"].as_str().unwrap().to_owned();
-    let notes = h21_notes(&client, &door, 1).await;
-    let body = notes[0]["body"].as_str().unwrap();
-    assert_eq!(notes[0]["status"], "pending");
-
-    h21_user_answers(&client, &id, "deny").await.unwrap();
-    let decisions = client.request("decision.list", Value::Null).await.unwrap();
-    assert!(decisions.as_array().unwrap().iter().all(|d| d["id"] != id));
-    let mut events = project.subscribed().await;
-    std::fs::write(&hold, "").unwrap();
-
-    let observed = tokio::time::timeout(Duration::from_secs(30), async {
-        while let Some(event) = events.next_event().await {
-            if let EventData::TodoCreated(todo) = event.data
-                && todo.creator.id == door
-                && todo
-                    .title
-                    .lines()
-                    .any(|line| line.strip_prefix("[from rupd, note] ").unwrap_or(line) == body)
-            {
-                return todo;
-            }
-        }
-        panic!("the connection closed before the typed Decision notice");
-    })
-    .await;
-    let typed = match observed {
-        Ok(todo) => todo,
-        Err(_) => {
-            let evidence = tokio::time::timeout(Duration::from_secs(5), async {
-                tokio::join!(
-                    client.request("message.list", json!({"to": door})),
-                    client.request("todo.list", Value::Null),
-                    client.request("rail.tree", Value::Null),
-                )
-            })
-            .await;
-            panic!(
-                "timed out waiting for typed Decision notice {body:?}; \
-                 (Messages, Todos, Rail): {evidence:?}"
-            );
-        }
-    };
-    assert!(typed.title.starts_with("queued before the Decision\n\n"));
-}
-
-#[tokio::test]
-async fn h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it() {
-    let on_prompt =
-        json!({"name": "decision_answer", "arguments": {"id": "$decision", "answer": "allow"}});
-    let project = start(&[
-        ("FAKE_CLAUDE_KINDS", r#"["needs-you"]"#),
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
-    ]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let _child = agent_in(&project, &client, Some(&door)).await;
-
-    // The Door may answer before any read of `decision.list`, so the id comes from its note.
-    let notes = h21_notes(&client, &door, 1).await;
-    let id = notes[0]["body"]
-        .as_str()
-        .unwrap()
-        .strip_prefix("[decision ")
-        .and_then(|rest| rest.split_once(']'))
-        .unwrap()
-        .0
-        .to_owned();
-    let touch = h21_poll("the Touch", async || {
-        let history = client
-            .request(
-                "provenance.history",
-                json!({ "item": format!("decision:{id}") }),
-            )
-            .await
-            .unwrap();
-        history.as_array().unwrap().first().cloned()
-    })
-    .await;
-
-    assert_eq!(touch["verb"], "wrote");
-    assert_eq!(touch["actor"]["kind"], "agent");
-    assert_eq!(touch["actor"]["id"], door);
-    let open = client.request("decision.list", Value::Null).await.unwrap();
-    assert!(
-        open.as_array()
-            .unwrap()
-            .iter()
-            .all(|d| d["id"] != id.as_str())
-    );
 }
 
 #[tokio::test]
