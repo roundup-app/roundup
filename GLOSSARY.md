@@ -334,6 +334,9 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 **Channel**:
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
+**Claude inbox**:
+Claude Code's own mailbox for a message from another Claude Code instance, which the adapter writes a `note` to instead of typing it (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
 
@@ -386,7 +389,7 @@ A Message waiting on an ask-first Route, the end of a Takeover, the submit or cl
 The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
 
 **Reason**:
-The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` (held); `receiver gone`, `not accepted` or `passed` (dropped).
+The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` or `inbox` (held); `receiver gone`, `not accepted` or `passed` (dropped).
 
 **Hop**:
 One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.

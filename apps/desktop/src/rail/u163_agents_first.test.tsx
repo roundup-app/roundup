@@ -14,7 +14,7 @@ describe("u163 Agents come before Terminals", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
 
-    await waitFor(() => expect([...document.querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual(["Add Agent", "Choose Model and Effort", "Start supervisor", "Clear Workstream…", "Open folder", "Open in editor"]));
+    await waitFor(() => expect([...document.querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual(["Add Agent", "Start supervisor", "Clear Workstream…", "Open folder", "Open in editor"]));
   });
 
   it("u163_on_an_empty_project_the_first_tab_stop_in_the_rail_is_new_workstream", async () => {
