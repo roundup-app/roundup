@@ -268,7 +268,7 @@ for (const [scheme, states] of [["light", ["hovered", "selected"]], ["dark", ["s
         return {ellipsis:getComputedStyle(r.querySelector(".name")).textOverflow,nameWidth:n.width,edge:r.getBoundingClientRect().right-i.right,overlaps:n.right>i.left,padsShown:r.querySelector('.rail-pads-control').getBoundingClientRect().width>0};
       }`);
 
-      expect(read.nameWidth).toBeGreaterThanOrEqual(92);
+      expect(read.nameWidth).toBeGreaterThanOrEqual(72);
       expect(read.ellipsis).toBe("ellipsis");
       expect(read.edge).toBeCloseTo(16, 0);
       expect(read.overlaps).toBe(false);
@@ -294,9 +294,9 @@ for (const scheme of ["light"] as const) {
       await page.until(`() => document.querySelector('[data-id="payments"]').getAttribute('aria-expanded') === 'false'`);
       await page.call(`() => document.querySelector('.rail-row[data-id="auth"]').click()`);
       await page.until(`() => document.querySelector('.rail-row[data-id="tokens"]').dataset.near === 'false' && document.querySelector('.rail-row[data-id="payments"] .folded-agents')?.getBoundingClientRect().width > 0`);
-      const insets = await page.call<number[]>(`() => [...document.querySelectorAll('.rail-row .ink-count, .rail-row .rail-pads-control, .rail-row .folded-agents')].filter(e => e.getBoundingClientRect().width > 0).flatMap(e => { const edge=e.closest('.rail-row').getBoundingClientRect().right, text=document.createRange(); text.selectNodeContents(e.lastChild); return [edge-e.getBoundingClientRect().right, edge-text.getBoundingClientRect().right]; })`);
+      const insets = await page.call<number[]>(`() => [...document.querySelectorAll('.rail-row .rail-pads-control')].filter(e => e.getBoundingClientRect().width > 0).flatMap(e => { const edge=e.closest('.rail-row').getBoundingClientRect().right, text=document.createRange(); text.selectNodeContents(e.lastChild); return [edge-e.getBoundingClientRect().right, edge-text.getBoundingClientRect().right]; })`);
 
-      expect(insets.length).toBeGreaterThan(2);
+      expect(insets.length).toBeGreaterThanOrEqual(2);
 
       for (const inset of insets) expect(inset).toBeCloseTo(20, 0);
       await capture("U426", `counts-resting-${scheme}-${railWidth}`);

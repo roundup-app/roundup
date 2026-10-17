@@ -75,7 +75,7 @@ describe("u172 the sidebar's hierarchy", () => {
     fireEvent.mouseEnter(rowOf("g"));
     expect(screen.getByRole("button", { name: "Start supervisor" }).getAttribute("data-button")).toBe("icon");
     expect(screen.getByRole("button", { name: "Start supervisor" }).querySelector(".icon")).toBeTruthy();
-    expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis/);
+    expect(railCss).toMatch(/\.name\s*\{[^}]*min-width:\s*var\(--space-4\);[^}]*text-overflow:\s*ellipsis/);
     fireEvent.mouseLeave(rowOf("g"));
     expect(screen.queryByText(/^Start supervisor$/i)).toBeNull();
   });

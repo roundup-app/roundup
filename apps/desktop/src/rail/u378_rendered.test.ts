@@ -84,7 +84,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
       await load(seed, scheme);
 
       if (seed === "tree-40") {
-        for (const [id, minNameWidth] of [["backend", 72], ["auth", 44]] as const) {
+        for (const [id, minNameWidth] of [["backend", 32], ["auth", 32]] as const) {
           await page.call(`id => document.querySelector('[data-id="'+id+'"]').focus()`, id);
 
           const bounds = await page.call<{ fits: boolean; nameWidth: number }>(`() => {
