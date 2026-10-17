@@ -16,6 +16,7 @@ mod resources;
 mod storage;
 mod terminal_question;
 mod waits;
+mod wake;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
 
@@ -59,6 +60,10 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// B41: subscribed at `open`, taken once with `pushes`.
+    wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// B41: serialises the decisions on Wake requests.
+    wake_gate: Arc<tokio::sync::Mutex<wake::Gate>>,
     /// H21: subscribed at `open`, taken once with `pushes`.
     notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
@@ -189,6 +194,8 @@ impl Daemon {
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
+            wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
+            wake_gate: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
@@ -290,6 +297,14 @@ impl Daemon {
                 events,
             ));
         }
+        let wake_events = self
+            .wake_events
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
+        if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
+            tokio::spawn(waker.run(events));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             tokio::spawn(digest::push_changes(
                 self.reader(),
@@ -298,6 +313,16 @@ impl Daemon {
                 events,
             ));
         }
+    }
+
+    fn waker(&self) -> Option<wake::Waker> {
+        Some(wake::Waker {
+            reader: self.reader(),
+            messages: Arc::clone(self.sender.get()?),
+            digests: Arc::clone(&self.digests),
+            bus: self.bus.clone(),
+            gate: Arc::clone(&self.wake_gate),
+        })
     }
 
     fn reader(&self) -> digest::Reader {
@@ -522,6 +547,12 @@ impl Daemon {
         }
         if method == "agent.digest" {
             return self.digest(conn, params).await;
+        }
+        if method == "agent.wake" {
+            let waker = self
+                .waker()
+                .ok_or_else(|| RpcError::internal("messages are not open"))?;
+            return rpc::reply(&waker.ask(&conn.actor, params).await?);
         }
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
