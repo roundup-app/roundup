@@ -295,17 +295,21 @@ mod x14_daemon_observer {
     }
 
     impl Fixture {
-        async fn output_client(&self) -> Result<Client, Error> {
-            let client =
+        /// A connection that selects Terminal output, and its bounded receiver.
+        async fn output_client(
+            &self,
+        ) -> Result<(Client, tokio::sync::broadcast::Receiver<rpc::OutputFrame>), Error> {
+            let mut client =
                 timeout(BOUND, Client::connect(&self.dir.path().join("daemon.sock"))).await??;
-            timeout(BOUND, client.request("events.subscribe", ())).await??;
-            Ok(client)
+            let output = client.take_output().ok_or("output taken once")?;
+            Ok((client, output))
         }
 
-        async fn terminal(&mut self) -> Result<String, Error> {
+        /// Spawn a Terminal, select its output on `output`, then let its program start.
+        async fn terminal(&mut self, output: &Client) -> Result<String, Error> {
             let terminal = self.call("terminal.spawn", json!({
             "cwd": self.dir.path().join("project"),
-            "command": ["/bin/sh", "-c", "stty -echo; printf 'observer-ready\\n'; while IFS= read -r line; do printf 'payload:%s\\n' \"$line\"; done"],
+            "command": ["/bin/sh", "-c", "stty -echo; read -r start; printf 'observer-ready\\n'; while IFS= read -r line; do printf 'payload:%s\\n' \"$line\"; done"],
             "env": {}, "cols": 80, "rows": 24,
         })).await?;
             let id = terminal["id"]
@@ -313,6 +317,8 @@ mod x14_daemon_observer {
                 .ok_or("Terminal id is a string")?
                 .to_owned();
             self.terminals.push(id.clone());
+            timeout(BOUND, output.request("terminal.output", json!({"id": id}))).await??;
+            self.write(&id, "go\n").await?;
             Ok(id)
         }
 
@@ -330,14 +336,17 @@ mod x14_daemon_observer {
         }
     }
 
-    async fn output_payload(client: &mut Client, id: &str, expected: &str) -> Result<usize, Error> {
+    async fn output_payload(
+        client: &mut tokio::sync::broadcast::Receiver<rpc::OutputFrame>,
+        id: &str,
+        expected: &str,
+    ) -> Result<usize, Error> {
         use base64::Engine as _;
         timeout(BOUND, async {
             let mut bytes = Vec::new();
             let mut chunks = 0;
             loop {
-                let event = client.next_event().await.ok_or("RPC events closed")?;
-                if let EventData::TerminalOutput(output) = event.data {
+                if let rpc::OutputFrame::Bytes(output) = client.recv().await? {
                     if output.id != id {
                         return Err::<usize, Error>("unexpected Terminal output identity".into());
                     }
@@ -352,43 +361,19 @@ mod x14_daemon_observer {
         .await?
     }
 
-    async fn receiver_payload(
-        receiver: &mut tokio::sync::broadcast::Receiver<Event>,
-        id: &str,
-        expected: &str,
-    ) -> Result<(), Error> {
-        use base64::Engine as _;
-        timeout(BOUND, async {
-            let mut bytes = Vec::new();
-            loop {
-                if let EventData::TerminalOutput(output) = receiver.recv().await?.data {
-                    if output.id != id {
-                        return Err::<(), Error>("unexpected Bus Terminal identity".into());
-                    }
-                    bytes.extend(base64::engine::general_purpose::STANDARD.decode(output.data)?);
-                    if String::from_utf8_lossy(&bytes).contains(expected) {
-                        return Ok(());
-                    }
-                }
-            }
-        })
-        .await?
-    }
-
     #[tokio::test]
-    async fn x14_daemon_observer_exposes_output_induced_bus_lag() {
+    async fn x14_daemon_observer_leaves_the_bus_unlagged_by_output() {
         let mut fixture = Fixture::open().await.unwrap();
         let observation = timeout(OBSERVATION_BOUND, async {
-            let mut output = fixture.output_client().await?;
+            let (selected, mut output) = fixture.output_client().await?;
             let (mut receiver, capacity) = fixture.daemon.subscribe();
             if capacity <= 2 {
                 return Err::<(), Error>("Rail markers must fit below capacity".into());
             }
             let mut ids = Vec::new();
             for _ in 0..2 {
-                let id = fixture.terminal().await?;
+                let id = fixture.terminal(&selected).await?;
                 output_payload(&mut output, &id, "observer-ready\r\n").await?;
-                receiver_payload(&mut receiver, &id, "observer-ready\r\n").await?;
                 ids.push(id);
             }
             fixture.marker("before-output").await?;
@@ -408,22 +393,13 @@ mod x14_daemon_observer {
             if fixture.call("daemon.ping", Value::Null).await?["pong"] != true {
                 return Err("RPC stalled during observation".into());
             }
-            match timeout(BOUND, receiver.recv()).await? {
-                Err(RecvError::Lagged(missed)) if missed > 0 => {}
-                other => {
-                    return Err(
-                        format!("expected structured output-induced lag, got {other:?}").into(),
-                    );
-                }
-            }
-            receiver_payload(
-                &mut receiver,
-                &ids[0],
-                &format!("payload:chunk-{capacity}\r\n"),
-            )
-            .await?;
+            // The unread receiver holds the paused marker and no Terminal payload: it did not lag.
+            rail_marker(timeout(BOUND, receiver.recv()).await??, "paused-output")?;
             fixture.marker("after-output").await?;
             rail_marker(timeout(BOUND, receiver.recv()).await??, "after-output")?;
+            if let Ok(extra) = receiver.try_recv() {
+                return Err(format!("unexpected Bus event {extra:?}").into());
+            }
             Ok(())
         })
         .await;
@@ -436,9 +412,9 @@ mod x14_daemon_observer {
     async fn x14_daemon_observer_cleanup_after_error() {
         let mut fixture = Fixture::open().await.unwrap();
         let observation = timeout(OBSERVATION_BOUND, async {
-            let mut output = fixture.output_client().await?;
+            let (selected, mut output) = fixture.output_client().await?;
             for _ in 0..2 {
-                let id = fixture.terminal().await?;
+                let id = fixture.terminal(&selected).await?;
                 output_payload(&mut output, &id, "observer-ready\r\n").await?;
             }
             let (mut receiver, _) = fixture.daemon.subscribe();

@@ -22,9 +22,11 @@ const bound = <T>(promise: Promise<T>) => Promise.race([promise, new Promise<nev
   void promise.finally(() => clearTimeout(timer)).catch(() => {});
 })]);
 
-const output = (id: string, bytes: number[] | Buffer, offset = 0) => JSON.stringify({ jsonrpc: "2.0", method: "event", params: {
-  actor: { kind: "user", id: "you", parent: null }, name: "terminal.output", data: { id, data: Buffer.from(bytes).toString("base64"), offset },
+const output = (id: string, bytes: number[] | Buffer, offset = 0) => JSON.stringify({ jsonrpc: "2.0", method: "terminal.output", params: {
+  id, data: Buffer.from(bytes).toString("base64"), offset,
 } }) + "\n";
+
+const gap = (id: string, from: number, to: number) => JSON.stringify({ jsonrpc: "2.0", method: "terminal.gap", params: { id, from, to } }) + "\n";
 
 const fixture = async () => {
   const dir = await mkdtemp(join(tmpdir(), "x14-relay-"));
@@ -47,8 +49,14 @@ const fixture = async () => {
       const frame = JSON.parse(pending.slice(0, end));
       pending = pending.slice(end + 1);
 
-      if (frame.method === "events.subscribe") subscriptions.push(socket);
-      socket.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, result: frame.method === "events.subscribe" ? null : "control-reply" }) + "\n");
+      if (frame.method === "events.subscribe" || frame.method === "terminal.output") subscriptions.push(socket);
+
+      // The Daemon answers a Terminal subscription with the offset of its first byte; an unknown Terminal is NOT_FOUND.
+      const answer = frame.method === "terminal.output"
+        ? frame.params.id === "missing" ? { error: { code: -32001, message: "not found: terminal missing" } } : { result: { offset: 0 } }
+        : { result: frame.method === "events.subscribe" ? null : "control-reply" };
+
+      socket.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, ...answer }) + "\n");
     });
   });
 
@@ -95,7 +103,7 @@ const fixture = async () => {
     const count = subscriptions.length;
 
     const response = await bound(new Promise<IncomingMessage>((resolve, reject) => {
-      request(`${base}/__daemon/output?terminal=${id}&after=0`, (res) => { res.on("error", () => {}); clients.push(res); resolve(res); }).on("error", reject).end();
+      request(`${base}/__daemon/output?terminal=${id}`, (res) => { res.on("error", () => {}); clients.push(res); resolve(res); }).on("error", reject).end();
     }));
 
     expect(response.statusCode).toBe(200);
@@ -127,7 +135,7 @@ it("x14_harness_output_relay_selects_exact_bytes", async () => {
     await writeFile(config, "{}");
     await browser("open", real.base);
     await browser("eval", `window.received = {}; window.meta = {}; window.finished = {}; window.start = (id) => {
-      window.received[id] = []; fetch('/__daemon/output?terminal=' + id + '&after=0').then(async response => {
+      window.received[id] = []; fetch('/__daemon/output?terminal=' + id).then(async response => {
         window.meta[id] = [response.status, response.headers.get('content-type'), response.headers.get('x-terminal'), response.headers.get('x-output-after')];
         const reader = response.body.getReader();
         for (;;) { const { value, done } = await reader.read(); if (done) break; window.received[id].push(...value); }
@@ -138,12 +146,11 @@ it("x14_harness_output_relay_selects_exact_bytes", async () => {
     await browser("eval", "window.start('B')");
     await expect.poll(() => real.subscriptions.length).toBe(2);
 
-    for (const socket of real.subscriptions) {
-      // Both selections see the same current Event envelopes; only selected bytes may cross HTTP.
-      socket.write(output("A", [0, 27, 255, 226], 0));
-      socket.write(output("B", [66, 0], 0));
-      socket.end(output("A", [130, 172, 128], 4));
-    }
+    // Each socket is one selection: the Daemon sends it its own Terminal's bytes and no other's.
+    real.subscriptions[0]!.write(output("A", [0, 27, 255, 226], 0));
+    real.subscriptions[1]!.write(output("B", [66, 0], 0));
+    real.subscriptions[0]!.end(output("A", [130, 172, 128], 4));
+    real.subscriptions[1]!.end();
 
     await browser("wait", "--fn", "window.finished.A && window.finished.B");
     expect((await browser("eval", "window.received")).result).toEqual({ A: [0, 27, 255, 226, 130, 172, 128], B: [66, 0] });
@@ -206,6 +213,13 @@ it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
     await bound(closed);
     expect(Buffer.concat(chunks)).toEqual(Buffer.from([65]));
     expect(selected.response.complete).toBe(false);
+    const marked = await real.select("marked");
+    const closedByGap = new Promise<void>((resolve) => marked.response.once("close", resolve));
+
+    marked.response.resume();
+    marked.socket.write(gap("marked", 0, 9));
+    await bound(closedByGap);
+    expect(marked.response.complete).toBe(false);
     const oversized = await real.select("oversized");
     const rejected = new Promise<void>((resolve) => oversized.response.once("close", resolve));
 
@@ -250,13 +264,14 @@ it("x14_harness_output_relay_cancellation_is_isolated", async () => {
     await bound(releasedReplacement);
     other.socket.write(output("B", [67], 1));
     await expect.poll(() => Buffer.concat(otherBytes)).toEqual(Buffer.from([66, 67]));
-    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Origin: "https://foreign.example" } }))).status).toBe(403);
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A`, { headers: { Origin: "https://foreign.example" } }))).status).toBe(403);
 
     const foreign = await bound(new Promise<number>((resolve, reject) => {
-      request(`${real.base}/__daemon/output?terminal=A&after=0`, { headers: { Host: "foreign.example" } }, (res) => { res.resume(); resolve(res.statusCode!); }).on("error", reject).end();
+      request(`${real.base}/__daemon/output?terminal=A`, { headers: { Host: "foreign.example" } }, (res) => { res.resume(); resolve(res.statusCode!); }).on("error", reject).end();
     }));
 
     expect(foreign).toBe(403);
-    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=A&after=-1`))).status).toBe(400);
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=`))).status).toBe(400);
+    expect((await bound(fetch(`${real.base}/__daemon/output?terminal=missing`))).status).toBe(404);
   } finally { await real.close(); }
 }, 30_000);

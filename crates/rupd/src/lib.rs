@@ -10,6 +10,7 @@ mod decision_notes;
 mod digest;
 mod event_log;
 mod handshake;
+mod output;
 mod removal;
 mod resize;
 mod resources;
@@ -72,6 +73,8 @@ pub struct Daemon {
     notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
     agents: Arc<agents::Agents>,
+    /// X14: where a connection's selected output streams come from.
+    terminals: Arc<terminal::Terminals>,
     /// A33: like `pushes`, with what keeps the Agents' waits current.
     waits: std::sync::Mutex<Option<Waiter>>,
     /// U419: where `attachment.save` keeps a pasted image.
@@ -95,6 +98,8 @@ pub struct Conn {
     /// H21: the pid of the process on the other end, as the OS reports it.
     peer: Option<u32>,
     events: mpsc::UnboundedSender<Value>,
+    /// X14: where this connection's selected Terminal output goes; `None` for a call with no socket.
+    output: Option<output::Port>,
 }
 
 impl Daemon {
@@ -198,6 +203,7 @@ impl Daemon {
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
+            terminals: Arc::clone(&terminals),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_gate: Default::default(),
@@ -404,6 +410,9 @@ impl Daemon {
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
+        }
+        if matches!(method, "terminal.output" | "terminal.outputStop") {
+            return self.terminal_output(conn, method, params).await;
         }
         if method == "agent.actionHistory" {
             return self.action_history(conn, params).await;
@@ -987,6 +996,30 @@ impl Daemon {
         }
     }
 
+    /// X14: select or release one Terminal's output for this connection.
+    async fn terminal_output(
+        &self,
+        conn: &Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        let contracts::terminal::TerminalId { id } = rpc::params(params.clone())?;
+        let port = conn
+            .output
+            .as_ref()
+            .ok_or_else(|| RpcError::internal("this call cannot receive Terminal output"))?;
+        self.guard_terminal_read(&conn.actor, method, &params)
+            .await?;
+        if method == "terminal.outputStop" {
+            port.release(&id);
+            return rpc::reply(&());
+        }
+        let stream = self.terminals.subscribe_output(&id)?;
+        let offset = stream.start();
+        port.select(&id, stream);
+        rpc::reply(&contracts::terminal::OutputStarted { offset })
+    }
+
     /// M14: an Agent opens a Terminal only in its own Workstream, one above it or one in its Reach.
     fn guard_terminal_open(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
         match params["workstream"].as_str() {
@@ -1365,6 +1398,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
     }
     let (read, mut write) = tokio::io::split(stream);
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
+    let (port, mut selected_output) = output::Port::new();
     let (finished, mut finish) = tokio::sync::oneshot::channel();
     let writer = tokio::spawn(async move {
         loop {
@@ -1378,6 +1412,8 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                     Some(frame) => frame,
                     None => break,
                 },
+                // Behind replies, so a flood of selected output cannot starve them.
+                Some(frame) = selected_output.recv() => frame,
             };
             let mut bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
             bytes.push(b'\n');
@@ -1389,6 +1425,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         actor: Actor::user(),
         peer: stream_pid,
         events: frames.clone(),
+        output: Some(port),
     };
     let mut lines = BufReader::new(read).lines();
     let mut ordinary = tokio::task::JoinSet::new();
@@ -1407,7 +1444,9 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
         // Actor and subscription changes must commit before the next wire request is read.
         if matches!(
             method.as_deref(),
-            Some("daemon.identify" | "events.subscribe")
+            Some(
+                "daemon.identify" | "events.subscribe" | "terminal.output" | "terminal.outputStop"
+            )
         ) {
             if let Some(reply) = daemon.dispatch(&mut conn, &line, None).await {
                 let _ = frames.send(reply);
@@ -1552,6 +1591,7 @@ mod tests {
             actor: Actor::user(),
             peer: None,
             events,
+            output: None,
         };
         daemon.dispatch(&mut conn, line, None).await.unwrap()
     }

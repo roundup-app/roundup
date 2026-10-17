@@ -10,8 +10,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use contracts::agent::{
-    Channel, ChannelEvent, CreateWorkstreamParams, KeptItem, KeptReason, Landed, MoveParams,
-    NodeId, NodeKind, Order, PromptParams, RailNode, Removal, RemovalKind, RemovedItem,
+    Channel, ChannelEvent, CreateWorkstreamParams, ExtrasAddParams, KeptItem, KeptReason, Landed,
+    MoveParams, NodeId, NodeKind, Order, PromptParams, RailNode, Removal, RemovalKind, RemovedItem,
     RenameParams, RunParams, SetModelParams, SetOrderParams, SignalOutcome, SignalParams,
     SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };

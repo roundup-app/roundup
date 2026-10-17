@@ -2013,3 +2013,86 @@ fn d1_pending_worktree_git_ends_with_its_attached_daemon() {
         .expect("attached shutdown exceeded its Worktree budget");
     });
 }
+
+/// X14: a program writes NUL, ESC, invalid UTF-8 and a multibyte character split across writes.
+const RAW_BYTES: &[u8] = b"a\0b\x1b[31m\xff\xfe\xe2\x82\xac!";
+
+#[test]
+fn x14_desktop_output_channel_uses_raw_bodies() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    fx.serve_real_daemon();
+    let (app, webview) = app(fx.config.clone(), None);
+    open(&webview, &fx.project);
+    let path = fx.project.display().to_string();
+    let program = "stty -opost -echo; printf ready; read go; printf 'a\\000b\\033[31m\\377\\376\\342\\202'; sleep 0.2; printf '\\254!'; sleep 30";
+    let spawned = invoke(
+        &webview,
+        "rpc",
+        json!({ "path": path, "method": "terminal.spawn", "params": {
+            "cwd": fx.project, "command": ["/bin/sh", "-c", program], "env": {}, "cols": 80, "rows": 24,
+        }}),
+    )
+    .unwrap();
+    let id = spawned["id"].as_str().unwrap().to_owned();
+    // The program has switched the tty to raw before the App selects its output.
+    eventually("the program is ready", || {
+        invoke(
+            &webview,
+            "rpc",
+            json!({ "path": path, "method": "terminal.read", "params": { "id": id, "after": 0 } }),
+        )
+        .is_ok_and(|read| {
+            read["text"]
+                .as_str()
+                .is_some_and(|text| text.contains("ready"))
+        })
+    });
+    let (tx, received) = mpsc::channel();
+    let channel = Channel::<InvokeResponseBody>::new(move |body| {
+        tx.send(body).unwrap();
+        Ok(())
+    });
+
+    let started = tauri::async_runtime::block_on(
+        app.state::<AppState>().terminal_output(&path, &id, channel),
+    );
+    assert_eq!(started.unwrap(), 5);
+    invoke(
+        &webview,
+        "rpc",
+        json!({ "path": path, "method": "terminal.write", "params": { "id": id, "data": "Cg==" } }),
+    )
+    .unwrap();
+
+    let mut bytes = Vec::new();
+    let mut bodies = 0;
+    while bytes.len() < RAW_BYTES.len() {
+        match received
+            .recv_timeout(WAIT)
+            .unwrap_or_else(|_| panic!("only {bytes:?} arrived"))
+        {
+            InvokeResponseBody::Raw(chunk) => {
+                bodies += 1;
+                bytes.extend(chunk);
+            }
+            InvokeResponseBody::Json(json) => panic!("bytes crossed as JSON: {json}"),
+        }
+    }
+    assert_eq!(bytes, RAW_BYTES);
+    assert!(bodies >= 2, "the character was split between bodies");
+
+    // The release is this Terminal's own: no further body arrives after it.
+    invoke(
+        &webview,
+        "terminal_output_stop",
+        json!({ "path": path, "id": id }),
+    )
+    .unwrap();
+    invoke(
+        &webview,
+        "rpc",
+        json!({ "path": path, "method": "terminal.kill", "params": { "id": id } }),
+    )
+    .unwrap();
+    assert!(received.recv_timeout(Duration::from_millis(300)).is_err());
+}

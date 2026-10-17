@@ -34,3 +34,10 @@ all = { level = "deny", priority = -1 }
 rusqlite = { path = "vendor/rusqlite-0.40.2" }
 vt100 = { path = "vendor/vt100-0.16.2" }
 vte = { path = "vendor/vte-0.15.0" }
+
+# The Output log feeds every byte a Terminal prints through the parser; tests run unoptimised.
+[profile.dev.package.vt100]
+opt-level = 3
+
+[profile.dev.package.vte]
+opt-level = 3

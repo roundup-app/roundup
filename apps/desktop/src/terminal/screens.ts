@@ -1,21 +1,21 @@
 import { copy as appCopy } from "../copy";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
-import type { OutputEvent } from "@contracts/terminal/OutputEvent";
 import { PASTED_IMAGE_TYPES, RpcError } from "../app/seam";
-import type { PastedImage } from "../app/seam";
+import type { OutputMessage, OutputSubscription, PastedImage } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
-import { MAX_HELD_CHARS } from "../state/output";
 import { fromBase64, toBase64 } from "./base64";
 import { absolutePath } from "./links";
 import type { Printed } from "./links";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 
 export type Screens = {
-  /** The Terminal's emulator, created on first call; `terminal.output` arriving first creates it, so a pane shown later is not blank. */
+  /** The Terminal's emulator, created on first call; it receives output only while the Terminal is shown. */
   emulatorFor(id: string): Emulator;
-  /** Opens a Terminal's emulator in the pane and records the fitted size for later snapshot recovery. */
+  /** Opens a Terminal's emulator in the pane, records the fitted size, and subscribes to its output: the screen is restored, then output follows it. */
   show(id: string, host: HTMLElement, focus?: boolean): Size;
+  /** The Terminal leaves the pane: only its output subscription is released, and nothing it still sends reaches the emulator. */
+  hide(id: string): void;
   /** Tells the Daemon the size of the Terminal's pane. A Terminal that has exited, or a Daemon that has, takes no resize. */
   resize(id: string, size: Size, changedOnly?: boolean): void;
   setFontSize(size: number): void;
@@ -38,27 +38,51 @@ export type Screens = {
   dispose(): void;
 };
 
+/** Bytes held for one Terminal while its screen is fetched; past this the oldest go and the screen is fetched again. */
+const MAX_HELD_BYTES = 1_048_576;
+
+/** One output subscription of a displayed Terminal, and the stream state that belongs to it alone. */
+type Stream = {
+  open: boolean;
+  subscription: OutputSubscription | null;
+  /** Messages that arrived before the subscription's first offset was known. */
+  early: OutputMessage[];
+  placed: boolean;
+  start: number | null;
+  /** The offset the next byte of the stream gets. */
+  position: number;
+  queue: { offset: number; bytes: Uint8Array }[];
+  queued: number;
+  /** The offset the emulator has been written up to; null until the first screen. */
+  after: number | null;
+  restoring: boolean;
+  lost: boolean;
+};
+
+const takeFirst = (stream: Stream): void => {
+  const chunk = stream.queue.shift();
+
+  if (chunk) stream.queued -= chunk.bytes.length;
+};
+
 type Holder = {
   emulator: Emulator;
   atBottom: Accessor<boolean>;
   returnToBottom: () => void;
-  pending: OutputEvent[];
-  pendingChars: number;
-  after: number | null;
-  restoring: boolean;
+  stream: Stream | null;
   complete: boolean;
-  lostOutput: boolean;
   shownSize: Size | null;
 };
 
 type FailureEntry = { message: string; order: number };
 
-type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
+/** `output` is the subscription's own failure: a later successful call does not clear it, only a new subscription does. */
+type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; output: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
 
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
 
-  return [state.snapshot, state.live, state.clipboard, state.link].reduce<FailureEntry | null>(
+  return [state.snapshot, state.live, state.output, state.clipboard, state.link].reduce<FailureEntry | null>(
     (latest, entry) => entry && (!latest || entry.order > latest.order) ? entry : latest,
     null,
   );
@@ -98,7 +122,7 @@ const imageOnClipboard = async (clipboard: Partial<Pick<Clipboard, "read">>): Pr
 
 /** `watching(id)`: U375, the user reads this Terminal without typing, so nothing typed or pasted reaches it. */
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, watching: (id: string) => boolean = () => false): Screens => {
-  const { app, output, rail, daemonExit, project } = connected;
+  const { app, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
   let failureOrder = 0;
@@ -106,7 +130,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const setFailure = (id: string, kind: keyof TerminalFailures, message: string | null): void => {
     setFailures((current) => {
-      const previous = current.get(id) ?? { snapshot: null, live: null, clipboard: null, link: null };
+      const previous = current.get(id) ?? { snapshot: null, live: null, output: null, clipboard: null, link: null };
 
       if (message === null && previous[kind] === null) return current;
 
@@ -119,7 +143,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       next.delete(id);
 
-      if (state.snapshot !== null || state.live !== null || state.clipboard !== null || state.link !== null) next.set(id, state);
+      if (state.snapshot !== null || state.live !== null || state.output !== null || state.clipboard !== null || state.link !== null) next.set(id, state);
 
       return next;
     });
@@ -143,59 +167,50 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     if (fitted.cols !== holder.shownSize.cols || fitted.rows !== holder.shownSize.rows) resize(id, fitted);
   };
 
-  const takeFirst = (holder: Holder): OutputEvent | undefined => {
-    const chunk = holder.pending.shift();
+  const drain = (id: string, holder: Holder, stream: Stream): void => {
+    if (stream.restoring || stream.after === null || !stream.open) return;
 
-    if (chunk) holder.pendingChars -= chunk.data.length;
-
-    return chunk;
-  };
-
-  const drain = (id: string, holder: Holder): void => {
-    if (holder.restoring || holder.after === null || disposed) return;
-
-    while (holder.pending.length > 0) {
-      const chunk = holder.pending[0];
+    while (stream.queue.length > 0) {
+      const chunk = stream.queue[0];
 
       if (!chunk) return;
 
+      const end = chunk.offset + chunk.bytes.length;
+
+      if (end <= stream.after) {
+        takeFirst(stream);
+
+        continue;
+      }
+
+      if (chunk.offset > stream.after) {
+        void restore(id, holder, stream);
+
+        return;
+      }
+
       try {
-        const bytes = fromBase64(chunk.data);
-        const end = chunk.offset + bytes.length;
-
-        if (end <= holder.after) {
-          takeFirst(holder);
-
-          continue;
-        }
-
-        if (chunk.offset > holder.after) {
-          void restore(id, holder);
-
-          return;
-        }
-
-        holder.emulator.write(bytes.subarray(holder.after - chunk.offset));
-        holder.after = end;
-        takeFirst(holder);
+        holder.emulator.write(chunk.bytes.subarray(stream.after - chunk.offset));
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
-        takeFirst(holder);
-        setFailure(id, "live", `terminal.output: ${thrown.message}`);
+        setFailure(id, "output", `terminal.output: ${thrown.message}`);
       }
+
+      stream.after = end;
+      takeFirst(stream);
     }
   };
 
-  const restore = async (id: string, holder: Holder): Promise<void> => {
-    if (holder.restoring || disposed) return;
+  const restore = async (id: string, holder: Holder, stream: Stream): Promise<void> => {
+    if (stream.restoring || !stream.open) return;
 
-    holder.restoring = true;
+    stream.restoring = true;
 
     try {
       const snapshot = await app.rpc("terminal.snapshot", { id });
 
-      if (disposed) return;
+      if (!stream.open) return;
 
       const bytes = fromBase64(snapshot.data);
 
@@ -203,32 +218,127 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       holder.emulator.setSize({ cols: snapshot.cols, rows: snapshot.rows });
       holder.emulator.write(bytes, () => requestAnimationFrame(() => reflow(id, holder)));
-      holder.after = snapshot.after;
+      stream.after = snapshot.after;
       holder.complete = true;
       setFailure(id, "snapshot", null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (disposed) return;
+      if (!stream.open) return;
 
       setFailure(id, "snapshot", `terminal.snapshot: ${thrown.message}`);
 
-      if (!holder.complete) holder.after = holder.pending[0]?.offset ?? 0;
+      if (!holder.complete) stream.after = stream.queue[0]?.offset ?? stream.start ?? 0;
 
-      holder.restoring = false;
+      stream.restoring = false;
 
-      if (!holder.complete) drain(id, holder);
+      if (!holder.complete) drain(id, holder, stream);
 
       return;
     }
 
-    holder.restoring = false;
+    stream.restoring = false;
 
-    if (holder.lostOutput) {
-      holder.lostOutput = false;
-      void restore(id, holder);
+    if (stream.lost) {
+      stream.lost = false;
+      void restore(id, holder, stream);
     } else {
-      drain(id, holder);
+      drain(id, holder, stream);
+    }
+  };
+
+  /** Bytes get the offsets the stream's contiguous positions give them; a gap drops what was queued and asks for a fresh snapshot. */
+  const place = (stream: Stream, message: OutputMessage): void => {
+    if ("gap" in message) {
+      stream.queue = [];
+      stream.queued = 0;
+      stream.position = message.gap.to;
+      stream.lost = true;
+
+      return;
+    }
+
+    stream.queue.push({ offset: stream.position, bytes: message });
+    stream.position += message.length;
+    stream.queued += message.length;
+
+    while (stream.queued > MAX_HELD_BYTES) {
+      takeFirst(stream);
+      stream.lost = true;
+    }
+  };
+
+  const settle = (id: string, holder: Holder, stream: Stream): void => {
+    if (stream.lost && !stream.restoring) {
+      stream.lost = false;
+      void restore(id, holder, stream);
+    } else {
+      drain(id, holder, stream);
+    }
+  };
+
+  const receive = (id: string, holder: Holder, stream: Stream, message: OutputMessage): void => {
+    // A callback that outlives its subscription (released, replaced or disposed) reaches nothing.
+    if (!stream.open || holder.stream !== stream) return;
+
+    if (!stream.placed) {
+      stream.early.push(message);
+
+      return;
+    }
+
+    place(stream, message);
+    settle(id, holder, stream);
+  };
+
+  /** Installs the Terminal's output subscription first, then asks for its screen, so no byte falls between them. */
+  const attach = async (id: string, holder: Holder, stream: Stream): Promise<void> => {
+    try {
+      if (!exited(id)) {
+        setFailure(id, "output", null);
+
+        const subscription = await app.selectOutput(id, (message) => receive(id, holder, stream, message));
+
+        if (!stream.open) {
+          await subscription.release();
+
+          return;
+        }
+
+        stream.subscription = subscription;
+        stream.start = subscription.offset;
+        stream.position = subscription.offset;
+        stream.placed = true;
+
+        for (const message of stream.early.splice(0)) place(stream, message);
+      }
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      if (!stream.open) return;
+
+      setFailure(id, "output", `terminal.output: ${thrown.message}`);
+    }
+
+    if (stream.open) void restore(id, holder, stream);
+  };
+
+  const release = async (id: string, holder: Holder): Promise<void> => {
+    const stream = holder.stream;
+
+    if (!stream) return;
+
+    stream.open = false;
+    stream.queue = [];
+    stream.early = [];
+    holder.stream = null;
+
+    try {
+      await stream.subscription?.release();
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      if (!disposed) setFailure(id, "output", `terminal.output: ${thrown.message}`);
     }
   };
 
@@ -310,12 +420,10 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, atBottom, returnToBottom, pending: [], pendingChars: 0,
-      after: null, restoring: false, complete: false, lostOutput: false, shownSize: null,
+      emulator, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
     };
 
     holders.set(id, holder);
-    void restore(id, holder);
 
     return holder;
   };
@@ -378,37 +486,29 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     holder.shownSize = size;
 
+    if (!holder.stream) {
+      const stream: Stream = {
+        open: true, subscription: null, early: [], placed: false, start: null, position: 0,
+        queue: [], queued: 0, after: null, restoring: false, lost: false,
+      };
+
+      holder.stream = stream;
+      void attach(id, holder, stream);
+    }
+
     return size;
   };
 
-  const stopListening = output.subscribe((chunk) => {
-    try {
-      const holder = holderFor(chunk.id);
+  const hide = (id: string): void => {
+    const holder = holders.get(id);
 
-      holder.pending.push(chunk);
-      holder.pendingChars += chunk.data.length;
-
-      while (holder.pendingChars > MAX_HELD_CHARS) {
-        takeFirst(holder);
-        holder.lostOutput = true;
-      }
-
-      if (holder.lostOutput && !holder.restoring) {
-        holder.lostOutput = false;
-        void restore(chunk.id, holder);
-      } else {
-        drain(chunk.id, holder);
-      }
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(chunk.id, "live", `terminal.output: ${thrown.message}`);
-    }
-  });
+    if (holder) void release(id, holder);
+  };
 
   return {
     emulatorFor,
     show,
+    hide,
     resize,
     setFontSize: (size) => {
       for (const holder of holders.values()) holder.emulator.setFontSize(size);
@@ -436,9 +536,11 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     },
     dispose: () => {
       disposed = true;
-      stopListening();
 
-      for (const holder of holders.values()) holder.emulator.dispose();
+      for (const [id, holder] of holders) {
+        void release(id, holder);
+        holder.emulator.dispose();
+      }
 
       holders.clear();
     },

@@ -1,7 +1,7 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { event, info, node, terminal } from "../testing/nodes";
-import { callsTo, mountPane, output } from "./paneHarness";
+import { callsTo, mountPane, subscribed } from "./paneHarness";
 
 afterEach(cleanup);
 
@@ -27,8 +27,9 @@ describe("u57 no pane header", () => {
   it.each([0, 3, null])("u57_an_exited_terminal_keeps_its_last_output_without_a_header_for_code_%s", async (code) => {
     const { connected, container, app, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 
-    app.emit(output("t-a", "last output"));
     connected.rail.select("a");
+    await subscribed(app, "t-a");
+    app.emitOutput("t-a", "last output");
     const shown = emulators.get("t-a");
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code } }));
 

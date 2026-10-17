@@ -20,8 +20,8 @@ use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{
-    ExitedEvent, OutputEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams,
-    TerminalId, TerminalInfo, TitleEvent, WriteParams,
+    ExitedEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams, TerminalId,
+    TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
@@ -31,6 +31,8 @@ use tokio::sync::broadcast;
 
 /// Events a slow subscriber may fall behind by before it is told it lagged (it never blocks the reader).
 const EVENT_BACKLOG: usize = 1024;
+/// X14: output chunks a Terminal's slow output subscriber may fall behind by before it sees a gap.
+const OUTPUT_BACKLOG: usize = 256;
 const SNAPSHOT_SCROLLBACK: usize = 1000;
 const SNAPSHOT_MAX_BYTES: usize = 1_048_576;
 const SNAPSHOT_MAX_CELLS: u32 = 65_536;
@@ -47,10 +49,72 @@ const WRITE_BACKLOG: usize = 16;
 /// X11: Terminals one owner holds, running or exited.
 const OWNED_CAP: usize = 8;
 
-/// A freshly spawned Terminal: its id and every event it emits, from the first byte of output.
+/// A freshly spawned Terminal: its id, its title and exit events, and its output from the first byte.
 pub struct Spawned {
     pub id: String,
     pub events: broadcast::Receiver<EventData>,
+    pub output: OutputStream,
+}
+
+/// X14: one chunk of a Terminal's output and the offset of its first byte.
+#[derive(Clone)]
+struct Chunk {
+    offset: u64,
+    bytes: Arc<[u8]>,
+}
+
+/// What a subscriber to one Terminal's output receives.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Output {
+    /// The next bytes, starting at `offset`.
+    Bytes { offset: u64, bytes: Arc<[u8]> },
+    /// The subscriber fell behind: bytes `from..to` were not delivered and delivery resumes at `to`.
+    Gap { from: u64, to: u64 },
+}
+
+/// X14: the output of one Terminal from the offset it was taken at, in order. It never slows the
+/// PTY reader or another Terminal's subscribers; a subscriber that falls behind sees a [`Output::Gap`].
+pub struct OutputStream {
+    receiver: broadcast::Receiver<Chunk>,
+    /// The offset after the last byte delivered, which the next chunk must start at.
+    next: u64,
+    after_gap: Option<Chunk>,
+}
+
+impl OutputStream {
+    /// The offset of the first byte this stream delivers.
+    pub fn start(&self) -> u64 {
+        self.next
+    }
+
+    /// The next output, or `None` once the Terminal's program has exited and every byte was delivered.
+    pub async fn next(&mut self) -> Option<Output> {
+        let chunk = match self.after_gap.take() {
+            Some(chunk) => chunk,
+            None => loop {
+                match self.receiver.recv().await {
+                    Ok(chunk) => break chunk,
+                    // The next receive yields the oldest retained chunk, whose offset shows the gap.
+                    Err(broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(broadcast::error::RecvError::Closed) => return None,
+                }
+            },
+        };
+        if chunk.offset > self.next {
+            let gap = Output::Gap {
+                from: self.next,
+                to: chunk.offset,
+            };
+            self.next = chunk.offset;
+            self.after_gap = Some(chunk);
+            return Some(gap);
+        }
+        self.next = chunk.offset + chunk.bytes.len() as u64;
+        Some(Output::Bytes {
+            offset: chunk.offset,
+            bytes: chunk.bytes,
+        })
+    }
 }
 
 /// The program, shared by whoever reaps it and whoever stops it.
@@ -82,6 +146,8 @@ struct Entry {
     /// so a pid the OS reuses afterwards names no Terminal (H21).
     pid: Option<u32>,
     events: broadcast::Sender<EventData>,
+    /// X14: dropped when the program exits, which ends every output stream after its last byte.
+    output: Option<broadcast::Sender<Chunk>>,
     handle: Option<Arc<Handle>>,
     screen: Arc<Mutex<ScreenState>>,
 }
@@ -141,12 +207,13 @@ impl Shared {
         self.table.lock().expect("terminal table lock")
     }
 
-    /// Hand `data` to this Terminal's subscribers and to the Bus. Neither can block the caller.
+    /// Hand a title or exit event to the Bus, then to this Terminal's subscribers, so a subscriber
+    /// that saw the event can rely on the Bus having it. Neither can block the caller.
     fn publish(&self, number: u64, data: EventData) {
+        self.bus.emit(Actor::daemon(), data.clone());
         if let Some(entry) = self.table().get(&number) {
-            let _ = entry.events.send(data.clone());
+            let _ = entry.events.send(data);
         }
-        self.bus.emit(Actor::daemon(), data);
     }
 
     fn retitle(&self, number: u64, title: String) {
@@ -164,6 +231,7 @@ impl Shared {
             entry.handle = None;
             entry.pid = None;
             entry.info.exit_code = code;
+            entry.output = None;
         }
         self.publish(number, EventData::TerminalExited(ExitedEvent { id, code }));
     }
@@ -414,6 +482,8 @@ impl Terminals {
             rows: params.rows,
         }));
         let (arrival, child_arrives) = mpsc::channel();
+        let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
+        let pump_output = output.clone();
         let shared = Arc::clone(&self.shared);
         let reader_screen = Arc::clone(&screen);
         let exit_hold = self.exit_hold.clone();
@@ -428,6 +498,7 @@ impl Terminals {
                         reader,
                         &program,
                         &reader_screen,
+                        pump_output,
                         exit_hold.as_deref(),
                     );
                 }
@@ -472,6 +543,7 @@ impl Terminals {
                     owner,
                 },
                 events: sender,
+                output: Some(output.clone()),
                 handle: Some(Arc::new(handle)),
                 screen,
             },
@@ -482,6 +554,11 @@ impl Terminals {
         Ok(Spawned {
             id: number.to_string(),
             events,
+            output: OutputStream {
+                receiver: output_receiver,
+                next: 0,
+                after_gap: None,
+            },
         })
     }
 
@@ -716,6 +793,35 @@ impl Terminals {
             .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))
     }
 
+    /// X14: the output of a running Terminal from its current end, in order. `NOT_FOUND` as for
+    /// [`Terminals::subscribe`]. Dropping the stream releases the subscription.
+    pub fn subscribe_output(&self, id: &str) -> Result<OutputStream, RpcError> {
+        let number = parse_terminal_number(id)?;
+        let (start, receiver) = {
+            let table = self.shared.table();
+            let entry = table
+                .get(&number)
+                .filter(|entry| entry.handle.is_some())
+                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+            let sender = entry
+                .output
+                .as_ref()
+                .ok_or_else(|| RpcError::not_found(format!("terminal {id}")))?;
+            // The reader sends a chunk under this lock, so the end read here is where the receiver starts.
+            let screen = Arc::clone(&entry.screen);
+            let state = screen.lock().expect("terminal screen lock");
+            let start = state.after;
+            let receiver = sender.subscribe();
+            drop(state);
+            (start, receiver)
+        };
+        Ok(OutputStream {
+            receiver,
+            next: start,
+            after_gap: None,
+        })
+    }
+
     /// Every Terminal, running or exited, oldest first.
     pub fn list(&self) -> Vec<TerminalInfo> {
         self.shared
@@ -783,16 +889,16 @@ fn pump(
     mut reader: Box<dyn Read + Send>,
     program: &Program,
     screen: &Mutex<ScreenState>,
+    output: broadcast::Sender<Chunk>,
     exit_hold: Option<&ExitHold>,
 ) {
-    let id = number.to_string();
     let mut chunk = [0u8; READ_CHUNK];
     // Linux reports the closed PTY as an error, macOS as end of file: both mean "no more output".
     while let Ok(read) = reader.read(&mut chunk) {
         if read == 0 {
             break;
         }
-        let (offset, titles) = {
+        let titles = {
             let mut state = screen.lock().expect("terminal screen lock");
             let offset = state.after;
             let parsed = state.ensure_parser().map(|parser| {
@@ -803,24 +909,21 @@ fn pump(
             });
             state.after += read as u64;
             state.log.push(&chunk[..read]);
+            // Sent under the lock so a snapshot's `after` and a subscription's start never straddle a chunk.
+            let _ = output.send(Chunk {
+                offset,
+                bytes: Arc::from(&chunk[..read]),
+            });
             match parsed {
-                Some(Ok(titles)) => (offset, titles),
+                Some(Ok(titles)) => titles,
                 Some(Err(_)) => {
                     eprintln!("terminal {number}: screen parser panicked; snapshots are off");
                     state.parser = ScreenParser::Failed;
-                    (offset, Vec::new())
+                    Vec::new()
                 }
-                None => (offset, Vec::new()),
+                None => Vec::new(),
             }
         };
-        shared.publish(
-            number,
-            EventData::TerminalOutput(OutputEvent {
-                id: id.clone(),
-                offset,
-                data: STANDARD.encode(&chunk[..read]),
-            }),
-        );
         titles
             .into_iter()
             .for_each(|title| shared.retitle(number, title));
@@ -837,6 +940,7 @@ fn pump(
     if let Some(hold) = exit_hold {
         hold();
     }
+    drop(output);
     shared.finish(number, code);
 }
 

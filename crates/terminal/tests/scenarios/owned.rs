@@ -48,7 +48,7 @@ async fn x12_close_on_an_ownerless_terminal_is_refused_and_leaves_it() {
     assert!(terminals.list()[0].running);
     assert!(spawned.events.try_recv().is_err());
     terminals.kill(&spawned.id).await.unwrap();
-    let (_, code) = until_exit(&mut spawned.events).await;
+    let (_, code) = until_exit(&mut spawned).await;
     assert_eq!(code, None);
 }
 
@@ -60,7 +60,7 @@ async fn x11_the_ninth_forgets_the_oldest_exited_and_conflicts_when_all_run() {
         .spawn_owned(sh(dir.path(), "exit 0"), "a")
         .await
         .unwrap();
-    until_exit(&mut first.events).await;
+    until_exit(&mut first).await;
     for _ in 1..8 {
         terminals
             .spawn_owned(sh(dir.path(), "sleep 30"), "a")

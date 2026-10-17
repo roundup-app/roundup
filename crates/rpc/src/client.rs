@@ -4,7 +4,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use contracts::{Event, EventData};
+use contracts::Event;
+use contracts::terminal::{OutputEvent, OutputGap};
 use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -16,6 +17,15 @@ use crate::error::{RpcError, code};
 
 mod frame;
 
+/// X14: what a connection that selected a Terminal with `terminal.output` is pushed.
+#[derive(Clone, Debug)]
+pub enum OutputFrame {
+    /// Bytes the Terminal's program wrote.
+    Bytes(OutputEvent),
+    /// The Daemon dropped bytes `from..to` for this connection; recover with `terminal.snapshot`.
+    Gap(OutputGap),
+}
+
 type Waiter = oneshot::Sender<Result<Value, RpcError>>;
 
 /// `pending` and `closed` share one lock: `reserve` and `mark_closed` each hold it across their
@@ -25,7 +35,7 @@ type Waiter = oneshot::Sender<Result<Value, RpcError>>;
 struct Shared {
     pending: HashMap<u64, Waiter>,
     closed: bool,
-    output: Option<broadcast::Sender<Event>>,
+    output: Option<broadcast::Sender<OutputFrame>>,
 }
 
 type State = Arc<Mutex<Shared>>;
@@ -58,22 +68,20 @@ impl Client {
         })
     }
 
-    /// Divert future Terminal output from `next_event` into a bounded receiver.
+    /// Receive the Terminal output this connection selects with `terminal.output`.
     ///
-    /// Call once, before sending any subscription request. Returns `None` if already
-    /// taken or the connection closed. Existing event subscriptions are not changed.
-    /// Retains at most 64 output events (an item bound, not a byte/RSS bound);
-    /// output is never also queued in `next_event` after this call.
+    /// Call once, before sending `terminal.output`; output pushed before this call is dropped.
+    /// Returns `None` if already taken or the connection closed. Retains at most 64 frames
+    /// (an item bound, not a byte/RSS bound).
     ///
-    /// Saturation evicts oldest output and reports Tokio's `RecvError::Lagged`.
-    /// On lag, callers must recover by snapshot, reconciling the existing Terminal
-    /// ids and byte offsets rather than concatenating discontinuous output.
-    /// Replies and control events continue independently and are never evicted.
+    /// Saturation evicts the oldest frames and reports Tokio's `RecvError::Lagged`.
+    /// On lag, callers must recover by snapshot, reconciling the Terminal's byte offsets
+    /// rather than concatenating discontinuous output. Replies and events continue
+    /// independently and are never evicted.
     ///
     /// Dropping the receiver releases retained output; future output is discarded.
-    /// Drop the Client as well to release its socket and reader task. This does not
-    /// unsubscribe at the Daemon or select a Terminal: #1930 owns that contract.
-    pub fn take_output(&mut self) -> Option<broadcast::Receiver<Event>> {
+    /// Drop the Client to release its socket and, at the Daemon, every selection it made.
+    pub fn take_output(&mut self) -> Option<broadcast::Receiver<OutputFrame>> {
         let mut state = self.state.lock().ok()?;
         if state.closed || state.output.is_some() {
             return None;
@@ -164,19 +172,34 @@ async fn read_loop(
             eprintln!("rpc: dropped a frame that is not JSON");
             continue;
         };
+        if matches!(
+            frame["method"].as_str(),
+            Some("terminal.output" | "terminal.gap")
+        ) {
+            let params = frame.get_mut("params").map_or(Value::Null, Value::take);
+            let parsed = if frame["method"] == "terminal.output" {
+                serde_json::from_value(params).map(OutputFrame::Bytes)
+            } else {
+                serde_json::from_value(params).map(OutputFrame::Gap)
+            };
+            match parsed {
+                Ok(output) => {
+                    if let Some(sender) = &state.lock().expect("Client state poisoned").output {
+                        let _ = sender.send(output);
+                    }
+                }
+                Err(err) => {
+                    eprintln!("rpc: dropped output that does not match the contract: {err}")
+                }
+            }
+            continue;
+        }
         if frame["method"] == "event" {
             match serde_json::from_value::<Event>(
                 frame.get_mut("params").map_or(Value::Null, Value::take),
             ) {
                 Ok(event) => {
-                    let state = state.lock().expect("Client state poisoned");
-                    if let (EventData::TerminalOutput(_), Some(output)) =
-                        (&event.data, &state.output)
-                    {
-                        let _ = output.send(event);
-                    } else {
-                        let _ = events.send(event);
-                    }
+                    let _ = events.send(event);
                 }
                 Err(err) => {
                     eprintln!("rpc: dropped an event that does not match the contract: {err}")

@@ -156,13 +156,19 @@ impl World {
     /// The input log once startup prompts have stopped arriving.
     async fn settled_typed(&self) -> String {
         let mut last = self.typed();
+        let mut quiet = 0;
         loop {
             tokio::time::sleep(Duration::from_millis(500)).await;
             let now = self.typed();
             if now == last {
-                return now;
+                quiet += 1;
+                if quiet == 4 {
+                    return now;
+                }
+            } else {
+                quiet = 0;
+                last = now;
             }
-            last = now;
         }
     }
 

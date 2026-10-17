@@ -1,5 +1,5 @@
 //! Keystroke-to-render in the real App (`scenarios/perf.md` R11): runs a build made with `VITE_ROUNDUP_PERF`,
-//! reads the `PERF <json>` line the webview writes through its Terminal, and compares its p95 with the budget.
+//! reads the `PERF <json>` line the webview writes through its Terminal from the Terminal's Output log, and compares its p95 with the budget.
 
 use std::collections::BTreeMap;
 use std::io;
@@ -7,10 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
 use clap::Parser;
-use contracts::{Event, EventData};
 use perf::gate::{conclude, read_budgets};
 use perf::webview::failure;
 use perf::webview::{checked, perf_line};
@@ -46,7 +43,7 @@ const SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\nexec cat\n";
 async fn read_report(socket: &Path) -> io::Result<Value> {
     let give_up = Instant::now() + RUN_BOUND;
 
-    let mut events = loop {
+    let client = loop {
         match Client::connect(socket).await {
             Ok(client) => break client,
             Err(_) if Instant::now() < give_up => {
@@ -55,38 +52,42 @@ async fn read_report(socket: &Path) -> io::Result<Value> {
             Err(err) => return Err(failure(format!("{}: {err}", socket.display()))),
         }
     };
-
-    events
-        .request("events.subscribe", Value::Null)
-        .await
-        .map_err(|err| failure(format!("events.subscribe: {err}")))?;
-
-    let mut printed: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-
-    loop {
-        let event = tokio::time::timeout_at(give_up.into(), events.next_event())
+    let ask = async |method: &str, params: Value| {
+        tokio::time::timeout_at(give_up.into(), client.request(method, params))
             .await
             .map_err(|_| failure("the webview wrote no PERF line in time"))?
-            .ok_or_else(|| failure("the Daemon closed before the webview reported"))?;
+            .map_err(|err| failure(format!("{method}: {err}")))
+    };
 
-        if let Event {
-            data: EventData::TerminalOutput(output),
-            ..
-        } = event
+    // The webview's line is read from each Terminal's Output log, so it is found whenever it was written.
+    let mut printed: BTreeMap<String, (u64, String)> = BTreeMap::new();
+
+    loop {
+        let listed = ask("terminal.list", Value::Null).await?;
+
+        for id in listed
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|terminal| terminal["id"].as_str())
         {
-            let bytes = printed.entry(output.id).or_default();
+            let (after, text) = printed.entry(id.to_owned()).or_default();
+            let read = ask(
+                "terminal.read",
+                serde_json::json!({ "id": id, "after": *after }),
+            )
+            .await?;
 
-            bytes.extend(
-                STANDARD
-                    .decode(output.data)
-                    .map_err(|err| failure(format!("terminal.output: {err}")))?,
-            );
+            *after = read["next"].as_u64().unwrap_or(*after);
+            text.push_str(read["text"].as_str().unwrap_or_default());
 
-            if let Some(line) = perf_line(&String::from_utf8_lossy(bytes)) {
+            if let Some(line) = perf_line(text) {
                 return serde_json::from_str(line)
                     .map_err(|err| failure(format!("the PERF line is not JSON: {err}")));
             }
         }
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 
