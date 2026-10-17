@@ -17,7 +17,7 @@ type Box = { l: number; r: number; t: number; b: number; w: number; h: number };
 
 const BOXES = `() => {
   const box = selector => { const e = document.querySelector(selector); if (!e) return null; const r = e.getBoundingClientRect(); return {l:r.left,r:r.right,t:r.top,b:r.bottom,w:r.width,h:r.height}; };
-  return {centre:box('.centre'), pane:box('.pane'), bar:box('.resource-strip'), row:box('.terminal-tabs-host'), railRow:box('.rail-actions'), text:box('.pane-screen .xterm'),
+  return {centre:box('.centre'), pane:box('.pane'), bar:box('.resource-strip'), row:box('.terminal-tabs-host'), firstTab:box('.terminal-tabs-host > *'), railRow:box('.rail-actions'), text:box('.pane-screen .xterm'),
     barRule:(s => ({h:parseFloat(s.height), colour:s.backgroundColor}))(getComputedStyle(document.querySelector('.resource-strip'), '::after')),
     railRule:(s => ({h:parseFloat(s.borderTopWidth), colour:s.borderTopColor}))(getComputedStyle(document.querySelector('.rail-actions'))), show:box('[aria-label="Show work items"]'), failure:box('.pane-failure'), body:box('.pane-body'),
     space2:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-2')), space4:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4'))};
@@ -25,7 +25,7 @@ const BOXES = `() => {
 
 type Rule = { h: number; colour: string };
 
-type Boxes = { centre: Box; pane: Box; bar: Box; row: Box; railRow: Box; text: Box; barRule: Rule; railRule: Rule; show: Box | null; failure: Box; body: Box; space2: number; space4: number };
+type Boxes = { centre: Box; pane: Box; bar: Box; row: Box; firstTab: Box; railRow: Box; text: Box; barRule: Rule; railRule: Rule; show: Box | null; failure: Box; body: Box; space2: number; space4: number };
 
 const open = async (width = 1512): Promise<void> => {
   await page.load("/harness.html?seed=resources", width, 950);
@@ -98,9 +98,10 @@ it("u2340b_no_failure_takes_no_height", async () => {
 
 it("u2340c_the_bar_is_one_line_the_terminals_width", async () => {
   await open();
-  const { pane, bar, railRow, space4 } = await page.call<Boxes>(BOXES);
+  const { pane, bar, firstTab, text, railRow, space4 } = await page.call<Boxes>(BOXES);
 
   expect(bar.w).toBeCloseTo(pane.w, 0);
+  expect(firstTab.l).toBeCloseTo(text.l, 0);
   expect(bar.h).toBeCloseTo(space4 + railRow.h, 0);
 }, 60_000);
 

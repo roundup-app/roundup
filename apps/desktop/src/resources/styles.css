@@ -60,6 +60,7 @@
 /* Selected-Agent resources fit beside long Terminal names without changing the bar's height, below the hint line (U2230b). */
 .terminal-tabs-host {
   align-self: stretch;
+  padding-left: var(--space-2);
   grid-column: 1;
   grid-row: 2;
 }
