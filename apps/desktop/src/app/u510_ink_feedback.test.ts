@@ -90,7 +90,7 @@ type Look = {
   connected: boolean;
 };
 
-const SEEDS = ["tree-40", "thread-report", "tabs-8", "door-stopped"];
+const SEEDS = ["tree-40", "door-report", "tabs-8", "door-stopped"];
 
 const open = async (seed: string, scheme: "light" | "dark", contrast?: "more") => {
   await page.scheme(scheme, contrast);

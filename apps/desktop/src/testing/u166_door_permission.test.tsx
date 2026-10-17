@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { chooseFromMenu } from "../thread/threadFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -69,9 +68,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   // The Workstream just started is the selected one; the earlier one is "second", the other Workstream.
   const [second, first] = await workstreams();
 
-  fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: prompt } });
-  await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  // U467: the user types to the Door in its Terminal; the Message is the same Daemon delivery without the keystrokes.
+  await app.rpc("message.send", { to: first!.id, kind: "note", body: prompt, replyTo: null });
 
   await waitFor(async () => expect(await messages()).toContainEqual([prompt, "delivered"]), { timeout: 90_000 });
 
@@ -112,25 +110,19 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
   await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
-  await chooseFromMenu("All Messages");
-  await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).querySelector("[data-message][data-status]")?.getAttribute("data-status")).toBe("delivered"));
 
   if (answer === "allow") {
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain(prompt), { timeout: 30_000 });
     expect(await screen.findByText(new RegExp(prompt), { selector: "[data-todo] *" }, { timeout: 30_000 })).toBeTruthy();
   }
 
-  // The other Workstream's Thread holds no Message and no Decision card.
-  const otherName = await waitFor(() => {
+  fireEvent.click(await waitFor(() => {
     const name = rail.querySelector<HTMLElement>(`[data-id="${second?.id}"] .name`);
 
     expect(name).not.toBeNull();
 
     return name!;
-  });
-
-  fireEvent.click(otherName);
-  await waitFor(() => expect(screen.getByRole("log", { name: "Thread" }).textContent).not.toContain(prompt));
+  }));
   expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
 
   cleanup();

@@ -21,7 +21,7 @@ const tabX = (at: number) => at * 100 + 50;
 
 const rowY = (id: string) => ROW_TOP + [...document.querySelectorAll(".rail-row")].findIndex((row) => row.getAttribute("data-id") === id) * 30 + 15;
 
-const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"), info("t-gone", { running: false, exit_code: 0 })]) => {
+const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"), info("t-w1"), info("t-gone", { running: false, exit_code: 0 })]) => {
   window.localStorage.clear();
   URL.createObjectURL = () => "blob:fake";
 
@@ -56,15 +56,12 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
       [".rail-row", () => new DOMRect(0, ROW_TOP + index(this, ".rail-row") * 30, 200, 30)],
       [".project-tab", () => new DOMRect(index(this, ".project-tab") * 100, 0, 100, 30)],
       [".pane-body", () => new DOMRect(300, 100, 600, 500)],
-      [".thread-composer", () => new DOMRect(300, 600, 600, 100)],
     ];
 
     return rects.find(([selector]) => this.matches(selector))?.[1]() ?? new DOMRect(0, 0, 0, 0);
   });
 
-  const place = () => {};
-
-  return { app, made, place };
+  return { app, made };
 };
 
 const selected = () => document.querySelector(".rail-row[aria-selected=true]")?.getAttribute("data-id");
@@ -189,16 +186,13 @@ describe("u348 dragging files shows targets, a held drag opens one, a drop lands
     expect([...made.values()].flatMap((emulator) => emulator.pasted)).toEqual([]);
   });
 
-  it("u348_a_drop_on_a_workstream_row_attaches_images", async () => {
-    const { app, place } = await mount({ api: TREE });
+  it("u348_a_drop_on_a_workstream_row_pastes_into_its_door", async () => {
+    const { app, made } = await mount({ api: TREE });
 
-    app.dropFiles(drop(100, rowY("w1"), "/p/Shot.PNG", "/p/notes.txt"));
-    await waitFor(() => expect(selected()).toBe("w1"));
-    place();
     app.dropFiles(drop(100, rowY("w1"), "/p/Shot.PNG"));
-    await waitFor(() => expect(document.querySelectorAll(".thread-attachment").length).toBeGreaterThan(0));
 
-    expect(document.querySelector(".thread-attachment")?.textContent).toContain("Shot.PNG");
+    await waitFor(() => expect(selected()).toBe("w1"));
+    await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/Shot.PNG' "]));
   });
 
   it("u348_a_drop_elsewhere_does_nothing", async () => {

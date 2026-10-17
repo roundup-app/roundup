@@ -13,7 +13,7 @@ const opensFrom = (target: EventTarget | null): boolean => {
 
   const place = placeOf(target);
 
-  return place === "rail" || place === "pane" || target.matches(".thread-feed");
+  return place === "rail" || place === "pane";
 };
 
 /** The panel `?` opens over the centre pane, one line per chord. It holds focus while open; Esc, `?` or a click outside closes it and focus returns to where it was. */

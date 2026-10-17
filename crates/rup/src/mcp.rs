@@ -40,6 +40,8 @@ pub(crate) struct Offered {
     pub(crate) waits_for_user: bool,
     /// B20, A32, M10: only a Door is offered it.
     pub(crate) door_only: bool,
+    /// I9: the call answers once and then pushes Events, so `rup` has it as a command and `rup mcp` does not offer it.
+    pub(crate) stream: bool,
 }
 
 impl Offered {
@@ -104,6 +106,7 @@ fn ask_user() -> Offered {
         own_id: false,
         waits_for_user: true,
         door_only: false,
+        stream: false,
     }
 }
 
@@ -125,6 +128,7 @@ fn offer(
         own_id: false,
         waits_for_user: false,
         door_only: false,
+        stream: false,
     }
 }
 
@@ -237,10 +241,31 @@ fn with_own_id<P: JsonSchema>(
     }
 }
 
+/// I9: `events.subscribe`, the one stream of the list.
+fn events_stream() -> Offered {
+    Offered {
+        stream: true,
+        ..offered::<contracts::SubscribeParams>(
+            "events.subscribe",
+            "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; without `--after` it starts at the end.",
+        )
+    }
+}
+
 /// I1: the one list both `rup mcp` and `rup` read: M5's tools, and the Door-only ones (marked) when `door`.
+/// The streams are in `commands`, not here: an MCP call returns once (I9).
 pub(crate) fn tools(door: bool) -> Vec<Offered> {
+    commands(door)
+        .into_iter()
+        .filter(|offer| !offer.stream)
+        .collect()
+}
+
+/// I1, I9: every entry of the one list, the streams included.
+pub(crate) fn commands(door: bool) -> Vec<Offered> {
     let mut list = offered_tools();
     list.extend([agent_digest(), workstream_handoff(), checkpoint_write()]);
+    list.push(events_stream());
     list.retain(|offer| door || !offer.door_only);
     list
 }
@@ -407,7 +432,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
-            "Stop a Terminal you or your Reach own and forget it.",
+            "Stop a Terminal you or your Reach own and forget it. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
@@ -423,7 +448,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
-            "Stop the program of a Terminal you or your Reach own.",
+            "Stop the program of a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<agent::NodeId>(
             "agent.actionHistory",
@@ -497,8 +522,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
         ),
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
-        "terminal.close" => format!("closed Terminal {id}"),
-        "terminal.kill" => format!("stopped Terminal {id}"),
         "terminal.write" => format!("wrote to Terminal {id}"),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),

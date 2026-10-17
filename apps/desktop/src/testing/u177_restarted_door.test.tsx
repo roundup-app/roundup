@@ -36,16 +36,17 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     const settled = (app: AppSeam) => async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
     const messages = async (app: AppSeam) => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
 
-    const send = async (body: string) => {
-      fireEvent.input(await screen.findByRole("textbox", { name: /^Tell .* sends$/ }), { target: { value: body } });
-      await waitFor(() => expect(screen.getByRole("button", { name: "Send" }).matches('[aria-disabled="true"]')).toBe(false), { timeout: 30_000 });
-      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // U467: the user types to the Door in its Terminal; the Message is the same Daemon delivery without the keystrokes.
+    const send = async (app: AppSeam, body: string) => {
+      const workstream = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
+
+      await app.rpc("message.send", { to: workstream.id, kind: "note", body, replyTo: null });
     };
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
     fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
     await waitFor(settled(first), { timeout: 30_000 });
-    await send("ship a");
+    await send(first, "ship a");
     await waitFor(async () => expect(await messages(first)).toContainEqual(["ship a", "delivered"]), { timeout: 90_000 });
     await waitFor(async () => expect((await first.rpc("todo.list", null)).map((todo) => todo.title)).toContain("ship a"), { timeout: 30_000 });
 
@@ -63,7 +64,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(() => expect(reopened.querySelector(`[data-id="${workstream.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
     expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
 
-    await send("ship b");
+    await send(app, "ship b");
     await waitFor(async () => expect(await messages(app)).toEqual([["ship a", "delivered"], ["ship b", "delivered"]]), { timeout: 90_000 });
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toEqual(expect.arrayContaining(["ship a", "ship b"])), { timeout: 30_000 });
 

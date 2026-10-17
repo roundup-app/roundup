@@ -318,6 +318,10 @@ impl Agents {
         let pair = Pair {
             model: node.model,
             effort: node.effort,
+            mcp_off: !models::mcp_on(
+                std::env::var_os("ROUNDUP_MCP").as_deref(),
+                self.shared.rail().get_mcp()?.on,
+            ),
         };
         let started = attempt.to_owned();
         let (argv, env) = self

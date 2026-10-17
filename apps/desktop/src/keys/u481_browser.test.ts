@@ -57,14 +57,12 @@ const load = async () => {
   await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await browser("click", ".rail-row");
-  await wait(`!!document.querySelector('.thread-feed')`);
+  await wait(`!!document.querySelector('.pane-screen')`);
 };
 
 const prepare = async () => {
   await read(`(() => {
-    const input = document.querySelector('[data-thread-input]');
-    input.value = 'Keep this exact draft'; input.dispatchEvent(new Event('input', {bubbles:true}));
-    window.__origin = document.querySelector('.thread-feed');
+    window.__origin = document.querySelector('.rail-row[aria-selected=true]');
     window.__origin.focus();
     window.__selected = document.querySelector('.rail-row[aria-selected=true]')?.dataset.id;
     window.__calls = window.__fake.app.calls.length;
@@ -80,7 +78,7 @@ const open = async () => {
 
 const closed = async () => wait(`!document.querySelector('.help') && document.activeElement === window.__origin`);
 
-it("u481_help_escape_restores_thread_without_underlying_action", async () => {
+it("u481_help_escape_restores_focus_without_underlying_action", async () => {
   await load();
   await browser("click", ".terminal-new");
   await wait(`!!document.querySelector(".bubble .xterm-screen")`);
@@ -88,10 +86,9 @@ it("u481_help_escape_restores_thread_without_underlying_action", async () => {
   await browser("press", "Meta+Comma");
   await browser("press", "Meta+n");
   await browser("press", "Escape"); await closed();
-  expect(await read(`({draft: document.querySelector('[data-thread-input]').value,
-    selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === window.__selected,
+  expect(await read(`({selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === window.__selected,
     calls: window.__fake.app.calls.slice(window.__calls).map(c => c.method).filter(method => method !== "project.resources"), escape: window.__escape,
-    models: !!document.querySelector('.models-sheet')})`)).toEqual({draft: "Keep this exact draft", selected: true, calls: [], escape: 0, models: false});
+    models: !!document.querySelector('.models-sheet')})`)).toEqual({selected: true, calls: [], escape: 0, models: false});
 }, 60_000);
 
 it("u481_help_dialog_traps_and_returns_focus", async () => {
@@ -135,13 +132,10 @@ it("u481_help_preserves_rendered_checks_and_failure", async () => {
       await browser("set", "media", scheme);
       await load();
       await read(`(() => {
-        const input = document.querySelector('[data-thread-input]');
-        input.value = 'Keep this exact draft'; input.dispatchEvent(new Event('input', {bubbles:true}));
-        input.focus();
         window.__fake.failNext(-32003, 'Keyboard observer rejected send: complete failure remains visible');
-        input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', code:'Enter', bubbles:true, cancelable:true}));
+        document.querySelector('[aria-label="Add Workstream"]').click();
       })()`);
-      await wait(`document.querySelector('.thread-failure')?.textContent.includes('Keyboard observer rejected send: complete failure remains visible')`);
+      await wait(`document.querySelector('p.ink[role=alert]')?.textContent.includes('Keyboard observer rejected send: complete failure remains visible')`);
       expect(await read(`matchMedia("(prefers-contrast: more)").matches`)).toBe(more);
       expect(await read(`matchMedia("(forced-colors: active)").matches`)).toBe(false);
       const before = await read<Checks>(`window.__checks()`);
@@ -168,7 +162,7 @@ it("u481_help_preserves_rendered_checks_and_failure", async () => {
 
       for (const id of CHECK_IDS) if (before[id].status === "pass") expect(after[id].status, `${width} ${scheme} ${id}`).toBe("pass");
       expect(await read(`(() => {
-        const error = document.querySelector('.thread-failure'), box = error.getBoundingClientRect();
+        const error = document.querySelector('p.ink[role=alert]'), box = error.getBoundingClientRect();
         return error.textContent.includes('Keyboard observer rejected send: complete failure remains visible') && box.height > 0 && box.bottom <= innerHeight && error.scrollWidth <= error.clientWidth;
       })()`)).toBe(true);
     }
