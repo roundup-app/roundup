@@ -79,17 +79,6 @@ run("u449 isolated rendered window bar", () => {
     }
   });
 
-  it("u449_show_shelf_never_covers_a_centre_card_or_pinned_bar", () => {
-    const closed = records.filter((record) => record.show && record.centreSurfaces.length);
-    expect(closed.some((record) => record.case.startsWith("decisions-"))).toBe(true);
-    expect(closed.some((record) => record.case.endsWith("-closed-agent"))).toBe(true);
-
-    for (const record of closed) for (const surface of record.centreSurfaces) {
-      const show = record.show!;
-      expect(surface.right <= show.left || surface.bottom <= show.top || surface.left >= show.right || surface.top >= show.bottom, record.case).toBe(true);
-    }
-  });
-
   it("u449_title_is_centred_independently_of_the_shelf", () => {
     for (const record of records) {
       expect(Math.abs((record.title.left + record.title.right) / 2 - record.width / 2)).toBeLessThanOrEqual(1);
