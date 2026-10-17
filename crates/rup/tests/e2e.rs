@@ -3226,7 +3226,8 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .iter()
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
-                == 10,
+                // M16: a Door lacks `terminal_spawn` and `terminal_open`.
+                == if id == &rail.m { 8 } else { 10 },
             "{offered:?}"
         );
     }
@@ -3648,7 +3649,7 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     assert!(growth_kb < BUDGET_MB * 1024);
 }
 
-/// M14: the seven tools, offered to a Door and an ordinary Agent; the user-only methods get none.
+/// M14, narrowed by M16: the five tools offered to a Door and an ordinary Agent alike; the user-only methods get none.
 #[tokio::test]
 async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() {
     let project = start(&[]);
@@ -3659,8 +3660,6 @@ async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() 
         let offered = tool_names(&mut shim).await;
         for name in [
             "route_set",
-            "terminal_spawn",
-            "terminal_open",
             "terminal_close",
             "terminal_write",
             "terminal_resize",
@@ -3922,29 +3921,69 @@ async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
     }
 }
 
-/// M14, F5: a `claude` that a Door's own Terminal starts is flagged like any child of the Door.
 #[tokio::test]
-async fn m14_a_door_that_spawns_claude_in_a_terminal_is_flagged_stray() {
-    let root = tempfile::tempdir().unwrap();
-    let (script, pid) = stray_script(root.path());
-    let project = start(&[("ROUNDUP_SCAN_MS", "100")]);
-    let mut client = project.subscribed().await;
-    let door = start_door(&client).await;
-    let mut shim = Shim::start(&project, &door).await;
-
-    shim.call(
-        "terminal_spawn",
-        json!({ "cwd": "/", "command": ["/bin/sh", "-c",
-                format!("sh '{}' & wait", script.display())],
-                "env": {}, "cols": 80, "rows": 24 }),
-    )
-    .await;
-
-    let flagged = next_stray(&mut client).await;
-    let pid_found: u32 = json_file_text(&pid).await.trim().parse().unwrap();
-    assert_eq!(flagged.id, door);
-    assert_eq!(flagged.stray.len(), 1, "{flagged:?}");
-    assert_eq!(flagged.stray[0].pid, pid_found);
+async fn m17_decision_answer_names_the_decision_and_answer() {
+    for (question, answer, note, expected) in [
+        (false, json!("allow"), json!(""), "allow"),
+        (false, json!("deny"), json!(""), "deny"),
+        (true, json!("Yes"), json!(""), "Yes"),
+        (
+            true,
+            Value::Null,
+            json!("Use the other option"),
+            "Use the other option",
+        ),
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        let report = root.path().join("door.json");
+        let child_report = root.path().join("child.json");
+        let on_prompt = json!({"name":"decision_answer", "arguments":{"id":"$decision","answer":answer,"note":note}});
+        let on_prompt = on_prompt.to_string();
+        let ask = if question {
+            json!([{"name":"ask_user","arguments":{"question":"Proceed?","answers":[{"label":"Yes","description":"Continue"}]}}])
+        } else {
+            json!([])
+        };
+        let mut fake = vec![
+            ("FAKE_CLAUDE_ON_PROMPT", on_prompt.as_str()),
+            ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
+            ("FAKE_CLAUDE_AGENT_REPORT", child_report.to_str().unwrap()),
+        ];
+        let ask = ask.to_string();
+        if question {
+            fake.push(("FAKE_CLAUDE_AGENT_TOOLS", &ask));
+        } else {
+            // The fake emits its startup hooks before requesting permission, like Claude.
+            fake.push(("FAKE_CLAUDE_KINDS", r#"["needs-you"]"#));
+        }
+        let project = start(&fake);
+        let user = project.client().await;
+        let door = start_door(&user).await;
+        let _child = agent_in(&project, &user, Some(&door)).await;
+        let notes = h21_notes(&user, &door, 1).await;
+        let id = notes[0]["body"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("[decision ")
+            .unwrap()
+            .split(']')
+            .next()
+            .unwrap();
+        let result = json_file(&report).await;
+        assert_eq!(result[0], format!("answered Decision {id}: {expected}"));
+        let received = json_file(&child_report).await;
+        if question {
+            assert_eq!(received[0]["answer"], answer);
+            assert_eq!(received[0]["note"], note);
+        } else {
+            assert_eq!(
+                received["hookSpecificOutput"]["decision"]["behavior"], answer,
+                "{received}"
+            );
+        }
+        let open = user.request("decision.list", Value::Null).await.unwrap();
+        assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
+    }
 }
 
 /// The next Event `client` is pushed that is a Todo created with `title`, with every number seen on the way.
@@ -4127,4 +4166,151 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     assert_eq!(log[1]["prompt"], typed[0]["prompt"]);
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(b39_log(&prompts, 2).await.len(), 2, "typed a third time");
+}
+
+const M16_START: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];
+
+impl Shim {
+    /// The whole JSON-RPC reply of a `tools/call`, an error included.
+    async fn call_reply(&mut self, name: &str, arguments: Value) -> Value {
+        self.next += 1;
+        let line = json!({ "jsonrpc": "2.0", "id": self.next, "method": "tools/call",
+                           "params": { "name": name, "arguments": arguments } });
+        let stdin = self.child.stdin.as_mut().unwrap();
+        stdin
+            .write_all(format!("{line}\n").as_bytes())
+            .await
+            .unwrap();
+        let reply = tokio::time::timeout(Duration::from_secs(30), self.lines.next_line())
+            .await
+            .expect("the shim answered")
+            .unwrap()
+            .expect("the shim is open");
+        serde_json::from_str(&reply).unwrap()
+    }
+}
+
+fn m16_arguments(name: &str) -> Value {
+    match name {
+        "agent_run" => json!({ "command": ["/bin/sh", "-c", "sleep 30"] }),
+        "terminal_spawn" => json!({ "cwd": "/", "command": ["/bin/sh", "-c", "sleep 30"],
+                                    "env": {}, "cols": 80, "rows": 24 }),
+        _ => json!({ "workstream": "m", "cwd": "/", "cols": 80, "rows": 24 }),
+    }
+}
+
+#[tokio::test]
+async fn m16_a_door_is_offered_no_terminal_start_tool() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let mut child = Shim::start(&project, &rail.a).await;
+    let offered = tool_names(&mut door).await;
+    let ordinary = tool_names(&mut child).await;
+
+    for name in M16_START {
+        assert!(!offered.iter().any(|n| n == name), "the Door has {name}");
+        assert!(ordinary.iter().any(|n| n == name), "the child lacks {name}");
+    }
+    for name in [
+        "terminal_write",
+        "terminal_snapshot",
+        "terminal_screen",
+        "terminal_read",
+        "terminal_search",
+        "terminal_close",
+        "terminal_kill",
+        "agent_spawn",
+        "agent_digest",
+        "workstream_handoff",
+        "checkpoint_write",
+    ] {
+        // M5 keeps `terminal_snapshot` without a tool, so only the offered ones are asserted.
+        if name != "terminal_snapshot" {
+            assert!(offered.iter().any(|n| n == name), "the Door lacks {name}");
+        }
+    }
+    let mut without: Vec<_> = ordinary
+        .iter()
+        .filter(|n| !offered.contains(n))
+        .cloned()
+        .collect();
+    without.sort();
+    assert_eq!(without, ["agent_run", "terminal_open", "terminal_spawn"]);
+}
+
+#[tokio::test]
+async fn m16_calling_an_unoffered_tool_has_no_effect() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let before = user.request("terminal.list", Value::Null).await.unwrap();
+
+    for name in M16_START {
+        let reply = door.call_reply(name, m16_arguments(name)).await;
+        assert!(reply["result"].is_null(), "{name}: {reply}");
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains(&format!("no tool named {name}")),
+            "{reply}"
+        );
+    }
+
+    let after = user.request("terminal.list", Value::Null).await.unwrap();
+    assert_eq!(before, after);
+}
+
+#[tokio::test]
+async fn m16_a_child_keeps_its_terminal_tools() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut child = Shim::start(&project, &rail.a).await;
+    let before = user.request("terminal.list", Value::Null).await.unwrap();
+
+    let spawned = child
+        .call("terminal_spawn", m16_arguments("terminal_spawn"))
+        .await;
+
+    let after = user.request("terminal.list", Value::Null).await.unwrap();
+    assert_eq!(
+        after.as_array().unwrap().len(),
+        before.as_array().unwrap().len() + 1
+    );
+    let id = spawned["id"].as_str().unwrap();
+    let screen = child.call("terminal_screen", json!({ "id": id })).await;
+    assert!(screen.is_object(), "{screen}");
+    child.call("terminal_kill", json!({ "id": id })).await;
+}
+
+#[tokio::test]
+async fn m16_each_offered_terminal_description_states_the_bubble_rule() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut child = Shim::start(&project, &rail.a).await;
+    let listed = child.request("tools/list", json!({})).await;
+    for name in M16_START {
+        let tool = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap();
+        let description = tool["description"].as_str().unwrap();
+        for rule in [
+            "Use your own tools for commands",
+            "open a Bubble only when the user needs to see its output or will interactively type into it",
+            "Routine builds, tests and inspection use your own tools",
+        ] {
+            assert!(
+                description.contains(rule),
+                "{name} lacks {rule}: {description}"
+            );
+        }
+    }
 }
