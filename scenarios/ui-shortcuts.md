@@ -1,4 +1,4 @@
-# UI: scoped shortcuts (U479 to U481) and the ⌘K leader (U2238 to U2241)
+# UI: scoped shortcuts (U479 to U481) and the ⌘K leader (U2239 to U2242)
 
 The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.
 
@@ -38,13 +38,13 @@ Policy: all shortcut clauses in `scenarios/ui-keyboard.md` remain passing, inclu
 
 Implementation records command results on its Issue, one row per failing command with its actual exit code and repair; a failed observer is never reported as a pass. Required commands: `just check origin/main`, the named browser observers and the owned-listener search. The specification PR runs `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `just check origin/main`; named new tests above are implementation obligations, not asserted to exist on main.
 
-## The ⌘K leader (U2238 to U2241)
+## The ⌘K leader (U2239 to U2242)
 
 Direction: Issue #2335. roundup takes only ⌘N, ⇧⌘N, ⌘T and ⌘K at App scope; every other key reaches the focused Terminal. Bar: Ghostty's default keybinds, Claude Code's keybinding list and Apple's standard Mac shortcuts; ⌘N and ⌘T are the new window and new tab of Mac terminals, so they take nothing from a Terminal. Terms: Agent, Terminal, Bubble, Shelf, Project, Rail (`GLOSSARY.md`). The leader serves the Intervene stage of `.agents/data/journey.md`: the user moves between Agents without roundup taking keys from the Agent's own Terminal. This specification defines implementation acceptance; it claims no shipped leader. The implementation Issue is blocked by this one.
 
 Scope (policy): the same directories as U479, plus `apps/desktop/src/copy.ts` and only the leader panel's rules in `apps/desktop/src/styles.css`. No RPC, App seam command or domain model change is required. The leader builds on U479's registry and U480's table: `keys/chords.ts` holds the leader and its keys.
 
-**U2238 the direct keys.** Given an open Project, when the user presses `⌘N`, `⇧⌘N` or `⌘T`, then each does what U32 and U33 say, wherever focus is (a Terminal included), and the webview handles it so a Terminal never sees it. U32's chord rules hold unchanged: Caps Lock neutral, key repeat acts once, other modifier sets do nothing. Tests: the existing `u32_` and `u165_` observers stay passing; no new test repeats them.
+**U2242 the direct keys.** Given an open Project, when the user presses `⌘N`, `⇧⌘N` or `⌘T`, then each does what U32 and U33 say, wherever focus is (a Terminal included), and the webview handles it so a Terminal never sees it. U32's chord rules hold unchanged: Caps Lock neutral, key repeat acts once, other modifier sets do nothing. Tests: the existing `u32_` and `u165_` observers stay passing; no new test repeats them.
 
 **U2239 the leader takes the next key.** Given an open Project and no modal layer, when the user presses `⌘K` (the same chord rules as U32), then roundup waits for one key and nothing else happens. The next key, matched by key position as U107 did and with Caps Lock neutral, runs one action and ends the wait:
 
