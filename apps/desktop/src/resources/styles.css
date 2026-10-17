@@ -123,13 +123,3 @@
   pointer-events: none;
   user-select: none;
 }
-
-/* No hint shows: the bar drops its first line and keeps the two it had (U2230b). */
-.resource-strip:has(> .hint-line:empty) {
-  grid-template-rows: repeat(2, var(--space-5));
-  height: calc(2 * var(--space-5));
-}
-
-.resource-strip:has(> .hint-line:empty) > :is(.terminal-tabs-host, .resource-agent, .resource-stale) {
-  grid-row: 1 / -1;
-}
