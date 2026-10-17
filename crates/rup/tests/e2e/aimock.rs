@@ -158,3 +158,36 @@ pub fn configure(config: &Path, cwd: &Path, base_url: &str) {
     }
     std::fs::write(config.join(".claude.json"), state.to_string()).unwrap();
 }
+
+/// A launch gate in front of the pinned Claude: it logs each start's argv and the launch settings
+/// it saw, creates `held` when `hold` is missing, waits for `hold`, then runs the real program.
+/// It scripts nothing of what Claude does.
+pub fn launch_wrapper(dir: &Path, hold: &Path, held: &Path, log: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join("claude-launch");
+    let quoted = |path: &Path| serde_json::to_string(path.to_str().unwrap()).unwrap();
+    std::fs::write(
+        &path,
+        format!(
+            r#"#!/usr/bin/env python3
+import json, os, sys, time
+seen = {{n: os.environ[n] for n in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if n in os.environ}}
+with open({log}, "a") as log:
+    log.write(json.dumps({{"argv": sys.argv[1:], "env": seen, "functionHooks": os.environ.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")}}) + "\n")
+if not os.path.exists({hold}):
+    open({held}, "w").close()
+while not os.path.exists({hold}):
+    time.sleep(0.02)
+claude = {claude}
+os.execv(claude, [claude, *sys.argv[1:]])
+"#,
+            log = quoted(log),
+            hold = quoted(hold),
+            held = quoted(held),
+            claude = quoted(&package_bin("claude")),
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    path
+}

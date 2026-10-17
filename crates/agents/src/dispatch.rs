@@ -20,7 +20,7 @@ impl Module for Agents {
             "agent.interrupt" => {
                 let NodeId { id } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Interrupt")?;
-                shared.interrupt(&id).await?;
+                shared.interrupt(&id, None).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
@@ -135,6 +135,7 @@ impl Module for Agents {
             "rail.tree" => reply(&shared.tree()?),
             "agent.spawnPrompt" => {
                 let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, true)?;
                 reply(&serde_json::json!({ "prompt": shared.rail().spawn_prompt(&id)? }))
             }
             "rail.createWorkstream" => {
@@ -188,6 +189,11 @@ impl Module for Agents {
                 shared.rail().set_worktrees(&Worktrees { on, check })?;
                 reply(&())
             }
+            "project.setMcp" => {
+                let mcp: Mcp = params(value)?;
+                shared.rail().set_mcp(&mcp)?;
+                reply(&())
+            }
             "project.setModels" => {
                 let settings: ProjectModels = params(value)?;
                 models::check_settings(&settings)?;
@@ -202,7 +208,12 @@ impl Module for Agents {
             "project.get" => {
                 let worktrees = shared.rail().get_worktrees()?;
                 let models = self.project_models()?;
-                reply(&ProjectSettings { worktrees, models })
+                let mcp = shared.rail().get_mcp()?;
+                reply(&ProjectSettings {
+                    worktrees,
+                    models,
+                    mcp,
+                })
             }
             "project.open" => {
                 let contracts::project::OpenParams { path } = params(value)?;

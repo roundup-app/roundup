@@ -47,6 +47,10 @@ const TOOLS: &[(&str, &str)] = &[
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     ("pad_append", "add text to the end of any Pad"),
+    (
+        "pad_appendSection",
+        "add text at the end of the section under a Markdown heading of any Pad",
+    ),
     ("pad_setOwner", "give a Pad to another Actor"),
     ("pad_delete", "delete a Pad you no longer need"),
     (
@@ -112,20 +116,30 @@ const TOOLS: &[(&str, &str)] = &[
         "rail_startDoor",
         "start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for",
     ),
-    ("rail_rename", "rename yourself or a node in your Reach"),
+    (
+        "rail_rename",
+        "rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+    ),
+    (
+        "agent_actionHistory",
+        "read your durably accepted child actions and their outcomes; never resubmit a waiting action",
+    ),
     (
         "rail_move",
         "move a node in your Reach; a Workstream moves only to the root",
     ),
     ("rail_remove", "remove a node in your Reach, never yourself"),
-    ("agent_stop", "stop an Agent in your Reach, never yourself"),
+    (
+        "agent_stop",
+        "stop an Agent in your Reach, never yourself; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+    ),
     (
         "agent_interrupt",
-        "interrupt the turn of an Agent in your Reach",
+        "interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
         "agent_prompt",
-        "send a prompt to an Agent in your Reach as the user would",
+        "send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
         "agent_resume",
@@ -332,22 +346,84 @@ Write a list as the choices and nothing around them. \
 Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
 ";
 
+/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and `ask_user` is `rup agent ask`.
+fn command(name: &str) -> String {
+    if name == "ask_user" {
+        return "rup agent ask".into();
+    }
+    let (noun, verb) = name.split_once('_').unwrap_or((name, ""));
+    let mut text = format!("rup {noun} ");
+    for c in verb.chars() {
+        if c.is_ascii_uppercase() {
+            text.push('-');
+        }
+        text.push(if c == '_' {
+            '-'
+        } else {
+            c.to_ascii_lowercase()
+        });
+    }
+    text.trim_end().to_owned()
+}
+
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
-/// prompt cache. The Agent's id reaches it in its Context at start (E3).
-pub fn text(role: Role) -> String {
-    // M11: the tools to load together on the first turn.
-    let first_turn = if role == Role::Door {
-        "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together first."
+/// prompt cache. The Agent's id reaches it in its Context at start (E3). `mcp` is whether the
+/// roundup MCP server is launched (M2219); with it off the Brief names `rup` commands instead.
+pub fn text(role: Role, mcp: bool) -> String {
+    let brief = with_tools(role, mcp);
+    if mcp {
+        return brief;
+    }
+    let door: &[(&str, &str)] = if role == Role::Door {
+        &DOOR_TOOLS_EXTRA
     } else {
-        "Load `agent_context` and `todo_list` together first."
+        &[]
+    };
+    TOOLS
+        .iter()
+        .chain(door)
+        .fold(brief, |brief, &(name, _)| {
+            brief.replace(&format!("`{name}`"), &format!("`{}`", command(name)))
+        })
+        // The one tool a description names without ticks.
+        .replace(
+            "agent_actionHistory",
+            &format!("`{}`", command("agent_actionHistory")),
+        )
+}
+
+fn with_tools(role: Role, mcp: bool) -> String {
+    // M11: the tools to load together on the first turn.
+    let first_turn = match (mcp, role) {
+        (true, Role::Door) => {
+            "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together first."
+        }
+        (true, _) => "Load `agent_context` and `todo_list` together first.",
+        (false, Role::Door) => {
+            "Run `agent_context`, `message_list`, `agent_digest` and `ask_user` first."
+        }
+        (false, _) => "Run `agent_context` and `todo_list` first.",
+    };
+    let (heading, help, tools) = if mcp {
+        (
+            "Tools",
+            "which does everything the tools below do",
+            "The `roundup` MCP server offers these tools. They are deferred: load a tool before its first call with `ToolSearch` and the query `select:mcp__roundup__<name>,…`, naming every tool you need in one call. ",
+        )
+    } else {
+        (
+            "Commands",
+            "which lists the commands below",
+            "You act through these `rup` commands, run from your shell. ",
+        )
     };
     let mut text = format!(
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
-         Your id and where you stand are in the Context you get at start; the id never changes.\n\n\
-         ## Tools\n\n\
-         The `roundup` MCP server offers these tools. They are deferred: load a tool before its first call with `ToolSearch` and the query `select:mcp__roundup__<name>,…`, naming every tool you need in one call. \
-         {first_turn}\n\n",
+         Your id and where you stand are in the Context you get at start; the id never changes. \
+         Your shell sets `ROUNDUP_AGENT_ID` to it, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
+         ## {heading}\n\n\
+         {tools}{first_turn}\n\n",
     );
     let door: &[(&str, &str)] = if role == Role::Door {
         &DOOR_TOOLS_EXTRA
@@ -391,7 +467,7 @@ mod tests {
 
     #[test]
     fn o9_the_brief_and_the_tool_description_name_order_and_prompt() {
-        let brief = text(Role::Door);
+        let brief = text(Role::Door, true);
         assert!(
             brief.contains("`order`") && brief.contains("`prompt`"),
             "{brief}"
@@ -399,8 +475,15 @@ mod tests {
     }
 
     #[test]
+    fn i8_every_brief_says_to_run_rup_help() {
+        for role in [Role::Agent, Role::Door] {
+            assert!(text(role, true).contains("run `rup help`"), "{role:?}");
+        }
+    }
+
+    #[test]
     fn o12_the_brief_names_the_typed_prompt_flow() {
-        let brief = text(Role::Door);
+        let brief = text(Role::Door, true);
         assert!(
             brief.contains("`prompt`")
                 && brief.contains("`order`")

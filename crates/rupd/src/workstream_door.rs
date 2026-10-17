@@ -45,7 +45,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
-        resizes: crate::resize::Resizes::open(&dir).unwrap(),
+        held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         touches,
@@ -235,7 +235,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
 }
 
 #[tokio::test]
-async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
+async fn u467_unsent_terminal_input_is_not_clobbered() {
     let project = tempfile::tempdir().unwrap();
     let dir = project.path().join(".roundup");
     std::fs::create_dir(&dir).unwrap();
@@ -280,7 +280,7 @@ async fn b32_the_users_terminal_write_holds_messages_until_a_submit() {
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
         door_first_steers: Default::default(),
         child_effects: Default::default(),
-        resizes: crate::resize::Resizes::open(&dir).unwrap(),
+        held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         touches,

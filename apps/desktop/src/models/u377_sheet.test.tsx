@@ -40,7 +40,7 @@ describe("u377 the Models sheet", () => {
     await mountSheet(settings(["door"]));
     await select("Model for door");
 
-    const boxes = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+    const boxes = [...document.querySelectorAll<HTMLInputElement>('.models-allowed input[type="checkbox"]')];
 
     expect(screen.getByText("Supervisors may use")).toBeTruthy();
     expect(screen.getByText("A supervisor can start a child only on a checked Model.")).toBeTruthy();
@@ -97,6 +97,17 @@ describe("u377 the Models sheet", () => {
     await mountSheet(settings([long]), list);
     await select(`Model for ${long}`);
 
-    expect(document.querySelectorAll(".models-check")).toHaveLength(20);
+    expect(document.querySelectorAll(".models-allowed .models-check")).toHaveLength(20);
+  });
+
+  it("m2219_the_mcp_toggle_reads_project_get_and_calls_set_mcp_once", async () => {
+    const { app } = await mountSheet({ ...settings(["door"]), mcp: { on: false } });
+    await select("Model for door");
+
+    const box = checkboxNamed("Roundup tools over MCP");
+
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "project.setMcp").map((call) => call.params)).toEqual([{ on: true }]));
   });
 });

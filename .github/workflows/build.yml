@@ -1,7 +1,7 @@
 name: build
 run-name: Build ready work Issues
 
-# L23: one-shot build runs. Build jobs and fix runs share the Codex slots the repository variable `CODEX_RUNS` sets.
+# L23: one-shot build runs. Build jobs and fix runs share the slots the repository variable `CODEX_RUNS` sets, whichever engine runs.
 # `pick` starts the fix runs open Builder PRs need, then fills the slots left with ready work Issues. Each Issue runs build-issue.yml, whose own `after` starts the next pick as soon as
 # that Issue's model did work, so the slots work as a pool rather than a batch.
 # claude-code-action rejects push events, so a merge starts the build once `check` ends on `main`. The user's or a loop

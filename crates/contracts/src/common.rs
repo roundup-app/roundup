@@ -86,6 +86,23 @@ pub struct IdentifyParams {
     pub actor: Actor,
 }
 
+/// `events.subscribe`'s answer: the highest Event number saved when it was accepted, 0 for an empty log (I9).
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct SubscribeResult {
+    #[ts(type = "number")]
+    pub head: u64,
+}
+
+/// `events.subscribe`: with `after`, replay every saved Event numbered above it, then stream live (D11).
+#[derive(Clone, Debug, Default, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export)]
+pub struct SubscribeParams {
+    #[serde(default)]
+    #[ts(optional, type = "number")]
+    pub after: Option<u64>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export)]
 pub struct HistoryParams {

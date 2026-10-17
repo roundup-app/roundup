@@ -108,16 +108,26 @@ class DownstreamDraft(unittest.TestCase):
 
 
 class Permissions(unittest.TestCase):
-    def test_l23_build_and_fix_runs_run_on_codex_signed_in_with_the_users_chatgpt_login(self):
-        # builder.test.py proves `builder.py codex` asks the App for workflow changes and read-only CI evidence.
+    def test_l23_build_and_fix_runs_run_the_engine_with_the_max_token_and_the_chatgpt_login(self):
+        # builder.test.py proves `builder.py engine` runs Sonnet first, falls back to Codex and asks the App for workflow changes.
         for workflow, loop in (('build-issue', '$RUNNER_TEMP/loop'), ('fix', '$RUNNER_TEMP/main/loop')):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             self.assertNotIn('claude-code-action', source, workflow)
             self.assertIn("builder: 'true'", source, workflow)
-            step = source.split('      - id: codex\n', 1)[1].split('\n      - ', 1)[0]
+            step = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
             self.assertIn('CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}', step, workflow)
-            self.assertIn(f'python3 "{loop}/builder.py" codex gpt-6.1-sol', step, workflow)
+            self.assertIn('CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}', step, workflow)
+            self.assertIn(f'python3 "{loop}/builder.py" engine', step, workflow)
             self.assertNotIn('github.token', step, workflow)
+
+    def test_l82_the_engine_waits_for_the_generated_conflict_script(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        resolve = source.split('      - id: resolve\n', 1)[1].split('\n      - ', 1)[0]
+        engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("needs.task.outputs.cause == 'conflict'", resolve)
+        self.assertIn('builder.py" resolve-generated', resolve)
+        self.assertIn("if: steps.resolve.outputs.resolved != 'true'", engine)
+        self.assertLess(source.index('      - id: resolve'), source.index('      - id: engine'))
 
     def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):
         inputs = action_inputs('review')
@@ -248,6 +258,16 @@ class L89(unittest.TestCase):
         self.assertEqual(['crates/agents/tests/working_files.rs', 'crates/checkpoints/src/marks_tests.rs',
                           'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
                           'crates/rupd/src/data.rs'], files.split())
+
+    def test_l89_every_setup_input_a_step_reads_or_a_job_passes_is_declared(self):
+        # An undeclared input reads as an empty string: `inputs.node != 'false'` stays true and the step runs anyway.
+        action = (ROOT / '.github/actions/setup/action.yml').read_text()
+        declared = set(re.findall(r'^  ([a-z-]+):\n    description:', action.split('\nruns:', 1)[0], re.M))
+        self.assertEqual(declared, set(re.findall(r'inputs\.([a-z-]+)', action)))
+        for workflow in (ROOT / '.github/workflows').glob('*.yml'):
+            for uses in re.finditer(r'uses: \./\.github/actions/setup\n(?:\s+with:\n((?:\s+[a-z-]+: .*\n)+))?', workflow.read_text()):
+                passed = set(re.findall(r'^\s+([a-z-]+): ', uses[1] or '', re.M))
+                self.assertLessEqual(passed, declared, workflow.name)
 
     def test_l89_a_check_recipe_runs_every_line_and_names_each_failed_one(self):
         with tempfile.TemporaryDirectory() as path:

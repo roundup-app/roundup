@@ -2,7 +2,7 @@ name: setup
 description: The toolchain `just check` needs on a macOS or Linux runner, with the workspace's packages installed.
 inputs:
   rust:
-    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain and restores the Rust cache, enough to build `rupd` and `rup`.
+    description: Install the Rust toolchain and native build tools; `build` installs only the toolchain, restores the Rust cache and builds `rupd` and `rup` while Node installs.
     default: 'true'
   browser:
     description: Install the browser used to inspect the rendered App.
@@ -10,12 +10,41 @@ inputs:
   save-cache:
     description: On a push to main, save the Rust cache this job built; only a job that builds every test target sets it (L84).
     default: 'false'
+  node:
+    description: Install Node, pnpm and the workspace's packages; `false` for a job whose commands run none (the `mac` lane).
+    default: 'true'
   builder:
-    description: Install Codex, which runs a Builder (L23), and Claude Code, which screens its ask and runs its real-`claude` observers.
+    description: Install Claude Code, which runs a Builder (L23), screens its ask and runs its real-`claude` observers, and Codex, the Builder's fallback.
     default: 'false'
 runs:
   using: composite
   steps:
+    # The browser downloads and its system packages install in about 30 s of waiting on the network: where no Tauri
+    # install holds apt's lock, they run in the background while the toolchain, caches and Node install, and `Wait for
+    # browser` joins them. The package goes to its own prefix: this runs before `setup-node`, on the runner's own Node.
+    - if: inputs.browser == 'true' && inputs.rust != 'true'
+      name: Start browser install
+      shell: bash
+      run: |
+        prefix="$HOME/.agent-browser-npm"
+        echo "$prefix/bin" >>"$GITHUB_PATH"
+        setsid bash -c 'npm install -g --prefix "$1" agent-browser@0.27.0 && PATH="$1/bin:$PATH" agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}; echo $? >"$2"' _ "$prefix" "$RUNNER_TEMP/browser.status" >"$RUNNER_TEMP/browser.log" 2>&1 </dev/null &
+    # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
+    # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
+    # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives leaves only the
+    # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of.
+    - if: inputs.rust == 'true' && runner.os == 'Linux'
+      id: apt-archives
+      uses: actions/cache@v5
+      with:
+        path: ~/apt-archives/*.deb
+        key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup/action.yml') }}
+    - if: inputs.rust == 'true' && runner.os == 'Linux'
+      name: Start Tauri packages
+      shell: bash
+      run: |
+        mkdir -p "$HOME/apt-archives/partial"
+        setsid sudo bash -c 'apt-get update && apt-get install -y -o Dir::Cache::archives="$2" libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" "$HOME/apt-archives" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
     - if: inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
@@ -29,6 +58,13 @@ runs:
       with:
         shared-key: check-${{ runner.os }}
         save-if: ${{ inputs.save-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
+    # daemon build` joins it.
+    - if: inputs.rust == 'build'
+      name: Start daemon build
+      shell: bash
+      run: |
+        setsid bash -c 'cargo build -p rupd -p rup; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
     - if: inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
     - if: inputs.rust == 'true'
@@ -36,17 +72,13 @@ runs:
     - uses: actions/setup-python@v6
       with:
         python-version: '3.12'
-    - uses: pnpm/action-setup@v5
-    - uses: actions/setup-node@v5
+    - if: inputs.node != 'false'
+      uses: pnpm/action-setup@v5
+    - if: inputs.node != 'false'
+      uses: actions/setup-node@v5
       with:
         node-version: 22
         cache: pnpm
-    - if: inputs.rust == 'true' && runner.os == 'Linux'
-      name: Tauri packages
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq
     - if: inputs.rust == 'true' && runner.os == 'macOS'
       name: GNU coreutils and jq
       shell: bash
@@ -54,13 +86,35 @@ runs:
         brew install coreutils jq
         echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
     - uses: taiki-e/install-action@just
-    - shell: bash
+    - if: inputs.node != 'false'
+      shell: bash
       run: pnpm install --frozen-lockfile
-    - if: inputs.browser == 'true'
+    - if: inputs.rust == 'true' && runner.os == 'Linux'
+      name: Wait for Tauri packages
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/apt.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/apt.log"
+        [ "$(cat "$RUNNER_TEMP/apt.status")" = 0 ]
+    - if: inputs.rust == 'build'
+      name: Wait for daemon build
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/daemon.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/daemon.log"
+        [ "$(cat "$RUNNER_TEMP/daemon.status")" = 0 ]
+    - if: inputs.browser == 'true' && inputs.rust == 'true'
       shell: bash
       run: |
         npm install -g agent-browser@0.27.0
         agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}
+    - if: inputs.browser == 'true' && inputs.rust != 'true'
+      name: Wait for browser
+      shell: bash
+      run: |
+        until [ -s "$RUNNER_TEMP/browser.status" ]; do sleep 1; done
+        cat "$RUNNER_TEMP/browser.log"
+        [ "$(cat "$RUNNER_TEMP/browser.status")" = 0 ]
     # Codex, and Claude Code at the version claude-code-action 1 pins.
     - if: inputs.builder == 'true'
       shell: bash

@@ -2,7 +2,6 @@ import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
 import type { Decision } from "@contracts/decision/Decision";
-import type { Message } from "@contracts/message/Message";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { KeptReason } from "@contracts/agent/KeptReason";
@@ -23,7 +22,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "long-messages", "thread-report", "pinned-question", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -115,6 +114,7 @@ const padsAt = (now: number): Pad[] =>
     owner: index % 2 === 1 ? USER : { kind: "agent", id: "agent-1", parent: null },
     text: "# hello\nsome text\n".repeat(30),
     updated_at: now,
+    revision: 1,
     home: index % 2 === 1 ? "payments" : null,
   }));
 
@@ -423,17 +423,18 @@ export const seedApp = (name: SeedName, now: number): Controls => {
         agent("bare-agent", "idle", "idle", { name: "bare agent", order: 1, status: statusAt(now, "idle", "idle", 2) }),
         agent("finished-agent", "done", "finished", { name: "finished agent", order: 2, terminal_id: null, status: statusAt(now, "done", "finished", 3) }),
       ]
-      : name === "pinned-question"
-      ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "clarification", question: Array.from({ length: 12 }, (_, at) => `line ${at + 1}`).join("\n") } })]
-      : name === "thread-report"
-      ? [door("r1", "working", "working", { name: "workstream-1", work: { kind: "work", ask: "Give a short tour of the repo and say where the build starts, which tests run on a push and what a change must pass before it merges", limits: ["touch main", "skip tests", "edit contracts"] } })]
+      : name === "door-report"
+      ? [
+        door("r1", "working", "working", { name: "workstream-1" }),
+        agent("c1", "working", "working", { name: "child", parent: "r1", work: { kind: "work", ask: "Give a short tour of the repo and say where the build starts, which tests run on a push and what a change must pass before it merges", limits: ["touch main", "skip tests", "edit contracts"] } }),
+      ]
       : name === "bubbles"
         ? [
           workstream("first-workstream", { name: "first workstream" }),
           agent("runner", "working", "running tests", { name: "runner", parent: "first-workstream", status: statusAt(now, "working", "running tests", 2) }),
           agent("dense", "working", "eight Runs", { name: "dense", parent: "first-workstream", order: 1, status: statusAt(now, "working", "eight Runs", 1) }),
         ]
-      : name === "door-stopped" || name === "long-messages"
+      : name === "door-stopped"
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
@@ -477,37 +478,6 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
       return null;
     };
-  }
-
-  if (name === "long-messages") {
-    // U196's observer: the user's Messages of 400, 2 lines and 20 characters, then an Agent's of 400.
-    const door = { kind: "agent", id: "first-workstream", parent: null } as const;
-    const long = "Just testing out the app roundup and writing a long note to see where its lines end and whether the rest stays out of the way. ".repeat(3).slice(0, 400);
-
-    const at = (id: number, from: Message["from"], to: string, body: string): Message => ({
-      id, from, to, kind: "note", body, replyTo: null, status: "delivered", reason: null, passedFrom: null, at: now,
-    });
-
-    const messages = [at(1, USER, "first-workstream", long), at(2, USER, "first-workstream", "one\ntwo"), at(3, USER, "first-workstream", "twenty characters ok"), at(4, door, "you", long)];
-
-    app.handlers["message.list"] = () => messages;
-  }
-
-  if (name === "thread-report") {
-    // U197's observer: the Messages of the user's report on #729, a note, a question with `**` and the user's answer.
-    const report = { kind: "agent", id: "r1", parent: null } as const;
-
-    const at = (id: number, from: Message["from"], to: string, kind: Message["kind"], body: string, replyTo: number | null = null): Message => ({
-      id, from, to, kind, body, replyTo, status: "delivered", reason: null, passedFrom: null, at: now,
-    });
-
-    const messages = [
-      at(1, report, "you", "note", "On it. Found it: the build starts in justfile."),
-      at(2, report, "you", "question", "My guess is that **just check** is the gate. Should I describe it?"),
-      at(3, USER, "r1", "note", "start with the tests", 2),
-    ];
-
-    app.handlers["message.list"] = () => messages;
   }
 
   if (name === "daemon-exits") afterFirstLoad(app, () => app.exitDaemon({ code: 1 }));

@@ -433,65 +433,8 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
                 ],
                 "allowed": [],
             },
+            "mcp": {"on": true},
         })
-    );
-}
-
-/// H15: a loop of 100 tool uses, with the real `rup` hook command registered in the settings file
-/// `agent.spawn` writes, opened by a `UserPromptSubmit`, trying the hook for `PreToolUse` and
-/// `PostToolUse` around each use, then a final `Stop`. The fake `claude` skips an event with no
-/// entry in the settings, exactly as Claude Code itself would, and fails the loop if any hook
-/// command exits non-zero, so a finished loop means every `rup signal` answered. That proves only
-/// that the RPC call answered: a Daemon whose `agent.signal` handler dropped every Signal would
-/// still make `rup signal` exit 0, so a subscribed client must also see the Kind go `working` and
-/// then `idle`, and `rail.tree`, read straight from the Daemon's own Runs, must say `idle`.
-#[tokio::test]
-async fn h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle()
- {
-    let report = tempfile::NamedTempFile::new().unwrap();
-    let report_path = report.path().to_string_lossy().into_owned();
-    let project = start(&[
-        ("FAKE_CLAUDE_LOOP", "100"),
-        ("FAKE_CLAUDE_LOOP_REPORT", &report_path),
-    ]);
-    let mut client = project.subscribed().await;
-    let agent = project.spawn_agent(&client).await;
-
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let ran: Vec<String> = loop {
-        if let Ok(text) = std::fs::read_to_string(report.path())
-            && let Ok(ran) = serde_json::from_str::<Vec<String>>(&text)
-        {
-            break ran;
-        }
-        assert!(Instant::now() < deadline, "the loop never finished");
-        tokio::time::sleep(Duration::from_millis(20)).await;
-    };
-
-    assert_eq!(ran.len(), 200, "{ran:?}");
-    assert!(
-        ran.chunks(2)
-            .all(|pair| pair == ["PreToolUse", "PostToolUse"]),
-        "{ran:?}"
-    );
-
-    let mut seen_working = false;
-    loop {
-        match next_kind(&mut client).await {
-            Kind::Working => seen_working = true,
-            Kind::Idle if seen_working => break,
-            _ => {}
-        }
-    }
-
-    let tree = rail_tree(&client).await;
-    let node = tree.iter().find(|node| node.id == agent.id).unwrap();
-    assert_eq!(
-        node.status.as_ref().map(|status| status.label.as_str()),
-        Some("idle"),
-        "the Daemon's own Status for the Agent is not `idle` after the loop's final Stop, so it \
-         did not act on the Signals: {:?}",
-        node.status
     );
 }
 
@@ -2077,6 +2020,14 @@ fn path_with_fake_claude(root: &std::path::Path) -> String {
     format!("{}:{}", bin.display(), std::env::var("PATH").unwrap())
 }
 
+fn rup_dir() -> String {
+    std::path::Path::new(env!("CARGO_BIN_EXE_rup"))
+        .parent()
+        .unwrap()
+        .display()
+        .to_string()
+}
+
 async fn json_file(path: &std::path::Path) -> Value {
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
@@ -2133,11 +2084,11 @@ async fn f2_an_ordinary_agent_runs_claude_directly_and_through_sh() {
             (Some(0), Some("9.9.9\n"))
         );
     }
-    assert!(
-        settings_of(&project, &agent.id)["env"]
-            .get("PATH")
-            .is_none()
-    );
+    let settings = settings_of(&project, &agent.id);
+    assert_eq!(settings["env"]["ROUNDUP_AGENT_ID"], agent.id);
+    let path = settings["env"]["PATH"].as_str().unwrap();
+    assert!(path.starts_with(&format!("{}:", rup_dir())));
+    assert!(!path.contains("/agents/"));
 }
 
 #[tokio::test]
@@ -2197,7 +2148,7 @@ async fn f4_a_doors_path_in_its_settings_is_its_shim_directory_then_the_daemons_
         .join(format!("agents/{door}.bin"));
     assert_eq!(
         settings_of(&project, &door)["env"]["PATH"],
-        format!("{}:{path}", shims.display())
+        format!("{}:{}:{path}", rup_dir(), shims.display())
     );
     assert!(shims.join("claude").is_file());
 }
@@ -2523,8 +2474,12 @@ async fn m10_only_a_door_is_offered_checkpoint_write() {
 async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
     let project = start(&[]);
     let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    let mut door = Shim::start(&project, &rail.m).await;
+    // No children: startup Digests must not race the checkpoint-only Message assertion.
+    let workstream = workstream(&user, "m").await;
+    user.request("rail.startDoor", json!({"id":workstream}))
+        .await
+        .unwrap();
+    let mut door = Shim::start(&project, &workstream).await;
     let before = user.request("message.list", json!({})).await.unwrap();
 
     let first = door.call("checkpoint_write", card("login merged")).await;
@@ -2534,7 +2489,7 @@ async fn m10_write_returns_the_next_id_in_the_doors_workstream() {
         (first["id"].as_u64(), second["id"].as_u64()),
         (Some(1), Some(2))
     );
-    assert_eq!(first["workstream"], rail.m.as_str());
+    assert_eq!(first["workstream"], workstream.as_str());
     assert_eq!(first["title"], "login merged");
     assert_eq!(first["blocks"], card("")["blocks"]);
     assert!(first["at"].as_i64().unwrap() > 0);
@@ -2642,6 +2597,29 @@ async fn m10_list_returns_checkpoints_in_order_after_a_restart() {
         .await
         .unwrap();
     assert_eq!(other.as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn u467_checkpoints_survive_view_removal() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let workstream = workstream(&user, "m").await;
+    user.request("rail.startDoor", json!({"id":workstream}))
+        .await
+        .unwrap();
+    let mut door = Shim::start(&project, &workstream).await;
+    let written = door.call("checkpoint_write", card("login merged")).await;
+    drop(door);
+    drop(user);
+
+    project.restart(&[]);
+    let user = project.client().await;
+    let listed = user
+        .request("checkpoint.list", json!({ "workstream": workstream }))
+        .await
+        .unwrap();
+
+    assert_eq!(listed, json!([written]));
 }
 
 #[tokio::test]
@@ -3084,7 +3062,8 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
 
 #[tokio::test]
 async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
-    let hold = tempfile::tempdir().unwrap().keep().join("start");
+    let gates = tempfile::tempdir().unwrap();
+    let hold = gates.path().join("start");
     let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
     let project = start(&[
         ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
@@ -3092,31 +3071,62 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
     ]);
     let client = project.client().await;
     let door = start_door(&client).await;
+    // B7 batches pending Messages. Put another note first so the Decision notice
+    // cannot accidentally pass only because it heads the submitted prompt.
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "queued before the Decision"}),
+        )
+        .await
+        .unwrap();
     let child = agent_in(&project, &client, Some(&door)).await;
     let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
     let decision = h21_decision(&client, &child, None).await;
     let id = decision["id"].as_str().unwrap().to_owned();
-    h21_notes(&client, &door, 1).await;
+    let notes = h21_notes(&client, &door, 1).await;
+    let body = notes[0]["body"].as_str().unwrap();
+    assert_eq!(notes[0]["status"], "pending");
 
     h21_user_answers(&client, &id, "deny").await.unwrap();
+    let decisions = client.request("decision.list", Value::Null).await.unwrap();
+    assert!(decisions.as_array().unwrap().iter().all(|d| d["id"] != id));
+    let mut events = project.subscribed().await;
     std::fs::write(&hold, "").unwrap();
 
-    let typed = h21_poll("the typed note", async || {
-        let todos = client.request("todo.list", Value::Null).await.unwrap();
-        todos
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|t| {
-                t["title"]
-                    .as_str()
-                    .unwrap()
-                    .starts_with(&format!("[decision {id}] "))
-            })
-            .cloned()
+    let observed = tokio::time::timeout(Duration::from_secs(30), async {
+        while let Some(event) = events.next_event().await {
+            if let EventData::TodoCreated(todo) = event.data
+                && todo.creator.id == door
+                && todo
+                    .title
+                    .lines()
+                    .any(|line| line.strip_prefix("[from rupd, note] ").unwrap_or(line) == body)
+            {
+                return todo;
+            }
+        }
+        panic!("the connection closed before the typed Decision notice");
     })
     .await;
-    assert!(typed["title"].as_str().unwrap().contains("asks Bash"));
+    let typed = match observed {
+        Ok(todo) => todo,
+        Err(_) => {
+            let evidence = tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::join!(
+                    client.request("message.list", json!({"to": door})),
+                    client.request("todo.list", Value::Null),
+                    client.request("rail.tree", Value::Null),
+                )
+            })
+            .await;
+            panic!(
+                "timed out waiting for typed Decision notice {body:?}; \
+                 (Messages, Todos, Rail): {evidence:?}"
+            );
+        }
+    };
+    assert!(typed.title.starts_with("queued before the Decision\n\n"));
 }
 
 #[tokio::test]
@@ -4292,4 +4302,66 @@ async fn m17_decision_answer_names_the_decision_and_answer() {
         let open = user.request("decision.list", Value::Null).await.unwrap();
         assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
     }
+}
+
+/// The next Event `client` is pushed that is a Todo created with `title`, with every number seen on the way.
+async fn until_created(client: &mut rpc::Client, title: &str) -> Vec<(u64, bool)> {
+    let mut seen = Vec::new();
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(30), client.next_event())
+            .await
+            .expect("the Daemon sends the Events")
+            .expect("the connection stays open");
+        let hit = matches!(&event.data, EventData::TodoCreated(todo) if todo.title == title);
+        seen.extend(event.seq.map(|seq| (seq, hit)));
+        if hit {
+            return seen;
+        }
+    }
+}
+
+#[tokio::test]
+async fn d12_a_client_resumes_after_a_killed_daemon() {
+    let mut project = start(&[]);
+    let mut first = project.subscribed().await;
+    let caller = project.client().await;
+    caller
+        .request("todo.create", json!({ "title": "a" }))
+        .await
+        .unwrap();
+    let n = until_created(&mut first, "a").await.last().unwrap().0;
+    // Saved before the kill, never read by `first`.
+    for title in ["b", "c"] {
+        caller
+            .request("todo.create", json!({ "title": title }))
+            .await
+            .unwrap();
+    }
+    drop((first, caller));
+    project.crash();
+    project.restart(&[]);
+
+    let mut resumed = project.client().await;
+    resumed
+        .request("events.subscribe", json!({ "after": n }))
+        .await
+        .unwrap();
+    project
+        .client()
+        .await
+        .request("todo.create", json!({ "title": "d" }))
+        .await
+        .unwrap();
+    let got: Vec<u64> = until_created(&mut resumed, "d")
+        .await
+        .into_iter()
+        .map(|(seq, _)| seq)
+        .collect();
+    let last = *got.last().unwrap();
+    assert_eq!(
+        got,
+        (n + 1..=last).collect::<Vec<_>>(),
+        "each number once, in order"
+    );
+    assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
 }

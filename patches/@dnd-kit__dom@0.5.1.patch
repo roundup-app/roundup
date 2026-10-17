@@ -1,0 +1,30 @@
+diff --git a/index.cjs b/index.cjs
+index 894eb14701b4c7939439cf07a178808146ded825..cb4893b8008a108754a5a8dd97a051d99543c831 100644
+--- a/index.cjs
++++ b/index.cjs
+@@ -649,8 +649,8 @@ var CSS_RULES = `
+       color: inherit;
+ 
+       &:is(input, button) {
+-        border: revert;
+-        background: revert;
++        border: unset;
++        background: unset;
+       }
+     }
+   }
+diff --git a/index.js b/index.js
+index 5641c3c3407dc82356b05f566f286bbf0d9b2892..6909de9d8ff3056da29ac6f2ea928c6bb505b738 100644
+--- a/index.js
++++ b/index.js
+@@ -648,8 +648,8 @@ var CSS_RULES = `
+       color: inherit;
+ 
+       &:is(input, button) {
+-        border: revert;
+-        background: revert;
++        border: unset;
++        background: unset;
+       }
+     }
+   }

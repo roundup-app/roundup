@@ -18,7 +18,9 @@ use serde_json::Value;
 use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
-pub use launch::{DOOR_TOOLS, Folders, Launcher, Pair, STATE_EVENTS, settings_marker};
+pub use launch::{
+    DOOR_TOOLS, DOOR_TOOLS_NO_MCP, Folders, Launcher, Pair, STATE_EVENTS, settings_marker,
+};
 pub use models::{efforts, models};
 pub use skills::{BANNED, skills};
 
@@ -304,8 +306,14 @@ fn lead_of(text: &str) -> &'static str {
 /// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
     let mut bytes = lead_of(text).as_bytes().to_vec();
-    bytes.extend_from_slice(b"\x1b[200~");
-    bytes.extend(text.bytes().filter(|byte| *byte != 0x1b));
+    bytes.extend(verbatim_bytes(&text.replace('\x1b', "")));
+    bytes
+}
+
+/// A41: retain the first slash of the user's Ask while keeping H11's paste fence.
+pub(super) fn verbatim_bytes(text: &str) -> Vec<u8> {
+    let mut bytes = b"\x1b[200~".to_vec();
+    bytes.extend_from_slice(text.as_bytes());
     bytes.extend_from_slice(b"\x1b[201~\r");
     bytes
 }

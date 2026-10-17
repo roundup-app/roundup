@@ -104,7 +104,11 @@ impl Agents {
             }
             (node.id, attempt)
         };
-        match self.run_agent(&id, &attempt, cwd, None).await.map(drop) {
+        match self
+            .run_agent(&id, &attempt, cwd, None, true)
+            .await
+            .map(drop)
+        {
             Ok(()) => {}
             Err(err) => {
                 let mut rail = self.shared.rail();
@@ -146,6 +150,7 @@ impl Agents {
                 format!("{id} is not an Agent"),
             ));
         }
+        self.shared.guard_reach(&ctx.actor, &id, true)?;
         let cwd = cwd
             .or_else(|| node.worktree.map(|worktree| worktree.path))
             .or(saved_cwd)
@@ -187,15 +192,11 @@ impl Agents {
         let spawned = self
             .shared
             .terminals
-            .spawn_owned(
-                TerminalSpawn {
-                    cwd: self.project_dir().to_string_lossy().into_owned(),
-                    command: Some(vec![shell, "-l".into()]),
-                    env: BTreeMap::new(),
-                    cols: 80,
-                    rows: 24,
-                },
+            .spawn_shell_owned(
+                &self.project_dir().to_string_lossy(),
+                &shell,
                 &workstream,
+                BTreeMap::new(),
             )
             .await?;
         Ok(Opened {
@@ -212,6 +213,7 @@ impl Agents {
         attempt: &str,
         cwd: &Path,
         first: Option<String>,
+        startup_context: bool,
     ) -> Result<String, RpcError> {
         let node = self.shared.rail().node(id)?;
         // O2, O3: the first Steer is the node's order, whichever way it was set.
@@ -257,6 +259,7 @@ impl Agents {
         let terminal_id = spawned.id.clone();
         let run_cwd = effective_cwd.to_string_lossy().into_owned();
         let prompts = self.shared.finish_starting(id, attempt, |named| Run {
+            startup_context,
             attempt: attempt.to_owned(),
             status_revision: 1,
             closing: false,
@@ -315,6 +318,10 @@ impl Agents {
         let pair = Pair {
             model: node.model,
             effort: node.effort,
+            mcp_off: !models::mcp_on(
+                std::env::var_os("ROUNDUP_MCP").as_deref(),
+                self.shared.rail().get_mcp()?.on,
+            ),
         };
         let started = attempt.to_owned();
         let (argv, env) = self

@@ -110,7 +110,9 @@ impl Agents {
             model: held.model,
             effort: held.effort,
         };
-        let node = self.start_door_with(ctx, params, Some(handoff)).await?;
+        let node = self
+            .start_door_with(ctx, params, Some(handoff), true)
+            .await?;
         let attempt = node.attempt.clone().unwrap_or_default();
         let started = async {
             loop {
@@ -149,7 +151,7 @@ impl Agents {
         ctx: &Ctx,
         params: StartDoorParams,
     ) -> Result<RailNode, RpcError> {
-        self.start_door_with(ctx, params, None).await
+        self.start_door_with(ctx, params, None, true).await
     }
 
     /// `first` is A32's Handoff: it replaces the Door's order as the first prompt and a saved
@@ -159,7 +161,9 @@ impl Agents {
         ctx: &Ctx,
         StartDoorParams { id, model, effort }: StartDoorParams,
         first: Option<String>,
+        startup_context: bool,
     ) -> Result<RailNode, RpcError> {
+        let _lifecycle = self.shared.door_lifecycle.read().await;
         let id = id.as_str();
         let saved = {
             let rail = self.shared.rail();
@@ -220,7 +224,10 @@ impl Agents {
             attempt
         };
         let project = self.project_dir().to_owned();
-        if let Err(err) = self.run_agent(id, &attempt, &project, first).await {
+        if let Err(err) = self
+            .run_agent(id, &attempt, &project, first, startup_context)
+            .await
+        {
             let mut rail = self.shared.rail();
             let mut runs = self.shared.runs();
             if runs.get(id).is_some_and(|slot| slot.attempt() == attempt) {

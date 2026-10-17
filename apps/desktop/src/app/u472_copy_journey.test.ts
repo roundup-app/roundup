@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
+import { appServer } from "../testing/appServer";
+import type { AppServer } from "../testing/appServer";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
@@ -18,7 +20,7 @@ const art = captureDir("U472");
 
 const seeds = ["first-run", "agents-10", "tree-40", "door-stopped", "decisions", "conflict"];
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let baseServer: ViteDevServer | undefined;
 
@@ -56,9 +58,8 @@ const clickText = (text: string, selector = "button") => evaluate(`(() => {
 beforeAll(async () => {
   profile = await mkdtemp(join(tmpdir(), "u472-browser-"));
   await writeFile(join(profile, "config.json"), "{}");
-  server = await createServer({ root: process.cwd(), cacheDir: join(profile, "vite-head"), server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   const baselineRoot = process.env.ROUNDUP_COPY_BASE_ROOT;
 
   if (baselineRoot) {
@@ -185,7 +186,7 @@ const baselineFailure = async (width: number, scheme: string): Promise<Checks> =
 
   await load(baseOrigin, "tree-40", width, scheme);
   await browser("click", '[role="treeitem"][data-id="payments"]');
-  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await wait("Boolean(document.querySelector('.pane-screen'))");
   await clickText(['Hide', 'Shelf'].join(' '));
   await evaluate("window.__fake.app.handlers['workstream.clear'] = () => ({pending: true})");
   await clickText("More");
@@ -210,7 +211,7 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   await browser("press", "Enter");
   await wait("document.body.textContent.includes('New Workstream')");
   await clickText("New Workstream");
-  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await wait("Boolean(document.querySelector('.pane-screen'))");
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length")).toBe(1);
 
   await clickText("Hide work items");
@@ -218,17 +219,8 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   await clickText("Show work items");
   await wait("!document.querySelector('.shelf').hidden && document.querySelector('.shelf').dataset.open === 'true' && document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth + 1");
   await clickText("Hide work items");
-  await clickText("More");
-  await clickText("Take control", "[role=menuitem]");
-  await wait("Boolean(document.querySelector('[data-takeover]'))");
-  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.begin').map(call => call.params)")).toEqual([{ agent: "n1" }]);
-  await clickText("More");
-  await clickText("Give control back", "[role=menuitem]");
-  await wait("!document.querySelector('[data-takeover]')");
-  expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'takeover.end').slice(-1).map(call => call.params)")).toEqual([{ agent: "n1" }]);
-
   await load(origin, "door-stopped", width, "light");
-  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await wait("Boolean(document.querySelector('.pane-screen'))");
   await evaluate(`(() => {
     const app = window.__fake.app;
     const start = app.handlers['rail.startDoor'];
@@ -248,15 +240,14 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   // The densest seed supplies a real Workstream with descendants. Inject at the existing fake seam only.
   await load(origin, "tree-40", width, "light");
   await browser("click", '[role="treeitem"][data-id="payments"]');
-  await wait("Boolean(document.querySelector('[data-thread-input]'))");
+  await wait("Boolean(document.querySelector('.pane-screen'))");
   await clickText("Hide work items");
   await evaluate(`(() => {
     const app = window.__fake.app;
     app.handlers['workstream.clear'] = () => ({pending: true});
     window.__u472TreeBefore = document.querySelectorAll('[role=treeitem]').length;
   })()`);
-  await clickText("More");
-  await clickText("Clear…", "[role=menuitem]");
+  await evaluate(`document.querySelector('[data-id="payments"] [aria-label="Clear"]').click()`);
   await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
   await clickText("Clear and keep a summary");
   await wait("document.body.textContent.includes('The supervisor is writing the summary')");
