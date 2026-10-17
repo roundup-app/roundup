@@ -110,6 +110,5 @@ it("u521_copy_preserves_content", async () => {
   await mountRail([workstream("w", { name: odd })]);
 
   expect(screen.getByText(odd).textContent).toBe(odd);
-  expect(screen.getByRole("button", { name: copy.chooseModelAndEffort })).toBeTruthy();
   expect(screen.getByRole("button", { name: copy.collapse })).toBeTruthy();
 });

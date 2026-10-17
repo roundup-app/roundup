@@ -1,7 +1,6 @@
 import { copy } from "../../copy";
 import { createEffect, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailMenuModel } from "./model";
-import { ModelPair } from "../../models/ModelPair";
 import { goesLine, goingNames, staysLine } from "./removal";
 import { ROW } from "../rows";
 
@@ -20,15 +19,9 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
   createEffect(() => {
     const current = props.menu.state();
 
-    const stage = props.menu.stage();
-
     if (!current) return;
 
-    queueMicrotask(() => {
-      const target = stage === "confirming" ? "[data-cancel]" : stage === "picking" ? "select" : "[role=menuitem]";
-
-      element?.querySelector<HTMLElement>(target)?.focus();
-    });
+    queueMicrotask(() => element?.querySelector<HTMLElement>("[role=menuitem]")?.focus());
   });
 
   const closeAndFocusRow = () => {
@@ -50,9 +43,6 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
       return;
     }
 
-    // A select keeps its own arrow keys and `Enter`; the menu's walk is for its items.
-    if (props.menu.stage() !== null) return;
-
     const items = [...(element?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? [])];
     const index = items.findIndex((item) => item === document.activeElement);
 
@@ -71,13 +61,12 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
         <div
           ref={(node) => { element = node; }}
           class="rail-menu"
-          role={props.menu.stage() === null ? "menu" : "dialog"}
-          aria-label={props.menu.stage() === null ? copy.actionsFor(current().node.name) : copy.modelFor(current().node.name)}
+          role="menu"
+          aria-label={copy.actionsFor(current().node.name)}
           style={{ left: `${current().x}px`, top: `${current().y}px` }}
           onKeyDown={onKeyDown}
           onPointerDown={(press) => press.stopPropagation()}
         >
-          <Show when={props.menu.stage()} fallback={
           <Show
             when={current().confirming}
             fallback={
@@ -87,9 +76,6 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
                 </Show>
                 <Show when={props.menu.canResume(current())}>
                   <button data-button="quiet" role="menuitem" onClick={props.menu.chooseResume}>{copy.resume}</button>
-                </Show>
-                <Show when={props.menu.canModel(current())}>
-                  <button data-button="quiet" role="menuitem" onClick={props.menu.chooseModel}>{copy.modelMenu}</button>
                 </Show>
                 <button data-button="quiet" role="menuitem" onClick={props.menu.chooseRemove}>{copy.remove}</button>
                 <Show when={props.menu.canClear(current())}>
@@ -123,35 +109,6 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
             </Show>
             <button data-button="quiet" role="menuitem" onClick={current().action === "stop" ? props.menu.chooseStop : props.menu.chooseRemove}>{current().action === "stop" ? copy.stop : copy.remove}</button>
             <button data-button="quiet" role="menuitem" onClick={closeAndFocusRow}>{copy.keep}</button>
-          </Show>
-          }>
-            {(stage) => (
-              <Show when={stage() === "confirming"} fallback={
-                <>
-                  <Show when={props.menu.choices.list()}>
-                    {(list) => (
-                      <ModelPair
-                        subject={current().node.name}
-                        models={list().models}
-                        efforts={list().efforts}
-                        model={props.menu.pair().model}
-                        effort={props.menu.pair().effort}
-                        onModel={(model) => props.menu.setPair({ ...props.menu.pair(), model })}
-                        onEffort={(effort) => props.menu.setPair({ ...props.menu.pair(), effort })}
-                      />
-                    )}
-                  </Show>
-                  <Show when={props.menu.choices.failure()}>{(message) => <span class="rail-menu-question">{message()}</span>}</Show>
-                  <button data-button="quiet" type="button" disabled={!props.menu.canApply(current())} onClick={props.menu.apply}>{copy.apply}</button>
-                </>
-              }>
-                <span class="rail-menu-question">
-                  {copy.changeToItReReadsItsConversationOn(current().node.name, props.menu.choices.labelOf(props.menu.pair().model))}
-                </span>
-                <button data-button="quiet" type="button" onClick={props.menu.change}>{copy.change}</button>
-                <button data-button="quiet" type="button" data-cancel onClick={closeAndFocusRow}>{copy.cancel}</button>
-              </Show>
-            )}
           </Show>
         </div>
       )}
