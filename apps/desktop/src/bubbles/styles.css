@@ -36,8 +36,8 @@
   background-color: var(--ground);
 }
 
-/* U371: the open Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins. */
-.window[data-shelf="open"] .bubbles {
+/* U371: an overlay Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins; a reserved Shelf is its own column and the pane is already narrower. */
+.window[data-shelf="open"][data-shelf-mode="overlay"] .bubbles {
   right: max(0px, calc(var(--shelf-span) - var(--space-4)));
 }
 
