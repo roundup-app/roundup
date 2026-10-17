@@ -130,7 +130,7 @@ export const RailRowView = (props: {
     return current !== null && hasInk(glyphOf(current)) ? glyphOf(current).tone : undefined;
   };
 
-  /** U172, U3704: the Door action shows when the row is near; it is drawn over the trailing fill, so a name at rest keeps the row's free room. */
+  /** U172, U3704: the Door action shows when the row is near; its room is held at rest, so a name cut for it is cut the same. */
   const hasAction = () => workstream() && props.exit !== null;
 
   const showsAction = () => near() && hasAction();
@@ -238,6 +238,7 @@ export const RailRowView = (props: {
             <span class="fill" aria-hidden="true" />
             <span class="row-tail">
               <RowIcons actions={props.actions}>
+                <Show when={hasAction() && !showsAction()}><span class="door-action-room" aria-hidden="true" /></Show>
                 <Show when={showsAction()}>
                   <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>
                     {(tip) => (

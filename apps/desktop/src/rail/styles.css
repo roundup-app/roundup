@@ -59,17 +59,15 @@
   min-height: var(--space-6);
 }
 
-/* U426, U3704: the actions sit out of flow at the trailing edge, so a name at rest has the row's whole free room and a state beside it never moves; near the row they are drawn over the trailing fill. */
+/* U426, U3704: transparent actions stay tabbable and keep their room, so a name cut for them is cut the same at rest, so a state beside it never moves. */
 .rail-row .row-icons {
-  position: absolute;
-  top: 50%;
-  right: var(--space-4);
-  transform: translateY(-50%);
   display: flex;
+  flex: none;
   gap: 0;
   opacity: 0;
   pointer-events: none;
-  background-color: inherit;
+  /* U3704: with the row's gap, a state is --space-3 from the first action. */
+  margin-inline-start: var(--space-1);
 }
 
 .rail-row[data-near="true"] .row-icons,
@@ -148,13 +146,19 @@
 }
 
 .rail-row .line > .ink-count {
-  color: var(--amber);
+  /* U3704: the count stays beside the name on a hovered or selected row; its amber Glyph marks it and its number keeps 4.5:1 on their wash. */
+  color: var(--text);
 }
 
 /* U403: the name keeps the room; the Door's Glyph and the right side follow it. */
 .rail-row .line > .fill {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.rail-row .door-action-room {
+  flex: none;
+  width: var(--space-5);
 }
 
 .rail-row .door-action {
