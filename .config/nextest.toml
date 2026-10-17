@@ -51,6 +51,7 @@ binary_id(=agents::launch)
 | binary_id(=rupd::b21_stopped_door)
 | binary_id(=terminal::library_attach)
 | binary_id(=todos)
+| (binary_id(=rup::a35) & test(/^a35_[aku]/))
 '''
 
 [profile.ci2]
@@ -65,7 +66,7 @@ binary_id(=agents)
 | binary_id(=pads)
 | binary_id(=perf::bin/perf-keystroke)
 | binary_id(=perf::hook_loop)
-| binary_id(=rup::a35)
+| (binary_id(=rup::a35) & not test(/^a35_[aekoprtuw]/))
 | binary_id(=rup::environment)
 | binary_id(=rup::permission)
 | binary_id(=rupd)
@@ -86,6 +87,7 @@ binary_id(=agents::scenarios)
 | binary_id(=perf::paced)
 | binary_id(=rup::a34)
 | binary_id(=rup::e2e)
+| binary_id(=rup::mcp)
 | binary_id(=rupd::m8_project)
 | binary_id(=terminal::library_parser)
 '''
@@ -96,6 +98,7 @@ binary_id(=agents::state_events)
 | binary_id(=rup::bin/rup)
 | binary_id(=rup::ping)
 | (binary_id(=rup::real_claude) & test(/^a32_/))
+| (binary_id(=rup::a35) & test(/^a35_[eorp]/))
 | binary_id(=rup::t15)
 | binary_id(=rupd::h18_handshake)
 | binary_id(=terminal::library_edits)
@@ -103,7 +106,7 @@ binary_id(=agents::state_events)
 
 [profile.ci5]
 default-filter = '''
-not (
+(not (
 binary_id(=agents::launch)
 | binary_id(=checkpoints)
 | binary_id(=perf::bin/perf)
@@ -128,6 +131,7 @@ binary_id(=agents::launch)
 | binary_id(=perf::bin/perf-keystroke)
 | binary_id(=perf::hook_loop)
 | binary_id(=rup::a35)
+| binary_id(=rup::mcp)
 | binary_id(=rup::environment)
 | binary_id(=rup::permission)
 | binary_id(=rupd)
@@ -154,6 +158,8 @@ binary_id(=agents::launch)
 | binary_id(=rupd::h18_handshake)
 | binary_id(=terminal::library_edits)
 )
+)
+| (binary_id(=rup::a35) & test(/^a35_[tw]/))
 '''
 
 # E14: a real Claude uses up to 370 MB; bound the tests sharing these runners.
