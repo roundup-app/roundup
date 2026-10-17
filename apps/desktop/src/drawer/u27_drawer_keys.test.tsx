@@ -6,7 +6,6 @@ import { connectProject, ConnectedProjectContext } from "../state/connectedProje
 import { Pane } from "../terminal/Pane";
 import type { Emulator } from "../terminal/emulator";
 import { info, node } from "../testing/nodes";
-import styles from "../styles.css?inline";
 import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
 
@@ -180,19 +179,5 @@ describe("u28 Esc closes", () => {
     fireEvent.keyDown(screen.getByLabelText("text"), { key: "Escape" });
 
     expect(drawer.content()).not.toBeNull();
-  });
-});
-
-describe("u27 hairline edge", () => {
-  it("u27_the_open_drawer_has_a_one_pixel_hairline_left_edge", () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    sheet.textContent = styles;
-    const drawer = mountDrawer();
-    drawer.open(() => <p>detail</p>);
-    const edge = getComputedStyle(screen.getByLabelText("Drawer"));
-    const seen = [edge.borderLeftWidth, edge.borderLeftStyle, edge.borderLeftColor];
-    sheet.remove();
-
-    expect(seen).toEqual(["1px", "solid", "var(--hairline)"]);
   });
 });

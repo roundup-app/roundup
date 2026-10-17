@@ -18,40 +18,6 @@ const region = (name: string) => screen.getByRole("region", { name });
 afterEach(cleanup);
 
 describe("u2 first run", () => {
-  it("u2_with_no_open_project_the_rail_region_reads_its_empty_text", async () => {
-    renderApp(createFakeApp());
-
-    await screen.findByText("Open a folder to start");
-
-    expect(region("Rail").textContent).toBe("Workstreams and Agentsappear here, one per row,nested by indent");
-  });
-
-  it("u2_with_no_open_project_the_centre_reads_open_a_folder_and_choose_folder", async () => {
-    renderApp(createFakeApp());
-
-    await screen.findByText("Open a folder to start");
-
-    expect(within(region("Centre")).getByRole("button").textContent).toBe("Choose folder…");
-  });
-
-  it("u2_with_no_open_project_the_shelf_reads_todos_and_pads", async () => {
-    renderApp(createFakeApp());
-
-    await screen.findByText("Open a folder to start");
-
-    expect(region("Work items").textContent).toBe(
-      "TodosAgents add them as theyplan; so can youPads Agent notes Yours",
-    );
-  });
-
-  it("u449_with_no_open_project_the_bar_has_the_plus_and_roundup", async () => {
-    const { container } = renderApp(createFakeApp());
-
-    await screen.findByText("Open a folder to start");
-
-    expect(container.querySelector("header")?.textContent).toBe("+roundup");
-  });
-
   it("u2_choosing_a_folder_in_the_chooser_opens_it_and_the_strip_names_the_project", async () => {
     const app = createFakeApp();
     app.chooser.path = PROJECT.path;

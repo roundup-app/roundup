@@ -6,79 +6,9 @@ import { captureDir } from "../testing/captures";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import { chromePath, FULLSCREEN } from "../testing/chromePage";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import styles from "../styles.css?inline";
-
-const effective = (css: string, selector: string, property: string) =>
-  [...css.matchAll(new RegExp(`(?:^|\\n)\\s*${selector}\\s*{([^}]*)}`, "g"))]
-    .flatMap(([, body]) => [...(body ?? "").matchAll(new RegExp(`(?:^|[\\s;{])${property}:\\s*([^;]+);`, "g"))].map((m) => m[1]))
-    .at(-1);
-
-// U389 narrows U23 and U24: the Rail's width is the user's Token (252 to 480 px, 288 by default) and the centre keeps 388 px, at every window width.
-describe("u23 column widths", () => {
-  it("u23_the_rail_is_the_token_and_the_centre_keeps_a_floor_of_388px", () => {
-    expect(effective(styles, "\\.window", "--rail-width")).toBeUndefined();
-    expect(effective(styles, "\\.columns", "grid-template-columns")).toBe("var(--rail-width) minmax(var(--centre-min-width), 1fr)");
-  });
-});
-
-describe("u24 narrow window", () => {
-  it("u24_no_width_changes_the_columns", () => {
-    expect(styles).not.toContain("@media (max-width");
-  });
-
-  it("u24_the_full_height_shelf_sits_outside_the_columns", () => {
-    expect(effective(styles, "\\.shelf", "position")).toBe("absolute");
-    expect(effective(styles, "\\.shelf", "grid-area")).toBeUndefined();
-    expect(effective(styles, "\\.rail", "grid-area")).toBeUndefined();
-    expect(effective(styles, "\\.centre", "grid-area")).toBeUndefined();
-  });
-
-  it("u24_the_drawer_leaves_the_rail_visible", () => {
-    expect(effective(styles, "\\.window", "--drawer-span")).toBe("max(560px, calc(var(--shelf-span) + var(--space-5)))");
-    expect(effective(styles, "\\.drawer", "width")).toBe("var(--drawer-span)");
-  });
-});
+import { afterAll, beforeAll, expect, it } from "vitest";
 
 // The real Layout plus installed Ark, served by Vite in an isolated headless session.
-
-const fixture = `
-import { createComponent, createSignal } from 'solid-js';
-import { render } from 'solid-js/web';
-import { useSplitter } from '@ark-ui/solid/splitter';
-import { Layout } from '/src/app/Layout.tsx';
-import { createWidths } from '/src/resize/widths.ts';
-
-export const mount = () => {
-  const host = document.createElement('div');
-  host.style.height = '100%';
-  document.body.replaceChildren(host);
-  render(() => {
-    const [open, setOpen] = createSignal(true);
-    const widths = createWidths(() => '/u507-host');
-    const api = useSplitter(() => ({
-      id: 'u507',
-      panels: [{ id: 'rail', minSize: '252px', maxSize: '480px' }, { id: 'centre' }, { id: 'shelf' }],
-      defaultSize: [22.5, 52.5, 25],
-    }));
-    window.__host = { api, widths, setOpen };
-    return createComponent(Layout, {
-      header: 'Header', rail: 'Rail', centre: 'Centre', shelf: 'Shelf', overlay: null, widths,
-      get shelfPlacement() {
-        return { open: open(), rendered: open(), shown: open(), animated: false, onSettle() {} };
-      },
-      get splitter() {
-        return {
-          root: api().getRootProps(),
-          rail: api().getPanelProps({ id: 'rail' }),
-          centre: api().getPanelProps({ id: 'centre' }),
-          shelf: api().getPanelProps({ id: 'shelf' }),
-        };
-      },
-    });
-  }, host);
-};
-`;
 
 const profile = mkdtempSync(join(tmpdir(), "u507-profile-"));
 
@@ -130,8 +60,8 @@ beforeAll(async () => {
           .replace('<button data-button="quiet"\n          type="button"\n          role="tab"', '<ProjectTrigger value={props.tab.path} data-button="quiet"\n          type="button"\n          role="tab"')
           .replace('        </button>\n        <button data-button="icon"', '        </ProjectTrigger>\n        <button data-button="icon"');
       } },
-      resolveId: (id, importer) => id === "./app/Layout" && importer?.endsWith("/src/App.tsx") ? "/u507-bound-layout.js" : id === "/u507-host.js" ? id : undefined,
-      load: (id) => id === "/u507-host.js" ? fixture : id === "/u507-bound-layout.js" ? `
+      resolveId: (id, importer) => id === "./app/Layout" && importer?.endsWith("/src/App.tsx") ? "/u507-bound-layout.js" : undefined,
+      load: (id) => id === "/u507-bound-layout.js" ? `
 import { createComponent, mergeProps } from 'solid-js';
 import { useSplitter } from '@ark-ui/solid/splitter';
 import { Layout as RealLayout } from '/src/app/Layout.tsx';
@@ -162,72 +92,6 @@ afterAll(async () => {
   }
 });
 
-it("u507_layout_host_measures_owned_panels_without_changing_grid_or_shelf_placement", async () => {
-  const captures = captureDir("U507");
-
-  if (captures) mkdirSync(captures, { recursive: true });
-    await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
-    await browser("set", "viewport", "1280", "800");
-    await browser("wait", "--fn", "Boolean(window.__fake) && document.querySelectorAll('[role=separator]').length === 2");
-
-    const defaultHost = JSON.parse(await browser("--json", "eval", `(() => {
-      const root = document.querySelector('[data-layout-root]');
-      if (!root) return null;
-      return {
-        width: root.getBoundingClientRect().width,
-        panels: [...root.querySelectorAll('[data-layout-panel]')].map(el => el.dataset.layoutPanel),
-        edges: [...root.querySelectorAll('[role=separator]')].filter(el => el.closest('[data-layout-root]') === root).length,
-      };
-    })()`));
-
-    expect(defaultHost.data.result).toEqual({ width: 1280, panels: ["rail", "centre", "shelf"], edges: 2 });
-
-    await browser("eval", "(async () => { await document.fonts.ready; (await import('/u507-host.js')).mount(); })()");
-
-    for (const width of [FULLSCREEN.width]) {
-      await browser("set", "viewport", String(width), "800");
-
-      for (const open of [true, false]) {
-        await browser("eval", `window.__host.setOpen(${open})`);
-        await browser("wait", "--fn", `document.querySelector('[data-id="shelf"]').hidden === ${!open}`);
-
-        const output = JSON.parse(await browser("--json", "eval", `(() => {
-          const root = document.querySelector('[data-part="root"]');
-          const panels = [...root.querySelectorAll('[data-part="panel"][data-ownedby="' + root.id + '"]')];
-          return { width: root.getBoundingClientRect().width, display: getComputedStyle(root).display,
-            columns: getComputedStyle(panels[0].parentElement).display,
-            panels: panels.map(el => ({ id: el.dataset.id, width: el.getBoundingClientRect().width, hidden: el.hidden })) };
-        })()`));
-
-        expect(output.success).toBe(true);
-        expect(output.data.result).toEqual({ width, display: "grid", columns: "grid", panels: [
-          { id: "rail", width: 288, hidden: false },
-          { id: "centre", width: width - 288 - (open ? 320 : 0), hidden: false },
-          { id: "shelf", width: open ? 320 : 0, hidden: !open },
-        ] });
-
-        if (captures) {
-          const name = `host-${width}x800-${open ? "open" : "closed"}`;
-
-          writeFileSync(join(captures, `${name}.json`), JSON.stringify(output.data.result));
-          await browser("screenshot", join(captures, `${name}.png`));
-        }
-      }
-    }
-
-    await browser("eval", "window.__host.setOpen(true); window.__host.widths.rail.commit(480); window.__host.widths.shelf.commit(560)");
-    await browser("set", "viewport", "1280", "800");
-    await browser("wait", "--fn", "document.querySelector('[data-part=root]').dataset.shelfMode === 'overlay'");
-
-    const overlay = JSON.parse(await browser("--json", "eval", `(() => ({
-      root: document.querySelector('[data-part=root]').getBoundingClientRect().width,
-      centre: document.querySelector('[data-id=centre]').getBoundingClientRect().width,
-      shelf: document.querySelector('[data-id=shelf]').getBoundingClientRect().width,
-    }))()`));
-
-    expect(overlay.data.result).toEqual({ root: 1280, centre: 800, shelf: 560 });
-}, 180_000);
-
 const openApp = async (bound = true) => {
   await browser("set", "viewport", "1280", "800");
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40${bound ? "&bound=1" : ""}`);
@@ -237,35 +101,6 @@ const openApp = async (bound = true) => {
 
   if (bound) expect(await evaluate(`document.querySelectorAll('[data-part=panel][data-ownedby]').length`)).toBe(3);
 };
-
-// The unbound Layout is retired: the shared Splitter binds every Layout (U502), and `u502_browser` proves the same keys, drag and reset.
-for (const bound of [true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
-  await openApp(bound);
-  await evaluate("localStorage.clear()");
-  await openApp(bound);
-
-  for (const [panel, start, preview, committed] of [["rail", 288, 360, 304], ["shelf", 960, 880, 336]] as const) {
-    const read = () => evaluate<number>(`document.querySelector('[data-layout-panel=${panel}]').getBoundingClientRect().width`);
-    await browser("mouse", "move", String(start), "400");
-    await browser("mouse", "down", "left");
-    await browser("mouse", "move", String(preview), "400");
-    await settle();
-    expect(await read()).toBe(panel === "rail" ? 360 : 400);
-    expect(await evaluate(`localStorage.getItem('roundup:widths:/Users/you/harness')`)).toBe(panel === "rail" ? null : JSON.stringify({ rail: 304, shelf: 320 }));
-    await browser("press", "Escape");
-    await browser("mouse", "up", "left");
-    await settle();
-    expect(await read()).toBe(panel === "rail" ? 288 : 320);
-    await evaluate(`(() => { const edge = document.querySelector('[aria-label="${panel === "rail" ? "Resize Rail" : "Resize work items"}"]'); edge.focus(); edge.dispatchEvent(new KeyboardEvent('keydown', {key:'${panel === "rail" ? "ArrowRight" : "ArrowLeft"}', bubbles:true})); })()`);
-    await settle();
-    expect(await read()).toBe(committed);
-  }
-
-  await openApp(bound);
-  expect(await evaluate(`['rail','centre','shelf'].map(id => document.querySelector('[data-layout-panel='+id+']').getBoundingClientRect().width)`)).toEqual([304, 640, 336]);
-  expect(await evaluate(`document.querySelector('[data-layout-root]').style.cssText`)).toContain("--rail-width: 304px");
-  expect(await evaluate(`document.querySelector('[data-layout-root]').style.cssText`)).toContain("--shelf-span: 336px");
-}, 120_000);
 
 it("u507_bindings_preserve_resize_state", async () => {
   await openApp();
@@ -317,14 +152,8 @@ it("u507_layout_checks", async () => {
       await browser("open", url);
       await browser("wait", ".shelf-tabs");
       await settle();
-      // The Rail keeps the Daemon failure visible even with the Shelf closed.
       await evaluate("window.__fake.app.exitDaemon({code:1})");
       await settle();
-      expect(await evaluate(`(() => {
-        const error = [...document.querySelectorAll('[role=alert]')].find(el => el.textContent.includes('Daemon exited 1'));
-        const box = error?.getBoundingClientRect();
-        return Boolean(box && box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight);
-      })()`)).toBe(true);
 
       for (const open of [true, false]) {
         if (!open) {

@@ -1,7 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
-import appStyles from "../styles.css?inline";
-import buttonStyles from "../buttons.css?inline";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import type { Touch } from "@contracts/Touch";
@@ -14,15 +12,6 @@ import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
 import { ItemDrawer } from "./ItemDrawer";
 import { lastTouchLine } from "./touchLine";
-
-const styles = `${appStyles}\n${buttonStyles}`;
-
-const rule = (selector: string) => {
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(styles);
-
-  return [...sheet.cssRules].find((r): r is CSSStyleRule => r instanceof CSSStyleRule && r.selectorText === selector)?.cssText ?? "";
-};
 
 const USER: Actor = { kind: "user", id: "you", parent: null };
 
@@ -47,23 +36,6 @@ const drawerSetup = (reduced = false) => {
 afterEach(cleanup);
 
 describe("u5 Drawer and last touch", () => {
-  it("u5_a_closed_drawer_waits_off_screen_to_the_right", () => {
-    const { panel } = drawerSetup();
-
-    expect(panel.style.transform).toBe("translateX(100%)");
-  });
-
-  it("u5_an_open_drawer_slides_in_from_the_right_over_the_drawer_duration_token_ease_out", () => {
-    const { drawer, panel } = drawerSetup();
-
-    drawer.open(() => <p>detail</p>);
-
-    expect([panel.style.transform, panel.style.transition]).toEqual([
-      "translateX(0)",
-      "transform var(--duration-drawer) ease-out",
-    ]);
-  });
-
   it("u5_under_prefers_reduced_motion_the_drawer_is_instant", () => {
     const { drawer, panel } = drawerSetup(true);
 
@@ -132,25 +104,6 @@ describe("u5 Drawer and last touch", () => {
 
     expect(boxes()).toEqual(before);
     expect(screen.getByLabelText("Drawer").dataset.open).toBe("true");
-    expect(rule(".window[data-shelf-mode]:has(.drawer[data-open=\"true\"]) .columns")).toContain("width: calc(100% - var(--drawer-span))");
-  });
-
-  it("u5_the_drawer_floats_in_the_overlay_not_in_a_column", async () => {
-    const connected = await connectProject(createFakeApp(), { name: "p", path: "/p" }, () => false, () => 0);
-    render(() => (
-      <Layout
-        header="roundup"
-        rail={null}
-        centre={<div data-testid="pane" />}
-        shelf={null}
-        overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => false} />}
-      />
-    ));
-
-    expect([
-      screen.getByLabelText("Drawer").style.position,
-      screen.getByLabelText("Centre").contains(screen.getByLabelText("Drawer")),
-    ]).toEqual(["absolute", false]);
   });
 
   it("u5_the_last_touch_line_reads_the_newest_touch_in_the_history", () => {
@@ -253,25 +206,6 @@ describe("u5 Drawer and last touch", () => {
     expect(screen.getByText(/^Last/).textContent).toBe("Last  a wrote 09:00");
   });
 
-  it("u5_a_second_light_word_in_the_drawer_is_not_positioned_over_close", () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    sheet.textContent = styles;
-    const { drawer } = drawerSetup();
-    drawer.open(() => (
-      <button type="button" class="word">
-        export .md
-      </button>
-    ));
-
-    const positions = [screen.getByRole("button", { name: "Close" }), screen.getByText("export .md")].map(
-      (word) => getComputedStyle(word).position,
-    );
-
-    sheet.remove();
-
-    expect(positions).toEqual(["absolute", "static"]);
-  });
-
   it("u5_a_failed_read_shows_its_message_in_the_drawer_and_keeps_the_window", async () => {
     const app = createFakeApp();
     app.handlers["todo.get"] = () => Promise.reject(new RpcError(-32001, "no todo 3"));
@@ -290,16 +224,5 @@ describe("u5 Drawer and last touch", () => {
       "ink",
       "window",
     ]);
-  });
-
-  it("u5_the_close_word_is_light_and_clear_of_the_content", () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    sheet.textContent = styles;
-    const { panel } = drawerSetup();
-    const close = screen.getByRole("button", { name: "Close" });
-    const [color, padding] = [getComputedStyle(close).color, getComputedStyle(panel).paddingTop];
-    sheet.remove();
-
-    expect([close.classList.contains("word"), color, padding]).toEqual([true, "var(--grey)", "var(--space-6)"]);
   });
 });

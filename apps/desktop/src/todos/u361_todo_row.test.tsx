@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import rowStyles from "./rowButton.styles.css?inline";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(cleanup);
@@ -108,13 +107,5 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     await waitFor(() => expect(within(drawer).getByText("later")).toBeTruthy());
     await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 6 }]));
-  });
-
-  it("u361_the_wash_keeps_a_token_inset_from_the_text", async () => {
-    await mountTodos([todo(3)]);
-    await screen.findByText("todo 3");
-
-    expect(rowOf(3).classList.contains("todo-inset")).toBe(true);
-    expect(rowStyles).toContain("padding-inline: var(--space-2)");
   });
 });

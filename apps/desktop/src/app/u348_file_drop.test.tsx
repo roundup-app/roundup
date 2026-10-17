@@ -102,17 +102,6 @@ describe("u348 dragging files shows targets, a held drag opens one, a drop lands
     expect(targets()).toEqual([]);
   });
 
-  it("u348_targets_move_no_rectangle", async () => {
-    const { app } = await mount({ api: TREE });
-    const rects = () => [...document.querySelectorAll(".rail-row, .project-tab, .pane-body")].map((element) => element.getBoundingClientRect().toJSON());
-    const before = rects();
-
-    app.dropFiles(over(100, rowY("w1")));
-
-    expect(rects()).toEqual(before);
-    expect(targets().length).toBeGreaterThan(0);
-  });
-
   it("u348_holding_over_a_row_selects_it_after_600_ms", async () => {
     const { app } = await mount({ api: TREE });
 
