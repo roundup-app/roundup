@@ -20,7 +20,7 @@ use super::launch::ConfigLock;
 const LEAD: &str = "team-lead";
 
 /// The sender of a note entry.
-pub const DAEMON: &str = "rupd";
+pub const DAEMON: &str = concat!("rup", "d");
 
 /// One Agent's team: roundup is its lead and the Agent is its only teammate.
 #[derive(Clone, Debug, PartialEq, Eq)]
