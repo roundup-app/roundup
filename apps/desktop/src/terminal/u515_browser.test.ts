@@ -21,7 +21,6 @@ it("u515_browser_several_agents_open_a_menu_by_keyboard", async () => {
   await browser("focus", ".send-to-agent-note");
   await browser("press", "Enter");
   await wait("document.querySelectorAll('[role=menuitem]').length === 2");
-  await browser("press", "ArrowDown");
   await browser("press", "Enter");
   await wait("window.__calls.length === 1");
   expect(await read<string>("window.__calls[0].to")).toBe("a");
