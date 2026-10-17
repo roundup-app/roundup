@@ -97,7 +97,9 @@ impl Waker {
         let replay = self.replay(&wake);
         self.decide(&mut gate, wake, &replay, &world).await;
         let fired = self.messages.wake(id)?.is_none();
-        Ok(Woken { id, fired })
+        // B48(a): the one reason a request is saved and waits.
+        let why = (!fired).then(|| "already working".to_owned());
+        Ok(Woken { id, fired, why })
     }
 
     /// B44: the saved Events a request has not yet been decided on; none when the log no longer
@@ -257,6 +259,9 @@ impl Waker {
             return;
         }
         if let Some(entry) = self.digests.entry_of(&status.id, &world.sources(), true)
+            && !self
+                .digests
+                .repeats_last_note(&parent, &status.id, status.status.kind)
             && let Err(err) = self.messages.note_attention(&parent, &entry).await
         {
             eprintln!("rupd: wake: note to {parent} not sent: {}", err.message);

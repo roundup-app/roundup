@@ -205,7 +205,7 @@ fn decision_answer() -> Offered {
 fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(
         "agent.wake",
-        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
+        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`, and `why` when it did not fire; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
     )
 }
 
