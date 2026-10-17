@@ -127,7 +127,8 @@ run("u502 resize edges use Ark Splitter", () => {
     await settled(EDGES.shelf, 560);
     await page.press("Enter", "Enter");
     await settled(EDGES.shelf, 320);
-    await page.press("\\", "Backslash", META);
+    await page.press("k", "KeyK", META);
+    await page.press("s", "KeyS");
     await page.until(`() => !document.querySelector('[aria-label="Resize work items"]') || document.querySelector('[aria-label="Resize work items"]').closest("[hidden]") !== null`);
     expect(await page.call<boolean>(`() => { const edge = document.querySelector('[aria-label="Resize work items"]'); return !edge || edge.tabIndex < 0 || edge.closest("[hidden]") !== null; }`)).toBe(true);
   });

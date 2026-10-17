@@ -5,7 +5,9 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { CHORDS, pressOf } from "./chords";
+import { CHORDS, HELP_ROWS, pressOf } from "./chords";
+import { leaderKey } from "./leaderFixture";
+import { endLeader } from "./registry";
 
 afterEach(cleanup);
 
@@ -92,8 +94,10 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
 
       from.dispatchEvent(press);
-      // `⌘K` opens the modal switcher, which would swallow every later probe.
-      document.querySelector(".switcher input, .ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      // `⌘K` arms the leader, which would take every later probe.
+      endLeader();
+      // `⌘/` opens the Ask bar, which would swallow every later probe.
+      document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
       // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
       document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
@@ -106,7 +110,7 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
 };
 
 describe("u54 keyboard help", () => {
-  it("u471_previous_copy_assertions_are_preserved_help_labels", async () => {
+  it("u2241_help_lists_exactly_the_kept_keys", async () => {
     await open();
     question(rowOf("a"));
     await waitFor(() => expect(help()).not.toBeNull());
@@ -114,12 +118,10 @@ describe("u54 keyboard help", () => {
 
     expect(panel.getAttribute("aria-label")).toBe("Help");
     expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
-      "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
-      "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
-      "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘↑  Previous Agent", "⌘↓  Next Agent", "⌘⌫  Remove",
-      "⌘⏎  Take control", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
-      "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
-      "⌘/  Ask bar", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
+      "⌘N  New Agent", "⇧⌘N  New Agent with a prompt", "⌘T  New Terminal", "⌘K  Wait for one more key",
+      "⌘K J  Jump to what needs you", "⌘K ⇧J  Jump to what needs you in another Project", "⌘K K  Switch to a row by name",
+      "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items",
+      "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar",
     ]);
   });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
@@ -136,12 +138,10 @@ describe("u54 keyboard help", () => {
 
     const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
 
-    expect(lines).toEqual(CHORDS.map((chord) => `${chord.keys} ${chord.what}`));
+    expect(lines).toEqual(HELP_ROWS.map((chord) => `${chord.keys} ${chord.what}`));
 
     // U2230: a chord shown as a hint is one of these lines.
     for (const chord of CHORDS.filter((row) => row.hint)) expect(lines).toContain(`${chord.keys} ${chord.what}`);
-
-    expect(lines.slice(0, 2)).toEqual(["⌘J Jump to what needs you", "⌘N New Agent"]);
 
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
@@ -216,7 +216,7 @@ describe("u54 keyboard help", () => {
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     const field = document.activeElement;
 
-    fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
+    leaderKey("KeyK");
     await waitFor(() => expect(document.querySelector(".switcher input")).not.toBeNull());
 
     const switcherBound = await boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
