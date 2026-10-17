@@ -115,10 +115,6 @@ export const OpenRow = (props: {
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
-        <Show when={!props.nested && props.sorted && near?.near()}>
-          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoUp(props.todo.id)} onClick={() => props.sorted!.step(-1)}>{copy.moveUp}</button>
-          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoDown(props.todo.id)} onClick={() => props.sorted!.step(1)}>{copy.moveDown}</button>
-        </Show>
         <Show when={props.nested && (near?.near() || listOpen())}>
           <HomeMove
             id={props.todo.id}
@@ -155,6 +151,12 @@ export const OpenRow = (props: {
         props.sorted?.frame(frame);
       }}
     >
+      <Show when={!props.nested && props.sorted && near?.near()}>
+        <div class="shelf-move">
+          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoUp(props.todo.id)} onClick={() => props.sorted!.step(-1)}>{copy.moveUp}</button>
+          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoDown(props.todo.id)} onClick={() => props.sorted!.step(1)}>{copy.moveDown}</button>
+        </div>
+      </Show>
       <Show when={props.nested}>{head}</Show>
       <Show when={props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>

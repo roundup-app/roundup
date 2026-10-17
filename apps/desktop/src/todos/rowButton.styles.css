@@ -194,3 +194,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* U490a: Up and Down appear in the row's right gutter on hover and focus, after the tick box in reading order; the title always leaves the gutter, so no row moves or rewraps (U112). */
+.shelf-row.todo-inset {
+  position: relative;
+}
+
+.shelf-row.todo-inset .todo-row-button {
+  max-width: calc(100% - 7em - var(--space-2));
+}
+
+.shelf-row.todo-inset .shelf-move {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-2);
+  display: flex;
+  gap: var(--space-1);
+}

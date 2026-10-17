@@ -280,8 +280,9 @@ run("u490a the Shelf's move controls", () => {
 
     const before = await state(shelf.rows);
 
-    // Tab from the second row's button to its Move up, then Enter.
+    // Tab from the second row's button past its tick box to its Move up, then Enter.
     await page.call(`rows => document.querySelectorAll(rows)[1].focus()`, shelf.rows);
+    await page.press("Tab", "Tab");
     await page.press("Tab", "Tab");
     expect(await page.call(`() => document.activeElement?.getAttribute('aria-label')`)).toBe(`Move up #${before.ids[1]}`);
     await page.press("Enter", "Enter");
@@ -296,6 +297,7 @@ run("u490a the Shelf's move controls", () => {
     expect(once.drawer).toBe(false);
 
     // Tab on to its Move down and activate it with Space: back in place.
+    await page.press("Tab", "Tab");
     await page.press("Tab", "Tab");
     await page.press("Tab", "Tab");
     expect(await page.call(`() => document.activeElement?.getAttribute('aria-label')`)).toBe(`Move down #${before.ids[1]}`);
