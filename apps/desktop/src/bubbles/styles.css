@@ -71,7 +71,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  height: 28px;
+  height: calc(var(--space-5) + var(--space-1));
   cursor: grab;
 }
 
@@ -83,11 +83,21 @@
 
 /* The hit target is the 24 px icon button; only the 10 px dot of ink shows. */
 .bubble-dot {
-  display: block;
-  width: 10px;
-  height: 10px;
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-2) + var(--space-1) / 2);
+  height: calc(var(--space-2) + var(--space-1) / 2);
   border-radius: var(--radius-drawer);
   background: currentColor;
+  color: var(--text);
+  font-size: var(--text-caption);
+  line-height: 1;
+}
+
+/* As a macOS panel does: while the bar is hovered or a dot has focus, each dot shows its glyph so Close reads apart from Minimise before the press. */
+.bubble-header:hover .bubble-dot::after,
+.bubble-header:focus-within .bubble-dot::after {
+  content: attr(data-glyph);
 }
 
 .bubble-name {
@@ -102,8 +112,8 @@
 .bubble-state {
   grid-column: 3;
   justify-self: start;
-  width: 8px;
-  height: 8px;
+  width: var(--space-2);
+  height: var(--space-2);
   margin-inline-start: var(--space-2);
   border-radius: var(--radius-drawer);
   background: var(--grey);
