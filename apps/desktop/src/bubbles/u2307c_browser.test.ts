@@ -103,11 +103,14 @@ const gaps = `() => {
   const body = document.querySelector('.bubble:not([hidden]) .bubble-body').getBoundingClientRect();
   const bar = document.querySelector('.bubble:not([hidden]) .bubble-header').getBoundingClientRect();
   const screen = document.querySelector('.bubble:not([hidden]) .xterm-screen').getBoundingClientRect();
+  const view = document.querySelector('.bubble:not([hidden]) .xterm-viewport');
+  const lift = parseFloat(getComputedStyle(document.querySelector('.bubble:not([hidden]) .bubble-body')).paddingBottom);
+  const scrollbar = view.offsetWidth - view.clientWidth;
   const measure = document.querySelector('.bubble:not([hidden]) .xterm-char-measure-element');
   const rows = document.querySelector('.bubble:not([hidden]) .xterm-rows').children.length;
 
   return { left: body.left - bubble.left, right: bubble.right - body.right, bottom: bubble.bottom - body.bottom, band: body.top - bar.bottom,
-    spareX: body.right - screen.right, spareY: body.bottom - screen.bottom, cellW: measure.getBoundingClientRect().width / measure.textContent.length, cellH: screen.height / rows, inset: parseFloat(getComputedStyle(document.body).getPropertyValue('--space-1')) };
+    spareX: body.right - scrollbar - screen.right, spareY: body.bottom - lift - screen.bottom, cellW: measure.getBoundingClientRect().width / measure.textContent.length, cellH: screen.height / rows, inset: parseFloat(getComputedStyle(document.body).getPropertyValue('--space-1')) };
 }`;
 
 type Gaps = { left: number; right: number; bottom: number; band: number; spareX: number; spareY: number; cellW: number; cellH: number; inset: number };
