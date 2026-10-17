@@ -33,12 +33,12 @@ const strip = async (scheme: "light" | "dark") => {
   await page.until(`() => document.querySelectorAll('.project-tab').length === 8`);
 };
 
-const runs = async (scheme: "light" | "dark") => {
-  await page.scheme(scheme);
+const runs = async (scheme: "light" | "dark", contrast?: "more", agent: "runner" | "first-workstream" | "dense" = "runner") => {
+  await page.scheme(scheme, contrast);
   await page.load("/harness.html?seed=bubbles", 1512, 950);
   await page.until(`() => Boolean(window.__fake)`);
-  await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
-  await page.until(`() => document.querySelectorAll('.terminal-tab-pair').length > 1`);
+  await page.call(`(id) => document.querySelector('[data-id="' + id + '"]').click()`, agent);
+  await page.until(`() => document.querySelectorAll('.terminal-tab-pair').length > ${agent === "first-workstream" ? 0 : 1}`);
   await page.call(`() => { if (!document.querySelector('.terminal-tab-pair[data-selected=true]')) document.querySelector('.terminal-tab').click(); }`);
   await page.until(`() => document.querySelector('.terminal-tab-pair[data-selected=true]')`);
 };
@@ -67,7 +67,13 @@ it("u2232_the_bar_is_flat_and_square", async () => {
     const radii = await page.call<string[]>(`() => ['.strip', '.project-tab', '.strip-add', '.tab-close'].map(s => getComputedStyle(document.querySelector(s)).borderRadius)`);
 
     expect(radii, scheme).toEqual(["0px", "0px", "0px", "0px"]);
-    expect(await page.call<string>(`(t) => getComputedStyle(document.querySelector('.window-bar')).backgroundColor === eval(t)('--sunken') ? 'ok' : 'no'`, tokenBg)).toBe("ok");
+    expect(await page.call<string>(`(t) => getComputedStyle(document.querySelector('.window-bar')).backgroundColor === eval(t)('--sunken') ? 'ok' : 'no'`, tokenBg), scheme).toBe("ok");
+
+    await runs(scheme);
+
+    const terminal = await page.call<{ radii: string[]; ground: boolean }>(`(t) => ({ radii: ['.resource-strip', '.terminal-tab-pair', '.terminal-new', '.terminal-tab-pair > button:last-of-type'].map(s => getComputedStyle(document.querySelector(s)).borderRadius), ground: getComputedStyle(document.querySelector('.resource-strip')).backgroundColor === eval(t)('--sunken') })`, tokenBg);
+
+    expect(terminal, scheme + " runs").toEqual({ radii: ["0px", "0px", "0px", "0px"], ground: true });
   }
 }, 90_000);
 
@@ -77,76 +83,149 @@ it("u2232_the_selected_tab_joins_the_page", async () => {
     else await runs(scheme);
 
     const selector = surface === "strip" ? ".project-tab" : ".terminal-tab-pair";
-    const reading = await page.call<{ look: Look; ground: string; hairline: string }>(`(look, token, selector) => ({ look: eval(look)(selector + '[data-selected=true]', 0), ground: eval(token)('--ground'), hairline: eval(token)('--hairline') })`, look, tokenBg, selector);
+    const reading = await page.call<{ look: Look; ground: string; hairline: string; sides: string[] }>(`(look, token, selector) => { const s = getComputedStyle(document.querySelector(selector + '[data-selected=true]')); return { look: eval(look)(selector + '[data-selected=true]', 0), ground: eval(token)('--ground'), hairline: eval(token)('--hairline'), sides: [s.borderLeftColor, s.borderRightColor] }; }`, look, tokenBg, selector);
 
     expect(reading.look.ground, scheme + surface).toBe(reading.ground);
     expect(reading.look.border.slice(0, 4), scheme + surface).toEqual(["0px", "1px", "0px", "1px"]);
+    expect(reading.sides, scheme + surface).toEqual([reading.hairline, reading.hairline]);
   }
 }, 90_000);
 
 it("u2232_inactive_tabs_have_no_box", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await strip(scheme);
+  for (const scheme of ["light", "dark"] as const) for (const surface of ["strip", "runs"] as const) {
+    if (surface === "strip") await strip(scheme);
+    else await runs(scheme);
 
-    const rest = await page.call<Look>(`(look) => eval(look)('.project-tab[data-selected=false]', 0)`, look);
+    const tabs = surface === "strip" ? ".project-tab" : ".terminal-tab-pair";
+    const at = await page.call<{ x: number; y: number }>(`(tabs) => { const list = document.querySelector(tabs === '.project-tab' ? '.tablist' : '.terminal-tabs-host').getBoundingClientRect(); const tab = [...document.querySelectorAll(tabs + '[data-selected=false]')].find(t => { const r = t.getBoundingClientRect(); return r.left >= list.left && r.right <= list.right; }); tab.id = 'pressed'; const r = tab.querySelector('.tab-name-button, .terminal-tab').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, tabs);
     const grey = await page.call<string>(`(t) => eval(t)('--grey')`, token);
+    const read = `(look) => eval(look)('#pressed', 0)`;
+    const rest = await page.call<Look>(read, look);
 
-    expect(rest.border.slice(0, 4), scheme).toEqual(["0px", "0px", "0px", "0px"]);
-    expect(rest.ground, scheme).toBe("rgba(0, 0, 0, 0)");
-    expect(rest.shadow, scheme).toBe("none");
-    expect(rest.colour, scheme).toBe(grey);
+    expect(rest.border.slice(0, 4), scheme + surface).toEqual(["0px", "0px", "0px", "0px"]);
+    expect(rest.ground, scheme + surface).toBe("rgba(0, 0, 0, 0)");
+    expect(rest.shadow, scheme + surface).toBe("none");
+    expect(rest.colour, scheme + surface).toBe(grey);
+
+    // Held down, the tab still paints no box.
+    await page.pointer("down", at.x, at.y);
+
+    const pressed = await page.call<Look>(read, look);
+
+    await page.pointer("up", at.x, at.y);
+    expect({ border: pressed.border, ground: pressed.ground, shadow: pressed.shadow }, scheme + surface + " pressed").toEqual({ border: rest.border, ground: rest.ground, shadow: rest.shadow });
   }
 }, 90_000);
 
 it("u2233_hover_moves_only_the_label_colour", async () => {
-  await strip("light");
+  // Each control the scenario names: an inactive tab, and the `+`, on both surfaces.
+  const targets = [
+    { surface: "strip", control: ".project-tab[data-selected=false]", point: ".tab-name-button", host: ".tablist" },
+    { surface: "strip", control: ".strip-add", point: "", host: ".window-bar" },
+    { surface: "runs", control: ".terminal-tab-pair[data-selected=false]", point: ".terminal-tab", host: ".terminal-tabs-host" },
+    { surface: "runs", control: ".terminal-new", point: "", host: ".terminal-tabs-host" },
+  ] as const;
 
-  // The first inactive tab the list shows.
-  const at = await page.call<{ x: number; y: number }>(`() => { const list = document.querySelector('.tablist').getBoundingClientRect(); const tab = [...document.querySelectorAll('.project-tab[data-selected=false]')].find(t => { const r = t.getBoundingClientRect(); return r.left >= list.left && r.right <= list.right; }); tab.id = 'hovered'; const r = tab.querySelector('.tab-name-button').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`);
-  const read = `(look) => eval(look)('#hovered', 0)`;
-  const before = await page.call<Look>(read, look);
+  for (const target of targets) {
+    if (target.surface === "strip") await strip("light");
+    else await runs("light");
 
-  await page.hover(at.x, at.y);
+    // The first control the host shows whole.
+    const at = await page.call<{ x: number; y: number }>(`(target) => { const list = document.querySelector(target.host).getBoundingClientRect(); const control = [...document.querySelectorAll(target.control)].find(t => { const r = t.getBoundingClientRect(); return r.width > 0 && r.left >= list.left - 0.5 && r.right <= list.right + 0.5; }); control.id = 'hovered'; const r = (target.point ? control.querySelector(target.point) : control).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, target);
+    const read = `(look) => eval(look)('#hovered', 0)`;
+    const before = await page.call<Look>(read, look);
+    const [grey, text] = await page.call<string[]>(`(t) => [eval(t)('--grey'), eval(t)('--text')]`, token);
 
-  const text = await page.call<string>(`(t) => eval(t)('--text')`, token);
+    expect(before.colour, target.control).toBe(grey);
 
-  await page.until(`() => getComputedStyle(document.querySelector('#hovered')).color === '${text}'`);
+    await page.hover(at.x, at.y);
+    await page.until(`() => getComputedStyle(document.querySelector('#hovered')).color === '${text}'`);
 
-  const after = await page.call<Look>(read, look);
+    const after = await page.call<Look>(read, look);
 
-  expect({ ...after, colour: "" }).toEqual({ ...before, colour: "" });
-}, 90_000);
+    expect({ ...after, colour: "" }, target.control).toEqual({ ...before, colour: "" });
+    expect(after.ground, target.control).toBe("rgba(0, 0, 0, 0)");
+  }
+}, 120_000);
 
 it("u2233_keyboard_focus_draws_a_ring_and_a_click_does_not", async () => {
-  await strip("light");
-
   const ring = `() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineWidth]; }`;
-  const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.strip-add').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`);
 
-  await page.click(at.x, at.y);
-  expect((await page.call<string[]>(ring))[0]).toBe("none");
+  const targets = [
+    { surface: "strip", controls: [".project-tab .tab-name-button", ".project-tab .tab-close", ".strip-add"], bar: ".window-bar" },
+    { surface: "runs", controls: [".terminal-tab", ".terminal-tab-pair > button:last-of-type", ".terminal-new"], bar: ".resource-strip" },
+  ] as const;
 
-  await page.press("Tab", "Tab", 8);
-  expect(await page.call<boolean>(`() => document.activeElement.matches('[data-flat-tab] button')`)).toBe(true);
+  for (const { surface, controls, bar } of targets) {
+    if (surface === "strip") await strip("light");
+    else await runs("light");
 
-  const keyboard = await page.call<{ style: string; width: number }>(`() => { const s = getComputedStyle(document.activeElement); return { style: s.outlineStyle, width: parseFloat(s.outlineWidth) }; }`);
+    // A click on the `+` opens a Terminal that takes focus itself, so the Terminal surface is clicked on a tab.
+    const clicked = surface === "strip" ? controls[2] : controls[0];
+    const at = await page.call<{ x: number; y: number }>(`(control) => { const r = document.querySelector(control).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, clicked);
 
-  expect(keyboard.style).toBe("solid");
-  expect(keyboard.width).toBeGreaterThanOrEqual(2);
-}, 90_000);
+    await page.click(at.x, at.y);
+    expect((await page.call<string[]>(ring))[0], surface + " click").toBe("none");
+
+    // One real key press makes the next focus a keyboard focus.
+    await page.press("Tab", "Tab");
+
+    const accent = await page.call<string>(`(t) => eval(t)('--accent')`, token);
+
+    for (const control of controls) {
+      const keyboard = await page.call<{ style: string; width: number; colour: string; inside: boolean }>(`(control, bar) => {
+        const node = document.querySelector(control);
+        node.focus();
+        const s = getComputedStyle(node);
+        const r = node.getBoundingClientRect();
+        const b = document.querySelector(bar).getBoundingClientRect();
+        const width = parseFloat(s.outlineWidth);
+        const grow = width + parseFloat(s.outlineOffset);
+        // The ring's outer edge is the control's box grown by the width plus the offset.
+        return { style: s.outlineStyle, width, colour: s.outlineColor, inside: r.top - grow >= b.top - 0.5 && r.bottom + grow <= b.bottom + 0.5 && r.left - grow >= b.left - 0.5 && r.right + grow <= b.right + 0.5 };
+      }`, control, bar);
+
+      expect(keyboard, `${surface} ${control}`).toEqual({ style: "solid", width: keyboard.width, colour: accent, inside: true });
+      expect(keyboard.width, `${surface} ${control}`).toBeGreaterThanOrEqual(2);
+    }
+  }
+}, 120_000);
 
 it("u2234_a_rename_field_has_the_tab_type_and_no_border", async () => {
-  await runs("light");
-  await page.doubleClick(...(await page.call<[number, number]>(`() => { const r = document.querySelector('.terminal-tab-name').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }`)));
-  await page.until(`() => document.activeElement?.matches('.terminal-tab-editor input')`);
+  const surfaces = [
+    { surface: "strip", tab: ".project-tab", name: ".tab-name", field: ".tab-rename" },
+    { surface: "runs", tab: ".terminal-tab-pair", name: ".terminal-tab-name", field: ".terminal-tab-editor input" },
+  ] as const;
 
-  const field = await page.call<{ font: string; border: string; radius: string; ground: string; tab: string }>(`() => { const i = document.activeElement; const s = getComputedStyle(i); const t = getComputedStyle(document.querySelector('.terminal-tab-pair')); return { font: [s.fontFamily, s.fontSize, s.fontWeight, s.lineHeight].join('|'), border: s.borderTopWidth, radius: s.borderRadius, ground: s.backgroundColor, tab: [t.fontFamily, t.fontSize, t.fontWeight, t.lineHeight].join('|') }; }`);
+  for (const { surface, tab, name, field } of surfaces) for (const state of ["selected", "rest"] as const) {
+    if (surface === "strip") await strip("light");
+    else await runs("light");
 
-  expect(field.font).toBe(field.tab);
-  expect(field.border).toBe("0px");
-  expect(field.radius).toBe("0px");
-  expect(field.ground).toBe("rgba(0, 0, 0, 0)");
-}, 90_000);
+    // The first tab in this state the region shows whole.
+    const at = await page.call<{ x: number; y: number }>(`(tab, name, selected) => { const list = document.querySelector(tab === '.project-tab' ? '.tablist' : '.terminal-tabs-host').getBoundingClientRect(); const node = [...document.querySelectorAll(tab + '[data-selected=' + selected + ']')].find(t => { const r = t.getBoundingClientRect(); return r.left >= list.left && r.right <= list.right; }); node.id = 'renamed'; const r = node.querySelector(name).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, tab, name, String(state === "selected"));
+    const box = `() => { const r = document.querySelector('#renamed').getBoundingClientRect(); return [r.width, r.height, r.left, r.top]; }`;
+    const before = await page.call<number[]>(box);
+
+    // F2 on a Project tab's name renames without selecting it; a double click would select it first.
+    if (surface === "strip" && state === "rest") {
+      await page.call(`() => document.querySelector('#renamed .tab-name-button').focus()`);
+      await page.press("F2", "F2");
+    } else await page.doubleClick(at.x, at.y);
+
+    await page.until(`() => document.activeElement?.matches(${JSON.stringify(field)})`);
+
+    const read = await page.call<{ font: string; border: string; radius: string; ground: string; tab: string; selected: string | null }>(`(field) => { const i = document.activeElement; const s = getComputedStyle(i); const t = getComputedStyle(document.querySelector('#renamed')); return { font: [s.fontFamily, s.fontSize, s.fontWeight, s.lineHeight].join('|'), border: s.borderTopWidth + ' ' + s.borderRightWidth + ' ' + s.borderBottomWidth + ' ' + s.borderLeftWidth, radius: s.borderRadius, ground: s.backgroundColor, tab: [t.fontFamily, t.fontSize, t.fontWeight, t.lineHeight].join('|'), selected: document.querySelector('#renamed').getAttribute('data-selected') }; }`, field);
+    const during = await page.call<number[]>(box);
+    const label = `${surface} ${state}`;
+
+    expect(read.selected, label).toBe(String(state === "selected"));
+    expect(read.font, label).toBe(read.tab);
+    expect(read.border, label).toBe("0px 0px 0px 0px");
+    expect(read.radius, label).toBe("0px");
+    expect(read.ground, label).toBe("rgba(0, 0, 0, 0)");
+    expect(during, label).toEqual(before);
+  }
+}, 120_000);
 
 it("u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable", async () => {
   for (const scheme of ["light", "dark"] as const) {
@@ -177,6 +256,23 @@ it("u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable", async () => {
     }
   }
 }, 240_000);
+
+it("u2235_a_cut_tab_name_is_shown_by_the_shared_tooltip", async () => {
+  await runs("light", undefined, "dense");
+
+  // One Run is named with sixty characters, so its tab cuts the name once the name has arrived.
+  const long = `.terminal-tab[aria-label^="a-run-named"]`;
+
+  await page.until(`() => document.querySelector(${JSON.stringify(long)})`);
+
+  const cut = await page.call<{ x: number; y: number; name: string; cut: boolean }>(`(long) => { const tab = document.querySelector(long); const name = tab.querySelector('.terminal-tab-name'); const r = name.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, name: tab.getAttribute('aria-label'), cut: name.scrollWidth > name.clientWidth }; }`, long);
+
+  expect(cut.cut).toBe(true);
+  expect(await page.call<number>(`() => document.querySelectorAll('.app-tooltip').length`)).toBe(0);
+
+  await page.hover(cut.x, cut.y);
+  await page.until(`() => document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(cut.name)}`);
+}, 60_000);
 
 it("u2235_the_selected_tab_keeps_its_borders_while_scrolled", async () => {
   for (const scheme of ["light", "dark"] as const) {
@@ -230,12 +326,25 @@ it("u2232_the_rule_breaks_only_under_the_selected_tab", async () => {
       expect(await page.call(`(read, g, t) => eval(read)('.window-bar', '.project-tab', g, t)`, read, tokenBg, tokenBg), `${scheme} ${contrast} ${projects}`).toEqual(expected);
     }
 
-    await runs(scheme);
+    // The Terminal region turns the bar over: its rule is the 1 px --hairline at the tab row's top edge, and the selected tab opens up through it.
+    for (const agent of ["first-workstream", "runner"] as const) {
+      await runs(scheme, contrast, agent);
 
-    // The Terminal region has its own selected tab joined to the page under the same bar.
-    const terminals = await page.call<{ selected: boolean; ground: boolean }>(`(g) => { const t = document.querySelector('.terminal-tab-pair[data-selected=true]'); return { selected: t !== null, ground: getComputedStyle(t).backgroundColor === eval(g)('--ground') }; }`, tokenBg);
+      const terminals = await page.call<{ rule: string; ruleColour: boolean; selectedGround: boolean; sides: boolean; selectedHit: boolean; restClear: boolean; several: boolean }>(`(g) => {
+        const bar = document.querySelector('.resource-strip');
+        const rule = getComputedStyle(bar, '::after');
+        const selected = document.querySelector('.terminal-tab-pair[data-selected=true]');
+        const rest = [...document.querySelectorAll('.terminal-tab-pair[data-selected=false]')];
+        const s = getComputedStyle(selected);
+        const r = selected.getBoundingClientRect();
+        const ruleTop = bar.getBoundingClientRect().top + parseFloat(rule.top);
+        const hairline = eval(g)('--hairline');
 
-    expect(terminals, `${scheme} ${contrast} runs`).toEqual({ selected: true, ground: true });
+        return { rule: rule.height, ruleColour: rule.backgroundColor === hairline, selectedGround: s.backgroundColor === eval(g)('--ground'), sides: s.borderLeftColor === hairline && s.borderRightColor === hairline && s.borderLeftWidth === '1px' && s.borderRightWidth === '1px', selectedHit: document.elementFromPoint(r.left + r.width / 2, ruleTop + 0.5) !== bar, restClear: rest.every(t => getComputedStyle(t).backgroundColor === 'rgba(0, 0, 0, 0)'), several: document.querySelectorAll('.terminal-tab-pair').length > 1 };
+      }`, tokenBg);
+
+      expect(terminals, `${scheme} ${contrast} ${agent}`).toEqual({ rule: "1px", ruleColour: true, selectedGround: true, sides: true, selectedHit: true, restClear: true, several: agent === "runner" });
+    }
   }
 
   // With no Project open (U2) the rule runs under the `+`.
