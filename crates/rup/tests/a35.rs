@@ -155,17 +155,17 @@ async fn fixture() -> Fix {
         b,
     };
     // Claude Code writes a turn's records to its conversation file after the turn's Stop Signal.
-    // A Mark recorded before then holds no message, and a rewind's resume of it finds no
-    // conversation.
+    // A Mark recorded before then holds no message, a rewind's resume of it finds no
+    // conversation, and a file removed before then is written again.
     for node in rail_tree(&fx.user).await {
         let cwd = node.worktree.map_or_else(
             || fx.project.dir.path().to_owned(),
             |tree| PathBuf::from(tree.path),
         );
         daemon::h21_poll(
-            "each turn's reply in its conversation file",
+            "each turn's end in its conversation file",
             async || match conversations(&fx, &cwd).as_slice() {
-                [file] => replied(file).then_some(()),
+                [file] => ended(file).then_some(()),
                 _ => None,
             },
         )
@@ -208,13 +208,25 @@ fn conversations(fx: &Fix, cwd: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Whether the conversation file holds a complete reply record.
-fn replied(file: &Path) -> bool {
-    std::fs::read_to_string(file).is_ok_and(|text| {
-        text.lines().any(|line| {
-            serde_json::from_str::<Value>(line).is_ok_and(|record| record["type"] == "assistant")
+/// Whether the conversation file holds a turn's last writes. After the reply, Claude Code writes
+/// the turn's duration and, concurrently, re-appends its session metadata, which always restates
+/// the last prompt.
+fn ended(file: &Path) -> bool {
+    let records: Vec<Value> = std::fs::read_to_string(file)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
+        .collect();
+    records
+        .iter()
+        .rposition(|record| record["type"] == "assistant")
+        .is_some_and(|reply| {
+            let after = &records[reply..];
+            after
+                .iter()
+                .any(|record| record["type"] == "system" && record["subtype"] == "turn_duration")
+                && after.iter().any(|record| record["type"] == "last-prompt")
         })
-    })
 }
 
 async fn write(fx: &Fix) -> Value {
@@ -512,8 +524,6 @@ async fn a35_the_original_conversation_is_untouched() {
 #[tokio::test]
 async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
     let fx = fixture().await;
-    // Real Claude may still be writing the file, and would recreate it.
-    idle(&fx.user, &fx.b).await;
     let cwd = roots(&fx)
         .await
         .into_iter()
