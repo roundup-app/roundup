@@ -226,6 +226,13 @@ impl Daemon {
             deliver,
             messages_env(Arc::clone(&daemon.touches)),
         )?);
+        // B39: the Agent's `UserPromptSubmit` Signal confirms the Messages its prompt carried.
+        let confirming = Arc::downgrade(&opened);
+        agents.observe_prompts(Arc::new(move |id, prompt| {
+            confirming
+                .upgrade()
+                .is_some_and(|messages| messages.confirm_prompt(id, prompt))
+        }));
         let _ = messages.set(Arc::clone(&opened));
         daemon.register(opened);
         let placement = Arc::new(agents.placement_call());
