@@ -102,6 +102,40 @@ not tests claimed to exist in this specification PR.
    in `apps/desktop/src/terminal/`. Policy: preserve D2, D5 and D6 and every
    Check passing on main; retain rendered results under the harness rules.
 
+**X16 a reader reads only what is new, as plain text, at most 200 lines.** Narrows X13's
+`terminal.read` and adds no stream (X14 owns it). A read is never answered with output the same
+reader already received, so a Door that polls a Terminal cannot act twice on one line. Related B19
+and B20: the Digest never reads Terminal output and stays as they say; this cursor serves only
+`terminal.read`. Contract change (rule 4): `ReadParams` gains `reader`, and `after` becomes optional.
+
+1. **Cursor.** Given `terminal.read {id, reader}` with no `after`, the Daemon reads from that
+   reader's cursor for that Terminal (the log's start for a reader's first read), returns the result,
+   and sets the cursor to the reply's `next`. Each `(reader, Terminal)` pair has its own cursor, so a
+   second reader's first read begins at the log's start whatever the first has read. `rup mcp` and
+   `rup terminal read` fill `reader` with the caller's Agent id (I5). A call with `after` reads from
+   `after`, as X13 says, and leaves every cursor as it was. A call with neither `after` nor `reader`
+   is `INVALID_PARAMS`. A cursor older than the log's start begins at the log's start (X13); a cursor
+   ends with its Terminal (`terminal.close`). Tests: `x16_the_second_read_is_only_the_delta`,
+   `x16_readers_have_separate_cursors`, `x16_a_read_with_after_leaves_the_cursor`,
+   `x16_a_read_with_no_reader_and_no_after_is_refused`.
+2. **Plain text.** Given a fake Terminal printing lines wrapped in colour codes (`ESC[31m`, `ESC[0m`,
+   `ESC[38;5;196m`), the text of every read holds none of the bytes `ESC` (0x1b) and no `[31m` remnant,
+   and holds the words printed (X13.2). Test: `x16_a_read_holds_no_escape_byte`.
+3. **Line cap.** A reply holds at most 200 lines and still X13.3's 16 384 bytes, whichever is
+   reached first; when lines remain `truncated` is true and `next` is the offset of the first line
+   not returned, so the next read from the cursor starts there with no line missed and none repeated.
+   A `max` may only lower the byte cap and no request raises the line cap. Tests:
+   `x16_a_read_returns_at_most_200_lines_and_the_next_read_continues`,
+   `x16_the_line_cap_loses_and_repeats_no_line`.
+4. **Reads change nothing else.** As X13: no byte is written, and no event is emitted. The
+   cursor is Daemon state only and appears in no Digest (B19, B20). Test:
+   `x16_a_read_emits_no_event_and_the_digest_holds_no_terminal_text` (a fake Terminal printing
+   `ZEBRA`, read by the Door, leaves it out of `agent.digest`).
+
+Tests are `x16_` in `crates/terminal/tests/` (a fake Terminal printing coloured lines) and
+`crates/rup/tests/` (the real Daemon, the reader taken from the Agent id). Observer: `just check`.
+Policy: the 200-line cap is a number chosen here; a later scenario changes it.
+
 ## Checks on main
 
 These are existing anchors, not evidence that X14 is implemented:

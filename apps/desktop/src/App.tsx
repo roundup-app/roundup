@@ -24,7 +24,6 @@ import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
-import { ModelsSheet } from "./models/ModelsSheet";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -236,11 +235,6 @@ export const App = (props: {
     stopDrag?.();
   });
 
-  /** U377: the `Models` sheet of the open Project, opened by `models` in its tab's menu. */
-  const [modelsOpen, setModelsOpen] = createSignal(false);
-
-  createEffect(on(projects.active, () => setModelsOpen(false), { defer: true }));
-
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
   const activeConnection = createMemo(() => {
@@ -301,10 +295,6 @@ export const App = (props: {
               onRename={(path, name) => void renameProject(path, name)}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
-              onModels={(path) => {
-                projects.select(path);
-                setModelsOpen(true);
-              }}
             />
           </WindowBar>
         }
@@ -380,9 +370,6 @@ export const App = (props: {
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
                   <Help />
                   <Leader />
-                  <Show when={modelsOpen()}>
-                    <ModelsSheet onClose={() => setModelsOpen(false)} />
-                  </Show>
                 </>
               )}
             </InProject>

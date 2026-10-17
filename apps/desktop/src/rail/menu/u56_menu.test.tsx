@@ -33,7 +33,7 @@ describe("u56 remove from the Rail", () => {
 
     openAt("a");
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Model…", "Remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Remove"]);
   });
 
   it("u56_a_done_door_offers_remove_and_clear_only", async () => {

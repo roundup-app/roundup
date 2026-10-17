@@ -1,35 +1,19 @@
 import { expect, it } from "vitest";
 import { browser, read, wait, url } from "../ui/tabsBrowser";
 
-/** The Drawer, Models and Project menu mounted together, in either order: `u496Fixture.tsx` through `u496.html`. */
+/** The Drawer and Project tabs mounted together: `u496Fixture.tsx` through `u496.html`. */
 const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
 
-/** Models opens from the Project tab's menu (U377): `⌘,` is retired (U2238 to U2241). */
-const openModels = async () => {
-  await browser("press", "Shift+F10");
-  await wait(`!!document.querySelector('[role=menu]')`);
-  await browser("press", "ArrowDown");
-  await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
-  await browser("press", "Enter");
-};
-
-const prepareModels = () => browser("eval", `(() => { for (const tab of document.querySelectorAll('.project-tab')) { const app = window.__fake.app.of(tab.dataset.path); app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}}); app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Opus'}],efforts:[{id:'high',label:'High'}]}); } })()`);
-
-for (const surface of ["models", "confirmation"]) it(`u494_dialog_keyboard_wrap_escape_and_return_${surface}`, async () => {
+it("u494_dialog_keyboard_wrap_escape_and_return_confirmation", async () => {
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait(`!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-  await prepareModels();
   await browser("eval", `document.querySelector('[role=tab]').focus()`);
+  await browser("hover", ".project-tab");
+  await browser("eval", `(() => { const button = document.querySelector('.tab-close'); button.focus(); button.click(); })()`);
 
-  if (surface === "models") await openModels();
-  else {
-    await browser("hover", ".project-tab");
-    await browser("eval", `(() => { const button = document.querySelector('.tab-close'); button.focus(); button.click(); })()`);
-  }
-
-  const role = surface === "models" ? "dialog" : "alertdialog";
+  const role = "alertdialog";
   await wait(`!!document.querySelector('[role=${role}] select, [role=${role}] button')`);
-  await browser("eval", `(() => { const panel = document.querySelector('[role=${role}]'); window.__origin = ${surface === "models" ? "document.querySelector('[role=tab]')" : "document.querySelector('.tab-close')"}; window.__fields = [...panel.querySelectorAll('select,input,button')]; window.__fields.at(-1).focus(); })()`);
+  await browser("eval", `(() => { const panel = document.querySelector('[role=${role}]'); window.__origin = document.querySelector('.tab-close'); window.__fields = [...panel.querySelectorAll('select,input,button')]; window.__fields.at(-1).focus(); })()`);
   await browser("press", "Tab");
   await wait(`document.activeElement === window.__fields[0]`);
   await browser("press", "Shift+Tab");
@@ -39,53 +23,15 @@ for (const surface of ["models", "confirmation"]) it(`u494_dialog_keyboard_wrap_
   expect(await read<boolean>(`window.__origin.isConnected`)).toBe(true);
 }, 90_000);
 
-for (const surface of ["models", "confirmation"]) it(`u494_modal_blocks_underlying_actions_${surface}`, async () => {
+it("u494_modal_blocks_underlying_actions_confirmation", async () => {
   await browser("open", url("/harness.html?seed=tabs-8"));
   await wait(`document.querySelectorAll('.project-tab').length === 8 && !!window.__fake`);
-  await prepareModels();
   await browser("eval", `document.querySelector('[role=tab]').focus()`);
-
-  if (surface === 'models') await openModels();
-  else await browser("eval", `document.querySelector('.project-tab:nth-child(2) .tab-close').click()`);
-  await wait(`!!document.querySelector('[role=${surface === 'models' ? 'dialog' : 'alertdialog'}]')`);
+  await browser("eval", `document.querySelector('.project-tab:nth-child(2) .tab-close').click()`);
+  await wait(`!!document.querySelector('[role=alertdialog]')`);
   const writes = await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`);
   await browser("press", "x");
   expect(await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`)).toBe(writes);
-}, 90_000);
-
-it("u495_menu_pointer_keyboard_and_return", async () => {
-  await browser("open", url("/harness.html?seed=tabs-8"));
-  await wait(`document.querySelectorAll('.project-tab').length === 8 && !!window.__fake`);
-  await prepareModels();
-  await browser("eval", `document.querySelector('[role=tab]').focus()`);
-  await browser("press", "Shift+F10");
-  await wait(`!!document.querySelector('[role=menu]')`);
-  await browser("press", "ArrowDown");
-  await wait(`document.activeElement?.getAttribute('role') === 'menuitem' || document.querySelector('[role=menuitem][data-highlighted]')`);
-  await browser("press", "Escape");
-  await wait(`!document.querySelector('[role=menu]') && document.activeElement === document.querySelector('[role=tab]')`);
-}, 60_000);
-
-for (const reverse of [false, true]) for (const surface of ["models", "menu"]) it(`u496_top_layer_escape_is_order_independent_${surface}_${reverse}`, async () => {
-  await browser("open", fixture(reverse ? "?reverse" : ""));
-  await wait(`!!document.querySelector('#origin')`);
-  await browser("click", "#origin");
-  await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
-  await browser("eval", `document.querySelector('[role=tab]').focus()`);
-  await browser("press", "Shift+F10");
-  await wait(`!!document.querySelector('[role=menu]')`);
-
-  if (surface === "models") {
-    await browser("press", "ArrowDown");
-    await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
-    await browser("press", "Enter");
-    await wait(`!!document.querySelector('[role=dialog] select')`);
-  }
-
-  await browser("press", "Escape");
-  await wait(`!document.querySelector('[role=${surface === 'models' ? 'dialog' : 'menu'}]')`);
-  expect(await read<string>(`document.querySelector('.drawer').dataset.open`)).toBe("true");
-  expect(await read<string>(`document.querySelector('.drawer p').textContent`)).toBe("Unchanged Drawer content");
 }, 90_000);
 
 for (const target of ["input", "textarea", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
@@ -132,22 +78,6 @@ for (const away of [false, true]) it(`u496_drawer_escape_and_return_${away}`, as
   await browser("press", 'Escape');
   await wait(`document.querySelector('.drawer').dataset.open === 'false'`);
   expect(await read<boolean>(away ? `document.activeElement.matches('[role=tabpanel]')` : `document.activeElement === document.querySelector('#origin')`)).toBe(true);
-}, 60_000);
-
-it("u494_removed_origin_is_safe", async () => {
-  await browser("open", fixture());
-  await wait(`document.querySelectorAll('[role=tab]').length === 8`);
-  await browser("eval", `document.querySelector('[role=tab]').focus()`);
-  await browser("press", 'Shift+F10');
-  await wait(`!!document.querySelector('[role=menu]')`);
-  await browser("press", 'ArrowDown');
-  await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
-  await browser("press", 'Enter');
-  await wait(`!!document.querySelector('[role=dialog] select')`);
-  await browser("eval", `window.__removed = document.querySelector('[role=tab]'); window.__removed.remove()`);
-  await browser("press", 'Escape');
-  await wait(`!document.querySelector('[role=dialog]')`);
-  expect(await read<boolean>(`document.activeElement.isConnected && document.activeElement !== window.__removed`)).toBe(true);
 }, 60_000);
 
 it("u497_control_names_and_tooltips", async () => {
@@ -212,33 +142,18 @@ it("u497_no_native_titles", async () => {
   await browser("press", 'Tab');
   await wait(`document.activeElement === document.querySelector('.window-title')`);
   await wait(`(() => { const title = document.querySelector('.window-title'); return document.getElementById(title.getAttribute('aria-describedby'))?.textContent === title.textContent; })()`);
-  expect(await read<number>(`document.querySelectorAll('.header [title],.models-sheet [title],.drawer [title]').length`)).toBe(0);
+  expect(await read<number>(`document.querySelectorAll('.header [title],.drawer [title]').length`)).toBe(0);
 }, 60_000);
 
-for (const dismissal of ['Escape', 'outside', 'Models']) it(`u495_pointer_menu_dismissal_${dismissal}`, async () => {
-  await browser('open', url('/harness.html?seed=tabs-8'));
-  await wait(`document.querySelectorAll('.project-tab').length === 8 && !!window.__fake`);
-  await prepareModels();
-  const path = await read<string>(`document.querySelector('.project-tab[data-selected=true]').dataset.path`);
-  const calls = await read<number>(`window.__fake.app.of(${JSON.stringify(path)}).calls.filter(c=>c.method==='project.get').length`);
-  const [x, y] = await read<number[]>(`(() => { const box = document.querySelector('.project-tab[data-selected=true] [role=tab]').getBoundingClientRect(); return [Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2)]; })()`);
-  await browser('mouse', 'move', String(x), String(y));
-  await browser('mouse', 'down', 'right');
-  await browser('mouse', 'up', 'right');
-  await wait(`!!document.querySelector('[role=menu]')`);
 
-  if (dismissal === 'Models') await browser('find', 'role', 'menuitem', 'click', '--name', 'Models', '--exact');
-  else if (dismissal === 'outside') {
-    await browser('mouse','move','10','750');
-    await browser('mouse','down');
-    await browser('mouse','up');
-  } else await browser('press','Escape');
-  await wait(`!document.querySelector('[role=menu]')`);
-
-  if (dismissal === 'Models') {
-    await wait(`!!document.querySelector('[role=dialog] select')`);
-    expect(await read<number>(`window.__fake.app.of(${JSON.stringify(path)}).calls.filter(c=>c.method==='project.get').length`)).toBe(calls + 1);
-    await browser('press','Escape');
-    await wait(`!document.querySelector('[role=dialog]') && document.activeElement === document.querySelector('.project-tab[data-selected=true] [role=tab]')`);
-  } else expect(await read<number>(`window.__fake.app.of(${JSON.stringify(path)}).calls.filter(c=>c.method==='project.get').length`)).toBe(calls);
+it("u494_removed_origin_is_safe", async () => {
+  await browser("open", fixture());
+  await wait(`document.querySelectorAll('[role=tab]').length === 8`);
+  await browser("hover", ".project-tab");
+  await browser("eval", `(() => { const button = document.querySelector('.tab-close'); button.focus(); button.click(); })()`);
+  await wait(`!!document.querySelector('[role=alertdialog]')`);
+  await browser("eval", `window.__removed = document.querySelector('.tab-close'); window.__removed.remove()`);
+  await browser("press", 'Escape');
+  await wait(`!document.querySelector('[role=alertdialog]')`);
+  expect(await read<boolean>(`document.activeElement.isConnected && document.activeElement !== window.__removed`)).toBe(true);
 }, 60_000);
