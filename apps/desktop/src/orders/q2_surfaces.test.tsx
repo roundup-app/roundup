@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { asking, card, decision, mountApp, select } from "../decisions/decisionsFixture";
 import { runChecks } from "../testing/checks";
 import { agent, door } from "../testing/nodes";
-import { message, mountThread, text } from "../thread/threadFixture";
 
 const long = "Change no file in the repo ".repeat(12).trim();
 
@@ -82,73 +81,11 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
     expect(getComputedStyle(args!).fontFamily).not.toBe("var(--font-ui)");
   });
 
-  it("q2_thread_message", async () => {
-    await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
-      messages: [
-        message(1, {
-          from: { kind: "agent", id: "r1", parent: null },
-          to: "you",
-          body: "Done.",
-        }),
-      ],
-    });
-    await waitFor(() =>
-      expect(document.querySelector("[data-message-body]")).not.toBeNull(),
-    );
-    laidOut(document.querySelector("[data-message-body]"));
-  });
-
-  const toYou = (body: string) =>
-    mountThread([door("r1", "idle", "idle", { name: "lead" })], {
-      messages: [message(1, { from: { kind: "agent", id: "r1", parent: null }, to: "you", body })],
-    });
-
-  it("q3_a_status_reply_of_rows_is_a_table", async () => {
-    await toYou("Status\n| Agent | State |\n| --- | --- |\n| alpha | editing |\n| beta | idle |\n| gamma | done |\nNext: wait.");
-    await waitFor(() => expect(document.querySelector("[data-message-body] table")).not.toBeNull());
-    const body = document.querySelector("[data-message-body]");
-    laidOut(body);
-    expect(body!.querySelectorAll("tbody tr")).toHaveLength(3);
-    expect(body!.querySelectorAll("th")).toHaveLength(2);
-    expect(body!.textContent).not.toContain("| ---");
-    expect(getComputedStyle(body!.querySelector("table")!).fontFamily).toBe("var(--font-ui)");
-  });
-
-  it("q3_a_code_fence_and_inline_code_stay_mono", async () => {
-    await toYou("Run `just check` first.\n```\ncargo test\n```\nThen wait.");
-    await waitFor(() => expect(document.querySelector("[data-message-body] pre")).not.toBeNull());
-    const body = document.querySelector("[data-message-body]")!;
-    laidOut(body);
-    expect(getComputedStyle(body.querySelector("p code")!).fontFamily).toBe("var(--font-mono)");
-    expect(body.querySelector("p code")!.textContent).toBe("just check");
-    expect(getComputedStyle(body.querySelector("pre")!).fontFamily).toBe("var(--font-mono)");
-    expect(body.querySelector("pre")!.textContent).toBe("cargo test\n");
-    expect(body.textContent).not.toContain("`");
-  });
-
-  it("q3_thread_text_meets_d2_d5", async () => {
-    await toYou("Run `just check` first.\n```\ncargo test\n```\n| Agent | State |\n| --- | --- |\n| alpha | editing |\n| beta | idle |\nNext: wait.");
-    await waitFor(() => expect(document.querySelector("[data-message-body] table")).not.toBeNull());
-    expect(document.querySelector("[data-message-body] pre")).not.toBeNull();
-    // D5 needs painted layout: src/testing/u197_column.test.ts::q3_thread_text_meets_d2_d5_on_painted_layout.
-    meetsD2();
-  });
-
   it("q3_decision_card_meets_d2_d5", async () => {
     await mountApp([asking("d1", "a", "Which folder should I use?", ["src", "docs"])]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
     // D5 needs painted layout: src/testing/u197_column.test.ts::q3_decision_card_meets_d2_d5_on_painted_layout.
-    meetsD2();
-  });
-
-  it("q3_digest_card_meets_d2_d5", async () => {
-    const entry = { name: "alpha", kind: "idle", last: long, todos: 3, pads: ["notes", "plan"] };
-    await mountThread([door("r1", "idle", "idle", { name: "lead" })], {
-      messages: [message(1, { from: { kind: "ext", id: "rupd", parent: null }, to: "r1", body: `[digest] ${text(entry)}` })],
-    });
-    await waitFor(() => expect(document.querySelector(".digest-card")).not.toBeNull());
-    // D5 needs painted layout: src/testing/u197_column.test.ts::q3_digest_card_meets_d2_d5_on_painted_layout.
     meetsD2();
   });
 

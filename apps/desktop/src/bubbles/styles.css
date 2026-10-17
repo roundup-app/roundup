@@ -36,8 +36,8 @@
   background-color: var(--ground);
 }
 
-/* U371: the open Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins. */
-.window[data-shelf="open"] .bubbles {
+/* U371: an overlay Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins; a reserved Shelf is its own column and the pane is already narrower. */
+.window[data-shelf="open"][data-shelf-mode="overlay"] .bubbles {
   right: max(0px, calc(var(--shelf-span) - var(--space-4)));
 }
 
@@ -86,13 +86,16 @@
   justify-content: flex-end;
 }
 
-.bubble-corner {
+/* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */
+.bubble-zone {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: var(--space-5);
-  height: var(--space-5);
-  cursor: nwse-resize;
+  box-sizing: border-box;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.bubble-zone[hidden] {
+  display: none;
 }
 
 /* U469: every Terminal keeps a pair of separate keyboard controls in the last line. */
@@ -212,5 +215,20 @@
   top: var(--space-2);
   right: var(--space-2);
   pointer-events: auto;
+  background: var(--ground);
+}
+
+.terminal-note-host {
+  display: contents;
+}
+
+/* U524: the note sits above the bar, outside the clipped Terminal host, so a narrow window still shows it. */
+.terminal-note {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  padding-inline: var(--space-1);
+  overflow-wrap: anywhere;
   background: var(--ground);
 }

@@ -55,6 +55,11 @@
   text-align: center;
 }
 
+/* U524: a Terminal opened from the Project root replaces the placeholder. */
+[data-root-terminal] .pane .pane-empty:not(.pane-door) {
+  display: none;
+}
+
 /* The earlier-run line wraps in a narrow pane instead of leaving it. */
 .pane .pane-empty.light {
   width: max-content;
@@ -96,24 +101,8 @@
   pointer-events: none;
 }
 
-/* U187: the Door's Terminal pane is out of the layout in Thread mode; its state line stays above the feed. */
-.pane[data-thread] {
-  height: auto;
-}
-
-.pane[data-thread] .pane-body {
-  flex: none;
-}
-
 .pane-screen[hidden] {
   display: none;
-}
-
-.pane[data-thread] .pane-empty {
-  position: static;
-  transform: none;
-  white-space: normal;
-  padding: var(--space-2) var(--space-3);
 }
 
 /* U375: Watch says so above the pane, with the one way into a Takeover. */
@@ -178,4 +167,16 @@
 .pane-watch > button,
 .pane-takeover > button {
   flex: none;
+}
+
+.centre-stack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.centre-stack > .pane {
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }
