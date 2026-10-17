@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
 let page: ChromePage;
@@ -15,7 +15,7 @@ afterAll(async () => { await page?.close(); });
 
 const open = async (width: number, scheme: "light" | "dark", contrast?: "more") => {
   await page.scheme(scheme, contrast);
-  await page.load("/harness.html?seed=door-stopped", width, 800);
+  await page.load("/harness.html?seed=door-stopped", width, FULLSCREEN.height);
   await page.until(`() => document.querySelector('.terminal-new')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) .xterm-screen')`);
@@ -62,7 +62,7 @@ const insets = `() => {
 }`;
 
 it("u523_header_and_terminal_share_one_inset", async () => {
-  for (const width of [1280, 1440]) {
+  for (const width of [FULLSCREEN.width]) {
     await open(width, "light");
     await page.call(`() => document.querySelector('.bubble-header').focus()`);
 
