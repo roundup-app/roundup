@@ -505,7 +505,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, or to answer its Decision, use `agent_prompt`, `agent_interrupt`, `agent_stop` or `decision_answer`; type keystrokes only when no direct tool does. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",

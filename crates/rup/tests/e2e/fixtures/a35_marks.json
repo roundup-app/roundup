@@ -2,6 +2,108 @@
   "fixtures": [
     {
       "match": {
+        "toolCallId": "toolu_m16_answer_4"
+      },
+      "response": {
+        "content": "Answered."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d4]",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m16_answer_4",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": "{\"id\": \"d4\", \"answer\": \"Yes\", \"note\": \"go\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m16_answer_3"
+      },
+      "response": {
+        "content": "Answered."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d3]",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m16_answer_3",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": "{\"id\": \"d3\", \"answer\": \"allow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m16_answer_2"
+      },
+      "response": {
+        "content": "Answered."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d2]",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m16_answer_2",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": "{\"id\": \"d2\", \"answer\": \"Yes\", \"note\": \"go\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_m16_answer_1"
+      },
+      "response": {
+        "content": "Answered."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d1]",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_m16_answer_1",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": "{\"id\": \"d1\", \"answer\": \"allow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "m16 slow turn",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Slow done."
+      },
+      "latency": 8000
+    },
+    {
+      "match": {
         "userMessage": "next iteration",
         "hasToolResult": false
       },
