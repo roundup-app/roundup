@@ -424,7 +424,7 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
-**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::SetOrder`, `HeldCall::Answer`, `HeldCall::Close`, `HeldCall::Kill`, `HeldCall::Write`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
+**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::SetOrder`, `HeldCall::Resume`, `HeldCall::Answer`, `HeldCall::Close`, `HeldCall::Kill`, `HeldCall::Write`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.
