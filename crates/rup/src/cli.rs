@@ -1008,7 +1008,12 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
                 eprintln!("truncated");
             }
         }
-        "agent.wake" => println!("woken: {}", result["id"]),
+        "agent.wake" => {
+            println!("woken: {}", result["id"]);
+            if let Some(why) = result["why"].as_str() {
+                println!("why: {why}");
+            }
+        }
         _ => {
             let text = mcp::success_text(method, params, result.clone());
             let plain = result.to_string();

@@ -800,7 +800,8 @@ impl Store {
 
     /// Drops every `pending` or takeover-held Message to `to` that `gone` (the pure `step`) names,
     /// with `reason`, in id order (B9). With `keep`, a Message in flight (B39) is not dropped: it
-    /// waits for the Agent to be resumed, and moves to `rebind`, the new Attempt, once there is one.
+    /// waits for the Agent to be resumed, and moves to `rebind`, the new Attempt, once there is one;
+    /// so does a note from the Daemon when `notes_wait`.
     pub(crate) fn drop_all_pending(
         &mut self,
         to: &str,
@@ -808,6 +809,7 @@ impl Store {
         through: Binding,
         gone: fn(&[Message]) -> Vec<u32>,
         keep: Option<Option<Binding>>,
+        notes_wait: bool,
     ) -> Result<Vec<Message>, RpcError> {
         let mut dropped = Vec::new();
         let mut open = Vec::new();
@@ -825,8 +827,11 @@ impl Store {
             if !to_drop.contains(&message.id) {
                 continue;
             }
+            // B46: a note from the Daemon (B47) waits for the resumed Agent like one in flight.
+            let note =
+                notes_wait && message.kind == MessageKind::Note && message.from == Actor::daemon();
             if let Some(rebind) = keep
-                && self.in_flight(message.id)?
+                && (note || self.in_flight(message.id)?)
             {
                 if let Some(at) = rebind {
                     self.bind(message.id, at)?;
