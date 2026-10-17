@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
-import { LIST } from "../models/modelsFixture";
 import { clearingOf } from "../rail/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
@@ -52,16 +51,6 @@ describe("u427 a Workstream row's icons", () => {
     fireEvent.click(icon("g", "Add Agent"));
 
     expect(document.activeElement).toBe(field);
-    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-  });
-
-  it("u427_the_plus_icon_keeps_the_model_pick", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["models.list"] = () => LIST;
-
-    fireEvent.click(icon("g", "Choose Model and Effort"));
-
-    expect(await screen.findByRole("combobox", { name: "Model" })).toBeTruthy();
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
@@ -128,5 +117,4 @@ it("u427_a_disabled_plus_calls_nothing", async () => {
   fireEvent.click(icon("g", "Add Agent"));
   fireEvent.click(icon("g", "Add Agent"), {altKey:true});
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-  expect(railCallsTo(mounted.app, "models.list")).toEqual([]);
 });

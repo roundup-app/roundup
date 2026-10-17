@@ -137,7 +137,8 @@ struct Inner {
     // A reservation waits for any accepted prompt to finish before its caller stops Agents.
     delivery: tokio::sync::RwLock<()>,
     /// B39: the Messages being typed by this Daemon run, so no second `idle` types them again
-    /// while their prompt waits for its Signal. A Message in flight at a kill is not in it.
+    /// while their prompt waits for its Signal, and those whose prompt's Signal did not confirm
+    /// them, which this run never types again. A Message in flight at a kill is not in it.
     typing: Mutex<std::collections::HashSet<u32>>,
     /// Tests: a typed prompt stands for its Signal, as the Agent's would, unless a test turns
     /// this off to play the Signal itself.
@@ -149,6 +150,13 @@ struct Inner {
 struct Typing<'a> {
     set: &'a Mutex<std::collections::HashSet<u32>>,
     ids: Vec<u32>,
+}
+
+impl Typing<'_> {
+    /// B39: `ids` stay in `Inner::typing` for the rest of this Daemon run.
+    fn keep(&mut self, ids: &[u32]) {
+        self.ids.retain(|id| !ids.contains(id));
+    }
 }
 
 impl Drop for Typing<'_> {
@@ -1289,7 +1297,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
                 .expect("message store")
                 .map(|messages| (messages, in_flight))
         };
-        let Some((messages, _typing)) = recorded else {
+        let Some((messages, mut typed)) = recorded else {
             return;
         };
         // B39: the prompt ends with the line the hook reads.
@@ -1357,6 +1365,28 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
             continue;
         }
         // B39: typed, not delivered; the prompt's `UserPromptSubmit` Signal records `delivered`.
+        // H11 returned on that Signal, which confirms before the wait ends, so a Message still in
+        // flight is one its prompt's Signal did not confirm. Typed at every later `idle`, it would
+        // repeat without end, so this run never types it again, and says so.
+        let unconfirmed: Vec<u32> = {
+            let store = lock(&inner.store);
+            messages
+                .iter()
+                .map(|m| m.id)
+                .filter(|&id| store.in_flight(id).expect("message store"))
+                .collect()
+        };
+        if !unconfirmed.is_empty() {
+            typed.keep(&unconfirmed);
+            let ids: Vec<String> = unconfirmed.iter().map(u32::to_string).collect();
+            log_failure(
+                "confirm_prompt",
+                &format!(
+                    "agent {agent} submitted a prompt that did not confirm Messages {}; they stay pending and are not typed again until the Daemon restarts",
+                    ids.join(" ")
+                ),
+            );
+        }
         return;
     }
 }
