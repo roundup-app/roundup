@@ -182,3 +182,10 @@ p.ink[role="alert"] {
   height: 1px;
   background: var(--hairline);
 }
+
+/* U501: the Tooltip of a truncated or multiline element keeps its line breaks. */
+.ink-tip {
+  max-width: var(--measure);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

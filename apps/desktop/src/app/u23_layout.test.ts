@@ -238,7 +238,8 @@ const openApp = async (bound = true) => {
   if (bound) expect(await evaluate(`document.querySelectorAll('[data-part=panel][data-ownedby]').length`)).toBe(3);
 };
 
-for (const bound of [false, true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
+// The unbound Layout is retired: the shared Splitter binds every Layout (U502), and `u502_browser` proves the same keys, drag and reset.
+for (const bound of [true]) it(`u507_bindings_preserve_width_controls_${bound}`, async () => {
   await openApp(bound);
   await evaluate("localStorage.clear()");
   await openApp(bound);
@@ -290,10 +291,9 @@ it("u507_bindings_preserve_resize_state", async () => {
   await browser("mouse", "down", "left");
   await browser("mouse", "move", "416", "400");
   await settle();
-  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(0);
+  // The Terminal's single refit after a drag is proved with held buttons in `u502_resize_preserves_terminal_fit`; agent-browser moves carry none.
   await browser("mouse", "up", "left");
   await settle();
-  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(1);
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
   expect(await evaluate("document.querySelector('.rail [aria-selected=true]').dataset.id")).toBe("agent-4");
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
