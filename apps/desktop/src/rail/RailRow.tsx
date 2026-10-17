@@ -143,6 +143,9 @@ export const RailRowView = (props: {
     ...(workstream() && !showsAction() && props.row.collapsed ? [copy.agents(props.row.collapsed.agents.length)] : []),
   ];
 
+  // The Tooltip anchors to the row itself: the tree item's props replace the id its trigger lookup needs.
+  let rowBox: HTMLElement | undefined;
+
   const nameId = () => `rail-name-${props.row.node.id}`;
 
   const rowProps = () => ({
@@ -171,7 +174,7 @@ export const RailRowView = (props: {
     <Tooltip.Trigger
       asChild={(trigger) => (
         // SAFETY: the Tooltip types its trigger for a button; the row is a div, and the props are the same event and ARIA attributes.
-        <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))}>
+        <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => (rowBox = el)}>
           <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
           <p class="line">
             <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
@@ -272,7 +275,7 @@ export const RailRowView = (props: {
 
   return (
     <>
-      <Tooltip.Root disabled={lines().length === 0} closeOnEscape={false} positioning={{ strategy: "fixed", placement: "bottom-start" }}>
+      <Tooltip.Root disabled={lines().length === 0} closeOnEscape={false} positioning={{ strategy: "fixed", placement: "bottom-start", getAnchorRect: () => rowBox?.getBoundingClientRect() ?? null }}>
         <Show
           when={props.branch}
           fallback={
