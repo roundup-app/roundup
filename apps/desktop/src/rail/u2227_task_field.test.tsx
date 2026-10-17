@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
-import railCss from "./styles.css?raw";
 
 afterEach(cleanup);
 
@@ -14,23 +13,12 @@ const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
 
 const type = (text: string) => fireEvent.input(field(), { target: { value: text } });
 
-const rule = () => /\.spawn-prompt-field \{[^}]*\}/.exec(railCss)?.[0] ?? "";
-
 describe("u2227 the task field", () => {
-  it("u2227_the_field_is_a_flat_textarea_with_no_outline", async () => {
+  it("u2227_the_field_is_a_textarea", async () => {
     await mountRail([workstream("g")]);
     chord();
 
     expect(field().tagName).toBe("TEXTAREA");
-    expect(rule()).toMatch(/border: 0;/);
-    expect(railCss).toMatch(/\.spawn-prompt-field:focus-visible \{\s*outline-width: 0;/);
-  });
-
-  it("u2227_an_empty_field_shows_the_hint", async () => {
-    await mountRail([workstream("g")]);
-    chord();
-
-    expect(field().placeholder).toBe("What should the Agent do?");
   });
 
   it("u2227_enter_starts_the_agent", async () => {

@@ -327,8 +327,8 @@ fn lead_of(text: &str) -> &'static str {
     }
 }
 
-/// The bytes of a Steer (H11, H20, B33): `LEAD_IN` (or `STATUS_LEAD`), then `text` as one bracketed paste, then `\r`, for
-/// one write. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
+/// The bytes of a Steer (H11, H20, B33): `LEAD_IN` (or `STATUS_LEAD`), then `text` as one bracketed paste, then `\r`, written
+/// as `write_submitted` does. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
 /// `text\r` failed once, so the paste markers stay. `text` loses its `ESC` bytes, so it cannot
 /// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
@@ -343,6 +343,27 @@ pub(super) fn verbatim_bytes(text: &str) -> Vec<u8> {
     bytes.extend_from_slice(text.as_bytes());
     bytes.extend_from_slice(b"\x1b[201~\r");
     bytes
+}
+
+/// How long the `\r` of a Steer waits behind its paste: Claude Code takes an `\r` that arrives
+/// with the end of a paste as part of the paste and leaves the text unsubmitted.
+const SUBMIT_PAUSE: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// Write `bytes` from `steer_bytes` or `verbatim_bytes`: everything up to the final `\r`, a
+/// flush, `SUBMIT_PAUSE`, then the `\r` on its own. The Terminal's input thread runs this whole,
+/// so no other write comes between the two.
+pub(super) fn write_submitted(
+    writer: &mut dyn std::io::Write,
+    bytes: &[u8],
+) -> std::io::Result<()> {
+    let paste = bytes
+        .strip_suffix(b"\r")
+        .expect("a Steer's bytes end with the submitting carriage return");
+    writer.write_all(paste)?;
+    writer.flush()?;
+    std::thread::sleep(SUBMIT_PAUSE);
+    writer.write_all(b"\r")?;
+    writer.flush()
 }
 
 /// The bytes of an Interrupt (H13): one `ESC`, which ends Claude Code's turn.

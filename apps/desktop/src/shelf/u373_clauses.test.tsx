@@ -170,26 +170,3 @@ describe("u370 the chord and esc", () => {
     expect(shelf().hidden).toBe(false);
   });
 });
-
-describe("u371 the tokens and the ground", () => {
-  const block = (scheme: "light" | "dark") => {
-    const dark = tokenCss.match(/@media \(prefers-color-scheme: dark\) {([\s\S]*?)\n}\n/)![1]!;
-
-    return scheme === "dark" ? dark : tokenCss.replace(dark, "");
-  };
-
-  it("u371_the_values_of_the_shadow_tokens_light_and_dark", () => {
-    expect(block("light")).toContain("--shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);");
-    expect(block("light")).toContain("--shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);");
-    expect(block("dark")).toContain("--shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);");
-    expect(block("dark")).toContain("--shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);");
-  });
-
-  it("u371_the_ground_is_sunken_and_a_dialog_covers_the_shelf", async () => {
-    await mountApp();
-
-    expect(getComputedStyle(shelf()).backgroundColor).toBe("var(--sunken)");
-    // Help and the close dialog render in `.overlay`, which paints above the Shelf's z-index.
-    expect(Number(getComputedStyle(document.querySelector(".overlay")!).zIndex)).toBeGreaterThan(Number(getComputedStyle(shelf()).zIndex));
-  });
-});

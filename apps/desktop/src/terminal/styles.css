@@ -29,8 +29,8 @@
 
 .pane-screen {
   height: 100%;
-  /* U514: the left inset the Turn strips live in, inside the clip box. */
-  padding-left: var(--space-2);
+  /* U514, U2340d: the inset the Turn strips live in, inside the clip box; the centre has none of its own. */
+  padding-inline: var(--space-2);
   /* U371, U430: keep the old Terminal columns clipped through a reserved slide.
      A transient horizontal scrollbar would cost one row and send a second resize. */
   overflow: clip;
