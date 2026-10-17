@@ -78,4 +78,6 @@
 .resource-strip .terminal-tabs {
   height: 100%;
   padding-block: 0;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
