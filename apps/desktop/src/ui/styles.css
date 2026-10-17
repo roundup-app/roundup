@@ -134,14 +134,21 @@
   margin: 0 !important;
 }
 
+/* A plain Sortable list (rows inside a tree) draws no box or radius: the lifted row keeps its fill and its old slot is an empty gap. */
 [data-dnd-dragging] {
   background-color: var(--ground);
   background-image: linear-gradient(var(--selected), var(--selected));
+}
+
+[data-dnd-dragging]:not([data-plain] *) {
   border-radius: var(--radius-row);
 }
 
 [data-dnd-placeholder] {
   visibility: visible !important;
+}
+
+[data-dnd-placeholder]:not([data-plain] *) {
   outline: 1px solid var(--hairline);
   outline-offset: -1px;
   border-radius: var(--radius-row);

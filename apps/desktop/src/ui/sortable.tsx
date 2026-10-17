@@ -1,4 +1,4 @@
-import { Cursor, Feedback, PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
+import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
 import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
@@ -21,10 +21,12 @@ type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & 
   ids: readonly string[];
   onOrderChange: (ids: string[]) => void;
   external?: External<T> | undefined;
+  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them, and the list draws no box or radius around a moved row. */
+  plain?: boolean;
 };
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "external", "children"]);
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "external", "plain", "children"]);
   let over: T | null = null;
 
   const mark = (next: T | null) => {
@@ -40,7 +42,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { stopRestoringFocus?.(); mark(null); });
 
-  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
     if (!local.external || !source) return;
@@ -85,7 +87,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(source.index, 0, moved);
     local.onOrderChange(order);
-  }}><div {...rest}>{local.children}</div></DragDropProvider>;
+  }}><div {...rest} data-plain={local.plain ? "" : undefined}>{local.children}</div></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {

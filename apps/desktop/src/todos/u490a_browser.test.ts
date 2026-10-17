@@ -79,6 +79,11 @@ run("u490a an Agent's Todos in the Rail order on the shared Sortable", () => {
     const last = await centre((await state()).ids.length - 1);
 
     await drag(last, first, false);
+    expect(await page.call(`() => {
+      const gap = document.querySelector('[data-pads] [data-dnd-placeholder]');
+      const style = gap && getComputedStyle(gap);
+      return gap ? [style.outlineStyle, style.borderRadius] : null;
+    }`)).toEqual(["none", "0px"]);
     await page.press("Escape", "Escape");
     await page.pointer("up", first.x, first.y);
     await settled();
@@ -107,7 +112,7 @@ run("u490a an Agent's Todos in the Rail order on the shared Sortable", () => {
     await page.scheme("light");
     await setup();
     await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, ROWS);
-    expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|describedby)=./.test(a))`, ROWS)).toEqual([]);
+    expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|describedby|pressed|grabbed|disabled)=/.test(a))`, ROWS)).toEqual([]);
     await page.press("Enter", "Enter");
     await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
     expect(await state()).toMatchObject({ drawer: true, reorders: [] });

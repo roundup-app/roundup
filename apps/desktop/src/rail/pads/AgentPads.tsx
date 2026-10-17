@@ -97,12 +97,6 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
           fails.delete(id);
         }
 
-        // The open button keeps its own meaning: the library's "draggable" role and "press space" hint (keyboard moving is ⌥↑ and ⌥↓) are set empty before it adds them.
-        if (el) {
-          el.setAttribute("aria-roledescription", "");
-          el.setAttribute("aria-describedby", "");
-        }
-
         parts.handleRef(el ?? undefined);
       },
       fail: (show) => fails.set(id, show),
@@ -187,6 +181,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           class="rail-leaves"
           data-pads
           role="group"
+          plain
           ids={props.pads.ownedTodos().map((todo) => String(todo.id))}
           onOrderChange={props.pads.reorder.order}
         >
