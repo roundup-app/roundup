@@ -135,3 +135,14 @@ it("u2307c_the_bar_keeps_drag_fill_and_keyboard_moves", async () => {
   fireEvent.dblClick(header);
   await waitFor(() => expect(bubble()!.style.width).not.toBe("600px"));
 });
+
+it("u2307a_focus_moving_to_a_control_outside_minimises_the_bubble", async () => {
+  await shown();
+
+  const inside = bubble()!.querySelector<HTMLElement>(".bubble-body [tabindex]")!;
+  const outside = document.body.appendChild(document.createElement("input"));
+
+  inside.focus();
+  outside.focus();
+  await waitFor(() => expect(bubble()).toBeNull());
+});

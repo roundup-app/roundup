@@ -117,10 +117,12 @@
   height: var(--space-2);
   margin-inline-start: var(--space-2);
   border-radius: var(--radius-drawer);
-  background: var(--grey);
+  box-sizing: border-box;
+  border: 1px solid var(--grey);
 }
 
 .bubble-state[data-running="true"] {
+  border-color: var(--accent);
   background: var(--accent);
 }
 
