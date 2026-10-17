@@ -43,7 +43,7 @@ const open = () => {
 
 const KEYS = new Map<string, number>([["Backspace", 8], ["ArrowLeft", 37], ["ArrowRight", 39]]);
 
-it("u2238_cmd_backspace_left_right_write_line_start_and_end_bytes", () => {
+it("u2242_cmd_backspace_left_right_write_line_start_and_end_bytes", () => {
   const { sent, press } = open();
 
   press("Backspace", { metaKey: true });
@@ -52,7 +52,7 @@ it("u2238_cmd_backspace_left_right_write_line_start_and_end_bytes", () => {
   expect(sent).toEqual(["\x15", "\x01", "\x05"]);
 });
 
-it("u2238_option_backspace_left_right_write_word_bytes", () => {
+it("u2242_option_backspace_left_right_write_word_bytes", () => {
   const { sent, press } = open();
 
   press("Backspace", { altKey: true });
@@ -61,7 +61,7 @@ it("u2238_option_backspace_left_right_write_word_bytes", () => {
   expect(sent).toEqual(["\x1b\x7f", "\x1bb", "\x1bf"]);
 });
 
-it("u2238_every_ctrl_letter_and_symbol_writes_xterms_byte", () => {
+it("u2242_every_ctrl_letter_and_symbol_writes_xterms_byte", () => {
   const { sent, press } = open();
 
   for (let i = 0; i < 26; i++) {
@@ -74,7 +74,7 @@ it("u2238_every_ctrl_letter_and_symbol_writes_xterms_byte", () => {
   expect(sent).toEqual(Array.from({ length: 26 }, (_, i) => String.fromCharCode(i + 1)));
 });
 
-it("u2238_a_held_key_writes_each_repeat_and_extra_modifiers_write_what_they_did", () => {
+it("u2242_a_held_key_writes_each_repeat_and_extra_modifiers_write_what_they_did", () => {
   const held = open();
 
   held.press("ArrowLeft", { metaKey: true });
@@ -91,7 +91,7 @@ it("u2238_a_held_key_writes_each_repeat_and_extra_modifiers_write_what_they_did"
   expect(plain.sent).toEqual(["\x1b[D", "\x7f", "\x1b[1;4C"]);
 });
 
-it("u2238_composition_and_the_follow_up_events_write_nothing", () => {
+it("u2242_composition_and_the_follow_up_events_write_nothing", () => {
   const { sent, press } = open();
 
   press("Backspace", { metaKey: true, isComposing: true, keyCode: 229 });
@@ -101,7 +101,7 @@ it("u2238_composition_and_the_follow_up_events_write_nothing", () => {
   expect(sent).toEqual(["\x01"]);
 });
 
-it("u2238_the_door_and_a_bubble_terminal_do_the_same", () => {
+it("u2242_the_door_and_a_bubble_terminal_do_the_same", () => {
   const first = open();
   const second = open();
 
