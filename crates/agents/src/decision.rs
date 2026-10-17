@@ -544,7 +544,7 @@ impl Shared {
         terminal: &str,
         owner: Option<&str>,
     ) -> Result<(), RpcError> {
-        let refused = match self.guard_terminal_read(actor, terminal, owner) {
+        let refused = match self.guard_terminal_read(actor, terminal, owner, false) {
             Err(err) if err.code == rpc::code::FORBIDDEN => err,
             other => return other,
         };

@@ -621,7 +621,8 @@ impl Daemon {
                 .await?;
         }
         if method == "terminal.show" {
-            self.guard_terminal(&conn.actor, &params, true).await?;
+            self.guard_terminal(&conn.actor, method, &params, true)
+                .await?;
         }
         if method == "terminal.open" {
             self.guard_terminal_open(&conn.actor, &params)?;
@@ -944,13 +945,14 @@ impl Daemon {
         method: &str,
         params: &Value,
     ) -> Result<Option<String>, RpcError> {
-        self.guard_terminal(actor, params, false).await
+        self.guard_terminal(actor, method, params, false).await
     }
 
     /// `guard_terminal_read`, or with `show` B53's wider rule for a Show request.
     async fn guard_terminal(
         &self,
         actor: &Actor,
+        method: &str,
         params: &Value,
         show: bool,
     ) -> Result<Option<String>, RpcError> {
