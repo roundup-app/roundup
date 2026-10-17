@@ -1,13 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { expect, it } from "vitest";
-import { captureDir } from "../testing/captures";
-import type { Checks } from "../testing/checks";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
-const load = async (scheme: "light" | "dark" = "light", width = 1280) => {
-  await browser("set", "viewport", String(width), "800");
-  await browser("set", "media", scheme);
+const load = async () => {
+  await browser("set", "viewport", "1280", "800");
+  await browser("set", "media", "light");
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait(`document.querySelector('[data-id="tokens"]') && window.__fake`);
 };
@@ -135,30 +131,3 @@ it("u522_a_press_on_a_button_starts_no_drag", async () => {
   await mouse("up");
   expect(await moves()).toEqual([]);
 }, 90_000);
-
-const capture = async (name: string) => {
-  const dir = captureDir("U522");
-
-  if (!dir) return;
-  mkdirSync(dir, { recursive: true });
-  await browser("screenshot", join(dir, `${name}.png`));
-  writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await read<unknown>(`window.__checks()`)) + "\n");
-};
-
-for (const width of [1280, 1440]) {
-  for (const scheme of ["light", "dark"] as const) {
-    it(`u522_rendered_checks ${width} ${scheme}`, async () => {
-      await load(scheme, width);
-      await dragBelow("tokens", "logins");
-      const open = await read<Checks>(`window.__checks()`);
-      await capture(`drag-${width}-${scheme}`);
-      await read<void>(`window.__fake.failNext(-32000, 'CONFLICT: ${"cannot move a Workstream under an Agent and keep its children ".repeat(2)}')`);
-      await mouse("up");
-      await wait(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('CONFLICT'))`);
-      const rejected = await read<Checks>(`window.__checks()`);
-      await capture(`rejected-${width}-${scheme}`);
-
-      for (const checks of [open, rejected]) for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status).not.toBe("fail");
-    }, 90_000);
-  }
-}

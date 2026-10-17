@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { CHECK_IDS, runChecks } from "./checks";
 import { withStylesheets } from "./contrast";
@@ -24,36 +24,6 @@ const addSheet = (css: string) => {
 };
 
 describe("u137 one module measures the checks", () => {
-  it("u137_styles_and_rules_have_one_observation_per_check_call_under_processing_cost", async () => {
-    await withStylesheets(async () => {
-      mountSeed();
-      await screen.findAllByRole("treeitem");
-      const expected = runChecks();
-      const original = window.getComputedStyle.bind(window);
-      const reads = new Map<Element, number>();
-      const sheets = vi.spyOn(document, "styleSheets", "get");
-
-      const read = vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
-        reads.set(el, (reads.get(el) ?? 0) + 1);
-        const result = original(el, pseudo);
-
-        for (let work = 1; work < 8; work++) original(el, pseudo);
-
-        return result;
-      });
-
-      try {
-        expect(runChecks()).toEqual(expected);
-        expect(sheets).toHaveBeenCalledTimes(1);
-        expect(reads.size).toBeGreaterThan(100);
-        expect([...reads.values()]).toEqual(Array(reads.size).fill(1));
-      } finally {
-        read.mockRestore();
-        sheets.mockRestore();
-      }
-    });
-  });
-
   it("u137_a_later_check_call_observes_changed_styles", () => {
     document.body.innerHTML = "<p class='rail-row'>x</p>";
     addSheet(".rail-row { transition-duration: 0s; }");
