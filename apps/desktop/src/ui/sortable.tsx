@@ -1,3 +1,4 @@
+import "./sortable.css";
 import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
