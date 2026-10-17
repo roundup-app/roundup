@@ -1,7 +1,7 @@
 import { Tabs, IconButton } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { leaderChord } from "../keys/chords";
+import { chordsFor, leaderChord } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
@@ -24,6 +24,12 @@ const edgeOf = (hidden: StripTab[], nearestFirst: boolean): Edge | null => {
   if (!nearest) return null;
 
   return { mark: marked.some((entry) => entry.mark === "error") ? "error" : "needs-you", count: marked.length, nearest };
+};
+
+const stepFrom = (tabs: readonly StripTab[], path: string | null, step: 1 | -1): string | undefined => {
+  const at = tabs.findIndex((tab) => tab.path === path);
+
+  return tabs[(at + step + tabs.length) % tabs.length]?.path;
 };
 
 /** The header's strip (U179): one tab per open Project in the order they were opened, then a quiet `+`. */
@@ -174,6 +180,22 @@ export const Strip = (props: {
     observer.observe(list);
     onCleanup(() => observer.disconnect());
   });
+
+  // U186: `⇧⌘]` and `⇧⌘[` by key position, so Caps Lock and the layout do not matter; the webview takes them wherever focus is.
+  registerKeys({ kind: "app" }, [{
+    chords: [...chordsFor("⇧⌘]"), ...chordsFor("⇧⌘[")],
+    when: () => !asking(),
+    run: (press) => {
+      press.preventDefault();
+      press.stopPropagation();
+
+      if (press.repeat || props.tabs.length < 2) return;
+
+      const next = stepFrom(props.tabs, props.active, press.code === "BracketRight" ? 1 : -1);
+
+      if (next) props.onSelect(next);
+    },
+  }]);
 
   // U186: leader `⇧J` marks the next Project that needs you, or this one; the webview takes it wherever focus is.
   registerKeys({ kind: "leader" }, [{
