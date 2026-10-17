@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
-import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestion";
+import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
 

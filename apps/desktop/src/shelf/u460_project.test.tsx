@@ -6,7 +6,7 @@ import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { deferred } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
-import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestion";
+import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

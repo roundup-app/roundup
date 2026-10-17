@@ -12,7 +12,7 @@ import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
 import { showEverythingInApp } from "../testing/showEverything";
 import { showShelfTab } from "../testing/shelfTabs";
-import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestion";
+import { askToDelete, confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
 
 let real: StartedDaemon;
 

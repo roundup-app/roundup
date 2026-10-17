@@ -5,7 +5,7 @@ import { deferred } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
 import { useShelfScope } from "../todos/shelfScope";
-import { stubDialogLayout, askToDelete, confirmDeletion, questionClosed, questionDialog } from "./bulkQuestion";
+import { stubDialogLayout, askToDelete, confirmDeletion, questionClosed, questionDialog } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
 
@@ -97,6 +97,7 @@ it("u460_backspace_is_local_and_repeat_safe", async () => {
   const { app } = await mountTodos([todo(1), todo(2)]);
   await pickTwo();
   const row = screen.getByRole("button", { name: /#1 / });
+  row.focus();
   fireEvent.keyDown(row, { key: "Backspace", repeat: true });
   fireEvent.keyDown(row, { key: "Backspace", metaKey: true });
   fireEvent.keyDown(screen.getByRole("checkbox", { name: "Complete todo 1" }), { key: "Backspace" });
