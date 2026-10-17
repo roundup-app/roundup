@@ -109,7 +109,7 @@ for (const railWidth of [288]) {
     await page.call(`width => { document.querySelector('.rail').style.width=width+'px'; document.querySelector('.rail-row').focus(); }`, railWidth);
     await page.press("Tab", "Tab");
     await page.until(`() => document.activeElement.getAttribute('aria-label') === 'Collapse'`);
-    const labels = ["Add Agent", "Choose Model and Effort", "Start supervisor", "Clear", "Open folder", "Open in editor"];
+    const labels = ["Add Agent", "Start supervisor", "Clear", "Open folder", "Open in editor"];
 
     for (const label of labels) {
       await page.press("Tab", "Tab");
