@@ -26,7 +26,7 @@ const open = () => {
   emulator.onInput((bytes) => sent.push(new TextDecoder().decode(bytes)));
 
   const press = (key: string, init: KeyboardEventInit = {}) => {
-    const code = KEYS[key]!;
+    const code = KEYS.get(key) ?? 0;
     const down = new KeyboardEvent("keydown", { key, code: key, keyCode: code, bubbles: true, cancelable: true, ...init });
 
     terminal.textarea?.dispatchEvent(down);
@@ -41,7 +41,7 @@ const open = () => {
   return { sent, press };
 };
 
-const KEYS: Record<string, number> = { Backspace: 8, ArrowLeft: 37, ArrowRight: 39 };
+const KEYS = new Map<string, number>([["Backspace", 8], ["ArrowLeft", 37], ["ArrowRight", 39]]);
 
 it("u2238_cmd_backspace_left_right_write_line_start_and_end_bytes", () => {
   const { sent, press } = open();
@@ -67,7 +67,7 @@ it("u2238_every_ctrl_letter_and_symbol_writes_xterms_byte", () => {
   for (let i = 0; i < 26; i++) {
     const letter = String.fromCharCode(97 + i);
 
-    KEYS[letter] = 65 + i;
+    KEYS.set(letter, 65 + i);
     press(letter, { ctrlKey: true });
   }
 
@@ -94,7 +94,7 @@ it("u2238_a_held_key_writes_each_repeat_and_extra_modifiers_write_what_they_did"
 it("u2238_composition_and_the_follow_up_events_write_nothing", () => {
   const { sent, press } = open();
 
-  press("Backspace", { metaKey: true, isComposing: true, keyCode: 229 } as KeyboardEventInit);
+  press("Backspace", { metaKey: true, isComposing: true, keyCode: 229 });
   expect(sent).toEqual([]);
 
   press("ArrowLeft", { metaKey: true });
