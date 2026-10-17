@@ -184,6 +184,9 @@ args = sys.argv[1:]
 answer = args[args.index('--output-last-message') + 1]
 json.dump(dict(args=args, prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
     'CODEX_HOME', 'GH_TOKEN', 'CODEX_AUTH', 'GIT_AUTHOR_NAME', 'GIT_COMMITTER_EMAIL')}), open(os.environ['SEEN'], 'w'))
+if os.environ.get('CODEX_MODE') == 'limit':
+    print(json.dumps(dict(type='turn.failed', error=dict(message='usage limit reached'))))
+    sys.exit(1)
 print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', aggregated_output='TOKEN=hidden'))))
 print('not json')
 open(answer, 'w').write('{"ask":""}')
@@ -269,8 +272,9 @@ else:
 
 
 class Engine(unittest.TestCase):
-    def run_engine(self, path, mode):
-        """`builder.engine` with fake `claude`, `codex` and `gh` on PATH: the step outputs and what each engine saw."""
+    def run_engine(self, path, item, claude_mode='works', codex_mode='works'):
+        """`builder.engine` for the work item `item` with fake `claude`, `codex` and `gh` on PATH: the step outputs and
+        what each engine saw."""
         bin = Path(path, 'bin')
         bin.mkdir()
         (bin / 'claude').write_text(FAKE_CLAUDE)
@@ -280,7 +284,7 @@ class Engine(unittest.TestCase):
             tool.chmod(0o755)
         Path(path, 'temp').mkdir()
         output = Path(path, 'output')
-        with patch.dict(os.environ, CODEX_AUTH=Codex.LOGIN, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=mode,
+        with patch.dict(os.environ, CODEX_AUTH=Codex.LOGIN, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode, CODEX_MODE=codex_mode, ISSUE=str(item),
                         RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
                         PATH=f"{bin}:{os.environ['PATH']}"), \
                 patch.object(builder, 'app_token', return_value='fresh'), redirect_stdout(io.StringIO()), \
@@ -289,9 +293,9 @@ class Engine(unittest.TestCase):
         seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None
         return output.read_text(), seen('seen-claude'), seen('seen')
 
-    def test_l23_claude_code_runs_sonnet_first_and_codex_runs_only_when_it_did_no_work(self):
+    def test_l23_an_odd_item_starts_on_claude_code_and_falls_back_to_codex_when_it_did_no_work(self):
         with tempfile.TemporaryDirectory() as path:
-            output, claude, codex = self.run_engine(path, 'works')
+            output, claude, codex = self.run_engine(path, 7)
         self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
         self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh',
                                              GIT_AUTHOR_NAME='claude[bot]'))
@@ -299,12 +303,26 @@ class Engine(unittest.TestCase):
         self.assertIn('{"ask": "from claude"}', output)
         self.assertEqual(output.count('execution_file='), 1)
         with tempfile.TemporaryDirectory() as path:
-            output, claude, codex = self.run_engine(path, 'limit')
+            output, claude, codex = self.run_engine(path, 7, claude_mode='limit')
         self.assertEqual(codex['args'][:4], ['exec', '--json', '--model', 'gpt-6.1-sol'])
         self.assertEqual(codex['prompt'], 'Build U1.')
         self.assertEqual(output.count('execution_file='), 2)
         self.assertIn('{"ask":""}', output)
         self.assertNotIn('from claude', output)
+
+    def test_l23_an_even_item_starts_on_codex_and_falls_back_to_claude_code_when_it_did_no_work(self):
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 8)
+        self.assertEqual(codex['args'][:4], ['exec', '--json', '--model', 'gpt-6.1-sol'])
+        self.assertIsNone(claude)
+        self.assertIn('{"ask":""}', output)
+        self.assertEqual(output.count('execution_file='), 1)
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 8, codex_mode='limit')
+        self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
+        self.assertIsNone(claude['env']['CODEX_AUTH'])
+        self.assertEqual(output.count('execution_file='), 2)
+        self.assertIn('{"ask": "from claude"}', output)
 
 
 def invalid_row(number, **changes):
