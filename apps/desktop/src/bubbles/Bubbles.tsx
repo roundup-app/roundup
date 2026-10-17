@@ -1,6 +1,8 @@
 import { chordsFor, leaderChord } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
-import { Editable, IconButton, Menu } from "../ui";
+import { Editable } from "../ui/Editable";
+import { IconButton } from "../ui/IconButton";
+import { Menu } from "../ui/Menu";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";

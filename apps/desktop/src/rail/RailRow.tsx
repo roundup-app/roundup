@@ -1,7 +1,9 @@
 import { copy } from "../copy";
 import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { IconButton, Tooltip, TreeView } from "../ui";
+import { IconButton } from "../ui/IconButton";
+import { Tooltip } from "../ui/Tooltip";
+import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
 import { Tip } from "./Tip";
 import type { TriggerProps } from "./Tip";

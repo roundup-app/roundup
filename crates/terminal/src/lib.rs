@@ -91,6 +91,8 @@ struct ScreenState {
     after: u64,
     /// X13: the last megabyte of output; its end is `after`.
     log: output::Log,
+    /// X16: where each reader's next `terminal.read` begins; it ends with the Terminal.
+    cursors: std::collections::HashMap<String, u64>,
     snapshot_available: bool,
     scrollback_rows: usize,
     cols: u16,
@@ -405,6 +407,7 @@ impl Terminals {
             parser: ScreenParser::Pending,
             after: 0,
             log: output::Log::default(),
+            cursors: Default::default(),
             snapshot_available,
             scrollback_rows: scrollback,
             cols: params.cols,
@@ -612,11 +615,30 @@ impl Terminals {
         Ok(output::screen(cols, rows, offset, shown, cap))
     }
 
-    /// X13: the output from `params.after` on, as plain text. Changes nothing.
+    /// X13, X16: the output from `params.after` on, or from the reader's cursor, as plain text.
+    /// Writes nothing and emits nothing; only a read by `reader` moves that reader's cursor.
     pub fn read(&self, params: &ReadParams) -> Result<contracts::terminal::Read, RpcError> {
         let cap = output::cap(params.max)?;
-        let window = self.window(&params.id, params.after)?;
-        Ok(output::read(&window, cap))
+        let (after, reader) = match (params.after, params.reader.as_deref()) {
+            (Some(after), _) => (Some(after), None),
+            (None, Some(reader)) => (None, Some(reader)),
+            (None, None) => {
+                return Err(invalid("terminal.read needs `after` or `reader`"));
+            }
+        };
+        let screen = self.screen(&params.id)?;
+        let mut state = screen.lock().expect("terminal screen lock");
+        let start = after.unwrap_or_else(|| {
+            reader
+                .and_then(|r| state.cursors.get(r).copied())
+                .unwrap_or(0)
+        });
+        let window = state.log.from(start)?;
+        let read = output::read(&window, cap);
+        if let Some(reader) = reader {
+            state.cursors.insert(reader.to_owned(), read.next);
+        }
+        Ok(read)
     }
 
     /// X13: the lines of the output that match `params.pattern`. Changes nothing, and searches a
@@ -963,6 +985,14 @@ impl Module for Terminals {
             "terminal.kill" => {
                 let TerminalId { id } = params(value)?;
                 self.kill(&id).await.and(reply(&()))
+            }
+            "terminal.show" => {
+                let TerminalId { id } = params(value)?;
+                self.screen(&id)?;
+                self.shared
+                    .bus
+                    .emit(Actor::daemon(), EventData::TerminalShown(TerminalId { id }));
+                reply(&())
             }
             "terminal.list" => reply(&self.list()),
             "terminal.snapshot" => {

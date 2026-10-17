@@ -1,7 +1,8 @@
 import { render } from "solid-js/web";
 import { createSignal, For, Show } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
-import { TreeView, IconButton } from "./index";
+import { TreeView } from "./TreeView";
+import { IconButton } from "./IconButton";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";

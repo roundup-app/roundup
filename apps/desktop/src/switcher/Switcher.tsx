@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
-import { Combobox } from "../ui";
+import { Combobox } from "../ui/Combobox";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
