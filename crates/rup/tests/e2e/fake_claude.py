@@ -457,8 +457,8 @@ if "FAKE_CLAUDE_KINDS" in os.environ and "--tools" not in sys.argv:
     if kind:
         play_kind(kind)
         time.sleep(3600)
-if "FAKE_CLAUDE_ON_PROMPT" in os.environ:
-    play_prompts(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT"]))
+if "FAKE_CLAUDE_ON_PROMPT" in os.environ or "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
+    play_prompts(json.loads(os.environ.get("FAKE_CLAUDE_ON_PROMPT", "[]")))
 if "FAKE_CLAUDE_LAUNCH_LOG" in os.environ:
     play_session()
 time.sleep(3600)

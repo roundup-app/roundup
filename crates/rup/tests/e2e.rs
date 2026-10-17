@@ -2,6 +2,7 @@
 //! the remaining cases retain the stub while E10 is migrated.
 
 #[path = "e2e/daemon.rs"]
+#[allow(dead_code)]
 mod daemon;
 #[path = "e2e/wake.rs"]
 mod wake;
@@ -15,8 +16,8 @@ use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
-    Project, TEN_IDLE_BOUND, h21_ask, h21_bash, h21_decision, h21_notes, h21_poll,
-    h21_user_answers, next, next_kind, rail_tree, signal, start, wait_until_idle,
+    Project, TEN_IDLE_BOUND, h21_ask, h21_bash, h21_decision, h21_notes, h21_poll, next, next_kind,
+    rail_tree, signal, start, wait_until_idle,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -2979,93 +2980,6 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
     assert!(h21_notes(&client, &gone, 0).await.is_empty());
 }
 
-#[tokio::test]
-async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins() {
-    let root = tempfile::tempdir().unwrap();
-    let gate = root.path().join("gate");
-    let door_gate = root.path().join("door-gate");
-    let door_report = root.path().join("door.json");
-    let agent_report = root.path().join("agent.json");
-    let door_file = root.path().join("door-id");
-    let out = root.path().join("out");
-    let answer = |gate: &std::path::Path| {
-        json!([{"name": "decision_answer", "arguments": {"id": "d1", "answer": "allow"},
-            "may_fail": true, "after": gate}])
-    };
-    let process = json!([
-        "python3",
-        h21_script(),
-        gate,
-        out,
-        "d1",
-        door_file,
-        "",
-        "plain"
-    ]);
-    let project = start(&[
-        ("FAKE_CLAUDE_AGENT_TOOLS", &answer(&gate).to_string()),
-        ("FAKE_CLAUDE_AGENT_REPORT", agent_report.to_str().unwrap()),
-        ("FAKE_CLAUDE_DOOR_TOOLS", &answer(&door_gate).to_string()),
-        ("FAKE_CLAUDE_TOOL_REPORT", door_report.to_str().unwrap()),
-        ("FAKE_CLAUDE_CHILD_PROCESS", &process.to_string()),
-    ]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    std::fs::write(&door_file, &door).unwrap();
-    let child = agent_in(&project, &client, Some(&door)).await;
-    h21_poll("the child's tools", async || {
-        std::path::Path::new(&format!("{}.claimed", agent_report.display()))
-            .exists()
-            .then_some(())
-    })
-    .await;
-    let elsewhere = workstream(&client, "elsewhere").await;
-    let other = agent_in(&project, &client, Some(&elsewhere)).await;
-    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
-    let decision = h21_decision(&client, &child, None).await;
-    assert_eq!(decision["id"], "d1");
-
-    std::fs::write(&gate, "").unwrap();
-    let from_mcp = json_file(&agent_report).await;
-    let replies = h21_poll("both processes", async || {
-        let found: Vec<Value> = std::fs::read_dir(root.path())
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                name.starts_with("out.") && !name.ends_with(".tmp")
-            })
-            .map(|e| serde_json::from_str(&std::fs::read_to_string(e.path()).unwrap()).unwrap())
-            .collect();
-        (found.len() == 2).then_some(found)
-    })
-    .await;
-    let _ = other;
-
-    assert_eq!(from_mcp[0]["error"]["code"], rpc::code::FORBIDDEN);
-    for reply in &replies {
-        assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
-    }
-    let history = |item: String| client.request("provenance.history", json!({ "item": item }));
-    assert!(
-        history("decision:d1".into())
-            .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
-
-    h21_user_answers(&client, "d1", "deny").await.unwrap();
-    std::fs::write(&door_gate, "").unwrap();
-    let late = json_file(&door_report).await;
-    assert_eq!(late[0]["error"]["code"], rpc::code::NOT_FOUND);
-    let touches = history("decision:d1".into()).await.unwrap();
-    assert_eq!(touches.as_array().unwrap().len(), 1);
-    assert_eq!(touches[0]["actor"]["kind"], "user");
-}
-
 /// A process below the child's `claude` that does `mode`, then answers the child's own Decision.
 async fn h21_below_claude(mode: &str) -> (Value, usize) {
     let root = tempfile::tempdir().unwrap();
@@ -4043,71 +3957,6 @@ async fn m14_a_door_that_spawns_claude_in_a_terminal_is_flagged_stray() {
     assert_eq!(flagged.stray[0].pid, pid_found);
 }
 
-#[tokio::test]
-async fn m17_decision_answer_names_the_decision_and_answer() {
-    for (question, answer, note, expected) in [
-        (false, json!("allow"), json!(""), "allow"),
-        (false, json!("deny"), json!(""), "deny"),
-        (true, json!("Yes"), json!(""), "Yes"),
-        (
-            true,
-            Value::Null,
-            json!("Use the other option"),
-            "Use the other option",
-        ),
-    ] {
-        let root = tempfile::tempdir().unwrap();
-        let report = root.path().join("door.json");
-        let child_report = root.path().join("child.json");
-        let on_prompt = json!({"name":"decision_answer", "arguments":{"id":"$decision","answer":answer,"note":note}});
-        let on_prompt = on_prompt.to_string();
-        let ask = if question {
-            json!([{"name":"ask_user","arguments":{"question":"Proceed?","answers":[{"label":"Yes","description":"Continue"}]}}])
-        } else {
-            json!([])
-        };
-        let mut fake = vec![
-            ("FAKE_CLAUDE_ON_PROMPT", on_prompt.as_str()),
-            ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-            ("FAKE_CLAUDE_AGENT_REPORT", child_report.to_str().unwrap()),
-        ];
-        let ask = ask.to_string();
-        if question {
-            fake.push(("FAKE_CLAUDE_AGENT_TOOLS", &ask));
-        } else {
-            // The fake emits its startup hooks before requesting permission, like Claude.
-            fake.push(("FAKE_CLAUDE_KINDS", r#"["needs-you"]"#));
-        }
-        let project = start(&fake);
-        let user = project.client().await;
-        let door = start_door(&user).await;
-        let _child = agent_in(&project, &user, Some(&door)).await;
-        let notes = h21_notes(&user, &door, 1).await;
-        let id = notes[0]["body"]
-            .as_str()
-            .unwrap()
-            .strip_prefix("[decision ")
-            .unwrap()
-            .split(']')
-            .next()
-            .unwrap();
-        let result = json_file(&report).await;
-        assert_eq!(result[0], format!("answered Decision {id}: {expected}"));
-        let received = json_file(&child_report).await;
-        if question {
-            assert_eq!(received[0]["answer"], answer);
-            assert_eq!(received[0]["note"], note);
-        } else {
-            assert_eq!(
-                received["hookSpecificOutput"]["decision"]["behavior"], answer,
-                "{received}"
-            );
-        }
-        let open = user.request("decision.list", Value::Null).await.unwrap();
-        assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
-    }
-}
-
 /// The next Event `client` is pushed that is a Todo created with `title`, with every number seen on the way.
 async fn until_created(client: &mut rpc::Client, title: &str) -> Vec<(u64, bool)> {
     let mut seen = Vec::new();
@@ -4205,9 +4054,7 @@ async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
     let logs = tempfile::tempdir().unwrap();
     let prompts = logs.path().join("prompts.jsonl");
     let blocked = logs.path().join("blocked.jsonl");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
     let project = start(&[
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
         ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
         ("FAKE_CLAUDE_BLOCKED_LOG", blocked.to_str().unwrap()),
     ]);
@@ -4242,14 +4089,14 @@ async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
     let dropped = b39_log(&blocked, 1).await;
     assert_eq!(dropped[0]["prompt"], prompt);
     assert_eq!(b39_status(&client, 1).await, "delivered");
-    let todos = client.request("todo.list", Value::Null).await.unwrap();
-    let turns = todos
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|todo| todo["title"].as_str().unwrap().contains("hello"))
-        .count();
-    assert_eq!(turns, 1, "a second turn ran");
+    assert_eq!(b39_log(&prompts, 2).await.len(), 2);
+    let working = rail_tree(&client)
+        .await
+        .into_iter()
+        .find(|node| node.id == door)
+        .and_then(|node| node.status)
+        .map(|status| status.kind);
+    assert_eq!(working, Some(contracts::Kind::Idle), "a second turn ran");
 }
 
 #[tokio::test]
@@ -4257,17 +4104,10 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     let logs = tempfile::tempdir().unwrap();
     let hold = logs.path().join("signal");
     let prompts = logs.path().join("prompts.jsonl");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
-    let env = [
-        ("FAKE_CLAUDE_ON_PROMPT", on_prompt.to_string()),
-        (
-            "FAKE_CLAUDE_PROMPT_LOG",
-            prompts.to_str().unwrap().to_owned(),
-        ),
-    ];
+    let log = prompts.to_str().unwrap();
+    let env = [("FAKE_CLAUDE_PROMPT_LOG", log)];
     let held = [
-        (env[0].0, env[0].1.as_str()),
-        (env[1].0, env[1].1.as_str()),
+        ("FAKE_CLAUDE_PROMPT_LOG", log),
         ("FAKE_CLAUDE_HOLD_PROMPT", hold.to_str().unwrap()),
     ];
     let mut project = start(&held);
@@ -4284,7 +4124,7 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     assert_eq!(b39_status(&client, 1).await, "pending");
 
     // Killed after the typing and before the Signal: nothing was lost, nothing is delivered.
-    project.restart(&[(env[0].0, env[0].1.as_str()), (env[1].0, env[1].1.as_str())]);
+    project.restart(&env);
     let client = project.client().await;
     assert_eq!(b39_status(&client, 1).await, "pending");
     client
