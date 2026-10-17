@@ -50,6 +50,7 @@ describe("u157 a Todo created by an Agent", () => {
 
     // The shared Menu opens on pointer-down, the picker on click.
     fireEvent.pointerDown(word, { button: 0, pointerType: "mouse" });
+
     if (!chooser()) fireEvent.click(word);
 
     const mounted = await waitFor(() => chooser() ?? Promise.reject(new Error("no Homes chooser")));
