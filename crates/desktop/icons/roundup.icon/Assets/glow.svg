@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="glow" cx="512" cy="390" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b42a3c"/>
+      <stop offset="1" stop-color="#b42a3c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+</svg>
