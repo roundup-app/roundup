@@ -17,11 +17,15 @@ type Box = { l: number; r: number; t: number; b: number; w: number; h: number };
 
 const BOXES = `() => {
   const box = selector => { const e = document.querySelector(selector); if (!e) return null; const r = e.getBoundingClientRect(); return {l:r.left,r:r.right,t:r.top,b:r.bottom,w:r.width,h:r.height}; };
-  return {centre:box('.centre'), pane:box('.pane'), bar:box('.resource-strip'), show:box('[aria-label="Show work items"]'), failure:box('.pane-failure'), body:box('.pane-body'),
-    space2:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-2')), space5:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-5')), space4:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4'))};
+  return {centre:box('.centre'), pane:box('.pane'), bar:box('.resource-strip'), row:box('.terminal-tabs-host'), firstTab:box('.terminal-tabs-host > *'), railRow:box('.rail-actions'), text:box('.pane-screen .xterm'),
+    barRule:(s => ({h:parseFloat(s.height), colour:s.backgroundColor}))(getComputedStyle(document.querySelector('.resource-strip'), '::after')),
+    railRule:(s => ({h:parseFloat(s.borderTopWidth), colour:s.borderTopColor}))(getComputedStyle(document.querySelector('.rail-actions'))), show:box('[aria-label="Show work items"]'), failure:box('.pane-failure'), body:box('.pane-body'),
+    space2:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-2')), space4:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4'))};
 }`;
 
-type Boxes = { centre: Box; pane: Box; bar: Box; show: Box | null; failure: Box; body: Box; space2: number; space5: number; space4: number };
+type Rule = { h: number; colour: string };
+
+type Boxes = { centre: Box; pane: Box; bar: Box; row: Box; firstTab: Box; railRow: Box; text: Box; barRule: Rule; railRule: Rule; show: Box | null; failure: Box; body: Box; space2: number; space4: number };
 
 const open = async (width = 1512): Promise<void> => {
   await page.load("/harness.html?seed=resources", width, 950);
@@ -30,18 +34,35 @@ const open = async (width = 1512): Promise<void> => {
   await page.until(`() => document.querySelector('.resource-agent .resource-num') && document.querySelector('[aria-label="Show work items"]')`);
 };
 
-it("u2340a_the_terminal_and_bar_sit_one_space_from_the_centre_edges", async () => {
+const expectBarEdgeToEdgeAndTextInset = async (): Promise<void> => {
+  const { centre, pane, bar, text, space2 } = await page.call<Boxes>(BOXES);
+
+  for (const box of [pane, bar]) {
+    expect(box.l).toBeCloseTo(centre.l, 0);
+    expect(box.w).toBeCloseTo(centre.w, 0);
+  }
+
+  expect(text.l).toBeCloseTo(centre.l + space2, 0);
+  expect(text.r).toBeLessThanOrEqual(centre.r - space2 + 1);
+};
+
+it("u2340a_the_bar_spans_the_centre_and_the_terminal_text_is_inset_one_space", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
     await open();
-    const { centre, pane, bar, space2 } = await page.call<Boxes>(BOXES);
-
-    for (const box of [pane, bar]) {
-      expect(box.l).toBeCloseTo(centre.l + space2, 0);
-      expect(box.w).toBeCloseTo(centre.w - 2 * space2, 0);
-    }
+    await expectBarEdgeToEdgeAndTextInset();
   }
 }, 120_000);
+
+it("u2340d_the_tab_row_matches_the_rail_row_in_height_and_border", async () => {
+  await open();
+  const { row, railRow, barRule, railRule } = await page.call<Boxes>(BOXES);
+
+  expect(row.h).toBeCloseTo(railRow.h, 0);
+  expect(row.t).toBeCloseTo(railRow.t, 0);
+  expect(row.b).toBeCloseTo(railRow.b, 0);
+  expect(barRule).toEqual(railRule);
+}, 60_000);
 
 it("u2340a_the_show_button_floats_at_the_terminals_corner", async () => {
   await open();
@@ -66,12 +87,7 @@ it("u2340a_overlay_and_closed_shelf_keep_the_same_alignment", async () => {
       expect(await page.call<string>(`() => document.querySelector(".window").dataset.shelfMode`)).toBe("overlay");
     }
 
-    const { centre, pane, bar, space2 } = await page.call<Boxes>(BOXES);
-
-    for (const box of [pane, bar]) {
-      expect(box.l).toBeCloseTo(centre.l + space2, 0);
-      expect(box.w).toBeCloseTo(centre.w - 2 * space2, 0);
-    }
+    await expectBarEdgeToEdgeAndTextInset();
   }
 }, 120_000);
 
@@ -82,11 +98,11 @@ it("u2340b_no_failure_takes_no_height", async () => {
 
 it("u2340c_the_bar_is_one_line_the_terminals_width", async () => {
   await open();
-  const { pane, bar, space2, space5, space4 } = await page.call<Boxes>(BOXES);
+  const { pane, bar, firstTab, text, railRow, space4 } = await page.call<Boxes>(BOXES);
 
   expect(bar.w).toBeCloseTo(pane.w, 0);
-  expect(bar.h).toBeCloseTo(space4 + space5, 0);
-  expect(await page.call<number>(`() => parseFloat(getComputedStyle(document.querySelector('.resource-strip')).paddingLeft)`)).toBe(space2);
+  expect(firstTab.l).toBeCloseTo(text.l, 0);
+  expect(bar.h).toBeCloseTo(space4 + railRow.h, 0);
 }, 60_000);
 
 it("u2340b_a_failure_shortens_the_terminal_and_covers_nothing", async () => {
@@ -124,7 +140,7 @@ it("u2340a_checks_hold_on_the_densest_seed", async () => {
   }`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length === 16 && document.querySelector('.resource-stale') && document.querySelector('.pane-failure [role="alert"]')`);
 
-  const { pane, bar, space5, space4 } = await page.call<Boxes>(BOXES);
+  const { pane, bar, railRow, space4 } = await page.call<Boxes>(BOXES);
 
   const read = await page.call<{ clipped: string[] }>(`() => {
     const bar = document.querySelector('.resource-strip').getBoundingClientRect();
@@ -132,7 +148,7 @@ it("u2340a_checks_hold_on_the_densest_seed", async () => {
   }`);
 
   expect(bar.w).toBeCloseTo(pane.w, 0);
-  expect(bar.h).toBeCloseTo(space4 + space5, 0);
+  expect(bar.h).toBeCloseTo(space4 + railRow.h, 0);
   expect(read.clipped).toEqual([]);
 
   const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);

@@ -19,6 +19,6 @@ describe("u44 a row brought into view is never under the pinned actions", () => 
     sheet.remove();
 
     expect(values).toEqual(["var(--rail-actions-height)", "0", "static"]);
-    expect(styles).toMatch(/\.rail\s*{\s*--rail-actions-height: 40px/);
+    expect(styles).toMatch(/:root\s*{\s*--rail-actions-height: 40px/);
   });
 });
