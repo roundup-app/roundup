@@ -24,6 +24,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `decision_list`: see the open permission requests and `ask_user` questions of the Agents below you.
 - `decision_answer`: answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you.
 - `agent_context`: ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved.
+- `agent_wake`: ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking.
 - `agent_set_order`: replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.
 - `message_send`: send a note, question or request to another Agent or the user; it is delivered when the receiver is next idle.
 - `message_get`: read one Message you sent or received.

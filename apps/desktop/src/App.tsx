@@ -41,6 +41,7 @@ import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
+import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
@@ -343,6 +344,7 @@ export const App = (props: {
                 return (
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
+                    <AskBar />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle(); }} />
                     <ResourceStrip />
