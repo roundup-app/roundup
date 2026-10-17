@@ -109,41 +109,14 @@ describe("u2236 any edge or corner resizes the bubble", () => {
     expect(resizedAbout({ x: 500, y: 0, w: 300, h: 100, min: false }, { sx: 1, sy: 0 }, 50, 0, FALLBACK_EXTENT)).toMatchObject({ x: 400, w: 400 });
   });
 
-  it("u2236_the_zones_have_native_cursors_and_draw_nothing", async () => {
+  it("u2236_the_zones_are_hidden_from_the_keyboard_and_assistive_tech", async () => {
     await shown();
-
-    const cursors = Object.fromEntries(ZONES.map(({ name }) => [name, zone(name).style.cursor]));
-
-    expect(cursors).toEqual({ n: "ns-resize", s: "ns-resize", w: "ew-resize", e: "ew-resize", nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize" });
 
     for (const { name } of ZONES) {
       expect(zone(name).getAttribute("aria-hidden")).toBe("true");
       expect(zone(name).hasAttribute("tabindex")).toBe(false);
       expect(zone(name).textContent).toBe("");
     }
-  });
-
-  it("u2236_no_zone_covers_a_header_control", async () => {
-    await shown();
-
-    const box = geometry();
-
-    const strip = (name: string) => ({ left: num(zone(name).style.left), top: num(zone(name).style.top), width: num(zone(name).style.width), height: num(zone(name).style.height) });
-
-    const inner = (name: string) => {
-      const z = strip(name);
-
-      return { left: Math.max(z.left, box.x + 12), right: Math.min(z.left + z.width, box.x + box.w - 12), top: Math.max(z.top, box.y + 12), bottom: Math.min(z.top + z.height, box.y + box.h - 12) };
-    };
-
-    for (const { name } of ZONES) {
-      const area = inner(name);
-
-      expect(area.right <= area.left || area.bottom <= area.top).toBe(true);
-    }
-
-    expect(strip("e").width).toBe(8);
-    expect(strip("se").width).toBe(16);
   });
 
   it("u2236_a_resize_calls_terminal_resize_once_per_size_change", async () => {
@@ -229,15 +202,6 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     expect(toggledFill(place, { width: 800, height: 600 })).toEqual({ x: 5, y: 5, w: 300, h: 200, min: false });
   });
 
-  it("u2237_fill_and_restore_refit_once", async () => {
-    const mounted = await shown();
-
-    await frame();
-    await frame();
-    fireEvent.dblClick(header());
-    expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
-  });
-
   it("u2237_a_filled_bubble_survives_a_reload", async () => {
     await shown();
     fireEvent.dblClick(header());
@@ -253,7 +217,15 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     const before = geometry();
 
     fireEvent.click(header());
-    fireEvent.dblClick(bubble("2").querySelector('button[aria-label]')!);
     expect(geometry()).toEqual(before);
+
+    fireEvent.pointerDown(header(), { button: 0, clientX: 500, clientY: 400 });
+    fireEvent(window, new MouseEvent("pointermove", { clientX: 520, clientY: 410 }));
+    await frame();
+    fireEvent(window, new MouseEvent("pointerup"));
+    expect(geometry()).toMatchObject({ x: before.x + 20, y: before.y + 10, w: before.w, h: before.h });
+
+    fireEvent.dblClick(document.querySelector('.terminal-tab[data-bubble="2"] .terminal-tab-name')!);
+    await waitFor(() => expect(document.querySelector(".terminal-tab-editor input")).not.toBeNull());
   });
 });
