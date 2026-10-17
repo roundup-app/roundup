@@ -82,6 +82,23 @@ const NEWLINE = "\x1b\r";
 const isShiftEnter = (event: KeyboardEvent): boolean =>
   event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing;
 
+/** U2242: the bytes Ghostty's macOS defaults send for a bare `⌘` or `⌥` with ⌫, ← or →; other chords keep xterm's encoding. */
+const MAC_EDITING_KEYS = new Map(
+  Object.entries({
+    Backspace: { cmd: "\x15", alt: "\x1b\x7f" },
+    ArrowLeft: { cmd: "\x01", alt: "\x1bb" },
+    ArrowRight: { cmd: "\x05", alt: "\x1bf" },
+  }),
+);
+
+const macEditingBytes = (event: KeyboardEvent): string | null => {
+  if (event.isComposing || event.ctrlKey || event.shiftKey || event.metaKey === event.altKey) return null;
+
+  const bytes = MAC_EDITING_KEYS.get(event.key);
+
+  return bytes ? (event.metaKey ? bytes.cmd : bytes.alt) : null;
+};
+
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
 export const SCROLLBACK_LINES = 10_000;
 
@@ -143,11 +160,13 @@ export const createXtermEmulators = (
     terminal.onRender(() => probe?.rendered());
     // xterm also asks about the keypress that follows a keydown it did not handle, so both are refused.
     terminal.attachCustomKeyEventHandler((event) => {
-      if (!isShiftEnter(event)) return true;
+      const bytes = isShiftEnter(event) ? NEWLINE : macEditingBytes(event);
+
+      if (bytes === null) return true;
 
       if (event.type === "keydown") {
         event.preventDefault();
-        terminal.input(NEWLINE, true);
+        terminal.input(bytes, true);
       }
 
       return false;

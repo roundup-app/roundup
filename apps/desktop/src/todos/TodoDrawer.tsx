@@ -1,7 +1,8 @@
+import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
-import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -113,23 +114,16 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     queueMicrotask(() => deleteButton?.focus());
   };
 
-  // A confirmation owns Escape before DrawerHost's document listener.
-  const escape = (event: KeyboardEvent) => {
-    if (!asking() || event.key !== "Escape") return;
-    event.preventDefault(); event.stopImmediatePropagation(); keep();
-  };
+  // The confirmation is a layer nested in the Drawer's panel, so Escape reaches it first.
+  let confirmation: HTMLParagraphElement | undefined;
 
-  document.addEventListener("keydown", escape, true);
-  onCleanup(() => document.removeEventListener("keydown", escape, true));
+  registerKeys({ kind: "layer", element: () => confirmation, active: asking, modal: false }, [{ chords: ["Escape"], run: keep }]);
 
   return (
     <>
       <div class="todo-detail">
         <Show when={asking() && todo()}>
-          <p class="todo-delete-confirm" role="group" aria-label={copy.deleteTodoQuestion} onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault(); event.stopPropagation(); keep();
-          }}>{copy.deleteTodoQuestion}{" "}
+          <p class="todo-delete-confirm" role="group" aria-label={copy.deleteTodoQuestion} ref={confirmation}>{copy.deleteTodoQuestion}{" "}
             <button data-button="quiet"
               type="button"
               class="word light"
