@@ -48,6 +48,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 const ignoringControls = <T extends { onPointerMove?: unknown; onPointerLeave?: unknown }>(props: T): T => {
   // SAFETY: the row's Ark tooltip trigger props carry these as pointer-event handlers when present.
   const move = props.onPointerMove as ((event: PointerEvent) => void) | undefined;
+  // SAFETY: same trigger props; onPointerLeave is the handler that closes the row's tooltip.
   const leave = props.onPointerLeave as ((event: PointerEvent) => void) | undefined;
 
   return {
