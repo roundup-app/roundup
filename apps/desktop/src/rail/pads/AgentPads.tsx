@@ -11,7 +11,8 @@ import { useConnectedProject } from "../../state/connectedProject";
 import { OpenRow } from "../../todos/Todos";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
-import { createReorder } from "../../todos/reorder";
+import { createSortedList } from "../../todos/sortedList";
+import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { Tip } from "../Tip";
@@ -29,7 +30,7 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
   const ownedTodos = createMemo(() => (node().kind === "agent" ? openTodosBy(todos.all(), node().id) : []));
   const connected = useConnectedProject();
 
-  const reorder = createReorder({
+  const reorder = createSortedList({
     ids: () => ownedTodos().map((todo) => todo.id),
     all: todos.all,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
@@ -110,7 +111,14 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   return (
     <>
       <Show when={props.pads.shown()}>
-        <div class="rail-leaves" data-pads role="group">
+        <Sortable.Root
+          class="rail-leaves"
+          data-pads
+          role="group"
+          plain
+          ids={props.pads.ownedTodos().map((todo) => String(todo.id))}
+          onOrderChange={props.pads.reorder.order}
+        >
           <For each={props.pads.owned()}>
             {(pad, at) => (
               <Leaf depth={props.depth} trail={props.trail} last={last(at())}>
@@ -139,19 +147,27 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           </For>
           <For each={props.pads.ownedTodos()}>
             {(todo, at) => (
-              <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo>
-                <OpenRow
-                  nested
-                  todo={todo}
-                  known={props.pads.todos.byId()}
-                  onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
-                  reorder={props.pads.reorder}
-                  onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
-                />
-              </Leaf>
+              <Sortable.Item id={String(todo.id)} index={at()} pressable>
+                {(parts) => {
+                  const sorted = props.pads.reorder.row(todo.id, parts);
+
+                  return (
+                    <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo>
+                      <OpenRow
+                        nested
+                        todo={todo}
+                        known={props.pads.todos.byId()}
+                        onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
+                        sorted={sorted}
+                        onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
+                      />
+                    </Leaf>
+                  );
+                }}
+              </Sortable.Item>
             )}
           </For>
-        </div>
+        </Sortable.Root>
       </Show>
       <Show when={props.pads.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     </>

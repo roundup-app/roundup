@@ -28,7 +28,7 @@ type Evidence = {base?: Checks; checks: Checks; rows?: Row[]; movedHome?: string
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
   await page.load(`${origin}/harness.html?seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
-  await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
+  await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
     [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
     document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
@@ -164,6 +164,40 @@ run('u362 rendered Todo drag', () => {
       await capture('U362', `${scheme}-root-home`, {base, checks: await page.call(`() => window.__checks()`), movedHome, calls: await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move')`)});
     }, 60_000);
   }
+});
+
+run('u362 rendered Todo drag that moves nothing', () => {
+  it('u362_a_drop_elsewhere_escape_or_on_an_agent_calls_nothing', async () => {
+    await page.scheme('light');
+    await setup();
+    const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
+    const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
+    const home = await point('[data-part="branch"][aria-expanded] > .rail-row');
+    const elsewhere = await point('.shelf-head, .shelf');
+    const calls = () => page.call<string[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move' || c.method === 'todo.reorder').map(c => c.method)`);
+
+    // Escape over a Home.
+    await page.pointer('down', from.x, from.y);
+    await page.pointer('move', home.x, home.y);
+    expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
+    await page.press('Escape', 'Escape');
+    await page.pointer('up', home.x, home.y);
+    expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
+    // Over a Home, then back out of the Rail and released there.
+    await page.pointer('down', from.x, from.y);
+    await page.pointer('move', home.x, home.y);
+    await page.pointer('move', elsewhere.x + 10, elsewhere.y);
+    expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
+    await page.pointer('up', elsewhere.x + 10, elsewhere.y);
+    // An Agent row is no Home.
+    const agent = await point('.rail-row[data-part="item"]');
+    await page.pointer('down', from.x, from.y);
+    await page.pointer('move', agent.x, agent.y);
+    expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
+    await page.pointer('up', agent.x, agent.y);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(await calls()).toEqual([]);
+  }, 60_000);
 });
 
 run('u363 Todo rows in the worst case', () => {
