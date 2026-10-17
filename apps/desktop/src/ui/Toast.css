@@ -1,0 +1,102 @@
+.app-toasts[data-scope="toast"] {
+  position: absolute !important;
+  inset: auto var(--space-3) calc(var(--space-3) + var(--toast-lift, 0px)) auto !important;
+  gap: var(--space-2);
+  max-width: calc(100% - var(--space-6));
+  z-index: 3 !important;
+  pointer-events: none;
+}
+
+.app-toasts[data-newest-first="true"] {
+  flex-direction: column-reverse !important;
+}
+
+.app-toast[data-scope="toast"] {
+  position: relative !important;
+  inset: auto !important;
+  max-width: calc(var(--shelf-width) - var(--space-6));
+  background-color: var(--ground);
+  border-radius: var(--radius-control);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--duration-toast) ease-out, transform var(--duration-toast) ease-out;
+}
+
+@starting-style {
+  .app-toast[data-scope="toast"] {
+    opacity: 0;
+    transform: translateY(var(--space-2));
+  }
+}
+
+.app-toast[data-state="closed"] {
+  opacity: 0;
+  transform: translateY(var(--space-2));
+  pointer-events: none !important;
+}
+
+.app-toast-action {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-small);
+  text-align: left;
+  --button-surface: var(--selected-hover);
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+
+.app-toast-heading {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.app-toast-glyph {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 1lh;
+}
+
+.app-toast-glyph:empty {
+  display: none;
+}
+
+.app-toast [data-part="title"] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.app-toast [data-part="description"] {
+  flex: 1 1 0;
+  min-width: 12ch;
+  color: var(--grey);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-toast-action {
+    --button-surface: var(--selected);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-toast[data-scope="toast"] {
+    transition: none;
+    transform: none;
+  }
+}
