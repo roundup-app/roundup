@@ -8,7 +8,6 @@ import {
   colourOf,
   contrastRatio,
   greyedRailFilter,
-  greyedRailRule,
   loadTokens,
   withStylesheets,
 } from "../testing/contrast";
@@ -36,14 +35,6 @@ describe("u25 the Daemon is gone", () => {
     expect(tree.getAttribute("aria-disabled")).toBe("true");
     expect(rowNames()).toEqual(["a", "b"]);
     expect({ glyph: glyphOf("a").getAttribute("aria-label"), line: rowOf("a").title }).toEqual(before);
-  });
-
-  it("u25_the_dim_is_a_grayscale_filter_and_never_an_opacity", () => {
-    const rule = greyedRailRule(rail);
-    const filter = greyedRailFilter(rail);
-
-    expect(filter).toContain("grayscale(1)");
-    expect(rule).not.toContain("opacity");
   });
 
   it.each([

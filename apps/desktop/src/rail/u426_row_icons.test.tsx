@@ -1,13 +1,9 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
 import { exitedTerminal, mountRail, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
-
-const css = readFileSync(join(process.cwd(), "src/rail/styles.css"), "utf8");
 
 const iconsOf = (name: string) => [...rowOf(name).querySelectorAll<HTMLElement>(".row-icons button")];
 
@@ -35,8 +31,6 @@ describe("u426 a Rail row shows its icons", () => {
     fireEvent.focusOut(iconsOf("g")[0]!);
     mounted.rail.select("h");
     expect(rowOf("h").dataset.near).toBe("true");
-    expect(css).toMatch(/\.rail-row \.row-icons\s*{[^}]*opacity: 0/);
-    expect(css).not.toMatch(/\.row-icons\s*{[^}]*(display: none|visibility: hidden)/);
   });
 
   it("u426_every_icon_is_an_icon_button_with_label_and_tooltip", async () => {

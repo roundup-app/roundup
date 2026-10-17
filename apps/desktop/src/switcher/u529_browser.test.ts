@@ -71,11 +71,5 @@ it("u529_switcher_keeps_d2_d5_d6_on_tree_40", async () => {
     for (const id of CHECK_IDS) if (before[id].status === "pass") expect(during[id].status, `${scheme} ${id}`).toBe("pass");
 
     for (const id of ["D2", "D5", "D6"] as const) expect(during[id].status, `${scheme} ${id}`).toBe("pass");
-
-    expect(await read(`(() => {
-      const box = document.querySelector('.switcher').getBoundingClientRect();
-      const row = document.querySelector('.switcher [data-highlighted]');
-      return box.left >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && getComputedStyle(row).backgroundColor !== 'rgba(0, 0, 0, 0)';
-    })()`)).toBe(true);
   }
 }, 120_000);

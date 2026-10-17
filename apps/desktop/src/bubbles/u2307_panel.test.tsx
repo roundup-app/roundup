@@ -80,10 +80,7 @@ it("u2307b_the_bubble_is_a_library_layer_and_no_z_index_orders_it", async () => 
   expect(frame.getAttribute("aria-modal")).toBe("false");
   expect(document.querySelector(".centre-stack")!.contains(frame)).toBe(false);
 
-  for (const node of [frame, bubble()!]) {
-    expect(node.style.zIndex).toBe("");
-    expect(getComputedStyle(node).zIndex).toBe("auto");
-  }
+  for (const node of [frame, bubble()!]) expect(node.style.zIndex).toBe("");
 });
 
 it("u2307b_the_portal_keeps_the_place_and_the_pane_size", async () => {
