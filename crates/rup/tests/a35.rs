@@ -1,4 +1,4 @@
-//! A35: durable Checkpoint Marks against a real `rupd`, a fake `claude` and real git.
+//! A35: durable Checkpoint Marks against a real `rupd`, the pinned real `claude` on aimock and real git.
 #![allow(dead_code)]
 
 #[path = "e2e/daemon.rs"]
@@ -15,8 +15,6 @@ use serde_json::{Value, json};
 
 struct Fix {
     project: Project,
-    log: PathBuf,
-    conversations: PathBuf,
     user: rpc::Client,
     ws: String,
     a: String,
@@ -80,50 +78,26 @@ async fn idle(client: &rpc::Client, id: &str) {
     panic!("{id} never became idle: {:?}", node(client, id).await);
 }
 
-fn prompts(log: &Path) -> Vec<Value> {
-    std::fs::read_to_string(log)
-        .unwrap_or_default()
-        .lines()
-        .map(|line| serde_json::from_str::<Value>(line).unwrap())
-        .filter(|p| !p["prompt"].as_str().unwrap().starts_with("{\"name\""))
-        .collect()
-}
-
 async fn fixture() -> Fix {
-    let dir = tempfile::tempdir().unwrap();
-    git(dir.path(), &["init", "-q", "-b", "main"]);
-    git(dir.path(), &["config", "user.name", "roundup"]);
-    git(dir.path(), &["config", "user.email", "roundup@example.com"]);
-    std::fs::write(dir.path().join("README"), "keep").unwrap();
+    let project = daemon::start_real("a35_marks", &[]);
+    let dir = project.dir.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "user.name", "roundup"]);
+    git(dir, &["config", "user.email", "roundup@example.com"]);
+    std::fs::write(dir.join("README"), "keep").unwrap();
     std::fs::write(
-        dir.path().join(".gitignore"),
-        "claude-config/\nprompts.jsonl\nconversations.jsonl\nhold-start\nrupd.sock\nignored\n",
+        dir.join(".gitignore"),
+        "claude-config/\nhome/\nrupd.sock\nignored\n",
     )
     .unwrap();
-    git(dir.path(), &["add", "README", ".gitignore"]);
-    git(dir.path(), &["commit", "-qm", "base"]);
-    let log = dir.path().join("prompts.jsonl");
-    let conversations = dir.path().join("conversations.jsonl");
-    let tool = json!({"name": "todo_list", "arguments": {}}).to_string();
-    let project = daemon::start_in(
-        dir,
-        tempfile::tempdir().unwrap(),
-        &[
-            ("FAKE_CLAUDE_ON_PROMPT", &tool),
-            ("FAKE_CLAUDE_MARKS", "1"),
-            (
-                "FAKE_CLAUDE_CONVERSATION_LOG",
-                conversations.to_str().unwrap(),
-            ),
-            ("FAKE_CLAUDE_PASTE_WHOLE", "1"),
-            ("FAKE_CLAUDE_PROMPT_LOG", log.to_str().unwrap()),
-        ],
-    );
-    let user = project.client().await;
-    user.request("project.setWorktrees", json!({"on": true, "check": null}))
+    git(dir, &["add", "README", ".gitignore"]);
+    git(dir, &["commit", "-qm", "base"]);
+    let mut events = project.subscribed().await;
+    events
+        .request("project.setWorktrees", json!({"on": true, "check": null}))
         .await
         .unwrap();
-    let ws = user
+    let ws = events
         .request(
             "rail.createWorkstream",
             json!({"name": "team", "parent": null}),
@@ -133,78 +107,81 @@ async fn fixture() -> Fix {
         .as_str()
         .unwrap()
         .to_owned();
-    user.request("rail.startDoor", json!({"id": ws}))
+    events
+        .request("rail.startDoor", json!({"id": ws}))
         .await
         .unwrap();
-    idle(&user, &ws).await;
-    let spawn = |parent: Value, client: rpc::Client| {
-        let cwd = project.dir.path().to_owned();
-        async move {
-            let node = client
-                .request(
-                    "agent.spawn",
-                    json!({"cwd": cwd, "prompt": null, "parent": parent}),
-                )
-                .await
-                .unwrap();
-            serde_json::from_value::<RailNode>(node).unwrap().id
-        }
+    // Hold child Digests so no Digest turn races a Mark; Clear steers the Door directly.
+    events
+        .request("takeover.begin", json!({"agent": ws}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let node = |result: Value| {
+        serde_json::from_str::<RailNode>(result["content"].as_str().unwrap())
+            .unwrap()
+            .id
     };
-    let a = spawn(json!(ws), project.client().await).await;
-    let b = spawn(Value::Null, as_actor(&project, ActorKind::Agent, &a).await).await;
-    until("all SessionStart acknowledgements", || {
-        let entries = std::fs::read_to_string(&conversations).unwrap_or_default();
-        (entries.lines().count() >= 3).then_some(())
-    })
-    .await;
-    let mut events = project.subscribed().await;
-    let mut pending = std::collections::HashSet::new();
-    for id in [&ws, &a, &b] {
-        let sent = user
-            .request(
-                "message.send",
-                json!({"to": id, "kind": "note", "body": "begin"}),
-            )
-            .await
-            .unwrap();
-        pending.insert(serde_json::from_value::<u32>(sent["id"].clone()).unwrap());
-    }
-    // Earlier prompts can already have logged ready. Delivery acknowledges the
-    // begin prompt's UserPromptSubmit, so Idle after it cannot be an earlier Stop.
-    while !pending.is_empty() {
-        let delivered = daemon::next(&mut events, |event| match event {
-            contracts::EventData::MessageDelivered(message) if pending.contains(&message.id) => {
-                Some(message.id)
+    let a = node(model.tool_result("toolu_a35_child").await);
+    let b = node(model.tool_result("toolu_a35_grandchild").await);
+    // Wait through all three real turns so a late unmatched request cannot escape aimock's journal.
+    let mut working = std::collections::HashSet::new();
+    let mut stopped = std::collections::HashSet::new();
+    while stopped.len() < 3 {
+        let status = daemon::next(&mut events, |event| match event {
+            contracts::EventData::AgentStatus(status) if [&ws, &a, &b].contains(&&status.id) => {
+                Some(status)
             }
             _ => None,
         })
         .await;
-        pending.remove(&delivered);
+        match status.status.kind {
+            Kind::Working => {
+                working.insert(status.id);
+            }
+            Kind::Idle if working.contains(&status.id) => {
+                stopped.insert(status.id);
+            }
+            _ => {}
+        }
     }
-    for id in [&ws, &a, &b] {
-        idle(&user, id).await;
-    }
-    until("each initial ask has stopped", || {
-        let entries = std::fs::read_to_string(&conversations).unwrap_or_default();
-        let ready: std::collections::HashSet<String> = entries
-            .lines()
-            .filter_map(|line| {
-                let entry: Value = serde_json::from_str(line).ok()?;
-                (entry["ready"] == true).then(|| entry["cwd"].as_str().unwrap().to_owned())
-            })
-            .collect();
-        (ready.len() == 3).then_some(())
-    })
-    .await;
+    project.model.as_ref().unwrap().assert_matched();
+    let user = project.client().await;
     Fix {
         project,
-        log,
-        conversations,
         user,
         ws,
         a,
         b,
     }
+}
+
+/// The conversation file real Claude saved for `agent`, found by the words of its first ask.
+fn transcript(fx: &Fix, cwd: &Path) -> PathBuf {
+    let project: String = cwd
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let dir = fx
+        .project
+        .dir
+        .path()
+        .join("claude-config/projects")
+        .join(project);
+    let files: Vec<PathBuf> = std::fs::read_dir(&dir)
+        .unwrap_or_else(|e| panic!("{dir:?}: {e}"))
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "jsonl"))
+        .collect();
+    assert_eq!(
+        files.len(),
+        1,
+        "one saved conversation in {dir:?}: {files:?}"
+    );
+    files.into_iter().next().unwrap()
 }
 
 async fn write(fx: &Fix) -> Value {
@@ -333,15 +310,16 @@ async fn a35_write_records_a_mark_per_agent() {
             std::fs::read(root.join("README")).unwrap(),
             format!("working {}", mark.agent).as_bytes()
         );
-        let conversation = &mark.conversation;
-        assert!(String::from_utf8_lossy(conversation).contains("before mark"));
+        assert!(String::from_utf8_lossy(&mark.conversation).contains("Follow this instruction"));
     }
+    fx.project.model.as_ref().unwrap().assert_matched();
 }
 
 #[tokio::test]
 async fn a35_marks_survive_a_restart() {
     let mut fx = fixture().await;
     write(&fx).await;
+    fx.project.model.as_ref().unwrap().assert_matched();
     let saved = store(&fx).marks(&fx.ws, 1, 1).unwrap();
     for mark in &saved.agents {
         std::fs::write(Path::new(&mark.worktree).join("README"), "later files").unwrap();
@@ -388,39 +366,30 @@ async fn a35_a_clear_makes_earlier_marks_unusable() {
     let fx = fixture().await;
     write(&fx).await;
     let mut events = fx.project.subscribed().await;
-    // A pushed Digest can make the Door busy after Idle is observed. Clear reports
-    // BUSY without writing a prompt (rupd/src/clear.rs); only that failure is safe to retry.
-    tokio::time::timeout(Duration::from_secs(30), async {
-        loop {
-            idle(&fx.user, &fx.ws).await;
-            fx.user
-                .request(
-                    "workstream.clear",
-                    json!({"id": fx.ws, "reason": "next iteration"}),
-                )
-                .await
-                .unwrap();
-            tokio::select! {
-                _ = until("the Door's Handoff request", || {
-                    prompts(&fx.log)
-                        .iter()
-                        .any(|p| p["prompt"].as_str().unwrap().contains("workstream_handoff"))
-                        .then_some(())
-                }) => break,
-                failed = daemon::next(&mut events, |event| match event {
-                    contracts::EventData::WorkstreamClearFailed(data) if data.id == fx.ws => Some(data),
-                    _ => None,
-                }) => assert_eq!(i64::from(failed.code), rpc::code::BUSY, "{failed:?}"),
-            }
+    fx.user
+        .request(
+            "workstream.clear",
+            json!({"id": fx.ws, "reason": "next iteration"}),
+        )
+        .await
+        .unwrap();
+    let mut working = false;
+    loop {
+        let status = daemon::next(&mut events, |event| match event {
+            contracts::EventData::AgentStatus(status) if status.id == fx.ws => Some(status),
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
         }
-    })
-    .await
-    .expect("the Door accepted the Clear within 30 seconds");
+    }
     as_actor(&fx.project, ActorKind::Agent, &fx.ws)
         .await
         .request(
             "workstream.handoff",
-            json!({"id": fx.ws, "summary": "next", "keep_todos": [], "keep_pads": []}),
+            json!({"id": fx.ws, "summary": "Build the login page.", "keep_todos": [], "keep_pads": []}),
         )
         .await
         .unwrap();
@@ -430,9 +399,27 @@ async fn a35_a_clear_makes_earlier_marks_unusable() {
     })
     .await;
     assert_eq!(listed(&fx).await[0]["rewindable"], false);
+    // The fresh Door writes its conversation before a Mark can record it.
+    let mut working = false;
+    loop {
+        let status = daemon::next(&mut events, |event| match event {
+            contracts::EventData::AgentStatus(status)
+                if status.id == fx.ws && status.attempt == "2" =>
+            {
+                Some(status)
+            }
+            _ => None,
+        })
+        .await;
+        working |= status.status.kind == Kind::Working;
+        if working && status.status.kind == Kind::Idle {
+            break;
+        }
+    }
     write(&fx).await;
     assert_eq!(listed(&fx).await[1]["rewindable"], true);
     assert_eq!(store(&fx).marks(&fx.ws, 2, 2).unwrap().agents.len(), 1);
+    fx.project.model.as_ref().unwrap().assert_matched();
 }
 
 #[tokio::test]
@@ -451,37 +438,41 @@ async fn a35_the_original_conversation_is_untouched() {
         .request("agent.prompt", json!({"id": fx.b, "text": "after mark"}))
         .await
         .unwrap();
-    let entries: Vec<Value> = std::fs::read_to_string(&fx.conversations)
-        .unwrap()
-        .lines()
-        .map(|s| serde_json::from_str(s).unwrap())
-        .collect();
-    let cwd = Path::new(&mark.cwd).canonicalize().unwrap();
-    let original = entries
-        .iter()
-        .find(|e| e["cwd"] == cwd.to_str().unwrap())
-        .unwrap_or_else(|| panic!("cwd {cwd:?}, entries {entries:?}"));
-    let path = Path::new(original["path"].as_str().unwrap());
-    let before = std::fs::read(path).unwrap();
-    assert!(String::from_utf8_lossy(&before).contains("after mark"));
+    let path = transcript(&fx, Path::new(&mark.cwd));
+    let before = until("the after-mark prompt saved", || {
+        let bytes = std::fs::read(&path).ok()?;
+        String::from_utf8_lossy(&bytes)
+            .contains("after mark")
+            .then_some(bytes)
+    })
+    .await;
+    // Claude is still answering: the original may grow, so judge it against a quiet file.
+    idle(&fx.user, &fx.b).await;
     let adapter = launcher(&fx);
     let id = adapter
         .copy_conversation(Path::new(&mark.cwd), &mark.conversation)
         .unwrap();
-    assert_ne!(id, original["id"].as_str().unwrap());
+    assert_ne!(id, path.file_stem().unwrap().to_str().unwrap());
     let copy = adapter
         .record_conversation(Path::new(&mark.cwd), &id)
         .unwrap();
     let copied = String::from_utf8(copy).unwrap();
-    assert!(copied.contains("before mark"));
+    assert!(copied.contains("Follow this instruction"));
     assert!(!copied.contains("after mark"));
-    for line in copied.lines() {
-        assert_eq!(
-            serde_json::from_str::<Value>(line).unwrap()["sessionId"],
-            id
-        );
-    }
-    assert_eq!(std::fs::read(path).unwrap(), before);
+    // Real Claude writes some records with no session (the copy leaves those alone).
+    let sessions: Vec<Value> = copied
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap()["sessionId"].clone())
+        .filter(|session| !session.is_null())
+        .collect();
+    assert!(!sessions.is_empty());
+    assert!(sessions.iter().all(|session| *session == id));
+    let after = std::fs::read(&path).unwrap();
+    assert!(
+        after.starts_with(&before),
+        "the original is only appended to"
+    );
+    fx.project.model.as_ref().unwrap().assert_matched();
 }
 
 #[tokio::test]
@@ -495,16 +486,7 @@ async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
         .1
         .canonicalize()
         .unwrap();
-    let entries: Vec<Value> = std::fs::read_to_string(&fx.conversations)
-        .unwrap()
-        .lines()
-        .map(|s| serde_json::from_str(s).unwrap())
-        .collect();
-    let original = entries
-        .iter()
-        .find(|e| e["cwd"] == cwd.to_str().unwrap())
-        .unwrap();
-    std::fs::remove_file(original["path"].as_str().unwrap()).unwrap();
+    std::fs::remove_file(transcript(&fx, &cwd)).unwrap();
     let error = as_actor(&fx.project, ActorKind::Agent, &fx.ws)
         .await
         .request(

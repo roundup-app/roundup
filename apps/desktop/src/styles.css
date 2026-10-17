@@ -105,6 +105,18 @@ p {
   overflow: auto;
 }
 
+/* U2340a: the centre has no inner lane; the Terminal and the bar sit one --space-2 from its edges. */
+.centre {
+  padding-right: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+/* U2340a: while the floating Show work items button shows, the order line ends --space-6 from the edge, one --space-2 past the button. */
+.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line,
+.window[data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line {
+  padding-right: var(--space-6);
+}
+
 /* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The failure line takes the Rail's side padding; the list and footer reach both edges. */
 .rail {
   display: flex;
@@ -262,11 +274,6 @@ p {
 .centre {
   background-color: var(--ground);
   isolation: isolate;
-}
-
-/* U449: Show work items has its own trailing lane, outside centre cards and pinned bars. U371: an overlay Shelf keeps the lane while open, so toggling it never resizes the pane. */
-.window:is([data-shelf="closed"], [data-shelf-mode="overlay"]):not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
-  width: calc(100% - var(--space-5) - var(--space-4));
 }
 
 .light:not(button) {
@@ -465,11 +472,10 @@ p {
   background: var(--hover);
 }
 
-/* U430: each resource group must fit the narrowed centre or flex-end clips its start. */
+/* U430: each resource group must fit the centre or flex-end clips its start. */
 .centre .resource-strip > span {
   min-width: 0;
   max-width: 100%;
-  white-space: normal;
 }
 
 /* U476: technical text opts into the mono Token wherever it is shown. */

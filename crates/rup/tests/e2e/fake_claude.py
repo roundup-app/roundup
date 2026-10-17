@@ -220,27 +220,6 @@ def ask_permission(ask, prompt, report=None):
     return received.get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
 
 
-def mark_conversation():
-    """A35: a deterministic conversation file for this effective cwd."""
-    import uuid
-    cwd = os.path.realpath(os.getcwd())
-    session = flag("--resume") if "--resume" in sys.argv else str(uuid.uuid5(uuid.NAMESPACE_URL, cwd))
-    project = re.sub(r"[^a-zA-Z0-9]", "-", cwd)
-    folder = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "projects", project)
-    os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, session + ".jsonl")
-    if "--resume" not in sys.argv:
-        with open(path, "w") as out:
-            out.write(json.dumps({"type": "user", "uuid": "first", "parentUuid": None, "sessionId": session, "message": {"role": "user", "content": "before mark"}}) + "\n")
-    return session, path
-
-
-def log_marked(marked, ready=False):
-    if marked and "FAKE_CLAUDE_CONVERSATION_LOG" in os.environ:
-        with open(os.environ["FAKE_CLAUDE_CONVERSATION_LOG"], "a") as out:
-            out.write(json.dumps({"cwd": os.path.realpath(os.getcwd()), "path": marked[1], "id": marked[0], "ready": ready}) + "\n")
-
-
 def play_prompts(tool):
     hold = os.environ.get("FAKE_CLAUDE_HOLD_START")
     if hold and not os.path.exists(hold) and "FAKE_CLAUDE_HELD_START" in os.environ:
@@ -250,20 +229,13 @@ def play_prompts(tool):
         time.sleep(0.02)
     sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as Claude Code sets it
     sys.stdout.flush()
-    marked = mark_conversation() if "FAKE_CLAUDE_MARKS" in os.environ else None
-    if marked:
-        hook("SessionStart", {"session_id": marked[0], "source": "resume" if "--resume" in sys.argv else "startup"})
-    elif "--resume" in sys.argv:
+    if "--resume" in sys.argv:
         # U177: a reopened Door is acknowledged by a SessionStart that names the conversation it resumed.
         hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
     else:
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
-    log_marked(marked)
     orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
     for prompt in typed_prompts():
-        if marked:
-            with open(marked[1], "a") as out:
-                out.write(json.dumps({"type": "user", "uuid": "later", "parentUuid": "first", "sessionId": marked[0], "message": {"role": "user", "content": prompt}}) + "\n")
         if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
@@ -300,7 +272,6 @@ def play_prompts(tool):
         for decision in decisions if answers_decisions else [""]:
             mcp_session([{**call, "arguments": {key: value.replace("$prompt", shown(prompt)).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
-        log_marked(marked, ready=True)
 
 
 def claim_kind():
