@@ -56,6 +56,8 @@ it("u470_scope_rows_match_counts_and_failure_stays_visible", async () => {
       expect(read.rows).toBe(read.count);
     }
 
+    await evaluate(`document.querySelector('#shelf-tab-todos').click()`);
+    await settle();
     await evaluate(`(() => { ${scope}.click(); window.__fake.failNext(-32001, 'Injected completion failure'); document.querySelector('.shelf input[type="checkbox"]').click(); return true; })()`);
     await browser("wait", "--text", "Injected completion failure");
   } finally {
