@@ -21,17 +21,17 @@ export const Toasts = (props: { queue: ToastQueue }) => {
     props.queue.hold(id, reasons.size > 0);
   };
 
-  // U414: the stack rests above the Thread's input, so it never covers what the user types in; measured when the Toasts change, never on a loop.
+  // U414: the stack rests above the resource strip, so it never covers the Terminal's last line; measured when the Toasts change, never on a loop.
   createEffect(() => {
     props.queue.views();
 
     const element = layer();
-    const composer = document.querySelector(".thread-composer");
+    const strip = document.querySelector(".resource-strip");
     const overlay = element?.parentElement;
 
     if (!element || !overlay) return;
 
-    const top = composer?.getBoundingClientRect().top;
+    const top = strip?.getBoundingClientRect().top;
     const room = top === undefined ? 0 : overlay.getBoundingClientRect().bottom - top;
 
     element.style.setProperty("--toast-lift", room > 0 ? `${Math.ceil(room)}px` : "0px");

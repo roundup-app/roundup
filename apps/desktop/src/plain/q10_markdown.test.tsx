@@ -1,9 +1,6 @@
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { asking, card, mountApp, select } from "../decisions/decisionsFixture";
-import { DigestCard } from "../digest/DigestCard";
-import { agent, door, USER } from "../testing/nodes";
-import { message, mountThread } from "../thread/threadFixture";
 import { Markdown } from "./Markdown";
 import { renderMarkdown } from "./renderMarkdown";
 
@@ -12,8 +9,6 @@ const BODY = [
   "2. **A new opportunity:** tell me the company and the founder.",
   "3. **Communicate:** a bio, an intro template, or a post, saved in `story/`.",
 ].join("\n");
-
-const DOOR = { kind: "agent", id: "r1", parent: null } as const;
 
 const textNodes = (root: Element) => {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -40,13 +35,6 @@ afterEach(cleanup);
 
 describe("Q10 the App renders the Markdown an Agent writes", () => {
   it("q10_markdown_becomes_elements", async () => {
-    await mountThread([door("r1", "idle", "idle", { name: "one" }), agent("a1", "working", "x", { parent: "r1", name: "ann" })], {
-      messages: [message(1, { from: DOOR, to: "you", kind: "question", body: BODY })],
-    });
-    await waitFor(() => expect(document.querySelector("[data-message-card] .thread-card-body")).not.toBeNull());
-    expectRendered(document.querySelector("[data-message-card] .thread-card-body")!);
-
-    cleanup();
     await mountApp([asking("d1", "a", BODY, ["ok"])]);
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
@@ -81,24 +69,9 @@ describe("Q10 the App renders the Markdown an Agent writes", () => {
 
   it("q10_one_renderer", () => {
     const html = render(() => <Markdown body={BODY} />).container.querySelector(".markdown")!.innerHTML;
-    const { container } = render(() => <DigestCard entry={{ name: "a", kind: "idle", last: BODY, todos: 0, pads: [] }} />);
-
-    expect(container.querySelector(".digest-last")!.innerHTML).toBe(html);
     expect(html).toBe(renderMarkdown(BODY).replace(/&quot;/g, '"'));
   });
 
-  it("q10_typed_text_is_not_rendered", async () => {
-    await mountThread([door("r1", "idle", "idle", { name: "one" })], {
-      messages: [message(1, { from: USER, to: "r1", kind: "note", body: "a **x**\nb" })],
-    });
-    await waitFor(() => expect(document.querySelector("[data-message-body]")).not.toBeNull());
-
-    const body = document.querySelector("[data-message-body]")!;
-
-    expect(body.textContent).toContain("**x**");
-    expect(body.querySelector("strong")).toBeNull();
-    expect(getComputedStyle(body).whiteSpace).toBe("pre-wrap");
-  });
   it("q10_wide_content_stays_in_the_column", () => {
     const wide = "x".repeat(300);
 

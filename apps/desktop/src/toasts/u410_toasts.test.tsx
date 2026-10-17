@@ -237,7 +237,7 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     expect(toasts()).toHaveLength(0);
   });
 
-  it("u413_the_selected_agent_in_front_makes_none", async () => {
+  it("u468_a_visible_child_prompt_has_no_duplicate_toast", async () => {
     const { app, toasts, sounds } = await mountToasts(tree(), { selected: "a" });
 
     app.emit(status("a", "needs-you"));

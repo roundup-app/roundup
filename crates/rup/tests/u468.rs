@@ -241,7 +241,7 @@ fn tool_answer(result: &Value) -> Value {
 }
 
 #[tokio::test]
-async fn u468_backend_terminal_answer_resumes_the_original_question() {
+async fn u468_a_child_question_is_answered_in_its_terminal() {
     let run = Fixture::start().await;
     let id = run.form(None).await;
     let before = run.client.request("rail.tree", ()).await.unwrap();
