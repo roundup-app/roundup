@@ -1766,3 +1766,100 @@ fn a43_the_brief_names_the_id_variable_and_rup_help() {
         assert!(brief.contains("ROUNDUP_AGENT_ID") && brief.contains("rup help"));
     }
 }
+
+impl Setup {
+    /// M2219: prepare Agent `id` with the roundup MCP server off.
+    fn prepare_off(&self, id: &str, role: Role) -> Vec<String> {
+        let pair = agents::claude_code::Pair {
+            mcp_off: true,
+            ..Default::default()
+        };
+        self.launcher()
+            .prepare_on(folders(&self.dir), id, "1", &self.cwd, None, role, &pair)
+            .unwrap()
+    }
+}
+
+fn off_brief(s: &Setup, id: &str, role: Role) -> String {
+    let argv = s.prepare_off(id, role);
+    let at = argv
+        .iter()
+        .position(|arg| arg == "--append-system-prompt-file")
+        .unwrap();
+    std::fs::read_to_string(&argv[at + 1]).unwrap()
+}
+
+#[test]
+fn m2219_off_launches_without_a_roundup_server_or_allow_rule() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_off("7", role);
+        assert!(!argv.iter().any(|arg| arg == "--mcp-config"), "{argv:?}");
+        assert!(!s.dir.join("agents/7.mcp.json").exists());
+        let settings = read(Path::new(&argv[2]));
+        assert!(settings.get("permissions").is_none(), "{settings}");
+        assert!(!settings.to_string().contains("mcp__roundup__"));
+    }
+    // A config left by an earlier launch with MCP on is gone.
+    s.prepare("8").unwrap();
+    assert!(s.dir.join("agents/8.mcp.json").exists());
+    s.prepare_off("8", Role::Agent);
+    assert!(!s.dir.join("agents/8.mcp.json").exists());
+}
+
+#[test]
+fn m2219_off_keeps_the_users_own_servers_and_the_hooks() {
+    let s = setup();
+    let door = s.prepare_off("7", Role::Door);
+    assert!(!door.iter().any(|arg| arg == "--strict-mcp-config"));
+    let at = door.iter().position(|arg| arg == "--tools").unwrap();
+    assert_eq!(door[at + 1], "Read,Grep,Glob");
+    let hooks = &read(Path::new(&door[2]))["hooks"];
+    for event in EVENTS {
+        assert!(hooks[event].is_array(), "{event}");
+    }
+}
+
+#[test]
+fn m2219_off_brief_names_rup_commands_and_no_mcp_tool() {
+    let s = setup();
+    for (role, first) in [
+        (
+            Role::Agent,
+            "Run `rup agent context` and `rup todo list` first.",
+        ),
+        (
+            Role::Door,
+            "Run `rup agent context`, `rup message list`, `rup agent digest` and `rup agent ask` first.",
+        ),
+    ] {
+        let text = off_brief(&s, "7", role);
+        for banned in [
+            "mcp__roundup__",
+            "ToolSearch",
+            "MCP server",
+            "agent_context",
+        ] {
+            assert!(!text.contains(banned), "{role:?} names {banned}");
+        }
+        assert!(text.contains("run `rup help`"));
+        assert!(text.contains(first), "{first}");
+        assert!(text.contains("`rup todo set-blockers`"));
+        assert!(text.contains("`rup pad append-section`"));
+        assert_eq!(text, off_brief(&s, "8", role));
+        assert!(!text.contains("\n7\n"));
+    }
+}
+
+#[test]
+fn m2219_on_brief_is_unchanged() {
+    let s = setup();
+    let golden = |name: &str| {
+        std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/brief/{name}.md")),
+        )
+        .unwrap()
+    };
+    assert_eq!(brief(&s, "7", Role::Agent), golden("agent"));
+    assert_eq!(brief(&s, "7", Role::Door), golden("door"));
+}
