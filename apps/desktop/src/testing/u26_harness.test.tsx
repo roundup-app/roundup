@@ -135,23 +135,27 @@ describe("u26 the controls", () => {
     return { ...controls, seen };
   };
 
-  it("u26_write_output_sends_terminal_output_with_the_text_in_base64", async () => {
-    const { writeOutput, seen } = await listen("agents-10");
+  it("u26_write_output_delivers_the_text_bytes_to_that_terminals_subscription_only", async () => {
+    const { app, writeOutput } = await listen("agents-10");
+    const first: Uint8Array[] = [];
+    const second: Uint8Array[] = [];
 
+    await app.selectOutput("t-agent-1", (message) => { if (ArrayBuffer.isView(message)) first.push(message); });
+    await app.selectOutput("t-agent-2", (message) => { if (ArrayBuffer.isView(message)) second.push(message); });
     writeOutput("t-agent-1", "hi");
 
-    expect(seen).toEqual([event({ name: "terminal.output", data: { id: "t-agent-1", offset: 0, data: "aGk=" } })]);
+    expect([first, second]).toEqual([[new TextEncoder().encode("hi")], []]);
   });
 
   it("u103_the_fake_daemon_snapshot_matches_the_output_offsets_after_a_burst", async () => {
-    const { app, writeOutput, seen } = await listen("agents-10");
+    const { app, writeOutput } = await listen("agents-10");
 
     writeOutput("t-agent-1", "one ");
     writeOutput("t-agent-1", "é");
     const snapshot = await app.rpc("terminal.snapshot", { id: "t-agent-1" });
+    const subscription = await app.selectOutput("t-agent-1", () => {});
 
-    expect([snapshot.after, new TextDecoder().decode(fromBase64(snapshot.data))]).toEqual([6, "one é"]);
-    expect(seen.map((item) => item.name === "terminal.output" ? item.data.offset : null)).toEqual([0, 4]);
+    expect([snapshot.after, new TextDecoder().decode(fromBase64(snapshot.data)), subscription.offset]).toEqual([6, "one é", 6]);
     await expect(app.rpc("terminal.snapshot", { id: "absent" })).rejects.toMatchObject({ code: -32001 });
   });
 

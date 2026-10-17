@@ -79,6 +79,12 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "terminal_Snapshot",
     ),
+    m(
+        "terminal.output",
+        "terminal_TerminalId",
+        "terminal_OutputStarted",
+    ),
+    m("terminal.outputStop", "terminal_TerminalId", "null"),
     m("terminal.screen", "terminal_TerminalId", "terminal_Screen"),
     m("terminal.read", "terminal_ReadParams", "terminal_Read"),
     m(

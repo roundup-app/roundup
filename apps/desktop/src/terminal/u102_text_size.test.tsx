@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { info, terminal } from "../testing/nodes";
-import { callsTo, mountPane, output } from "./paneHarness";
+import { callsTo, mountPane, subscribed } from "./paneHarness";
 
 const savedKey = "roundup:terminal-font:/p";
 
@@ -18,6 +18,8 @@ const mount = async (exit: () => DaemonExit | null = () => null) => {
   const mounted = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")], 0, exit);
   mounted.connected.rail.select("a");
   // Snapshot parsing schedules reflow in screens.ts; finish it before exercising a size chord.
+  await vi.waitFor(() => expect(mounted.app.calls.some((call) => call.method === "terminal.snapshot")).toBe(true));
+  await Promise.resolve();
   await Promise.resolve();
   vi.advanceTimersToNextFrame();
 
@@ -112,7 +114,8 @@ it("u102_size_and_window_resize_share_one_frame", async () => {
 
 it("u102_size_keeps_output_and_scrollback_in_the_same_emulator", async () => {
   const { emulator, target, app, emulators } = await mount();
-  app.emit(output("t-a", "first\r\nsecond\r\n"));
+  await subscribed(app, "t-a");
+  app.emitOutput("t-a", "first\r\nsecond\r\n");
   emulator.scroll(false);
   const written = [...emulator.written];
   press(target, "=");

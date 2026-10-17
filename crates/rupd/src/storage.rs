@@ -96,6 +96,7 @@ mod tests {
                         actor: Actor::user(),
                         peer: None,
                         events,
+                        output: None,
                     },
                     method,
                     params,

@@ -4,11 +4,13 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use contracts::{Event, EventData};
-use rpc::Client;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
+use rpc::{Client, OutputFrame};
 use serde_json::{Value, json};
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tokio::process::{Child, Command};
+use tokio::sync::broadcast;
 
 const READY_WITHIN: Duration = Duration::from_secs(10);
 const SETTLE: Duration = Duration::from_millis(500);
@@ -78,17 +80,61 @@ async fn latencies(
     Ok(taken)
 }
 
-async fn wait_for_output(events: &mut Client, terminal: &str) -> io::Result<Instant> {
+async fn wait_for_output(
+    output: &mut broadcast::Receiver<OutputFrame>,
+    terminal: &str,
+) -> io::Result<Instant> {
     loop {
-        match events.next_event().await {
-            Some(Event {
-                data: EventData::TerminalOutput(output),
-                ..
-            }) if output.id == terminal => return Ok(Instant::now()),
-            Some(_) => {}
-            None => return Err(io::Error::other("the Daemon closed the event connection")),
+        match output.recv().await {
+            Ok(OutputFrame::Bytes(bytes)) if bytes.id == terminal => return Ok(Instant::now()),
+            Ok(_) => {}
+            Err(err) => return Err(io::Error::other(format!("the output connection: {err}"))),
         }
     }
+}
+
+/// Select Terminal `terminal` on `events` once its program printed `ready`, and return with everything
+/// printed so far delivered, so the next frame is a byte the measurement caused.
+async fn select_when_ready(
+    client: &Client,
+    events: &Client,
+    output: &mut broadcast::Receiver<OutputFrame>,
+    terminal: &str,
+) -> io::Result<()> {
+    let started = ask(events, "terminal.output", json!({ "id": terminal })).await?;
+    let mut seen = started["offset"]
+        .as_u64()
+        .ok_or_else(|| io::Error::other("terminal.output returned no offset"))?;
+    let printed = loop {
+        let screen = ask(client, "terminal.screen", json!({ "id": terminal })).await?;
+
+        if screen["lines"]
+            .as_array()
+            .is_some_and(|lines| lines.iter().any(|line| line == "ready"))
+        {
+            break screen["offset"]
+                .as_u64()
+                .ok_or_else(|| io::Error::other("terminal.screen returned no offset"))?;
+        }
+
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    };
+
+    while seen < printed {
+        match output.recv().await {
+            Ok(OutputFrame::Bytes(bytes)) if bytes.id == terminal => {
+                seen = bytes.offset
+                    + STANDARD
+                        .decode(&bytes.data)
+                        .map_err(|err| io::Error::other(format!("terminal.output: {err}")))?
+                        .len() as u64;
+            }
+            Ok(_) => {}
+            Err(err) => return Err(io::Error::other(format!("the output connection: {err}"))),
+        }
+    }
+
+    Ok(())
 }
 
 /// R15: each write's own call time, sending the next only after `echo` has seen the last come back,
@@ -113,10 +159,10 @@ pub async fn paced_writes(
     Ok(taken)
 }
 
-/// From the write call to the `terminal.output` event it causes; the program is `cat` on a raw tty with echo off, so a byte only comes back if `cat` read and rewrote it.
+/// From the write call to the `terminal.output` frame it causes; the program is `cat` on a raw tty with echo off, so a byte only comes back if `cat` read and rewrote it.
 async fn write_to_output(
     writer: &Client,
-    events: &mut Client,
+    events: &mut broadcast::Receiver<OutputFrame>,
     terminal: &str,
     calls: usize,
 ) -> io::Result<Vec<f64>> {
@@ -361,9 +407,10 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
     );
 
     // The Terminal's first output is `ready`, printed once `stty` has made the tty raw: before that a write is line-edited, and more than a line of them is refused.
-    let mut events = Client::connect(&socket).await?;
-
-    ask(&events, "events.subscribe", Value::Null).await?;
+    let mut selected = Client::connect(&socket).await?;
+    let mut events = selected
+        .take_output()
+        .ok_or_else(|| io::Error::other("the output connection was already taken"))?;
 
     let echo = ask(
         &client,
@@ -375,7 +422,7 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
         .as_str()
         .ok_or_else(|| io::Error::other("terminal.spawn returned no id"))?;
 
-    wait_for_output(&mut events, terminal).await?;
+    select_when_ready(&client, &selected, &mut events, terminal).await?;
 
     sample.insert(
         "write_to_output_p95_ms".into(),
@@ -412,14 +459,18 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
     crate::launch::finish(dir, &mut child, false, result).await
 }
 
-/// X14's bounded, isolated real-Daemon observation. Output transport migration belongs to #1930.
+/// X14's bounded, isolated real-Daemon observation.
 pub mod flood {
-    use contracts::{Actor, ActorKind, EventData};
-    use rpc::Client;
+    use contracts::{Actor, ActorKind};
+    use rpc::{Client, OutputFrame};
     use serde::{Deserialize, Serialize};
     use serde_json::{Value, json};
-    use std::{collections::BTreeMap, sync::Arc, time::Duration};
-    use tokio::{net::UnixListener, sync::broadcast::error::TryRecvError, time::timeout};
+    use std::{collections::BTreeMap, sync::Arc, sync::Mutex, time::Duration};
+    use tokio::{
+        net::UnixListener,
+        sync::broadcast::error::{RecvError, TryRecvError},
+        time::timeout,
+    };
 
     type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -430,7 +481,10 @@ pub mod flood {
         pub chunks: BTreeMap<String, usize>,
         pub markers_emitted: Vec<String>,
         pub markers_received: Vec<String>,
-        pub payloads: usize,
+        /// Gaps the Terminals' own output streams reported to their subscribers (not Rail lag).
+        pub output_gaps: usize,
+        /// Frames the observer's own bounded intake dropped before it counted them.
+        pub intake_lagged: u64,
         pub lagged: u64,
         pub lag_errors: usize,
         pub cleaned_up: bool,
@@ -449,7 +503,6 @@ pub mod flood {
                 && self.chunks.values().all(|n| *n > self.capacity)
                 && self.markers_emitted.len() == 2
                 && self.markers_emitted == self.markers_received
-                && self.payloads == 0
                 && self.lagged == 0
                 && self.lag_errors == 0
         }
@@ -506,8 +559,6 @@ pub mod flood {
             directory = Some(dir);
             server = Some(tokio::spawn(rupd::serve(listener, Arc::clone(&owner))));
             let client = Client::connect(&socket).await?;
-            let mut output = Client::connect(&socket).await?;
-            call(&output, "events.subscribe", Value::Null).await?;
             let rail = call(&client, "rail.createWorkstream", json!({"name":"flood"})).await?;
             for _ in 0..10 {
                 let terminal = call(&client, "terminal.spawn", json!({
@@ -519,6 +570,36 @@ pub mod flood {
                     .ok_or("missing Terminal id")?
                     .to_owned();
                 report.chunks.insert(id, 0);
+            }
+            // One connection per Terminal: its selected output drains independently of the others.
+            let counted = Arc::new(Mutex::new(BTreeMap::<String, (usize, usize, u64)>::new()));
+            let mut collectors = tokio::task::JoinSet::new();
+            for id in report.chunks.keys() {
+                let mut selected = Client::connect(&socket).await?;
+                let mut frames = selected.take_output().ok_or("output already taken")?;
+                call(&selected, "terminal.output", json!({"id":id})).await?;
+                counted
+                    .lock()
+                    .expect("counters")
+                    .insert(id.clone(), (0, 0, 0));
+                let (id, counted) = (id.clone(), Arc::clone(&counted));
+                collectors.spawn(async move {
+                    // Keeps the connection, and so the selection, until the collector is dropped.
+                    let _selected = selected;
+                    loop {
+                        let frame = frames.recv().await;
+                        let mut counters = counted.lock().expect("counters");
+                        let (chunks, gaps, lagged) =
+                            counters.get_mut(&id).expect("counted Terminal");
+                        match frame {
+                            Ok(OutputFrame::Bytes(bytes)) if bytes.id == id => *chunks += 1,
+                            Ok(OutputFrame::Bytes(_)) => {}
+                            Ok(OutputFrame::Gap(_)) => *gaps += 1,
+                            Err(RecvError::Lagged(n)) => *lagged += n,
+                            Err(RecvError::Closed) => return,
+                        }
+                    }
+                });
             }
             let (mut receiver, capacity) = owner.subscribe();
             report.capacity = capacity;
@@ -544,27 +625,28 @@ pub mod flood {
             for id in report.chunks.keys() {
                 call(&client, "terminal.write", json!({"id":id,"data":"Z28K"})).await?;
             }
-            while report.chunks.values().any(|n| *n <= capacity) {
-                let event = output
-                    .next_event()
-                    .await
-                    .ok_or("output receiver closed before counters completed")?;
-                if let EventData::TerminalOutput(payload) = event.data {
-                    let count = report
-                        .chunks
-                        .get_mut(&payload.id)
-                        .ok_or("unexpected Terminal output")?;
-                    *count += 1;
+            loop {
+                {
+                    let counters = counted.lock().expect("counters");
+                    for (id, (chunks, _, _)) in counters.iter() {
+                        report.chunks.insert(id.clone(), *chunks);
+                    }
+                    report.output_gaps = counters.values().map(|c| c.1).sum();
+                    report.intake_lagged = counters.values().map(|c| c.2).sum();
                 }
+                if report.chunks.values().all(|n| *n > capacity) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
             }
             // Quiesce producers so resuming has a finite, exact observation boundary.
             owner.stop_terminals().await?;
             stopped(&client, &report.chunks).await?;
+            collectors.abort_all();
             loop {
                 match receiver.try_recv() {
                     Ok(event) => match event.data {
-                        EventData::TerminalOutput(_) => report.payloads += 1,
-                        EventData::RailChanged
+                        contracts::EventData::RailChanged
                             if report.markers_emitted.contains(&event.actor.id) =>
                         {
                             report.markers_received.push(event.actor.id)

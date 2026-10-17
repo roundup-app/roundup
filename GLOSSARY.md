@@ -448,11 +448,11 @@ waiting, in-progress, completion or a dropped reason; acceptance is not executio
 **Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
 An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
 
-**RPC output intake** (`Client::take_output`):
-The Client's optional bounded Terminal output receiver, taken before subscribing.
-It reports lag separately from control events and ordinary replies; retained events
-keep their Terminal ids and byte offsets for Snapshot recovery. It does not select
-a Terminal or change the Daemon's subscription contract.
+**Output stream** (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`):
+One Terminal's bytes with their offsets, delivered only to a connection that selected that Terminal (`scenarios/terminal-stream.md` X14). `terminal.output` selects it and answers the offset of the first byte; the Daemon then pushes `terminal.output` notifications with the bytes and, when the connection fell behind, a `terminal.gap` naming the offsets it dropped, so the App recovers with `terminal.snapshot`. `terminal.outputStop` or closing the connection releases it. Output never enters the Bus.
+
+**RPC output intake** (`Client::take_output`, `OutputFrame`):
+The Client's optional bounded receiver of the Output streams its connection selected, taken before selecting. It reports lag separately from replies and control events; retained frames keep their Terminal ids and byte offsets for Snapshot recovery.
 
 **Event log**:
 The Daemon's table in `project.db` of every Event but Terminal output, kept to the last 10 000 (`EVENT_WINDOW`); `events.subscribe` replays from it (`scenarios/daemon.md` D10, D11).
