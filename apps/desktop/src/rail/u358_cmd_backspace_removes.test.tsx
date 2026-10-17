@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FakeApp } from "../testing/fakeApp";
 import { agent, workstream } from "../testing/nodes";
-import { CHORDS } from "../keys/chords";
 import { mountRail, railCallsTo, rowNames, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -141,11 +140,5 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     await tick();
 
     expect(removals(app)).toEqual([]);
-  });
-
-  it("u358_help_lists_cmd_backspace_remove_under_the_rail_keys", () => {
-    const lines = CHORDS.map((chord) => `${chord.keys} ${chord.what}`);
-
-    expect(lines[lines.indexOf("⌘↓ Next Agent") + 1]).toBe("⌘⌫ Remove");
   });
 });

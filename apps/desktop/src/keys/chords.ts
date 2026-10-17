@@ -1,42 +1,48 @@
 import { copy } from "../copy";
 
-/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); the rest bind from the pane too. `match` preserves key-based matching where the existing action uses `key` rather than `code`. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inSwitcher?: true; match?: readonly string[]; hint?: Hint };
+/** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); the rest bind from the pane too. */
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; inSwitcher?: true; hint?: Hint };
 
-/** Where focus can sit for the hint line (U2230a): a Rail row, a watched Agent's pane, a Terminal Bubble. */
-export type HintPlace = "rail" | "agent" | "bubble";
+/** Where focus can sit for the hint line (U2230a): a Rail row or a watched Agent's pane. */
+export type HintPlace = "rail" | "agent";
 
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
 
-const digits = (from: number, to: number): string[] =>
-  Array.from({ length: to - from + 1 }, (_, offset) => `alt+Digit${from + offset}`);
-
-/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54; U106 and U107 follow the scenario's list). `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
+/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⌘K` and `⌘/` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 export const CHORDS: readonly Chord[] = [
-  { keys: "⌘J", what: copy.jumpToWhatNeedsYou, presses: ["meta+KeyJ"] },
   { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
-  { keys: "⌘B", what: copy.nextBubble, presses: ["meta+KeyB", "meta+shift+KeyB"], hint: { label: copy.hintNext, at: { bubble: 3 } } },
-  { keys: "⌘.", what: copy.minimiseOrRestoreTheBubble, presses: ["meta+Period"], hint: { label: copy.minimise, at: { bubble: 1 } } },
-  { keys: "⇧⌘⌫", what: copy.closeTheBubble, presses: ["meta+shift+Backspace"], hint: { label: copy.close, at: { bubble: 2 } } },
-  { keys: "⌘K", what: copy.switchToARowByName, presses: ["meta+KeyK"] },
+  { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"] },
   { keys: "⇧⏎", what: copy.takeControlInTheSwitcher, presses: ["shift+Enter"], inSwitcher: true },
-  { keys: "⌘1", what: copy.focusTheRail, presses: ["meta+Digit1"], match: ["meta+1"], hint: { label: copy.rail, at: { agent: 2 } } },
-  { keys: "⌘2", what: copy.focusThePane, presses: ["meta+Digit2"], match: ["meta+2"] },
-  { keys: "⌘↑", what: copy.previousAgent, presses: ["meta+ArrowUp"], hint: { label: copy.hintPrevious, at: { agent: 3 } } },
-  { keys: "⌘↓", what: copy.nextAgent, presses: ["meta+ArrowDown"], hint: { label: copy.hintNext, at: { agent: 4 } } },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
-  { keys: "⌥1–⌥9", what: copy.takeOverTheNThAgent, presses: digits(1, 9) },
-  { keys: "⌥0", what: copy.endTheTakeover, presses: digits(0, 0) },
-  { keys: "⇧⌘J", what: copy.jumpToWhatNeedsYouInAnotherProject, presses: ["meta+shift+KeyJ"] },
-  { keys: "⌘\\", what: copy.showOrHideTheShelf, presses: ["meta+Backslash"] },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
-  { keys: "⇧⌘]", what: copy.nextProject, presses: ["meta+shift+BracketRight"] },
-  { keys: "⇧⌘[", what: copy.previousProject, presses: ["meta+shift+BracketLeft"] },
 ];
+
+/** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
+/** `what` is Help's line; `short` is the panel's, which fits the six keys on one line of the header band (U2240). */
+export type LeaderKey = { keys: string; what: string; short: string; press: string };
+
+export const LEADER: readonly LeaderKey[] = [
+  { keys: "J", what: copy.jumpToWhatNeedsYou, short: copy.leaderShortNeedsYou, press: "KeyJ" },
+  { keys: "⇧J", what: copy.jumpToWhatNeedsYouInAnotherProject, short: copy.leaderShortAnotherProject, press: "Shift+KeyJ" },
+  { keys: "K", what: copy.switchToARowByName, short: copy.leaderShortRow, press: "KeyK" },
+  { keys: "M", what: copy.minimiseOrRestoreTheBubble, short: copy.leaderShortMinimise, press: "KeyM" },
+  { keys: "W", what: copy.closeTheBubble, short: copy.leaderShortClose, press: "KeyW" },
+  { keys: "S", what: copy.showOrHideTheShelf, short: copy.leaderShortShelf, press: "KeyS" },
+];
+
+/** Help's rows: the chords, with the leader's keys after `⌘K` (U2241). */
+export const HELP_ROWS: readonly { keys: string; what: string }[] = [
+  ...CHORDS.slice(0, 4),
+  ...LEADER.map((key) => ({ keys: `${copy.leaderChord} ${key.keys}`, what: key.what })),
+  ...CHORDS.slice(4),
+];
+
+/** The leader key that shows as `keys`. */
+export const leaderChord = (keys: string): readonly string[] => [LEADER.find((key) => key.keys === keys)!.press];
 
 /** The hints of `place`, in the order the table gives them (U2230a). A `watching` hint shows only while the selected Agent is in Watch, the one state its key acts in. */
 export const hintsFor = (place: HintPlace, watching = true): readonly { keys: string; label: string }[] =>
@@ -54,10 +60,13 @@ const MODIFIERS = Object.entries({ Control: "ctrl", Alt: "alt", Meta: "meta", Sh
 export const chordsFor = (keys: string): readonly string[] => {
   const chord = CHORDS.find((chord) => chord.keys === keys);
 
-  return (chord?.match ?? chord?.presses ?? []).map((press) =>
+  return (chord?.presses ?? []).map((press) =>
     press.split("+").map((part) => MODIFIERS.find(([, name]) => name === part)?.[0] ?? part).join("+"),
   );
 };
+
+/** `⌘K` arms the leader (U2239). */
+export const LEADER_ARM = chordsFor("⌘K");
 
 /** Existing Rail navigation, kept local to Keys until its Rail lane adopts Ark. */
 export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");

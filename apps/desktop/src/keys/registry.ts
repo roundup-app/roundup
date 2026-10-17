@@ -1,4 +1,4 @@
-import { onCleanup } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { TEXT_FIELDS } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
@@ -7,6 +7,7 @@ import { matchKeybindingPress, parseKeybinding } from "tinykeys";
  * A modal also suppresses unbound shortcuts; Escape and Tab remain the Dialog's responsibility, and plain typing in its own text field stays the field's. */
 export type KeyScope =
   | { kind: "app" }
+  | { kind: "leader" }
   | { kind: "region"; element: () => HTMLElement | undefined }
   | { kind: "layer"; element: () => HTMLElement | undefined; active: () => boolean; modal: boolean; parent?: KeyScope };
 
@@ -16,7 +17,7 @@ type Registration = { scope: KeyScope; bindings: { matches: ReturnType<typeof pa
 
 const registrations = new Set<Registration>();
 
-const rootOf = (scope: KeyScope) => scope.kind === "app" ? undefined : scope.element();
+const rootOf = (scope: KeyScope) => scope.kind === "app" || scope.kind === "leader" ? undefined : scope.element();
 
 const depth = (scope: KeyScope): number => {
   if (scope.kind === "layer" && scope.parent) return depth(scope.parent) + 1;
@@ -50,12 +51,64 @@ const typesInto = (event: KeyboardEvent, eligible: readonly Registration[]): boo
     && eligible.some(({ scope }) => scope.kind === "layer" && scope.modal && scope.element()?.contains(target) === true);
 };
 
+const [armed, setArmed] = createSignal(false);
+
+/** The code whose key repeat is swallowed: the `⌘K` that armed the leader, or the key that ended its wait (U2239). */
+let held: string | null = null;
+
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
+
+/** U2239: whether `⌘K` is waiting for its next key. */
+export const leaderArmed = armed;
+
+/** `⌘K`'s run: the leader waits for one key. */
+export const armLeader = (event: KeyboardEvent): void => {
+  held = event.code;
+  setArmed(true);
+};
+
+export const endLeader = (): void => void setArmed(false);
+
+/** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
+export const modalOpen = (): boolean => [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
+
+/** The wait's one key: a registered leader key runs, any other key ends the wait and runs nothing. Either way the webview handles it, so no Terminal, field or Rail sees it. A lone modifier changes nothing. */
+const takeLeaderKey = (event: KeyboardEvent): void => {
+  if (MODIFIER_KEYS.has(event.key)) return;
+
+  const hit = [...registrations].filter(({ scope }) => scope.kind === "leader").flatMap(({ bindings }) => bindings)
+    .find((binding) => binding.matches.some((chord) => matchKeybindingPress(event, chord)) && binding.when?.(event) !== false);
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  held = event.code;
+  setArmed(false);
+  hit?.run(event);
+};
+
 const dispatch = (event: KeyboardEvent): void => {
   if (!(event instanceof KeyboardEvent)) return;
+
+  if (event.repeat && event.code === held) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    return;
+  }
+
+  if (!event.repeat) held = null;
+
+  if (armed()) {
+    takeLeaderKey(event);
+
+    return;
+  }
 
   const focus = document.activeElement;
 
   const eligible = [...registrations].filter(({ scope }) => {
+    if (scope.kind === "leader") return false;
+
     if (scope.kind === "app") return true;
 
     if (scope.kind === "layer") return scope.active();

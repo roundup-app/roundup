@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -43,7 +44,7 @@ const tabs = () => within(screen.getByRole("tablist", { name: "Work items" })).g
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
-  fireEvent.keyDown(target, { code: "Backslash", key: "\\", metaKey: true, ...init });
+  leaderKey("KeyS", init, target);
 
 const selectRow = (id: string) => {
   fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
@@ -99,7 +100,7 @@ describe("u368 the control is absent unless a Workstream is selected", () => {
 });
 
 describe("u370 the chord and esc", () => {
-  it("u370_the_chord_toggles_from_a_terminal_and_never_reaches_it", async () => {
+  it("u370_leader_s_toggles_from_a_terminal_and_never_reaches_it", async () => {
     await mountApp();
     const field = document.body.appendChild(document.createElement("textarea"));
     const reached: KeyboardEvent[] = [];
@@ -116,7 +117,7 @@ describe("u370 the chord and esc", () => {
     expect(reached).toEqual([]);
   });
 
-  it("u370_the_chord_toggles_with_a_drawer_open", async () => {
+  it("u370_leader_s_toggles_with_a_drawer_open", async () => {
     await mountApp();
     fireEvent.click(tabNamed("Pads"));
     await screen.findByRole("button", { name: "Add Pad" });

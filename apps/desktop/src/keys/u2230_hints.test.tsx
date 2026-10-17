@@ -73,9 +73,6 @@ const line = (): string[] => [...document.querySelectorAll(".hint-line .hint:not
 
 const label = (place: HintPlace, watching = true): string[] => hintsFor(place, watching).map((hint) => `${hint.keys} ${hint.label}`);
 
-/** A focused minimised Bubble's tab: ⌘. restores, so the line says so. */
-const minimisedBubble = (): string[] => label("bubble").map((hint) => hint.replace("Minimise", "Restore"));
-
 const toRail = async (watching = true) => {
   fireEvent.click(rowOf("b"));
   rowOf("b").focus();
@@ -89,15 +86,15 @@ const toPane = async () => {
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
 
+/** A Terminal Bubble's keys are the leader's (U2239), so no hint line shows there. */
 const toBubble = async () => {
   fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
   await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
   document.querySelector<HTMLElement>(".terminal-tab")!.focus();
-  await waitFor(() => expect([label("bubble"), minimisedBubble()]).toContainEqual(line()));
+  await waitFor(() => expect(line()).toEqual([]));
 };
 
-const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Key") ? code.slice(3).toLowerCase() : code === "Period" ? "." : code;
+const keyOf = (code: string): string => (code.startsWith("Key") ? code.slice(3).toLowerCase() : code);
 
 const press = (target: Element, presses: string): boolean => {
   const parts = presses.split("+");
@@ -115,7 +112,7 @@ const press = (target: Element, presses: string): boolean => {
 
 describe("u2230 shortcut hints", () => {
   it("u2230_every_hint_names_a_bound_chord", async () => {
-    for (const [place, go] of [["rail", toRail], ["agent", toPane], ["bubble", toBubble]] as const) {
+    for (const [place, go] of [["rail", toRail], ["agent", toPane]] as const) {
       for (const hint of hintsFor(place)) {
         // Each press changes what has focus (take control, the Rail, the next Agent), so each starts on a fresh App.
         cleanup();
@@ -129,20 +126,6 @@ describe("u2230 shortcut hints", () => {
         expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
       }
     }
-  });
-
-  it("u2230_next_and_previous_agent_select_the_neighbour", async () => {
-    await open();
-    await toPane();
-    expect(press(document.activeElement!, "meta+ArrowDown")).toBe(true);
-    await waitFor(() => expect(rowOf("c").getAttribute("aria-selected")).toBe("true"));
-    expect(press(document.activeElement!, "meta+ArrowUp")).toBe(true);
-    await waitFor(() => expect(rowOf("b").getAttribute("aria-selected")).toBe("true"));
-    // From the pane, focus follows into the new Agent's pane; from a Rail row, onto its row.
-    await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
-    await toRail();
-    expect(press(document.activeElement!, "meta+ArrowDown")).toBe(true);
-    await waitFor(() => expect(document.activeElement).toBe(rowOf("c")));
   });
 
   it("u2230a_hints_follow_focus", async () => {
@@ -167,10 +150,10 @@ describe("u2230 shortcut hints", () => {
   it("u2230a_hint_keys_are_symbols_with_labels", async () => {
     await open();
 
-    for (const place of ["rail", "agent", "bubble"] as const) {
+    for (const place of ["rail", "agent"] as const) {
       const hints = hintsFor(place);
 
-      expect(hints.length).toBeGreaterThanOrEqual(2);
+      expect(hints.length).toBeGreaterThanOrEqual(1);
       expect(hints.length).toBeLessThanOrEqual(4);
 
       for (const hint of hints) {
@@ -180,8 +163,7 @@ describe("u2230 shortcut hints", () => {
       }
     }
 
-    expect(label("agent")).toEqual(["⌘⏎ Take control", "⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
-    expect(label("bubble")).toEqual(["⌘. Minimise", "⇧⌘⌫ Close", "⌘B Next"]);
+    expect(label("agent")).toEqual(["⌘⏎ Take control"]);
     expect(label("rail")).toEqual(["⌘⏎ Take control", "⌘⌫ Remove"]);
     expect(label("rail", false)).toEqual(["⌘⌫ Remove"]);
   });
