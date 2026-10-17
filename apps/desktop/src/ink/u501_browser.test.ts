@@ -66,8 +66,7 @@ it("u501_full_content_is_available", async () => {
   await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(FAILURE)}`);
   await browser("mouse", "move", "1", "1");
   await wait(`!document.querySelector('.app-tooltip')`);
-  await browser("press", "Tab");
-  await browser("focus", "[role=alert]");
+  for (let i = 0; i < 12 && !(await read<boolean>(`document.activeElement?.matches("[role=alert]") === true`)); i++) await browser("press", "Tab");
   await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(FAILURE)}`);
 
   await open("resources");
