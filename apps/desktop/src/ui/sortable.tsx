@@ -1,4 +1,4 @@
-import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor } from "@dnd-kit/dom";
+import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
@@ -19,17 +19,154 @@ type External<T extends ExternalTarget> = {
   attribute?: string;
 };
 
+/** A row of the caller's tree, in display order. */
+export type TreeRow = { id: string; parent: string | null };
+
+/** Where a drag would land: the parent, the index among that parent's other children, and the depth the drop line sits at. */
+type SortableDrop = { parent: string | null; index: number; depth: number };
+
+/** A committed drop: `index` counts the parent's children without the dragged row. */
+export type SortableMove = { id: string; parent: string | null; index: number };
+
+/** Rows with a parent: a drop reports `onMove` instead of the flat order. */
+type SortableTree = {
+  rows: readonly TreeRow[];
+  /** One level of indentation in pixels: how far right of where the drag began picks the next deeper parent. */
+  indent: number;
+  nests: (id: string) => boolean;
+  onMove: (move: SortableMove) => void;
+  /** The drop a release would commit, or null once the drag ends. */
+  onPreview: (drop: SortableDrop | null) => void;
+};
+
 type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & {
   ids: readonly string[];
-  onOrderChange: (ids: string[]) => void;
+  /** The flat order after a drop; not called when `tree` is given. */
+  onOrderChange?: ((ids: string[]) => void) | undefined;
+  tree?: SortableTree | undefined;
   external?: External<T> | undefined;
   /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them, and the list draws no box or radius around a moved row. */
   plain?: boolean;
 };
 
+type DepthRow = TreeRow & { depth: number };
+
+const withDepth = (rows: readonly TreeRow[]): DepthRow[] => {
+  const depths = new Map<string, number>();
+
+  return rows.map((row) => {
+    const depth = row.parent === null ? 0 : (depths.get(row.parent) ?? -1) + 1;
+
+    depths.set(row.id, depth);
+
+    return { ...row, depth };
+  });
+};
+
+/** The rows without the dragged row and the rows that move with it, which are not drop targets. */
+const remainingRows = (rows: readonly DepthRow[], dragged: string): DepthRow[] => {
+  const moving = new Set([dragged]);
+
+  for (const row of rows) if (row.parent !== null && moving.has(row.parent)) moving.add(row.id);
+
+  return rows.filter((row) => !moving.has(row.id));
+};
+
+type DepthRange = { min: number; max: number };
+
+/** The depths a drop in gap `slot` (0 is above the first row) of `rows` can have. */
+const depthsAt = (rows: readonly DepthRow[], nests: (id: string) => boolean, slot: number): DepthRange => {
+  const above = rows[slot - 1];
+  const below = rows[slot];
+
+  if (!above) return { min: 0, max: 0 };
+
+  // A row shown with children takes a drop between them only as a child.
+  if (below && below.depth > above.depth) return { min: above.depth + 1, max: above.depth + 1 };
+
+  return { min: below?.depth ?? 0, max: above.depth + (nests(above.id) ? 1 : 0) };
+};
+
+/** The drop for gap `slot` of `rows` with the pointer at `depth`, clamped to the depths the gap allows. `rows` holds neither the dragged row nor what moves with it. */
+const dropAt = (rows: readonly DepthRow[], nests: (id: string) => boolean, slot: number, depth: number): SortableDrop => {
+  const above = rows[slot - 1];
+
+  if (!above) return { parent: null, index: 0, depth: 0 };
+
+  const { min, max } = depthsAt(rows, nests, slot);
+  const wanted = Math.min(Math.max(depth, min), max);
+
+  if (wanted > above.depth) return { parent: above.id, index: 0, depth: wanted };
+
+  const anchor = rows.slice(0, slot).findLast((row) => row.depth === wanted);
+
+  if (!anchor) throw new Error(`no row at depth ${wanted} above gap ${slot}`);
+
+  const siblings = rows.filter((row) => row.parent === anchor.parent);
+
+  return { parent: anchor.parent, index: siblings.findIndex((row) => row.id === anchor.id) + 1, depth: wanted };
+};
+
+/** Releasing the row where it already sits changes nothing. */
+const isInPlace = (rows: readonly DepthRow[], dragged: string, drop: SortableDrop): boolean => {
+  const row = rows.find((each) => each.id === dragged);
+
+  if (!row) throw new Error(`no row ${dragged}`);
+
+  return row.parent === drop.parent && rows.filter((each) => each.parent === row.parent).findIndex((each) => each.id === dragged) === drop.index;
+};
+
+/** The click the browser sends after a pointer release would reach whatever lies under the pointer; this drops the next one. */
+// fallow-ignore-next-line unused-export -- todos/reorder.ts moves its import here in its own change (U535).
+export const swallowNextClick = (): (() => void) => {
+  const swallow = (click: Event) => click.stopPropagation();
+  const forget = () => window.removeEventListener("click", swallow, { capture: true });
+
+  window.addEventListener("click", swallow, { capture: true, once: true });
+  setTimeout(forget);
+
+  return forget;
+};
+
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "external", "plain", "children"]);
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "children"]);
   let over: T | null = null;
+
+  // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
+  let keyboard: { slot: number; depth: number } | null = null;
+  let previewed: SortableDrop | null = null;
+  let stopListening: (() => void) | undefined;
+
+  const preview = (drop: SortableDrop | null) => {
+    if (drop?.parent === previewed?.parent && drop?.index === previewed?.index && drop?.depth === previewed?.depth) return;
+
+    previewed = drop;
+    local.tree?.onPreview(drop);
+  };
+
+  /** The drop the drag would commit now, from the library's index for the dragged row and the pointer's offset. */
+  const resolve = (tree: SortableTree, dragged: string, index: number, pointer: { initial: number; current: number }) => {
+    const rows = withDepth(tree.rows);
+    const remaining = remainingRows(rows, dragged);
+    const remainingIds = new Set(remaining.map((row) => row.id));
+    const slot = rows.filter((row) => row.id !== dragged).slice(0, index).filter((row) => remainingIds.has(row.id)).length;
+    const own = rows.find((row) => row.id === dragged);
+
+    if (!own) throw new Error(`no row ${dragged}`);
+
+    if (keyboard && keyboard.slot !== slot) keyboard = { slot, depth: depthsAt(remaining, tree.nests, slot).min };
+
+    const depth = keyboard ? keyboard.depth : own.depth + Math.round((pointer.current - pointer.initial) / tree.indent);
+
+    return { rows, drop: dropAt(remaining, tree.nests, slot, depth) };
+  };
+
+  const track = (source: Draggable | null, position: { initial: { x: number }; current: { x: number } }) => {
+    const tree = local.tree;
+
+    if (!tree || !isSortable(source)) return;
+    preview(resolve(tree, String(source.id), source.index, { initial: position.initial.x, current: position.current.x }).drop);
+  };
 
   const mark = (next: T | null) => {
     const attribute = local.external?.attribute ?? "data-drop";
@@ -44,10 +181,46 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   let stopRestoringFocus: (() => void) | undefined;
 
-  onCleanup(() => { stopRestoringFocus?.(); mark(null); });
+  onCleanup(() => { stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
-  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  return <DragDropProvider onDragStart={(event) => {
+    const tree = local.tree;
+    const source = event.operation.source;
+
+    previewed = null;
+    stopListening?.();
+
+    if (!tree || !isSortable(source) || !(event.operation.activatorEvent instanceof KeyboardEvent)) {
+      keyboard = null;
+
+      return;
+    }
+
+    const rows = withDepth(tree.rows);
+    const dragged = String(source.id);
+    const remaining = remainingRows(rows, dragged);
+    const own = rows.find((row) => row.id === dragged);
+
+    if (!own) throw new Error(`no row ${dragged}`);
+    keyboard = { slot: rows.slice(0, rows.indexOf(own)).filter((row) => remaining.includes(row)).length, depth: own.depth };
+
+    const turn = (key: KeyboardEvent) => {
+      if (!keyboard || (key.key !== "ArrowLeft" && key.key !== "ArrowRight")) return;
+      key.preventDefault();
+      key.stopPropagation();
+
+      const { min, max } = depthsAt(remaining, tree.nests, keyboard.slot);
+
+      keyboard = { slot: keyboard.slot, depth: Math.min(Math.max(keyboard.depth + (key.key === "ArrowRight" ? 1 : -1), min), max) };
+      preview(dropAt(remaining, tree.nests, keyboard.slot, keyboard.depth));
+    };
+
+    window.addEventListener("keydown", turn, { capture: true });
+    stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
+  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
+
+    track(source, position);
 
     if (!local.external || !source) return;
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
@@ -58,8 +231,11 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   }} onDragEnd={(event) => {
     const source = event.operation.source;
     const outside = over;
+    const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
 
     mark(null);
+    stopListening?.();
+    stopListening = undefined;
 
     const handle = source?.handle;
 
@@ -76,10 +252,28 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       });
     }
 
+    const tree = local.tree;
+
+    const final = tree && !event.canceled && isSortable(source)
+      ? resolve(tree, String(source.id), source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
+      : null;
+
+    keyboard = null;
+    previewed = null;
+    tree?.onPreview(null);
+
+    if (tree && pointerDrag) swallowNextClick();
+
     if (event.canceled) return;
 
     if (outside && source && local.external) {
       local.external.onDropOutside(String(source.id), outside);
+
+      return;
+    }
+
+    if (tree) {
+      if (final && !isInPlace(final.rows, String(source?.id), final.drop)) tree.onMove({ id: String(source?.id), parent: final.drop.parent, index: final.drop.index });
 
       return;
     }
@@ -90,7 +284,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     if (moved === undefined) return;
     order.splice(source.index, 0, moved);
-    local.onOrderChange(order);
+    local.onOrderChange?.(order);
   }}><div {...rest} data-plain={local.plain ? "" : undefined}>{local.children}</div></DragDropProvider>;
 };
 

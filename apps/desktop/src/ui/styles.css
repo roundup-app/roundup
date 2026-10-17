@@ -46,6 +46,7 @@
 
 .app-tree {
   padding: var(--space-1);
+  --tree-row-radius: var(--radius-row);
 }
 
 .app-tree [data-part="branch-control"],
@@ -101,7 +102,7 @@
   background-position: left top;
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
-  border-radius: var(--radius-row);
+  border-radius: var(--tree-row-radius);
 }
 
 .app-tree [data-part="branch-control"][data-selected]:hover,
@@ -144,14 +145,9 @@
   border-radius: var(--radius-row);
 }
 
+/* The drop line is the only drop marker; the slot keeps the row space the library opens. */
 [data-dnd-placeholder] {
   visibility: visible !important;
-}
-
-[data-dnd-placeholder]:not([data-plain] *) {
-  outline: 1px solid var(--hairline);
-  outline-offset: -1px;
-  border-radius: var(--radius-row);
 }
 
 [data-dnd-placeholder] > * {

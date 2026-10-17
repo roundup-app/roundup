@@ -31,7 +31,7 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
   await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(document.querySelector('.rail-row[aria-expanded]')) && Boolean(window.__fake)`);
   await page.call(`() => {
     [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
-    document.querySelector('.rail-row[aria-expanded]').click();
+    document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
   }`);
   await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
   await page.call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
@@ -131,9 +131,9 @@ run('u362 rendered Todo drag', () => {
       await setup();
       const base = await page.call<Checks>(`() => window.__checks()`);
       const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
-      const home = await page.call<string>(`() => document.querySelector('.rail-row[aria-expanded]').dataset.id`);
+      const home = await page.call<string>(`() => document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
       const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
-      const to = await point('.rail-row[aria-expanded]');
+      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
@@ -241,7 +241,7 @@ run('u363 Todo rows in the worst case', () => {
       }
 
       const from = await point('.shelf .todo-row-button');
-      const to = await point('.rail-row[aria-expanded]');
+      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
@@ -276,7 +276,7 @@ run('u362 rendered move failure', () => {
         await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
       const from = await point('.shelf .todo-row-button');
-      const to = await point('.rail-row[aria-expanded]');
+      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);

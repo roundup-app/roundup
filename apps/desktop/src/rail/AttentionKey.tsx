@@ -1,4 +1,4 @@
-import { onCleanup } from "solid-js";
+import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { nextAttention } from "./attention";
 
@@ -6,20 +6,14 @@ import { nextAttention } from "./attention";
 export const AttentionKey = () => {
   const { rail } = useConnectedProject();
 
-  const onKey = (press: KeyboardEvent) => {
-    if (!press.metaKey || press.ctrlKey || press.altKey || press.shiftKey) return;
+  registerKeys({ kind: "app" }, [{
+    chords: ["Meta+j"],
+    run: () => {
+      const next = nextAttention(rail.nodes, rail.selected());
 
-    if (press.key.toLowerCase() !== "j") return;
-
-    press.preventDefault();
-
-    const next = nextAttention(rail.nodes, rail.selected());
-
-    if (next) rail.select(next.id);
-  };
-
-  document.addEventListener("keydown", onKey);
-  onCleanup(() => document.removeEventListener("keydown", onKey));
+      if (next) rail.select(next.id);
+    },
+  }]);
 
   return null;
 };

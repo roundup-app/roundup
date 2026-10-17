@@ -13,6 +13,7 @@ mod handshake;
 mod removal;
 mod resize;
 mod resources;
+mod rewind;
 mod storage;
 mod terminal_question;
 mod waits;
@@ -57,6 +58,9 @@ pub struct Daemon {
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
     /// A32: the clears under way, and what they act through.
     clears: clear::Clears,
+    /// A35: the Marks a rewind reads, and the rewinds under way.
+    checkpoints: Arc<checkpoints::Checkpoints>,
+    rewinding: rewind::Rewinding,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
@@ -178,6 +182,7 @@ impl Daemon {
             }),
         );
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
+        let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
@@ -197,6 +202,8 @@ impl Daemon {
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_gate: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
+            checkpoints: Arc::clone(&checkpoints),
+            rewinding: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
@@ -208,9 +215,7 @@ impl Daemon {
         };
         daemon.register(todos);
         daemon.register(pads);
-        daemon.register(Arc::new(
-            checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()),
-        ));
+        daemon.register(checkpoints);
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
@@ -363,6 +368,8 @@ impl Daemon {
                 | "agent.setOrder"
                 | "agent.resume"
                 | "agent.actionHistory"
+                | "workstream.rewind"
+                | "workstream.rewindPlan"
         ) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
@@ -409,6 +416,13 @@ impl Daemon {
         let children = self
             .door_effect_children(&conn.actor, method, &params)
             .await?;
+        if matches!(method, "workstream.rewind" | "workstream.rewindPlan") {
+            // The wire reader selects only for an Agent; the Door's authority is decided here for every caller.
+            let children = self.rewind_children(&conn.actor, method, &params).await?;
+            return self
+                .rewind_call(&conn.actor, method, params, children)
+                .await;
+        }
         let child = children.first();
         let _ordered_effect = if matches!(
             method,
@@ -757,6 +771,9 @@ impl Daemon {
                     .filter(|n| n.parent.as_deref() == Some(&id) && n.status.is_some())
                     .map(|n| n.id)
                     .collect()
+            }
+            "workstream.rewind" | "workstream.rewindPlan" => {
+                self.rewind_children(actor, method, params).await?
             }
             "decision.list" => {
                 // Use the Agent's Reach filtering; never wait on an unrelated Workstream.
@@ -1402,6 +1419,8 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.actionHistory"
+                    | "workstream.rewind"
+                    | "workstream.rewindPlan"
             )
         ) {
             daemon.action_actor(&conn)
@@ -1433,6 +1452,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                                     | "agent.stop"
                                     | "agent.interrupt"
                                     | "agent.prompt"
+                                    | "workstream.rewind"
                             )
                         ),
                     )

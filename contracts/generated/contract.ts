@@ -98,5 +98,7 @@ export const CONTRACT = {
     "todo.update": "9f9cf679fa3c32c9",
     "workstream.clear": "df81aa904cefed4e",
     "workstream.handoff": "8590b320c7680275",
+    "workstream.rewind": "39dff0d8d5cfe481",
+    "workstream.rewindPlan": "52de6ad949ee8ee8",
   },
 } as const;
