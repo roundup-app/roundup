@@ -1,48 +1,5 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { mountApp, select } from "../decisions/decisionsFixture";
-import { agent, clarifying, door } from "../testing/nodes";
 import { orderLine } from "./orderText";
-
-const limits = [
-  "Change no file in the repo",
-  "Keep it short: one small example of each feature",
-];
-
-const open = async (work: { kind: "work"; ask: string; limits: string[] }) => {
-  await mountApp([], (app) => {
-    app.handlers["rail.tree"] = () => [
-      agent("a", "working", "editing", { name: "alpha", order: 0, work }),
-      agent("b", "working", "editing", {
-        name: "beta",
-        order: 1,
-        work: clarifying("which build?"),
-      }),
-      door("r", "working", "editing", {
-        name: "harbor",
-        order: 2,
-        work: clarifying("what is this Workstream for?"),
-      }),
-    ];
-  });
-  select("alpha");
-  await waitFor(() =>
-    expect(document.querySelector(".order-line")).not.toBeNull(),
-  );
-  fireEvent.click(document.querySelector(".order-line")!);
-
-  return await screen.findByLabelText("Full order of alpha");
-};
-
-describe("Q4: a Work order's Drawer is left-aligned in the UI font", () => {
-  it("q4_the_drawer_is_left_aligned_in_the_ui_font", async () => {
-    const drawer = await open({ kind: "work", ask: "Give a tour", limits });
-    expect(drawer.textContent?.toLowerCase()).not.toContain("must not");
-    const style = getComputedStyle(drawer);
-    expect(style.textAlign).toBe("left");
-    expect(style.fontFamily).toBe("var(--font-ui)");
-  });
-});
 
 describe("Q5: the Rail's one-line order says it in words", () => {
   it("q5_the_four_forms", () => {

@@ -33,8 +33,8 @@ AUDIENCE = 'claude-code-github-action'
 RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
 # L23: a build or fix run's token holds `keep`'s rights and reads CI evidence.
 RUN_RIGHTS = {**RIGHTS, 'actions': 'read', 'checks': 'read'}
-# L23: build and fix runs run on Claude Code with the Max token, on Codex with the user's ChatGPT login when Claude Code did
-# no work. Neither App lends a workflow a token, so a run's commits name its engine's account and push with a Claude App
+# L23: build and fix runs start on Codex with the user's ChatGPT login for an even work item and on Claude Code with the Max
+# token for an odd one, each falling back to the other when it did no work. Neither App lends a workflow a token, so a run's commits name its engine's account and push with a Claude App
 # token.
 CLAUDE_MODEL = 'claude-sonnet-5-5'
 CODEX_MODEL = 'gpt-6.1-sol'
@@ -338,15 +338,29 @@ def codex(login, prompt, model, schema, output):
 
 
 def engine(prompt, schema, output):
-    """L23: run `prompt` on Claude Code and, when its model used no tool (a usage limit or a setup failure, as `worked`
-    reads it, so the checkout is untouched), on Codex. The ChatGPT login leaves the environment first, so a Claude Code
-    run's shell never holds it. Returns the exit code of the run that was last."""
+    """L23: run `prompt` on the engine its work item's number picks (an even `ISSUE` starts on Codex, an odd
+    one on Claude Code, so a PR's fix runs start where its build did) and, when that model used no tool (a usage limit
+    or a setup failure such as a broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on the other. The ChatGPT login leaves the
+    environment first, so a Claude Code run's shell never holds it. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
-    code = claude(prompt, CLAUDE_MODEL, schema, output)
-    if worked(Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'):
+    temp = Path(os.environ['RUNNER_TEMP'])
+
+    def codex_or_none():
+        try:
+            return codex(login, prompt, CODEX_MODEL, schema, output)
+        except ValueError as error:  # a broken login is a setup failure: no tool use, so the other engine runs
+            print(f'::error::Codex did not start: {error}')
+            return 1
+
+    engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), temp / 'claude' / 'events.jsonl'),
+               'Codex': (codex_or_none, temp / 'codex' / 'events.jsonl')}
+    first, second = ('Codex', 'Claude Code') if int(os.environ['ISSUE']) % 2 == 0 else ('Claude Code', 'Codex')
+    run, events = engines[first]
+    code = run()
+    if worked(events):
         return code
-    print('engine: Claude Code did no work; falling back to Codex', file=sys.stderr)
-    return codex(login, prompt, CODEX_MODEL, schema, output)
+    print(f'engine: {first} did no work; falling back to {second}', file=sys.stderr)
+    return engines[second][0]()
 
 
 def keep(branch, issue, run_url):
@@ -790,9 +804,11 @@ def fix_task(pr, head, cause, run_id=0, output=None):
         plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
     # L120: the restore script may repair it before any model runs; it counts no attempt (`fixed` sees no model work).
     merge_loss = cause == 'rules' and rules_failed_only(current, MERGE_LOSS_STEP)
+    linked = LINKED.search(current['body'] or '')
     if output:
         with open(output, 'a') as out:
-            out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
+            # The Issue's number picks the engine (L23), so a PR's fix runs start where its build did.
+            out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss + f'issue={linked[1]}\n' * bool(linked))
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0

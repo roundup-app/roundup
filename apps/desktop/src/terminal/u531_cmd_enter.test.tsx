@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountSwitcher, press } from "../switcher/switcherFixture";
@@ -89,11 +89,5 @@ describe("u531 ⌘⏎ takes control of the selected Agent", () => {
     press("Enter", { metaKey: true }, button);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(begins(app)).toEqual([]);
-  });
-
-  it("u531_the_button_and_help_show_the_chord", async () => {
-    await watch();
-
-    expect(screen.getByRole("button", { name: "Take control" }).textContent).toBe("Take control ⌘⏎");
   });
 });

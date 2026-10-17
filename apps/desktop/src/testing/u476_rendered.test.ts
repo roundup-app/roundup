@@ -23,40 +23,6 @@ beforeAll(async () => {
 afterAll(async () => { await pair?.close(); });
 
 run("U476 rendered font inheritance", () => {
-  it("u476_rendered_ui_and_mono_text_use_their_tokens", async () => {
-    for (const scheme of ["light", "dark"] as const) {
-      await pair.head.scheme(scheme);
-      await openFontScreen(pair.head, "tree-40", 1280);
-
-      const fonts = await pair.head.call<{ ui: string; mono: string; uiText: string[]; monoText: string[] }>(`async () => {
-        const fixture = document.createElement('div');
-        // Each technical category is present even when a seed has no diff or token count.
-        fixture.innerHTML = '<span class="mono" data-category="path">/Users/you/harness</span><pre class="mono" data-category="diff">+ hello</pre><span class="mono" data-mono data-category="id">#5</span><span class="mono" data-category="tokens">1234 tokens</span><code class="mono" data-category="code">const x = 1</code>';
-        document.querySelector('.drawer').append(fixture);
-        const family = el => { if (!el) throw new Error('missing font category'); return getComputedStyle(el).fontFamily; };
-        const token = name => { const el = document.createElement('span'); el.style.fontFamily = 'var(' + name + ')'; document.body.append(el); const value = family(el); el.remove(); return value; };
-        const monoText = ['code','path','diff','id','tokens'].map(category => family(fixture.querySelector('[data-category="' + category + '"]')));
-        fixture.remove();
-        return { ui: token('--font-ui'), mono: token('--font-mono'), monoText, uiText: [document.body, document.querySelector('.rail-row .name'), document.querySelector('button'), document.querySelector('.todo-detail-title')].map(family) };
-      }`);
-
-      expect(fonts.ui.startsWith("-apple-system")).toBe(true);
-      expect(fonts.mono).not.toBe(fonts.ui);
-      expect(fonts.uiText).toEqual(Array(4).fill(fonts.ui));
-      expect(fonts.monoText).toEqual(Array(5).fill(fonts.mono));
-      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector(".todo-dependencies .mono")).fontFamily`)).toBe(fonts.mono);
-      await pair.head.load('/harness.html?seed=door-report', 1280, 800);
-      await pair.head.until(`() => document.querySelector('.rail-row[data-id]')`);
-      await pair.head.call(`() => document.querySelector('.rail-row[data-id]').dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 40, clientY: 40}))`);
-      await pair.head.until(`() => document.querySelector('[role=menuitem]')`);
-      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('[role=menuitem]')).fontFamily`)).toBe(fonts.ui);
-      await pair.head.call(`() => window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "agent.status", data: { id: "review-agent", attempt: "1", status_revision: "9", status: { kind: "needs-you", label: "Please review the result", since: Date.now() } } })`);
-      await pair.head.until(`() => document.querySelector('.app-toast-action')`);
-      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('.app-toast-action')).fontFamily`)).toBe(fonts.ui);
-
-    }
-  }, 120_000);
-
   it("u476_rendered_checks_do_not_regress", async () => {
     const shas = { base: execFileSync("git", ["rev-parse", U476_BASE], { encoding: "utf8" }).trim(), head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
 

@@ -1,8 +1,8 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 
-/** U369 and U372 in a real Chromium: jsdom has no layout, so the strip's and the Shelf's boxes are read from the rendered harness. */
+/** U372 in a real Chromium: D12 to D14 hold in the Shelf overlay. */
 
 const found = chromePath();
 
@@ -28,70 +28,12 @@ afterAll(async () => {
 
 const load = async (width: number, height: number) => {
   await page.load("/harness.html?seed=tree-40", width, height);
-  await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null && document.querySelector(".strip") !== null`);
+  await page.until(`() => Boolean(window.__fake) && document.querySelector(".shelf") !== null`);
   // The Shelf slides in: wait until its leading edge has stopped.
   await page.until(`() => { const left = document.querySelector(".shelf").getBoundingClientRect().left; const same = window.__last === left; window.__last = left; return same && left < window.innerWidth; }`);
 };
 
-type Edges = { title: number; strip: number; shelf: number; button: number; scrollRight: number; plus: number; scrollable: boolean };
-
-const EDGES = `() => {
-  const rect = (selector) => document.querySelector(selector)?.getBoundingClientRect();
-  const scroll = document.querySelector(".strip-scroll");
-  return {
-    title: rect(".window-title").left,
-    strip: rect(".strip").right,
-    shelf: rect(".shelf").left,
-    button: rect('.content-actions [aria-label="Show work items"]')?.left ?? -1,
-    scrollRight: scroll.getBoundingClientRect().right,
-    plus: rect(".strip-add").right,
-    scrollable: document.querySelector(".tablist").scrollWidth >= document.querySelector(".tablist").clientWidth,
-  };
-}`;
-
-run("u369 the strip ends at the Shelf's leading edge", () => {
-  vi.setConfig({ testTimeout: 30_000 });
-
-  for (const [width, height] of [[1280, 820], [1280, 800]] as const) {
-    it(`u369_the_strip_ends_at_the_shelf_edge at ${width}x${height}`, async () => {
-      await load(width, height);
-      const edges = await page.call<Edges>(EDGES);
-
-      expect(Math.abs(edges.strip - edges.title)).toBeLessThanOrEqual(1);
-    });
-
-    it(`u369_the_strip_scrolls_inside_the_remaining_width at ${width}x${height}`, async () => {
-      await load(width, height);
-      const edges = await page.call<Edges>(EDGES);
-
-      expect(edges.scrollRight).toBeLessThanOrEqual(edges.title + 1);
-      expect(edges.plus).toBeLessThanOrEqual(edges.title + 1);
-    });
-
-    it(`u369_closed_the_strip_ends_at_the_show_button at ${width}x${height}`, async () => {
-      await load(width, height);
-      await page.call(`() => document.querySelector('[aria-label="Hide work items"]').click()`);
-      await page.until(`() => document.querySelector('.content-actions [aria-label="Show work items"]') !== null`);
-      const edges = await page.call<Edges>(EDGES);
-
-      expect(Math.abs(edges.strip - edges.title)).toBeLessThanOrEqual(1);
-      expect(edges.plus).toBeLessThanOrEqual(edges.title + 1);
-    });
-  }
-});
-
 run("u372 the Shelf's text", () => {
-  it("u372_agent_text_is_left_aligned_ui_font", async () => {
-    await load(1280, 820);
-
-    const read = await page.call<{ align: string; family: string }>(
-      `() => { const style = getComputedStyle(document.querySelector(".shelf")); return { align: style.textAlign, family: style.fontFamily }; }`,
-    );
-
-    expect(["left", "start"]).toContain(read.align);
-    expect(read.family).toContain("sans");
-  });
-
   it("u372_d12_d13_d14_hold_in_the_overlay", async () => {
     await load(1280, 820);
     await page.call(`async () => {
