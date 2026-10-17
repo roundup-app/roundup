@@ -4,7 +4,7 @@ import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { useShelfScope } from "../todos/shelfScope";
 import { SCOPE_ROW } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { askToDelete, confirmDeletion, questionClosed, stubDialogLayout } from "./bulkQuestion";
+import { askToDelete, confirmDeletion, questionClosed, stubDialogLayout } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
 

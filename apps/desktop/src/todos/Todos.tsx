@@ -1,6 +1,7 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import { Tooltip } from "../ui/Tooltip";
 import { Portal } from "solid-js/web";
+import { createNear } from "../ink/near";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { createBulkDelete } from "../shelf/BulkDelete";
@@ -68,6 +69,7 @@ export const OpenRow = (props: {
   sorted?: SortedRow;
 }) => {
   const connected = useConnectedProject();
+  const near = props.nested ? createNear() : null;
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -153,11 +155,12 @@ export const OpenRow = (props: {
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
-      data-actions-open={listOpen() ? "true" : undefined}
+      data-actions-open={near?.near() || listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
+      {...near?.handlers}
       ref={(frame) => {
         props.sorted?.frame(frame);
       }}

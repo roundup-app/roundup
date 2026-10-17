@@ -177,8 +177,6 @@
   opacity: 0;
   pointer-events: none;
 }
-.todo-row:hover .row-head > [data-button="row-action"],
-.todo-row:focus-within .row-head > [data-button="row-action"],
 .todo-row[data-actions-open="true"] .row-head > [data-button="row-action"] {
   opacity: 1;
   pointer-events: auto;

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, within, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { stubDialogLayout } from "./bulkQuestion";
+import { stubDialogLayout } from "./bulkQuestionHarness";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 
 afterEach(cleanup);
