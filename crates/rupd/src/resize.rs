@@ -233,14 +233,22 @@ impl Daemon {
             return Ok(None);
         }
         let call = match method {
+            "terminal.close" => HeldCall::Close(rpc::params(params)?),
+            "terminal.kill" => HeldCall::Kill(rpc::params(params)?),
             "rail.rename" => HeldCall::Rename(rpc::params(params)?),
             "agent.stop" => HeldCall::Stop(rpc::params(params)?),
             "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
             "agent.prompt" => HeldCall::Prompt(rpc::params(params)?),
             _ => return Err(RpcError::method_not_found(method)),
         };
-        self.agents
-            .guard_reach(&conn.actor, child, matches!(call, HeldCall::Rename(_)))?;
+        if terminal_call(&call) {
+            // The Terminal's owner is the child, checked again at release.
+            self.guard_terminal_read(&conn.actor, &action_params(&call)?)
+                .await?;
+        } else {
+            self.agents
+                .guard_reach(&conn.actor, child, matches!(call, HeldCall::Rename(_)))?;
+        }
         let node = self
             .rail()
             .await?
@@ -267,7 +275,8 @@ impl Daemon {
             .accepted(None)?
             .into_iter()
             .filter(|a| {
-                original_terminal(&a.action.call) == Some(id.as_str())
+                matches!(a.action.call, HeldCall::Resize(_))
+                    && original_terminal(&a.action.call) == Some(id.as_str())
                     && (conn.actor.kind == ActorKind::User
                         || a.actor.kind == conn.actor.kind && a.actor.id == conn.actor.id)
             })
@@ -293,7 +302,7 @@ impl Daemon {
                     .await?,
             )
             .map_err(RpcError::internal)?;
-            let child_exited = matches!(action.call, HeldCall::Resize(_))
+            let child_exited = terminal_call(&action.call)
                 && accepted
                     .child_terminal
                     .as_ref()
@@ -304,7 +313,7 @@ impl Daemon {
                 Some(n)
                     if !matches!(action.call, HeldCall::Rename(_))
                         && (n.attempt != accepted.attempt
-                            || matches!(action.call, HeldCall::Resize(_))
+                            || terminal_call(&action.call)
                                 && n.terminal_id != accepted.child_terminal) =>
                 {
                     Some("child Attempt changed before action release")
@@ -325,7 +334,7 @@ impl Daemon {
                 }
             } else {
                 let effect = async {
-                    if matches!(action.call, HeldCall::Resize(_)) {
+                    if terminal_call(&action.call) {
                         let owner = self.guard_terminal_read(&accepted.actor, &params).await?;
                         if owner.as_deref() != Some(child) {
                             return Err(RpcError::conflict("original Terminal owner changed"));
@@ -535,7 +544,7 @@ impl Daemon {
         let pending = self.held_actions.accepted(None)?;
         for accepted in pending {
             if matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. })
-                && matches!(accepted.action.call, HeldCall::Resize(_))
+                && terminal_call(&accepted.action.call)
                 && (original_terminal(&accepted.action.call) == Some(terminal)
                     || accepted.child_terminal.as_deref() == Some(terminal))
             {
@@ -567,6 +576,13 @@ impl Daemon {
     }
 }
 
+fn terminal_call(call: &HeldCall) -> bool {
+    matches!(
+        call,
+        HeldCall::Resize(_) | HeldCall::Close(_) | HeldCall::Kill(_)
+    )
+}
+
 fn resize_action(action: HeldAction) -> Result<ResizeAction, RpcError> {
     let HeldCall::Resize(resize) = action.call else {
         return Err(RpcError::internal(
@@ -586,6 +602,8 @@ fn resize_action(action: HeldAction) -> Result<ResizeAction, RpcError> {
 fn action_method(call: &HeldCall) -> &'static str {
     match call {
         HeldCall::Resize(_) => "terminal.resize",
+        HeldCall::Close(_) => "terminal.close",
+        HeldCall::Kill(_) => "terminal.kill",
         HeldCall::Rename(_) => "rail.rename",
         HeldCall::Stop(_) => "agent.stop",
         HeldCall::Interrupt(_) => "agent.interrupt",
@@ -597,6 +615,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
     match call {
         HeldCall::Resize(params) => serde_json::to_value(params),
         HeldCall::Rename(params) => serde_json::to_value(params),
+        HeldCall::Close(params) | HeldCall::Kill(params) => serde_json::to_value(params),
         HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
         HeldCall::Prompt(params) => serde_json::to_value(params),
     }
@@ -606,6 +625,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
 fn original_terminal(call: &HeldCall) -> Option<&str> {
     match call {
         HeldCall::Resize(params) => Some(&params.id),
+        HeldCall::Close(params) | HeldCall::Kill(params) => Some(&params.id),
         HeldCall::Rename(_) | HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_) => {
             None
         }

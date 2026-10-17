@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { message } from "../thread/threadFixture";
+import { message } from "../testing/centreFixture";
 import { agent, door, USER, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 

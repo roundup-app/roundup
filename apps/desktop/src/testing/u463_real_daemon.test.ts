@@ -82,7 +82,7 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
 const width = 1280;
 
 for (const input of ["keyboard", "pointer"] as const) {
-  it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_thread ${width} ${input}`, async () => {
+  it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal ${width} ${input}`, async () => {
     const fixture = await observer(width, input, "choose");
     const { real, browser, wait, observe, activate, app } = fixture;
 
@@ -111,7 +111,7 @@ for (const input of ["keyboard", "pointer"] as const) {
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
       await observe("workstream");
-      await wait(`!!document.querySelector('[data-thread-input]') && !!document.querySelector('[role="treeitem"][data-kind="idle"]')`);
+      await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('[role="treeitem"][data-kind="idle"]')`);
       const tree = await app.rpc("rail.tree", null);
       const workstream = tree.find((node) => node.kind === "workstream")!;
       const rendered = (await browser("eval", `({id: document.querySelector('[role="treeitem"][data-id]').dataset.id, terminal: window.__u463Calls.find(call => call.method === 'terminal.snapshot')?.params.id})`)).result;
@@ -120,34 +120,27 @@ for (const input of ["keyboard", "pointer"] as const) {
       expect(rendered.terminal).toBe(workstream.terminal_id);
       expect((await browser("eval", "window.__u463Calls.find(call => call.method === 'rail.startDoor').params.id")).result).toBe(workstream.id);
       expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(workstream.terminal_id);
-      // U371's Shelf floats over the pane, so hide it to expose the pointer's send target.
-      await activate("[aria-label=\"Hide work items\"]");
-      await wait(`document.querySelector('.shelf').hidden`);
-      await observe("thread-shelf-closed");
-      await browser("fill", "[data-thread-input]", "u463 real request");
-      await wait(`!document.querySelector('.thread-send').hasAttribute('aria-disabled')`);
-
-      if (input === "keyboard") await browser("press", "Enter");
-      else await browser("click", ".thread-send");
+      // U467: the user types to the Door in its own Terminal; the fake Claude reads the line as its prompt.
+      await browser("click", ".pane-screen");
+      await browser("type", ".pane-screen textarea", "u463 real request");
+      await browser("press", "Enter");
+      await wait(`window.__u463Calls.some(call => call.method === 'terminal.write' && call.params.id === '${workstream.terminal_id}')`);
       await wait(`window.__u463Calls.some(call => call.method === 'todo.list' && call.outcome.result?.some(todo => todo.title === 'u463 real request'))`);
-      await activate("[aria-label=\"Show work items\"]");
-      await wait(`document.querySelector('.shelf').getBoundingClientRect().right <= innerWidth`);
-      await wait(`[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('u463 real request'))`);
-      expect((await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status, message.to])).toContainEqual(["u463 real request", "delivered", workstream.id]);
+      expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).not.toContain("u463 real request");
       expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("u463 real request");
 
-      if (ART) await writeFile(join(ART, `${width}-${input}-choose-thread.rpc.json`), JSON.stringify({
+      if (ART) await writeFile(join(ART, `${width}-${input}-choose-door.rpc.json`), JSON.stringify({
         tree,
         terminals: await app.rpc("terminal.list", null),
         messages: await app.rpc("message.list", { to: null, status: null }),
         todos: await app.rpc("todo.list", null),
         calls: (await browser("eval", "window.__u463Calls")).result,
       }, null, 2));
-      await observe("thread");
+      await observe("door");
 
       expect((await browser("eval", "typeof window.__fake")).result).toBe("undefined");
     } catch (error) {
-      console.error(JSON.stringify(await browser("eval", "({body: document.body.textContent, calls: window.__u463Calls, draft: document.querySelector('[data-thread-input]')?.value})"), null, 2));
+      console.error(JSON.stringify(await browser("eval", "({body: document.body.textContent, calls: window.__u463Calls, terminal: document.querySelector('.pane-screen')?.textContent})"), null, 2));
       throw error;
     } finally { await fixture.close(); }
   }, 180_000);

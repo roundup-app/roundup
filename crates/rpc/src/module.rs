@@ -121,7 +121,8 @@ impl Bus {
                     return Err(RpcError::new(
                         crate::error::code::EVENTS_EXPIRED,
                         format!(
-                            "after {after} is older than the log keeps; the oldest kept Event number is {oldest}"
+                            "after {after} is older than the log keeps; the oldest kept Event number is {oldest}: start without `--after`, or pass `--after {}`",
+                            oldest - 1
                         ),
                     ));
                 }
@@ -156,6 +157,11 @@ pub struct Subscription {
 }
 
 impl Subscription {
+    /// The highest Event number saved when this subscription began; 0 for an empty or absent log.
+    pub fn head(&self) -> u64 {
+        self.replay_end
+    }
+
     /// The next Event; `None` once the Bus closes and the log is read out.
     pub async fn next(&mut self) -> Option<Event> {
         loop {

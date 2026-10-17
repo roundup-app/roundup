@@ -36,11 +36,6 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/digest/q2_digest.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
   "apps/desktop/src/header/u184_close.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
@@ -111,22 +106,12 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/testing/u146_door_answers.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
   "apps/desktop/src/testing/u149_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
   "apps/desktop/src/testing/u159_workstream_todos.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u160_workstream_thread.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
@@ -151,34 +136,9 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/testing/u187_thread_mode_real_daemon.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u189_conversation_real_daemon.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u192_card_real_daemon.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
   "apps/desktop/src/testing/u194_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u195_real_daemon.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u196_real_daemon.test.ts": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
   "apps/desktop/src/testing/u198_real_daemon.test.ts": {
@@ -201,22 +161,12 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/testing/u354_real_daemon.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
   "apps/desktop/src/testing/u356_blocked_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
   "apps/desktop/src/testing/u364_real_daemon.test.ts": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u366_measure.test.ts": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
@@ -231,24 +181,9 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/testing/u417_composer.test.ts": {
-    "cleanup": "No separate built-Daemon launch site.",
-    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
   "apps/desktop/src/testing/u463_real_daemon.test.ts": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/thread/Thread.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/thread/u424_rows_and_done.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
   "apps/desktop/src/todos/u461_rendered.test.ts": {
@@ -514,6 +449,11 @@
     "kind": "indirect",
     "sha256": "d2cc08610cc9b30f4b01ef5eabcc73cd56f41691d14ca7041aeedf411435c526"
   },
+  "crates/rup/tests/i9.rs": {
+    "cleanup": "The test aborts the serving task on stop and drops it; the temp directory is removed with the test.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process"
+  },
   "crates/rup/tests/m12.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -629,6 +569,12 @@
     "issue": 1556,
     "kind": "real",
     "sha256": "30c3f2890109aeeeac182f41d9fc666d490cd2da212850d69afd7de6bd9cc83a"
+  },
+  "crates/rupd/tests/m2219_mcp_setting.rs": {
+    "cleanup": "Serves within the test runtime on a TempDir socket; the TempDir is removed on drop.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "9e5a848bb5b5fac6558caebae19be855be015732079ff5dd6a04bd4c24e46f51"
   },
   "crates/rupd/tests/m8_project.rs": {
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",

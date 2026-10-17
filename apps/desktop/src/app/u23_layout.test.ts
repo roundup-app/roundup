@@ -271,28 +271,17 @@ it("u507_bindings_preserve_resize_state", async () => {
   await evaluate("localStorage.clear()");
   await openApp();
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
-  await browser("wait", ".thread-composer textarea");
+  await browser("wait", ".pane-screen");
   await settle();
-  await evaluate(`(() => {
-    const input = document.querySelector('.thread-composer textarea');
-    input.value = 'Keep this draft λ'; input.dispatchEvent(new Event('input', {bubbles:true}));
-    for (let n=0;n<40;n++) window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'message.sent',data:{id:9100+n,from:{kind:'user',id:'you',parent:null},to:'payments',kind:'note',body:'Line '+n,replyTo:null,status:'delivered',reason:null,passedFrom:null,at:Date.now()+n}});
-    document.querySelector('.thread [aria-label="More"]').click();
-  })()`);
-  await settle();
-  await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(el=>el.textContent.includes('All Messages')).click()`);
-  await settle();
-  await evaluate(`document.querySelector('.thread-feed').scrollTop=100`);
-  await settle();
-  const read = () => evaluate(`({draft:document.querySelector('.thread-composer textarea').value, selected:document.querySelector('.rail [aria-selected=true]').dataset.id, scroll:document.querySelector('.thread-feed').scrollTop})`);
-  expect(await read()).toEqual({draft:"Keep this draft λ", selected:"payments", scroll:100});
+  const read = () => evaluate(`document.querySelector('.rail [aria-selected=true]').dataset.id`);
+  expect(await read()).toBe("payments");
   await browser("mouse", "move", "288", "400");
   await browser("mouse", "down", "left");
   await browser("mouse", "move", "360", "400");
   await settle();
   await browser("mouse", "up", "left");
   await settle();
-  expect(await read()).toEqual({draft:"Keep this draft λ", selected:"payments", scroll:100});
+  expect(await read()).toBe("payments");
   await evaluate(`document.querySelector('.rail [data-id="agent-4"] .name').click()`);
   await browser("wait", ".xterm-screen");
   await settle();
@@ -308,8 +297,8 @@ it("u507_bindings_preserve_resize_state", async () => {
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);
   expect(await evaluate("document.querySelector('.rail [aria-selected=true]').dataset.id")).toBe("agent-4");
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
-  await browser("wait", ".thread-composer textarea");
-  expect(await evaluate("document.querySelector('.thread-composer textarea').value")).toBe("Keep this draft λ");
+  await browser("wait", ".pane-screen");
+  expect(await read()).toBe("payments");
 }, 180_000);
 
 it("u507_layout_checks", async () => {

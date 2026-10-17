@@ -193,7 +193,8 @@ fn squash(name: &str) -> String {
 /// The commands `rup help` lists under the nouns, as `(usage, Door only)`.
 fn listed_commands(help: &str) -> Vec<(String, bool)> {
     let commands = help.split("Commands:").nth(1).unwrap();
-    let commands = commands.split("\n  other\n").next().unwrap();
+    // I9: the streams are listed apart, and `rup mcp` does not offer them.
+    let commands = commands.split("\n  streams\n").next().unwrap();
     let lines: Vec<&str> = commands.lines().collect();
     lines
         .iter()
@@ -245,6 +246,16 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
             .collect();
         assert_eq!(cli, tools, "door: {door}");
     }
+    let streams = help
+        .split("\n  streams\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n  other\n").next())
+        .unwrap();
+    assert!(
+        streams.contains("rup events [--after <after>] [--follow]")
+            && streams.contains("Example: rup events --after 12 --follow --json"),
+        "{streams}"
+    );
     let other = help.split("\n  other\n").nth(1).unwrap();
     let other: Vec<&str> = other
         .lines()
@@ -383,6 +394,11 @@ async fn i2_help_alone_teaches_every_command() {
             "{usage}"
         );
     }
+    let events = out(&run.rup(&["help", "events"]).await);
+    assert!(
+        events.contains("Usage: rup events") && events.contains("--follow"),
+        "{events}"
+    );
 }
 
 #[tokio::test]
@@ -841,4 +857,83 @@ async fn i7_a_daemon_that_never_answers_exits_1_in_ten_seconds() {
     );
     assert!(started.elapsed() >= Duration::from_secs(10));
     assert!(started.elapsed() < Duration::from_secs(14));
+}
+
+#[tokio::test]
+async fn m2219_a_rup_command_is_judged_and_touched_like_the_tool() {
+    let project = start_daemon().await;
+    let maker = on(&project.socket).acting_as(Some("a7"));
+    let made = maker
+        .rup(&["rail", "create-workstream", "w", "--json"])
+        .await;
+    assert_eq!(code(&made), 0, "{}", err(&made));
+    let id = serde_json::from_str::<Value>(&out(&made)).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // Reach (M7): the maker changes what it made; another Agent is refused, as over MCP.
+    assert_eq!(code(&maker.rup(&["rail", "rename", &id, "w2"]).await), 0);
+    let other = on(&project.socket).acting_as(Some("a8"));
+    let refused = other.rup(&["rail", "rename", &id, "w3"]).await;
+    assert_eq!(code(&refused), 1);
+    assert!(err(&refused).contains("FORBIDDEN"), "{}", err(&refused));
+    // The Touch names the calling Agent.
+    let touched = out(&maker.rup(&["provenance", "touched", "a7", "--json"]).await);
+    assert!(touched.contains(&format!("rail:{id}")), "{touched}");
+}
+
+#[tokio::test]
+async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
+    use agents::claude_code::{Folders, Launcher, Pair, Role};
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("proj");
+    let data = project.join(".roundup");
+    std::fs::create_dir_all(&data).unwrap();
+    let rup = PathBuf::from(env!("CARGO_BIN_EXE_rup"));
+    let launcher = Launcher::new("claude", root.path().join("claude.json"), rup, None);
+    let pair = Pair {
+        mcp_off: true,
+        ..Default::default()
+    };
+    let help = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+        .arg("help")
+        .output()
+        .await
+        .unwrap();
+    let help = out(&help);
+    let lines: Vec<&str> = help.lines().map(str::trim).collect();
+    for role in [Role::Agent, Role::Door] {
+        let argv = launcher
+            .prepare_on(
+                Folders {
+                    project: &project,
+                    data: &data,
+                },
+                "7",
+                "1",
+                &project,
+                None,
+                role,
+                &pair,
+            )
+            .unwrap();
+        let at = argv
+            .iter()
+            .position(|arg| arg == "--append-system-prompt-file")
+            .unwrap();
+        let brief = std::fs::read_to_string(&argv[at + 1]).unwrap();
+        let named: BTreeSet<&str> = brief
+            .split('`')
+            .filter(|span| span.starts_with("rup "))
+            .collect();
+        assert!(named.len() > 50, "{named:?}");
+        for command in named {
+            assert!(
+                lines.iter().any(|line| line
+                    .strip_prefix(command)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '))),
+                "{role:?} names `{command}`, which rup help lacks"
+            );
+        }
+    }
 }
