@@ -1,3 +1,4 @@
+import "./Listbox.css";
 import { Listbox as ArkListbox, createListCollection, useListboxContext } from "@ark-ui/solid/listbox";
 import { createMemo, createUniqueId, splitProps, type JSX } from "solid-js";
 
