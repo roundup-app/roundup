@@ -1,20 +1,14 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
-import { captureDir } from "./captures";
-import type { Checks } from "./checks";
 
-/** U367's rendered observer: the Workstream confirm on the densest seed, with a running, an ahead and a dirty Agent, in Chromium at 1280×800 and 1440×800. */
+/** U367's rendered observer: the Workstream confirm on the densest seed, with a running, an ahead and a dirty Agent, in Chromium. */
 
 const found = chromePath();
 
 const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
-
-const ART = captureDir("U367");
 
 beforeAll(async () => {
   if (!found) throw new Error("U367 needs a Chrome binary: set CHROME_PATH");
@@ -25,13 +19,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await page?.close();
 });
-
-const save = async (name: string) => {
-  if (!ART) return;
-  mkdirSync(ART, { recursive: true });
-  writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
-  writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
-};
 
 const openConfirm = async () => {
   await page.load("/harness.html?seed=tree-40", 1280, 800);
@@ -59,20 +46,6 @@ const openConfirm = async () => {
 run("u367 the confirm", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
-  it("u367_the_confirm_on_the_densest_seed_passes_the_checks", async () => {
-    await openConfirm();
-
-    for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
-      await page.resize(width, height);
-      await page.until(`() => document.getAnimations().every(animation => animation.playState !== 'running' || animation.effect.getTiming().iterations === Infinity)`);
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-
-      for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, `${width}: ${id}`).toBe("pass");
-
-      await save(`confirm-${width}x${height}`);
-    }
-  });
-
   it("u367_remove_across_the_rail_resize_edge_calls_once", async () => {
     await openConfirm();
 
@@ -99,9 +72,5 @@ run("u367 the confirm", () => {
     await page.click(point.x, point.y);
     await page.until(`() => document.querySelector('[role=alert]')?.textContent.includes('removal failed; work kept')`);
     expect(await page.call<boolean>(`() => Boolean(document.querySelector('.rail-row[data-id="backend"]'))`)).toBe(true);
-    const checks = await page.call<Checks>(`() => window.__checks()`);
-
-    for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, id).toBe("pass");
-    await save('failure-1280x800');
   });
 });

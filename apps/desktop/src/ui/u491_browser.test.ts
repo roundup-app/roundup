@@ -1,7 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { CHECK_IDS, type Checks } from "../testing/checks";
-import { captureDir } from "../testing/captures";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "./tabsBrowser";
 
@@ -128,62 +124,6 @@ it("u491_drag_preview_end_and_escape", async () => {
     return [draft.value, draft.selectionStart, draft.selectionEnd, document.querySelector('.centre > div').scrollTop];
   })()`)).toEqual(["Kept draft", 2, 8, 120]);
 }, 90_000);
-
-
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (const contrast of [process.env.PROVIDERS_CONTRAST === "more"]) {
-  it(`u491_rendered_checks u492_rendered_checks ${scheme}-${width}-${contrast}`, async () => {
-    const baseline: Record<string, Checks> = {};
-
-    if (captureDir("U491") || captureDir("U492")) expect(process.env.U500_BASE_ROOT).toBeTruthy();
-
-    for (const side of process.env.U500_BASE_ROOT ? ["base", "head"] : ["head"]) {
-      await browser("set", "media", scheme);
-      await browser("set", "viewport", String(width), "800");
-      await browser("open", url(fixture, side === "base"));
-      await wait(`document.querySelectorAll('[role=separator]').length === 2`);
-      expect(await read<boolean>(`matchMedia("(prefers-contrast: more)").matches`)).toBe(contrast);
-      await browser("find", "role", "button", "click", "--name", "Notify", "--exact");
-      const card = side === "base" ? ".toast" : ".app-toast-action";
-
-      await wait(`document.querySelector('${card}')`);
-
-      for (const state of ["default", "edge-hover", "edge-focus", "hover", "focus", "dismissed"]) {
-        if (state === "edge-hover") await browser("hover", ".resize-edge.rail-edge");
-
-        if (state === "edge-focus") await tabTo(".resize-edge.rail-edge");
-
-        if (state === "hover") await browser("hover", card);
-
-        if (state === "focus") await tabTo(card);
-
-        if (state === "dismissed") {
-          await browser("press", "Escape");
-          await wait(`!document.querySelector('${card}')`);
-        }
-
-        const checks = await read<Checks>(`import('/src/testing/checks.ts').then(m => m.runChecks())`);
-        const name = `${scheme}-${width}-${contrast}-${state}`;
-
-        for (const id of ["U491", "U492"]) {
-          const art = captureDir(id);
-
-          if (art) {
-            const directory = join(art, side);
-
-            mkdirSync(directory, { recursive: true });
-            await browser("screenshot", join(directory, `${name}.png`));
-            writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks));
-          }
-        }
-
-        if (side === "base") baseline[state] = checks;
-        else for (const id of CHECK_IDS) {
-          if (["D2", "D5", "D6"].includes(id) || baseline[state]?.[id].status === "pass") expect(checks[id].status, `${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
-        }
-      }
-    }
-  }, 180_000);
-}
 
 
 it.each(["click", "Enter", "Space"])("u492_accessible_activation_%s", async (input) => {

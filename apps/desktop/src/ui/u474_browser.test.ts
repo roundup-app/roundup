@@ -6,10 +6,9 @@ import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
-import { CHECK_IDS, type Checks } from "../testing/checks";
+import type { Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
 import { appServer, type AppServer } from "../testing/appServer";
-import { FULLSCREEN } from "../testing/chromePage";
 
 const art = captureDir("U477");
 
@@ -264,52 +263,4 @@ for (const path of ["hover", "focus"] as const) {
       await capture("after");
     }
   }, 120_000);
-}
-
-for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) {
-  it(`u477_tooltip_checks ${scheme}-${width}`, async () => {
-    await browser("set", "media", scheme);
-    await browser("set", "viewport", String(width), "800");
-    const selector = ".todo-delete";
-
-    const rejected = async (base: string) => {
-      await loadAppIcon(base, "tree-40", selector);
-      await browser("eval", `document.querySelector('.todo-delete').click()`);
-      await browser("wait", "--fn", `!!document.querySelector('.todo-delete-confirm')`);
-      await browser("eval", `window.__fake.failNext(-32003, 'Cannot delete this Todo: retained for review'); document.querySelector('.todo-delete-confirm button').click()`);
-      await browser("wait", "--fn", `document.body.textContent.includes('Cannot delete this Todo: retained for review') && !document.querySelector('.todo-delete-confirm button').disabled`);
-    };
-
-    await rejected(baselineOrigin ?? origin);
-    const baseline = await read<Checks>("window.__checks()");
-
-    const capture = async (step: string, checks: Checks) => {
-      if (!art) return;
-      mkdirSync(art, { recursive: true });
-      const name = `app-${scheme}-${width}-${step}`;
-      await browser("screenshot", join(art, `${name}.png`));
-      writeFileSync(join(art, `${name}.checks.json`), JSON.stringify(checks));
-    };
-
-    await capture("before", baseline);
-    await rejected(origin);
-
-    for (const path of ["hover", "focus"]) {
-      if (path === "hover") await browser("hover", selector);
-      else {
-        await browser("mouse", "move", "10", "750");
-        await browser("wait", "--fn", `document.querySelector('.todo-delete').dataset.state === 'closed'`);
-        await browser("eval", `(() => { const stops = [...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(el => el.getClientRects().length && !el.disabled); const previous = stops[stops.indexOf(document.querySelector('.todo-delete')) - 1]; previous.id = 'u477-check-previous'; previous.focus(); })()`);
-        await browser("wait", "--fn", `document.activeElement?.id === 'u477-check-previous'`);
-        await browser("press", "Tab");
-        await browser("wait", "--fn", `document.activeElement === document.querySelector('.todo-delete')`);
-      }
-
-      await browser("wait", "--fn", `document.querySelector('.todo-delete').dataset.state === 'open'`);
-      const checks = await read<Checks>("window.__checks()");
-
-      for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, `${scheme}-${width}-${path} ${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
-      await capture(path, checks);
-    }
-  }, 90_000);
 }

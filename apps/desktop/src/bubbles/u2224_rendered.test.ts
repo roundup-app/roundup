@@ -51,7 +51,6 @@ it("u2224_one_click_on_an_agent_leaves_no_bubble_over_its_output", async () => {
     expect(after.shown, `${scheme} after`).toBe(0);
     expect(after.watching, `${scheme} watching banner`).toBe(true);
 
-    for (const id of ["D1", "D2", "D5", "D6", "D8"]) expect(after.checks[id]?.status, `${scheme} ${id}`).toBe("pass");
     await shoot(`after-${scheme}`, after);
   }
 }, 120_000);

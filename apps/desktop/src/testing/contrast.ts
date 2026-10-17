@@ -151,30 +151,6 @@ export const resolveToken = (value: string, tokens: ReadonlyMap<string, string>)
   return resolveToken(resolved, tokens);
 };
 
-/** The real `:root` tokens and the selected-row band, read off the stylesheets this PR ships, never a hard-coded copy. */
-export const loadTokens = () => {
-  const tokens = tokensFrom(tokenStyles, appStyles);
-  const ground = resolveToken("var(--ground)", tokens);
-  const sunken = resolveToken("var(--sunken)", tokens);
-
-  const band = /\.app-tree \[data-part="item"\]\[data-selected\]\s*\{[^}]*?linear-gradient\(var\(--accent\), var\(--accent\)\),\s*linear-gradient\(var\(--([\w-]+)\)/.exec(uiStyles);
-
-  if (!band) throw new Error("no selected-row band rule in ui/Tree.css");
-
-  const selectedValue = resolveToken(`var(--${band[1]!})`, tokens);
-  const alpha = /^rgba\(\s*0,\s*0,\s*0,\s*([\d.]+)\s*\)$/.exec(selectedValue)?.[1];
-
-  if (!alpha) throw new Error(`--${band[1]!} is not an rgba(0, 0, 0, alpha) colour: ${selectedValue}`);
-
-  return {
-    tokens,
-    ground,
-    sunken,
-    selected: blendBlackOver(ground, Number(alpha)),
-    selectedOnSunken: blendBlackOver(sunken, Number(alpha)),
-  };
-};
-
 /** Injects the real stylesheets into jsdom, as the Drawer tests already do, so `getComputedStyle` reflects the shipped rules. */
 export const withStylesheets = async <T,>(run: () => T | Promise<T>): Promise<T> => {
   const tokens = document.head.appendChild(document.createElement("style"));
@@ -190,7 +166,3 @@ export const withStylesheets = async <T,>(run: () => T | Promise<T>): Promise<T>
     tokens.remove();
   }
 };
-
-/** Resolves an element's computed `color`, following `var(--name)` chains jsdom leaves unresolved. */
-export const colourOf = (el: Element, tokens: ReadonlyMap<string, string>): string =>
-  resolveToken(getComputedStyle(el).color, tokens);
