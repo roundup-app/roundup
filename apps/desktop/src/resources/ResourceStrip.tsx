@@ -5,6 +5,7 @@ import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
 import { cpuText, MISSING, sizeText } from "./format";
+import { HintLine } from "../keys/HintLine";
 import "./styles.css";
 
 /** U408: how often `project.resources` is called while the strip is shown. */
@@ -105,6 +106,7 @@ export const ResourceStrip = () => {
 
   return (
     <div class="resource-strip" role="status" aria-live="off" aria-hidden="false">
+      <HintLine />
       {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
       <span class="resource-agent">
         <Show when={own() !== null}>
