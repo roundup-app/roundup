@@ -1872,6 +1872,28 @@ fn m2219_on_brief_is_unchanged() {
 }
 
 #[test]
+fn b53_the_door_brief_says_to_show_not_read() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    assert!(
+        text.contains("- `terminal_show`:"),
+        "the Door is offered terminal_show"
+    );
+    let rule = text
+        .lines()
+        .flat_map(|line| line.split(". "))
+        .find(|sentence| sentence.contains("asks to see a child's output"))
+        .expect("the Door brief says what to do when asked to see output");
+    for word in ["`terminal_show`", "read nothing"] {
+        assert!(rule.contains(word), "{rule}");
+    }
+    // E9: a role's bytes do not depend on the id.
+    assert_eq!(text, brief(&s, "8", Role::Door));
+    assert!(!brief(&s, "7", Role::Agent).contains("terminal_show"));
+    assert!(off_brief(&s, "7", Role::Door).contains("`rup terminal show`"));
+}
+
+#[test]
 fn b45_the_brief_says_to_wake_not_poll() {
     let s = setup();
     for role in [Role::Agent, Role::Door] {

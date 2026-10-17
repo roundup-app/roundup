@@ -767,3 +767,37 @@ async fn b21_same_named_subagents_keep_separate_waiting_entries() {
         [entry("same-name", 2), entry("same-name", 1)]
     );
 }
+
+fn end_entry(name: &str) -> DigestEntry {
+    DigestEntry {
+        name: name.into(),
+        kind: Kind::Done,
+        last: format!("{}[cut]", "s".repeat(595)),
+        todos: 0,
+        pads: vec![],
+    }
+}
+
+#[tokio::test]
+async fn b49_an_end_note_in_a_rollup_keeps_the_512_byte_entry() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Pushes::new(dir.path());
+    // A lone end note is the plain push, with its 600-byte `last`.
+    h.push(&end_entry("alone")).await;
+    let plain = h.standing().await.pop().unwrap().body;
+    assert_eq!(pushes::entries_of(&plain)[0].last.len(), 600);
+    for n in 0..7 {
+        h.push(&entry("early", n)).await;
+    }
+    h.push(&end_entry("ended")).await;
+    h.at(60_000).await;
+    let rollup = h.standing().await.pop().unwrap().body;
+    assert!(
+        rollup.starts_with("[digest] [1 updates held back]\n"),
+        "{rollup}"
+    );
+    let held = pushes::entries_of(&rollup);
+    assert_eq!(held[0].name, "ended");
+    assert!(held[0].last.len() <= 120 && held[0].last.ends_with("[cut]"));
+    assert!(digest::entry_text(&held[0]).len() <= 512);
+}
