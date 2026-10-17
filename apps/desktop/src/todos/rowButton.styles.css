@@ -195,7 +195,7 @@
   white-space: nowrap;
 }
 
-/* U490a: Up and Down appear in the row's right gutter only while focus is inside the row, so a pointer rests on drag alone and no row rewraps under a hover (U112); the title yields the gutter only then, so no text lies under them (U361). A control that cannot step reads struck through in --disabled. */
+/* U490a: Up and Down appear in the row's right gutter only while focus is inside the row, so a pointer rests on drag alone and no row rewraps under a hover (U112); the title yields the gutter only then, so no text lies under them (U361). A control that cannot step reads dimmed. */
 .shelf-row.todo-inset {
   position: relative;
 }
@@ -218,6 +218,6 @@
 
 .shelf-row.todo-inset .shelf-move [aria-disabled="true"] {
   color: var(--disabled);
-  text-decoration: line-through;
+  opacity: 0.5;
   cursor: default;
 }
