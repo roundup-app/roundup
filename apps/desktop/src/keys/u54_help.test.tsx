@@ -21,6 +21,9 @@ const focusableEmulator = (): EmulatorFactory => () => {
     selection: () => "",
     turns: () => [],
     selectTurn: () => {},
+    onSelection: () => {},
+    selectionEnd: () => null,
+    selectionFacts: () => null,
     onLink: () => {},
     paste: () => {},
     onInput: () => {},
@@ -95,17 +98,6 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
       document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-      // `⌘,` opens the modal Models dialog, which the library closes after the press.
-      const models = document.querySelector(".models-sheet");
-
-      if (models) {
-        // The library attaches its dismissal after the dialog mounts, so the press repeats until it takes.
-        await waitFor(() => {
-          (document.activeElement && models.contains(document.activeElement) ? document.activeElement : models).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-          expect(document.querySelector(".models-sheet")).toBeNull();
-        });
-      }
-
       if (press.defaultPrevented) bound.push(pressOf(press));
     }
   }
@@ -127,7 +119,7 @@ describe("u54 keyboard help", () => {
       "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘↑  Previous Agent", "⌘↓  Next Agent", "⌘⌫  Remove",
       "⌘⏎  Take control", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
       "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
-      "⌘/  Ask bar", "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
+      "⌘/  Ask bar", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
     ]);
   });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {

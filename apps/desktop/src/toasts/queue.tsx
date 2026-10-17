@@ -2,7 +2,7 @@ import { createMemo, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
-import { createToast } from "../ui";
+import { createToast } from "../ui/Toast";
 import { KindGlyph } from "../ink/KindGlyph";
 import type { Chime } from "./chime";
 
@@ -34,6 +34,8 @@ export type ToastQueue = {
   /** U80's one failure line: no timer; the next Toast click or push clears it. */
   failure: Accessor<string | null>;
   push(candidate: Candidate): void;
+  /** U516: a Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
+  notify(candidate: Candidate): void;
 };
 
 /** U410 to U414. Event policy lives here: held Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
@@ -92,7 +94,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
       if (displayed.has(entry.id)) continue;
 
       displayed.add(entry.id);
-      toast.show({ id: entry.id, label: copy.toastLine(entry.name, entry.line), glyph: <KindGlyph kind={entry.kind} decorative />, name: entry.name, content: entry.line });
+      toast.show({ id: entry.id, label: entry.name === "" ? entry.line : copy.toastLine(entry.name, entry.line), glyph: <KindGlyph kind={entry.kind} decorative />, name: entry.name, content: entry.line });
     }
   }
 
@@ -152,6 +154,10 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     toast,
     shown,
     failure,
+    notify: (candidate) => {
+      setFailure(null);
+      show(candidate);
+    },
     push: (candidate) => {
       setFailure(null);
 

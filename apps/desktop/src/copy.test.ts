@@ -163,7 +163,7 @@ const usesCase = (label: string): boolean => {
   if (SECTION_HEADS.has(label) || ACRONYMS.has(label) || SHORTCUTS.has(label) || CODE_NAMES.has(label) || MARKS.has(label)) return true;
 
   if (/\b(Door|Doors|Takeover|Shelf|Handoff)\b/.test(label)) return false;
-  const words = label.replace(/^[+↓]\s*/, "").trim().split(/\s+/);
+  const words = label.replace(/^[+↓✕]\s*/, "").trim().split(/\s+/);
   const first = words[0] ?? "";
 
   if (!/^[\p{Lu}\d]/u.test(first)) return false;
@@ -199,8 +199,6 @@ const FORMAT_SAMPLES = {
   closeTerminal: (count: number) => copy.closeTerminal(count),
   hiddenAttention: (count: number) => copy.hiddenAttention(count, count, count),
   needYouError: (count: number) => copy.needYouError(count, count),
-  modelFor: (count: number) => copy.modelFor(count),
-  effortFor: (count: number) => copy.effortFor(count),
   fullOrderOf: (count: number) => copy.fullOrderOf(count),
   orderOf: (count: number) => copy.orderOf(count),
   limits: (count: number) => copy.limits(count),
@@ -212,7 +210,6 @@ const FORMAT_SAMPLES = {
   padEditorToolbarActionHasNoName: (count: number) => copy.padEditorToolbarActionHasNoName(count),
   drawing: (count: number) => copy.drawing(count),
   mermaid: (count: number) => copy.mermaid(count),
-  defaultModel: (count: number) => copy.defaultModel(count),
   clearName: (count: number) => copy.clearName(count),
   agents: (count: number) => copy.agents(count),
   doorStoppedWithExit: (count: number) => copy.doorStoppedWithExit(count),
@@ -236,7 +233,6 @@ const FORMAT_SAMPLES = {
   waitsOnTitles: (count: number) => copy.waitsOnTitles(count),
   openBlocker: (count: number) => copy.openBlocker(count),
   actionsFor: (count: number) => copy.actionsFor(count),
-  changeToItReReadsItsConversationOn: (count: number) => copy.changeToItReReadsItsConversationOn(count, count),
   unlandedWorkAhead: (count: number) => copy.unlandedWorkAhead(count),
   goes: (count: number) => copy.goes(count),
   staysAtTheProjectRoot: (count: number) => copy.staysAtTheProjectRoot(count),
@@ -252,13 +248,13 @@ const FORMAT_SAMPLES = {
   counted: (count: number) => copy.counted(count, "1"),
   orderWithLimits: () => copy.orderWithLimits("1", "1"),
   daemonExit: () => copy.daemonExit("exited"),
-  fieldDefault: () => copy.fieldDefault("Model", "Unset"),
-  unsetDefault: (count: number) => copy.unsetDefault(count),
   noField: () => copy.noField("title"),
   stopQuestion: () => copy.stopQuestion("authored"),
   stopAndRemoveQuestion: () => copy.stopAndRemoveQuestion("authored"),
   removeQuestion: () => copy.removeQuestion("authored"),
   answerRefused: (count: number) => copy.answerRefused(count, "Unavailable"),
+  sentTo: () => copy.sentTo("Agent"),
+  couldNotSendTo: () => copy.couldNotSendTo("Agent", "Unavailable"),
 } satisfies { [Key in keyof typeof copy as typeof copy[Key] extends (...args: never[]) => string ? Key : never]: (count: number) => string };
 
 it("u471_catalogue_uses_sentence_case_and_user_labels", () => {

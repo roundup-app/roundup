@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
-import { Tooltip } from "../ui";
+import { Tooltip } from "../ui/Tooltip";
 import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { middleCut } from "./middleCut";
@@ -86,7 +86,7 @@ export const WindowBar = (props: {
   };
 
   return (
-    <div class="window-bar" onMouseDown={(event) => {
+    <div class="window-bar" data-flat-bar="" onMouseDown={(event) => {
       if (event.button === 0 && empty(event.target)) void action(event.detail === 2 ? "zoom" : "drag");
     }}>
       <div class="traffic-lights" aria-hidden="true" />

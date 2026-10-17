@@ -4,6 +4,8 @@
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
+#[path = "e2e/notes.rs"]
+mod notes;
 #[path = "e2e/wake.rs"]
 mod wake;
 
@@ -3226,8 +3228,8 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .iter()
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
-                // M16: a Door lacks `terminal_spawn` and `terminal_open`.
-                == if id == &rail.m { 8 } else { 10 },
+                // M16: a Door lacks `terminal_spawn` and `terminal_open`; B53: it alone has `terminal_show`.
+                == if id == &rail.m { 9 } else { 10 },
             "{offered:?}"
         );
     }
@@ -3279,6 +3281,35 @@ async fn m13_an_agent_reads_its_own_runs_and_its_workstreams_terminals() {
         .unwrap();
     let shell = opened["terminal_id"].as_str().unwrap();
     shim.call("terminal_screen", json!({ "id": shell })).await;
+}
+
+/// X16: the shim fills `reader` with the Agent id, so a second read holds only what is new, and a
+/// second Agent's first read starts at the log's start.
+#[tokio::test]
+async fn x16_a_shims_reads_are_a_delta_per_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_b = client_as(&project, actor(ActorKind::Agent, &rail.b)).await;
+    let run = m13_run(&as_b, &rail.b, "echo ZEBRA; sleep 30").await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let mut other = Shim::start(&project, &rail.b).await;
+
+    let mut first = door.call("terminal_read", json!({ "id": run })).await;
+    for _ in 0..200 {
+        if first["text"].as_str().unwrap().contains("ZEBRA") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        first = door.call("terminal_read", json!({ "id": run })).await;
+    }
+    assert!(first["text"].as_str().unwrap().contains("ZEBRA"));
+    let again = door.call("terminal_read", json!({ "id": run })).await;
+    assert_eq!(again["text"], "");
+    let theirs = other.call("terminal_read", json!({ "id": run })).await;
+    assert!(theirs["text"].as_str().unwrap().contains("ZEBRA"));
+    let digest = digest_of(&user, &rail.m).await.unwrap();
+    assert!(!digest.to_string().contains("ZEBRA"));
 }
 
 #[tokio::test]
@@ -4046,6 +4077,90 @@ async fn d12_a_client_resumes_after_a_killed_daemon() {
         "each number once, in order"
     );
     assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
+}
+
+/// U516: what the webview sends for a selected Turn: a fenced Excerpt and the Turn's facts.
+const U516_BODY: &str = "why?\n\n```\n$ ls\nfile\n```\n\ncommand: ls\ncwd: /work\nexit: 0";
+
+#[tokio::test]
+async fn u516_a_working_agent_is_sent_nothing_until_idle() {
+    let gates = tempfile::tempdir().unwrap();
+    let hold = gates.path().join("start");
+    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
+    let project = start(&[
+        ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
+        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+    ]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": U516_BODY}),
+        )
+        .await
+        .unwrap();
+
+    let listed = client
+        .request("message.list", json!({"to": door}))
+        .await
+        .unwrap();
+    assert_eq!(listed[0]["status"], "pending");
+    assert!(
+        client
+            .request("todo.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "nothing is typed while the Agent has not reached idle"
+    );
+
+    let mut events = project.subscribed().await;
+    std::fs::write(&hold, "").unwrap();
+    let typed = tokio::time::timeout(Duration::from_secs(30), async {
+        while let Some(event) = events.next_event().await {
+            if let EventData::TodoCreated(todo) = event.data
+                && todo.creator.id == door
+                && todo.title.contains(U516_BODY)
+            {
+                return todo;
+            }
+        }
+        panic!("the connection closed before the Excerpt was typed");
+    })
+    .await
+    .expect("the Excerpt is typed once the Agent is idle");
+    assert!(typed.title.contains("```\n$ ls\nfile\n```"));
+}
+
+#[tokio::test]
+async fn u516_message_list_holds_the_sent_excerpt() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let child = agent_in(&project, &client, Some(&door)).await;
+    client
+        .request(
+            "message.send",
+            json!({"to": child, "kind": "note", "body": U516_BODY}),
+        )
+        .await
+        .unwrap();
+
+    let listed = client
+        .request("message.list", json!({"to": child}))
+        .await
+        .unwrap();
+    let sent = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|message| message["body"] == U516_BODY)
+        .expect("message.list holds the Excerpt for an Agent with no Thread");
+    assert_eq!(sent["from"]["kind"], "user");
+    assert_eq!(sent["kind"], "note");
 }
 
 /// The lines of a JSON-lines `log` the fake `claude` writes for a prompt that carries Messages (a

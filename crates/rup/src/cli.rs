@@ -260,7 +260,7 @@ fn specs(door: bool) -> Vec<Spec> {
                 fields.sort_by_key(|field| !field.positional);
             }
             if offer.method == "terminal.read" {
-                // `rup terminal read 3 --after 120`: a loop of reads names the offset, a first read starts at 0.
+                // `rup terminal read 3 --after 120`: a read without it returns what is new since your last read (X16).
                 for field in fields.iter_mut().filter(|field| field.name == "after") {
                     field.positional = false;
                     field.required = false;
@@ -798,9 +798,6 @@ fn arguments(spec: &Spec, leaf: &ArgMatches) -> Result<JsonObject, Usage> {
         };
         out.insert("data".into(), Value::String(data));
     }
-    if spec.method == "terminal.read" && !leaf.contains_id("after") {
-        out.insert("after".into(), Value::from(0));
-    }
     for field in &spec.fields {
         if spec.method == "terminal.write"
             && matches!(field.name.as_str(), "text" | "no-enter" | "base64")
@@ -1009,7 +1006,12 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
                 eprintln!("truncated");
             }
         }
-        "agent.wake" => println!("woken: {}", result["id"]),
+        "agent.wake" => {
+            println!("woken: {}", result["id"]);
+            if let Some(why) = result["why"].as_str() {
+                println!("why: {why}");
+            }
+        }
         _ => {
             let text = mcp::success_text(method, params, result.clone());
             let plain = result.to_string();
