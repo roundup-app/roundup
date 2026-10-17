@@ -240,7 +240,10 @@ impl Agents {
     ) -> Result<(), contracts::agent::Inbox> {
         self.launcher.inbox_write(id, notes).inspect_err(|state| {
             self.shared.events.inbox.set(id, *state);
-        })
+        })?;
+        // Claude Code may have taken the entries up before they were in flight.
+        self.shared.events.inbox.rescan(id);
+        Ok(())
     }
 
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before

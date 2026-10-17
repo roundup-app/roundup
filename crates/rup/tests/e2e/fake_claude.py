@@ -68,7 +68,14 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
+
+
+# The fake models the version probe the inbox check runs (B51).
+if sys.argv[1:2] == ["--version"]:
+    print("2.1.296 (Claude Code)")
+    sys.exit(0)
 
 
 # The fake models the vendor capability probe; real loading has its own Q11 observer.
@@ -197,44 +204,86 @@ def play_prompts(tool):
         hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
     else:
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
-    orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
-    for prompt in typed_prompts():
-        if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
+    orders = [int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))]
+    turns = threading.Lock()
+
+    def turn(prompt, inbox=False):
+        with turns:
+            play_turn(prompt, inbox)
+
+    def play_turn(prompt, inbox):
+        if "FAKE_CLAUDE_PROMPT_LOG" in os.environ and not inbox:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
         gate = os.environ.get("FAKE_CLAUDE_HOLD_PROMPT")
-        while gate and "[rup messages: " in prompt and not os.path.exists(gate):
+        while gate and not inbox and "[rup messages: " in prompt and not os.path.exists(gate):
             time.sleep(0.02)
-        hook("UserPromptSubmit", {"prompt": prompt})
+        if inbox:
+            # B50: Claude Code takes a turn on another session's message with no UserPromptSubmit.
+            hook("PostToolUse", {"transcript_path": inbox})
+        else:
+            hook("UserPromptSubmit", {"prompt": prompt})
         if BLOCKED:
             # B39: the prompt is blocked, so no turn runs and no Stop follows.
             BLOCKED.clear()
             if "FAKE_CLAUDE_BLOCKED_LOG" in os.environ:
                 with open(os.environ["FAKE_CLAUDE_BLOCKED_LOG"], "a") as log:
                     log.write(json.dumps({"prompt": prompt}) + "\n")
-            continue
-        if orders:
+            return
+        if orders[0]:
             # Older observers counted the two nonempty clarification lines separately.
             count = len([line for line in prompt.splitlines() if line.strip()])
-            orders = max(0, orders - count)
+            orders[0] = max(0, orders[0] - count)
             hook("Stop")
-            continue
+            return
         if "FAKE_CLAUDE_ON_PROMPT_ASK" in os.environ and not ask_permission(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT_ASK"]), prompt):
             hook("Stop")
-            continue
+            return
         # H21: "$decision" is the id of the `[decision <id>]` note the prompt is.
         decisions = re.findall(r"^(?:\[from [^\]]+\] )?\[decision (\w+)\]", prompt, re.MULTILINE)
         answers_decisions = "$decision" in json.dumps(tool)
         if answers_decisions and not decisions:
             hook("Stop")
-            continue
+            return
         calls = [call for call in (tool if isinstance(tool, list) else [tool]) if not re.match(call.get("skip_prompt", "(?!)"), prompt)]
         if not calls:
             hook("Stop")
-            continue
+            return
         for decision in decisions if answers_decisions else [""]:
             mcp_session([{**call, "arguments": {key: value.replace("$prompt", shown(prompt)).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
+
+    threading.Thread(target=watch_inbox, args=(turn,), daemon=True).start()
+    for prompt in typed_prompts():
+        turn(prompt)
+
+
+def watch_inbox(turn):
+    """B50: the inbox entries Claude Code takes up, each recorded in the transcript before its turn."""
+    agent = json.load(open(flag("--settings")))["hooks"]["Stop"][0]["hooks"][0]["command"].split()[-1].strip("'")
+    config = os.environ["CLAUDE_CONFIG_DIR"]
+    inbox = os.path.join(config, "teams", "roundup", "inboxes", agent + ".json")
+    transcript = os.path.join(config, "transcript-" + agent + ".jsonl")
+    seen = set()
+    while True:
+        try:
+            entries = json.load(open(inbox))
+        except (OSError, ValueError):
+            entries = []
+        for entry in entries:
+            ident = entry.get("id", "")
+            if ident.startswith("rup-") and ident not in seen:
+                seen.add(ident)
+                if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
+                    with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
+                        log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": entry["text"], "inbox": ident}) + "\n")
+                gate = os.environ.get("FAKE_CLAUDE_HOLD_PROMPT")
+                while gate and not os.path.exists(gate):
+                    time.sleep(0.02)
+                with open(transcript, "a") as out:
+                    out.write(json.dumps({"type": "teammate_message", "id": ident}) + "\n")
+                turn(entry["text"], transcript)
+        time.sleep(0.02)
 
 
 def claim_kind():
