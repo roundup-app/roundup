@@ -72,7 +72,12 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       await record('menu');
       await browser('press', 'Escape');
       await wait(`!document.querySelector('[role=menu]')`);
-      await browser('press', 'Meta+,');
+      await browser('eval', `document.querySelector('[role=tab]').focus()`);
+      await browser('press', 'Shift+F10');
+      await wait(`!!document.querySelector('[role=menu]')`);
+      await browser('press', 'ArrowDown');
+      await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
+      await browser('press', 'Enter');
       await wait(`!!document.querySelector('[role=dialog] select')`);
       await record('models');
       await browser('eval', `(() => { const select = document.querySelector('[role=dialog] select'); select.value='opus'; select.dispatchEvent(new Event('change',{bubbles:true})); })()`);
