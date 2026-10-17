@@ -537,6 +537,25 @@ impl Shared {
         Err(forbidden())
     }
 
+    /// B53: a Show request may also name the pane of a node in the caller's Reach, which M13's read refuses as ownerless.
+    pub(crate) fn guard_terminal_show(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        owner: Option<&str>,
+    ) -> Result<(), RpcError> {
+        let refused = match self.guard_terminal_read(actor, terminal, owner) {
+            Err(err) if err.code == rpc::code::FORBIDDEN => err,
+            other => return other,
+        };
+        let reach = self.reach(&actor.id)?;
+        let is_pane =
+            self.rail().tree()?.iter().any(|node| {
+                node.terminal_id.as_deref() == Some(terminal) && reach.contains(&node.id)
+            });
+        if is_pane { Ok(()) } else { Err(refused) }
+    }
+
     /// M14: `FORBIDDEN` when Agent `actor` may not set the Route in `params`: its `to` is the
     /// caller (an Agent may not lift its own hold), or `from` or `to` is not an Agent that is the
     /// caller or in its Reach. A Route the module itself refuses as `INVALID_PARAMS` (`to` the
