@@ -340,6 +340,8 @@ export const copy = {
   exitedCode: (code: number) => `exited ${code}`,
   runningAgents: (count: number, verb: string, names: string, more: string) => `${count} ${verb}: ${names}${more}.`,
   reorder: "Alt+Up or Alt+Down moves it",
+  moveUp: (value1: CopyValue) => `Move todo ${value1} up`,
+  moveDown: (value1: CopyValue) => `Move todo ${value1} down`,
   percent: (value: number) => `${value}%`,
   counted: (value: string | number, noun: string) => `${value} ${noun}`,
   missing: "–",

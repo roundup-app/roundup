@@ -9,10 +9,9 @@ import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
 import { OpenRow } from "../../todos/Todos";
-import type { SortedRow } from "../../todos/Todos";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
-import { beforeOf } from "../../todos/beforeOf";
+import { createSortedList } from "../../todos/sortedList";
 import { Sortable } from "../../ui";
 import { useTodoList } from "../../todos/todoList";
 import { Trunks } from "../Trunks";
@@ -29,49 +28,12 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
   const ownedTodos = createMemo(() => (node().kind === "agent" ? openTodosBy(todos.all(), node().id) : []));
   const connected = useConnectedProject();
 
-  const buttons = new Map<number, HTMLButtonElement>();
-  let grabbed: number | null = null;
-
-  /** U490a: one `todo.reorder` call putting `id` at `to` within this Agent's list; a failure leaves the order as it was. */
-  const move = async (id: number, to: number, fail: (message: string | null) => void) => {
-    const ids = ownedTodos().map((todo) => todo.id);
-
-    fail(await failureOf(() => connected.app.rpc("todo.reorder", { id, before: beforeOf(todos.all(), ids, id, to) })));
-    queueMicrotask(() => buttons.get(id)?.focus());
-  };
-
-  const reorder = {
-    /** The Sortable's new order of this Agent's Todos. */
-    order: (next: readonly string[], fail: (message: string | null) => void) => {
-      const ids = ownedTodos().map((todo) => todo.id);
-      const id = grabbed ?? ids.find((each, at) => String(each) !== next[at]);
-
-      grabbed = null;
-
-      if (id !== undefined) void move(id, next.indexOf(String(id)), fail);
-    },
-    row: (id: number, parts: { ref: (el: Element | null) => void; handleRef: (el: Element | null) => void }): SortedRow => ({
-      frame: parts.ref,
-      button: (el) => {
-        if (el) buttons.set(id, el);
-        else buttons.delete(id);
-
-        parts.handleRef(el);
-      },
-      grab: () => (grabbed = id),
-      key: (event, fail) => {
-        grabbed = id;
-
-        if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
-
-        event.preventDefault();
-
-        const to = ownedTodos().findIndex((todo) => todo.id === id) + (event.key === "ArrowUp" ? -1 : 1);
-
-        if (to >= 0 && to < ownedTodos().length) void move(id, to, fail);
-      },
-    }),
-  };
+  const reorder = createSortedList({
+    ids: () => ownedTodos().map((todo) => todo.id),
+    all: todos.all,
+    call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
+    reducedMotion: connected.reducedMotion,
+  });
 
   const count = () => owned().length + ownedTodos().length;
 
@@ -140,7 +102,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           data-pads
           role="group"
           ids={props.pads.ownedTodos().map((todo) => String(todo.id))}
-          onOrderChange={(next) => props.pads.reorder.order(next, props.pads.setFailure)}
+          onOrderChange={props.pads.reorder.order}
         >
           <For each={props.pads.owned()}>
             {(pad, at) => (
@@ -164,19 +126,23 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           </For>
           <For each={props.pads.ownedTodos()}>
             {(todo, at) => (
-              <Sortable.Item id={String(todo.id)} index={at()}>
-                {(parts) => (
-                  <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo>
-                    <OpenRow
-                      nested
-                      todo={todo}
-                      known={props.pads.todos.byId()}
-                      onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
-                      sorted={props.pads.reorder.row(todo.id, parts)}
-                      onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
-                    />
-                  </Leaf>
-                )}
+              <Sortable.Item id={String(todo.id)} index={at()} pressable>
+                {(parts) => {
+                  const sorted = props.pads.reorder.row(todo.id, parts);
+
+                  return (
+                    <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo>
+                      <OpenRow
+                        nested
+                        todo={todo}
+                        known={props.pads.todos.byId()}
+                        onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
+                        sorted={sorted}
+                        onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
+                      />
+                    </Leaf>
+                  );
+                }}
               </Sortable.Item>
             )}
           </For>

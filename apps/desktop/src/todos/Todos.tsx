@@ -16,8 +16,9 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { RowButton } from "./RowButton";
-import { createReorder } from "./reorder";
-import type { Reorder } from "./reorder";
+import { IconButton, Sortable } from "../ui";
+import { createSortedList } from "./sortedList";
+import type { SortedRow } from "./sortedList";
 import { useShelfScope } from "./shelfScope";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
@@ -33,14 +34,6 @@ export const rowAfter = (id: number, openIds: readonly number[]): number | null 
   return openIds[at + 1] ?? openIds[at - 1] ?? null;
 };
 
-/** U490a: what an Agent's list hands one row it orders through `ui/Sortable`: the row's frame and button, the grab that names the moved row, and Alt+Up and Alt+Down. */
-export type SortedRow = {
-  frame: (el: HTMLElement) => void;
-  button: (el: HTMLButtonElement | null) => void;
-  grab: () => void;
-  key: (event: KeyboardEvent, fail: (message: string | null) => void) => void;
-};
-
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
@@ -54,9 +47,7 @@ export const OpenRow = (props: {
   onOpen: (todo: Todo) => void;
   onComplete: (todo: Todo) => Promise<string | null>;
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
-  /** U155: the list this row moves in. */
-  reorder?: Reorder;
-  /** U490a: the Sortable parts of a row that moves within its Agent's list. */
+  /** U490a: the Sortable parts of a row that moves within its list. */
   sorted?: SortedRow;
 }) => {
   const connected = useConnectedProject();
@@ -64,6 +55,8 @@ export const OpenRow = (props: {
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
+
+  props.sorted?.onFail(setFailure);
 
   const complete = async () => {
     const message = await props.onComplete(props.todo);
@@ -83,8 +76,7 @@ export const OpenRow = (props: {
 
   onCleanup(() => {
     props.registerRow?.(props.todo.id, null);
-    props.reorder?.frame(props.todo.id, null);
-    props.reorder?.button(props.todo.id, null);
+    props.sorted?.frame(null);
     props.sorted?.button(null);
   });
 
@@ -95,26 +87,31 @@ export const OpenRow = (props: {
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
           pressed={props.pressed}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo)}
-          reorderable={props.reorder !== undefined || props.sorted !== undefined}
+          reorderable={props.sorted !== undefined}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
-            if (!event.defaultPrevented) props.reorder?.key(props.todo.id, event, setFailure);
-
-            if (!event.defaultPrevented) props.sorted?.key(event, setFailure);
-          }}
-          onPointerDown={(event) => {
-            props.reorder?.press(props.todo.id, event, setFailure);
-            props.sorted?.grab();
+            if (!event.defaultPrevented) props.sorted?.key(event);
           }}
           ref={(row) => {
             props.registerRow?.(props.todo.id, row);
-            props.reorder?.button(props.todo.id, row);
             props.sorted?.button(row);
           }}
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
+        <Show when={props.sorted}>{(sorted) => (
+          <For each={[-1, 1] as const}>
+            {(direction) => (
+              <IconButton
+                class={direction < 0 ? "todo-step todo-step-up" : "todo-step"}
+                aria-label={direction < 0 ? copy.moveUp(props.todo.id) : copy.moveDown(props.todo.id)}
+                disabled={!sorted().canStep(direction)}
+                onClick={() => sorted().step(direction)}
+              ><Icon name={direction < 0 ? "up" : "down"} /></IconButton>
+            )}
+          </For>
+        )}</Show>
         <Show when={props.nested && (near?.near() || listOpen())}>
           <HomeMove
             id={props.todo.id}
@@ -147,10 +144,7 @@ export const OpenRow = (props: {
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
       {...near?.handlers}
-      ref={(frame) => {
-        props.reorder?.frame(props.todo.id, frame);
-        props.sorted?.frame(frame);
-      }}
+      ref={(frame) => props.sorted?.frame(frame)}
     >
       <Show when={props.nested}>{head}</Show>
       <Show when={props.todo.body.trim() !== ""}>
@@ -227,7 +221,7 @@ export const Todos = () => {
   const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
 
-  const reorder = createReorder({
+  const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
@@ -369,9 +363,14 @@ export const Todos = () => {
         </p>
       </Show>
       <Show when={open().length > 0}>
-        <div class="todo-list shelf-list">
+        <Sortable.Root class="todo-list shelf-list" ids={open().map((todo) => String(todo.id))} onOrderChange={sorted.order}>
         <For each={open()}>
-          {(todo) => (
+          {(todo, at) => (
+            <Sortable.Item id={String(todo.id)} index={at()} pressable>
+              {(parts) => {
+                const row = sorted.row(todo.id, parts);
+
+                return (
             <OpenRow
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
@@ -381,7 +380,7 @@ export const Todos = () => {
               known={todos.byId()}
               onOpen={show}
               onComplete={complete}
-              reorder={reorder}
+              sorted={row}
               registerRow={(id, row) => {
                 selection.register(id, row);
 
@@ -389,9 +388,12 @@ export const Todos = () => {
                 else rows.delete(id);
               }}
             />
+                );
+              }}
+            </Sortable.Item>
           )}
         </For>
-        </div>
+        </Sortable.Root>
       </Show>
       <Show when={done().length > 0}>
         <div class="shelf-list">
