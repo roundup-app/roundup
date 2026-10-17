@@ -18,6 +18,14 @@ const rail = read(
   }),
 );
 
+const ui = read(
+  import.meta.glob<string>("../ui/styles.css", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+);
+
 const ink = read(
   import.meta.glob<string>("../ink/styles.css", {
     query: "?raw",
@@ -56,15 +64,15 @@ describe("u381 a selected row answers the pointer with a darker step", () => {
   });
 
   it("u381_the_selected_rail_row_and_shelf_row_draw_the_bar_and_one_wash_in_each_state", () => {
-    for (const [css, row] of [
-      [rail, ".rail-row"],
-      [ink, ".shelf-row"],
+    for (const [css, row, selected] of [
+      [ui, '.app-tree [data-part="item"]', "[data-selected]"],
+      [ink, ".shelf-row", '[data-selected="true"]'],
     ] as const) {
       expect(css).toContain(
-        `${row}[data-selected="true"]:hover {\n  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));`,
+        `${row}${selected}:hover {\n  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));`,
       );
       expect(css).toContain(
-        `${row}[data-selected="true"]:active {\n  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));`,
+        `${row}${selected}:active {\n  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));`,
       );
     }
   });

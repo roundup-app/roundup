@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { agent, workstream, door } from "../../testing/nodes";
-import { exitedTerminal, mountRail, rowOf } from "../railFixture";
+import { exitedTerminal, mountRail, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -117,6 +117,7 @@ describe("u56 remove from the Rail", () => {
     expect(screen.getByRole("menu")).toBeTruthy();
     await waitFor(() => expect(document.activeElement).toBe(item("Remove")));
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await settled();
     expect(screen.queryByRole("menu")).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(rowOf("g")));
   });

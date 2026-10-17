@@ -43,7 +43,7 @@ const load = async (seed: string, scheme: "light" | "dark", base = false) => {
   }
 
   await page.until(`() => document.querySelector('[aria-label="Add Agent"]')`);
-  await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('[role="treeitem"]').focus()`);
+  await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('.rail-row').focus()`);
 };
 
 for (const seed of ["first-run", "agents-10", "tree-40"]) {
@@ -86,7 +86,7 @@ for (const seed of ["first-run", "agents-10", "tree-40"]) {
           await capture(`${name}-focused-${id}`);
         }
 
-        await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('[role="treeitem"]').focus()`);
+        await page.call(`() => document.querySelector('[aria-label="Add Agent"]').closest('.rail-row').focus()`);
       }
 
       expect(await page.call(`() => {

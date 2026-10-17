@@ -55,12 +55,20 @@ export const mountRail = async (
   return { app, rail: connected.rail, connected, setNow };
 };
 
-export const rowOf = (name: string): HTMLElement => {
+/** The treeitem of the row named `name`: the element that carries `data-id`, `aria-level` and `aria-expanded`. */
+export const itemOf = (name: string): HTMLElement => {
   const row = screen.getByText(name).closest<HTMLElement>("[role=treeitem]");
 
   if (!row) throw new Error(`no row for ${name}`);
 
   return row;
+};
+
+/** The row named `name` as the user focuses and clicks it: Ark's item, or the control of a branch. */
+export const rowOf = (name: string): HTMLElement => {
+  const item = itemOf(name);
+
+  return item.matches('[data-part="branch"]') ? item.querySelector<HTMLElement>('[data-part="branch-control"]')! : item;
 };
 
 export const glyphOf = (name: string): HTMLElement => {
@@ -74,7 +82,8 @@ export const glyphOf = (name: string): HTMLElement => {
 export const rowNames = (): string[] =>
   screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).map((row) => row.querySelector(".name")?.textContent ?? "");
 
-export const tabbableRows = (): HTMLElement[] => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((row) => row.tabIndex === 0);
+export const tabbableRows = (): HTMLElement[] =>
+  [...document.querySelectorAll<HTMLElement>('[role="tree"] [data-part="item"], [role="tree"] [data-part="branch-control"]')].filter((row) => row.tabIndex === 0);
 
 export const railCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
   app.calls.filter((call) => call.method === method).map((call) => call.params);
@@ -86,3 +95,6 @@ export const chord = (key: string): void => {
 
 /** U191: the one add in the pinned line. */
 export const pinnedAdd = (): HTMLElement => screen.getByText("Workstream", { selector: ".rail-actions button" });
+
+/** Ark's tree reads a key or a click on a microtask: await this before asserting what the press did. */
+export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));

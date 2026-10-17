@@ -124,7 +124,7 @@ const candidates = (source: string): { line: number; text: string }[] => {
       if (text.endsWith('px') || /^(alt\+Digit|<a href=|no (row|node)|WebGL renderer)/.test(text)) return;
     } else return;
 
-    if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
+    if (!text.trim() || STRUCTURE.has(text) && !uiAttribute && !inContent && !textBinding || /^(--|\.|\[|#|var\(|translate|calc\(|rgba|https|url\(|@|\.\.\/|\/)/.test(text)) return;
 
     if (node.type === "JSXText" || uiAttribute || uiSetter || inContent || textBinding || parent?.type === "NewExpression" && parent.callee.type === "Identifier" && parent.callee.name.endsWith("Error") || /^[A-Z]/.test(text) || /\s[a-zA-Z]/.test(text) || parent?.type === "ReturnStatement") {
       found.push({ line: node.loc?.start.line ?? 0, text });

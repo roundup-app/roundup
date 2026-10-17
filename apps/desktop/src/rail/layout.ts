@@ -18,8 +18,6 @@ export type RailView = {
   /** Parents whose `✓ n done` line has been clicked open; `null` is the top level. */
   unfolded: ReadonlySet<string | null>;
   now: number;
-  /** The row being dragged: shown at its place in `order` whatever its age, and every `✓ n done` line is closed, so no row is out of `order` while the drop line is placed. */
-  dragged: string | null;
 };
 
 export const isWorkstream = (node: RailNode): boolean => node.kind === "workstream";
@@ -53,7 +51,6 @@ export const agentKindsBelow = (nodes: readonly RailNode[], id: string): Kind[] 
   byUrgency(descendantsOf(nodes, id).flatMap((node) => (node.kind === "agent" && node.status ? [node.status.kind] : [])));
 
 const isFoldedAgent = (node: RailNode, view: RailView): boolean =>
-  node.id !== view.dragged &&
   node.kind === "agent" &&
   node.status !== null &&
   node.status.kind === "done" &&
@@ -67,7 +64,7 @@ export const layoutRail = (nodes: readonly RailNode[], view: RailView): RailRow[
   const rowsOf = (parent: string | null, depth: number, trail: readonly boolean[]): RailRow[] => {
     const siblings = under(parent);
     const folded = siblings.filter((node) => isFoldedAgent(node, view));
-    const unfolded = view.dragged === null && view.unfolded.has(parent);
+    const unfolded = view.unfolded.has(parent);
 
     const shown = [
       ...siblings.filter((node) => !folded.includes(node)),

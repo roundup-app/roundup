@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -11,9 +12,8 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeAll(async () => {
-  real = await startRealDaemon({
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
-  });
+  // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u159_door_todo.json"));
 }, 120_000);
 
 afterAll(async () => {
@@ -57,5 +57,6 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
     await waitFor(() => expect(screen.getByRole("button", { name: "Show all Workstreams" }).getAttribute("aria-pressed")).toBe("false"));
 
     expect(await within(shelf).findByText(/No Todos in this Workstream/)).toBeTruthy();
+    await real.model!.assertMatched();
   }, 120_000);
 });

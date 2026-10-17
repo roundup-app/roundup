@@ -24,17 +24,12 @@ p {
   outline-offset: 1px;
 }
 
-/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-.rail-row:active {
-  transition-duration: 0s;
-}
-
 /* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
-:is(.rail-row, .shelf-row):has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
+.shelf-row:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: none;
 }
 
-:is(.rail-row, .shelf-row)[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
+.shelf-row[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 
@@ -453,11 +448,6 @@ p {
 }
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
-.rail-row[data-drop] {
-  position: relative;
-}
-
-.rail-row[data-drop]::after,
 .project-tab[data-drop]::after,
 .pane-body[data-drop]::after {
   content: "";
@@ -467,7 +457,6 @@ p {
   pointer-events: none;
 }
 
-.rail-row[data-drop="hover"],
 .project-tab[data-drop="hover"] {
   background: var(--hover);
 }

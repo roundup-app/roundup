@@ -35,7 +35,7 @@ const save = async (name: string) => {
 
 const openConfirm = async () => {
   await page.load("/harness.html?seed=tree-40", 1280, 800);
-  await page.until(`() => Boolean(window.__fake) && document.querySelector('[data-id="backend"]') !== null`);
+  await page.until(`() => Boolean(window.__fake) && document.querySelector('.rail-row[data-id="backend"]') !== null`);
 
   // `logins` (error) holds uncommitted changes and `docs` (done) a commit the Base lacks; `tokens` and `migrate` still run.
   await page.call(`async () => {
@@ -49,7 +49,7 @@ const openConfirm = async () => {
   // rail.changed refreshes the Rail; its Worktree nodes must arrive before opening the menu.
   await page.until(`() => window.__fake.app.calls.filter(call => call.method === "rail.tree").length >= 2`);
   await page.call(`() => {
-    document.querySelector('[data-id="backend"]').dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 80 }));
+    document.querySelector('.rail-row[data-id="backend"]').dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 80 }));
   }`);
   await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "Remove")`);
   await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
@@ -103,7 +103,7 @@ run("u367 the confirm", () => {
     }`);
 
     await page.click(point.x, point.y);
-    await page.until(`() => !document.querySelector('.rail-menu') && !document.querySelector('[data-id="backend"]')`);
+    await page.until(`() => !document.querySelector('.rail-menu') && !document.querySelector('.rail-row[data-id="backend"]')`);
     expect(await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'rail.remove' && call.params.id === 'backend').length`)).toBe(1);
   });
 
@@ -118,7 +118,7 @@ run("u367 the confirm", () => {
 
     await page.click(point.x, point.y);
     await page.until(`() => document.querySelector('[role=alert]')?.textContent.includes('removal failed; work kept')`);
-    expect(await page.call<boolean>(`() => Boolean(document.querySelector('[data-id="backend"]'))`)).toBe(true);
+    expect(await page.call<boolean>(`() => Boolean(document.querySelector('.rail-row[data-id="backend"]'))`)).toBe(true);
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
     for (const id of ["D1", "D2", "D5", "D6", "D8"] as const) expect(checks[id].status, id).toBe("pass");

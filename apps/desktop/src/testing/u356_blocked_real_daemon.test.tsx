@@ -1,6 +1,8 @@
 import { leaderKey } from "../keys/leaderFixture";
 // @vitest-environment jsdom
+import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -11,17 +13,14 @@ import type { StartedDaemon } from "./realDaemonFixture";
 
 let real: StartedDaemon;
 
-// Two Workstreams of five Agents each, one `blocked` in each; the Nth Agent started plays entry N (U351, U356).
+// Two Workstreams of five Agents each, one `blocked` in each; the Agent with id N plays entry N (U351, U356).
 const FIRST = ["blocked", "working", "idle", "working", "idle"];
 
 const SECOND = ["error", "needs-you", "blocked", "error", "needs-you"];
 
 beforeAll(async () => {
-  // A Door has `--tools`, plays no entry and is ready after its SessionStart, which FAKE_CLAUDE_ON_PROMPT plays.
-  real = await startRealDaemon({
-    FAKE_CLAUDE_KINDS: JSON.stringify([...FIRST, ...SECOND]),
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
-  });
+  // E10: each Agent's turns are chosen by its id in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u356_blocked.json"));
 }, 120_000);
 
 afterAll(async () => {
@@ -40,10 +39,10 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     const tree = async () => app.rpc("rail.tree", null);
     const agentsOf = async (workstream: string) => (await tree()).filter((node) => node.kind === "agent" && node.parent === workstream);
     const doorsReady = async () => expect((await tree()).map((node) => node.status?.label)).not.toContain("starting");
-    const selected = () => rail.querySelector('[role="treeitem"][data-selected="true"]')?.getAttribute("data-id") ?? null;
+    const selected = () => rail.querySelector('.rail-row[data-selected="true"]')?.getAttribute("data-id") ?? null;
 
     const row = (id: string): HTMLElement => {
-      const found = rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`);
+      const found = rail.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`);
 
       if (!found) throw new Error(`no row ${id}`);
 
@@ -96,7 +95,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       await waitFor(() => expect(selected()).toBe(id));
 
       const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).title;
+      const word = await rowStatusLabel(row(id));
       const node = (await tree()).find((each) => each.id === id);
 
       expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));
@@ -172,5 +171,6 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     const blocked = agents.flatMap((each) => (each.kind === "blocked" ? [each.id] : []));
 
     expect(visited.filter((id) => blocked.includes(id!))).toEqual([]);
+    await real.model!.assertMatched(2);
   }, 420_000);
 });

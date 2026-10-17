@@ -109,7 +109,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     await screen.findByText("Control: Typing goes straight to ann");
 
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
-    expect(connected.rail.selected()).toBe("workstream");
+    await vi.waitFor(() => expect(connected.rail.selected()).toBe("workstream"));
     // Takeover calls serialize: this no-op drains any release queued by selection.
     await connected.takeover.end("not-taken");
     expect(connected.takeover.taken()).toBe("a");

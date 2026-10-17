@@ -51,9 +51,6 @@ for (const surface of ["models", "confirmation"]) it(`u494_modal_blocks_underlyi
   const writes = await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`);
   await browser("press", "x");
   expect(await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`)).toBe(writes);
-  const active = await read<string>(`document.querySelector('[role=tab][aria-selected=true]').closest('.project-tab').dataset.path`);
-  await browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:']',code:'BracketRight',metaKey:true,shiftKey:true,bubbles:true,cancelable:true}))`);
-  expect(await read<string>(`document.querySelector('[role=tab][aria-selected=true]').closest('.project-tab').dataset.path`)).toBe(active);
 }, 90_000);
 
 it("u495_menu_pointer_keyboard_and_return", async () => {

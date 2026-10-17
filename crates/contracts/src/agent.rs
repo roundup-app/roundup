@@ -587,10 +587,14 @@ pub enum HeldCall {
     SetOrder(SetOrderParams),
     #[serde(rename = "decision.answer")]
     Answer(crate::decision::AnswerParams),
+    #[serde(rename = "agent.resume")]
+    Resume(NodeId),
     #[serde(rename = "agent.stop")]
     Stop(NodeId),
     #[serde(rename = "agent.interrupt")]
     Interrupt(NodeId),
     #[serde(rename = "agent.prompt")]
     Prompt(PromptParams),
+    #[serde(rename = "workstream.rewind")]
+    Rewind(crate::workstream::RewindParams),
 }

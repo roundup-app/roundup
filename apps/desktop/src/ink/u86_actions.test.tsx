@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent, workstream, USER } from "../testing/nodes";
-import { mountRail, pinnedAdd, rowOf } from "../rail/railFixture";
+import { itemOf, mountRail, pinnedAdd, rowOf } from "../rail/railFixture";
 import { openPad, openShelf, padOf, AGENT } from "../pads/padsFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 import { resolveToken, tokensFrom, withStylesheets } from "../testing/contrast";
@@ -23,9 +23,9 @@ it("u86_disclosure_uses_vectors_and_preserves_expansion", async () => {
   vector(button, "chevron-down");
   fireEvent.click(button);
   vector(button, "chevron-right");
-  expect(rowOf("topic").getAttribute("aria-expanded")).toBe("false");
+  expect(itemOf("topic").getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(button);
-  expect(rowOf("topic").getAttribute("aria-expanded")).toBe("true");
+  expect(itemOf("topic").getAttribute("aria-expanded")).toBe("true");
 });
 
 it("u86_rail_add_actions_keep_their_names", async () => {
@@ -76,7 +76,7 @@ it("u86_rail_marks_share_the_disclosures_scan_line_when_selected", async () => {
         for (const selected of [false, true]) {
           if (selected) rail.select(name);
 
-          expect(row.getAttribute("aria-selected")).toBe(String(selected));
+          expect(itemOf(name).getAttribute("aria-selected")).toBe(String(selected));
           const band = getComputedStyle(row);
           const line = getComputedStyle(row.querySelector(".line")!);
           const icon = getComputedStyle(row.querySelector("svg")!);

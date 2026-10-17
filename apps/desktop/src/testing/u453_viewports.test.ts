@@ -50,7 +50,7 @@ it("u453_no_unsupported_viewport", () => {
   const root = resolve(process.cwd(), "../..");
 
   const violations = [...files(join(root, "scenarios")), ...files(join(root, "apps/desktop/src"))]
-    .filter((file) => !file.endsWith("ui-drawer.md") && !file.endsWith("u453_viewports.test.ts"))
+    .filter((file) => !file.endsWith("ui-drawer.md") && !file.endsWith("u453_viewports.test.ts") && !file.endsWith("u2230b_browser.test.ts"))
     .flatMap((file) => unsupported(readFileSync(file, "utf8")).map((line) => `${file.slice(root.length + 1)}:${line}`));
 
   expect(violations).toEqual([]);

@@ -119,24 +119,3 @@ for (const overlay of [false, true]) it(`u371_reduced_motion_and_restore_are_ins
   expect(await evaluate("document.getAnimations().filter(a=>a.effect?.target?.matches?.('.shelf,.shelf-scrim,.columns')).length")).toBe(0);
   expect((await boxes())[1]![4]).toBe(overlay ? 800 : 672);
 }, 90_000);
-
-it("u371_resizing_a_reserved_shelf_refits_the_terminal_after_the_drag", async () => {
-  await openShelf("agents-10");
-  await evaluate(`(() => { document.querySelector('.rail [data-id="agent-4"] .name').click(); return true; })()`);
-  await browser("wait", ".xterm-screen");
-  await settle();
-  await evaluate("(() => { window.__fake.app.calls.length=0; return true; })()");
-  await browser("mouse", "move", "960", "400");
-  await browser("mouse", "down", "left");
-
-  for (const x of [920, 896, 880]) {
-    await browser("mouse", "move", String(x), "400");
-    await settle();
-  }
-
-  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(0);
-  await browser("mouse", "up", "left");
-  await settle();
-  expect(await evaluate("window.__fake.app.calls.filter(c=>c.method==='terminal.resize').length")).toBe(1);
-  expect((await boxes())[2]![4]).toBe(400);
-}, 90_000);

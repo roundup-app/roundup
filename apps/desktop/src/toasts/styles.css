@@ -1,64 +1,13 @@
-/* U414: the Toasts rest at the overlay's bottom-right, lifted by --toast-lift above the resource strip; the layer takes no pointer, each Toast does. */
+/* U414: the failure line rests at the overlay's bottom-right, lifted by --toast-lift above the resource strip and --toast-stack above the cards; the shared Toast places its own cards. */
 .toasts {
+  display: contents;
+}
+
+.toasts > .ink {
   position: absolute;
   right: var(--space-3);
-  bottom: calc(var(--space-3) + var(--toast-lift, 0px));
+  bottom: calc(var(--space-3) + var(--toast-lift, 0px) + var(--toast-stack, 0px));
   z-index: 3;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: var(--space-2);
   max-width: calc(100% - var(--space-6));
-  pointer-events: none;
-}
-
-.toasts > * {
   pointer-events: auto;
-}
-
-/* The newest first, nearest the input. */
-.toast {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  box-sizing: border-box;
-  max-width: calc(var(--shelf-width) + var(--space-6));
-  min-height: var(--space-5);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  overflow: hidden;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--text-small);
-  text-align: left;
-  background-color: var(--sunken);
-  border: 0;
-  border-radius: var(--radius-control);
-  animation: toast-in var(--duration-toast) ease-out;
-  transition: opacity var(--duration-toast) ease-out, transform var(--duration-toast) ease-out;
-}
-
-.toast[data-leaving="true"] {
-  opacity: 0;
-  transform: translateY(var(--space-2));
-}
-
-.toast-name {
-  flex: none;
-  font-weight: 600;
-}
-
-.toast-line {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--grey);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(var(--space-2));
-  }
 }

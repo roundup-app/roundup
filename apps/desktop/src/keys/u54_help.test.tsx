@@ -65,7 +65,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code.startsWith("Arrow") ? code : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -148,6 +148,9 @@ describe("u54 keyboard help", () => {
 
     expect(lines).toEqual(HELP_ROWS.map((chord) => `${chord.keys} ${chord.what}`));
 
+    // U2230: a chord shown as a hint is one of these lines.
+    for (const chord of CHORDS.filter((row) => row.hint)) expect(lines).toContain(`${chord.keys} ${chord.what}`);
+
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
@@ -197,13 +200,28 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(await boundPresses(document.querySelector(".terminal-new")!))].sort();
+    // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
+    const outsideTerminal = document.querySelector(".terminal-new")!;
+    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
 
     // `⌘⏎` binds from a Rail row, not from a text field (U531); a Rail row prevents any modified `⏎`, so only ⌘⏎ is probed.
     const row = rowOf("a");
-    const railBound = [...new Set([...(await boundPresses(row)), ...(await boundPresses(row, [{ metaKey: true }], ["Enter"]))])].sort();
+
+    // The tree types ahead on ⌥ and a letter, which a Mac makes into another character and Help lists as no chord (U520); ⌥1 to ⌥9 bind from the Terminal's probe above.
+    // ⌘A is the tree's select-all, which one selected row makes no chord either.
+    const railPresses = await boundPresses(row, MODS.filter((mods) => !("altKey" in mods)), CODES.filter((code) => code !== "KeyA"));
+
+    // A Rail chord binds while focus is in the Rail, and ⌘2 above moved it to the pane.
+    const railOnly: string[] = [];
+
+    for (const code of ["Enter", "Backspace"]) {
+      row.focus();
+      railOnly.push(...(await boundPresses(row, [{ metaKey: true }], [code])));
+    }
+
+    const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     const field = document.activeElement;
 
     leaderKey("KeyK");

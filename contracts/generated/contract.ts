@@ -12,7 +12,7 @@ export const CONTRACT = {
     "agent.land": "5aba65a94dd09a2a",
     "agent.permission": "4fc43162a2dd39d4",
     "agent.prompt": "b26c8e784b03e6c8",
-    "agent.resume": "92171a185a61e940",
+    "agent.resume": "4f17f2df146a3d65",
     "agent.run": "c39f7757662ce10c",
     "agent.setModel": "a39ada4af9d22490",
     "agent.setOrder": "3721fdf31956eac7",
@@ -98,5 +98,7 @@ export const CONTRACT = {
     "todo.update": "9f9cf679fa3c32c9",
     "workstream.clear": "df81aa904cefed4e",
     "workstream.handoff": "8590b320c7680275",
+    "workstream.rewind": "39dff0d8d5cfe481",
+    "workstream.rewindPlan": "52de6ad949ee8ee8",
   },
 } as const;

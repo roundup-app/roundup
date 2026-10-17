@@ -85,6 +85,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     const { left, width } = bubble("1").style;
 
     expect(header.tabIndex).toBe(0);
+    header.focus();
     fireEvent.keyDown(header, { key: "ArrowRight" });
     expect(parseFloat(bubble("1").style.left)).toBe(parseFloat(left) + 16);
     fireEvent.keyDown(header, { key: "ArrowRight", shiftKey: true });
