@@ -55,6 +55,11 @@
   text-align: center;
 }
 
+/* U524: a Terminal opened from the Project root replaces the placeholder. */
+[data-root-terminal] .pane .pane-empty:not(.pane-door) {
+  display: none;
+}
+
 /* The earlier-run line wraps in a narrow pane instead of leaving it. */
 .pane .pane-empty.light {
   width: max-content;
