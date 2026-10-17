@@ -3,6 +3,8 @@
 
 #[path = "e2e/daemon.rs"]
 mod daemon;
+#[path = "e2e/wake.rs"]
+mod wake;
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
