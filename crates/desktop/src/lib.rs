@@ -6,7 +6,7 @@ mod open;
 mod paste;
 mod state;
 mod store;
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 pub mod webkit_rate;
 mod window;
 
@@ -28,7 +28,7 @@ pub fn build<R: Runtime>(
     project_dir: Option<PathBuf>,
     exit: impl Fn(&AppHandle<R>, i32) + Send + 'static,
 ) -> Builder<R> {
-    #[cfg(target_os = "macos")]
+    #[cfg(target_vendor = "apple")]
     let builder = builder.plugin(webkit_rate::plugin());
     builder
         .plugin(tauri_plugin_dialog::init())
