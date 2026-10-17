@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
+import { copy } from "../copy";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
 import { useConnectedProject } from "../state/connectedProject";
@@ -33,7 +34,13 @@ export const HintLine = () => {
   const hints = () => {
     const at = place();
 
-    return at === null ? [] : hintsFor(at, watching());
+    if (at === null) return [];
+
+    const bubble = focus()?.closest("[data-bubble]")?.getAttribute("data-bubble");
+    const minimised = at === "bubble" && document.querySelector<HTMLElement>(`section.bubble[data-bubble="${bubble}"]`)?.hidden === true;
+
+    // ⌘. restores a minimised Bubble, so its hint says what the key does now.
+    return hintsFor(at, watching()).map((hint) => minimised && hint.label === copy.minimise ? { ...hint, label: copy.restore } : hint);
   };
 
   let line: HTMLParagraphElement | undefined;

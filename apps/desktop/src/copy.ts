@@ -23,6 +23,7 @@ export const copy = {
   exit: (value1: CopyValue) => `Exit ${value1}`,
   exitSignal: "Exit signal",
   minimise: "Minimise",
+  restore: "Restore",
   close: "Close",
   answers: "Answers",
   recommended: "Recommended",

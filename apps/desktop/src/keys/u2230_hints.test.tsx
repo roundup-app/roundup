@@ -70,6 +70,9 @@ const line = (): string[] => [...document.querySelectorAll(".hint-line .hint:not
 
 const label = (place: HintPlace, watching = true): string[] => hintsFor(place, watching).map((hint) => `${hint.keys} ${hint.label}`);
 
+/** A focused minimised Bubble's tab: ⌘. restores, so the line says so. */
+const minimisedBubble = (): string[] => label("bubble").map((hint) => hint.replace("Minimise", "Restore"));
+
 const toRail = async (watching = true) => {
   fireEvent.click(rowOf("b"));
   rowOf("b").focus();
@@ -87,7 +90,7 @@ const toBubble = async () => {
   fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
   await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
   document.querySelector<HTMLElement>(".terminal-tab")!.focus();
-  await waitFor(() => expect(line()).toEqual(label("bubble")));
+  await waitFor(() => expect([label("bubble"), minimisedBubble()]).toContainEqual(line()));
 };
 
 const keyOf = (code: string): string =>
@@ -132,6 +135,11 @@ describe("u2230 shortcut hints", () => {
     await waitFor(() => expect(rowOf("c").getAttribute("aria-selected")).toBe("true"));
     expect(press(document.activeElement!, "meta+ArrowUp")).toBe(true);
     await waitFor(() => expect(rowOf("b").getAttribute("aria-selected")).toBe("true"));
+    // From the pane, focus follows into the new Agent's pane; from a Rail row, onto its row.
+    await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
+    await toRail();
+    expect(press(document.activeElement!, "meta+ArrowDown")).toBe(true);
+    await waitFor(() => expect(document.activeElement).toBe(rowOf("c")));
   });
 
   it("u2230a_hints_follow_focus", async () => {
@@ -169,7 +177,7 @@ describe("u2230 shortcut hints", () => {
       }
     }
 
-    expect(label("agent")).toEqual(["⌘⏎ Take control", "⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
+    expect(label("agent")).toEqual(["⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
     expect(label("bubble")).toEqual(["⌘. Minimise", "⇧⌘⌫ Close", "⌘B Next"]);
     expect(label("rail")).toEqual(["⌘⏎ Take control", "⌘⌫ Remove"]);
     expect(label("rail", false)).toEqual(["⌘⌫ Remove"]);
