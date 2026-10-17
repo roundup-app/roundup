@@ -205,7 +205,7 @@ fn decision_answer() -> Offered {
 fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(
         "agent.wake",
-        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
+        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`, and `why` when it did not fire; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
     )
 }
 
@@ -269,6 +269,17 @@ pub(crate) fn door_tools() -> Vec<Offered> {
     let mut list = tools(true);
     list.retain(|offer| !DOOR_WITHOUT.contains(&&*offer.tool.name));
     list
+}
+
+/// B53: a Door asks the App to show a Terminal in its Reach; nothing is read and nothing starts.
+fn terminal_show() -> Offered {
+    Offered {
+        door_only: true,
+        ..offered::<terminal::TerminalId>(
+            "terminal.show",
+            "Show a Terminal in your Reach to the user, who sees its owner selected. Use it when the user asks to see a child's output; it reads nothing and returns nothing.",
+        )
+    }
 }
 
 /// X11: `agent.run` takes `{id, command, cwd?}`; the shim fills `id`, so a Run is always the caller's own.
@@ -510,6 +521,7 @@ fn offered_tools() -> Vec<Offered> {
             "terminal.search",
             "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
         ),
+        terminal_show(),
         offered::<message::SetRouteParams>(
             "route.set",
             "Set where one Agent's Messages to another go: `auto`, `ask-first` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
@@ -623,6 +635,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
         ),
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
+        "terminal.show" => format!("showing Terminal {id}"),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
     }

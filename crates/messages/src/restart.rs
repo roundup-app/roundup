@@ -219,7 +219,7 @@ impl Messages {
             return Err(RpcError::conflict("matching restarted Attempt not live"));
         }
         let mut store = self.store()?;
-        reconcile(&self.inner, &mut store, agent, at, false, false)?;
+        reconcile(&self.inner, &mut store, agent, at, false, false, false)?;
         store.require_generation(agent, at)?;
         Ok(at)
     }

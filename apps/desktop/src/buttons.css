@@ -132,11 +132,11 @@ button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
 }
 
 /* U510: a toggled control rests one ink step below hover, which reaches --text; a press dims to --ink-pressed. */
-:is([data-button="icon"], .terminal-tab)[aria-pressed="true"]:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
   color: var(--ink-rest-selected);
 }
 
-:is([data-button="icon"], .terminal-tab)[aria-pressed="true"]:hover:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+:is([data-button="icon"])[aria-pressed="true"]:hover:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
   color: var(--text);
 }
 
@@ -151,13 +151,19 @@ button[aria-disabled="true"] {
   color: var(--grey);
 }
 
-/* U510: the selected tab's close rests one ink step below hover, which reaches --text. */
-.header .project-tab[data-selected="true"] .tab-close:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
-  color: var(--ink-rest-selected);
+/* U2233: a control inside a flat tab (ui/flat-tab.styles.css) takes the tab's ink; the flat `+` is grey and takes --text on hover; a press dims the ink (U510). */
+[data-flat-tab] button:not([data-button="icon"], [aria-disabled="true"]) {
+  color: inherit;
 }
 
-.header .project-tab[data-selected="true"] .tab-close:hover:not(:active, [data-pressed="true"], [aria-disabled="true"]) {
+[data-flat-tab] button:hover:not([aria-disabled="true"]),
+[data-flat-add]:hover:not([aria-disabled="true"]) {
   color: var(--text);
+}
+
+[data-flat-tab] button:is(:active, [data-pressed="true"]):not([aria-disabled="true"]),
+[data-flat-add]:is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+  color: var(--ink-pressed);
 }
 
 /* The strip's edge cap keeps its opaque rest surface and answers with ink only; its nested mark owns the Ink tone. */
