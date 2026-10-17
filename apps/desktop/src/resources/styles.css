@@ -1,20 +1,18 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
-/* U444: the centre's last line, the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
+/* U444, U2340c: the centre's last line, one line the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
 .resource-strip {
   position: relative;
   display: grid;
   grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
-  grid-template-rows: repeat(2, var(--space-5));
+  grid-template-rows: var(--space-5);
   flex: none;
   box-sizing: border-box;
   align-items: center;
   gap: 0 var(--space-3);
-  align-self: center;
   width: 100%;
-  max-width: var(--measure);
-  height: calc(2 * var(--space-5));
-  padding: 0 var(--space-3);
+  height: var(--space-5);
+  padding: 0 var(--space-2);
   color: var(--grey);
   font-family: var(--font-ui);
   font-size: var(--text-small);
@@ -61,41 +59,23 @@
 
 /* Selected-Agent resources fit beside long Terminal names without changing the bar's height. */
 .terminal-tabs-host {
+  align-self: stretch;
   grid-column: 1;
-  grid-row: 1 / -1;
+  grid-row: 1;
 }
 
 .resource-agent {
   grid-column: 2;
-  grid-row: 1 / -1;
+  grid-row: 1;
 }
 
 .resource-stale {
   grid-column: 3;
-  grid-row: 1 / -1;
+  grid-row: 1;
 }
 
-/* A wide Rail and Drawer can leave a narrow centre; units may wrap instead of clipping. */
-.centre-stack {
-  container: resources / inline-size;
-}
-
-@container resources (width < 38rem) {
-  .resource-strip {
-    padding: 0;
-    gap: 0 var(--space-1);
-    grid-template-columns: minmax(var(--space-6), 1fr) minmax(0, auto) auto;
-  }
-
-  .resource-strip > span {
-    gap: var(--space-1);
-  }
-}
-
-/* U469, U371: preserve the composer’s leading alignment and stop resources before an overlay Shelf; a reserved Shelf already ends the centre. */
-.window[data-shelf="open"][data-shelf-mode="overlay"] .resource-strip {
-  align-self: flex-start;
-  position: relative;
-  left: max(0px, calc((100% - var(--measure)) / 2));
-  max-width: calc(100% - max(0px, calc(var(--shelf-span) - var(--space-4))) - max(0px, calc((100% - var(--measure)) / 2)));
+/* U2340c: the tab region is the bar's one line and scrolls inside it. */
+.resource-strip .terminal-tabs {
+  height: 100%;
+  padding-block: 0;
 }
