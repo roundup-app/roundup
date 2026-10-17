@@ -491,15 +491,15 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
-    /// Records `id` `delivered`, only if it is still `pending` (B2's one conditional write).
-    /// `None` when it was not `pending` any more.
-    pub(crate) fn mark_delivered(&self, id: u32) -> Result<Option<Message>, RpcError> {
+    /// B39: saves the in-flight record of `id` (prompt `prompt`), only if it is still `pending`
+    /// (B2's one conditional write). `None` when it was not `pending` any more.
+    pub(crate) fn record_flight(&self, id: u32, prompt: u32) -> Result<Option<Message>, RpcError> {
         let changed = self
             .db
             .execute(
-                "UPDATE messages SET status = 'delivered', reason = NULL
-                 WHERE id = ?1 AND status = 'pending'",
-                params![id],
+                "INSERT OR REPLACE INTO message_flight(message_id, prompt)
+                 SELECT id, ?2 FROM messages WHERE id = ?1 AND status = 'pending'",
+                params![id, prompt],
             )
             .map_err(RpcError::internal)?;
         if changed == 0 {
@@ -508,17 +508,18 @@ impl Store {
         self.get(id)
     }
 
-    /// B30: records every `id` `delivered` in one transaction, only if all are still `pending`;
-    /// `None` and no change otherwise.
-    pub(crate) fn mark_delivered_all(
+    /// B30, B39: saves the in-flight record of every `id` in one transaction, only if all are
+    /// still `pending`; `None` and no change otherwise. The prompt is named by its first id.
+    pub(crate) fn record_flight_all(
         &mut self,
         ids: &[u32],
     ) -> Result<Option<Vec<Message>>, RpcError> {
         let mut partial = false;
+        let prompt = ids.first().copied().unwrap_or_default();
         let marked = self.atomically(|store| {
             let mut marked = Vec::new();
             for &id in ids {
-                match store.mark_delivered(id)? {
+                match store.record_flight(id, prompt)? {
                     Some(message) => marked.push(message),
                     None => {
                         // The error rolls back the ones already recorded.
@@ -536,40 +537,44 @@ impl Store {
         }
     }
 
-    /// Reverses `mark_delivered` after a refused `deliver` (B2), only if `id` is still
-    /// `delivered`: it goes back to `pending`, or to `held` for `takeover` when a Takeover of its
-    /// receiver began while it was being typed and its sender is not the user (B6), so nothing is
-    /// typed during the Takeover. `None` when it was not `delivered` any more.
-    pub(crate) fn unmark_delivered(&self, id: u32) -> Result<Option<Message>, RpcError> {
-        let Some(message) = self.get(id)? else {
-            return Ok(None);
-        };
-        let attempt = self.bound(id)?;
-        if self.require_generation(&message.to, attempt).is_err() {
-            return Ok(None);
-        }
-        let held = self.holds_terminal(&message.to);
-        let (status, reason) = if held {
-            ("held", Some("takeover"))
-        } else {
-            ("pending", None)
-        };
-        let changed = self
-            .db
-            .execute(
-                "UPDATE messages SET status = ?2, reason = ?3 WHERE id = ?1 AND status = 'delivered'",
-                params![id, status, reason],
+    /// Whether `id` was typed and not yet confirmed (B39).
+    pub(crate) fn in_flight(&self, id: u32) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM message_flight WHERE message_id = ?1)",
+                params![id],
+                |row| row.get(0),
             )
-            .map_err(RpcError::internal)?;
-        if changed == 0 {
-            return Ok(None);
-        }
-        self.get(id)
+            .map_err(RpcError::internal)
+    }
+
+    /// B8: forgets the in-flight records of every Message to `to`; they are ordinary `pending`.
+    pub(crate) fn clear_flights_to(&self, to: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "DELETE FROM message_flight
+                 WHERE message_id IN (SELECT id FROM messages WHERE to_id = ?1)",
+                params![to],
+            )
+            .map(drop)
+            .map_err(RpcError::internal)
+    }
+
+    /// B2: a refused `deliver` that typed nothing (`Busy`): the record is cleared and the Message
+    /// stays as it is, `pending`, or `held` for `takeover` when one began while it was typed.
+    pub(crate) fn clear_flight(&self, id: u32) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "DELETE FROM message_flight WHERE message_id = ?1",
+                params![id],
+            )
+            .map(drop)
+            .map_err(RpcError::internal)
     }
 
     /// B2: a refused `deliver` that will never take the Message (`not accepted`, `receiver
-    /// gone`): `dropped` with `reason`, only if it is still `delivered`.
-    pub(crate) fn drop_delivered(
+    /// gone`): `dropped` with `reason`, only if it is still in flight.
+    pub(crate) fn drop_in_flight(
         &self,
         id: u32,
         reason: Reason,
@@ -577,14 +582,59 @@ impl Store {
         let changed = self
             .db
             .execute(
-                "UPDATE messages SET status = 'dropped', reason = ?2 WHERE id = ?1 AND status = 'delivered'",
+                "UPDATE messages SET status = 'dropped', reason = ?2
+                 WHERE id = ?1 AND status IN ('pending', 'held')
+                   AND EXISTS(SELECT 1 FROM message_flight WHERE message_id = ?1)",
                 params![id, text_of(reason)],
             )
             .map_err(RpcError::internal)?;
+        self.clear_flight(id)?;
         if changed == 0 {
             return Ok(None);
         }
         self.get(id)
+    }
+
+    /// B39: the Signal for a prompt naming `ids` arrived for Agent `agent`. Records `delivered`,
+    /// in one write, each of them that is in flight (`pending`, or `held` by a Takeover that began
+    /// while it was typed). The answer is the Messages it confirmed, and whether the prompt only
+    /// repeats Messages that were `delivered` before (it names at least one, and every one).
+    pub(crate) fn confirm_flight(
+        &mut self,
+        agent: &str,
+        ids: &[u32],
+    ) -> Result<(Vec<Message>, bool), RpcError> {
+        self.atomically(|store| {
+            let mut confirmed = Vec::new();
+            let mut repeated = !ids.is_empty();
+            for &id in ids {
+                let message = store.get(id)?.filter(|m| m.to == agent);
+                let Some(message) = message else {
+                    repeated = false;
+                    continue;
+                };
+                if message.status == MessageStatus::Delivered {
+                    continue;
+                }
+                repeated = false;
+                if !store.in_flight(id)? {
+                    continue;
+                }
+                let changed = store
+                    .db
+                    .execute(
+                        "UPDATE messages SET status = 'delivered', reason = NULL
+                         WHERE id = ?1 AND status IN ('pending', 'held')",
+                        params![id],
+                    )
+                    .map_err(RpcError::internal)?;
+                store.clear_flight(id)?;
+                if changed == 1 {
+                    confirmed.push(store.get(id)?.expect("just updated"));
+                }
+            }
+            Ok((confirmed, repeated))
+        })
     }
 
     fn list_pending_to(&self, to: &str) -> Result<Vec<Message>, RpcError> {
@@ -747,13 +797,15 @@ impl Store {
     }
 
     /// Drops every `pending` or takeover-held Message to `to` that `gone` (the pure `step`) names,
-    /// with `reason`, in id order (B9).
+    /// with `reason`, in id order (B9). With `keep`, a Message in flight (B39) is not dropped: it
+    /// waits for the Agent to be resumed, and moves to `rebind`, the new Attempt, once there is one.
     pub(crate) fn drop_all_pending(
         &mut self,
         to: &str,
         reason: Reason,
         through: Binding,
         gone: fn(&[Message]) -> Vec<u32>,
+        keep: Option<Option<Binding>>,
     ) -> Result<Vec<Message>, RpcError> {
         let mut dropped = Vec::new();
         let mut open = Vec::new();
@@ -769,6 +821,15 @@ impl Store {
         let to_drop = gone(&open);
         for message in open {
             if !to_drop.contains(&message.id) {
+                continue;
+            }
+            if let Some(rebind) = keep
+                && self.in_flight(message.id)?
+            {
+                if let Some(at) = rebind {
+                    self.bind(message.id, at)?;
+                    self.clear_flight(message.id)?;
+                }
                 continue;
             }
             let changed = self
@@ -1182,7 +1243,7 @@ mod tests {
             .begin_takeover("b", |pending| pending.iter().map(|m| m.id).collect())
             .unwrap();
 
-        assert!(store.mark_delivered(id).unwrap().is_none());
+        assert!(store.record_flight(id, id).unwrap().is_none());
         let message = store.get(id).unwrap().unwrap();
         assert_eq!(
             (message.status, message.reason),
@@ -1201,7 +1262,7 @@ mod tests {
             .begin_input("b", |pending| pending.iter().map(|m| m.id).collect())
             .unwrap();
 
-        assert!(store.mark_delivered(id).unwrap().is_none());
+        assert!(store.record_flight(id, id).unwrap().is_none());
         let message = store.get(id).unwrap().unwrap();
         assert_eq!(
             (message.status, message.reason),

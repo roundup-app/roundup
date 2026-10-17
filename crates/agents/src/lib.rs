@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use contracts::agent::{
     Channel, ChannelEvent, CreateWorkstreamParams, KeptItem, KeptReason, Landed, MoveParams,
     NodeId, NodeKind, Order, PromptParams, RailNode, Removal, RemovalKind, RemovedItem,
-    RenameParams, RunParams, SetModelParams, SetOrderParams, SignalParams, SpawnParams,
-    StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
+    RenameParams, RunParams, SetModelParams, SetOrderParams, SignalOutcome, SignalParams,
+    SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
 use contracts::decision::{AnswerParams, CaptureParams, Outcome, PermissionParams};
 use contracts::project::{Mcp, ProjectModels, ProjectSettings, Worktrees};
@@ -439,6 +439,7 @@ mod worktree_wiring;
 
 use door::{Scan, scan_interval_from_env};
 use ending::{Ending, RailPublication};
+pub use events::PromptObserver;
 use events::{channel_deadline_from_env, channel_in, watch};
 use rail_view::{valid_explicit_order, valid_order};
 use registration::{hold, save_signal_conversation};

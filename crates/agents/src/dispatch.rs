@@ -90,13 +90,25 @@ impl Module for Agents {
                         "attempt must be a canonical positive decimal within signed 64-bit range",
                     ));
                 }
-                shared.observe(
-                    ctx.actor.clone(),
-                    &id,
-                    &attempt,
-                    Observation::Signal(payload),
-                )?;
-                reply(&())
+                // B39: the Signal H11 waits for confirms the Messages its prompt carried, before
+                // the wait ends, so nothing can type them again in between.
+                let drop = match (
+                    claude_code::submitted_prompt(&payload),
+                    shared.events.prompt_observer.get(),
+                ) {
+                    (Some(prompt), Some(observer)) => observer(&id, prompt),
+                    _ => false,
+                };
+                // The hook blocks a dropped prompt, so no turn starts and nothing is folded.
+                if !drop {
+                    shared.observe(
+                        ctx.actor.clone(),
+                        &id,
+                        &attempt,
+                        Observation::Signal(payload),
+                    )?;
+                }
+                reply(&drop.then_some(SignalOutcome { drop }))
             }
             "agent.permission" => {
                 let PermissionParams { id, payload } = params(value)?;
