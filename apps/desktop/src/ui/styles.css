@@ -200,7 +200,9 @@
 }
 
 .app-toast-action {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
   width: 100%;
   min-height: var(--space-5);
   padding: var(--space-2) var(--space-3);
@@ -214,8 +216,10 @@
 }
 
 .app-toast-heading {
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: var(--space-1);
 }
 
@@ -232,15 +236,20 @@
 
 .app-toast [data-part="title"] {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text);
   font-weight: 600;
 }
 
 .app-toast [data-part="description"] {
-  display: block;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: 12ch;
   color: var(--grey);
-  white-space: pre-wrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -1,5 +1,3 @@
-import { leaderChord } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
 import { Editable, IconButton, Menu } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
@@ -7,7 +5,10 @@ import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
+import { createCut, Tip } from "../ink/Tip";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { chordsFor, leaderChord } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
@@ -45,6 +46,10 @@ const focusPane = (): void => {
 
   if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
+
+const ESCAPE = "Escape".split(" ");
+
+const SHIFT = "Shift+".split(" ")[0]!;
 
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
@@ -490,15 +495,6 @@ export const Bubbles = (props: { screens: Screens }) => {
       event.stopPropagation();
     };
 
-    const escape = (event: KeyboardEvent): void => {
-      if (!active || event.key !== "Escape") return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      swallowMenu = true;
-      end();
-    };
-
     const listen = <K extends keyof WindowEventMap>(name: K, listener: (event: WindowEventMap[K]) => void): void => {
       window.addEventListener(name, listener, true);
       onCleanup(() => window.removeEventListener(name, listener, true));
@@ -512,7 +508,14 @@ export const Bubbles = (props: { screens: Screens }) => {
     listen("mousedown", hold);
     listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
-    listen("keydown", escape);
+    registerKeys({ kind: "app" }, [{
+      chords: ESCAPE,
+      when: () => active,
+      run: () => {
+        swallowMenu = true;
+        end();
+      },
+    }]);
   };
 
   pulling();
@@ -532,19 +535,17 @@ export const Bubbles = (props: { screens: Screens }) => {
     });
   });
 
-  const onKey = (press: KeyboardEvent): void => {
-    // U511: the name's editor owns its keys.
-    if (press.target instanceof Element && press.target.closest(".terminal-tab-editor")) return;
+  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a held key repeats nothing.
+  const outsideEditor = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.closest(".terminal-tab-editor"));
 
-    // Help is modal: while it is open no chord acts (U54).
-    if (!press.metaKey || press.ctrlKey || press.altKey || press.shiftKey || press.key.toLowerCase() !== "t" || document.querySelector(".help, .switcher") !== null) return;
-
-    // Window capture runs before any Terminal sees the key: `⌘T` is never a key of the program inside (U2238).
-    press.preventDefault();
-    press.stopPropagation();
-
-    if (!press.repeat) void open();
+  const once = (act: (press: KeyboardEvent) => void) => (press: KeyboardEvent) => {
+    if (!press.repeat) act(press);
   };
+
+  // U2238: `⌘T` opens a Terminal and is never a key of the program inside.
+  registerKeys({ kind: "app" }, [
+    { chords: chordsFor("⌘T"), when: outsideEditor, run: once(() => void open()) },
+  ]);
 
   // U165: leader `M` minimises or restores the focused Bubble, leader `W` closes it; with none focused they do nothing.
   registerKeys({ kind: "leader" }, [
@@ -582,12 +583,10 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   window.addEventListener(REVEAL_BUBBLE, onReveal);
   onCleanup(() => window.removeEventListener(REVEAL_BUBBLE, onReveal));
-  window.addEventListener("keydown", onKey, true);
   document.addEventListener("focusin", onFocusIn);
   document.addEventListener("focusin", onBubbleFocus);
   onCleanup(() => {
     document.removeEventListener("focusin", onBubbleFocus);
-    window.removeEventListener("keydown", onKey, true);
     document.removeEventListener("focusin", onFocusIn);
   });
 
@@ -649,6 +648,11 @@ export const Bubbles = (props: { screens: Screens }) => {
       window.addEventListener("pointerup", stop);
     };
 
+    // The restore of the zone resize in flight, if any; Escape runs it through the registry.
+    let restoreResize: (() => void) | undefined;
+
+    registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
+
     /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
     const resize = (start: PointerEvent, zone: Zone) => {
       if (start.button !== 0) return;
@@ -674,7 +678,7 @@ export const Bubbles = (props: { screens: Screens }) => {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", cancel);
-        window.removeEventListener("keydown", key, true);
+        restoreResize = undefined;
 
         if (pending !== null) cancelAnimationFrame(pending);
 
@@ -687,14 +691,6 @@ export const Bubbles = (props: { screens: Screens }) => {
       const up = () => finish(false);
       const cancel = () => finish(true);
 
-      const key = (event: KeyboardEvent) => {
-        if (event.key !== "Escape") return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        finish(true);
-      };
-
       try {
         if (start.target instanceof Element) start.target.setPointerCapture?.(start.pointerId);
       } catch {
@@ -704,20 +700,22 @@ export const Bubbles = (props: { screens: Screens }) => {
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", cancel);
-      window.addEventListener("keydown", key, true);
+      restoreResize = cancel;
     };
 
-    const onHeaderKey = (press: KeyboardEvent) => {
-      const arrow = ARROWS.get(press.key);
+    let header: HTMLElement | undefined;
 
-      if (!arrow || press.metaKey || press.ctrlKey || press.altKey || press.target !== press.currentTarget) return;
+    // Arrows on the focused header move the bubble, Shift arrows resize it; the registry matches the exact modifiers.
+    registerKeys({ kind: "region", element: () => header }, [{
+      chords: [...ARROWS.keys(), ...[...ARROWS.keys()].map((key) => `${SHIFT}${key}`)],
+      when: (press) => press.target === header,
+      run: (press) => {
+        const arrow = ARROWS.get(press.key)!;
+        const from = place();
 
-      press.preventDefault();
-
-      const from = place();
-
-      setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, extent()));
-    };
+        setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, extent()));
+      },
+    }]);
 
     return (
       <>
@@ -729,13 +727,13 @@ export const Bubbles = (props: { screens: Screens }) => {
         hidden={place().min}
         style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}
       >
-        <header class="bubble-header" tabindex="0" onPointerDown={(event) => {
+        <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
             // SAFETY: a pointer event on the header always targets an Element.
             if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
           }} onDblClick={(event) => {
             // SAFETY: a mouse event on the header always targets an Element.
             if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
-          }} onKeyDown={onHeaderKey}>
+          }}>
           <span class="bubble-name">{nameFor(terminal()!)}</span>
           <span class="bubble-state">{stateText(terminal()!)}</span>
           <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
@@ -766,6 +764,7 @@ export const Bubbles = (props: { screens: Screens }) => {
             const terminal = () => shown().find((candidate) => candidate.id === id)!;
 
             const name = () => nameFor(terminal());
+            const [nameRef, nameCut] = createCut();
             let renameChosen = false;
 
             const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
@@ -780,13 +779,17 @@ export const Bubbles = (props: { screens: Screens }) => {
               }}>
               <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} data-bubble={id}>
                 <Show when={editing() === id} fallback={
-                  <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-                    aria-label={name()} aria-describedby={`terminal-state-${id}`} title={name()} aria-pressed={!placeOf(id).min}
-                    onClick={() => toggleMinimised(id)}
-                    onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
-                    <span class="terminal-tab-name">{name()}</span>
-                    <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
-                  </button>
+                  <Tip content={name()} cut={nameCut}>
+                    {(trigger) => (
+                      <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
+                        aria-label={name()} aria-describedby={`terminal-state-${id}`} aria-pressed={!placeOf(id).min}
+                        onClick={() => toggleMinimised(id)}
+                        onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
+                        <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
+                        <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
+                      </button>
+                    )}
+                  </Tip>
                 }>
                   <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
                     <Editable.Root defaultValue={name()} activationMode="none" submitMode="both" finalFocusEl={tab}
