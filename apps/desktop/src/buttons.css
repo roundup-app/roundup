@@ -91,7 +91,7 @@ button {
   color: var(--red);
 }
 
-button:hover:not([aria-disabled="true"]):not(:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not(:where([role="tab"], .tab-name-button, .todo-project-root))) {
+button:hover:not([aria-disabled="true"]):not(:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not(:where(.tab-name-button, .todo-project-root))) {
   background-color: var(--button-hover);
 }
 
@@ -110,7 +110,7 @@ button[data-pressed="true"]:not([aria-disabled="true"]) {
 }
 
 /* Ghost, icon and disclosure buttons answer with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
-:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not([role="tab"], .tab-name-button, .todo-project-root):is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not(.tab-name-button, .todo-project-root):is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
   background-color: var(--button-surface);
   color: var(--ink-pressed);
 }
