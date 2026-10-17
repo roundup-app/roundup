@@ -57,6 +57,7 @@ export const CONTRACT = {
     "project.open": "956b3a47aa4bb933",
     "project.rename": "3de99d829e97277f",
     "project.resources": "170ed6cbd515ea67",
+    "project.setMcp": "9fe1987af8ca07f9",
     "project.setModels": "ba29e6d3c350b210",
     "project.setWorktrees": "6c93fbee222debed",
     "provenance.history": "c20c66fb119e79a3",
