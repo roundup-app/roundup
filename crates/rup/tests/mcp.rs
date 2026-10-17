@@ -301,7 +301,7 @@ const TOOL_METHODS: [&str; 62] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 41] = [
+const NO_TOOL: [&str; 42] = [
     // A40, P9: each carries a Steer from the user.
     "ask.send",
     "ask.list",
@@ -336,6 +336,8 @@ const NO_TOOL: [&str; 41] = [
     // A36, A37: the user's own settings, which spend the user's usage (P8)
     "models.list",
     "project.setModels",
+    // M2219: the user's setting for whether Agents get these tools at all
+    "project.setMcp",
     "agent.setModel",
     // D8: the App's Resource strip
     "project.resources",
@@ -1309,8 +1311,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 json!({"id":"d1","answer":"allow"}),
                 "answered Decision d1: allow",
             ),
-            "terminal.close" => (json!({"id":"t1"}), "closed Terminal t1"),
-            "terminal.kill" => (json!({"id":"t1"}), "stopped Terminal t1"),
             "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
@@ -1402,6 +1402,18 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
             json!({"id":"child","text":"hello"}),
             Value::Null,
         ),
+        (
+            "terminal_close",
+            json!({"id":"t1"}),
+            json!({"id":"6","agent":"child","method":"terminal.close","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("terminal_close", json!({"id":"t1"}), Value::Null),
+        (
+            "terminal_kill",
+            json!({"id":"t1"}),
+            json!({"id":"7","agent":"child","method":"terminal.kill","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("terminal_kill", json!({"id":"t1"}), Value::Null),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),
