@@ -117,8 +117,7 @@ const isInPlace = (rows: readonly DepthRow[], dragged: string, drop: SortableDro
 };
 
 /** The click the browser sends after a pointer release would reach whatever lies under the pointer; this drops the next one. */
-// fallow-ignore-next-line unused-export -- todos/reorder.ts moves its import here in its own change (U535).
-export const swallowNextClick = (): (() => void) => {
+const swallowNextClick = (): (() => void) => {
   const swallow = (click: Event) => click.stopPropagation();
   const forget = () => window.removeEventListener("click", swallow, { capture: true });
 
