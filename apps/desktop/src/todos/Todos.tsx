@@ -12,7 +12,6 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
-import { createNear } from "../ink/near";
 import { HomeMove } from "./HomeMove";
 import { homeNameOf } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
@@ -69,7 +68,6 @@ export const OpenRow = (props: {
   sorted?: SortedRow;
 }) => {
   const connected = useConnectedProject();
-  const near = props.nested || props.sorted ? createNear() : null;
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -125,12 +123,12 @@ export const OpenRow = (props: {
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
             <Show when={props.onSelect}><IconButton aria-label={copy.selectTodo} aria-pressed={props.pressed === true} onClick={() => props.onSelect?.(props.todo)}><Icon name="check" /></IconButton></Show>
             <Show when={props.sorted}>
-              <IconButton aria-label={copy.moveUp} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} /></IconButton>
+              <IconButton aria-label={copy.moveUp} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
               <IconButton aria-label={copy.moveDown} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
             </Show>
           </div>
         </Show>
-        <Show when={props.nested && (near?.near() || listOpen())}>
+        <Show when={props.nested}>
           <HomeMove
             id={props.todo.id}
             home={props.todo.home}
@@ -156,11 +154,11 @@ export const OpenRow = (props: {
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      data-actions-open={listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
-      {...near?.handlers}
       ref={(frame) => {
         props.sorted?.frame(frame);
       }}

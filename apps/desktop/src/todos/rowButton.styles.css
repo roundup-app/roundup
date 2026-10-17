@@ -169,3 +169,17 @@
 .todo-row-actions { display: flex; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
 .todo-row .row-head { min-width: 0; display: flex; align-items: center; }
 .todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
+
+/* Keep the Menu trigger connected while Ark returns focus from its portal. */
+.todo-row .row-head > [data-button="row-action"] {
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+.todo-row:hover .row-head > [data-button="row-action"],
+.todo-row:focus-within .row-head > [data-button="row-action"],
+.todo-row[data-actions-open="true"] .row-head > [data-button="row-action"] {
+  opacity: 1;
+  pointer-events: auto;
+}

@@ -232,7 +232,7 @@ describe("u491a Shelf questions and navigation", () => {
 
     const was = await homeOf();
 
-    await lane.browser("hover", nested);
+    await lane.browser("focus", `${nested} .todo-row-button`);
     await lane.until(`!!document.querySelector('${nested} .todo-move')`);
 
     // Escape closes the menu and returns focus to the trigger.
