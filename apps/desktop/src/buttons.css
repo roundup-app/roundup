@@ -121,6 +121,10 @@ button[data-feedback="ink"]:is(:hover, :active):not([aria-disabled="true"]) {
   background-color: transparent;
 }
 
+button[data-feedback="ink"]:active:not([aria-disabled="true"]) {
+  color: var(--ink-pressed);
+}
+
 /* U470: an icon toggle keeps its library mark and shows its state on a persistent selected surface; hover and press add no fill (U510). */
 [data-button="icon"][aria-pressed="true"] {
   --button-surface: var(--selected);
