@@ -134,7 +134,11 @@ pub const METHODS: &[Method] = &[
         "agent_RailNode | agent_HeldAction",
     ),
     m("agent.channelUp", "agent_NodeId", "null"),
-    m("agent.signal", "agent_SignalParams", "null"),
+    m(
+        "agent.signal",
+        "agent_SignalParams",
+        "agent_SignalOutcome | null",
+    ),
     m(
         "agent.permission",
         "decision_PermissionParams",

@@ -54,12 +54,12 @@ cat > "$scratch/bend" <<'F'
 #!/bin/sh
 dir=$(dirname "$1")
 if ! cmp -s "$dir/model.bend" "$FAKE_MODEL"; then
-  id=$(sed -nE 's/^law (m[0-9]+)_.*/\1/p' "$dir/LAWS.bend" | head -1)
-  [ "$(grep -c '^law ' "$dir/LAWS.bend")" = 10 ] && id=m8
+  id=$(sed -nE 's/^law ((m|b)[0-9]+)_.*/\1/p' "$dir/LAWS.bend" | head -1)
+  [ "$(grep -c '^law ' "$dir/LAWS.bend")" = 14 ] && id=m8
   case "$id" in
     m1) loc=user_deliver_inv ;; m2) loc=step2 ;; m3) loc=takeover_begin3 ;;
     m4) loc=fl_go4 ;; m5) loc=user_drop_inv ;; m6) loc=exit_inv ;;
-    m7) loc=send_ev7 ;; m8) loc=cA ;; m9) loc=restart_replay ;; m10) loc=fgo_alive10 ;;
+    m7) loc=send_ev7 ;; m8) loc=cA ;; m9) loc=restart_replay ;; m10) loc=fgo_alive10 ;; b39) loc=fconfirm_inv ;;
   esac
   printf '%s\n' "${FAKE_MUTANT_OUT:-SOME PROOFS FAIL}" "Location: ${FAKE_LOCATION:-$loc}"
   exit "${FAKE_MUTANT_RC:-1}"

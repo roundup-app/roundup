@@ -661,3 +661,107 @@ def retirement_state(s: RetirementStore) -> Retirement:
   match s:
     case Retained{r, w}:
       r
+
+# ---- the in-flight step (B39, B40), one receiver
+# `World` above records and types a Message in one step. The Rust types it first and records `delivered` only when the Agent's
+# `UserPromptSubmit` Signal confirms the prompt (B39), so this model has the step between: `FIdle` types every Message pending as one
+# batch (B30) and leaves it in flight, `FConfirm` is the Signal that confirms the batch, and `FKill` is a Daemon killed (B8) and started again,
+# which returns what was in flight to the front of the queue to be typed again (B40). The Daemon types a batch only while none is in flight
+# and the user does not hold the Terminal (B6, B32, the `typing` guard). A repeated prompt that the hook drops (B39(d)) changes no state, so it
+# is no event. `FExit` is B9: the receiver is gone and what waits or is in flight is dropped.
+type FEv is Data:
+  FSend{}
+  FIdle{}
+  FConfirm{}
+  FKill{}
+  FHold{}
+  FRelease{}
+  FExit{}
+
+type Fl is Data:
+  F{queue: +List<Nat>, inflight: +List<Nat>, delivered: +List<Nat>, dropped: +List<Nat>, next: Nat, hold: Bool, gone: Bool}
+
+def finit() -> Fl:
+  F{[], [], [], [], 1n, False{}, False{}}
+
+# B30: the whole queue is one batch, in queue order. Nothing is typed while a batch is in flight or the user holds the Terminal.
+def fidle_go(inf: +List<Nat>, +q: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, hold: Bool, g: Bool) -> Fl:
+  match inf:
+    case Nil{}:
+      F{[], q, t, d, n, hold, g}
+    case Con{+x, +rest}:
+      F{q, x <> rest, t, d, n, hold, g}
+
+def fidle_live(hold: Bool, s: Fl) -> Fl:
+  match hold:
+    case True{}:
+      s
+    case False{}:
+      match s:
+        case F{+q, +inf, +t, +d, +n, +hold, +g}:
+          fidle_go(inf, q, t, d, n, hold, g)
+
+def fidle(s: Fl) -> Fl:
+  match s:
+    case F{+q, +inf, +t, +d, +n, +hold, +g}:
+      match g:
+        case True{}:
+          s
+        case False{}:
+          fidle_live(hold, s)
+
+# B9: a later send to a gone receiver is CONFLICT and changes nothing.
+def fsend(s: Fl) -> Fl:
+  match s:
+    case F{+q, +inf, +t, +d, +n, +hold, +g}:
+      match g:
+        case True{}:
+          s
+        case False{}:
+          F{snoc(q, n), inf, t, d, 1n+n, hold, g}
+
+# B39(c): the Signal records every Message of the batch `delivered`, in order, in one write.
+def fconfirm(s: Fl) -> Fl:
+  match s:
+    case F{+q, +inf, +t, +d, +n, +hold, +g}:
+      F{q, [], List.append(&2, Nat, t, inf), d, n, hold, g}
+
+# B40, B8: what was in flight is `pending` again, ahead of what was sent after it; no Takeover survives a restart.
+def fkill(s: Fl) -> Fl:
+  match s:
+    case F{+q, +inf, +t, +d, +n, +hold, +g}:
+      F{List.append(&2, Nat, inf, q), [], t, d, n, False{}, g}
+
+def fhold(b: Bool, s: Fl) -> Fl:
+  match s:
+    case F{+q, +inf, +t, +d, +n, +hold, +g}:
+      F{q, inf, t, d, n, b, g}
+
+def fexit(s: Fl) -> Fl:
+  match s:
+    case F{+q, +inf, +t, +d, +n, +hold, +g}:
+      F{[], [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, inf)), n, hold, True{}}
+
+def fstep(e: FEv, s: Fl) -> Fl:
+  match e:
+    case FSend{}:
+      fsend(s)
+    case FIdle{}:
+      fidle(s)
+    case FConfirm{}:
+      fconfirm(s)
+    case FKill{}:
+      fkill(s)
+    case FHold{}:
+      fhold(True{}, s)
+    case FRelease{}:
+      fhold(False{}, s)
+    case FExit{}:
+      fexit(s)
+
+def frun(evs: +List<FEv>, s: Fl) -> Fl:
+  match evs:
+    case Nil{}:
+      s
+    case Con{e, rest}:
+      frun(rest, fstep(e, s))

@@ -53,7 +53,7 @@ async fn b2_a_message_sent_as_the_receiver_goes_idle_is_still_typed() {
     let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
     let seen = Arc::clone(&typed);
     let deliver: Deliver = Arc::new(move |_, text| {
-        seen.lock().unwrap().push(text);
+        seen.lock().unwrap().push(shown(text));
         Box::pin(async { Ok(()) })
     });
     let bus = Bus::new();
@@ -140,7 +140,7 @@ async fn b2_busy_rollback_preserves_the_next_idle_in_either_order() {
                                 release.notified().await;
                                 Err(Refusal::Busy)
                             } else {
-                                accepted.lock().unwrap().push(text);
+                                accepted.lock().unwrap().push(shown(text));
                                 Ok(())
                             }
                         })
