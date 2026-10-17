@@ -112,14 +112,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
 
   const keep = () => {
     setAsking(false);
-    queueMicrotask(() => deleteButton?.focus());
   };
 
   // The confirmation is a layer nested in the Drawer's panel, so Escape reaches it first.
   let confirmation: HTMLDivElement | undefined;
   let keepButton: HTMLButtonElement | undefined;
 
-  registerKeys({ kind: "layer", element: () => confirmation, active: asking, modal: true }, []);
+  registerKeys({ kind: "layer", element: () => confirmation, active: () => asking() && !!todo(), modal: true }, []);
 
   return (
     <>

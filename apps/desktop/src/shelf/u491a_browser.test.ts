@@ -28,6 +28,22 @@ describe("u491a Shelf questions and navigation", () => {
     return [one!, two!] as const;
   };
 
+  it("u490a_tab_space_enter_reorders", async () => {
+    const [one, two, three] = await rows(lane);
+
+    await lane.browser("focus", ".shelf-add");
+    await lane.tabTo(`Move down@${one}`);
+    await lane.browser("press", "Space");
+    await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${two}'`);
+    expect(await rows(lane)).toEqual([two, one, three]);
+    expect(await lane.evaluate<boolean>(`document.activeElement === document.querySelector('.shelf [data-id="${one}"] .todo-row-button')`)).toBe(true);
+    await lane.tabTo(`Move up@${one}`);
+    await lane.browser("press", "Enter");
+    await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${one}'`);
+    expect(await rows(lane)).toEqual([one, two, three]);
+    expect((await lane.calls("todo.reorder")).map(call => call.params)).toEqual([{ id: one, before: three }, { id: one, before: two }]);
+  }, 120_000);
+
   it("u491a_bulk_question_focus", async () => {
     await ask();
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=\"alertdialog\"] li')].map(item => item.textContent)")).toHaveLength(2);
