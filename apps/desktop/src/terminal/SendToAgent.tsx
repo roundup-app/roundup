@@ -6,6 +6,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Menu } from "../ui/Menu";
 import { Popover } from "../ui/Popover";
+import { Tooltip } from "../ui/Tooltip";
 import { NOTE_MAX } from "./excerpt";
 import type { createSendSelection } from "./sendSelection";
 
@@ -59,16 +60,15 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
       class="word send-to-agent-action"
       aria-label={copy.sendToAgent}
       aria-disabled={control.receivers().length === 0 ? true : undefined}
-      title={control.receivers().length === 0 ? copy.noRunningAgent : undefined}
       {...attributes}
     >{copy.sendToAgent}</button>
   );
 
   return (
-    <Popover.Root open={control.open()} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
+    <Popover.Root open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
       <Show when={control.open()}><Portal>
         <Popover.Positioner>
-          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent} onKeyDown={(press) => { if (press.key === "Escape" && !choosing()) { press.preventDefault(); close(); } }}>
+          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent}>
             <input
               ref={input}
               class="send-to-agent-note"
@@ -85,7 +85,12 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
                 activate();
               }}
             />
-            <Show when={control.receivers().length > 1} fallback={button({ onClick: activate })}>
+            <Show when={control.receivers().length > 1} fallback={
+              <Tooltip.Root closeOnEscape={false} disabled={control.receivers().length > 0} positioning={{ strategy: "fixed" }}>
+                <Tooltip.Trigger asChild={(trigger) => button(trigger({ onClick: activate }))} />
+                <Portal><Tooltip.Positioner><Tooltip.Content>{copy.noRunningAgent}</Tooltip.Content></Tooltip.Positioner></Portal>
+              </Tooltip.Root>
+            }>
               <Menu.Root open={choosing()} highlightedValue={highlighted()} onHighlightChange={(change) => setHighlighted(change.highlightedValue)} onOpenChange={(change) => setChoosing(change.open)} onSelect={(chosen) => {
                 const to = control.receivers().find((receiver) => receiver.id === chosen.value);
 

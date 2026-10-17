@@ -90,7 +90,9 @@ it("u515_no_agent_disables_the_control", async () => {
 
   const button = await screen.findByRole("button", { name: "Send to agent" });
 
-  expect(button.getAttribute("title")).toBe("No running agent");
+  expect(button.hasAttribute("title")).toBe(false);
+  fireEvent.pointerMove(button);
+  expect((await screen.findByRole("tooltip")).textContent).toBe("No running agent");
   expect(button.getAttribute("aria-disabled")).toBe("true");
   fireEvent.click(button);
   expect(view.calls()).toEqual([]);

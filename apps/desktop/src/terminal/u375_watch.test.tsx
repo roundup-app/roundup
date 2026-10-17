@@ -68,7 +68,10 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     const written: string[] = [];
 
     Object.assign(navigator, { clipboard: { writeText: async (text: string) => { written.push(text); } } });
-    fireEvent.keyDown(document.querySelector(".pane-screen > *")!, { key: "c", metaKey: true });
+    const target = document.querySelector<HTMLElement>(".pane-screen > *")!;
+
+    target.focus();
+    fireEvent.keyDown(target, { key: "c", metaKey: true });
     await vi.waitFor(() => expect(written).toEqual(["picked"]));
 
     expect(calls(app, "agent.interrupt")).toEqual([]);
