@@ -217,10 +217,9 @@
 
 .app-toast-heading {
   flex: 0 1 auto;
-  max-width: 50%;
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   gap: var(--space-1);
 }
 
@@ -246,7 +245,7 @@
 
 .app-toast [data-part="description"] {
   flex: 1 1 0;
-  min-width: 50%;
+  min-width: 12ch;
   color: var(--grey);
   overflow: hidden;
   text-overflow: ellipsis;
