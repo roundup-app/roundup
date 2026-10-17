@@ -34,12 +34,14 @@ it("u444_the_strip_is_the_centres_last_line_under_the_terminal", async () => {
         const strip = document.querySelector('.resource-strip');
         const pane = document.querySelector('.pane');
         const line = strip.getBoundingClientRect();
+        const hint = strip.querySelector('.hint-line');
+        const below = line.top + (hint ? hint.getBoundingClientRect().height : 0);
         const box = pane.getBoundingClientRect();
                 const values = [...strip.querySelectorAll('.resource-value, .resource-stale')];
         return { last: strip.parentElement.lastElementChild === strip,
           inside: line.left >= box.left - 1 && line.right <= box.right + 1,
           gap: line.top - box.bottom,
-          centres: [...strip.querySelectorAll('.resource-agent, .resource-stale, .terminal-tabs-host, .terminal-new')].map(value => { const r=value.getBoundingClientRect(); return r.top+r.height/2-(line.top+line.height/2); }),
+          centres: [...strip.querySelectorAll('.resource-agent, .resource-stale, .terminal-tabs-host, .terminal-new')].map(value => { const r=value.getBoundingClientRect(); return r.top+r.height/2-(below+line.bottom)/2; }),
           iconGaps: values.filter(value => value.matches('.resource-value')).map(value => value.querySelector('.resource-num').getBoundingClientRect().left-value.querySelector('svg').getBoundingClientRect().right),
           expectedIconGap: parseFloat(getComputedStyle(strip).getPropertyValue('--space-1')),
           clipped: values.filter(value => { const r = value.getBoundingClientRect(); return !value.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) || r.width === 0 || r.height === 0 || r.left < line.left || r.right > line.right || r.top < line.top || r.bottom > Math.min(line.bottom, innerHeight); }).map(value => value.textContent) };
