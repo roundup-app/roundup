@@ -72,6 +72,7 @@ async fn x14_output_is_isolated_from_other_terminals_and_the_bus() {
         .await
         .unwrap();
     let mut a_events = a.events;
+    let mut b_events = b.events;
     let a_bytes = tokio::spawn(check_alternating(a.output));
 
     let b_printed = drain(&mut b.output).await;
@@ -81,10 +82,12 @@ async fn x14_output_is_isolated_from_other_terminals_and_the_bus() {
         delivered > 0
             && delivered + gaps.iter().map(|(from, to)| to - from).sum::<u64>() == flood as u64
     );
-    // A's title and exit events stay on its own receiver and the Bus.
-    loop {
-        if matches!(a_events.recv().await.unwrap(), EventData::TerminalExited(_)) {
-            break;
+    // A's and B's exit events stay on their own receivers and the Bus.
+    for events in [&mut a_events, &mut b_events] {
+        loop {
+            if matches!(events.recv().await.unwrap(), EventData::TerminalExited(_)) {
+                break;
+            }
         }
     }
     let mut exits = 0;
