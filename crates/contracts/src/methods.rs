@@ -130,7 +130,11 @@ pub const METHODS: &[Method] = &[
     ),
     m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
     m("agent.channelUp", "agent_NodeId", "null"),
-    m("agent.signal", "agent_SignalParams", "null"),
+    m(
+        "agent.signal",
+        "agent_SignalParams",
+        "agent_SignalOutcome | null",
+    ),
     m(
         "agent.permission",
         "decision_PermissionParams",
