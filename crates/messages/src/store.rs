@@ -801,7 +801,7 @@ impl Store {
     /// Drops every `pending` or takeover-held Message to `to` that `gone` (the pure `step`) names,
     /// with `reason`, in id order (B9). With `keep`, a Message in flight (B39) is not dropped: it
     /// waits for the Agent to be resumed, and moves to `rebind`, the new Attempt, once there is one;
-    /// so does a note from the Daemon when `notes_wait`.
+    /// so does a note from the Daemon at a restart (`notes_wait`).
     pub(crate) fn drop_all_pending(
         &mut self,
         to: &str,
