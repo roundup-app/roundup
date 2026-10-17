@@ -9,6 +9,7 @@ import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
+import uiCss from "../ui/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
@@ -20,7 +21,7 @@ afterEach(() => {
   cleanup();
 });
 
-const sheets = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
+const sheets = [tokenCss, appCss, uiCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
 
 const mount = async (dark = false) => {
   sheet = document.head.appendChild(document.createElement("style"));
@@ -60,10 +61,10 @@ describe("u161 the first window reads as designed", () => {
   it("u161_the_rail_has_no_trailing_inset_and_other_regions_keep_space_4", async () => {
     await mount();
 
-    for (const selector of [".rail-row", ".centre"]) {
-      expect(style(selector).paddingLeft, selector).toBe("var(--space-4)");
-      expect(style(selector).paddingRight, selector).toBe("var(--space-4)");
-    }
+    expect(style(".rail-row").paddingLeft).toBe("var(--space-4)");
+    expect(style(".rail-row").paddingRight).toBe("var(--space-4)");
+    expect(style(".centre").paddingLeft).toBe("var(--space-2)");
+    expect(style(".centre").paddingRight).toBe("var(--space-2)");
 
     expect([style(".rail-scroll").paddingLeft, style(".rail-scroll").paddingRight]).toEqual(["0px", "0px"]);
 

@@ -41,6 +41,7 @@ import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
+import { AskBar } from "./ask/AskBar";
 import { Switcher } from "./switcher/Switcher";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
@@ -155,7 +156,7 @@ export const App = (props: {
   const now = createNow(props.clock);
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
-  const toasts = createToastQueue(inFront, props.chime ?? webChime(), props.reducedMotion);
+  const toasts = createToastQueue(inFront, props.chime ?? webChime());
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
@@ -350,6 +351,7 @@ export const App = (props: {
                 return (
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
+                    <AskBar />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle(); }} />
                     <ResourceStrip />

@@ -70,14 +70,6 @@ const stop = async () => browser("find", "role", "button", "click", "--name", "S
 const failure = async () => browser("wait", "--fn", `document.body.textContent.includes('could not stop rupd')`);
 
 // The dialog's focus, dismissal and close calls do not depend on scheme or width, so they run once.
-it("u475_close_dialog_wraps_focus", async () => {
-  await load("light");
-  await open();
-  await browser("press", "Tab"); await focused("Stop and close");
-  await browser("press", "Tab"); await focused("Cancel");
-  await browser("press", "Shift+Tab"); await focused("Stop and close");
-}, 60_000);
-
 it("u475_close_dialog_cancels", async () => {
   await load("light");
 

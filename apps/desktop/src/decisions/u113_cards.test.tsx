@@ -26,7 +26,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     select("beta");
 
-    expect(card()).toBeNull();
+    await waitFor(() => expect(card()).toBeNull());
   });
 
   it("u113_selecting_a_workstream_shows_its_doors_decision", async () => {
@@ -48,7 +48,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     expect(card()).toBeNull();
     expect(document.activeElement).toBe(focused);
-    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((row) => row.getAttribute("aria-selected") === "true")?.textContent).toContain("beta");
+    await waitFor(() => expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((row) => row.getAttribute("aria-selected") === "true")?.textContent).toContain("beta"));
   });
 
   it("u113_a_permission_decision_offers_allow_and_deny", async () => {
@@ -65,7 +65,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     await waitFor(() => expect(card()).not.toBeNull());
     expect(card()!.textContent).toContain("keep v1 routes?");
-    expect(within(card()!).getAllByRole("option").map((row) => row.querySelector(".ask-label")?.textContent)).toEqual(["keep", "drop", "ask me later"]);
+    expect(within(card()!).getAllByRole("option").map((row) => row.getAttribute("aria-labelledby") && row.querySelector(`[id="${row.getAttribute("aria-labelledby")}"]`)?.textContent)).toEqual(["keep", "drop", "ask me later"]);
     expect(buttons()).toEqual(["Send"]);
   });
 

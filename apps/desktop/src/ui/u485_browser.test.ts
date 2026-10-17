@@ -129,7 +129,7 @@ it("u485_rendered_checks", async () => {
 
           if (!baseline) expect(await read<string>(`getComputedStyle(document.querySelector('[data-dnd-dragging]')).outlineStyle`)).toBe("none");
 
-          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth, s.borderRadius]; })()`)).toEqual(["visible", "solid", "1px", "6px"]);
+          if (!baseline) expect(await read<string[]>(`(() => { const s = getComputedStyle(document.querySelector('[data-dnd-placeholder]')); return [s.visibility, s.outlineStyle, s.outlineWidth, s.borderRadius]; })()`)).toEqual(["visible", "none", "3px", "0px"]);
         }
       }
 

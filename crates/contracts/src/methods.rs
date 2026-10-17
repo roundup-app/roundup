@@ -52,7 +52,11 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "null | agent_HeldAction",
     ),
-    m("terminal.write", "terminal_WriteParams", "null"),
+    m(
+        "terminal.write",
+        "terminal_WriteParams",
+        "null | agent_HeldAction",
+    ),
     m(
         "terminal.resize",
         "terminal_ResizeParams",
@@ -119,14 +123,23 @@ pub const METHODS: &[Method] = &[
     m("agent.brief", "agent_NodeId", "agent_Brief"),
     m("agent.skills", "agent_NodeId", "agent_Skills"),
     m("agent.digest", "agent_NodeId", "agent_Digest"),
+    m("agent.wake", "agent_WakeParams", "agent_Woken"),
     m(
         "agent.spawnPrompt",
         "agent_NodeId",
         "{ prompt: string | null }",
     ),
-    m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
+    m(
+        "agent.setOrder",
+        "agent_SetOrderParams",
+        "agent_RailNode | agent_HeldAction",
+    ),
     m("agent.channelUp", "agent_NodeId", "null"),
-    m("agent.signal", "agent_SignalParams", "null"),
+    m(
+        "agent.signal",
+        "agent_SignalParams",
+        "agent_SignalOutcome | null",
+    ),
     m(
         "agent.permission",
         "decision_PermissionParams",
@@ -144,7 +157,11 @@ pub const METHODS: &[Method] = &[
         "decision_CaptureParams",
         "decision_PromptIdentity",
     ),
-    m("decision.answer", "decision_AnswerParams", "null"),
+    m(
+        "decision.answer",
+        "decision_AnswerParams",
+        "null | agent_HeldAction",
+    ),
     m("rail.tree", "null", "agent_RailNode[]"),
     m(
         "rail.createWorkstream",
@@ -193,12 +210,26 @@ pub const METHODS: &[Method] = &[
         "checkpoint_Checkpoint[]",
     ),
     m("rail.remove", "agent_NodeId", "agent_Removal | null"),
-    m("agent.resume", "agent_NodeId", "agent_RailNode"),
+    m(
+        "agent.resume",
+        "agent_NodeId",
+        "agent_RailNode | agent_HeldAction",
+    ),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
     m(
         "workstream.clear",
         "workstream_ClearParams",
         "workstream_ClearResult",
+    ),
+    m(
+        "workstream.rewindPlan",
+        "workstream_RewindPlanParams",
+        "workstream_RewindPlan",
+    ),
+    m(
+        "workstream.rewind",
+        "workstream_RewindParams",
+        "workstream_Rewind",
     ),
     m("workstream.handoff", "workstream_HandoffParams", "null"),
 ];

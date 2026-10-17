@@ -69,8 +69,8 @@ describe("u467 the primary Terminal fills the centre", () => {
         // The pane takes the stack's width and top; only the resource strip shares its height.
         expect([pane.x, pane.y, pane.width]).toEqual([stack.x, stack.y, stack.width]);
         expect(Math.abs(pane.height + strip.height - stack.height)).toBeLessThanOrEqual(1);
-        // The stack sits inside the centre by the one fixed inset, the same at both viewports.
-        expect([stack.x - centre.x, centre.width - stack.width - (stack.x - centre.x), stack.y - centre.y, centre.height - stack.height]).toEqual([16, 16, 0, 0]);
+        // The stack sits inside the centre by the one fixed inset (U2340a: one --space-2), the same at both viewports.
+        expect([stack.x - centre.x, centre.width - stack.width - (stack.x - centre.x), stack.y - centre.y, centre.height - stack.height]).toEqual([8, 8, 0, 0]);
 
         const checks = await readChecks();
 
@@ -91,12 +91,12 @@ describe("u468 attention meets the Checks and keeps focus until activated", () =
         const focused = await page.call<string | null>(`() => document.activeElement?.closest('[data-terminal]')?.dataset.terminal ?? null`);
 
         await page.call(`() => window.__fake.emit({ actor: { kind: "agent", id: "tokens", parent: null }, name: "agent.status", data: { id: "tokens", attempt: "1", status_revision: "9999", status: { kind: "needs-you", label: "needs you", since: Date.now() } } })`);
-        await page.until(`() => document.querySelector('.toast')`);
+        await page.until(`() => document.querySelector('.app-toast')`);
 
         const after = await page.call<{ selected: string | null; terminal: string | null; toast: string }>(`() => ({
-          selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id ?? null,
+          selected: document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id ?? null,
           terminal: document.activeElement?.closest('[data-terminal]')?.dataset.terminal ?? null,
-          toast: document.querySelector('.toast').textContent,
+          toast: document.querySelector('.app-toast').textContent,
         })`);
 
         expect(after.selected).toBe("payments");
@@ -108,8 +108,8 @@ describe("u468 attention meets the Checks and keeps focus until activated", () =
         expect(failing(checks)).toEqual([]);
         await record("U468", `attention-${width}-${scheme}`, checks);
 
-        await page.call(`() => document.querySelector('.toast').click()`);
-        await page.until(`() => document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === 'tokens'`);
+        await page.call(`() => document.querySelector('.app-toast-action').click()`);
+        await page.until(`() => document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id === 'tokens'`);
       }
     }
   }, 120_000);
