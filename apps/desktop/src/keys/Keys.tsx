@@ -2,72 +2,82 @@ import { registerKeys } from "./registry";
 import { chordsFor, RAIL_KEYS } from "./chords";
 import { useConnectedProject } from "../state/connectedProject";
 import { placeOf } from "./places";
-import { railStep } from "./railStep";
+import { ROW } from "../rail/rows";
 
-const isRow = (target: EventTarget | null): target is HTMLElement =>
-  target instanceof HTMLElement && target.dataset.id !== undefined;
+const rowOf = (target: EventTarget | null): HTMLElement | null =>
+  target instanceof HTMLElement && target.matches(ROW) ? target : null;
 
-/** `aria-expanded` is set only on a Workstream's row (U8's `▾`/`▸`); anything else has no fold to read. */
-const expandedOf = (row: HTMLElement): boolean | null => {
-  const value = row.getAttribute("aria-expanded");
+const rowElement = (id: string): HTMLElement | null => {
+  const item = document.querySelector<HTMLElement>(`[role="tree"] [role="treeitem"][data-id="${id}"]`);
 
-  return value === null ? null : value === "true";
+  return item === null || item.matches(ROW) ? item : item.querySelector<HTMLElement>(ROW);
 };
 
-/** The row right after `row` in Rail order, one level deeper: `→`'s first child (U41). A child folded into U8's
- * `✓ n done` line is never it, because the Rail renders no row for it until the fold opens. */
-const firstVisibleChildOf = (row: HTMLElement): string | undefined => {
-  let next = row.nextElementSibling;
-
-  while (next instanceof HTMLElement && next.dataset.pads !== undefined) next = next.nextElementSibling;
-
-  if (!(next instanceof HTMLElement) || next.dataset.id === undefined) return undefined;
-
-  const level = Number(row.getAttribute("aria-level"));
-  const nextLevel = Number(next.getAttribute("aria-level"));
-
-  return nextLevel > level ? next.dataset.id : undefined;
-};
-
-const rowElement = (id: string): HTMLElement | null =>
-  document.querySelector<HTMLElement>(`[role="tree"] [data-id="${id}"]`);
-
-const focusTabbableRow = (): void => document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')?.focus();
+const focusTabbableRow = (): void => document.querySelector<HTMLElement>(`[role="tree"] :is(${ROW})[tabindex="0"]`)?.focus();
 
 const focusPane = (): void =>
   document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
 
-/** `⌘1`, `⌘2`, `←`, `→` and `F2`, the Rail keys U31 leaves to U41 (GLOSSARY.md, Rail). No UI of its own. */
+/** The `◇<n>` control of a leaf Agent's row when `←` or `→` is its Pads' to take: `→` opens them, `←` folds them before the tree takes it (U41, U58). A row with children keeps `→` for the tree. */
+const padsControlFor = (row: HTMLElement, key: string): HTMLElement | null => {
+  const control = row.querySelector<HTMLElement>("[data-pads-control]");
+
+  if (!control) return null;
+
+  const shown = control.getAttribute("aria-expanded") === "true";
+
+  if (key === "ArrowLeft") return shown ? control : null;
+
+  return !shown && row.closest("[role=treeitem]")?.getAttribute("aria-expanded") === null ? control : null;
+};
+
+/** `⌘↑`/`⌘↓` act from anywhere but a text field or a taken Terminal; a watched Agent's read-only screen is not one (U2230). */
+const stepsFrom = (press: KeyboardEvent): boolean => {
+  const target = press.target;
+
+  if (!(target instanceof Element)) return true;
+
+  if (target.closest(".pane[data-takeover]")) return false;
+
+  return !target.closest('input, textarea, [contenteditable="true"]') || target.closest(".pane .xterm-helper-textarea") !== null;
+};
+
+/** `⌘1`, `⌘2` and `F2`, the Rail keys U31 leaves to U41, and `←`, `→` on a leaf Agent's Pads (GLOSSARY.md, Rail); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
 export const Keys = () => {
   const { rail } = useConnectedProject();
 
-  const onArrow = (row: HTMLElement, direction: "left" | "right"): void => {
-    const id = row.dataset.id;
+  const onRename = (row: HTMLElement): void => {
+    row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  };
 
-    if (id === undefined) return;
+  /** The Agent `by` rows from the selected one, in the order the Rail shows them (a folded or done Agent has no row); none past either end. */
+  const stepAgent = (by: 1 | -1, fromRail: boolean): void => {
+    const kinds = new Map(rail.nodes.map((node) => [node.id, node.kind]));
 
-    const control = row.querySelector<HTMLElement>("[data-pads-control]");
-    const padsShown = control?.getAttribute("aria-expanded") === "true";
+    const agents = [...document.querySelectorAll<HTMLElement>('[role="tree"] [role="treeitem"][data-id]')]
+      .flatMap((row) => row.dataset.id !== undefined && kinds.get(row.dataset.id) === "agent" ? [row.dataset.id] : []);
 
-    /** U58: `→` on a leaf Agent opens its Pads, and `←` folds them before it selects the parent. */
-    if (control && (direction === "left" ? padsShown : expandedOf(row) === null && !padsShown && firstVisibleChildOf(row) === undefined)) {
-      control.click();
+    const at = agents.indexOf(rail.selected() ?? "");
+    const next = at === -1 ? (by === 1 ? agents[0] : agents.at(-1)) : agents[at + by];
+
+    if (next === undefined) return;
+
+    rail.select(next);
+
+    // Focus follows the selection: to the Agent's Rail row, or to its pane once the pane has rendered.
+    if (fromRail) {
+      rowElement(next)?.focus();
 
       return;
     }
 
-    const step = railStep(rail.nodes, id, direction, expandedOf(row), firstVisibleChildOf(row));
+    const paneFocus = (tries: number): void => {
+      focusPane();
 
-    if (step.kind === "collapse" || step.kind === "expand") {
-      row.querySelector<HTMLElement>('button[aria-label="Collapse"]')?.click();
-    } else if (step.kind === "select") {
-      rowElement(step.id)?.focus();
-      rail.select(step.id);
-    }
-  };
+      if (!document.activeElement?.closest(".pane-screen") && tries > 0) requestAnimationFrame(() => paneFocus(tries - 1));
+    };
 
-  const onRename = (row: HTMLElement): void => {
-    row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    requestAnimationFrame(() => paneFocus(30));
   };
 
   const outsideTabRename = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.matches(".tab-rename"));
@@ -75,15 +85,23 @@ export const Keys = () => {
   registerKeys({ kind: "app" }, [
     { chords: chordsFor("⌘1"), when: outsideTabRename, run: focusTabbableRow },
     { chords: chordsFor("⌘2"), when: outsideTabRename, run: focusPane },
+    { chords: chordsFor("⌘↑"), when: (press) => outsideTabRename(press) && stepsFrom(press), run: (press) => { if (!press.repeat) stepAgent(-1, press.target instanceof Element && press.target.closest('[role="tree"]') !== null); } },
+    { chords: chordsFor("⌘↓"), when: (press) => outsideTabRename(press) && stepsFrom(press), run: (press) => { if (!press.repeat) stepAgent(1, press.target instanceof Element && press.target.closest('[role="tree"]') !== null); } },
   ]);
   registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>('[role="tree"]') ?? undefined }, [
     { chords: RAIL_KEYS,
-      when: (press) => placeOf(press.target instanceof Element ? press.target : null) === "rail" && isRow(press.target),
-      run: (press) => {
-        if (!isRow(press.target)) return;
+      when: (press) => {
+        const row = rowOf(press.target);
 
-        if (press.key === "F2") onRename(press.target);
-        else onArrow(press.target, press.key === "ArrowLeft" ? "left" : "right");
+        return placeOf(press.target instanceof Element ? press.target : null) === "rail" && row !== null && (press.key === "F2" || padsControlFor(row, press.key) !== null);
+      },
+      run: (press) => {
+        const row = rowOf(press.target);
+
+        if (!row) return;
+
+        if (press.key === "F2") onRename(row);
+        else padsControlFor(row, press.key)?.click();
       },
     },
   ]);

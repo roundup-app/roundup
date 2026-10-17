@@ -3,13 +3,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { mountTodos, todo } from "../todos/testHarness";
 import { agent, workstream } from "../testing/nodes";
-import { mountRail, rowOf } from "../rail/railFixture";
+import { mountRail, rowOf, settled } from "../rail/railFixture";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import { resolveToken, tokensFrom } from "../testing/contrast";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import railCss from "../rail/styles.css?inline";
+
+const uiCss = Object.values(import.meta.glob<string>("../ui/*.css", { query: "?inline", import: "default", eager: true })).join("\n");
+
 import buttonCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import rowCss from "../todos/rowButton.styles.css?inline";
@@ -24,7 +27,7 @@ afterEach(() => {
 
 const styled = () => {
   sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = [tokenCss, appCss, railCss, buttonCss, inkCss, rowCss].join("\n");
+  sheet.textContent = [tokenCss, appCss, uiCss, railCss, buttonCss, inkCss, rowCss].join("\n");
 };
 
 const mountApp = async (seed: SeedName) => {
@@ -37,6 +40,8 @@ const mountApp = async (seed: SeedName) => {
 
   return controls;
 };
+
+const rowControl = (item: Element) => item.querySelector(".rail-row")!;
 
 const workstreams = () => screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("aria-expanded"));
 
@@ -99,11 +104,12 @@ describe("u172 the sidebar's hierarchy", () => {
   it("u172_one_selected_row_has_the_band_and_the_accent_bar_as_a_background_never_a_border", async () => {
     await mountApp("agents-10");
     fireEvent.click(screen.getAllByRole("treeitem")[1]!);
+    await settled();
 
-    const marked = screen.getAllByRole("treeitem").filter((row) => getComputedStyle(row).backgroundImage.includes("--accent"));
+    const marked = [...document.querySelectorAll(".rail-row")].filter((row) => getComputedStyle(row).backgroundImage.includes("--accent"));
     const style = getComputedStyle(marked[0]!);
 
-    expect(marked.map((row) => row.getAttribute("aria-selected"))).toEqual(["true"]);
+    expect(marked.map((row) => (row.closest("[role=treeitem]") ?? row).getAttribute("aria-selected"))).toEqual(["true"]);
     // U381: the band is a second background layer, so no background-color is set; the pointer left over the clicked row may have stepped it up.
     expect([style.backgroundColor, style.backgroundImage, style.backgroundSize, style.borderLeftWidth]).toEqual(["rgba(0, 0, 0, 0)", expect.stringMatching(/^linear-gradient\(var\(--accent\), var\(--accent\)\), linear-gradient\(var\(--selected(-hover)?\)/), "2px 100%, auto", "0px"]);
   });
@@ -111,8 +117,8 @@ describe("u172 the sidebar's hierarchy", () => {
   it("u172_a_block_is_told_from_the_one_above_by_space_3_and_a_hairline_that_is_no_border", async () => {
     await mountApp("tree-40");
 
-    expect(railCss).toMatch(/\[role="tree"\] > \.rail-row\[aria-expanded\]:not\(:first-child\)\s*\{\s*margin-top:\s*var\(--space-3\)/);
-    expect(railCss).toMatch(/:not\(:first-child\)::before\s*\{[^}]*height:\s*1px;[^}]*background-color:\s*var\(--hairline\)/);
+    expect(railCss).toMatch(/\[role="tree"\] > \[data-part="branch"\]:not\(:first-child\)\s*\{\s*margin-top:\s*var\(--space-3\)/);
+    expect(railCss).toMatch(/:not\(:first-child\) > \.rail-row::before\s*\{[^}]*height:\s*1px;[^}]*background-color:\s*var\(--hairline\)/);
     expect(getComputedStyle(workstreams()[1]!).borderTopStyle).toBe("none");
   });
 
@@ -120,7 +126,7 @@ describe("u172 the sidebar's hierarchy", () => {
     await mountApp("tree-40");
 
     expect([getComputedStyle(document.querySelector(".rail-scroll")!).paddingLeft, getComputedStyle(document.querySelector(".rail-scroll")!).paddingRight]).toEqual(["0px", "0px"]);
-    expect([getComputedStyle(workstreams()[0]!).paddingLeft, getComputedStyle(workstreams()[0]!).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
-    expect(Number.parseFloat(resolveToken(getComputedStyle(workstreams()[0]!).minHeight, tokensFrom(tokenCss)))).toBeGreaterThanOrEqual(28);
+    expect([getComputedStyle(rowControl(workstreams()[0]!)).paddingLeft, getComputedStyle(rowControl(workstreams()[0]!)).paddingRight]).toEqual(["var(--space-4)", "var(--space-4)"]);
+    expect(Number.parseFloat(resolveToken(getComputedStyle(rowControl(workstreams()[0]!)).minHeight, tokensFrom(tokenCss)))).toBeGreaterThanOrEqual(28);
   });
 });

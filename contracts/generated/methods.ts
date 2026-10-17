@@ -19,6 +19,8 @@ import type { SignalParams as agent_SignalParams } from "./agent/SignalParams";
 import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { StartDoorParams as agent_StartDoorParams } from "./agent/StartDoorParams";
+import type { WakeParams as agent_WakeParams } from "./agent/WakeParams";
+import type { Woken as agent_Woken } from "./agent/Woken";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
 import type { Ask as ask_Ask } from "./ask/Ask";
 import type { PickParams as ask_PickParams } from "./ask/PickParams";
@@ -95,6 +97,10 @@ import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
+import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
+import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
+import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
+import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 
 export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
@@ -151,8 +157,9 @@ export type RpcMethods = {
   "agent.brief": { params: agent_NodeId; result: agent_Brief };
   "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
+  "agent.wake": { params: agent_WakeParams; result: agent_Woken };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
-  "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
+  "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode | agent_HeldAction };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
@@ -160,7 +167,7 @@ export type RpcMethods = {
   "decision.list": { params: null; result: decision_Decision[] };
   "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
   "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };
-  "decision.answer": { params: decision_AnswerParams; result: null };
+  "decision.answer": { params: decision_AnswerParams; result: null | agent_HeldAction };
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
@@ -189,9 +196,11 @@ export type RpcMethods = {
   "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
   "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
-  "agent.resume": { params: agent_NodeId; result: agent_RailNode };
+  "agent.resume": { params: agent_NodeId; result: agent_RailNode | agent_HeldAction };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
+  "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
+  "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
   "workstream.handoff": { params: workstream_HandoffParams; result: null };
 };
 

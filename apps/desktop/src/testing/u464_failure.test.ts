@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openPage, FULLSCREEN } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { CHECK_IDS } from "./checks";
 import type { Checks } from "./checks";
@@ -23,7 +23,7 @@ beforeAll(async () => {
 afterAll(async () => { await page?.close(); });
 
 const load = async (width = 1280) => {
-  await page.load("/harness.html?seed=door-stopped", width, 800);
+  await page.load("/harness.html?seed=door-stopped", width, FULLSCREEN.height);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.pane-door'))`);
   await page.call(`() => document.fonts.ready`);
 };
@@ -33,7 +33,7 @@ const fail = async () => {
     window.__fake.failNext(-32003, 'U464 call refused');
     [...document.querySelectorAll('button')].find(el => el.textContent.includes('Start supervisor')).click();
   }`);
-  await page.until(`() => document.querySelector('p.ink[role=alert]')?.title === 'U464 call refused'`);
+  await page.until(`() => document.querySelector('p.ink[role=alert]')?.getAttribute('aria-label') === 'U464 call refused'`);
 };
 
 const checks = () => page.call<Checks>(`() => window.__checks()`);
@@ -47,7 +47,7 @@ const save = async (name: string) => {
 
 run("u464 a failed start on a stopped Door", () => {
   it("u464_a_failed_start_is_an_error_for_d3", async () => {
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       {
         await load(width);
         const baseline = await checks();
@@ -65,7 +65,7 @@ run("u464 a failed start on a stopped Door", () => {
         expect(await page.call(`() => {
           const el = document.querySelector('p.ink[role=alert]');
           const style = getComputedStyle(el);
-          return {kind: el.dataset.kind, title: el.title, text: el.textContent, colour: style.color};
+          return {kind: el.dataset.kind, title: el.getAttribute('aria-label'), text: el.textContent, colour: style.color};
         }`)).toEqual({kind: "error", title: "U464 call refused", text: "U464 call refused", colour: "rgb(196, 38, 46)"});
         await save(`start-${width}x800`);
       }

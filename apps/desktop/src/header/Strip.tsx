@@ -1,3 +1,7 @@
+import { Tabs } from "../ui/Tabs";
+import { IconButton } from "../ui/IconButton";
+import { registerKeys } from "../keys/registry";
+import { chordsFor } from "../keys/chords";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { CloseDialog } from "./CloseDialog";
@@ -39,8 +43,6 @@ export const Strip = (props: {
   onRename: (path: string, name: string) => void;
   onClose: (path: string) => void;
   onChoose: () => void;
-  /** U377: `Models` in a tab's menu opens that Project's `Models` sheet. */
-  onModels: (path: string) => void;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
   // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
@@ -212,16 +214,17 @@ export const Strip = (props: {
     else if (props.active) props.onMark(props.active);
   };
 
-  // Document capture, after Help's window capture: while Help is open these chords do nothing.
-  document.addEventListener("keydown", onKey, true);
-  onCleanup(() => document.removeEventListener("keydown", onKey, true));
+  registerKeys({ kind: "app" }, [{
+    chords: [...chordsFor("⇧⌘]"), ...chordsFor("⇧⌘["), ...chordsFor("⇧⌘J")],
+    when: (press) => !asking() && !(press.target instanceof Element && press.target.closest('.tab-rename')),
+    run: onKey,
+  }]);
 
   const edge = (side: "left" | "right", shown: Edge | null) => (
     <Show when={shown}>
       {(hidden) => (
         <div class="strip-slot" data-side={side}>
-          <button data-button="quiet"
-            type="button"
+          <IconButton
             class={`strip-edge strip-edge-${side} ink`}
             data-tone={MARKS[hidden().mark].tone}
             data-kind={hidden().mark}
@@ -232,7 +235,7 @@ export const Strip = (props: {
             <span class="tab-mark ink" data-tone={MARKS[hidden().mark].tone} aria-hidden="true" />
             {hidden().count > 1 ? ` ${hidden().count}` : ""}
             {side === "right" ? copy.nextProjectsMark : ""}
-          </button>
+          </IconButton>
         </div>
       )}
     </Show>
@@ -244,7 +247,7 @@ export const Strip = (props: {
     }}>
       <div class="strip-scroll">
         {edge(copy.left, left())}
-        <div class="tablist" role="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
+        <Tabs.List class="tablist" aria-label={copy.projects} ref={(element) => (list = element)} onScroll={measure} style={{ "--cut-start": `${cutStart()}px`, "--cut-end": `${cutEnd()}px` }}>
           <For each={paths()}>
             {(path) => {
               // A tab stays the same element while its name, mark or counts change, so focus and hover survive.
@@ -259,19 +262,17 @@ export const Strip = (props: {
                     elements.set(path, element);
                     onCleanup(() => elements.delete(path));
                   }}
-                  onSelect={() => props.onSelect(path)}
                   onMark={() => props.onMark(path)}
                   onRename={(name) => props.onRename(path, name)}
                   onClose={() => requestClose(tab())}
-                  onModels={() => props.onModels(path)}
                 />
               );
             }}
           </For>
-        </div>
+        </Tabs.List>
         {edge(copy.right, right())}
       </div>
-      <button data-button="icon" type="button" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</button>
+      <IconButton class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 

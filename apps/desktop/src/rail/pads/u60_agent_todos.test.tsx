@@ -81,9 +81,9 @@ describe("u60 an Agent's Todos under it", () => {
     );
     await opened();
 
-    const group = screen.getByTitle("notes").closest<HTMLElement>("[data-pads]")!;
+    const group = screen.getByRole("button", { name: "notes" }).closest<HTMLElement>("[data-pads]")!;
 
-    expect(screen.getByTitle("notes").closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
+    expect(screen.getByRole("button", { name: "notes" }).closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
     expect(within(group).getByText(/Waits on/).closest("[data-todo-waits]")?.textContent).toContain("#4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
@@ -151,6 +151,6 @@ describe("u60 an Agent's Todos under it", () => {
     await opened();
 
     expect(app.calls.filter((call) => call.method === "todo.list")).toHaveLength(1);
-    expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2", SCOPE_ROW]);
+    expect([...document.querySelectorAll("[role=tree] :is([data-part=item], [data-part=branch-control])[data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2", SCOPE_ROW]);
   });
 });

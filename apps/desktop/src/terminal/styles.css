@@ -8,7 +8,7 @@
 
 .pane-failure {
   flex: none;
-  min-height: 1.5em;
+  padding-inline: var(--space-2);
   max-height: 6em;
   overflow-y: auto;
 }

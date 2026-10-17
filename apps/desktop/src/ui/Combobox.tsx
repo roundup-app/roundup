@@ -1,3 +1,4 @@
+import "./Combobox.css";
 import { Combobox as ArkCombobox, createListCollection } from "@ark-ui/solid/combobox";
 import { createMemo, For, type JSX } from "solid-js";
 

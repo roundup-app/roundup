@@ -64,7 +64,7 @@ const mount = async (trees: Record<string, RailNode[]>, terminals = [info("t-a1"
   return { app, made };
 };
 
-const selected = () => document.querySelector(".rail-row[aria-selected=true]")?.getAttribute("data-id");
+const selected = () => document.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id");
 
 const targets = () => [...document.querySelectorAll("[data-drop]")];
 
@@ -85,7 +85,7 @@ describe("u348 dragging files shows targets, a held drag opens one, a drop lands
   it("u348_over_shows_every_target_and_leave_clears_them", async () => {
     const { app } = await mount({ web: [agent("x1", "idle", "x")], api: TREE });
 
-    fireEvent.click(document.querySelector('[data-id="a1"]')!);
+    fireEvent.click(document.querySelector('.rail-row[data-id="a1"]')!);
     await waitFor(() => expect(selected()).toBe("a1"));
     app.dropFiles(over(tabX(0), 15));
     expect(document.querySelectorAll(".rail-row[data-drop]")).toHaveLength(3);

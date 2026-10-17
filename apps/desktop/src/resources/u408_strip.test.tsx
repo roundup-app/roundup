@@ -44,7 +44,7 @@ const strip = () => document.querySelector<HTMLElement>(".resource-strip");
 const NAMES = new Map([["Resident memory", "memory"], ["CPU of one core", "cpu"], ["Worktree on disk", "disk"]]);
 
 const valueWords = (item: Element): string => {
-  const name = NAMES.get(item.getAttribute("title") ?? "");
+  const name = NAMES.get(item.querySelector(".resource-name")?.textContent ?? "");
 
   return `${name} ${item.querySelector(".resource-num")?.textContent}`;
 };
@@ -246,7 +246,7 @@ describe("u408 the Resource strip", () => {
     expect(element.querySelector("[tabindex],button,a")).toBeNull();
     expect(document.activeElement).toBe(document.body);
 
-    const titles = [...element.querySelectorAll<HTMLElement>(".resource-value")].map((value) => value.title);
+    const titles = [...element.querySelectorAll<HTMLElement>(".resource-value")].map((value) => value.querySelector(".resource-name")?.textContent);
 
     expect(titles).toEqual(["Resident memory", "CPU of one core", "Worktree on disk"]);
   });
@@ -264,7 +264,7 @@ describe("u444 the Resource strip is the quiet last line", () => {
 
     for (const value of values) {
       expect(value.querySelector("svg.icon")?.getAttribute("aria-hidden")).toBe("true");
-      expect(value.querySelector(".resource-name")?.textContent).toBe(value.getAttribute("title"));
+      expect(value.hasAttribute("title")).toBe(false);
     }
 
     expect([...document.querySelectorAll(".resource-num")].map((number) => number.textContent).join(" ")).not.toMatch(/[a-z]{3}/i);
@@ -287,7 +287,7 @@ describe("u444 the Resource strip is the quiet last line", () => {
 
     await settle(2000);
 
-    expect([...document.querySelectorAll(".resource-value")].map(value => value.getAttribute("title"))).toEqual([...NAMES.keys()]);
+    expect([...document.querySelectorAll(".resource-value")].map(value => value.querySelector(".resource-name")?.textContent)).toEqual([...NAMES.keys()]);
     expect(strip()?.querySelector(".resource-stale")?.textContent).toBe("Not updating");
   });
 

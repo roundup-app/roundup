@@ -66,7 +66,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Enter" ? code : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code.startsWith("Arrow") ? code : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -78,24 +78,32 @@ const MODS = [
   { altKey: true, shiftKey: true },
 ];
 
-const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash"]);
+const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash", "Slash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
-const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): string[] =>
-  modSets.flatMap((mods) =>
-    codes.flatMap((code) => {
-      if (Object.keys(mods).length === 0) return [];
+const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): Promise<string[]> => {
+  const bound: string[] = [];
+
+  for (const mods of modSets) {
+    for (const code of codes) {
+      if (Object.keys(mods).length === 0) continue;
 
       const key = keyOf(code);
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
 
       from.dispatchEvent(press);
       // `⌘K` opens the modal switcher, which would swallow every later probe.
-      document.querySelector(".switcher input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      document.querySelector(".switcher input, .ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-      return press.defaultPrevented ? [pressOf(press)] : [];
-    }),
-  );
+      // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
+      document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+      if (press.defaultPrevented) bound.push(pressOf(press));
+    }
+  }
+
+  return bound;
+};
 
 describe("u54 keyboard help", () => {
   it("u471_previous_copy_assertions_are_preserved_help_labels", async () => {
@@ -108,10 +116,10 @@ describe("u54 keyboard help", () => {
     expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
       "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
       "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
-      "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
+      "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘↑  Previous Agent", "⌘↓  Next Agent", "⌘⌫  Remove",
       "⌘⏎  Take control", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
       "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
-      "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
+      "⌘/  Ask bar", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
     ]);
   });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
@@ -129,6 +137,10 @@ describe("u54 keyboard help", () => {
     const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
 
     expect(lines).toEqual(CHORDS.map((chord) => `${chord.keys} ${chord.what}`));
+
+    // U2230: a chord shown as a hint is one of these lines.
+    for (const chord of CHORDS.filter((row) => row.hint)) expect(lines).toContain(`${chord.keys} ${chord.what}`);
+
     expect(lines.slice(0, 2)).toEqual(["⌘J Jump to what needs you", "⌘N New Agent"]);
 
     await waitFor(() => expect(document.activeElement).toBe(panel));
@@ -169,7 +181,7 @@ describe("u54 keyboard help", () => {
     question(rowOf("a"));
     await waitFor(() => expect(help()).not.toBeNull());
 
-    expect(boundPresses(document.activeElement!)).toEqual([]);
+    expect(await boundPresses(document.activeElement!)).toEqual([]);
     expect(app.calls.length).toBe(calls);
     expect(help()).not.toBeNull();
   });
@@ -180,19 +192,34 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(boundPresses(document.querySelector(".terminal-new")!))].sort();
+    // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
+    const outsideTerminal = document.querySelector(".terminal-new")!;
+    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
 
     // `⌘⏎` binds from a Rail row, not from a text field (U531); a Rail row prevents any modified `⏎`, so only ⌘⏎ is probed.
     const row = rowOf("a");
-    const railBound = [...new Set([...boundPresses(row), ...boundPresses(row, [{ metaKey: true }], ["Enter"])])].sort();
+
+    // The tree types ahead on ⌥ and a letter, which a Mac makes into another character and Help lists as no chord (U520); ⌥1 to ⌥9 bind from the Terminal's probe above.
+    // ⌘A is the tree's select-all, which one selected row makes no chord either.
+    const railPresses = await boundPresses(row, MODS.filter((mods) => !("altKey" in mods)), CODES.filter((code) => code !== "KeyA"));
+
+    // A Rail chord binds while focus is in the Rail, and ⌘2 above moved it to the pane.
+    const railOnly: string[] = [];
+
+    for (const code of ["Enter", "Backspace"]) {
+      row.focus();
+      railOnly.push(...(await boundPresses(row, [{ metaKey: true }], [code])));
+    }
+
+    const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     const field = document.activeElement;
 
     fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
     await waitFor(() => expect(document.querySelector(".switcher input")).not.toBeNull());
 
-    const switcherBound = boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
+    const switcherBound = await boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
 
     expect(switcherBound).toEqual(["shift+Enter"]);
     expect(field).not.toBeNull();

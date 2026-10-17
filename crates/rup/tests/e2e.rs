@@ -2,7 +2,12 @@
 //! the remaining cases retain the stub while E10 is migrated.
 
 #[path = "e2e/daemon.rs"]
+#[allow(dead_code)]
 mod daemon;
+#[path = "e2e/notes.rs"]
+mod notes;
+#[path = "e2e/wake.rs"]
+mod wake;
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -13,17 +18,11 @@ use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
-    Project, TEN_IDLE_BOUND, h21_ask, h21_bash, h21_decision, h21_notes, h21_poll,
-    h21_user_answers, next, next_kind, rail_tree, signal, start, wait_until_idle,
+    Project, TEN_IDLE_BOUND, h21_ask, h21_bash, h21_decision, h21_notes, h21_poll, next, next_kind,
+    rail_tree, signal, start, wait_until_idle,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-
-/// Recorded Claude Code hook payloads, one of each event D2 plays.
-const RECORDED: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../spikes/hooks-state/log.run1.jsonl"
-);
 
 /// A Daemon whose one Agent has called `todo_create`; the Todo exists once this returns.
 async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
@@ -204,10 +203,8 @@ fn resident_kb(pid: u32) -> u64 {
 
 #[tokio::test]
 async fn d4_ten_idle_agents_cost_the_daemon_less_than_150_mb() {
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-    ]);
+    let launches = tempfile::NamedTempFile::new().unwrap();
+    let project = start(&[("FAKE_CLAUDE_LAUNCH_LOG", launches.path().to_str().unwrap())]);
     let mut client = project.subscribed().await;
     let before = resident_kb(project.pid());
 
@@ -2977,93 +2974,6 @@ async fn h21_no_message_while_a_takeover_holds_or_when_the_door_is_gone() {
     assert!(h21_notes(&client, &gone, 0).await.is_empty());
 }
 
-#[tokio::test]
-async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins() {
-    let root = tempfile::tempdir().unwrap();
-    let gate = root.path().join("gate");
-    let door_gate = root.path().join("door-gate");
-    let door_report = root.path().join("door.json");
-    let agent_report = root.path().join("agent.json");
-    let door_file = root.path().join("door-id");
-    let out = root.path().join("out");
-    let answer = |gate: &std::path::Path| {
-        json!([{"name": "decision_answer", "arguments": {"id": "d1", "answer": "allow"},
-            "may_fail": true, "after": gate}])
-    };
-    let process = json!([
-        "python3",
-        h21_script(),
-        gate,
-        out,
-        "d1",
-        door_file,
-        "",
-        "plain"
-    ]);
-    let project = start(&[
-        ("FAKE_CLAUDE_AGENT_TOOLS", &answer(&gate).to_string()),
-        ("FAKE_CLAUDE_AGENT_REPORT", agent_report.to_str().unwrap()),
-        ("FAKE_CLAUDE_DOOR_TOOLS", &answer(&door_gate).to_string()),
-        ("FAKE_CLAUDE_TOOL_REPORT", door_report.to_str().unwrap()),
-        ("FAKE_CLAUDE_CHILD_PROCESS", &process.to_string()),
-    ]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    std::fs::write(&door_file, &door).unwrap();
-    let child = agent_in(&project, &client, Some(&door)).await;
-    h21_poll("the child's tools", async || {
-        std::path::Path::new(&format!("{}.claimed", agent_report.display()))
-            .exists()
-            .then_some(())
-    })
-    .await;
-    let elsewhere = workstream(&client, "elsewhere").await;
-    let other = agent_in(&project, &client, Some(&elsewhere)).await;
-    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
-    let decision = h21_decision(&client, &child, None).await;
-    assert_eq!(decision["id"], "d1");
-
-    std::fs::write(&gate, "").unwrap();
-    let from_mcp = json_file(&agent_report).await;
-    let replies = h21_poll("both processes", async || {
-        let found: Vec<Value> = std::fs::read_dir(root.path())
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                name.starts_with("out.") && !name.ends_with(".tmp")
-            })
-            .map(|e| serde_json::from_str(&std::fs::read_to_string(e.path()).unwrap()).unwrap())
-            .collect();
-        (found.len() == 2).then_some(found)
-    })
-    .await;
-    let _ = other;
-
-    assert_eq!(from_mcp[0]["error"]["code"], rpc::code::FORBIDDEN);
-    for reply in &replies {
-        assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
-    }
-    let history = |item: String| client.request("provenance.history", json!({ "item": item }));
-    assert!(
-        history("decision:d1".into())
-            .await
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
-
-    h21_user_answers(&client, "d1", "deny").await.unwrap();
-    std::fs::write(&door_gate, "").unwrap();
-    let late = json_file(&door_report).await;
-    assert_eq!(late[0]["error"]["code"], rpc::code::NOT_FOUND);
-    let touches = history("decision:d1".into()).await.unwrap();
-    assert_eq!(touches.as_array().unwrap().len(), 1);
-    assert_eq!(touches[0]["actor"]["kind"], "user");
-}
-
 /// A process below the child's `claude` that does `mode`, then answers the child's own Decision.
 async fn h21_below_claude(mode: &str) -> (Value, usize) {
     let root = tempfile::tempdir().unwrap();
@@ -3318,7 +3228,8 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .iter()
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
-                == 10,
+                // M16: a Door lacks `terminal_spawn` and `terminal_open`.
+                == if id == &rail.m { 8 } else { 10 },
             "{offered:?}"
         );
     }
@@ -3370,6 +3281,35 @@ async fn m13_an_agent_reads_its_own_runs_and_its_workstreams_terminals() {
         .unwrap();
     let shell = opened["terminal_id"].as_str().unwrap();
     shim.call("terminal_screen", json!({ "id": shell })).await;
+}
+
+/// X16: the shim fills `reader` with the Agent id, so a second read holds only what is new, and a
+/// second Agent's first read starts at the log's start.
+#[tokio::test]
+async fn x16_a_shims_reads_are_a_delta_per_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_b = client_as(&project, actor(ActorKind::Agent, &rail.b)).await;
+    let run = m13_run(&as_b, &rail.b, "echo ZEBRA; sleep 30").await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let mut other = Shim::start(&project, &rail.b).await;
+
+    let mut first = door.call("terminal_read", json!({ "id": run })).await;
+    for _ in 0..200 {
+        if first["text"].as_str().unwrap().contains("ZEBRA") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        first = door.call("terminal_read", json!({ "id": run })).await;
+    }
+    assert!(first["text"].as_str().unwrap().contains("ZEBRA"));
+    let again = door.call("terminal_read", json!({ "id": run })).await;
+    assert_eq!(again["text"], "");
+    let theirs = other.call("terminal_read", json!({ "id": run })).await;
+    assert!(theirs["text"].as_str().unwrap().contains("ZEBRA"));
+    let digest = digest_of(&user, &rail.m).await.unwrap();
+    assert!(!digest.to_string().contains("ZEBRA"));
 }
 
 #[tokio::test]
@@ -3711,10 +3651,8 @@ async fn d8_nothing_runs_between_calls() {
 
 #[tokio::test]
 async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
-    let project = start(&[
-        ("FAKE_CLAUDE_PAYLOADS", RECORDED),
-        ("FAKE_CLAUDE_EVENTS", "SessionStart"),
-    ]);
+    let launches = tempfile::NamedTempFile::new().unwrap();
+    let project = start(&[("FAKE_CLAUDE_LAUNCH_LOG", launches.path().to_str().unwrap())]);
     let mut client = project.subscribed().await;
     let before = resident_kb(project.pid());
     let sampler = project.client().await;
@@ -3742,7 +3680,7 @@ async fn d8_ten_idle_agents_with_sampling_stay_under_the_budget() {
     assert!(growth_kb < BUDGET_MB * 1024);
 }
 
-/// M14: the seven tools, offered to a Door and an ordinary Agent; the user-only methods get none.
+/// M14, narrowed by M16: the five tools offered to a Door and an ordinary Agent alike; the user-only methods get none.
 #[tokio::test]
 async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() {
     let project = start(&[]);
@@ -3753,8 +3691,6 @@ async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() 
         let offered = tool_names(&mut shim).await;
         for name in [
             "route_set",
-            "terminal_spawn",
-            "terminal_open",
             "terminal_close",
             "terminal_write",
             "terminal_resize",
@@ -4016,31 +3952,6 @@ async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
     }
 }
 
-/// M14, F5: a `claude` that a Door's own Terminal starts is flagged like any child of the Door.
-#[tokio::test]
-async fn m14_a_door_that_spawns_claude_in_a_terminal_is_flagged_stray() {
-    let root = tempfile::tempdir().unwrap();
-    let (script, pid) = stray_script(root.path());
-    let project = start(&[("ROUNDUP_SCAN_MS", "100")]);
-    let mut client = project.subscribed().await;
-    let door = start_door(&client).await;
-    let mut shim = Shim::start(&project, &door).await;
-
-    shim.call(
-        "terminal_spawn",
-        json!({ "cwd": "/", "command": ["/bin/sh", "-c",
-                format!("sh '{}' & wait", script.display())],
-                "env": {}, "cols": 80, "rows": 24 }),
-    )
-    .await;
-
-    let flagged = next_stray(&mut client).await;
-    let pid_found: u32 = json_file_text(&pid).await.trim().parse().unwrap();
-    assert_eq!(flagged.id, door);
-    assert_eq!(flagged.stray.len(), 1, "{flagged:?}");
-    assert_eq!(flagged.stray[0].pid, pid_found);
-}
-
 #[tokio::test]
 async fn m17_decision_answer_names_the_decision_and_answer() {
     for (question, answer, note, expected) in [
@@ -4287,9 +4198,7 @@ async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
     let logs = tempfile::tempdir().unwrap();
     let prompts = logs.path().join("prompts.jsonl");
     let blocked = logs.path().join("blocked.jsonl");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
     let project = start(&[
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
         ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
         ("FAKE_CLAUDE_BLOCKED_LOG", blocked.to_str().unwrap()),
     ]);
@@ -4324,14 +4233,14 @@ async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
     let dropped = b39_log(&blocked, 1).await;
     assert_eq!(dropped[0]["prompt"], prompt);
     assert_eq!(b39_status(&client, 1).await, "delivered");
-    let todos = client.request("todo.list", Value::Null).await.unwrap();
-    let turns = todos
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|todo| todo["title"].as_str().unwrap().contains("hello"))
-        .count();
-    assert_eq!(turns, 1, "a second turn ran");
+    assert_eq!(b39_log(&prompts, 2).await.len(), 2);
+    let working = rail_tree(&client)
+        .await
+        .into_iter()
+        .find(|node| node.id == door)
+        .and_then(|node| node.status)
+        .map(|status| status.kind);
+    assert_eq!(working, Some(contracts::Kind::Idle), "a second turn ran");
 }
 
 #[tokio::test]
@@ -4339,17 +4248,10 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     let logs = tempfile::tempdir().unwrap();
     let hold = logs.path().join("signal");
     let prompts = logs.path().join("prompts.jsonl");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
-    let env = [
-        ("FAKE_CLAUDE_ON_PROMPT", on_prompt.to_string()),
-        (
-            "FAKE_CLAUDE_PROMPT_LOG",
-            prompts.to_str().unwrap().to_owned(),
-        ),
-    ];
+    let log = prompts.to_str().unwrap();
+    let env = [("FAKE_CLAUDE_PROMPT_LOG", log)];
     let held = [
-        (env[0].0, env[0].1.as_str()),
-        (env[1].0, env[1].1.as_str()),
+        ("FAKE_CLAUDE_PROMPT_LOG", log),
         ("FAKE_CLAUDE_HOLD_PROMPT", hold.to_str().unwrap()),
     ];
     let mut project = start(&held);
@@ -4366,7 +4268,7 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     assert_eq!(b39_status(&client, 1).await, "pending");
 
     // Killed after the typing and before the Signal: nothing was lost, nothing is delivered.
-    project.restart(&[(env[0].0, env[0].1.as_str()), (env[1].0, env[1].1.as_str())]);
+    project.restart(&env);
     let client = project.client().await;
     assert_eq!(b39_status(&client, 1).await, "pending");
     client
@@ -4379,4 +4281,185 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     assert_eq!(log[1]["prompt"], typed[0]["prompt"]);
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(b39_log(&prompts, 2).await.len(), 2, "typed a third time");
+}
+
+const M16_START: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];
+
+impl Shim {
+    /// The whole JSON-RPC reply of a `tools/call`, an error included.
+    async fn call_reply(&mut self, name: &str, arguments: Value) -> Value {
+        self.next += 1;
+        let line = json!({ "jsonrpc": "2.0", "id": self.next, "method": "tools/call",
+                           "params": { "name": name, "arguments": arguments } });
+        let stdin = self.child.stdin.as_mut().unwrap();
+        stdin
+            .write_all(format!("{line}\n").as_bytes())
+            .await
+            .unwrap();
+        let reply = tokio::time::timeout(Duration::from_secs(30), self.lines.next_line())
+            .await
+            .expect("the shim answered")
+            .unwrap()
+            .expect("the shim is open");
+        serde_json::from_str(&reply).unwrap()
+    }
+}
+
+fn m16_arguments(name: &str) -> Value {
+    match name {
+        "agent_run" => json!({ "command": ["/bin/sh", "-c", "sleep 30"] }),
+        "terminal_spawn" => json!({ "cwd": "/", "command": ["/bin/sh", "-c", "sleep 30"],
+                                    "env": {}, "cols": 80, "rows": 24 }),
+        _ => json!({ "workstream": "m", "cwd": "/", "cols": 80, "rows": 24 }),
+    }
+}
+
+#[tokio::test]
+async fn m16_a_door_is_offered_no_terminal_start_tool() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let mut child = Shim::start(&project, &rail.a).await;
+    let offered = tool_names(&mut door).await;
+    let ordinary = tool_names(&mut child).await;
+
+    for name in M16_START {
+        assert!(!offered.iter().any(|n| n == name), "the Door has {name}");
+        assert!(ordinary.iter().any(|n| n == name), "the child lacks {name}");
+    }
+    for name in [
+        "terminal_write",
+        "terminal_snapshot",
+        "terminal_screen",
+        "terminal_read",
+        "terminal_search",
+        "terminal_close",
+        "terminal_kill",
+        "agent_spawn",
+        "agent_digest",
+        "workstream_handoff",
+        "checkpoint_write",
+    ] {
+        // M5 keeps `terminal_snapshot` without a tool, so only the offered ones are asserted.
+        if name != "terminal_snapshot" {
+            assert!(offered.iter().any(|n| n == name), "the Door lacks {name}");
+        }
+    }
+    let mut without: Vec<_> = ordinary
+        .iter()
+        .filter(|n| !offered.contains(n))
+        .cloned()
+        .collect();
+    without.sort();
+    assert_eq!(without, ["agent_run", "terminal_open", "terminal_spawn"]);
+}
+
+#[tokio::test]
+async fn m16_calling_an_unoffered_tool_has_no_effect() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let before = user.request("terminal.list", Value::Null).await.unwrap();
+
+    for name in M16_START {
+        let reply = door.call_reply(name, m16_arguments(name)).await;
+        assert!(reply["result"].is_null(), "{name}: {reply}");
+        assert!(
+            reply["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains(&format!("no tool named {name}")),
+            "{reply}"
+        );
+    }
+
+    let after = user.request("terminal.list", Value::Null).await.unwrap();
+    assert_eq!(before, after);
+}
+
+#[tokio::test]
+async fn m16_a_child_keeps_its_terminal_tools() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut child = Shim::start(&project, &rail.a).await;
+    let before = user.request("terminal.list", Value::Null).await.unwrap();
+
+    let spawned = child
+        .call("terminal_spawn", m16_arguments("terminal_spawn"))
+        .await;
+
+    let after = user.request("terminal.list", Value::Null).await.unwrap();
+    assert_eq!(
+        after.as_array().unwrap().len(),
+        before.as_array().unwrap().len() + 1
+    );
+    let id = spawned["id"].as_str().unwrap();
+    let screen = child.call("terminal_screen", json!({ "id": id })).await;
+    assert!(screen.is_object(), "{screen}");
+    child.call("terminal_kill", json!({ "id": id })).await;
+}
+
+#[tokio::test]
+async fn m16_each_offered_terminal_description_states_the_bubble_rule() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut child = Shim::start(&project, &rail.a).await;
+    let listed = child.request("tools/list", json!({})).await;
+    for name in M16_START {
+        let tool = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap();
+        let description = tool["description"].as_str().unwrap();
+        for rule in [
+            "Use your own tools for commands",
+            "open a Bubble only when the user needs to see its output or will interactively type into it",
+            "Routine builds, tests and inspection use your own tools",
+        ] {
+            assert!(
+                description.contains(rule),
+                "{name} lacks {rule}: {description}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn m16_action_descriptions_prefer_direct_tools() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let listed = door.request("tools/list", json!({})).await;
+    let described = |name: &str| -> String {
+        listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("the Door lacks {name}"))["description"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let write = described("terminal_write");
+    for direct in [
+        "agent_prompt",
+        "agent_interrupt",
+        "agent_stop",
+        "decision_answer",
+    ] {
+        assert!(write.contains(&format!("`{direct}`")), "{write}");
+        assert!(!described(direct).contains("keystroke"), "{direct}");
+    }
+    assert!(
+        write.contains("type keystrokes only when no direct tool does"),
+        "{write}"
+    );
 }

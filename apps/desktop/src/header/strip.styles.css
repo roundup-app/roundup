@@ -115,8 +115,6 @@
 }
 
 .tab-tip {
-  position: fixed;
-  z-index: 1;
   padding: var(--space-1) var(--space-2);
   color: var(--grey);
   white-space: nowrap;
@@ -144,9 +142,11 @@
   margin-left: var(--space-1);
 }
 
-.strip-edge {
+.strip-edge.strip-edge {
   display: flex;
   flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
   height: 100%;
   align-items: center;
   justify-content: center;

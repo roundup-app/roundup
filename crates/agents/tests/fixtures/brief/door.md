@@ -24,6 +24,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `decision_list`: see the open permission requests and `ask_user` questions of the Agents below you.
 - `decision_answer`: answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you.
 - `agent_context`: ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved.
+- `agent_wake`: ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking.
 - `agent_set_order`: replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.
 - `message_send`: send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal.
 - `message_get`: read one Message you sent or received.
@@ -57,13 +58,10 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `project_open`: ask the App to open the Project at an absolute folder path; the answer means asked, not done.
 - `project_rename`: ask the App to give this Project another name; the answer means asked, not done.
 - `agent_spawn`: start a child Agent in a folder of this Project, with an `order` (a `title` of at most six words, the one-sentence ask, the done condition, the limits) and a `prompt` (the working detail); it becomes your child.
-- `agent_run`: run a command in a Terminal of your own; the answer holds its terminal_id; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools.
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.
 - `terminal_read`: read a Terminal's output from the `after` offset you got last, as plain text; its `next` is the offset to give the next time.
 - `terminal_search`: search a Terminal's output for a regular expression and get only the matching lines with their offsets.
 - `route_set`: set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set.
-- `terminal_spawn`: start a program in a Terminal of your own; close it with `terminal_close` when you are done; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools.
-- `terminal_open`: start a login shell in a Terminal owned by a Workstream of yours; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools.
 - `terminal_close`: stop a Terminal you or your Reach own and forget it.
 - `terminal_write`: type base64 `data` into a Terminal you or your Reach own.
 - `terminal_resize`: resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed.
@@ -72,6 +70,8 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_digest`: ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.
 - `workstream_handoff`: answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to.
 - `checkpoint_write`: mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made.
+- `workstream_rewindPlan`: read what rewinding your children to one of your Checkpoints would do, changing nothing.
+- `workstream_rewind`: take one child or every child back to one of your Checkpoints, choosing whether the files go back too.
 
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. Never read from 0 again; every answer is capped, and says `truncated` when more is left.
 

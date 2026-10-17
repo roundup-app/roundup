@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -12,12 +13,8 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeAll(async () => {
-  real = await startRealDaemon({
-    FAKE_CLAUDE_DOOR_TOOLS: JSON.stringify([
-      { name: "todo_create", arguments: { title: "ship j4" } },
-      { name: "pad_create", arguments: { name: "j4-notes", text: "" } },
-    ]),
-  });
+  // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u347_door_shelf.json"));
 }, 120_000);
 
 afterAll(async () => {
@@ -86,5 +83,6 @@ describe("u347 a Workstream's Shelf shows its own Todos and Pads on the real Dae
     fireEvent.click(screen.getByRole("button", { name: "Show all Workstreams" }));
     await waitFor(() => expect(todos.textContent).toContain("ship j4"));
     expect((await list("Pads")).textContent).toContain("j4-notes");
+    await real.model!.assertMatched();
   }, 180_000);
 });

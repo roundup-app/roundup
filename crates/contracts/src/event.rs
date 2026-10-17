@@ -54,6 +54,8 @@ pub enum EventData {
     RailChanged,
     #[serde(rename = "checkpoint.written")]
     CheckpointWritten(checkpoint::Checkpoint),
+    #[serde(rename = "workstream.rewound")]
+    WorkstreamRewound(workstream::Rewound),
     #[serde(rename = "decision.opened")]
     DecisionOpened(Box<decision::Decision>),
     #[serde(rename = "decision.cleared")]

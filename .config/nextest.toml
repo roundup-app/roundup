@@ -161,5 +161,13 @@ binary_id(=agents::launch)
 max-threads = 4
 
 [[profile.default.overrides]]
-filter = 'package(rup) & (binary(real_claude) | binary(o12) | (binary(e2e) & test(/^(e11_a_tool_result_matches_the_next_turn|b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp|a33_an_idle_agent_with_a_blocked_todo_reads_blocked|a33_completing_the_blocker_reads_idle|a33_deleting_the_todo_reads_idle|d3_provenance_names_the_agent_that_created_the_todo|a16_removing_an_agent_leaves_its_pads_and_todos_untouched|t8_creator_survives_removing_the_agent_that_made_the_todo)$/)))'
+filter = '(package(desktop) & binary(d9_app)) | package(rup) & (binary(real_claude) | binary(o12) | binary(a35) | binary(d9) | (binary(e2e) & test(/^(e11_a_tool_result_matches_the_next_turn|b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp|a33_an_idle_agent_with_a_blocked_todo_reads_blocked|a33_completing_the_blocker_reads_idle|a33_deleting_the_todo_reads_idle|d3_provenance_names_the_agent_that_created_the_todo|a16_removing_an_agent_leaves_its_pads_and_todos_untouched|t8_creator_survives_removing_the_agent_that_made_the_todo)$/)))'
 test-group = 'real-claude'
+
+# E10 E11: a stopped Door's start must acknowledge within 8 s; one real Claude at a time keeps it clear of load.
+[test-groups.real-claude-door]
+max-threads = 1
+
+[[profile.default.overrides]]
+filter = 'package(rupd) & binary(b21_stopped_door) & not test(n7_launch_sites_clean_on_success_and_failure)'
+test-group = 'real-claude-door'
