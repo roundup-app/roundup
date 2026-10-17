@@ -31,13 +31,23 @@ const load = async (width: number, height: number) => {
   await page.until(`() => Boolean(document.querySelector(".rail-actions button"))`);
 };
 
-const DRAG = `(from, to) => new Promise((resolve) => {
-  const edge = document.querySelector('[aria-label="Resize Rail"]');
-  const fire = (type, x) => edge.dispatchEvent(new PointerEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true, pointerId: 1 }));
-  fire("pointerdown", from);
-  fire("pointermove", to);
-  requestAnimationFrame(() => { fire("pointerup", to); resolve(document.querySelector(".rail").getBoundingClientRect().width); });
-})`;
+// Real pointer input: Ark's Splitter ignores synthetic events that carry no active pointer. The drag moves the edge by `to - from`.
+const dragEdge = async (label: string, panel: string, from: number, to: number): Promise<number> => {
+  const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('[aria-label="${label}"]').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: 200 }; }`);
+
+  await page.down(at.x, at.y);
+  await page.pointer("move", at.x + (to - from) / 2, at.y);
+  await page.pointer("move", at.x + (to - from), at.y);
+  await page.release(at.x + (to - from), at.y);
+  await page.call(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))`);
+
+  return page.call<number>(`() => document.querySelector("${panel}").getBoundingClientRect().width`);
+};
+
+const railDrag = (from: number, to: number) => dragEdge("Resize Rail", ".rail", from, to);
+
+const shelfDrag = (from: number, to: number) => dragEdge("Resize work items", ".shelf", from, to);
+
 
 const GEOMETRY = `() => {
   const rail = document.querySelector(".rail").getBoundingClientRect();
@@ -66,14 +76,14 @@ run("u389 to u391 in the rendered page", () => {
 
   it("u389_a_drag_sets_the_width_and_clamps", async () => {
     await load(1280, 800);
-    expect(await page.call<number>(`() => (${DRAG})(288, 360)`)).toBe(360);
-    expect(await page.call<number>(`() => (${DRAG})(360, 900)`)).toBe(480);
-    expect(await page.call<number>(`() => (${DRAG})(480, 10)`)).toBe(252);
+    expect(await railDrag(288, 360)).toBe(360);
+    expect(await railDrag(360, 900)).toBe(480);
+    expect(await railDrag(480, 10)).toBe(252);
   });
 
   it("u389_the_maximum_is_480_at_1280", async () => {
     await load(1280, 800);
-    expect(await page.call<number>(`() => (${DRAG})(288, 900)`)).toBe(480);
+    expect(await railDrag(288, 900)).toBe(480);
   });
 
   it("u389_the_edge_is_8px_centred_on_the_hairline", async () => {
@@ -134,7 +144,7 @@ run("u389 to u391 in the rendered page", () => {
   for (const target of [252, 288, 360, 480]) {
     it(`u389_tree_40_fits_at_every_width at ${target}`, async () => {
       await load(1280, 800);
-      expect(await page.call<number>(`() => (${DRAG})(288, ${target})`)).toBe(target);
+      expect(await railDrag(288, target)).toBe(target);
 
       const fit = await page.call<{ sideways: boolean; rail: boolean; clipped: number; overlap: number; rows: number }>(FIT);
 
@@ -142,14 +152,6 @@ run("u389 to u391 in the rendered page", () => {
       expect([fit.sideways, fit.rail, fit.clipped, fit.overlap]).toEqual([false, false, 0, 0]);
     });
   }
-
-  const SHELF_DRAG = `(from, to) => new Promise((resolve) => {
-    const edge = document.querySelector('[aria-label="Resize work items"]');
-    const fire = (type, x) => edge.dispatchEvent(new PointerEvent(type, { clientX: x, button: 0, bubbles: true, cancelable: true, pointerId: 1 }));
-    fire("pointerdown", from);
-    fire("pointermove", to);
-    requestAnimationFrame(() => { fire("pointerup", to); resolve(document.querySelector(".shelf").getBoundingClientRect().width); });
-  })`;
 
   const shelfLoad = async () => {
     await load(1280, 800);
@@ -162,7 +164,7 @@ run("u389 to u391 in the rendered page", () => {
     const offset = `() => Math.abs(document.querySelector(".strip").getBoundingClientRect().right - document.querySelector(".window-title").getBoundingClientRect().left)`;
 
     expect(await page.call<number>(offset)).toBeLessThanOrEqual(1);
-    expect(await page.call<number>(`() => (${SHELF_DRAG})(960, 800)`)).toBe(480);
+    expect(await shelfDrag(960, 800)).toBe(480);
     expect(await page.call<number>(offset)).toBeLessThanOrEqual(1);
   });
 
@@ -195,7 +197,7 @@ run("u389 to u391 in the rendered page", () => {
     await page.call(WORST);
 
     for (const [from, to, expected] of [[960, 1040, 240], [1040, 720, 560]] as const) {
-      expect(await page.call<number>(`() => (${SHELF_DRAG})(${from}, ${to})`)).toBe(expected);
+      expect(await shelfDrag(from, to)).toBe(expected);
 
       for (const list of ["todos", "pads"]) {
         const read = await page.call<{ rows: number; shelf: number; scrolling: number }>(SIDEWAYS, list);
