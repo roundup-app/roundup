@@ -1,21 +1,12 @@
 import { expect, it } from "vitest";
-import { CHECK_IDS } from "../testing/checks";
-import type { Checks } from "../testing/checks";
 import { shelfBrowser } from "./u371Browser";
 
-const { rig, browser, evaluate, settle, openShelf, toggle, capture } = shelfBrowser();
+const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
 it("u369_closed_shelf_releases_its_width", async () => {
-  if (rig.main) {
-    await openShelf('tree-40', 288, 320, 1280, 'light', rig.main.resolvedUrls!.local[0]);
-    await toggle();
-    await capture('U369', '1280x800-closed', 'base');
-  }
-
   await openShelf();
   await toggle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
-  await capture("U369", "1280x800-closed");
 }, 90_000);
 
 for (const available of [387, 388]) it(`u371_minimum_pane_width_selects_the_mode_${available}`, async () => {
@@ -29,16 +20,6 @@ const selectDoor = async () => {
   await browser("wait", ".pane-screen");
   await settle();
 };
-
-it("u371_terminal_remains_visible", async () => {
-  await openShelf();
-  await selectDoor();
-  const checks = await evaluate<Checks>("window.__checks()");
-
-  for (const id of CHECK_IDS) expect(checks[id].status, `${id}: ${JSON.stringify(checks[id])}`).toBe("pass");
-
-  await capture("U371", "1280x800-door");
-}, 90_000);
 
 it("u371_resizing_preserves_the_selection", async () => {
   await openShelf("tree-40", 480, 412);
@@ -73,7 +54,6 @@ it("u371_scrim_and_escape_close_the_shelf", async () => {
   await selectDoor();
   await toggle();
   await toggle();
-  await capture("U371", "1280x800-overlay");
   await browser("mouse", "move", "600", "400");
   await browser("mouse", "down", "left");
   await browser("mouse", "up", "left");

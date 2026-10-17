@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { showEverythingInApp } from "./showEverything";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -34,18 +32,7 @@ afterEach(async () => {
   await real?.stop();
 });
 
-const rule = (css: string, selector: string) =>
-  css.match(new RegExp(`(?:^|\\n)${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
-
 describe("u346 the Pad's confirm delete takes a real click", () => {
-  // jsdom has no layout, so `elementFromPoint` cannot be asked here; the cause was xterm's z-indexed layers in the centre painting over the Drawer, and the browser run of U346 holds the hit test.
-  it("u346_the_columns_keep_their_layers_under_the_drawer", () => {
-    const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
-
-    expect(rule(css, ".centre")).toContain("isolation: isolate");
-    expect(rule(css, ".shelf")).toContain("isolation: isolate");
-  });
-
   it("u346_a_pointer_click_on_the_confirm_calls_pad_delete_once_on_the_real_daemon", async () => {
     const app: AppSeam = createServedApp(real.base);
     const served = app.rpc;

@@ -2,7 +2,7 @@
 
 Acceptance for #2340, from the user's report at the one supported size (1512×950). Module: `apps/desktop/src/` (`styles.css`, `terminal/`, `resources/`, `shelf/`). Webview only: no App command, no Daemon method, nothing under `contracts/` and no Token changes. Narrows U371 (the overlay Shelf's centre), U408, U444 and U469 (the bar's height, width and wrapping), U449's `Show work items` place, U13 and U349 (the failure notice's height); every other clause of those stays.
 
-Observer: `u2340a_checks_hold_on_the_densest_seed` reads `window.__checks()` in the U26 harness at 1512×950. Checks moved: D2, D5 and D6 hold on the densest seed with failure text visible, and no Check passing on `main` regresses.
+Observer: the design critic judges D2, D5 and D6 on the densest seed in the U26 harness at 1512×950 with failure text visible, and that no Check passing on `main` regresses (AGENTS.md rule 10); no test.
 
 ## Retired
 

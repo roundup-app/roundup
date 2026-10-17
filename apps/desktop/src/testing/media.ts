@@ -37,13 +37,3 @@ export const underSettings = (css: string, settings: Setting[]): string => {
 
   return out + css.slice(at);
 };
-
-/** Every custom property the `:root` rules of `css` set, a later rule winning. */
-export const rootTokensOf = (css: string): ReadonlyMap<string, string> => {
-  const tokens = new Map<string, string>();
-
-  for (const root of css.matchAll(/:root\s*\{([^}]*)\}/g))
-    for (const declaration of root[1]!.matchAll(/--([\w-]+):\s*([^;\s][^;]*);/g)) tokens.set(declaration[1]!, declaration[2]!.trim());
-
-  return tokens;
-};

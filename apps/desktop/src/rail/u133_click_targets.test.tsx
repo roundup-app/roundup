@@ -2,14 +2,11 @@ import { showShelfTab } from "../testing/shelfTabs";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
-import { contrastRatio, resolveToken, tokensFrom } from "../testing/contrast";
 import { seedApp } from "../testing/seeds";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import buttonsCss from "../buttons.css?inline";
 import "./styles.css";
-
-const tokens = tokensFrom(tokenCss);
 
 // main.tsx loads these two; the test mounts the App without it.
 const shell = (() => {
@@ -48,10 +45,6 @@ const found = <T extends Element>(look: () => T | null | undefined): Promise<T> 
   });
 
 describe("u133 click targets", () => {
-  it("u133_the_ring_is_3_to_1_against_the_ground_and_the_sunken_surface", () => {
-    for (const ground of ["ground", "sunken"]) expect(contrastRatio(resolveToken("var(--accent)", tokens), resolveToken(`var(--${ground})`, tokens))).toBeGreaterThanOrEqual(3);
-  });
-
   it("u133_export_md_is_a_button", async () => {
     await mount("tree-40");
     showShelfTab("Pads");

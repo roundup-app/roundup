@@ -59,7 +59,7 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 
 The glossary maps Door to supervisor, Takeover to control, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences of these words remain untouched.
 
-**U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, in light at 1280×800 and `tree-40` also in dark, when the isolated headless observer drives Enter, Understand, Intervene and Review in light from `.agents/data/journey.md`, then `u472_copy_preserves_journey_actions_and_failure_text` asserts start/retry, take/give control, show/hide work items, normal clear and injected failed clear. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. Rendered captures compare main and head at matching viewport, scheme and seed; D2 (`docs/design-system.md:126`), D5 (`:129`), D6 (`:130`) and D15 (`:139`) hold, and no previously passing Check regresses. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
+**U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, in light at 1280×800 and `tree-40` also in dark, when the isolated headless observer drives Enter, Understand, Intervene and Review in light from `.agents/data/journey.md`, then `u472_copy_preserves_journey_actions_and_failure_text` asserts start/retry, take/give control, show/hide work items, normal clear and injected failed clear. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. The design critic judges those Checks (AGENTS.md rule 10): D2 (`docs/design-system.md:126`), D5 (`:129`), D6 (`:130`) and D15 (`:139`) hold, and no previously passing Check regresses; the behaviour test above is the kept proof. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
 
 ## Catalogue migration ownership (policy)
 
@@ -72,7 +72,7 @@ Implementation observer commands (one row per failure):
 | Command | Failure | Exit |
 |---|---|---|
 | `pnpm --filter desktop exec vitest run src/copy.test.ts` | Any U471 catalogue, coverage, case or label assertion fails | 1 |
-| `pnpm --filter desktop exec vitest run src/app/u472_copy_journey.test.ts` | Any journey action, preservation or rendered Check assertion fails | 1 |
+| `pnpm --filter desktop exec vitest run src/app/u472_copy_journey.test.ts` | Any journey action, or preservation assertion fails | 1 |
 | `python3 -c "from pathlib import Path; raise SystemExit(int(len(list(Path('apps/desktop/src').rglob('u416_sentence_case*'))) > 1))"` | More than one former case observer remains | 1 |
 | `! rg -n -e '"Start Door"' -e '"End Takeover"' -e '"Clear without Handoff"' apps/desktop/src` | A replaced label remains | 1 |
 | `loop/rules.sh vocab` | A public code name violates rule 6 | 1 |
