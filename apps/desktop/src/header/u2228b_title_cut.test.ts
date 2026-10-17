@@ -128,6 +128,7 @@ run("u2228b the window title keeps the name's start and end", () => {
       const after = await page.call<Checks>(`() => window.__checks()`);
 
       for (const id of CHECK_IDS) if (before[id].status === "pass") expect(after[id].status, id).toBe("pass");
+
       for (const id of ["D2", "D5", "D6"] as const) expect(after[id].status, id).toBe("pass");
     });
   }
