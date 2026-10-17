@@ -28,6 +28,28 @@ describe("u491a Shelf questions and navigation", () => {
     return [one!, two!] as const;
   };
 
+  it("u490a_pointer_reorders_with_the_title_tooltip_open", async () => {
+    const [one, two, three] = await rows(lane);
+    await lane.browser("hover", `.shelf [data-id="${three}"] .todo-row-button`);
+    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'third')");
+    const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
+      const point = id => { const rect = document.querySelector('.shelf [data-id="' + id + '"] .todo-row-button').getBoundingClientRect(); return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }; };
+      return { from: point(${three}), to: point(${one}) };
+    })()`);
+
+    await lane.browser("mouse", "move", String(points.from.x), String(points.from.y));
+    await lane.browser("mouse", "down");
+
+    for (let step = 1; step <= 8; step++) await lane.browser("mouse", "move", String(Math.round(points.from.x + (points.to.x - points.from.x) * step / 8)), String(Math.round(points.from.y + (points.to.y - points.from.y) * step / 8)));
+
+    await lane.browser("mouse", "up");
+    await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${three}'`);
+    expect(await rows(lane)).toEqual([three, one, two]);
+    expect((await lane.calls("todo.reorder")).map(call => call.params)).toEqual([{ id: three, before: one }]);
+    expect(await lane.evaluate<boolean>("!!document.querySelector('.drawer[data-open=\"true\"]')")).toBe(false);
+    expect(await lane.evaluate<boolean>(`document.activeElement === document.querySelector('.shelf [data-id="${three}"] .todo-row-button')`)).toBe(true);
+  }, 120_000);
+
   it("u490a_tab_space_enter_reorders", async () => {
     const [one, two, three] = await rows(lane);
 
