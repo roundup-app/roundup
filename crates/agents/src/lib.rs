@@ -16,7 +16,7 @@ use contracts::agent::{
     SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent, WorktreeState,
 };
 use contracts::decision::{AnswerParams, CaptureParams, Outcome, PermissionParams};
-use contracts::project::{ProjectModels, ProjectSettings, Worktrees};
+use contracts::project::{Mcp, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
@@ -35,6 +35,7 @@ mod models;
 pub mod placement;
 pub use asks::Asks;
 pub use models::labelled as model_choices;
+pub use models::mcp_on;
 mod name;
 mod order;
 mod peer;
