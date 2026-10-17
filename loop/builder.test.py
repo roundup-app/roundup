@@ -272,7 +272,7 @@ else:
 
 
 class Engine(unittest.TestCase):
-    def run_engine(self, path, item, claude_mode='works', codex_mode='works'):
+    def run_engine(self, path, item, claude_mode='works', codex_mode='works', login=Codex.LOGIN):
         """`builder.engine` for the work item `item` with fake `claude`, `codex` and `gh` on PATH: the step outputs and
         what each engine saw."""
         bin = Path(path, 'bin')
@@ -284,12 +284,14 @@ class Engine(unittest.TestCase):
             tool.chmod(0o755)
         Path(path, 'temp').mkdir()
         output = Path(path, 'output')
-        with patch.dict(os.environ, CODEX_AUTH=Codex.LOGIN, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode, CODEX_MODE=codex_mode, ISSUE=str(item),
+        with patch.dict(os.environ, CODEX_AUTH=login, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode, CODEX_MODE=codex_mode,
+                        ISSUE=str(item),
                         RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
                         PATH=f"{bin}:{os.environ['PATH']}"), \
-                patch.object(builder, 'app_token', return_value='fresh'), redirect_stdout(io.StringIO()), \
+                patch.object(builder, 'app_token', return_value='fresh'), redirect_stdout(io.StringIO()) as log, \
                 redirect_stderr(io.StringIO()):
             builder.engine('Build U1.', '{"type":"object"}', output)
+        self.log = log.getvalue()
         seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None
         return output.read_text(), seen('seen-claude'), seen('seen')
 
@@ -323,6 +325,13 @@ class Engine(unittest.TestCase):
         self.assertIsNone(claude['env']['CODEX_AUTH'])
         self.assertEqual(output.count('execution_file='), 2)
         self.assertIn('{"ask": "from claude"}', output)
+
+    def test_l23_a_broken_codex_login_is_a_setup_failure_that_falls_back_to_claude_code_and_is_annotated(self):
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 8, login='')
+        self.assertIn('::error::Codex did not start: CODEX_AUTH holds no ChatGPT login', self.log)
+        self.assertIn('{"ask": "from claude"}', output)
+        self.assertIsNone(codex)
 
 
 def invalid_row(number, **changes):
@@ -743,6 +752,11 @@ class Fix(unittest.TestCase):
             with GitHub(view=view):
                 self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
 
+    def test_l82_a_fix_task_reports_the_issue_its_pr_refs_so_the_build_engine_runs_again(self):
+        with tempfile.TemporaryDirectory() as path, GitHub(view=pr(body='Refs #5\nScenarios: U1\n', statusCheckRollup=FAILED)):
+            builder.fix_task(9, HEAD, 'check', 0, f'{path}/out')
+            self.assertIn('issue=5\n', Path(path, 'out').read_text())
+
     def test_l82_the_fourth_cause_hands_the_pr_to_its_issue_and_asks_nobody(self):
         attempts = [note(f'<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/{n} answered `{"review" if n == 1 else "check"}`.', ago=300 - n * 100) for n in (1, 2, 3)]
         commits = [dict(messageHeadline=f'fix {n}', committedDate=stamp(300 - n * 100 + 10)) for n in (1, 2, 3)]
@@ -843,7 +857,7 @@ class Plumbing(unittest.TestCase):
         with tempfile.NamedTemporaryFile('r') as output, GitHub(view=view, notes=list(notes), history=history,
                                                                  steps=steps, labels=READY) as github:
             task = builder.fix_task(9, HEAD, cause, run_id, output.name)
-            return task, Path(output.name).read_text() == 'plumbing=true\n', github
+            return task, Path(output.name).read_text() == 'plumbing=true\nissue=1\n', github
 
     def test_l82_a_conflict_runs_past_three_attempts_and_closes_nothing(self):
         task, plumbing, github = self.start(pr(**CONFLICTED), 'conflict', [note(PLUMBED)] * builder.ATTEMPTS)
