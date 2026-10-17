@@ -260,7 +260,7 @@ export const copy = {
   addANoteOptional: "Add a note (optional)",
   nothingSelected: "Nothing selected",
   sentTo: (value1: CopyValue) => `Sent to ${value1}`,
-  couldNotSendTo: (value1: CopyValue, value2: CopyValue) => `✕ Could not send to ${value1}: ${value2}`,
+  couldNotSendTo: (value1: CopyValue, value2: CopyValue) => `Could not send to ${value1}: ${value2}`,
   creatingWorkstream: "Creating Workstream…",
   noWorkstreamYet: "No Workstream yet",
   newWorkstreamWord: " New Workstream",

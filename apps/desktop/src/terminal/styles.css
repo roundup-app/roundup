@@ -224,6 +224,7 @@
   padding: var(--space-2);
 }
 
-.send-to-agent-note:hover {
-  background-color: var(--hover);
+.send-to-agent-action {
+  align-self: flex-start;
+  color: var(--text);
 }

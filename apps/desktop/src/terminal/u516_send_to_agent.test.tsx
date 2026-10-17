@@ -16,7 +16,7 @@ it("u516_the_webview_sends_one_message_and_never_interrupts_or_retries", async (
 
   view.emulator.select("ls");
   await send();
-  await screen.findByText("✕ Could not send to Alpha: Alpha has 32 messages waiting");
+  await screen.findByText("Could not send to Alpha: Alpha has 32 messages waiting");
   expect(view.app.calls.map((call) => call.method).filter((method) => method.startsWith("agent.") || method === "terminal.write")).toEqual([]);
   expect(view.calls()).toEqual([{ to: "a", kind: "note", body: "```\nls\n```", replyTo: null }]);
 });
@@ -59,7 +59,7 @@ it("u516_a_rejected_send_says_why_and_keeps_the_selection", async () => {
   view.emulator.select("ls");
   fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: "keep me" } });
   await send();
-  await screen.findByRole("button", { name: "✕ Could not send to Alpha: receiver ended" });
+  await screen.findByRole("button", { name: "Could not send to Alpha: receiver ended" });
   expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" }).value).toBe("keep me");
   expect(view.emulator.selection()).toBe("ls");
   fail = false;

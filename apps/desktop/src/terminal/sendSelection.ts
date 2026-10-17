@@ -111,6 +111,8 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     /** The control shows by the selection once the pointer is up and the user has not sent or dismissed it. */
     open: () => selected() && !selecting() && !dismissed() && anchor() !== null,
     pointer: setSelecting,
+    /** Escape in the control: it closes until the selection changes. */
+    dismiss: () => setDismissed(true),
     focusNote,
     /** The context-menu item and `⇧⌘A`: the same control, with the keyboard in its note. */
     openNote: () => {

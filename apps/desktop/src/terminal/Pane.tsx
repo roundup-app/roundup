@@ -460,7 +460,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             </Menu.Positioner>
           </Portal></Show>
         </Menu.Root>
-        <SendToAgent send={sending} />
+        <SendToAgent send={sending} focusTerminal={focusTerminal} />
         <Show when={selected() === null && notice() === null}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">

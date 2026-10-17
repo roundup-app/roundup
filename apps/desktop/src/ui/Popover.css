@@ -3,6 +3,6 @@
   background-color: var(--sunken);
   border-radius: var(--radius-drawer);
   padding: var(--space-4);
-  box-shadow: var(--shadow-drawer);
+  border: 1px solid var(--hairline);
   z-index: 3;
 }
