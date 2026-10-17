@@ -148,6 +148,9 @@ The git worktree roundup makes for one Agent when the Project's `worktrees` sett
 **Worktree state**:
 How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`).
 
+**Changed file**:
+A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).
+
 **Base**:
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
 
