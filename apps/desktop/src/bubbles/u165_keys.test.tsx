@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { leaderKey } from "../keys/leaderFixture";
 import { bubbleNames, bubbleCalls, bubbleChord, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => {
@@ -8,6 +9,11 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+const focusBubble = (id: string): void => {
+  fireEvent.click(document.querySelector(`.terminal-tab[data-bubble="${id}"]`)!);
+  bubble(id).querySelector<HTMLElement>("button")?.focus();
+};
 
 const bubble = (id: string): HTMLElement => document.querySelector<HTMLElement>(`.bubble[data-bubble="${id}"]`)!;
 
@@ -64,50 +70,44 @@ describe("u165 the keys for bubbles", () => {
     expect(document.body.textContent).not.toContain("terminal");
   });
 
-  it("u165_cmd_b_cycles_bubbles_then_the_pane_and_shift_goes_back", async () => {
-    await mountBubbles("a");
-    await waitFor(() => expect(bubbleNames()).toEqual(["cargo test", "zsh"]));
-    const at = () => document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble") ?? "pane";
-
-    bubbleChord("b");
-    expect(at()).toBe("1");
-    bubbleChord("b");
-    expect(at()).toBe("2");
-    bubbleChord("b");
-    expect(at()).toBe("pane");
-    bubbleChord("b", { shiftKey: true });
-    expect(at()).toBe("2");
-    bubbleChord("b", { shiftKey: true });
-    expect(at()).toBe("1");
-  });
-
-  it("u165_cmd_dot_minimises_and_restores_the_focused_bubble", async () => {
+  it("u165_leader_m_minimises_and_restores_the_focused_bubble", async () => {
     await mountBubbles("a");
     await waitFor(() => expect(bubble("1")).not.toBeNull());
-    bubbleChord("b");
+    focusBubble("1");
 
-    bubbleChord(".");
+    leaderKey("KeyM");
     expect(bubble("1").hidden).toBe(true);
     await waitFor(() => expect(document.activeElement?.classList.contains("terminal-tab")).toBe(true));
-    bubbleChord(".");
+    leaderKey("KeyM");
     expect(bubble("1").hidden).toBe(false);
   });
 
-  it("u165_shift_cmd_backspace_closes_with_one_call_and_returns_focus", async () => {
+  it("u165_leader_w_closes_with_one_call_and_returns_focus", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => expect(bubble("1")).not.toBeNull());
     const pane = document.querySelector<HTMLElement>(".pane-screen [tabindex]");
 
     pane?.focus();
-    bubbleChord("b");
+    focusBubble("1");
     expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("1");
-    bubbleChord("Backspace", { shiftKey: true });
+    leaderKey("KeyW");
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
     expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "1" }]);
     await waitFor(() => expect(document.activeElement).toBe(pane ?? document.body));
   });
 
-  it("u165_other_keys_reach_the_terminal_and_help_lists_the_bubble_chords", async () => {
+  it("u165_leader_m_and_w_with_no_focused_bubble_do_nothing", async () => {
+    const mounted = await mountBubbles("a");
+    await waitFor(() => expect(bubble("1")).not.toBeNull());
+    document.querySelector<HTMLElement>(".pane-screen [tabindex]")?.focus();
+
+    leaderKey("KeyM");
+    leaderKey("KeyW");
+    expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([]);
+    expect(bubble("1")).not.toBeNull();
+  });
+
+  it("u165_other_keys_reach_the_terminal_and_help_lists_the_bubble_chord", async () => {
     const { CHORDS } = await import("../keys/chords");
 
     await mountBubbles("a");
@@ -116,7 +116,7 @@ describe("u165 the keys for bubbles", () => {
 
     bubble("1").dispatchEvent(escape);
     expect(escape.defaultPrevented).toBe(false);
-    expect(CHORDS.slice(2, 7).map((entry) => entry.keys)).toEqual(["⇧⌘N", "⌘T", "⌘B", "⌘.", "⇧⌘⌫"]);
+    expect(CHORDS.slice(0, 3).map((entry) => entry.keys)).toEqual(["⌘N", "⇧⌘N", "⌘T"]);
     fireEvent.keyDown(document.body, { key: "x" });
   });
 });

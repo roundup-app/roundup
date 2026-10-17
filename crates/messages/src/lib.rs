@@ -980,6 +980,8 @@ fn start_listener(inner: &Arc<Inner>) {
 fn spawn_bound_clock(inner: std::sync::Weak<Inner>) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
+        // A stalled clock (a suspended host, a paused test clock) owes one pass, not one per missed tick.
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             tick.tick().await;
             let Some(inner) = inner.upgrade() else {

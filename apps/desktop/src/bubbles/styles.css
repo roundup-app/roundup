@@ -46,9 +46,8 @@
   background: var(--ground);
   border-radius: var(--radius-drawer);
   box-shadow: var(--shadow-drawer);
-  padding: var(--space-3);
-  padding-block-start: var(--space-1);
-  gap: var(--space-2);
+  /* The bubble is the bar plus the Terminal, an even small inset around the Terminal; the bar meets it. */
+  padding: var(--space-1);
   pointer-events: auto;
 }
 
@@ -72,6 +71,7 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: calc(var(--space-5) + var(--space-1));
+  padding-inline: var(--space-2);
   cursor: grab;
 }
 
@@ -90,15 +90,20 @@
   border-radius: var(--radius-drawer);
   /* 28 px bar = --space-5 + --space-1; the dot is 10 px. The disc follows the button's ink (hover moves it, press dims it). */
   background: currentColor;
-  font-size: var(--text-caption);
-  line-height: 1;
 }
 
-/* As a macOS panel does: while the bar is hovered or a dot has focus, each dot shows its glyph so Close reads apart from Minimise before the press. */
-.bubble-header:hover .bubble-dot::after,
-.bubble-header:focus-within .bubble-dot::after {
-  content: attr(data-glyph);
+/* As a macOS panel does: while the bar is hovered or a dot has focus, each dot shows its glyph so Close reads apart from Minimise before the press. The glyph is a 24-unit Icon drawn about its own centre, so the grid centres it on the dot. */
+.bubble-dot .icon {
+  display: block;
+  width: var(--space-2);
+  height: var(--space-2);
   color: var(--ground);
+  opacity: 0;
+}
+
+.bubble-header:hover .bubble-dot .icon,
+.bubble-header:focus-within .bubble-dot .icon {
+  opacity: 1;
 }
 
 .bubble-name {
@@ -126,17 +131,17 @@
   background: var(--accent);
 }
 
+/* The fit leaves under one cell spare; the body paints it as the Terminal's ground. FitAddon always takes xterm's 14 px scrollbar from the width, so the host is that much wider than the body, which clips it: the grid then ends within a cell of the inset. */
 .bubble-body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  background: var(--ground);
 }
 
-/* The emulator's host fills the body but the fit leaves under one row spare: it goes under the header, so the bottom inset stays `--space-3`. */
 .bubble-body > div {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  height: 100%;
+  width: calc(100% + 14px);
 }
 
 /* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */

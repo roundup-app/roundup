@@ -95,14 +95,15 @@ impl Agents {
     }
 
     /// A32: start the Door's next Iteration as a fresh conversation whose first prompt is
-    /// `handoff`, and return once its `SessionStart` has arrived. Only then is its Iteration
-    /// advanced; a start that does not get there leaves the Door stopped.
+    /// `handoff`, and return once its `SessionStart` has arrived, within `bound`. Only then is its
+    /// Iteration advanced; a start that does not get there leaves the Door stopped.
     pub async fn restart_door(
         &self,
         ctx: &Ctx,
         id: &str,
         handoff: String,
         iteration: u32,
+        bound: Duration,
     ) -> Result<RailNode, RpcError> {
         let held = self.shared.node(id)?;
         let params = StartDoorParams {
@@ -126,17 +127,14 @@ impl Agents {
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
         };
-        if tokio::time::timeout(START_DOOR_ACK_BOUND, started)
-            .await
-            .is_err()
-        {
+        if tokio::time::timeout(bound, started).await.is_err() {
             report_undo(
                 "stop a Door that never started",
                 self.shared.stop(ctx.actor.clone(), id).await,
             );
             return Err(RpcError::conflict(format!(
                 "{id}: no SessionStart within {}s",
-                START_DOOR_ACK_BOUND.as_secs()
+                bound.as_secs()
             )));
         }
         self.shared.rail().set_iteration(id, iteration)?;

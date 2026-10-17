@@ -604,6 +604,9 @@ Register a KeyScope's chords, guards and actions for its owner's lifetime.
 **chordsFor**:
 The matching spellings of one displayed Help chord.
 
+**Leader**:
+`⌘K`: it waits for one more key from the `LEADER` table (`LeaderKey`, `leaderChord`), or ends on any other key (U2239). The `leader` KeyScope holds those keys' actions; `armLeader`, `endLeader`, `leaderArmed` and `modalOpen` are its state.
+
 ### Ask placement
 
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):

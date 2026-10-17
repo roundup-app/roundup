@@ -102,17 +102,6 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take control" }));
   });
 
-  it("u375_alt_n_on_the_agents_row_begins_once_focuses_the_emulator_and_swaps_the_band", async () => {
-    const { app } = await mountWatch();
-
-    fireEvent.keyDown(document.body, { key: "¡", code: "Digit2", altKey: true });
-
-    await vi.waitFor(() => expect(document.querySelector(".pane-takeover")).not.toBeNull());
-    expect(band()).toBeNull();
-    expect(calls(app, "takeover.")).toEqual(["takeover.begin"]);
-    expect(document.activeElement?.closest("[data-terminal]")).not.toBeNull();
-  });
-
   it("u467_selection_does_not_end_takeover", async () => {
     const { app, connected, emulators } = await mountWatch();
 
