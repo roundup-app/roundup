@@ -9,7 +9,7 @@ use std::sync::{
 };
 
 use contracts::agent::{NodeKind, Order, RailNode, Worktree};
-use contracts::project::{ProjectModels, RoleModels, Worktrees};
+use contracts::project::{Mcp, ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
@@ -542,6 +542,28 @@ impl Rail {
                  ON CONFLICT (id) DO UPDATE SET worktrees_on = excluded.worktrees_on,
                     worktrees_check = excluded.worktrees_check",
                 params![worktrees.on, worktrees.check],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    /// M2219: the Project's `mcp` setting; `{on: true}` for a Project that never set it.
+    pub fn get_mcp(&self) -> Result<Mcp, RpcError> {
+        self.db
+            .query_row("SELECT mcp_on FROM settings WHERE id = 0", [], |row| {
+                Ok(Mcp { on: row.get(0)? })
+            })
+            .optional()
+            .map_err(sql)
+            .map(|found| found.unwrap_or(Mcp { on: true }))
+    }
+
+    pub fn set_mcp(&mut self, mcp: &Mcp) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "INSERT INTO settings (id, mcp_on) VALUES (0, ?)
+                 ON CONFLICT (id) DO UPDATE SET mcp_on = excluded.mcp_on",
+                params![mcp.on],
             )
             .map_err(sql)?;
         Ok(())
