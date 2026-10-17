@@ -123,7 +123,7 @@ run("u2228b the window title keeps the name's start and end", () => {
 
       await page.call(select);
       await page.call(RENAME, `payments ${TAIL}`);
-      await page.until(`() => document.querySelector(".window-title").getAttribute("title").endsWith("-the-end")`);
+      await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
 
       const after = await page.call<Checks>(`() => window.__checks()`);
 
