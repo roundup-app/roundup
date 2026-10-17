@@ -7,7 +7,8 @@ import ./spec.bend as S
 # Stated in part only: M4 (the typed list only grows at its end; B7's ties-by-id and held-never-blocks are not), M5 (disjointness;
 # that ids never change status and rise by one is only counted by M6).
 
-# M1: a Message is typed at most once.
+# M1: a Message is delivered at most once, and a prompt that repeats a delivered Message is dropped (B39(e)); a Message typed and not confirmed is typed again (B40), so "typed" is not what is counted.
+# The model records and types in one step, so M1 below counts its typed list; b39_delivered_at_most_once counts `delivered` where the Signal, not the typing, records it.
 law m1_final_and_at_most_once:
   for evs: +List<M.Ev>
   {S.nodup(S.typed(S.world(evs))) == True{} : Bool}
@@ -72,3 +73,24 @@ law m9_restart_is_a_replay:
   for evs: +List<M.Ev>
   for alive: Bool
   {S.records(M.step(M.Restart{alive}, S.world(evs))) == S.replay(S.records(S.world(evs)), alive) : S.Rec}
+
+# B39, B40, B30 over the in-flight step (model.bend, `FEv`): a batch is typed in one step, confirmed in one step, and returned to pending by a kill.
+# M1 for the in-flight step: a Message is delivered at most once, though a kill types it again.
+law b39_delivered_at_most_once:
+  for evs: +List<M.FEv>
+  {S.nodup(S.f_delivered(S.fworld(evs))) == True{} : Bool}
+
+# M1, M5: a delivered Message is neither pending nor in flight, so a retry after a kill (B40) never types a delivered Message again.
+law b39_a_retry_never_retypes_a_delivered_message:
+  for evs: +List<M.FEv>
+  {Bool.and(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs)))) == True{} : Bool}
+
+# M6: every id handed out is in exactly one of pending, in flight, delivered or dropped: a Message typed and not confirmed is never lost.
+law b39_no_silent_loss_in_flight:
+  for evs: +List<M.FEv>
+  {Nat.add(1n, Nat.add(S.len(S.f_queue(S.fworld(evs))), Nat.add(S.len(S.f_inflight(S.fworld(evs))), Nat.add(S.len(S.f_delivered(S.fworld(evs))), S.len(S.f_dropped(S.fworld(evs))))))) == S.f_next(S.fworld(evs)) : Nat}
+
+# M3: while the user holds the Terminal a batch step puts nothing in flight.
+law b39_a_hold_types_no_batch:
+  for evs: +List<M.FEv>
+  {S.implies(S.f_hold(S.fworld(evs)), S.all_in(S.f_inflight(M.fstep(M.FIdle{}, S.fworld(evs))), S.f_inflight(S.fworld(evs)))) == True{} : Bool}

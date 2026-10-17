@@ -103,6 +103,7 @@ impl Agents {
                 events: events::State {
                     gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
+                    prompt_observer: std::sync::OnceLock::new(),
                 },
                 channels: Mutex::new(HashMap::new()),
                 scan: Scan::new(scan_interval_from_env()),
@@ -207,6 +208,13 @@ impl Agents {
     #[must_use]
     pub fn with_gate_observer(self, observer: impl Fn(&str, bool) + Send + Sync + 'static) -> Self {
         self.configure(|shared| shared.events.gate_observer = Some(Arc::new(observer)))
+    }
+
+    /// B39: tell `observer` the text of each prompt an Agent submits (`UserPromptSubmit`); `true`
+    /// makes `agent.signal` answer that the hook drops the prompt. Set once, after the Daemon
+    /// opens Messages.
+    pub fn observe_prompts(&self, observer: PromptObserver) {
+        let _ = self.shared.events.prompt_observer.set(observer);
     }
 
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before
@@ -481,6 +489,7 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
+                prompt_observer: std::sync::OnceLock::new(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
@@ -529,6 +538,7 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
+                prompt_observer: std::sync::OnceLock::new(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
@@ -610,6 +620,7 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
+                prompt_observer: std::sync::OnceLock::new(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
