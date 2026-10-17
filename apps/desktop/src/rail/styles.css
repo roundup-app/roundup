@@ -202,9 +202,7 @@
 .spawn-prompt-field {
   box-sizing: border-box;
   display: block;
-  /* U2227: the text starts at the Rail's name column (--space-6 + --space-3), split over margin and padding so each is a scale step. */
-  margin-inline-start: var(--space-6);
-  width: calc(100% - var(--space-6));
+  width: 100%;
   min-height: 24px;
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   font: inherit;

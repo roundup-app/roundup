@@ -83,6 +83,27 @@ run("u2227 the task field in Chromium", () => {
       expect(read.rowBelow).toBeGreaterThanOrEqual(read.top + read.height - 1);
     }, 60_000);
 
+    it(`u2227_a_typed_200_character_task_keeps_its_first_line_in_view_on_reopen_${scheme}`, async () => {
+      await page.scheme(scheme);
+      await page.load("/harness.html?seed=tree-40", 1280, 800);
+      await page.until(`() => document.querySelectorAll(".rail-row").length > 2`);
+      await page.press("n", "KeyN", 12);
+      await page.until(`() => document.activeElement?.matches("textarea[aria-label=Task]")`);
+
+      for (const char of TASK_200) await page.press(char, char === " " ? "Space" : `Key${char.toUpperCase()}`);
+      await page.press("Escape", "Escape");
+      await page.press("n", "KeyN", 12);
+      await page.until(`() => document.activeElement?.matches("textarea[aria-label=Task]")`);
+
+      const read = await page.call<{ top: number; height: number; scrollHeight: number; value: number }>(
+        `() => { const f = document.activeElement; return { top: f.scrollTop, height: f.clientHeight, scrollHeight: f.scrollHeight, value: f.value.length }; }`,
+      );
+
+      expect(read.value).toBe(200);
+      expect(read.top).toBe(0);
+      expect(read.scrollHeight).toBeLessThanOrEqual(read.height);
+    }, 60_000);
+
     it(`u2227_the_field_stops_growing_at_6_lines_${scheme}`, async () => {
       const read = await open(scheme, Array.from({ length: 12 }, (_, at) => `line ${at}`).join("\n"));
 
