@@ -62,10 +62,6 @@ const rawIconOwners = new Map([
   ["pads/PadDrawer.tsx:{copy.delete}", "#1988 cancelled: delete"],
   ["pads/Pads.tsx:{copy.makePadYours(pad.name)}", "#1988 cancelled: make yours"],
   ["orders/OrderDrawer.tsx:{copy.editOrder}", "#1497 deletes: edit order"],
-  ["thread/MoreMenu.tsx:{copy.more}", "#1497 deletes: more"],
-  ["thread/Thread.tsx:{copy.removeAttachment(props.attachment.name)}", "#1497 deletes: attachment removal"],
-  ["thread/Thread.tsx:{copy.dismissAnswer}", "#1497 deletes: dismiss answer"],
-  ["thread/Thread.tsx:{copy.removeQuoteFrom(quote.source)}", "#1497 deletes: remove quote"],
 ]);
 
 it("u477_app_has_no_raw_icon_only_buttons", () => {

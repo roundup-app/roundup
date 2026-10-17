@@ -1,4 +1,4 @@
-import { createEffect, on, onCleanup } from "solid-js";
+import { onCleanup } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** `⌥1` to `⌥9` by key position: ⌥ makes another character on a Mac, so the character is never read. */
@@ -18,22 +18,13 @@ const shownAgentIds = (kinds: ReadonlyMap<string, string>): string[] =>
 
 const focusPane = (): void => document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
 
-const focusThread = (): void => document.querySelector<HTMLElement>("[data-thread-input]")?.focus();
-
-/** U107: `⌥1` to `⌥9` select the n-th Agent row and begin a Takeover of it; `⌥0` ends it (U187 shows the Door's Terminal only in one). No UI of its own; `onFailure` gets the message of a failed call, and `null` when the next jump starts. */
+/** U107: `⌥1` to `⌥9` select the n-th Agent row, focus its Terminal and begin a Takeover of it unless it is a Door (U467: the Door is always typed into); `⌥0` ends the Takeover. No UI of its own; `onFailure` gets the message of a failed call, and `null` when the next jump starts. */
 export const Jump = (props: { onFailure: (message: string | null) => void }) => {
   const { rail, takeover } = useConnectedProject();
 
-  // U467 keeps a child taken while the user watches another row; U187 still ends a Door Takeover.
-  createEffect(
-    on(rail.selected, (id) => {
-      const taken = takeover.taken();
-
-      if (taken !== null && taken !== id && rail.nodes.some((node) => node.id === taken && node.kind === "workstream")) void takeover.end(taken).then((failure) => failure !== null && props.onFailure(failure));
-    }),
-  );
-
   const jump = async (agent: string): Promise<void> => {
+    if (rail.nodes.find((node) => node.id === agent)?.kind === "workstream") return;
+
     const failure = await takeover.begin(agent);
 
     if (failure !== null) props.onFailure(failure);
@@ -50,11 +41,11 @@ export const Jump = (props: { onFailure: (message: string | null) => void }) => 
     if (digit === 0) {
       press.preventDefault();
       press.stopPropagation();
-      focusThread();
+      focusPane();
       void takeover.end().then((failure) => {
         if (failure !== null) props.onFailure(failure);
 
-        focusThread();
+        focusPane();
       });
 
       return;

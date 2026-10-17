@@ -34,7 +34,7 @@ export const CONTRACT = {
     "decision.answers": "62fa35a8b218f55c",
     "decision.capture": "daa8a9b947ed0149",
     "decision.list": "584a15f937c38aff",
-    "events.subscribe": "b892dc1abb678e84",
+    "events.subscribe": "de0fefe1c4790852",
     "message.deliver": "5485ea38e4bfed0a",
     "message.drop": "5016380ce53c6e0a",
     "message.get": "1de0012e412ba03d",

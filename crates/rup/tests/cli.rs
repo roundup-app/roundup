@@ -193,7 +193,8 @@ fn squash(name: &str) -> String {
 /// The commands `rup help` lists under the nouns, as `(usage, Door only)`.
 fn listed_commands(help: &str) -> Vec<(String, bool)> {
     let commands = help.split("Commands:").nth(1).unwrap();
-    let commands = commands.split("\n  other\n").next().unwrap();
+    // I9: the streams are listed apart, and `rup mcp` does not offer them.
+    let commands = commands.split("\n  streams\n").next().unwrap();
     let lines: Vec<&str> = commands.lines().collect();
     lines
         .iter()
@@ -245,6 +246,16 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
             .collect();
         assert_eq!(cli, tools, "door: {door}");
     }
+    let streams = help
+        .split("\n  streams\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n  other\n").next())
+        .unwrap();
+    assert!(
+        streams.contains("rup events [--after <after>] [--follow]")
+            && streams.contains("Example: rup events --after 12 --follow --json"),
+        "{streams}"
+    );
     let other = help.split("\n  other\n").nth(1).unwrap();
     let other: Vec<&str> = other
         .lines()
@@ -383,6 +394,11 @@ async fn i2_help_alone_teaches_every_command() {
             "{usage}"
         );
     }
+    let events = out(&run.rup(&["help", "events"]).await);
+    assert!(
+        events.contains("Usage: rup events") && events.contains("--follow"),
+        "{events}"
+    );
 }
 
 #[tokio::test]
