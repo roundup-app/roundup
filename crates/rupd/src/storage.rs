@@ -304,12 +304,12 @@ mod tests {
         let built = Command::new("rustc")
             .args(["--edition", "2024", "-o"])
             .arg(&bin)
-            .arg(root.join("crates/rupd/build.rs"))
+            .arg(root.join("crate/build.rs"))
             .status()
             .unwrap();
         assert!(built.success());
         let ran = Command::new(&bin)
-            .env("CARGO_MANIFEST_DIR", root.join("crates/rupd"))
+            .env("CARGO_MANIFEST_DIR", root.join("crate"))
             .env("OUT_DIR", &out)
             .output()
             .unwrap();
@@ -334,8 +334,8 @@ mod tests {
 
     fn crate_copy(root: &Path) {
         let src = Path::new(env!("CARGO_MANIFEST_DIR"));
-        std::fs::create_dir_all(root.join("crates/rupd")).unwrap();
-        std::fs::copy(src.join("build.rs"), root.join("crates/rupd/build.rs")).unwrap();
+        std::fs::create_dir_all(root.join("crate")).unwrap();
+        std::fs::copy(src.join("build.rs"), root.join("crate/build.rs")).unwrap();
     }
 
     fn git(root: &Path, args: &[&str]) -> std::process::Output {
@@ -355,7 +355,7 @@ mod tests {
     }
 
     fn add(root: &Path, name: &str) {
-        let dir = root.join("crates/rupd/migrations/project");
+        let dir = root.join("crate/migrations/project");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join(name),
@@ -409,7 +409,7 @@ mod tests {
         let sql: Vec<String> = names
             .iter()
             .map(|n| {
-                std::fs::read_to_string(root.join("crates/rupd/migrations/project").join(n))
+                std::fs::read_to_string(root.join("crate/migrations/project").join(n))
                     .unwrap()
             })
             .collect();
@@ -432,9 +432,9 @@ mod tests {
             )
             .unwrap();
         assert_eq!(tables, 2);
-        std::fs::write(root.join("crates/rupd/migrations/project/notes.txt"), "").unwrap();
+        std::fs::write(root.join("crate/migrations/project/notes.txt"), "").unwrap();
         let bad = std::process::Command::new(root.join("out/build_rs"))
-            .env("CARGO_MANIFEST_DIR", root.join("crates/rupd"))
+            .env("CARGO_MANIFEST_DIR", root.join("crate"))
             .env("OUT_DIR", root.join("out"))
             .output()
             .unwrap();
