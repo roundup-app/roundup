@@ -411,15 +411,6 @@ pub struct Context {
     pub ask: ContextAsk,
     pub peers: Vec<ContextPeer>,
     pub todos: Vec<ContextTodo>,
-    /// M12: the Models the user allows a child to start on, read here and in no file the session holds.
-    pub models: ContextModels,
-}
-
-/// M12: the Project's allowed Models with the Adapter's labels.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "agent/")]
-pub struct ContextModels {
-    pub allowed: Vec<crate::project::Choice>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -438,8 +429,8 @@ pub struct SpawnParams {
     #[serde(default)]
     #[ts(optional)]
     pub name: Option<String>,
-    /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Only a
-    /// Model the user allows is accepted: read the ids in `agent_context`'s `models.allowed`.
+    /// A36, M12: the child's Model, an id; without one the Project's for the Role applies. Any id
+    /// `models.list` offers is accepted.
     #[serde(default)]
     #[ts(optional = nullable)]
     pub model: Option<String>,
