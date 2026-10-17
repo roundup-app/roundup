@@ -82,7 +82,7 @@ const NEWLINE = "\x1b\r";
 const isShiftEnter = (event: KeyboardEvent): boolean =>
   event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing;
 
-/** U2238: the bytes Ghostty's macOS defaults send for a bare `⌘` or `⌥` with ⌫, ← or →; other chords keep xterm's encoding. */
+/** U2242: the bytes Ghostty's macOS defaults send for a bare `⌘` or `⌥` with ⌫, ← or →; other chords keep xterm's encoding. */
 const MAC_EDITING_KEYS: Record<string, { cmd: string; alt: string }> = {
   Backspace: { cmd: "\x15", alt: "\x1b\x7f" },
   ArrowLeft: { cmd: "\x01", alt: "\x1bb" },
