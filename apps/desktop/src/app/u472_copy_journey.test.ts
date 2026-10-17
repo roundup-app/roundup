@@ -170,7 +170,10 @@ for (const [seed, scheme] of [...seeds.map((seed) => [seed, "light"] as const), 
     const after = await inventory();
 
     expect(after.text, `${name} text`).toEqual(before.text.map(mapped));
-    expect(after.names, `${name} accessible names`).toEqual(before.names.map(mapped));
+    // U501 moves the native resource titles to the shared Tooltip; the same words stay in the text inventory above.
+    const tooltipped = new Set(["Resident memory", "CPU of one core", "Worktree on disk"]);
+
+    expect(after.names, `${name} accessible names`).toEqual(before.names.filter((value) => !tooltipped.has(value)).map(mapped));
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(head[id].status, `${name} ${id}`).toBe("pass");
 

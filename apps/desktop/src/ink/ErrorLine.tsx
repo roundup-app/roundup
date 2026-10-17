@@ -4,7 +4,7 @@ import { Tip } from "./Tip";
 export const ErrorLine = (props: { message: string }) => (
   <Tip content={props.message}>
     {(trigger) => (
-      <p {...trigger()} class="ink" data-tone="red" data-kind="error" role="alert" tabIndex={0}>
+      <p {...trigger()} class="ink" data-tone="red" data-kind="error" role="alert" aria-label={props.message} tabIndex={0}>
         <Icon name="x" />{props.message.split(/\r\n|[\r\n]/, 1)[0]}
       </p>
     )}
