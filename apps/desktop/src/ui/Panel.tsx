@@ -1,6 +1,6 @@
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
 
-/** The Panel primitive: a non-modal layer: Ark's dismissable layer stack without a scrim, a focus trap or an Escape close; the caller decides what an outside press does. */
+/** The Panel primitive: a non-modal layer, Ark's dismissable layer stack without a scrim, a focus trap or an Escape close; the caller decides what an outside press does. */
 export const Panel = {
   Root: (props: ArkDialog.RootProps) => (
     <ArkDialog.Root modal={false} closeOnEscape={false} closeOnInteractOutside={false} restoreFocus={false}
