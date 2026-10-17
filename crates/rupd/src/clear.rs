@@ -24,6 +24,15 @@ use super::Daemon;
 /// How long the Door has to write its Handoff.
 const HANDOFF_BOUND: Duration = Duration::from_secs(120);
 
+/// What `ROUNDUP_HANDOFF_BOUND_MS` and `ROUNDUP_RESTART_BOUND_MS` hold, for tests that cannot inject a
+/// clock.
+fn bound_from_env(name: &str, default: Duration) -> Duration {
+    std::env::var(name)
+        .ok()
+        .and_then(|ms| ms.parse().ok())
+        .map_or(default, Duration::from_millis)
+}
+
 /// What the Door chose to keep.
 struct Kept {
     summary: String,
@@ -74,6 +83,8 @@ pub(crate) struct Clears {
     /// The Daemon itself, set once it serves, so a clear can go on after its call has returned.
     pub(crate) me: OnceLock<Weak<Daemon>>,
     bound: Duration,
+    /// How long the restarted Door has to send its `SessionStart`.
+    restart_bound: Duration,
     agents: OnceLock<Arc<agents::Agents>>,
     stages: Mutex<HashMap<String, Stage>>,
 }
@@ -83,6 +94,7 @@ impl Default for Clears {
         Self {
             me: OnceLock::new(),
             bound: HANDOFF_BOUND,
+            restart_bound: agents::START_DOOR_ACK_BOUND,
             agents: OnceLock::new(),
             stages: Mutex::new(HashMap::new()),
         }
@@ -90,15 +102,13 @@ impl Default for Clears {
 }
 
 impl Clears {
-    /// `ROUNDUP_HANDOFF_BOUND_MS` replaces the bound, for tests that cannot inject a clock.
+    /// `ROUNDUP_HANDOFF_BOUND_MS` replaces the Handoff bound and `ROUNDUP_RESTART_BOUND_MS` the
+    /// restart's.
     pub(crate) fn new(agents: Arc<agents::Agents>) -> Self {
-        let bound = std::env::var("ROUNDUP_HANDOFF_BOUND_MS")
-            .ok()
-            .and_then(|ms| ms.parse().ok())
-            .map_or(HANDOFF_BOUND, Duration::from_millis);
         Self {
             me: OnceLock::new(),
-            bound,
+            bound: bound_from_env("ROUNDUP_HANDOFF_BOUND_MS", HANDOFF_BOUND),
+            restart_bound: bound_from_env("ROUNDUP_RESTART_BOUND_MS", agents::START_DOOR_ACK_BOUND),
             agents: OnceLock::from(agents),
             stages: Mutex::new(HashMap::new()),
         }
@@ -377,7 +387,13 @@ impl Daemon {
         let next = saved.iteration + 1;
         let ctx = self.ctx(Actor::user());
         agents
-            .restart_door(&ctx, id, saved.handoff.clone(), next)
+            .restart_door(
+                &ctx,
+                id,
+                saved.handoff.clone(),
+                next,
+                self.clears.restart_bound,
+            )
             .await?;
         if let Some(messages) = self.sender.get() {
             messages.end_iteration(id)?;
