@@ -32,6 +32,7 @@ describe("u491a Shelf questions and navigation", () => {
     const [one, two, three] = await rows(lane);
     await lane.browser("hover", `.shelf [data-id="${three}"] .todo-row-button`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'third')");
+
     const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
       const point = id => { const rect = document.querySelector('.shelf [data-id="' + id + '"] .todo-row-button').getBoundingClientRect(); return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }; };
       return { from: point(${three}), to: point(${one}) };
