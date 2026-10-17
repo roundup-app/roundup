@@ -102,7 +102,7 @@ describe("u54 keyboard help", () => {
       "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
       "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
       "⇧⌘⌫  Close the Bubble", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
-      "⌃O  Expand or fold the Thread", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
+      "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
       "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
       "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
     ]);
@@ -150,7 +150,6 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
 
     expect(question(document.querySelector(".pane-screen textarea")!)).toBe(false);
-    expect(question(document.querySelector("[data-thread-input]")!)).toBe(false);
     expect(question(document.body)).toBe(false);
     expect(help()).toBeNull();
   });
@@ -171,10 +170,10 @@ describe("u54 keyboard help", () => {
   it("u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview", async () => {
     await open();
     fireEvent.click(rowOf("a"));
-    await waitFor(() => expect(document.querySelector("[data-thread-input]")).not.toBeNull());
+    await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inRail).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(boundPresses(document.querySelector("[data-thread-input]")!))].sort();
+    const bound = [...new Set(boundPresses(document.querySelector(".terminal-new")!))].sort();
 
     expect(bound).toEqual(listed);
 

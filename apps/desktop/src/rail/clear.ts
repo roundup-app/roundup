@@ -83,7 +83,7 @@ const createClearing = (app: AppSeam, events: Events, id: string): Clearing => {
 
 const known = new WeakMap<Events, Map<string, Clearing>>();
 
-/** One prompt per Workstream, shared by the Thread's header and the Rail row's menu. */
+/** One prompt per Workstream, shared by the Rail row's menu and its prompt. */
 export const clearingOf = (app: AppSeam, events: Events, id: string): Clearing => {
   const byId = known.get(events) ?? new Map<string, Clearing>();
 
