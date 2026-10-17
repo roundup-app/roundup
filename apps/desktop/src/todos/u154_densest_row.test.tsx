@@ -1,20 +1,9 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
-import rowCss from "./rowButton.styles.css?inline";
-import appCss from "../styles.css?inline";
 import { mountTodos, todo, todoRowOf as rowOf } from "./testHarness";
 
-const sheet = document.createElement("style");
-
-sheet.textContent = `${rowCss}\n${appCss}`;
-
-beforeEach(() => document.head.appendChild(sheet));
-
-afterEach(() => {
-  cleanup();
-  sheet.remove();
-});
+afterEach(cleanup);
 
 const LONG_ROOM = "r".repeat(60);
 
@@ -24,7 +13,7 @@ const densest = () => [
   todo(12, { blocked: true, blockers: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }),
 ];
 
-// U359 changes "no text is cut with an ellipsis": a title ends after two lines with `…` and the meta line after one; the whole text is the title attribute and the Drawer. jsdom has no layout, so the rules are read from the stylesheet and the full text from the DOM.
+// U154: full names remain accessible; the rendered observer checks clipping and dense errors.
 describe("u154 the row on the densest data", () => {
   it("u154_dense_titles_and_blockers_keep_their_accessible_names", async () => {
     await mountTodos(densest(), true, [workstream("r1", { name: LONG_ROOM })]);
