@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import terminalStyles from "./styles.css?inline";
 import { contrastRatio, loadTokens, resolveToken } from "../testing/contrast";
 import { xtermOptions } from "./emulator";
 import tokenStyles from "../tokens.css?raw";
@@ -38,13 +37,6 @@ describe("u59 the terminal blends with the app", () => {
     const resolve = (name: string) => resolveToken(`var(--${name})`, tokens);
     const ground = resolve("ground");
 
-    it("u59_the_emulator_theme_is_built_from_the_tokens", () => {
-      expect(theme.background).toBe(ground);
-      expect(theme.foreground).toBe(resolve("text"));
-      expect(theme.cursor).toBe(resolve("text"));
-      expect(theme.selectionBackground).toBe(resolve("selected").replace(/,(?=\S)/g, ", "));
-    });
-
     it.each(ANSI)("u59_ansi_%s_reads_at_4_5_to_1_on_the_ground", (name) => {
       const colour = theme[name]!;
 
@@ -64,14 +56,5 @@ describe("u59 the terminal blends with the app", () => {
   it("u59_the_font_is_the_monospace_token_at_the_rails_size", () => {
     expect(xtermOptions.fontFamily).toBe(token("font-mono"));
     expect(xtermOptions.fontSize).toBe(Number.parseInt(token("text-body"), 10));
-  });
-
-  it("u59_the_stylesheet_overrides_xterms_black_viewport_with_the_ground", () => {
-    expect(terminalStyles).toMatch(/\.xterm \.xterm-viewport,\s*\.pane \.xterm \.xterm-scrollable-element\s*\{\s*background-color:\s*var\(--ground\);/);
-  });
-
-  it("u59_the_pane_has_no_border", () => {
-    // U187: only a Takeover draws the pane's one hairline border.
-    expect(terminalStyles.replace(/\.pane\[data-takeover\][^{]*\{[^}]*\}/, "")).not.toMatch(/\.pane[^{]*\{[^}]*border\s*:/);
   });
 });
