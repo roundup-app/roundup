@@ -76,12 +76,6 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
     if (current) void save({ ...current, roles: current.roles.map((each) => (each.role === role ? { ...each, [field]: value } : each)) }, undo);
   };
 
-  const setAllowed = (id: string, on: boolean, undo: () => void) => {
-    const current = stored();
-
-    if (current) void save({ ...current, allowed: on ? [...current.allowed.filter((each) => each !== id), id] : current.allowed.filter((each) => each !== id) }, undo);
-  };
-
   return (
     <Dialog.Root open={open()} onOpenChange={({ open }) => setOpen(open)}
       onExitComplete={() => props.onClose()}
@@ -113,26 +107,6 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
                     )}
                   </For>
                 </div>
-                <fieldset class="models-allowed">
-                  <legend>{copy.doorsMayUse}</legend>
-                  <p>{copy.aDoorCanStartAChildOnlyOn}</p>
-                  <For each={list().models}>
-                    {(model) => (
-                      <label class="models-check">
-                        <input
-                          type="checkbox"
-                          checked={current().allowed.includes(model.id)}
-                          onChange={(change) => {
-                            const box = change.currentTarget;
-
-                            setAllowed(model.id, box.checked, () => (box.checked = !box.checked));
-                          }}
-                        />
-                        <span>{model.label}</span>
-                      </label>
-                    )}
-                  </For>
-                </fieldset>
                 <label class="models-check">
                   <input
                     type="checkbox"

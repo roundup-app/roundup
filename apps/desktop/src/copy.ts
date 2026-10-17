@@ -109,8 +109,6 @@ export const copy = {
   previousProject: "Previous Project",
   modelFor: (value1: CopyValue) => `Model for ${value1}`,
   effortFor: (value1: CopyValue) => `Effort for ${value1}`,
-  doorsMayUse: "Supervisors may use",
-  aDoorCanStartAChildOnlyOn: "A supervisor can start a child only on a checked Model.",
   roundupToolsOverMcp: "Roundup tools over MCP",
   aRunningAgentIsNotChanged: "A running Agent is not changed.",
   default: "Default",

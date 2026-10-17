@@ -12,7 +12,7 @@ import "../styles.css";
 
 const app = createFakeApp();
 
-app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: 'door', model: null, effort: null }], allowed: [] } });
+app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: 'door', model: null, effort: null }] } });
 
 app.handlers['models.list'] = () => ({ models: [{ id: 'opus', label: 'Authored 雪 Model' }], efforts: [{ id: 'high', label: 'High' }] });
 
