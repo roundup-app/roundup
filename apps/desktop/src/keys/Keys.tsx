@@ -37,6 +37,17 @@ const focusTabbableRow = (): void => document.querySelector<HTMLElement>('[role=
 const focusPane = (): void =>
   document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
 
+/** `⌘↑`/`⌘↓` act from anywhere but a text field or a taken Terminal; a watched Agent's read-only screen is not one (U2230). */
+const stepsFrom = (press: KeyboardEvent): boolean => {
+  const target = press.target;
+
+  if (!(target instanceof Element)) return true;
+
+  if (target.closest(".pane[data-takeover]")) return false;
+
+  return !target.closest('input, textarea, [contenteditable="true"]') || target.closest(".pane .xterm-helper-textarea") !== null;
+};
+
 /** `⌘1`, `⌘2`, `←`, `→` and `F2`, the Rail keys U31 leaves to U41 (GLOSSARY.md, Rail). No UI of its own. */
 export const Keys = () => {
   const { rail } = useConnectedProject();
@@ -70,11 +81,22 @@ export const Keys = () => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   };
 
+  /** The Agent `by` rows from the selected one, in Rail order; none past either end. */
+  const stepAgent = (by: 1 | -1): void => {
+    const agents = rail.nodes.filter((node) => node.kind === "agent");
+    const at = agents.findIndex((node) => node.id === rail.selected());
+    const next = at === -1 ? (by === 1 ? agents[0] : agents.at(-1)) : agents[at + by];
+
+    if (next) rail.select(next.id);
+  };
+
   const outsideTabRename = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.matches(".tab-rename"));
 
   registerKeys({ kind: "app" }, [
     { chords: chordsFor("⌘1"), when: outsideTabRename, run: focusTabbableRow },
     { chords: chordsFor("⌘2"), when: outsideTabRename, run: focusPane },
+    { chords: chordsFor("⌘↑"), when: (press) => outsideTabRename(press) && stepsFrom(press), run: (press) => { if (!press.repeat) stepAgent(-1); } },
+    { chords: chordsFor("⌘↓"), when: (press) => outsideTabRename(press) && stepsFrom(press), run: (press) => { if (!press.repeat) stepAgent(1); } },
   ]);
   registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>('[role="tree"]') ?? undefined }, [
     { chords: RAIL_KEYS,
