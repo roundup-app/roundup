@@ -91,8 +91,9 @@ it("u26_later_page_loads_keep_their_own_reply_budget", async () => {
     const clock = vi.spyOn(performance, "now").mockReturnValue(performance.now() + 60_000);
 
     try {
-      await page.load("/", 1280, 800);
+      await page.load("/");
       expect(await page.call<string>("() => document.querySelector('p').textContent")).toBe("fresh document");
+      expect(await page.call<string>("() => `${innerWidth}x${innerHeight}`")).toBe("1512x950");
     } finally {
       clock.mockRestore();
       await page.close();
