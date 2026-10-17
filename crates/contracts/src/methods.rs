@@ -210,7 +210,11 @@ pub const METHODS: &[Method] = &[
         "checkpoint_Checkpoint[]",
     ),
     m("rail.remove", "agent_NodeId", "agent_Removal | null"),
-    m("agent.resume", "agent_NodeId", "agent_RailNode"),
+    m(
+        "agent.resume",
+        "agent_NodeId",
+        "agent_RailNode | agent_HeldAction",
+    ),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
     m(
         "workstream.clear",

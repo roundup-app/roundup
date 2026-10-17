@@ -1,0 +1,98 @@
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
+import { copy } from "../copy";
+import { hintsFor } from "./chords";
+import type { HintPlace } from "./chords";
+import { useConnectedProject } from "../state/connectedProject";
+
+/** Where keyboard focus sits, for the hint line: `null` anywhere that has no hints, a modal layer such as Help included (U2230a). */
+const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | null => {
+  const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(":scope > .pane-watch") != null;
+
+  return !focus || focus.closest(".help, .switcher, .drawer, [role=dialog]") ? null
+    : focus.closest("[data-bubble]") ? "bubble"
+    : focus.closest('[role="tree"]') ? "rail"
+    : inWatchedPane ? "agent"
+    : null;
+};
+
+/** U2230a: the quiet line of the keys that act where focus is, from the same `CHORDS` rows Help lists and the registry binds. */
+export const HintLine = () => {
+  const { rail } = useConnectedProject();
+  const [focus, setFocus] = createSignal<Element | null>(null);
+  const [watched, setWatched] = createSignal(0);
+
+  const selectedIsAgent = () => {
+    watched();
+
+    return rail.nodes.find((node) => node.id === rail.selected())?.kind === "agent";
+  };
+
+  const place = createMemo(() => placeAt(focus(), selectedIsAgent()));
+
+  const watching = () => selectedIsAgent() && document.querySelector(".pane > .pane-watch") != null;
+
+  const hints = () => {
+    const at = place();
+
+    if (at === null) return [];
+
+    const bubble = focus()?.closest("[data-bubble]")?.getAttribute("data-bubble");
+    const minimised = at === "bubble" && document.querySelector<HTMLElement>(`section.bubble[data-bubble="${bubble}"]`)?.hidden === true;
+
+    // ⌘. restores a minimised Bubble, so its hint says what the key does now.
+    return hintsFor(at, watching()).map((hint) => minimised && hint.label === copy.minimise ? { ...hint, label: copy.restore } : hint);
+  };
+
+  let line: HTMLParagraphElement | undefined;
+
+  /** Hints drop from the end until the rest fit whole: one that would clip is hidden with every hint after it. */
+  const fit = (): void => {
+    if (!line) return;
+
+    const children = [...line.children].filter((child): child is HTMLElement => child instanceof HTMLElement);
+
+    for (const child of children) child.hidden = false;
+
+    const room = line.clientWidth;
+    const over = children.findIndex((child) => child.offsetLeft + child.offsetWidth > room);
+
+    if (over !== -1) for (const child of children.slice(over)) child.hidden = true;
+  };
+
+  createEffect(() => {
+    hints();
+    fit();
+  });
+
+  onMount(() => {
+    const resize = new ResizeObserver(fit);
+
+    if (line) resize.observe(line);
+
+    onCleanup(() => resize.disconnect());
+
+    // Both events settle in a microtask, when `activeElement` is where focus went.
+    const sync = () => queueMicrotask(() => setFocus(document.activeElement));
+
+    document.addEventListener("focusin", sync);
+    document.addEventListener("focusout", sync);
+    sync();
+
+    const pane = document.querySelector(".pane");
+    const observer = new MutationObserver(() => setWatched((count) => count + 1));
+
+    if (pane) observer.observe(pane, { childList: true });
+
+    onCleanup(() => {
+      document.removeEventListener("focusin", sync);
+      document.removeEventListener("focusout", sync);
+      observer.disconnect();
+    });
+  });
+
+  return (
+    <p class="hint-line" ref={line} data-place={place() ?? undefined}>
+      <For each={hints()}>{(hint) => <span class="hint"><span class="hint-keys">{hint.keys}</span> {hint.label}</span>}</For>
+    </p>
+  );
+};

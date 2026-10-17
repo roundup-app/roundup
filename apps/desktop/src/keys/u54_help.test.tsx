@@ -65,7 +65,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code.startsWith("Arrow") ? code : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -197,7 +197,9 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(await boundPresses(document.querySelector(".terminal-new")!))].sort();
+    // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
+    const outsideTerminal = document.querySelector(".terminal-new")!;
+    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
 

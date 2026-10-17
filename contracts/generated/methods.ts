@@ -192,7 +192,7 @@ export type RpcMethods = {
   "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
   "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
-  "agent.resume": { params: agent_NodeId; result: agent_RailNode };
+  "agent.resume": { params: agent_NodeId; result: agent_RailNode | agent_HeldAction };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.handoff": { params: workstream_HandoffParams; result: null };
