@@ -272,7 +272,7 @@ export const RailRowView = (props: {
 
   return (
     <>
-      <Tooltip.Root disabled={lines().length === 0} closeOnEscape={false} positioning={{ placement: "bottom-start" }}>
+      <Tooltip.Root disabled={lines().length === 0} closeOnEscape={false} positioning={{ strategy: "fixed", placement: "bottom-start" }}>
         <Show
           when={props.branch}
           fallback={
