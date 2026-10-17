@@ -1153,7 +1153,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
                 (attempt, i64::MAX),
                 true,
                 true,
-                true,
+                false,
             )
             .expect("message store");
         }
@@ -1166,7 +1166,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
             binding(&node),
             ended(&node),
             permanently_ended(&node),
-            false,
+            true,
         )
         .expect("message store");
     }
@@ -1523,10 +1523,10 @@ fn reconcile(
     at: store::Binding,
     closed: bool,
     permanent: bool,
-    removed: bool,
+    restart: bool,
 ) -> Result<(), RpcError> {
     let mut events = Vec::new();
-    let result = reconcile_into(store, agent, at, closed, permanent, removed, &mut events);
+    let result = reconcile_into(store, agent, at, closed, permanent, restart, &mut events);
     for event in events {
         inner.bus.emit(Actor::daemon(), event);
     }
@@ -1539,7 +1539,7 @@ fn reconcile_into(
     at: store::Binding,
     closed: bool,
     permanent: bool,
-    removed: bool,
+    restart: bool,
     events: &mut Vec<EventData>,
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
@@ -1582,7 +1582,7 @@ fn reconcile_into(
             through,
             gone_drops,
             keep,
-            !removed,
+            restart,
         )? {
             events.push(EventData::MessageDropped(message.into()));
         }
