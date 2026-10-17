@@ -81,13 +81,17 @@ export const Keys = () => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   };
 
-  /** The Agent `by` rows from the selected one, in Rail order; none past either end. */
+  /** The Agent `by` rows from the selected one, in the order the Rail shows them (a folded or done Agent has no row); none past either end. */
   const stepAgent = (by: 1 | -1): void => {
-    const agents = rail.nodes.filter((node) => node.kind === "agent");
-    const at = agents.findIndex((node) => node.id === rail.selected());
+    const kinds = new Map(rail.nodes.map((node) => [node.id, node.kind]));
+
+    const agents = [...document.querySelectorAll<HTMLElement>('[role="tree"] [role="treeitem"][data-id]')]
+      .flatMap((row) => row.dataset.id !== undefined && kinds.get(row.dataset.id) === "agent" ? [row.dataset.id] : []);
+
+    const at = agents.indexOf(rail.selected() ?? "");
     const next = at === -1 ? (by === 1 ? agents[0] : agents.at(-1)) : agents[at + by];
 
-    if (next) rail.select(next.id);
+    if (next !== undefined) rail.select(next);
   };
 
   const outsideTabRename = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.matches(".tab-rename"));

@@ -59,20 +59,20 @@
   white-space: nowrap;
 }
 
-/* Selected-Agent resources fit beside long Terminal names without changing the bar's height. */
+/* Selected-Agent resources fit beside long Terminal names without changing the bar's height, below the hint line (U2230b). */
 .terminal-tabs-host {
   grid-column: 1;
-  grid-row: 1 / -1;
+  grid-row: 2 / -1;
 }
 
 .resource-agent {
   grid-column: 2;
-  grid-row: 1 / -1;
+  grid-row: 2 / -1;
 }
 
 .resource-stale {
   grid-column: 3;
-  grid-row: 1 / -1;
+  grid-row: 2 / -1;
 }
 
 /* A wide Rail and Drawer can leave a narrow centre; units may wrap instead of clipping. */

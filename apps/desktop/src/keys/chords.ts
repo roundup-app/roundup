@@ -7,7 +7,7 @@ export type Chord = { keys: string; what: string; presses: readonly string[]; in
 export type HintPlace = "rail" | "agent" | "bubble";
 
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
-export type Hint = { label: string; at: Partial<Record<HintPlace, number>> };
+export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
 
 const digits = (from: number, to: number): string[] =>
   Array.from({ length: to - from + 1 }, (_, offset) => `alt+Digit${from + offset}`);
@@ -28,7 +28,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘↑", what: copy.previousAgent, presses: ["meta+ArrowUp"], hint: { label: copy.hintPrevious, at: { agent: 3 } } },
   { keys: "⌘↓", what: copy.nextAgent, presses: ["meta+ArrowDown"], hint: { label: copy.hintNext, at: { agent: 4 } } },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
-  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 } } },
+  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
   { keys: "⌥1–⌥9", what: copy.takeOverTheNThAgent, presses: digits(1, 9) },
   { keys: "⌥0", what: copy.endTheTakeover, presses: digits(0, 0) },
   { keys: "⇧⌘J", what: copy.jumpToWhatNeedsYouInAnotherProject, presses: ["meta+shift+KeyJ"] },
@@ -38,9 +38,9 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⇧⌘[", what: copy.previousProject, presses: ["meta+shift+BracketLeft"] },
 ];
 
-/** The hints of `place`, in the order the table gives them (U2230a). */
-export const hintsFor = (place: HintPlace): readonly { keys: string; label: string }[] =>
-  CHORDS.flatMap((chord) => chord.hint?.at[place] === undefined ? [] : [{ keys: chord.keys, label: chord.hint.label, at: chord.hint.at[place] }])
+/** The hints of `place`, in the order the table gives them (U2230a). A `watching` hint shows only while the selected Agent is in Watch, the one state its key acts in. */
+export const hintsFor = (place: HintPlace, watching = true): readonly { keys: string; label: string }[] =>
+  CHORDS.flatMap((chord) => chord.hint?.at[place] === undefined || (chord.hint.watching && !watching) ? [] : [{ keys: chord.keys, label: chord.hint.label, at: chord.hint.at[place] }])
     .sort((a, b) => a.at - b.at)
     .map(({ keys, label }) => ({ keys, label }));
 

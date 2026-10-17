@@ -93,7 +93,7 @@ export const copy = {
   focusTheRail: "Focus the Rail",
   previousAgent: "Previous Agent",
   nextAgent: "Next Agent",
-  hintPrevious: "Prev",
+  hintPrevious: "Previous",
   hintNext: "Next",
   focusThePane: "Focus the pane",
   remove: "Remove",
