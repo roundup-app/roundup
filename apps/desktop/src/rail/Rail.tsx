@@ -5,15 +5,18 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
+import { registerKeys } from "../keys/registry";
+import { TreeView } from "../ui";
+import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { createRailDrag } from "./drag";
 import { doorStateOf } from "./doorState";
-import { adjacentId } from "./keys";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail } from "./layout";
 import type { NodeRow } from "./layout";
 import { RailRowView } from "./RailRow";
+import { focusedRowId, ROW } from "./rows";
 import { Trunks } from "./Trunks";
 import { SpawnPromptField } from "./SpawnPromptField";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -70,6 +73,20 @@ export const Rail = () => {
 
   /** U38: the empty line waits for the first `rail.tree` (always answered before the Rail mounts) and yields to a fetch failure, which the centre shows instead. */
 
+  /** U520: every Workstream open, so Ark can open one that is folded and walk into it; Ark's `expandedValue` keeps the folded ones shut. */
+  const collection = createMemo(() => railCollection(layoutRail(rail.nodes, { collapsed: new Set(), unfolded: unfolded(), now: now(), dragged: dragged() })));
+  const expanded = createMemo(() => collection().getBranchValues().filter((id) => !collapsed().has(id)));
+
+  /** The tree node and index path Ark's providers need for the row `id`. */
+  const entryOf = (id: string) => {
+    const indexPath = collection().getIndexPath(id);
+    const node = indexPath && collection().at(indexPath);
+
+    if (!indexPath || !node) throw new Error(`no node for row ${id}`);
+
+    return { node, indexPath };
+  };
+
   const nodeRows = createMemo(() => rows().filter((row): row is NodeRow => row.kind === "node"));
   const nodeIds = createMemo(() => nodeRows().map((row) => row.node.id));
   const layoutKey = createMemo(() => nodeRows().map((row) => `${row.key}@${row.depth}`).join());
@@ -89,7 +106,8 @@ export const Rail = () => {
   const [container, setContainer] = createSignal<HTMLElement>();
   const [field, setField] = createSignal<HTMLTextAreaElement>();
 
-  const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${id}"]`);
+  /** The focusable element of the row `id`: its item, or the control of its branch. */
+  const rowElement = (id: string) => container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.closest<HTMLElement>(ROW) ?? container()?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"] [data-part="branch-control"]`) ?? undefined;
 
   let clearElement: HTMLDivElement | undefined;
 
@@ -124,14 +142,13 @@ export const Rail = () => {
 
   const focusRow = (id: string) => rowElement(id)?.focus();
 
+  /** U31: exactly one row is reachable by Tab, the selected row when one exists, else the first; moving focus by key does not move it. */
   const tabbableId = createMemo(() => {
     const selected = rail.selected();
     const ids = nodeIds();
 
     return ids.find((id) => id === selected) ?? ids[0] ?? null;
   });
-
-  const moveFocus = (current: string, direction: 1 | -1) => focusRow(adjacentId(nodeIds(), current, direction));
 
   /** U358: `⌘⌫` in the Rail takes the row menu's `remove` for the selected row; the selection then moves to the next row, else the previous, and focus stays in the Rail. A repeat acts on nothing. */
   const removeSelected = (repeat: boolean) => {
@@ -153,37 +170,14 @@ export const Rail = () => {
     });
   };
 
-  const onRailKeyDown = (press: KeyboardEvent) => {
-    const focusedId = press.target instanceof HTMLElement ? press.target.dataset.id : undefined;
+  const openMenuAtFocusedRow = (press: KeyboardEvent) => {
+    const id = focusedRowId(press);
+    const row = id === undefined ? undefined : rowElement(id);
+    const node = rail.nodes.find((candidate) => candidate.id === id);
 
-    if (focusedId === undefined) return;
-
-    if (press.key === "ContextMenu" || (press.key === "F10" && press.shiftKey)) {
-      press.preventDefault();
-      const row = rowElement(focusedId);
-      const node = rail.nodes.find((candidate) => candidate.id === focusedId);
-
-      if (row && node) {
-        const box = row.getBoundingClientRect();
-        menu.open(node, rail.exitOf(node), box.left, box.bottom);
-      }
-
-      return;
-    }
-
-    if (press.key === "Backspace" && press.metaKey && !press.ctrlKey && !press.altKey && !press.shiftKey) {
-      press.preventDefault();
-      removeSelected(press.repeat);
-
-      return;
-    }
-
-    if (press.key === "ArrowDown" || press.key === "ArrowUp") {
-      press.preventDefault();
-      moveFocus(focusedId, press.key === "ArrowDown" ? 1 : -1);
-    } else if (press.key === "Enter") {
-      press.preventDefault();
-      rail.select(focusedId);
+    if (row && node) {
+      const box = row.getBoundingClientRect();
+      menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
   };
 
@@ -226,7 +220,7 @@ export const Rail = () => {
       if (composing()) endCompose();
     });
 
-  const focusPicker = () => document.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(modelUnder() ?? "")}"] [aria-label="Choose Model and Effort"]`)?.focus();
+  const focusPicker = () => document.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(modelUnder() ?? "")}"] [aria-label="${copy.chooseModelAndEffort}"]`)?.focus();
 
   const closePicker = () => {
     setModelOpen(false);
@@ -336,47 +330,24 @@ export const Rail = () => {
       rail.clearStorageFailure();
     };
 
-    const chord = (press: KeyboardEvent) => {
-      if (!press.metaKey || press.ctrlKey || press.altKey) return;
+    document.addEventListener("click", clear, true);
+    onCleanup(() => document.removeEventListener("click", clear, true));
+  });
 
-      const key = press.key.toLowerCase();
-
-      if (press.shiftKey) {
-        if (key !== "n") return;
-
-        press.preventDefault();
-
-        if (press.repeat) return;
-
-        if (canSpawn()) setComposing(true);
-
-        return;
-      }
-
-      const spawn = { n: spawnAgent }[key];
-
-      if (!spawn) return;
-
-      press.preventDefault();
-
+  /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A held key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
+  registerKeys({ kind: "app" }, [
+    { chords: ["Meta+n"], run: (press) => {
       if (press.repeat) return;
 
-      if (key === "n" && composing()) {
-        field()?.focus();
-
-        return;
-      }
-
-      if (canSpawn()) spawn();
-    };
-
-    document.addEventListener("click", clear, true);
-    document.addEventListener("keydown", chord);
-    onCleanup(() => {
-      document.removeEventListener("click", clear, true);
-      document.removeEventListener("keydown", chord);
-    });
-  });
+      if (composing()) field()?.focus();
+      else if (canSpawn()) spawnAgent();
+    } },
+    { chords: ["Shift+Meta+n"], run: (press) => {
+      if (!press.repeat && canSpawn()) setComposing(true);
+    } },
+    { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
+    { chords: ["Meta+Backspace"], when: (press) => focusedRowId(press) !== undefined, run: (press) => removeSelected(press.repeat) },
+  ]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
   createEffect(
@@ -407,9 +378,23 @@ export const Rail = () => {
       class="todo-project-root"
       onClick={() => rail.select(null)}
     ><span>{copy.projectRoot}</span></button>
-    <div
+    <TreeView.Root
       class="rail-tree"
       ref={setContainer}
+      collection={collection()}
+      expandedValue={expanded()}
+      selectedValue={rail.selected() === null ? [] : [rail.selected()!]}
+      expandOnClick={false}
+      onSelectionChange={(details) => {
+        const id = details.selectedValue.at(-1);
+
+        if (id !== undefined) rail.select(id);
+      }}
+      onExpandedChange={(details) => {
+        const open = new Set(details.expandedValue);
+
+        for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
+      }}
       style={{
         "--room": `${drag.state()?.room ?? 0}px`,
         "--lift": `${drag.state()?.lift ?? 0}px`,
@@ -428,12 +413,7 @@ export const Rail = () => {
           onCancel={() => setComposing(false)}
         />
       </Show>
-      <div
-        role="tree"
-        aria-label={copy.rail}
-        aria-disabled={daemonExit() !== null ? true : undefined}
-        onKeyDown={onRailKeyDown}
-      >
+      <TreeView.Tree aria-label={copy.rail} aria-disabled={daemonExit() !== null ? true : undefined}>
         <For each={keys()}>
           {(key) => (
             <Show when={byKey().get(key)}>
@@ -454,13 +434,14 @@ export const Rail = () => {
                   <>
                     <Show when={node()}>
                       {(view) => (
+                        <TreeView.NodeProvider node={entryOf(view().node.id).node} indexPath={entryOf(view().node.id).indexPath}>
                         <RailRowView
                           row={view()}
                           exit={rail.exitOf(view().node)}
                           needsYou={isWorkstream(view().node) ? agentKindsBelow(rail.nodes, view().node.id).filter((kind) => kind === "needs-you").length : 0}
                           selected={rail.selected() === view().node.id}
                           tabbable={tabbableId() === view().node.id}
-                          onSelect={() => rail.select(view().node.id)}
+                          branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onRename={(name) =>
                             void attempt(() => app.rpc("rail.rename", { id: view().node.id, name }))
@@ -475,6 +456,7 @@ export const Rail = () => {
                           actions={actionsOf(view().node)}
                           onOpenMenu={(press) => menu.open(view().node, rail.exitOf(view().node), press.clientX, press.clientY)}
                         />
+                        </TreeView.NodeProvider>
                       )}
                     </Show>
                     <Show when={fold()}>
@@ -522,7 +504,7 @@ export const Rail = () => {
             </Show>
           )}
         </For>
-      </div>
+      </TreeView.Tree>
       <Show when={drag.state()}>
         {(dragging) => (
           <div
@@ -532,7 +514,7 @@ export const Rail = () => {
           />
         )}
       </Show>
-    </div>
+    </TreeView.Root>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={asking()}>

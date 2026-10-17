@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Kind } from "@contracts/Kind";
 import { agent, workstream } from "../testing/nodes";
-import { mountRail, rowOf } from "./railFixture";
+import { mountRail, itemOf, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -68,7 +68,9 @@ describe("u403 a Workstream row leads with its chevron", () => {
 
     fireEvent.click(rowOf("open ws").querySelector('button[aria-label="Collapse"]')!);
 
-    expect(rowOf("open ws").getAttribute("aria-expanded")).toBe("false");
+    await settled();
+
+    expect(itemOf("open ws").getAttribute("aria-expanded")).toBe("false");
     expect(rail.selected()).toBe(before);
     expect(screen.queryByText("ask-1")).toBeNull();
   });

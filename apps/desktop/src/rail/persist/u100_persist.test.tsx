@@ -5,6 +5,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { seedApp } from "../../testing/seeds";
 import type { SeedName } from "../../testing/seeds";
 import { event, NOW } from "../../testing/nodes";
+import { settled } from "../railFixture";
 import { fakeEmulators } from "../../terminal/paneHarness";
 import type { EmulatorFactory } from "../../terminal/emulator";
 
@@ -17,9 +18,18 @@ const read = (path = "/u100") => JSON.parse(localStorage.getItem(key(path)) ?? "
 
 const row = (id: string) => document.querySelector<HTMLElement>(`[role=treeitem][data-id="${id}"]`);
 
-const click = (id: string) => fireEvent.click(row(id)!);
+/** The focusable element of the row: a branch's control, which the user clicks, or the leaf itself. */
+const target = (id: string) => row(id)!.querySelector<HTMLElement>('[data-part="branch-control"]') ?? row(id)!;
 
-const collapse = (id: string) => fireEvent.click(within(row(id)!).getByRole("button", { name: "Collapse" }));
+const click = async (id: string) => {
+  fireEvent.click(target(id));
+  await settled();
+};
+
+const collapse = async (id: string) => {
+  fireEvent.click(within(row(id)!).getByRole("button", { name: "Collapse" }));
+  await settled();
+};
 
 const mount = (seed: SeedName = "tree-40", path = "/u100", tree?: Promise<RailNode[]>) => {
   const controls = seedApp(seed, NOW);
@@ -61,8 +71,8 @@ afterEach(() => {
 it("u100_same_project_restores_selection_and_collapsed_groups", async () => {
   const first = mount();
   await loaded();
-  collapse("auth");
-  click("agent-3");
+  await collapse("auth");
+  await click("agent-3");
   first.unmount();
   mount();
   await loaded();
@@ -91,7 +101,7 @@ it("u100_different_project_never_reads_or_changes_the_saved_project", async () =
   expect(get.mock.calls.filter(([name]) => name.startsWith("roundup:rail:"))).toEqual([[key("/other")]]);
   expect(row("agent-1")?.getAttribute("aria-selected")).toBe("false");
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("true");
-  click("agent-2");
+  await click("agent-2");
   expect(read()).toEqual({ selected: "agent-1", collapsed: ["backend"] });
   expect(read("/other")).toEqual({ selected: "agent-2", collapsed: [] });
 });
@@ -102,7 +112,7 @@ it("u100_removed_ids_are_ignored_and_dropped_on_the_next_write", async () => {
   await loaded();
   expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
-  click("agent-1");
+  await click("agent-1");
   expect(read()).toEqual({ selected: "agent-1", collapsed: ["backend"] });
 });
 
@@ -122,7 +132,7 @@ it.each(["{", "null", '{"selected":4,"collapsed":[]}', '{"selected":"agent-1","c
     mount("agents-10");
     await loaded();
     expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
-    click("agent-2");
+    await click("agent-2");
     expect(read()).toEqual({ selected: "agent-2", collapsed: [] });
   },
 );
@@ -133,7 +143,7 @@ it("u100_storage_read_failure_is_absent", async () => {
   await loaded();
   expect(document.querySelector('[role=treeitem][aria-selected="true"]')).toBeNull();
   get.mockRestore();
-  click("agent-2");
+  await click("agent-2");
   expect(read()).toEqual({ selected: "agent-2", collapsed: [] });
 });
 
@@ -141,14 +151,14 @@ it("u100_write_failure_shows_one_ink_line_and_keeps_working", async () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage full"); });
   mount();
   await loaded();
-  click("agent-1");
-  collapse("backend");
+  await click("agent-1");
+  await collapse("backend");
   expect(screen.getAllByText("storage full")).toHaveLength(1);
   const failure = screen.getByText("storage full");
   expect(failure.classList.contains("ink")).toBe(true);
   expect(failure.compareDocumentPosition(screen.getByText("Workstream", { selector: ".rail-actions button" })) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   expect(row("backend")?.getAttribute("aria-expanded")).toBe("false");
-  click("agent-2");
+  await click("agent-2");
   expect(row("agent-2")?.getAttribute("aria-selected")).toBe("true");
 });
 
@@ -190,8 +200,8 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
 it("u100_reopening_after_daemon_exit_restores_the_last_layout", async () => {
   const first = mount();
   await loaded();
-  collapse("backend");
-  click("agent-2");
+  await collapse("backend");
+  await click("agent-2");
   first.app.exitDaemon({ code: 1 });
   await screen.findByText("Daemon exited 1");
   first.unmount();
@@ -205,10 +215,10 @@ it("u100_later_selection_reveals_ancestors_and_saves_each_change", async () => {
   saved("agent-2", ["backend"]);
   const { app } = mount();
   await loaded();
-  collapse("backend");
-  click("tokens");
+  await collapse("backend");
+  await click("tokens");
   expect(read()).toEqual({ selected: "tokens", collapsed: [] });
-  collapse("auth");
+  await collapse("auth");
   expect(read()).toEqual({ selected: "tokens", collapsed: ["auth"] });
   app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "logins", status: { kind: "error", label: "failed", since: 0 } } }));
   fireEvent.keyDown(document, { key: "j", metaKey: true });
@@ -221,7 +231,7 @@ it("u100_done_lines_are_not_restored", async () => {
   await loaded();
   fireEvent.click(screen.getByText("1 done"));
   expect(row("agent-6")).not.toBeNull();
-  click("agent-2");
+  await click("agent-2");
   expect(read()).toEqual({ selected: "agent-2", collapsed: [] });
   first.unmount();
   mount("agents-10");
@@ -233,8 +243,8 @@ it("u100_done_lines_are_not_restored", async () => {
 it("u100_door_selection_survives_reopening", async () => {
   const first = mount();
   await loaded();
-  collapse("backend");
-  click("payments");
+  await collapse("backend");
+  await click("payments");
   first.unmount();
   mount();
   await waitFor(() => expect(row("payments")).not.toBeNull());
@@ -265,10 +275,10 @@ it("u100_storage_failure_clears_on_the_next_click_and_can_be_reported_again", as
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage full"); });
   mount();
   await loaded();
-  click("agent-2");
+  await click("agent-2");
   expect(screen.getByText("storage full")).toBeDefined();
   fireEvent.click(screen.getByRole("tree"));
   expect(screen.queryByText("storage full")).toBeNull();
-  collapse("backend");
+  await collapse("backend");
   expect(screen.getAllByText("storage full")).toHaveLength(1);
 });

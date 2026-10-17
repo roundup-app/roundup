@@ -14,7 +14,7 @@ import { agent, event, NOW } from "../../testing/nodes";
 import { padHandlers } from "../../testing/stores";
 import type { PadStore } from "../../testing/stores";
 import { Rail } from "../Rail";
-import { rowOf } from "../railFixture";
+import { rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -68,11 +68,11 @@ describe("u58 an Agent's Pads under it", () => {
     const button = await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control")));
 
     expect(button.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByTitle("notes")).toBeNull();
+    expect(screen.queryByRole("button", { name: "notes" })).toBeNull();
 
     fireEvent.click(button);
 
-    const pad = screen.getByTitle("notes");
+    const pad = screen.getByRole("button", { name: "notes" });
 
     expect(button.getAttribute("aria-expanded")).toBe("true");
     expect(pad.closest<HTMLElement>(".rail-leaf")?.style.getPropertyValue("--indent")).toBe("calc(1 * var(--rail-step) + var(--rail-inset))");
@@ -80,7 +80,7 @@ describe("u58 an Agent's Pads under it", () => {
 
     fireEvent.click(button);
 
-    expect(screen.queryByTitle("notes")).toBeNull();
+    expect(screen.queryByRole("button", { name: "notes" })).toBeNull();
   });
 
   it("u58_the_control_does_not_select_the_row_or_reorder_the_agents", async () => {
@@ -89,7 +89,7 @@ describe("u58 an Agent's Pads under it", () => {
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
 
     expect(connected.rail.selected()).toBe(SCOPE_ROW);
-    expect([...document.querySelectorAll("[role=tree] [data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2", SCOPE_ROW]);
+    expect([...document.querySelectorAll("[role=tree] :is([data-part=item], [data-part=branch-control])[data-id]")].map((row) => row.getAttribute("data-id"))).toEqual(["a1", "a2", SCOPE_ROW]);
   });
 
   it("u58_the_shelf_holds_only_users_pads_and_pads_of_agents_off_the_rail", async () => {
@@ -105,7 +105,7 @@ describe("u58 an Agent's Pads under it", () => {
     const { connected } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
-    fireEvent.click(screen.getByTitle("notes"));
+    fireEvent.click(screen.getByRole("button", { name: "notes" }));
 
     const drawer = await screen.findByLabelText("Drawer");
 
@@ -117,7 +117,7 @@ describe("u58 an Agent's Pads under it", () => {
     const { app } = await mount(TREE, [padOf("notes", owner("a1"))]);
 
     fireEvent.click(await waitFor(() => control(rowOf("auth")) ?? Promise.reject(new Error("no control"))));
-    fireEvent.click(screen.getByTitle("notes"));
+    fireEvent.click(screen.getByRole("button", { name: "notes" }));
     fireEvent.click(await within(await screen.findByLabelText("Drawer")).findByRole("button", { name: "Make yours" }));
 
     await shelf().findByText("notes");
@@ -144,10 +144,12 @@ describe("u58 an Agent's Pads under it", () => {
 
     row.focus();
     fireEvent.keyDown(row, { key: "ArrowRight" });
-    expect(screen.getByTitle("notes")).toBeTruthy();
+    await settled();
+    expect(screen.getByRole("button", { name: "notes" })).toBeTruthy();
 
     fireEvent.keyDown(row, { key: "ArrowLeft" });
-    expect(screen.queryByTitle("notes")).toBeNull();
+    await settled();
+    expect(screen.queryByRole("button", { name: "notes" })).toBeNull();
     expect(document.activeElement).toBe(row);
   });
 });

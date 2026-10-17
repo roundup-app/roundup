@@ -62,9 +62,9 @@ const load = async () => {
 
 const prepare = async () => {
   await read(`(() => {
-    window.__origin = document.querySelector('.rail-row[aria-selected=true]');
+    window.__origin = document.querySelector('.rail-row[data-selected=true]');
     window.__origin.focus();
-    window.__selected = document.querySelector('.rail-row[aria-selected=true]')?.dataset.id;
+    window.__selected = document.querySelector('.rail-row[data-selected=true]')?.dataset.id;
     window.__calls = window.__fake.app.calls.length;
     window.__escape = 0;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') window.__escape++; });
@@ -86,7 +86,7 @@ it("u481_help_escape_restores_focus_without_underlying_action", async () => {
   await browser("press", "Meta+Comma");
   await browser("press", "Meta+n");
   await browser("press", "Escape"); await closed();
-  expect(await read(`({selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === window.__selected,
+  expect(await read(`({selected: document.querySelector('.rail-row[data-selected=true]')?.dataset.id === window.__selected,
     calls: window.__fake.app.calls.slice(window.__calls).map(c => c.method).filter(method => method !== "project.resources"), escape: window.__escape,
     models: !!document.querySelector('.models-sheet')})`)).toEqual({selected: true, calls: [], escape: 0, models: false});
 }, 60_000);

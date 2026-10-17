@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
-import { rowOf } from "../rail/railFixture";
+import { rowOf, settled } from "../rail/railFixture";
 import { mountKeys } from "./keysFixture";
 
 afterEach(cleanup);
@@ -36,6 +36,7 @@ describe("u140 F2 renames the focused row", () => {
     rowOf("a").focus();
 
     press("ArrowDown");
+    await settled();
     press("F2");
 
     expect(renamedRow()).toBe("b");

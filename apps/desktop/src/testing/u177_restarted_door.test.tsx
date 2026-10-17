@@ -61,7 +61,7 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind).toBe("idle"), { timeout: 30_000 });
     const workstream = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
 
-    await waitFor(() => expect(reopened.querySelector(`[data-id="${workstream.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+    await waitFor(() => expect(reopened.querySelector(`.rail-row[data-id="${workstream.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
     expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
 
     await send(app, "ship b");
