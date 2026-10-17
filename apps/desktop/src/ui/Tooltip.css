@@ -1,0 +1,12 @@
+.app-tooltip {
+  color: var(--text);
+  background-color: var(--sunken);
+  border-radius: var(--radius-drawer);
+  padding: var(--space-4);
+}
+
+/* Ark copies the content stack level to its portalled positioner; the Drawer layer is 2. */
+.app-tooltip {
+  z-index: 3;
+  padding: var(--space-2);
+}
