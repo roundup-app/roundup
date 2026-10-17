@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -11,17 +12,14 @@ import type { StartedDaemon } from "./realDaemonFixture";
 
 let real: StartedDaemon;
 
-// Two Workstreams of five Agents each, one `blocked` in each; the Nth Agent started plays entry N (U351, U356).
+// Two Workstreams of five Agents each, one `blocked` in each; the Agent with id N plays entry N (U351, U356).
 const FIRST = ["blocked", "working", "idle", "working", "idle"];
 
 const SECOND = ["error", "needs-you", "blocked", "error", "needs-you"];
 
 beforeAll(async () => {
-  // A Door has `--tools`, plays no entry and is ready after its SessionStart, which FAKE_CLAUDE_ON_PROMPT plays.
-  real = await startRealDaemon({
-    FAKE_CLAUDE_KINDS: JSON.stringify([...FIRST, ...SECOND]),
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
-  });
+  // E10: each Agent's turns are chosen by its id in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u356_blocked.json"));
 }, 120_000);
 
 afterAll(async () => {
@@ -172,5 +170,6 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     const blocked = agents.flatMap((each) => (each.kind === "blocked" ? [each.id] : []));
 
     expect(visited.filter((id) => blocked.includes(id!))).toEqual([]);
+    await real.model!.assertMatched(2);
   }, 420_000);
 });

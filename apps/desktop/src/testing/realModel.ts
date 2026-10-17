@@ -13,7 +13,7 @@ const KEY = "sk-mock-key-000000000000000000000001";
 
 export const claudeBin = () => join(REPO, "node_modules/.bin/claude");
 
-export type Model = { url: string; journal: () => Promise<Journal[]>; assertMatched: () => Promise<void>; stop: () => Promise<void> };
+export type Model = { url: string; journal: () => Promise<Journal[]>; assertMatched: (failed?: number) => Promise<void>; stop: () => Promise<void> };
 
 type Journal = { body: { messages?: { role: string; tool_call_id?: string; content?: unknown }[] }; response: { fixture: unknown; status: number } };
 
@@ -83,14 +83,16 @@ export const startModel = async (fixture: string): Promise<Model> => {
     url,
     journal,
     stop,
-    assertMatched: async () => {
+    // `failed` is the number of scripted error responses (a fixture's `status: 500`) the test expects; any other failure or unmatched request throws.
+    assertMatched: async (failed = 0) => {
       const entries = await journal();
 
       if (!entries.length) throw new Error("real Claude made no model request");
 
-      const bad = entries.filter((entry) => !entry.response.fixture || entry.response.status !== 200);
+      const bad = entries.filter((entry) => !entry.response.fixture);
+      const errors = entries.filter((entry) => entry.response.status !== 200);
 
-      if (bad.length) throw new Error(`unmatched or failed aimock request: ${JSON.stringify(bad, null, 2)}`);
+      if (bad.length || errors.length !== failed) throw new Error(`unmatched or failed aimock request (${failed} scripted errors expected): ${[...bad, ...errors].map((entry) => `${entry.response.status} ${entry.response.fixture ? "matched" : "unmatched"} ${JSON.stringify(entry.body.messages?.at(-1)?.content).slice(0, 160)}`).join("; ")}`);
     },
   };
 };
