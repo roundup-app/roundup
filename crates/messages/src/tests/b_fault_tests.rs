@@ -40,7 +40,7 @@ impl Faulty {
         let typed: Arc<StdMutex<Vec<(String, String)>>> = Arc::default();
         let seen = Arc::clone(&typed);
         let deliver: Deliver = Arc::new(move |id, text| {
-            seen.lock().unwrap().push((id, text));
+            seen.lock().unwrap().push((id, shown(text)));
             Box::pin(async { Ok(()) })
         });
         let armed: Arc<StdMutex<Option<(&'static str, Fail)>>> = Arc::default();

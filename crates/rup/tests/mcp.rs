@@ -1311,7 +1311,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 json!({"id":"d1","answer":"allow"}),
                 "answered Decision d1: allow",
             ),
-            "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream a1",
@@ -1414,6 +1413,16 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
             json!({"id":"7","agent":"child","method":"terminal.kill","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
         ),
         ("terminal_kill", json!({"id":"t1"}), Value::Null),
+        (
+            "terminal_write",
+            json!({"id":"t1","data":"aGk="}),
+            json!({"id":"8","agent":"child","method":"terminal.write","params":{"id":"t1","data":"aGk="},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "terminal_write",
+            json!({"id":"t1","data":"aGk="}),
+            Value::Null,
+        ),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),
