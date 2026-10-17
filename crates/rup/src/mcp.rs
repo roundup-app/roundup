@@ -436,7 +436,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own.",
+            "Type base64 `data` into a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
@@ -522,7 +522,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
         ),
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
-        "terminal.write" => format!("wrote to Terminal {id}"),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
     }

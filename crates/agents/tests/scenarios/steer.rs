@@ -466,7 +466,8 @@ async fn h20_one_line_steer_has_typed_lead_in() {
 #[test]
 fn b33_a_batch_of_only_digests_is_typed_without_the_lead_in() {
     let digests = "[from rupd, note] [digest] c is idle\n  last: x\n  open todos: 0\n\n\
-                   [from rupd, note] [digest] [2 updates held back]\nd is done\n  last: y\n  open todos: 1";
+                   [from rupd, note] [digest] [2 updates held back]\nd is done\n  last: y\n  open todos: 1\n\n\
+                   [rup messages: 3 4]";
     let typed = String::from_utf8(agents::claude_code::steer_bytes(digests)).unwrap();
     assert_eq!(
         typed,

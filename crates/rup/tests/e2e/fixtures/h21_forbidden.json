@@ -1,0 +1,102 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\": \"Planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What should this Agent do?"
+      },
+      "response": {
+        "content": "{\"title\": \"Planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "H21 other answers",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h21_other",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": "{\"id\": \"d1\", \"answer\": \"allow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h21_other"
+      },
+      "response": {
+        "content": "Refused."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "H21 door answers late",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_h21_late",
+            "name": "mcp__roundup__decision_answer",
+            "arguments": "{\"id\": \"d1\", \"answer\": \"allow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_h21_late"
+      },
+      "response": {
+        "content": "Gone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[decision d1]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Seen."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Waiting for the team."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What should this Agent do?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Waiting for the Door."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[digest]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    }
+  ]
+}
