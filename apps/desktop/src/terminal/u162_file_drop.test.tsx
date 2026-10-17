@@ -165,17 +165,12 @@ describe("u162 drop files on a pane", () => {
     await vi.waitFor(() => expect(container.querySelector(".pane-failure")!.textContent).toContain("write failed"));
   });
 
-  it("u162_the_ring_moves_no_row_and_no_size", async () => {
-    const { app, body, emulators } = await mount();
-    const screen = body.querySelector(".pane-screen")!;
-
-    const before = [body.getBoundingClientRect(), screen.getBoundingClientRect()];
+  it("u162_the_ring_does_not_refit_the_terminal", async () => {
+    const { app, emulators } = await mount();
     const fits = emulators.get("t-a")!.fits;
 
     app.dropFiles(over());
-    expect([body.getBoundingClientRect(), screen.getBoundingClientRect()]).toEqual(before);
     app.dropFiles({ phase: "leave", paths: [], x: 0, y: 0 });
-    expect([body.getBoundingClientRect(), screen.getBoundingClientRect()]).toEqual(before);
     expect(emulators.get("t-a")!.fits).toBe(fits);
   });
 

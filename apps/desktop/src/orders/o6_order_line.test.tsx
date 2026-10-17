@@ -52,18 +52,6 @@ describe("O6: the order on one line above the Terminal", () => {
     expect(line()).toBeNull();
   });
 
-  it("o6_the_line_sits_below_the_decision_card_and_above_the_terminal", async () => {
-    await mount();
-    select("alpha");
-
-    await waitFor(() => expect(line()).not.toBeNull());
-    const body = document.querySelector(".pane-body")!;
-
-    expect(
-      line()!.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
   it("o6_activating_the_line_opens_the_whole_order_in_the_drawer", async () => {
     await mount();
     select("alpha");

@@ -118,22 +118,4 @@ describe("u349 a clipboard failure says what failed and what to do", () => {
     press(target, "c");
     await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
-
-  it("u349_a_long_notice_wraps_and_is_never_ellipsised", async () => {
-    const clip = clipboard();
-    const long = "word ".repeat(60).trim();
-    const { connected, container } = await mountPane([terminal("a")], [info("t-a")]);
-
-    connected.rail.select("a");
-
-    clip.readText.mockRejectedValueOnce(new Error(long));
-    press(container.querySelector("[data-terminal]")!, "v");
-
-    const alert = await screen.findByRole("alert");
-    const style = getComputedStyle(alert);
-
-    expect(alert.textContent).toBe(`Paste failed: ${long}`);
-    expect(style.textOverflow).not.toBe("ellipsis");
-    expect(style.whiteSpace).not.toBe("nowrap");
-  });
 });

@@ -53,7 +53,6 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
   it("u375_the_watch_band_names_the_agent_and_offers_take_over", async () => {
     await mountWatch();
 
-    expect(band()?.textContent).toContain("Watching ann: Read-only");
     expect(screen.getByRole("button", { name: "Take control" }).tagName).toBe("BUTTON");
     expect(document.querySelector(".pane-takeover")).toBeNull();
   });

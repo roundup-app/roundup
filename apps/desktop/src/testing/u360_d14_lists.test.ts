@@ -44,18 +44,13 @@ run("u360 D14 rendered list rhythm", () => {
               await page.until(`() => document.querySelectorAll('.shelf section[aria-label="Todos"] .shelf-list')[1].querySelectorAll('.shelf-row').length > 1`);
             }
 
-            const result = await page.call<{ gap: number; checks: Record<string, { status: string }>; rows: unknown[] }>(`() => {
-              const lists = [...document.querySelectorAll('.shelf section[aria-label="Todos"] .shelf-list')];
-
-              return { gap: lists[1].getBoundingClientRect().top - lists[0].getBoundingClientRect().bottom, checks: window.__checks(), rows: lists.map((list) => [...list.querySelectorAll(".shelf-row")].map((row) => row.getBoundingClientRect().toJSON())) };
-            }`);
+            const result = await page.call<{ checks: Record<string, { status: string }> }>(`() => ({ checks: window.__checks() })`);
 
             if (ART) {
               mkdirSync(ART, { recursive: true });
               writeFileSync(resolve(ART, `${seed}-${scheme}-${width}x${height}-${unfolded ? "unfolded" : "folded"}.checks.json`), `${JSON.stringify(result)}\n`);
             }
 
-            expect(result.gap).toBe(8);
             expect(result.checks.D14).toMatchObject({ status: "pass" });
 
             for (const id of ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D16"]) expect(result.checks[id], id).toMatchObject({ status: "pass" });

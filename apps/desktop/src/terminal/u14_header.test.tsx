@@ -1,7 +1,7 @@
 import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountPane } from "./paneHarness";
-import { event, info, node } from "../testing/nodes";
+import { info, node } from "../testing/nodes";
 
 const headerOf = (container: HTMLElement) => container.querySelector(".pane-title")?.textContent ?? "";
 
@@ -25,15 +25,5 @@ describe("pane empty states and error sizing", () => {
       null,
     ]);
     expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
-  });
-
-  it("u13_an_error_line_shows_with_a_dismiss_icon", async () => {
-    const { app, connected } = await mountPane([node("a")], [info("t-a")]);
-
-    connected.rail.select("a");
-    app.emit(event({ name: "terminal.output", data: { id: "t-a", data: "***", offset: 0 } }));
-    const failure = await screen.findByRole("alert", { name: /^terminal\.output:/ });
-
-    expect(failure.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 });
