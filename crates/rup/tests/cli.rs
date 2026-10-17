@@ -937,3 +937,29 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
         }
     }
 }
+
+#[tokio::test]
+async fn b45_the_cli_command_is_the_tool_and_exits_by_the_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let mut requests = stand_in(
+        &socket,
+        false,
+        vec![("agent.wake", json!({"id": 7, "fired": false}))],
+        &[],
+    );
+    let run = on(&socket);
+    let plain = run.rup(&["agent", "wake", "3", "4", "--any"]).await;
+    assert_eq!(code(&plain), 0, "{}", err(&plain));
+    assert_eq!(out(&plain).trim(), "woken: 7");
+    assert_eq!(
+        request_of(&mut requests, "agent.wake").await,
+        json!({"ids": ["3", "4"], "any": true})
+    );
+    let json_out = run.rup(&["agent", "wake", "3", "--json"]).await;
+    let parsed: Value = serde_json::from_str(&out(&json_out)).unwrap();
+    assert_eq!(parsed, json!({"id": 7, "fired": false}));
+    assert_eq!(code(&run.rup(&["agent", "wake"]).await), 2);
+    let gone = dir.path().join("absent.sock");
+    assert_eq!(code(&on(&gone).rup(&["agent", "wake", "3"]).await), 1);
+}
