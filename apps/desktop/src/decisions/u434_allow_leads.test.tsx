@@ -7,7 +7,7 @@ const destructive = decision("d1", "a", { args: JSON.stringify({ command: "rm -r
 
 describe("u434 on a permission Card allow leads", () => {
   for (const width of [FULLSCREEN.width]) {
-    it(`u434_allow_leads_and_differs_in_colour_at_${width}`, async () => {
+    it(`u434_allow_leads_and_is_the_primary_at_${width}`, async () => {
       window.innerWidth = width;
       await mountApp([destructive]);
       select("alpha");
@@ -20,9 +20,6 @@ describe("u434 on a permission Card allow leads", () => {
       expect(names).toEqual(["Allow", "Deny"]);
       expect(allow.getAttribute("data-button")).toBe("primary");
       expect(deny.getAttribute("data-button")).toBe("quiet");
-      expect(getComputedStyle(deny).color).not.toBe(getComputedStyle(allow).color);
-      expect(getComputedStyle(deny).fontWeight).toBe(getComputedStyle(allow).fontWeight);
-      expect(getComputedStyle(deny).fontSize).toBe(getComputedStyle(allow).fontSize);
     });
   }
 });

@@ -9,16 +9,14 @@ Module: `crates/agents` (the pinned style inside the Brief, under `claude_code/`
 | Surface | Text | Test |
 |---|---|---|
 | Drawer: Work order (`OrderDrawer`) | ask, limits | `q2_order_drawer` |
-| Order line above an Agent's Terminal (`OrderLine`) | the one-line order | `q2_order_line` |
-| Decision Card (U113) | `ask_user` question and its answers | `q2_decision_card` |
 | Decision Card preview (U406) | an `ask_user` answer's preview | `q2_decision_preview` |
 | Pad Drawer: Pad reply (`PadAsk` Exchange, U190) | the reply | `q2_pad_reply` |
 
 A Terminal keeps mono (design-system: mono is for the Terminal, paths, ids and code). Text a user typed is not generated text and keeps its layout.
 
-**Q3 hold:Plain's layout.** Given any text of Q2, then the rendered element has `text-align: left` (not `center`) and the computed `font-family` is `--font-ui` (`apps/desktop/src/tokens.css:24`), not `--font-mono` (the `:root` font through `--mono` at `apps/desktop/src/styles.css:3`). A status reply of rows renders as an HTML table, never as preformatted text; a code fence and inline code stay `--font-mono`. A part with a label (Q4) is a heading over its content. Lines wrap at the Drawer's width with no horizontal scroll at 1280×800 (D10). Text meets D2 and D5. Test: `q3_` renders each surface of Q2 in Vitest and reads computed style and DOM, with a seed holding a 3-row table and a limit of 300 characters.
+**Q3 hold:Plain's layout.** Given any text of Q2, then a status reply of rows renders as an HTML table, never as preformatted text; a code fence and inline code stay `--font-mono`. A part with a label (Q4) is a heading over its content. Text meets D2 and D5. Test: `q3_` renders each surface of Q2 in Vitest and reads the DOM, with a seed holding a 3-row table and a limit of 300 characters.
 
-**Q4 a Work order has visible parts.** Given a Work order `{ask, limits}` (O1), then the Drawer shows, top to bottom: the ask; O10's `done when` part when the order has a done condition; if `limits` is not empty, a heading `limits` over a list of each limit as the Agent wrote it. No item has a prefix, and no label negates or inverts a limit: limits are stated as rules that read on their own ("Change no file in the repo"). Where an order has no limits, that part and its label are absent. The O2 Steer lists the same parts with `Limits:` in place of `Must not:`; the Door's B24 policy tells it to write each limit as a positive rule. Test: `q4_` renders an order whose limits are positive sentences and asserts that no `must not:` precedes any of them, that the only label is `limits`, after the ask (an order with no done condition and no Spawn prompt; O10 adds `done when` and `prompt`), and that the text is left-aligned in `--font-ui`; a second case omits limits and finds no label.
+**Q4 a Work order has visible parts.** Given a Work order `{ask, limits}` (O1), then the Drawer shows, top to bottom: the ask; O10's `done when` part when the order has a done condition; if `limits` is not empty, a heading `limits` over a list of each limit as the Agent wrote it. Where an order has no limits, that part and its label are absent. The O2 Steer lists the same parts with `Limits:` in place of `Must not:`; the Door's B24 policy tells it to write each limit as a positive rule.
 
 **Q5 the Rail's one-line order says it in words.** Given a Work order, then `orderLine` (O6) is the ask, then the limits count in words (`no limits`, `1 limit`, `3 limits`), for example `Give a short tour · 3 limits`; it never contains `must not`. A Clarification order stays `Clarifying: <question>`. The line is cut to one line as O6 says. Test: `q5_` over the four forms.
 

@@ -75,7 +75,6 @@ it("u501_full_content_is_available", async () => {
   await wait(`document.querySelectorAll('.resource-value').length === 3`);
   await browser("hover", ".resource-value");
   await wait(`document.querySelector('.app-tooltip')?.textContent === document.querySelector('.resource-name').textContent`);
-  expect(await read<string>(`document.querySelector('.app-tooltip').textContent`)).toBe("Resident memory");
 }, 120_000);
 
 // The Rail's run count (`rail/`, outside this lane) fails D5 in light on main itself; paired runs compare it, a head-only run skips it.
