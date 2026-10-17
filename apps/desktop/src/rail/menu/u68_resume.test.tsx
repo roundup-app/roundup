@@ -22,7 +22,7 @@ describe("u68 resume from the Rail menu", () => {
 
     openAt("a");
 
-    expect(labels()).toEqual(["Resume", "Model…", "Remove"]);
+    expect(labels()).toEqual(["Resume", "Remove"]);
   });
 
   it("u68_menu_per_row_kind", async () => {
@@ -40,31 +40,31 @@ describe("u68 resume from the Rail menu", () => {
     );
 
     openAt("live-done");
-    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
+    expect(labels()).toEqual(["Stop", "Remove"]);
     openAt("live-error");
-    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
+    expect(labels()).toEqual(["Stop", "Remove"]);
     openAt("gone");
-    expect(labels()).toEqual(["Model…", "Remove"]);
+    expect(labels()).toEqual(["Remove"]);
     openAt("run");
-    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
+    expect(labels()).toEqual(["Stop", "Remove"]);
     openAt("g");
     expect(labels()).toEqual(["Remove", "Clear…"]);
     openAt("d");
     expect(labels()).toEqual(["Resume", "Remove", "Clear…"]);
     openAt("t");
-    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
+    expect(labels()).toEqual(["Stop", "Remove"]);
   });
 
   it("u68_the_menu_follows_an_exit_without_reload", async () => {
     const { app } = await mountRail([resumable("a")]);
 
     openAt("a");
-    expect(labels()).toEqual(["Stop", "Model…", "Remove"]);
+    expect(labels()).toEqual(["Stop", "Remove"]);
 
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["Resume", "Model…", "Remove"]);
+      expect(labels()).toEqual(["Resume", "Remove"]);
     });
   });
 
@@ -216,7 +216,7 @@ describe("u68 resume from the Rail menu", () => {
 
     await waitFor(() => {
       openAt("a");
-      expect(labels()).toEqual(["Resume", "Model…", "Remove"]);
+      expect(labels()).toEqual(["Resume", "Remove"]);
     });
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]);
   });
