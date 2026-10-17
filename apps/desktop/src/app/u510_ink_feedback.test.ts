@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
+import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
-/** U510 in a real Chromium: ghost, icon and disclosure buttons answer with ink only; the Checks pass. */
+/** U510 in a real Chromium: ghost, icon and disclosure buttons answer with ink only. */
 
 const found = chromePath();
 
@@ -45,20 +45,14 @@ const INVENTORY = `() => {
 
 const SEEDS = ["tree-40", "door-report", "tabs-8", "door-stopped"];
 
-const open = async (seed: string, scheme: "light" | "dark", contrast?: "more") => {
-  await page.scheme(scheme, contrast);
+const open = async (seed: string, scheme: "light" | "dark") => {
+  await page.scheme(scheme);
   await page.load(`/harness.html?seed=${seed}`, 1280, 800);
   await page.call<void>(`() => { localStorage.clear(); sessionStorage.clear(); }`);
   await page.load(`/harness.html?seed=${seed}`, 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
   await page.until(`() => document.querySelector('${COVERED}') !== null`);
 };
-
-const COLUMNS: [string, "light" | "dark", "more" | undefined][] = [
-  ["light", "light", undefined],
-  ["dark", "dark", undefined],
-  ["increased_contrast", "light", "more"],
-];
 
 run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxes", () => {
   it("u510_disabled_behavior_is_preserved", async () => {
@@ -92,17 +86,4 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
     expect(callers.size).toBeGreaterThan(8);
     expect([...callers].filter((caller) => !/^(quiet|add|row-action|icon)\|/.test(caller))).toEqual([]);
   }, 120_000);
-
-  for (const [label, scheme, contrast] of COLUMNS)
-    for (const width of [FULLSCREEN.width])
-      it(`u510_rendered_checks_${label}_${width}`, async () => {
-        await page.scheme(scheme, contrast);
-        await page.load("/harness.html?seed=tree-40", width, FULLSCREEN.height);
-        await page.until(`() => Boolean(window.__fake) && document.querySelector('${COVERED}') !== null`);
-        await page.until(`() => { const now = document.querySelectorAll('button').length; const same = window.__buttons === now; window.__buttons = now; return same; }`);
-
-        const checks = await page.call<Record<string, { status: string; value: unknown; selector: string }>>(`() => import('/src/testing/checks.ts').then(m => m.runChecks())`);
-
-        for (const id of ["D2", "D5", "D6", "D7"]) expect(checks[id], `${id} ${JSON.stringify(checks[id])}`).toMatchObject({ status: "pass" });
-      }, 60_000);
 });

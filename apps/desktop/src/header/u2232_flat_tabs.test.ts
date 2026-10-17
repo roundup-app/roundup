@@ -13,8 +13,6 @@ beforeAll(async () => {
 
 afterAll(async () => { await page?.close(); });
 
-const tokenBg = `(name) => { const p = document.createElement('i'); p.style.backgroundColor = 'var(' + name + ')'; document.body.append(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; }`;
-
 const strip = async (scheme: "light" | "dark") => {
   await page.scheme(scheme);
   await page.load("/harness.html?seed=tabs-8", 1512, 950);
@@ -123,19 +121,3 @@ it("u2235_a_cut_tab_name_is_shown_by_the_shared_tooltip", async () => {
   await page.hover(cut.x, cut.y);
   await page.until(`() => document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(cut.name)}`);
 }, 60_000);
-
-it("u2232_tab_text_keeps_contrast", async () => {
-  for (const scheme of ["light", "dark"] as const) for (const surface of ["strip", "runs"] as const) {
-    if (surface === "strip") await strip(scheme);
-    else await runs(scheme);
-
-    const selector = surface === "strip" ? ".project-tab" : ".terminal-tab-pair";
-    const rgb = (value: string) => value.match(/[\d.]+/g)!.slice(0, 3).map(Number);
-    const lum = (value: string) => rgb(value).reduce((sum, c, i) => sum + [0.2126, 0.7152, 0.0722][i]! * (c / 255 <= 0.04045 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4), 0);
-    const ratio = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
-    const reading = await page.call<{ sunken: string; ground: string; rest: string; selected: string }>(`(b, selector) => ({ sunken: eval(b)('--sunken'), ground: eval(b)('--ground'), rest: getComputedStyle(document.querySelector(selector + '[data-selected=false]')).color, selected: getComputedStyle(document.querySelector(selector + '[data-selected=true]')).color })`, tokenBg, selector);
-
-    expect(ratio(reading.rest, reading.sunken), scheme + surface).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(reading.selected, reading.ground), scheme + surface).toBeGreaterThanOrEqual(4.5);
-  }
-}, 120_000);

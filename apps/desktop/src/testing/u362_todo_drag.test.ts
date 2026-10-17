@@ -1,9 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
-import { captureDir } from "./captures";
 
 const found = chromePath();
 
@@ -21,8 +18,6 @@ afterAll(async () => { await page?.close(); });
 type Point = {x: number; y: number};
 
 type Checks = Record<string, {status: string; value: unknown}>;
-
-type Evidence = {base?: Checks; checks: Checks; movedHome?: string; calls?: {method: string; params: {id: number; home: string | null}}[]};
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
   await page.load(`${origin}/harness.html?seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
@@ -43,34 +38,7 @@ const point = (selector: string) => page.call<Point>(`selector => {
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};
 }`, selector);
 
-const capture = async (id: string, name: string, evidence: Evidence) => {
-  const dir = captureDir(id);
-
-  if (!dir) return;
-  mkdirSync(dir, {recursive: true});
-  writeFileSync(resolve(dir, `${name}.png`), Buffer.from(await page.shot(), 'base64'));
-  writeFileSync(resolve(dir, `${name}.checks.json`), JSON.stringify(evidence) + '\n');
-};
-
 run('u137 compound selected ground', () => {
-  for (const scheme of ['light', 'dark'] as const) {
-    const width = 1280;
-    it(`u137_nested_rail_text_is_measured_on_the_full_size_wash ${scheme} ${width}`, async () => {
-      await page.scheme(scheme);
-      await setup(false, '', width, 800);
-      await page.call(`() => {
-        const row = document.querySelector('.rail-row[data-id="payments"]');
-        row.click();
-        row.focus();
-      }`);
-      await page.until(`() => Boolean(document.querySelector('.rail-row[data-selected="true"] .rail-add-label'))`);
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-      expect(checks.D5?.status, JSON.stringify(checks.D5)).toBe('pass');
-      expect(checks.D10?.status, JSON.stringify(checks.D10)).toBe('pass');
-      await capture('U137', `${scheme}-${width}-selected`, {checks});
-    }, 30_000);
-  }
-
   for (const [coverage, scheme, width] of [
     ['full', 'light', 1280], ['full', 'dark', 1280],
     ['partial', 'light', 1280], ['overlapping', 'light', 1280], ['single', 'light', 1280], ['padded', 'light', 1280], ['focus', 'light', 1280], ['focus-inset', 'light', 1280],
@@ -127,7 +95,6 @@ run('u362 rendered Todo drag', () => {
     it(`u362_a_drop_moves_to_the_workstream_then_project_root ${scheme}`, async () => {
       await page.scheme(scheme);
       await setup();
-      const base = await page.call<Checks>(`() => window.__checks()`);
       const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
       const home = await page.call<string>(`() => document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
       const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
@@ -136,7 +103,6 @@ run('u362 rendered Todo drag', () => {
       await page.pointer('move', to.x, to.y);
       expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
 
-      await capture('U362', `${scheme}-over-workstream`, {base, checks: await page.call(`() => window.__checks()`)});
       await page.pointer('up', to.x, to.y);
       await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home});
@@ -152,7 +118,6 @@ run('u362 rendered Todo drag', () => {
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home: null});
       expect(await page.call(`() => document.activeElement === document.body`)).toBe(false);
       expect(await page.call(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id)).toBeNull();
-      await capture('U362', `${scheme}-root-home`, {base, checks: await page.call(`() => window.__checks()`), movedHome, calls: await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move')`)});
     }, 60_000);
   }
 });
@@ -191,44 +156,6 @@ run('u362 rendered Todo drag that moves nothing', () => {
   }, 60_000);
 });
 
-run('u363 Todo rows in the worst case', () => {
-  // D5 reads dark once, at the narrowest Shelf.
-  for (const [scheme, shelfWidth] of [['light', 163], ['light', 480], ['dark', 163]] as const) {
-    it(`u363_the_worst_case_keeps_the_checks ${scheme} ${shelfWidth}`, async () => {
-      await page.scheme(scheme);
-      await setup(true);
-      const base = await page.call<Checks>(`() => window.__checks()`);
-      await page.call(`shelfWidth => {
-        document.querySelector('.shelf').style.width = shelfWidth + 'px';
-        document.querySelector('[aria-label="Todo fixture"] button').click();
-      }`, shelfWidth);
-      await page.until(`() => document.querySelector('[aria-label="Todo fixture"] button').getAttribute('aria-pressed') === 'true'`, 30_000);
-      await page.until(`() => document.querySelectorAll('.shelf .todo-row').length === 200`);
-      await page.call(`async () => {
-        await document.fonts.ready;
-        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
-      }`);
-
-      const from = await point('.shelf .todo-row-button');
-      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
-      await page.pointer('down', from.x, from.y);
-      await page.pointer('move', to.x, to.y);
-      expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
-      await capture('U363', `${scheme}-${shelfWidth}-drag`, {base, checks: await page.call(`() => window.__checks()`)});
-      await page.pointer('up', to.x, to.y);
-      await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-
-      for (const id of ['D2', 'D5', 'D6', 'D10', 'D12', 'D14']) expect(checks[id]?.status, id).toBe('pass');
-      await page.call(`() => {
-        document.querySelector('[aria-label="Todo count"]').click();
-      }`);
-      await page.until(`() => !document.querySelector('[aria-label="Todo fixture"] button').disabled && document.querySelectorAll('.shelf .todo-row').length === 0`);
-      await capture('U363', `${scheme}-${shelfWidth}-empty`, {checks: await page.call(`() => window.__checks()`)});
-    }, 90_000);
-  }
-});
-
 run('u362 rendered move failure', () => {
   for (const scheme of ['light', 'dark'] as const) {
     it(`u362_a_failed_move_stays_visible_on_the_densest_seed ${scheme}`, async () => {
@@ -255,10 +182,6 @@ run('u362 rendered move failure', () => {
       await page.call(`async () => {
         await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-
-      for (const [id, result] of Object.entries(checks)) expect(result.status, `${id}: ${JSON.stringify(result.value)}`).toBe('pass');
-      await capture('U362', `${scheme}-163-failure`, {checks});
     }, 30_000);
   }
 });

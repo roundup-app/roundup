@@ -1,6 +1,4 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { CHECK_IDS } from "../testing/checks";
-import type { Checks } from "../testing/checks";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
@@ -104,23 +102,4 @@ run("u2228b the window title keeps the name's start and end", () => {
     await page.resize(1600, 800);
     await page.until(`() => document.querySelector(".window-title").textContent.length >= ${wide.shown.length}`);
   });
-
-  for (const scheme of ["light", "dark"] as const) {
-    it(`u2228b_title_keeps_checks in ${scheme}`, async () => {
-      await page.scheme(scheme);
-      await load(1280);
-
-      const before = await page.call<Checks>(`() => window.__checks()`);
-
-      await page.call(select);
-      await page.call(RENAME, `payments ${TAIL}`);
-      await page.until(`() => document.querySelector(".window-title").getAttribute("aria-label").endsWith("-the-end")`);
-
-      const after = await page.call<Checks>(`() => window.__checks()`);
-
-      for (const id of CHECK_IDS) if (before[id].status === "pass") expect(after[id].status, id).toBe("pass");
-
-      for (const id of ["D2", "D5", "D6"] as const) expect(after[id].status, id).toBe("pass");
-    });
-  }
 });

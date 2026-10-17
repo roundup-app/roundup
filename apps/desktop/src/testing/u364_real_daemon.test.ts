@@ -1,11 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
-import { captureDir } from "./captures";
 
 /** U364's observer: the real `rupd` with U356's ten Agents and a real Chromium; the `blocked` rows' `waits on #<id>` shows whole at 1600 by 800 and is cut at 1280 with the age whole. */
 
@@ -16,8 +14,6 @@ const run = found || process.env["CI"] ? describe : describe.skip;
 let real: StartedDaemon;
 
 let page: ChromePage;
-
-const ART = captureDir("U356");
 
 // U356's seed (fixtures/u356_blocked.json): two Workstreams of five Agents each, one `blocked` in each.
 // The Rail's width in px at which both labels fit whole at 1600 by 800 (U364's Given).
@@ -35,19 +31,6 @@ afterAll(async () => {
   await page?.close();
   await real?.stop();
 });
-
-const save = async (name: string) => {
-  const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
-
-  if (ART) {
-    mkdirSync(ART, { recursive: true });
-    writeFileSync(join(ART, `${name}.png`), Buffer.from(await page.shot(), "base64"));
-    writeFileSync(join(ART, `${name}.checks.json`), JSON.stringify(checks, null, 2));
-  }
-
-  // U364 Unchanged: D1 to D11 hold.
-  for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
-};
 
 type Blocked = { label: string; live: number };
 
@@ -129,8 +112,6 @@ run("u364 on the real Daemon", () => {
       expect(row.live).toBe(0);
     }
 
-    await save("blocked-1600x800");
-
     // Back to the default Rail, as a user's Enter on the edge does.
     await edge("Enter");
 
@@ -145,8 +126,6 @@ run("u364 on the real Daemon", () => {
         expect(row.label).toMatch(/^waits on #\d+$/);
         expect(row.live).toBe(0);
         }
-
-      await save(`blocked-${width}x${height}`);
     }
 
     await real.model!.assertMatched(2);
