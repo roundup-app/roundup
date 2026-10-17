@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -39,10 +40,10 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     const tree = async () => app.rpc("rail.tree", null);
     const agentsOf = async (workstream: string) => (await tree()).filter((node) => node.kind === "agent" && node.parent === workstream);
     const doorsReady = async () => expect((await tree()).map((node) => node.status?.label)).not.toContain("starting");
-    const selected = () => rail.querySelector('[role="treeitem"][data-selected="true"]')?.getAttribute("data-id") ?? null;
+    const selected = () => rail.querySelector('.rail-row[data-selected="true"]')?.getAttribute("data-id") ?? null;
 
     const row = (id: string): HTMLElement => {
-      const found = rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`);
+      const found = rail.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`);
 
       if (!found) throw new Error(`no row ${id}`);
 
@@ -95,7 +96,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       await waitFor(() => expect(selected()).toBe(id));
 
       const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).title;
+      const word = await rowStatusLabel(row(id));
       const node = (await tree()).find((each) => each.id === id);
 
       expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));

@@ -3,6 +3,7 @@ import { createEffect, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailMenuModel } from "./model";
 import { ModelPair } from "../../models/ModelPair";
 import { goesLine, goingNames, staysLine } from "./removal";
+import { ROW } from "../rows";
 
 export const RailMenu = (props: { menu: RailMenuModel }) => {
   let element: HTMLDivElement | undefined;
@@ -35,7 +36,7 @@ export const RailMenu = (props: { menu: RailMenuModel }) => {
 
     props.menu.close();
     queueMicrotask(() => {
-      document.querySelectorAll<HTMLElement>("[role=treeitem]").forEach((row) => {
+      document.querySelectorAll<HTMLElement>(ROW).forEach((row) => {
         if (row.dataset.id === id) row.focus();
       });
     });

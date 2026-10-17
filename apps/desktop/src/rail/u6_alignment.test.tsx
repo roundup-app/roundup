@@ -28,7 +28,7 @@ it.each([0, 1, 2])("u6_row_contents_stay_centered_in_the_selection_band_at_depth
 
     for (const node of nodes) {
       const row = within(screen.getByRole("tree")).getByText(node.name, { selector: ".name" })
-        .closest<HTMLElement>("[role=treeitem]")!;
+        .closest<HTMLElement>(".rail-row")!;
 
       for (const state of ["rest", "hover", "selected"] as const) {
         if (state === "hover") fireEvent.mouseEnter(row);

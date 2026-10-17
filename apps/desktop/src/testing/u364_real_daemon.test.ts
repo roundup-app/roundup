@@ -55,10 +55,26 @@ const save = async (name: string) => {
 
 type Blocked = { label: string; live: number; scrollWidth: number; clientWidth: number };
 
-const AGENTS = `[...document.querySelectorAll('[role="treeitem"][data-id][aria-level="2"]')]`;
+const AGENTS = `[...document.querySelectorAll('[data-part="item"][data-id][aria-level="2"]')]`;
 
-/** U404: the Rail draws no Live line, so each `blocked` row's whole label is its `title`, and the row itself fits. */
-const READ = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => ({ label: row.title, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth }))`;
+/** U404: the Rail draws no Live line, so each `blocked` row's whole label is the Status line of its Tooltip (U521), and the row itself fits. */
+const MEASURE = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => { const box = row.getBoundingClientRect(); return { id: row.dataset.id, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth, x: box.left + box.width / 2, y: box.top + box.height / 2 }; })`;
+
+const TIP = `(id) => { const row = document.querySelector('.rail-row[data-id="' + id + '"]'); const lines = [...(document.getElementById(row.getAttribute("aria-describedby") ?? "")?.children ?? [])].map((line) => line.textContent); return lines.find((line) => line !== row.querySelector(".name").textContent) ?? ""; }`;
+
+/** Each blocked row measured, then hovered as a user does so its Tooltip names the whole label (after the name, when the layout cuts it). */
+const READ = async (): Promise<Blocked[]> => {
+  const rows = await page.call<(Omit<Blocked, "label"> & { id: string; x: number; y: number })[]>(MEASURE);
+  const read: Blocked[] = [];
+
+  for (const { id, x, y, ...measured } of rows) {
+    await page.hover(x, y);
+    await page.until(`() => (${TIP})(${JSON.stringify(id)}) !== ""`);
+    read.push({ ...measured, label: await page.call<string>(TIP, id) });
+  }
+
+  return read;
+};
 
 const openHarness = async () => {
   for (let attempt = 1; ; attempt++) {
@@ -82,7 +98,7 @@ run("u364 on the real Daemon", () => {
 
     for (let workstream = 1; workstream <= 2; workstream++) {
       await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
-      await page.until(`() => document.querySelectorAll('[role="treeitem"][data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
+      await page.until(`() => document.querySelectorAll('.rail-row[data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
       await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
       for (let at = 1; at <= 5; at++) {
@@ -108,7 +124,7 @@ run("u364 on the real Daemon", () => {
 
     while (await page.call<number>(`() => Number(document.querySelector('[role="separator"][aria-label="Resize Rail"]').getAttribute("aria-valuenow"))`) < WIDE) await edge("ArrowRight");
 
-    const wide = await page.call<Blocked[]>(READ);
+    const wide = await READ();
 
     expect(wide).toHaveLength(2);
 
@@ -126,7 +142,7 @@ run("u364 on the real Daemon", () => {
     for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
 
-      const narrow = await page.call<Blocked[]>(READ);
+      const narrow = await READ();
 
       expect(narrow).toHaveLength(2);
 

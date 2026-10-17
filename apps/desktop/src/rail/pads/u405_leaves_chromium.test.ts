@@ -28,9 +28,9 @@ afterAll(async () => {
 type Read = { agentMark: number; marks: number[]; leaves: number; overflow: boolean; step: number; rowsAbove: number[] };
 
 const READ = `() => {
-  const row = document.querySelector('[data-id="tokens"]');
+  const row = document.querySelector('.rail-row[data-id="tokens"]');
   const control = row.querySelector("[data-pads-control]");
-  const rows = [...document.querySelectorAll('[role="treeitem"][data-id]')];
+  const rows = [...document.querySelectorAll('.rail-row[data-id]')];
   const tops = () => rows.slice(0, rows.indexOf(row) + 1).map((each) => each.getBoundingClientRect().top);
   const before = tops();
   control.click();

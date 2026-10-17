@@ -26,7 +26,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     select("beta");
 
-    expect(card()).toBeNull();
+    await waitFor(() => expect(card()).toBeNull());
   });
 
   it("u113_selecting_a_workstream_shows_its_doors_decision", async () => {
@@ -48,7 +48,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     expect(card()).toBeNull();
     expect(document.activeElement).toBe(focused);
-    expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((row) => row.getAttribute("aria-selected") === "true")?.textContent).toContain("beta");
+    await waitFor(() => expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).find((row) => row.getAttribute("aria-selected") === "true")?.textContent).toContain("beta"));
   });
 
   it("u113_a_permission_decision_offers_allow_and_deny", async () => {

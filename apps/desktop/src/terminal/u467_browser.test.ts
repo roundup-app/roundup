@@ -94,7 +94,7 @@ describe("u468 attention meets the Checks and keeps focus until activated", () =
         await page.until(`() => document.querySelector('.app-toast')`);
 
         const after = await page.call<{ selected: string | null; terminal: string | null; toast: string }>(`() => ({
-          selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id ?? null,
+          selected: document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id ?? null,
           terminal: document.activeElement?.closest('[data-terminal]')?.dataset.terminal ?? null,
           toast: document.querySelector('.app-toast').textContent,
         })`);
@@ -109,7 +109,7 @@ describe("u468 attention meets the Checks and keeps focus until activated", () =
         await record("U468", `attention-${width}-${scheme}`, checks);
 
         await page.call(`() => document.querySelector('.app-toast-action').click()`);
-        await page.until(`() => document.querySelector('.rail-row[aria-selected=true]')?.dataset.id === 'tokens'`);
+        await page.until(`() => document.querySelector('[role=treeitem][aria-selected=true]')?.dataset.id === 'tokens'`);
       }
     }
   }, 120_000);

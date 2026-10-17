@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { rowStatusLabel } from "./rowTip";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -202,10 +203,10 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
     const tree = async () => app.rpc("rail.tree", null);
     const agentsOf = async (workstream: string) => (await tree()).filter((node) => node.kind === "agent" && node.parent === workstream);
     const doorsReady = async () => expect((await tree()).map((node) => node.status?.label)).not.toContain("starting");
-    const selected = () => rail.querySelector('[role="treeitem"][data-selected="true"]')?.getAttribute("data-id") ?? null;
+    const selected = () => rail.querySelector('.rail-row[data-selected="true"]')?.getAttribute("data-id") ?? null;
 
     const row = (id: string): HTMLElement => {
-      const found = rail.querySelector<HTMLElement>(`[role="treeitem"][data-id="${id}"]`);
+      const found = rail.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`);
 
       if (!found) throw new Error(`no row ${id}`);
 
@@ -265,10 +266,10 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
 
       const node = (await tree()).find((each) => each.id === id);
 
-      await waitFor(() => expect(row(id).title).toBe(node?.status?.label));
+      await waitFor(async () => expect(await rowStatusLabel(row(id))).toBe(node?.status?.label));
 
       const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = row(id).title;
+      const word = await rowStatusLabel(row(id));
       expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));
       expect(word).toBe(node?.status?.label);
       expect(word.length).toBeGreaterThan(0);
