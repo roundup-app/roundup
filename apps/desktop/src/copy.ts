@@ -285,6 +285,8 @@ export const copy = {
   body: "Body",
   moveTodo: (value1: CopyValue) => `Move #${value1}`,
   move: "Move",
+  moveUp: "Move up",
+  moveDown: "Move down",
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
   completeTodo: (value1: CopyValue) => `Complete ${value1}`,
   deleteTodoQuestion: "Delete Todo?",

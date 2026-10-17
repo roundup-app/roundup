@@ -15,7 +15,7 @@ import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { beforeOf } from "./beforeOf";
 import { Todos } from "./Todos";
-import { todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
+import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
 afterEach(cleanup);
 
@@ -90,6 +90,20 @@ describe("u490a an Agent's list orders within itself", () => {
     await within(group).findByText(/no room/);
     expect(ids(group)).toEqual([4, 3, 5]);
     expect(document.activeElement).toBe(row(4));
+  });
+
+  it("u490a_the_shelf_rows_have_move_up_and_move_down_that_stop_at_the_ends", async () => {
+    const mounted = await mountTodos([todo(1), todo(2), todo(3)]);
+
+    await screen.findByText(/todo 3/);
+    const step = (id: number, name: string) => within(document.querySelector<HTMLElement>(`[data-shelf-row][data-id="${id}"]`)!).getByRole("button", { name });
+
+    fireEvent.click(step(1, "Move up"));
+    fireEvent.click(step(3, "Move down"));
+    expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
+    expect(step(1, "Move up").getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(step(1, "Move down"));
+    await waitFor(() => expect(callsTo(mounted.app, "todo.reorder")).toEqual([{ method: "todo.reorder", params: { id: 1, before: 3 } }]));
   });
 
   it("u490a_nested_order_boundary_translates_to_the_next_row", () => {

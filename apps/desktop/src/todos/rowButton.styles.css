@@ -194,3 +194,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* U490a: Move up and Move down are out of sight and out of the flow until one has focus (U112: no row changes its height). */
+.shelf .todo-row { position: relative; }
+
+.todo-steps { position: absolute; top: 0; right: var(--space-2); display: flex; gap: var(--space-1); background: var(--ground); }
+
+.todo-steps:not(:focus-within) { clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
+
+.todo-step::before { content: "↑"; }
+
+.todo-step[data-step="down"]::before { content: "↓"; }
