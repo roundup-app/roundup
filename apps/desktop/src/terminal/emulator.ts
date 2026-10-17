@@ -4,7 +4,7 @@ import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
-import type { TurnRows } from "./turns";
+import type { TurnFacts, TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -27,6 +27,12 @@ export type Emulator = {
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   selection(): string;
+  /** U515: fires whenever the selection changes. */
+  onSelection(listener: () => void): void;
+  /** U515: the viewport point just after the selection's last cell, or null with no selection or an unopened screen. */
+  selectionEnd(): { x: number; y: number } | null;
+  /** U516: the facts of the Turn holding the selection's first row, or null outside every Turn. */
+  selectionFacts(): TurnFacts | null;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
@@ -277,6 +283,25 @@ export const createXtermEmulators = (
         linkListener = listener;
       },
       selection: () => terminal.getSelection(),
+      onSelection: (listener) => {
+        terminal.onSelectionChange(listener);
+      },
+      selectionEnd: () => {
+        const end = terminal.getSelectionPosition()?.end;
+        const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
+
+        if (!end || !screen || terminal.rows === 0 || terminal.cols === 0) return null;
+
+        const box = screen.getBoundingClientRect();
+        const row = Math.min(Math.max(end.y - terminal.buffer.active.viewportY, 0), terminal.rows - 1);
+
+        return { x: box.left + (end.x * box.width) / terminal.cols, y: box.top + ((row + 1) * box.height) / terminal.rows };
+      },
+      selectionFacts: () => {
+        const start = terminal.getSelectionPosition()?.start;
+
+        return start ? shellTurns.factsAt(start.y) : null;
+      },
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),

@@ -42,7 +42,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
   }, 1_200_000);
   afterAll(async () => { await server?.close(); await baseServer?.close(); });
   const centre = (box: Box) => (box.top + box.bottom) / 2;
-  it("u440_boxed_tabs_keep_passing_checks", () => {
+  it("u2233_flat_tabs_pass_the_moved_checks", () => {
     expect(baseRows.length).toBe(rows.length);
 
     for (const row of rows) {
@@ -51,22 +51,11 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
       for (const [id, reading] of Object.entries(base.checks)) if (reading.status === "pass") expect(row.checks[id]?.status, row.case + "/" + id).toBe("pass");
     }
   });
-  it("u440_a_tab_is_one_bordered_box", () => {
-    for (const row of rows) for (const tab of row.tabs) {
-      expect(tab.border, row.case).toBe("1px");
-      expect(tab.bottomBorder).toBe("1px");
-      expect(tab.name.left - tab.box.left).toBeGreaterThanOrEqual(4);
-      expect(tab.box.right - tab.close.right).toBeGreaterThanOrEqual(4);
-    }
-  });
   it("u440_name_close_and_plus_share_a_centre_line", () => {
     for (const row of rows) for (const tab of row.tabs) for (const control of [tab.name, tab.close, row.plus]) expect(Math.abs(centre(control) - centre(tab.box)), row.case).toBeLessThanOrEqual(1);
   });
   it("u440_the_window_title_shares_the_tabs_centre_line", () => {
     for (const row of rows) expect(Math.abs(centre(row.title) - centre(row.plus)), row.case).toBeLessThanOrEqual(1);
-  });
-  it("u440_tabs_hang_a_step_below_the_window_top", () => {
-    for (const row of rows) for (const tab of row.tabs) expect(tab.box.top - row.bar.top, row.case).toBeGreaterThanOrEqual(8);
   });
   it("u440_a_tab_has_no_project_icon", () => {
     for (const row of rows) for (const tab of row.tabs) expect(tab.icons, row.case).toBe(0);
@@ -88,8 +77,8 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
         expect(edge.mark.height).toBe(8);
         expect(edge.mark.left).toBeGreaterThan(edge.box.left);
         expect(edge.mark.right).toBeLessThan(edge.box.right);
-        // The cap's content sits a step inside its 1 px border, not on it.
-        expect(Math.min(edge.mark.left - edge.box.left, edge.box.right - edge.mark.right)).toBeGreaterThanOrEqual(5);
+        // The cap has no border now (U2232): its content sits a step inside its box.
+        expect(Math.min(edge.mark.left - edge.box.left, edge.box.right - edge.mark.right)).toBeGreaterThanOrEqual(4);
       }
     }
 
@@ -103,21 +92,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
       if (row.markChanged) expect(JSON.parse(row.markChanged), row.case).toEqual(JSON.parse(row.rest!));
     }
   });
-  it("u441_hover_colours_the_whole_box", () => {
-    for (const row of rows.filter(row => row.tabs.length)) {
-      if (row.paint!.selected === "true") expect(row.paint!.background).toBe(row.case.endsWith("light") ? "rgb(250, 250, 250)" : "rgb(50, 50, 52)");
-      else expect(row.paint!.image).toContain("linear-gradient");
-    }
-  });
-  it("u442_a_hairline_runs_under_the_header", () => {
-    for (const row of rows) {
-      expect(row.rule.width).toBe("1px");
-      expect(row.rule.colour).toBe(row.rule.token);
-
-      for (const tab of row.tabs) expect(tab.box.bottom, row.case).toBe(row.bar.bottom);
-    }
-  });
-  it("u442_the_rule_shows_with_no_project", () => {
+  it("u440_the_bar_spans_the_window_with_no_project", () => {
     for (const row of rows.filter(row => !row.tabs.length)) {
       expect(row.bar.left).toBe(0);
       expect(row.bar.right).toBe(row.width);
