@@ -2,7 +2,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, PastedImage, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -27,11 +27,26 @@ const emptyReads: Handlers = {
   "provenance.history": () => [],
 };
 
+/** One `selectOutput` call: the listener stays here after `release`, so a test can call it late. */
+export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
+
 export type FakeApp = AppSeam & {
   /** Every `rpc` call so far, in call order. */
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
+  /** Every `selectOutput` call so far, in call order. */
+  outputSubscriptions: FakeOutputSubscription[];
+  /** The next byte position of each Terminal's output stream; `selectOutput` starts there. Set it to start a stream mid-way. */
+  outputPositions: Map<string, number>;
+  /** What `selectOutput` rejects with while set. */
+  outputFailure: RpcError | null;
+  /** The Terminal prints `bytes`: they reach its live subscription only, and the stream moves on whether or not anyone listens. Returns the offset they start at. */
+  emitBytes(id: string, bytes: Uint8Array): number;
+  /** The Terminal prints `text` as UTF-8 bytes. */
+  emitOutput(id: string, text: string): number;
+  /** The live subscription of `id` was not given `from..to`; the stream resumes at `to`. */
+  emitGap(id: string, from: number, to: number): void;
   /** Ends the Daemon of `path`, the open Project's by default; the webview hears `daemon-exited` with its path. */
   exitDaemon(exit: DaemonExit, path?: string): void;
   /** Every path `close_project` was called for, in order. */
@@ -69,6 +84,7 @@ const folderOf = (path: string): string => path.split("/").pop() ?? path;
 
 export const createFakeApp = (): FakeApp => {
   let onEvent: ((event: DaemonEvent) => void) | null = null;
+  const live = new Map<string, FakeOutputSubscription>();
   const exitListeners = new Set<(exit: DaemonExited) => void>();
   const exited = new Set<string>();
   const dropListeners = new Set<(drop: FileDrop) => void>();
@@ -109,6 +125,22 @@ export const createFakeApp = (): FakeApp => {
       if (!onEvent) throw new Error("the webview has not subscribed yet");
 
       onEvent(event);
+    },
+    outputSubscriptions: [],
+    outputPositions: new Map(),
+    outputFailure: null,
+    emitBytes: (id, bytes) => {
+      const offset = app.outputPositions.get(id) ?? 0;
+
+      app.outputPositions.set(id, offset + bytes.length);
+      live.get(id)?.listener(bytes);
+
+      return offset;
+    },
+    emitOutput: (id, text) => app.emitBytes(id, new TextEncoder().encode(text)),
+    emitGap: (id, from, to) => {
+      app.outputPositions.set(id, to);
+      live.get(id)?.listener({ gap: { from, to } });
     },
     closed: [],
     exitDaemon: (exit, path) => {
@@ -223,6 +255,23 @@ export const createFakeApp = (): FakeApp => {
     },
     subscribe: async (listener) => {
       onEvent = listener;
+    },
+    selectOutput: async (id, listener) => {
+      if (app.outputFailure) throw app.outputFailure;
+
+      const subscription: FakeOutputSubscription = { id, offset: app.outputPositions.get(id) ?? 0, listener, released: false };
+
+      app.outputSubscriptions.push(subscription);
+      live.set(id, subscription);
+
+      return {
+        offset: subscription.offset,
+        release: async () => {
+          subscription.released = true;
+
+          if (live.get(id) === subscription) live.delete(id);
+        },
+      };
     },
     imageUrl: (path) => `file://${path}`,
     openTarget: async (target) => {

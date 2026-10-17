@@ -132,21 +132,39 @@ impl Model {
     }
 }
 
-pub fn configure(config: &Path, cwd: &Path, base_url: &str) {
+/// The pinned Claude behind the model route: `ANTHROPIC_BASE_URL` and no outside traffic. The Launcher
+/// strips `ANTHROPIC_BASE_URL` from a child's environment (A30) and a lean child (LC2) reads none of the
+/// user's `env` setting, so only a program in front of Claude can carry the route: the model's URL
+/// comes from `AIMOCK_URL` in the Daemon's environment.
+pub fn routed_claude(dir: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let path = dir.join("claude-routed");
+    std::fs::write(
+        &path,
+        format!(
+            "#!/bin/sh\nexport ANTHROPIC_BASE_URL=\"$AIMOCK_URL\" CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 CLAUDE_CODE_MAX_RETRIES=0\nexec '{}' \"$@\"\n",
+            package_bin("claude").display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    path
+}
+
+pub fn configure(config: &Path, cwd: &Path) {
     use serde_json::json;
     std::fs::create_dir_all(config).unwrap();
     let settings = json!({
         "apiKeyHelper": "printf sk-mock-key-000000000000000000000001",
-        "env": {
-            "ANTHROPIC_BASE_URL": base_url,
-            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-            "DISABLE_AUTOUPDATER": "1",
-            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
-            "CLAUDE_CODE_MAX_RETRIES": "0"
-        },
-        "permissions": {"defaultMode": "default"}
     });
     std::fs::write(config.join("settings.json"), settings.to_string()).unwrap();
+    // A lean child (LC2) reads no user `permissions.defaultMode`; the Project's settings pin it.
+    std::fs::create_dir_all(cwd.join(".claude")).unwrap();
+    std::fs::write(
+        cwd.join(".claude/settings.json"),
+        json!({"permissions": {"defaultMode": "default"}}).to_string(),
+    )
+    .unwrap();
     let mut state = json!({
         "hasCompletedOnboarding": true,
         "theme": "dark",
@@ -190,7 +208,7 @@ os.execv(claude, [claude, *sys.argv[1:]])
             log = quoted(log),
             hold = quoted(hold),
             held = quoted(held),
-            claude = quoted(&package_bin("claude")),
+            claude = quoted(&routed_claude(dir)),
         ),
     )
     .unwrap();

@@ -1,39 +1,30 @@
 import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountPane, output } from "./paneHarness";
-import { event, info, node, terminal } from "../testing/nodes";
+import { RpcError } from "../app/seam";
+import { mountPane, subscribed } from "./paneHarness";
+import { info, node, terminal } from "../testing/nodes";
 
 const decoded = (chunks: Uint8Array[]): string[] => chunks.map((chunk) => new TextDecoder().decode(chunk));
 
 afterEach(cleanup);
 
 describe("u11 one emulator per Terminal", () => {
-  it("u11_output_is_decoded_and_handed_to_the_emulator_of_its_terminal_in_order", async () => {
-    const { app, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
+  it("u11_only_the_selected_terminal_is_sent_output_and_it_reaches_its_emulator_in_order", async () => {
+    const { app, connected, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
-    app.emit(output("t-a", "one"));
-    app.emit(output("t-b", "elsewhere"));
-    app.emit(output("t-a", "two"));
+    connected.rail.select("a");
+    await subscribed(app, "t-a");
+    app.emitOutput("t-a", "one");
+    app.emitOutput("t-b", "elsewhere");
+    app.emitOutput("t-a", "two");
 
-    await vi.waitFor(() => expect([decoded(emulators.get("t-a")?.written ?? []), decoded(emulators.get("t-b")?.written ?? [])]).toEqual([
-      ["one", "two"],
-      ["elsewhere"],
-    ]));
-  });
-
-  it("u11_output_for_a_terminal_that_is_not_selected_still_creates_its_emulator", async () => {
-    const { app, emulators } = await mountPane([node("a")], [info("t-a")]);
-
-    app.emit(output("t-a", "early"));
-
-    await vi.waitFor(() => expect(decoded(emulators.get("t-a")?.written ?? [])).toEqual(["early"]));
+    await vi.waitFor(() => expect(decoded(emulators.get("t-a")?.written ?? [])).toEqual(["one", "two"]));
+    expect([emulators.has("t-b"), app.outputSubscriptions.map((subscription) => subscription.id)]).toEqual([false, ["t-a"]]);
   });
 
   it("u11_selecting_a_row_shows_its_emulator_and_no_other", async () => {
-    const { app, connected, emulators, container } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
+    const { connected, emulators, container } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
-    app.emit(output("t-a", "x"));
-    app.emit(output("t-b", "y"));
     connected.rail.select("b");
 
     expect([emulators.get("t-b")?.host?.textContent, container.querySelector(".pane-screen")?.textContent]).toEqual([
@@ -51,23 +42,21 @@ describe("u11 one emulator per Terminal", () => {
     expect(container.querySelector(".pane-screen")?.textContent).toBe("");
   });
 
-  it("u11_bad_base64_shows_one_error_line_and_later_output_still_arrives", async () => {
-    const { app, emulators } = await mountPane([node("a")], [info("t-a")]);
+  it("u11_a_refused_output_subscription_shows_one_error_line", async () => {
+    const { app, connected } = await mountPane([node("a")], [info("t-a")]);
 
-    app.emit(event({ name: "terminal.output", data: { id: "t-a", offset: 0, data: "***" } }));
-    app.emit(output("t-a", "after"));
+    app.outputFailure = new RpcError(-32603, "channel refused");
+    connected.rail.select("a");
 
-    await vi.waitFor(() => expect([screen.getByRole("alert", { name: /^terminal\.output:/ }).tagName, decoded(emulators.get("t-a")?.written ?? [])]).toEqual([
-      "P",
-      ["after"],
-    ]));
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    const alert = await screen.findByRole("alert", { name: "terminal.output: channel refused" });
+
+    expect([alert.tagName, alert.querySelector('svg.lucide-x[aria-hidden="true"]') !== null]).toEqual(["P", true]);
   });
 
   it("u11_closing_the_pane_disposes_every_emulator", async () => {
-    const { app, emulators } = await mountPane([terminal("a")], [info("t-a")]);
+    const { connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
 
-    app.emit(output("t-a", "x"));
+    connected.rail.select("a");
     cleanup();
 
     expect(emulators.get("t-a")?.disposed).toBe(true);

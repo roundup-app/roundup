@@ -52,7 +52,7 @@ impl Bus {
         Self::build(None)
     }
 
-    /// A Bus that saves every Event but Terminal output in `log` (D10).
+    /// A Bus that saves every Event in `log` (D10).
     pub fn with_log(log: Arc<dyn EventLog>) -> Self {
         Self::build(Some(log))
     }
@@ -79,7 +79,7 @@ impl Bus {
         self.capacity
     }
 
-    /// Publish an event, saving it first unless it is Terminal output. Having no subscribers is
+    /// Publish an event, saving it first. Having no subscribers is
     /// normal, not an error.
     pub fn emit(&self, actor: Actor, data: EventData) {
         let mut event = Event {
@@ -87,10 +87,6 @@ impl Bus {
             actor,
             data,
         };
-        if matches!(event.data, EventData::TerminalOutput(_)) {
-            let _ = self.shared.sender.send(event);
-            return;
-        }
         let _order = self.shared.order.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(log) = &self.shared.log {
             match log.append(&event) {

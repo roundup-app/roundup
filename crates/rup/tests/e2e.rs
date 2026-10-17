@@ -746,7 +746,10 @@ async fn b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(brief.contains("coordinating Door"), "{request}");
-    assert!(brief.contains(HOLD_PLAIN), "Q1: the pinned hold:Plain body");
+    assert!(
+        !brief.contains(HOLD_PLAIN),
+        "LC3: the Door's Brief omits the pinned hold:Plain body"
+    );
     assert!(
         brief.contains(REDUCE) && brief.contains(SHOW_ME),
         "Q6: the pinned reduce and show-me bodies"
