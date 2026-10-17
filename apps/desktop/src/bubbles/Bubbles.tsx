@@ -1,3 +1,5 @@
+import { chordsFor, leaderChord } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
@@ -11,8 +13,6 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { createCut, Tip } from "../ink/Tip";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
-import { chordsFor } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
@@ -286,24 +286,6 @@ export const Bubbles = (props: { screens: Screens }) => {
     return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
   };
 
-  const cycle = (direction: 1 | -1): void => {
-    const ids = shown().map((terminal) => terminal.id);
-
-    if (ids.length === 0) return;
-
-    const at = focusedId();
-    const index = at === null ? 0 : ids.indexOf(at) + 1;
-    const next = (index + direction + ids.length + 1) % (ids.length + 1);
-
-    if (next === 0) {
-      show(null);
-      focusPane();
-    } else {
-      show(ids[next - 1]!);
-      focusItem(ids[next - 1]!);
-    }
-  };
-
   const toggleMinimised = (id: string): void => {
     const place = placeOf(id);
 
@@ -572,13 +554,16 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   registerKeys({ kind: "app" }, [
     { chords: chordsFor("⌘T"), when: outsideEditor, run: once(() => void open()) },
-    { chords: chordsFor("⌘B"), when: outsideEditor, run: once((press) => cycle(press.shiftKey ? -1 : 1)) },
-    { chords: chordsFor("⌘."), when: outsideEditor, run: once(() => {
+  ]);
+
+  // U165: leader `M` minimises or restores the focused Bubble, leader `W` closes it; with none focused they do nothing.
+  registerKeys({ kind: "leader" }, [
+    { chords: leaderChord("M"), run: () => {
       const id = focusedId();
 
       if (id !== null) toggleMinimised(id);
-    }) },
-    { chords: chordsFor("⇧⌘⌫"), when: outsideEditor, run: once(() => closeFocused()) },
+    } },
+    { chords: leaderChord("W"), run: closeFocused },
   ]);
 
   const onFocusIn = (event: FocusEvent): void => {

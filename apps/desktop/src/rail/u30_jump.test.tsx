@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Kind } from "@contracts/Kind";
+import { leaderKey } from "../keys/leaderFixture";
 import { mountRail, rowOf } from "./railFixture";
 import { agent, workstream, door, MINUTE, NOW, terminal } from "../testing/nodes";
 
@@ -10,10 +11,10 @@ afterEach(cleanup);
 const since = (id: string, kind: Kind, minutesAgo: number, over = {}) =>
   agent(id, kind, "x", { status: { kind, label: "x", since: NOW - minutesAgo * MINUTE }, ...over });
 
-const jump = () => fireEvent.keyDown(document, { key: "j", metaKey: true });
+const jump = () => leaderKey("KeyJ");
 
 describe("u30 jump", () => {
-  it("u30_cmd_j_selects_error_before_needs_you", async () => {
+  it("u30_leader_j_selects_error_before_needs_you", async () => {
     const { rail } = await mountRail([since("ask", "needs-you", 30), since("boom", "error", 1)]);
 
     jump();
@@ -47,7 +48,7 @@ describe("u30 jump", () => {
     expect(rail.selected()).toBe("lead");
   });
 
-  it("u30_with_none_cmd_j_changes_nothing", async () => {
+  it("u30_with_none_leader_j_changes_nothing", async () => {
     const { rail } = await mountRail([since("a", "working", 1), since("b", "working", 1)]);
 
     rail.select("b");
@@ -56,7 +57,7 @@ describe("u30 jump", () => {
     expect(rail.selected()).toBe("b");
   });
 
-  it("u30_with_none_selected_and_none_needing_you_cmd_j_does_not_throw", async () => {
+  it("u30_with_none_selected_and_none_needing_you_leader_j_does_not_throw", async () => {
     const onError = vi.fn();
     window.addEventListener("error", onError);
 
@@ -75,26 +76,6 @@ describe("u30 jump", () => {
     jump();
 
     expect(rail.selected()).toBe("first");
-  });
-
-  const pressed = async (chord: KeyboardEventInit) => {
-    const { rail } = await mountRail([since("a", "needs-you", 1)]);
-
-    fireEvent.keyDown(document, chord);
-
-    return rail.selected();
-  };
-
-  it("u30_a_plain_j_changes_nothing", async () => {
-    expect(await pressed({ key: "j" })).toBeNull();
-  });
-
-  it("u30_ctrl_j_changes_nothing", async () => {
-    expect(await pressed({ key: "j", ctrlKey: true })).toBeNull();
-  });
-
-  it("u30_cmd_shift_j_changes_nothing", async () => {
-    expect(await pressed({ key: "J", metaKey: true, shiftKey: true })).toBeNull();
   });
 
   it("u30_a_terminal_is_never_visited", async () => {
@@ -132,47 +113,8 @@ describe("u30 jump", () => {
   });
 });
 
-describe("u45 cmd+j follows u32's chord rules", () => {
-  const pressed = async (chord: KeyboardEventInit) => {
-    const { rail } = await mountRail([since("a", "needs-you", 1)]);
-
-    fireEvent.keyDown(document, chord);
-
-    return rail.selected();
-  };
-
-  it("u45_caps_lock_does_not_change_cmd_j", async () => {
-    expect(await pressed({ key: "J", metaKey: true })).toBe("a");
-  });
-
-  it("u45_ctrl_cmd_j_changes_nothing", async () => {
-    expect(await pressed({ key: "j", metaKey: true, ctrlKey: true })).toBeNull();
-  });
-
-  it("u45_alt_cmd_j_changes_nothing", async () => {
-    expect(await pressed({ key: "j", metaKey: true, altKey: true })).toBeNull();
-  });
-
-  it("u45_cmd_with_another_key_changes_nothing", async () => {
-    expect(await pressed({ key: "k", metaKey: true })).toBeNull();
-  });
-
-  it("u45_cmd_j_is_handled_by_the_webview_so_the_browser_never_sees_it", async () => {
-    await mountRail([since("a", "needs-you", 1)]);
-
-    const handled = fireEvent.keyDown(document, { key: "j", metaKey: true });
-    const ignored = fireEvent.keyDown(document, { key: "j" });
-    const ctrlCmd = fireEvent.keyDown(document, { key: "j", metaKey: true, ctrlKey: true });
-    const altCmd = fireEvent.keyDown(document, { key: "j", metaKey: true, altKey: true });
-    const shiftCmd = fireEvent.keyDown(document, { key: "J", metaKey: true, shiftKey: true });
-    const cmdOther = fireEvent.keyDown(document, { key: "k", metaKey: true });
-
-    expect([handled, ignored, ctrlCmd, altCmd, shiftCmd, cmdOther]).toEqual([false, true, true, true, true, true]);
-  });
-});
-
-describe("u48 cmd+j after the Daemon exited", () => {
-  it("u48_after_daemon_exited_cmd_j_still_selects", async () => {
+describe("u48 leader J after the Daemon exited", () => {
+  it("u48_after_daemon_exited_leader_j_still_selects", async () => {
     const [exit] = createSignal({ code: 1 });
     const { rail } = await mountRail([since("a", "needs-you", 1)], [], exit);
 

@@ -1,3 +1,5 @@
+import { registerKeys } from "./keys/registry";
+import { leaderChord } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
@@ -19,9 +21,9 @@ import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { railStorage } from "./rail/persist/storage";
-import { Jump } from "./rail/Jump";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
+import { Leader } from "./keys/Leader";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -241,7 +243,7 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
-  /** U181: that Project opens and its most urgent Agent is selected, as `⌘J` does. */
+  /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
     projects.select(path);
 
@@ -258,6 +260,7 @@ export const App = (props: {
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
+  registerKeys({ kind: "leader" }, [{ chords: leaderChord("S"), run: shelfFocus.toggle }]);
 
   const emulators = () => props.createEmulator ?? createXtermEmulators();
 
@@ -313,7 +316,6 @@ export const App = (props: {
                 {() => (
                   <>
                     <Keys />
-                    <Jump onFailure={setJumpFailure} />
                     <AttentionKey />
                     <Rail />
                   </>
@@ -367,6 +369,7 @@ export const App = (props: {
                 <>
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
                   <Help />
+                  <Leader />
                 </>
               )}
             </InProject>

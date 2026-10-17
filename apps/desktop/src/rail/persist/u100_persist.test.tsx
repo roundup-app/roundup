@@ -1,3 +1,4 @@
+import { leaderKey } from "../../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../../App";
@@ -221,7 +222,7 @@ it("u100_later_selection_reveals_ancestors_and_saves_each_change", async () => {
   await collapse("auth");
   expect(read()).toEqual({ selected: "tokens", collapsed: ["auth"] });
   app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "logins", status: { kind: "error", label: "failed", since: 0 } } }));
-  fireEvent.keyDown(document, { key: "j", metaKey: true });
+  leaderKey("KeyJ");
   expect(row("logins")?.getAttribute("aria-selected")).toBe("true");
   expect(read()).toEqual({ selected: "logins", collapsed: [] });
 });
