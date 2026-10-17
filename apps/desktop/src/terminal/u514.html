@@ -10,8 +10,8 @@ const turn = (command, output, exit = 0) => OSC("7;file://host/work") + OSC("133
 const emulator = createXtermEmulators()("t");
 const host = document.getElementById("host");
 const marked = new URLSearchParams(location.search).get("marks") !== "none";
-const size = emulator.show(host, false);
+emulator.show(host, false);
 const tall = new URLSearchParams(location.search).has("tall");
 const text = tall ? turn("seq 200", Array.from({ length: 200 }, (_, i) => `${i + 1}`)) : marked ? [turn("one", ["1"]), turn("two", ["2"], 1), turn("three", ["3"])].join("") : "plain\r\ntext\r\n";
-emulator.write(new TextEncoder().encode(text), () => { window.__emu = emulator; window.__cols = size.cols; document.body.dataset.ready = "1"; });
+emulator.write(new TextEncoder().encode(text), () => { window.__emu = emulator; document.body.dataset.ready = "1"; });
 </script></body></html>

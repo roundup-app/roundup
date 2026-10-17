@@ -27,9 +27,7 @@ WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', '
 # The module every web test that starts a real `rupd` imports.
 DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
-WEB_READS = {'scenarios/': ('apps/desktop/src/testing/u453_viewports.test.ts',),
-             'artifacts/ux/': ('apps/desktop/src/testing/u453_viewports.test.ts',
-                               'apps/desktop/src/testing/captures.test.ts')}
+WEB_READS = {'artifacts/ux/': ('apps/desktop/src/testing/captures.test.ts',)}
 
 
 def under(path, prefixes):

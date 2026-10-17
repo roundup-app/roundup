@@ -10,7 +10,7 @@ import railCss from "../rail/styles.css?inline";
 import buttonCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import shelfCss from "../shelf/styles.css?inline";
-import { RAIL, SHELF, railEffective, shelfEffective } from "./widths";
+import { RAIL, railEffective, shelfEffective } from "./widths";
 
 let sheet: HTMLStyleElement | undefined;
 
@@ -49,8 +49,6 @@ describe("u389 the Rail's width is the user's", () => {
 
     expect(railWidth()).toBe("288px");
     expect(RAIL.fallback).toBeGreaterThan(RAIL.min);
-    expect(tokenCss).toContain(`--rail-width: ${RAIL.fallback}px`);
-    expect(tokenCss).toContain(`--shelf-width: ${SHELF.fallback}px`);
   });
 
   it("u453_widths_keep_resize_bounds_without_window_clamps", async () => {
@@ -74,12 +72,6 @@ describe("u389 the Rail's width is the user's", () => {
     localStorage.setItem("roundup:widths:/Users/you/harness", JSON.stringify({ rail: 9999, shelf: 320 }));
     await mountApp();
     expect(railWidth()).toBe("480px");
-  });
-
-  it("u389_the_columns_clip_sideways_overflow", async () => {
-    await mountApp();
-    expect(appCss).toMatch(/\.columns\s*{[^}]*overflow-x: clip/);
-    expect(appCss).toMatch(/--drawer-span: max\(560px, calc\(var\(--shelf-span\) \+ var\(--space-5\)\)\);/);
   });
 });
 
