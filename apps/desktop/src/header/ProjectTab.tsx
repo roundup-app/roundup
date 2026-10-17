@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { flat } from "../ui";
+import { FlatTab } from "../ui";
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
@@ -120,9 +120,9 @@ export const ProjectTab = (props: {
   const edit = () => setEditing(wrap?.offsetWidth ?? 0);
 
   return (
-    <div
+    <FlatTab
       class="project-tab"
-      {...flat.tab(props.selected)}
+      selected={props.selected}
       role="presentation"
       data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
@@ -206,6 +206,6 @@ export const ProjectTab = (props: {
           {tipOf(props.tab)}
         </span>
       </Show>
-    </div>
+    </FlatTab>
   );
 };

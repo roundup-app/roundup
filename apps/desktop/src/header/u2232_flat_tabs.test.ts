@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
@@ -226,5 +228,42 @@ it("u2232_tab_text_keeps_contrast", async () => {
     expect(reading.rest).toBe(reading.grey);
     expect(ratio(reading.rest, reading.sunken), scheme + surface).toBeGreaterThanOrEqual(4.5);
     expect(ratio(reading.selected, reading.ground), scheme + surface).toBeGreaterThanOrEqual(4.5);
+  }
+}, 120_000);
+
+it("u2231_no_other_stylesheet_styles_a_tab", () => {
+  const root = join(__dirname, "..");
+  const sheets = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? sheets(join(dir, entry.name)) : entry.name.endsWith(".css") && entry.name !== "flat-tab.styles.css" ? [join(dir, entry.name)] : []);
+  const tab = /\.(project-tab|terminal-tab-pair|terminal-tab)(?![\w-])|\[data-flat-(tab|add)\]/;
+  const look = /^\s*(border(-[a-z]+)*|background(-[a-z]+)*|box-shadow|color|--button-(surface|hover|radius)):/;
+  const found: string[] = [];
+
+  for (const file of sheets(root)) for (const rule of readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    // A pseudo-element (the drop outline) is not the tab's own box.
+    const selectors = rule[1]!.split(",").filter(selector => tab.test(selector) && !selector.includes("::"));
+
+    if (selectors.length) for (const line of rule[2]!.split(";")) if (look.test(line)) found.push(`${file}: ${selectors.join(",").trim()} { ${line.trim()} }`);
+  }
+
+  expect(found).toEqual([]);
+});
+
+it("u2232_hover_and_selection_move_no_tab", async () => {
+  const boxes = `() => [...document.querySelectorAll('.project-tab, .terminal-tab-pair')].map(t => { const r = t.getBoundingClientRect(); const n = t.querySelector('.tab-name-button, .terminal-tab').getBoundingClientRect(); const c = t.querySelector('.tab-close, button:last-of-type').getBoundingClientRect(); return [r.width, r.height, r.top, n.width, n.height, c.width, c.height]; })`;
+
+  for (const surface of ["strip", "runs"] as const) {
+    if (surface === "strip") await strip("light");
+    else await runs("light");
+
+    const tabs = surface === "strip" ? ".project-tab" : ".terminal-tab-pair";
+    const rest = await page.call<number[][]>(boxes);
+    const at = await page.call<{ x: number; y: number }>(`(tabs) => { const list = document.querySelector(tabs === '.project-tab' ? '.tablist' : '.terminal-tabs-host').getBoundingClientRect(); const tab = [...document.querySelectorAll(tabs + '[data-selected=false]')].find(t => { const r = t.getBoundingClientRect(); return r.left >= list.left && r.right <= list.right; }); const r = tab.querySelector('.tab-name-button, .terminal-tab').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, tabs);
+
+    await page.hover(at.x, at.y);
+    expect(await page.call<number[][]>(boxes), surface + " hover").toEqual(rest);
+
+    await page.click(at.x, at.y);
+    expect(await page.call<number[][]>(boxes), surface + " select").toEqual(rest);
+    expect(Math.min(...rest.map(row => row[4]!)), surface).toBeGreaterThanOrEqual(24);
   }
 }, 120_000);

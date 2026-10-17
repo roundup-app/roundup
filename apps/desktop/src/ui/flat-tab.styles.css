@@ -67,3 +67,23 @@
 [data-flat-add]:focus:not(:focus-visible) {
   outline: none;
 }
+
+/* A Project tab under a dragged item takes the hover ground (U2231 keeps every tab ground here). */
+[data-flat-tab][data-drop="hover"] {
+  background-color: var(--hover);
+}
+
+/* U2233: a control inside a flat tab (ui/flat-tab.styles.css) takes the tab's ink; the flat `+` is grey and takes --text on hover; a press dims the ink (U510). */
+[data-flat-tab] button:not([data-button="icon"], [aria-disabled="true"]) {
+  color: inherit;
+}
+
+[data-flat-tab] button:hover:not([aria-disabled="true"]),
+[data-flat-add]:hover:not([aria-disabled="true"]) {
+  color: var(--text);
+}
+
+[data-flat-tab] button:is(:active, [data-pressed="true"]):not([aria-disabled="true"]),
+[data-flat-add]:is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+  color: var(--ink-pressed);
+}

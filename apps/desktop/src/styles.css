@@ -431,8 +431,7 @@ p {
   pointer-events: none;
 }
 
-.rail-row[data-drop="hover"],
-.project-tab[data-drop="hover"] {
+.rail-row[data-drop="hover"] {
   background: var(--hover);
 }
 

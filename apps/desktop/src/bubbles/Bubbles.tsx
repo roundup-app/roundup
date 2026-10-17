@@ -1,4 +1,4 @@
-import { Editable, flat, IconButton, Menu } from "../ui";
+import { Editable, FlatAdd, FlatTab, IconButton, Menu } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -788,7 +788,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                 renameChosen = false;
                 setTimeout(() => setEditing(id));
               }}>
-              <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} {...flat.tab(!placeOf(id).min)} data-bubble={id}>
+              <Menu.ContextTrigger asChild={(trigger) => <FlatTab {...trigger({ class: "terminal-tab-pair" })} selected={!placeOf(id).min} data-bubble={id}>
                 <Show when={editing() === id} fallback={
                   <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                     aria-label={name()} aria-describedby={`terminal-state-${id}`} title={name()} aria-pressed={!placeOf(id).min}
@@ -816,13 +816,13 @@ export const Bubbles = (props: { screens: Screens }) => {
                   </div>
                 </Show>
                 <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-              </span>} />
+              </FlatTab>} />
               <Portal><Menu.Positioner><Menu.Content>
                 <Menu.Item value="rename">{copy.rename}</Menu.Item>
               </Menu.Content></Menu.Positioner></Portal>
             </Menu.Root>;
           }}</For>
-          <button type="button" data-button="add" class="terminal-new" {...flat.add} aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
+          <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
         </div>
       </Portal>}</Show>
       <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>

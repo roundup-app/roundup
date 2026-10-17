@@ -42,7 +42,7 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
   }, 1_200_000);
   afterAll(async () => { await server?.close(); await baseServer?.close(); });
   const centre = (box: Box) => (box.top + box.bottom) / 2;
-  it("u440_boxed_tabs_keep_passing_checks", () => {
+  it("u2233_flat_tabs_pass_the_moved_checks", () => {
     expect(baseRows.length).toBe(rows.length);
 
     for (const row of rows) {

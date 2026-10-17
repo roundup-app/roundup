@@ -90,9 +90,4 @@ export { createToast, ToastProvider } from "./Toast";
 
 export { Listbox } from "./Listbox";
 
-/** U2231: the attributes that give a Project tab and a Terminal tab one look (`flat-tab.styles.css`); callers pass only selection. */
-export const flat = {
-  bar: { "data-flat-bar": "" },
-  tab: (selected: boolean) => ({ "data-flat-tab": "", "data-selected": selected }),
-  add: { "data-flat-add": "" },
-};
+export { FlatAdd, FlatBar, FlatTab } from "./FlatTab";

@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { flat } from "../ui";
+import { FlatAdd, FlatBar } from "../ui";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
@@ -240,7 +240,7 @@ export const Strip = (props: {
   );
 
   return (
-    <div class="strip" {...flat.bar} onFocusIn={(press) => {
+    <FlatBar class="strip" onFocusIn={(press) => {
       if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
     }}>
       <div class="strip-scroll">
@@ -272,7 +272,7 @@ export const Strip = (props: {
         </div>
         {edge(copy.right, right())}
       </div>
-      <button data-button="icon" type="button" class="word strip-add" {...flat.add} aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</button>
+      <FlatAdd data-button="icon" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</FlatAdd>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 
@@ -280,6 +280,6 @@ export const Strip = (props: {
         setAsking(null);
         props.onClose(path);
       }} />
-    </div>
+    </FlatBar>
   );
 };
