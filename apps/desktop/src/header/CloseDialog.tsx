@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 import { Show } from "solid-js";
 import { registerKeys } from "../keys/registry";
-import { AlertDialog } from "../ui";
+import { AlertDialog } from "../ui/Dialog";
 import type { StripTab } from "./tab";
 
 /** `<k> Agents run: <name>, <name>, <name>.` with at most three names, then `and <j> more` (U184). */

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { Tabs } from "../ui";
+import { Tabs } from "../ui/Tabs";
 import { Strip } from "./Strip";
 import type { StripTab } from "./tab";
 

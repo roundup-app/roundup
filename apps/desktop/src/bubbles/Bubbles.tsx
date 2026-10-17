@@ -1,4 +1,7 @@
-import { Editable, IconButton, Menu, Panel } from "../ui";
+import { Editable } from "../ui/Editable";
+import { IconButton } from "../ui/IconButton";
+import { Menu } from "../ui/Menu";
+import { Panel } from "../ui/Panel";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
