@@ -11,6 +11,7 @@ it("u514_browser_the_gutters_select_turns_and_leave_the_columns", async () => {
   await wait("document.querySelectorAll('.turn-gutter').length === 3");
   expect(await read<string[]>("[...document.querySelectorAll('.turn-gutter')].map(g => g.getAttribute('aria-label') + ':' + g.tagName)")).toEqual(["Select command: $ one:BUTTON", "Select command: $ two:BUTTON", "Select command: $ three:BUTTON"]);
   expect(await read<boolean>("[...document.querySelectorAll('.turn-gutter')].every(g => g.getBoundingClientRect().right <= document.querySelector('.xterm-screen').getBoundingClientRect().left)")).toBe(true);
+  expect(await read<boolean>("(() => { const clip = document.querySelector('.pane-screen').getBoundingClientRect(); return [...document.querySelectorAll('.turn-gutter')].every(g => { const r = g.getBoundingClientRect(); return r.left >= clip.left && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === g; }); })()")).toBe(true);
   const cols = await read<number>("window.__cols");
 
   await browser("click", ".turn-gutter:first-of-type");
