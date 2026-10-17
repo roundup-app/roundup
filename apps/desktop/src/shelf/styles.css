@@ -148,3 +148,23 @@
   overflow: visible;
   text-overflow: clip;
 }
+
+/* Ark owns selection and panel focus; keep the Shelf's flat, inset-free bar. */
+.shelf-tabs.app-tabs-list { gap: var(--space-2); }
+.shelf-tab.app-tabs-trigger { --button-inline: 0; }
+.shelf-tab[data-selected] { --button-surface: transparent; --button-hover: transparent; }
+.shelf-panel.app-tabs-content { padding: 0; }
+.shelf-question {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  width: min(calc(100vw - var(--space-6)), 32rem);
+  max-height: calc(100vh - var(--space-6));
+  overflow: auto;
+  overflow-wrap: anywhere;
+  box-shadow: var(--shadow-drawer);
+}
+.shelf-question-targets { margin: var(--space-2) 0; padding-inline-start: var(--space-4); }
+.shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-3); }

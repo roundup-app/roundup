@@ -1,8 +1,11 @@
 import { cleanup, fireEvent, screen, within, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
+import { stubDialogLayout } from "./bulkQuestion";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 
 afterEach(cleanup);
+
+stubDialogLayout();
 
 it("u491a_bulk_question_focus_names_the_frozen_targets_and_cancels", async () => {
   const { app } = await mountTodos([todo(1), todo(2), todo(3)]);

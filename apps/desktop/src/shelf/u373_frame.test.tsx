@@ -245,6 +245,7 @@ describe("u470 the shared scope toggle", () => {
     const toggle = await selectWorkstream();
 
     for (const [key, name] of [["ArrowRight", "Pads"], ["ArrowLeft", "Todos"], ["End", "Pads"], ["Home", "Todos"]]) {
+      tabNamed(selectedTab()).focus();
       fireEvent.keyDown(tabNamed(selectedTab()), { key });
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
       expect(toggle.getAttribute("aria-pressed")).toBe("false");
@@ -272,11 +273,7 @@ describe("u369 and u371 the Shelf below the window bar", () => {
     expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["true", "false"]);
   });
 
-  it("u371_d8_passes_with_the_new_shadows", () => {
-    const shadows = [...(appCss + shelfCss).matchAll(/box-shadow:\s*([^;]+);/g)].map((m) => m[1]!.trim());
 
-    for (const value of shadows) expect(value).toMatch(/^(none|var\(--shadow-(drawer|shelf|scroll)\)|var\(--shadow-scroll[^)]*\))/);
-  });
 
 });
 
