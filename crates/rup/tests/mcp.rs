@@ -1340,6 +1340,24 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             "{name}"
         );
     }
+    // A refusal, a chosen option and a note alone each name what was submitted.
+    for (args, expected) in [
+        (
+            json!({"id":"d1","answer":"deny"}),
+            "answered Decision d1: deny",
+        ),
+        (
+            json!({"id":"d1","answer":"Yes","note":""}),
+            "answered Decision d1: Yes",
+        ),
+        (
+            json!({"id":"d1","answer":null,"note":"Use the other option"}),
+            "answered Decision d1: Use the other option",
+        ),
+    ] {
+        let result = shim.call("decision_answer", args).await;
+        assert_eq!(result.content[0].as_text().unwrap().text, expected);
+    }
     server.abort();
 }
 
