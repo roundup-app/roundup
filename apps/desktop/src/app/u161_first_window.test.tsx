@@ -9,7 +9,9 @@ import appCss from "../styles.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
-import uiCss from "../ui/styles.css?inline";
+
+const uiCss = Object.values(import.meta.glob<string>("../ui/*.css", { query: "?inline", import: "default", eager: true })).join("\n");
+
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";

@@ -59,16 +59,6 @@
   min-height: var(--space-6);
 }
 
-/* U378: the explicit picker opens under its Workstream in the child column. */
-.rail-tree .model-panel {
-  display: grid;
-  grid-template-columns: var(--indent) minmax(0, 1fr);
-  width: 100%;
-  padding-left: var(--space-4);
-  padding-right: var(--space-4);
-  box-sizing: border-box;
-}
-
 /* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
 .rail-row .row-icons {
   position: absolute;
@@ -504,43 +494,9 @@
   }
 }
 
-.rail-split-add {
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
-}
-
-.rail-agent-picker {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  min-width: 0;
-}
-
-.rail-agent-fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.rail-agent-note {
-  margin: 0;
-  color: var(--grey);
-  font-size: var(--text-caption);
-  text-wrap: balance;
-}
-
-.rail-agent-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--space-2);
-}
-
-.rail-agent-actions > button {
-  --button-surface: var(--ground);
-  --button-inline: var(--space-3);
+/* U378: a Workstream's actions keep one even gap; an Agent's group keeps U426's room for the name. */
+[data-part="branch-control"].rail-row .row-icons {
+  gap: var(--space-1);
 }
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
@@ -559,26 +515,15 @@
   }
 }
 
-.rail-split-add {
-  height: var(--space-5);
-  margin-left: var(--space-1);
-}
-
-.rail-split-add > button {
-  min-width: var(--space-5);
-  height: var(--space-5);
-}
-
-.rail-split-add > button + button {
-  border-left: 1px solid var(--hairline);
-}
-
-.rail-split-add > [aria-label="Add Agent"] {
+.rail-add {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: var(--space-5);
+  height: var(--space-5);
   font-size: var(--text-caption);
   gap: var(--space-1);
+  white-space: nowrap;
   --button-inline: 0;
 }
 
@@ -678,13 +623,9 @@
 }
 /* U397: below the supported resize range the label yields, while both targets and marks retain their size. */
 @container rail (width < 220px) {
-  .rail-split-add .rail-add-label {
+  .rail-add .rail-add-label {
     display: none;
   }
-}
-
-.rail-tree .model-panel > .rail-agent-picker {
-  grid-column: 2;
 }
 
 /* Full-width rows keep their keyboard ring inside the clipping Rail. */

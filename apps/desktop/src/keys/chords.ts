@@ -34,7 +34,6 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⇧⌘J", what: copy.jumpToWhatNeedsYouInAnotherProject, presses: ["meta+shift+KeyJ"] },
   { keys: "⌘\\", what: copy.showOrHideTheShelf, presses: ["meta+Backslash"] },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
-  { keys: "⌘,", what: copy.models, presses: ["meta+Comma"] },
   { keys: "⇧⌘]", what: copy.nextProject, presses: ["meta+shift+BracketRight"] },
   { keys: "⇧⌘[", what: copy.previousProject, presses: ["meta+shift+BracketLeft"] },
 ];

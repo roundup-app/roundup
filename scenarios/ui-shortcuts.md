@@ -16,7 +16,7 @@ An open modal layer blocks underlying region and App shortcuts even when it bind
 
 Registrations follow their Solid owner's lifetime: disposing a region or layer removes its eligibility; switching Projects never calls a previous Project's action; unmounting and remounting the App does not duplicate dispatch. Tests: `u479_disposal_and_project_switch_remove_stale_actions` and `u479_remount_has_one_dispatch`. No new repeat policy, text-field exclusion or Terminal interception replaces the existing shortcut scenarios: the migrated bindings preserve their existing guards, modifier sets and repeat behaviour.
 
-**U480 one table and one owned listener.** Given the mounted App, when a shortcut owned by this scope is pressed, then its action is selected through the registry and its matching chord comes from `keys/chords.ts`. Help reads that same table; every displayed shortcut has a binding, and every Help-eligible binding has a displayed row. Retain component-navigation hints as hints, not registry actions. Tests: extend the existing U54 drift observer in `apps/desktop/src/keys/u54_help.test.tsx`, and `u480_app_models_shortcut_uses_the_active_project` for the App's Models action.
+**U480 one table and one owned listener.** Given the mounted App, when a shortcut owned by this scope is pressed, then its action is selected through the registry and its matching chord comes from `keys/chords.ts`. Help reads that same table; every displayed shortcut has a binding, and every Help-eligible binding has a displayed row. Retain component-navigation hints as hints, not registry actions. Tests: extend the existing U54 drift observer in `apps/desktop/src/keys/u54_help.test.tsx`, The App's Models action and its `u480_app_models_shortcut_uses_the_active_project` test are retired by U377: `⌘,` does nothing.
 
 Policy: move all keydown listeners in `keys/`, `app/` and `App.tsx` into one registry module in `keys/`; the registry exposes registration for later UI lanes. Move existing key actions from these files without adding new actions or changing behaviour. Component keyboard behaviour, including tree arrows, menu navigation, dialog Tab trapping and Escape dismissal, comes from Ark UI; do not encode a new component state machine in the registry. Existing tree behaviour in `keys/Keys.tsx` remains passing during adoption; its ownership migration must coordinate with the Rail lane rather than editing `rail/` here. No claim that this scope removes all 23 listeners.
 
@@ -75,7 +75,7 @@ Under rule 10 the implementation deletes these clauses and their tests; it migra
 | `⌘B`, `⇧⌘B` next and previous Bubble | U165; `scenarios/ui-terminal-tabs.md` Keys and Pull; `scenarios/ui-read-output.md`, `scenarios/ui-bubble-pull.md` where they name the keys | the keys; chips stay clickable |
 | `⌘1`, `⌘2` focus the Rail and the pane | U41 | the keys |
 | `⇧⌘]`, `⇧⌘[` change Project | U186; `scenarios/project-tabs.md` Keys | the keys; the tabs stay clickable |
-| `⌘,` Models | U377, U480's Models test | the key; the Models button stays |
+| `⌘,` Models | U377, U480's Models test | the key and the Models button; U377 retires the sheet |
 | `⌘J`, `⇧⌘J` | U30, U45, U186 | replaced by leader `J`, `⇧J` (U2239) |
 | `⌘.`, `⇧⌘⌫` | U165 | replaced by leader `M`, `W` (U2239) |
 | `⌘\` | U370 | replaced by leader `S` (U2239) |

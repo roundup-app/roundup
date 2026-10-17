@@ -396,11 +396,12 @@ clean_merge() {
 }
 
 # L120: a file that differs from main but that no commit of the branch's own touched changed only through a merge, so a merge dropped
-# the work there for certain. Never reads the PR body.
+# the work there for certain. Never reads the PR body. It reads the repository it was run in, so a fix run can run main's copy on
+# the branch it checked out (`builder.py restore-merge-loss`).
 merge_loss() {
   local main_ref=$1 own changed lost
-  own=$(git -c core.quotePath=false log --no-merges --no-renames --name-only --format= "$main_ref..HEAD") || { echo "merge-loss: could not list own commits against $main_ref" >&2; return 1; }
-  changed=$(git -c core.quotePath=false diff --no-renames --name-only "$main_ref" HEAD) || { echo "merge-loss: could not diff against $main_ref" >&2; return 1; }
+  own=$(git -C "$caller_dir" -c core.quotePath=false log --no-merges --no-renames --name-only --format= "$main_ref..HEAD") || { echo "merge-loss: could not list own commits against $main_ref" >&2; return 1; }
+  changed=$(git -C "$caller_dir" -c core.quotePath=false diff --no-renames --name-only "$main_ref" HEAD) || { echo "merge-loss: could not diff against $main_ref" >&2; return 1; }
   lost=$(comm -13 <(sort -u <<<"$own") <(sort -u <<<"$changed") | sed '/^$/d')
   [ -z "$lost" ] || { echo "merge-loss: these files differ from $main_ref but no own commit touched them, so a merge lost the work there:" >&2; sed 's/^/  /' <<<"$lost" >&2; return 1; }
 }

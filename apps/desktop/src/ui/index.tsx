@@ -6,7 +6,11 @@ import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import "./styles.css";
+import "./Dialog.css";
+import "./Menu.css";
+import "./Tooltip.css";
+import "./Tabs.css";
+import "./Tree.css";
 
 export const Dialog = {
   ...ArkDialog,
