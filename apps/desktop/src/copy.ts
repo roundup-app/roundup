@@ -52,6 +52,7 @@ export const copy = {
   models: "Models",
   rename: "Rename",
   terminalName: "Terminal name",
+  terminalMenu: "Terminal",
   closeProject: (value1: CopyValue) => `Close ${value1}`,
   hiddenAttention: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} ${value2} to the ${value3}`,
   projects: "Projects",
