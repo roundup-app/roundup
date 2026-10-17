@@ -302,6 +302,18 @@ it("u469_open_shelf_leaves_every_resource_value_visible", async () => {
   }
 }, 120_000);
 
+it("u469_cmd_b_returns_to_the_terminal_and_can_cycle_again", async () => {
+  await page.load('/harness.html?seed=door-report', 1280, 800);
+  await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.pane-screen textarea')`);
+  await page.call(`() => document.querySelector('.terminal-new').click()`);
+  await page.until(`() => document.querySelector('.bubble:not([hidden]) textarea')===document.activeElement`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  expect(await page.call(`() => document.activeElement===document.querySelector('.pane-screen textarea')`)).toBe(true);
+  expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(0);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(1);
+}, 60_000);
+
 it("u469_new_terminal_has_a_visible_add_label", async () => {
   for (const seed of ['tree-40', 'bubbles']) {
     await page.load('/harness.html?seed=' + seed, 1280, 800);
