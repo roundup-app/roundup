@@ -75,6 +75,9 @@ _Avoid_: summon, fling
 **Run**:
 A Terminal an Agent started (`agent.run`), shown as a Bubble while that Agent is selected; it ends with its Agent's removal, never with its Status.
 
+**Show request** (`terminal.show`, event `terminal.shown`):
+A Door's ask that the App show a Terminal in its Reach: the Daemon emits `terminal.shown {id}` and the App selects the Terminal's owner. It reads, writes and starts nothing.
+
 **Snapshot**:
 A bounded copy of a Terminal's screen and output byte offset that restores its pane after a webview reload.
 
