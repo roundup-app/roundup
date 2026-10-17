@@ -229,7 +229,7 @@ def git(*args):
     return subprocess.check_output(['git', *args], text=True).strip()
 head = d.get('head') or git('rev-parse', 'work')
 base = git('rev-parse', 'main')
-pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'user': {'type': d.get('user_type', 'User')}}
+pr = {'head': {'sha': head}, 'base': {'ref': d.get('base', 'main'), 'sha': base}, 'user': {'type': d.get('user_type', 'User')}, 'body': d.get('body')}
 if '/pulls/' in route:
     out = [pr]
 else:
@@ -367,6 +367,21 @@ expect_exit 0 'l118_a_bot_s_pr_outside_loop_machinery_passes' frozen
 gate_set '.failure=true'
 expect_exit 4 'l118_a_gh_failure_exits_4' frozen
 expect_exit 2 'l118_a_missing_number_exits_2' loop/rules.sh frozen
+
+# Scenario-only PRs use Refs: a closing keyword would close the work Issue before its code lands.
+closes_pr() { # <body> <changed file>
+  gate_repo; git reset -q --hard main; mkdir -p "$(dirname "$2")"; echo x >"$2"; commit change 'Author-Agent: builder'
+  gate_set --arg body "$1" '.body=$body'
+}
+closes_pr 'Closes #1' scenarios/a.md
+expect_exit 1 'a scenario-only PR with Closes #1 in the body fails' loop/rules.sh scenario-closes 12
+expect pass 'the failure names Refs: #N' gate_error_contains 'use Refs: #N' loop/rules.sh scenario-closes 12
+closes_pr 'Refs: #1' scenarios/a.md
+expect_exit 0 'a scenario-only PR with Refs: #1 passes' loop/rules.sh scenario-closes 12
+closes_pr 'Closes #1' crates/b.rs
+expect_exit 0 'a code PR with Closes #1 passes' loop/rules.sh scenario-closes 12
+closes_pr 'Refs: #1' scenarios/a.md; echo y >>scenarios/a.md; commit 'fixes #1' 'Author-Agent: builder'
+expect_exit 1 'a scenario-only PR with Fixes #1 in a commit message fails' loop/rules.sh scenario-closes 12
 
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
