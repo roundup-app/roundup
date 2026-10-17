@@ -76,10 +76,14 @@ it("u501_full_content_is_available", async () => {
   expect(await read<string>(`document.querySelector('.app-tooltip').textContent`)).toBe("Resident memory");
 }, 120_000);
 
-// D2, D5 and D6 pass at head unless main already fails the same selector (a Rail row outside this lane: #1990-style baseline).
+// The Rail's run count (`rail/`, outside this lane) fails D5 in light on main itself; paired runs compare it, a head-only run skips it.
+const FOREIGN = ["span.runs"];
+
+// D2, D5 and D6 pass at head unless main already fails the same selector.
 const noRegression = (base: Checks | undefined, head: Checks) => {
   for (const id of CHECK_IDS) {
-    const same = base?.[id].status === "fail" && JSON.stringify(base[id]) === JSON.stringify(head[id]);
+    const failing = JSON.stringify(head[id]);
+    const same = base ? base[id].status === "fail" && JSON.stringify(base[id]) === failing : FOREIGN.some((selector) => failing.includes(`"selector":"${selector}"`));
 
     if (base?.[id].status === "pass" || (["D2", "D5", "D6"].includes(id) && !same)) expect(head[id].status, `${id}: ${JSON.stringify(head[id])}`).toBe("pass");
   }

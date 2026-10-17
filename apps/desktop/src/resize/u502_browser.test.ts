@@ -59,12 +59,14 @@ const tabTo = async (edge: Edge) => {
 
 const settled = (edge: Edge, px: number) => page.until(`() => document.querySelector("${edge.panel}").getBoundingClientRect().width === ${px} && document.querySelector('[aria-label="${edge.label}"]').getAttribute("aria-valuenow") === "${px}"`);
 
-const drag = async (edge: Edge, by: number, finish: "release" | "escape") => {
+const drag = async (edge: Edge, by: number, finish: "release" | "escape", held?: () => Promise<void>) => {
   const at = await page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('[aria-label="${edge.label}"]').getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: 200 }; }`);
 
   await page.down(at.x, at.y);
   await page.pointer("move", at.x + by / 2, at.y);
   await page.pointer("move", at.x + by, at.y);
+
+  await held?.();
 
   if (finish === "escape") await page.press("Escape", "Escape");
 
@@ -155,20 +157,25 @@ run("u502 resize edges use Ark Splitter", () => {
 
   it("u502_resize_preserves_terminal_fit", async () => {
     await load(1280);
+    await page.call(`() => document.querySelector('.rail [data-id="agent-4"] .name').click()`);
+    await page.until(`() => document.querySelector(".xterm-screen")`);
 
+    const frames = () => page.call(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))`);
     const resizes = () => page.call<number>(`() => window.__fake.app.calls.filter((call) => call.method === "terminal.resize").length`);
 
-    const before = await resizes();
+    // Each drag refits the Terminal once, after the release, never while the button is held.
+    for (const [edge, by, width] of [[EDGES.rail, 72, 360], [EDGES.shelf, -100, 420]] as const) {
+      await frames();
 
-    await drag(EDGES.rail, 72, "release");
-    await settled(EDGES.rail, 360);
-    await page.call(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))`);
-    expect(await resizes() - before).toBeLessThanOrEqual(1);
+      const before = await resizes();
 
-    const shelfBefore = await resizes();
-
-    await drag(EDGES.shelf, -100, "release");
-    await settled(EDGES.shelf, 420);
-    expect(await resizes()).toBe(shelfBefore);
+      await drag(edge, by, "release", async () => {
+        await frames();
+        expect(await resizes() - before).toBe(0);
+      });
+      await settled(edge, width);
+      await frames();
+      expect(await resizes() - before).toBe(1);
+    }
   });
 });

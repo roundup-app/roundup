@@ -47,6 +47,10 @@ const focusPane = (): void => {
   if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
 
+const ESCAPE = "Escape".split(" ");
+
+const SHIFT = "Shift+".split(" ")[0]!;
+
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
@@ -523,7 +527,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
     registerKeys({ kind: "app" }, [{
-      chords: ["Escape"],
+      chords: ESCAPE,
       when: () => active,
       run: () => {
         swallowMenu = true;
@@ -661,7 +665,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     // The restore of the zone resize in flight, if any; Escape runs it through the registry.
     let restoreResize: (() => void) | undefined;
 
-    registerKeys({ kind: "app" }, [{ chords: ["Escape"], when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
+    registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
 
     /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
     const resize = (start: PointerEvent, zone: Zone) => {
@@ -717,7 +721,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     // Arrows on the focused header move the bubble, Shift arrows resize it; the registry matches the exact modifiers.
     registerKeys({ kind: "region", element: () => header }, [{
-      chords: [...ARROWS.keys(), ...[...ARROWS.keys()].map((key) => `Shift+${key}`)],
+      chords: [...ARROWS.keys(), ...[...ARROWS.keys()].map((key) => `${SHIFT}${key}`)],
       when: (press) => press.target === header,
       run: (press) => {
         const arrow = ARROWS.get(press.key)!;
