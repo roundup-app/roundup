@@ -3,7 +3,7 @@ import { createSignal, For, onMount, Show } from "solid-js";
 import type { ModelList } from "@contracts/project/ModelList";
 import type { RoleModels } from "@contracts/project/RoleModels";
 import type { AppSeam } from "../app/seam";
-import { Select } from "../ui";
+import { Select } from "../ui/Select";
 import { ErrorLine } from "../ink/ErrorLine";
 
 export const AddAgentPicker = (props: {
