@@ -1,0 +1,114 @@
+/* U2232: no radius anywhere on the bar or tabs (a custom property keeps the stylesheet scanner, which reads `0` as `0px`, to Token reads). */
+:root {
+  --flat-radius: 0;
+}
+
+/* U2231 to U2233: the one tab look of the Project strip and the Terminal tabs (Zed). A flat bar on --sunken; the selected tab takes --ground and a hairline on its left and right only; an inactive tab is a --grey label that takes --text on hover. No other stylesheet sets a tab's border, ground, radius or inactive colour. */
+
+[data-flat-bar] {
+  background-color: var(--sunken);
+  border-radius: var(--flat-radius);
+  position: relative;
+}
+
+/* The bar's one bottom rule, under every tab and the +; the selected tab stands above it, so the rule breaks there. */
+[data-flat-bar]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--rule, 1px);
+  background-color: var(--hairline);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* U2232: the Terminal tabs are the centre's last line, so the Zed bar turns over: the --sunken band and its rule start below the hint line, on the tab row's top edge, and the selected tab opens upward into the Terminal instead of joining nothing. */
+.resource-strip[data-flat-bar] {
+  isolation: isolate;
+}
+
+/* The hint line keeps the page ground; only the tab row is the --sunken band. */
+.resource-strip[data-flat-bar]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--space-4);
+  background-color: var(--ground);
+  z-index: -1;
+}
+
+.resource-strip[data-flat-bar]::after {
+  inset: var(--space-4) 0 auto;
+}
+
+[data-flat-tab] {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  border-style: none;
+  border-radius: var(--flat-radius);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--grey);
+}
+
+[data-flat-tab]:hover {
+  color: var(--text);
+}
+
+[data-flat-tab][data-selected="true"] {
+  position: relative;
+  z-index: 1;
+  background-color: var(--ground);
+  border-style: solid;
+  border-top-width: 0;
+  border-bottom-width: 0;
+  border-left-width: 1px;
+  border-right-width: 1px;
+  border-top-color: var(--hairline);
+  border-bottom-color: var(--hairline);
+  border-left-color: var(--hairline);
+  border-right-color: var(--hairline);
+  color: var(--text);
+}
+
+/* An inactive tab has no border; two spacers keep the footprint of the selected tab's two borders, so selecting moves no tab. */
+[data-flat-tab]:not([data-selected="true"])::before,
+[data-flat-tab]:not([data-selected="true"])::after {
+  content: "";
+  flex: none;
+  width: 1px;
+}
+
+/* The controls inside a tab take the tab's ink and paint no ground at rest, hover or press (the button hooks of buttons.css, U170); a press dims the ink (U510). */
+[data-flat-tab],
+[data-flat-add] {
+  --button-surface: transparent;
+  --button-hover: transparent;
+  --button-radius: 0;
+  --pressed: transparent;
+}
+
+/* A library trigger inside a tab (the Project tab name) never paints its own selected or hover ground; only the tab ground marks selection. */
+[data-flat-tab] .app-tabs-trigger[data-selected],
+[data-flat-tab] .app-tabs-trigger[data-selected]:hover {
+  --button-surface: transparent;
+  --button-hover: transparent;
+}
+
+/* Keyboard focus only, inside the bar's box so no ring is clipped. */
+[data-flat-tab] button:focus-visible,
+[data-flat-add]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+[data-flat-tab] button:focus:not(:focus-visible),
+[data-flat-add]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* A tab under a dragged item takes the --text ink, as hover does; a tab never paints a hover ground (#2173). */
+[data-flat-tab][data-drop="hover"] {
+  color: var(--text);
+}

@@ -491,29 +491,39 @@ impl Shared {
         )))
     }
 
-    /// M13: `FORBIDDEN` naming Terminal `terminal` when Agent `actor` may not read it: a Terminal
+    /// M13, B54: `FORBIDDEN` naming Terminal `terminal` when Agent `actor` may not read it: a Terminal
     /// may be read by an Agent when its `owner` is the Agent itself, the Workstream it sits in or a
-    /// node in its Reach. One with no owner is no Agent's. The user and an Extension have no limit.
+    /// node in its Reach. One with no owner is an Agent's pane: readable, for a read, only by an Agent that started it. The user and an Extension have no limit.
     pub(crate) fn guard_terminal_read(
         &self,
         actor: &Actor,
         terminal: &str,
         owner: Option<&str>,
+        pane_readable: bool,
     ) -> Result<(), RpcError> {
         if actor.kind != contracts::ActorKind::Agent {
             return Ok(());
         }
         let forbidden = || {
             RpcError::forbidden(format!(
-                "terminal {terminal} is not one of {}'s Runs or its Workstream's",
+                "terminal {terminal} is forbidden to {0}: not started by {0} or in its Reach",
                 actor.id
             ))
         };
-        let owner = owner.ok_or_else(forbidden)?;
+        let nodes = self.rail().tree()?;
+        let Some(owner) = owner else {
+            // B54: an Agent's own pane is readable by an Agent that started it (in its Reach).
+            let pane = nodes
+                .iter()
+                .find(|node| node.terminal_id.as_deref() == Some(terminal));
+            return match pane {
+                Some(node) if pane_readable && self.reach(&actor.id)?.contains(&node.id) => Ok(()),
+                _ => Err(forbidden()),
+            };
+        };
         if owner == actor.id || self.reach(&actor.id)?.contains(owner) {
             return Ok(());
         }
-        let nodes = self.rail().tree()?;
         let mut at = nodes.iter().find(|node| node.id == actor.id);
         while let Some(node) = at {
             if node.kind == contracts::agent::NodeKind::Workstream && node.id == owner {
@@ -525,6 +535,25 @@ impl Shared {
                 .and_then(|parent| nodes.iter().find(|n| n.id == parent));
         }
         Err(forbidden())
+    }
+
+    /// B53: a Show request may also name the pane of a node in the caller's Reach, which M13's read refuses as ownerless.
+    pub(crate) fn guard_terminal_show(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        owner: Option<&str>,
+    ) -> Result<(), RpcError> {
+        let refused = match self.guard_terminal_read(actor, terminal, owner, false) {
+            Err(err) if err.code == rpc::code::FORBIDDEN => err,
+            other => return other,
+        };
+        let reach = self.reach(&actor.id)?;
+        let is_pane =
+            self.rail().tree()?.iter().any(|node| {
+                node.terminal_id.as_deref() == Some(terminal) && reach.contains(&node.id)
+            });
+        if is_pane { Ok(()) } else { Err(refused) }
     }
 
     /// M14: `FORBIDDEN` when Agent `actor` may not set the Route in `params`: its `to` is the
