@@ -23,6 +23,7 @@ const emptyReads: Handlers = {
   "message.list": () => [],
   "pad.list": () => [],
   "decision.list": () => [],
+  "ask.list": () => [],
   "provenance.history": () => [],
 };
 
