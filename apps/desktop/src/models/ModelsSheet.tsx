@@ -1,13 +1,13 @@
 import { copy } from "../copy";
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import type { ProjectModels } from "@contracts/project/ProjectModels";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { createChoices } from "./choices";
 import { ModelPair } from "./ModelPair";
 import "./styles.css";
-
-const FOCUSABLE = "select, input, button";
+import { Dialog } from "../ui";
+import { registerKeys } from "../keys/registry";
 
 /** The `Models` sheet of the open Project (U377): one row per role the Daemon returns, and the Models a Door may start a child on. `Esc` closes it and focus returns to where it opened from. */
 export const ModelsSheet = (props: { onClose: () => void }) => {
@@ -17,29 +17,10 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
   const [mcp, setMcp] = createSignal(true);
   const [failure, setFailure] = createSignal<string | null>(null);
   const returnTo = document.activeElement;
+  const [open, setOpen] = createSignal(true);
   let panel: HTMLElement | undefined;
 
-  const leave = () => {
-    props.onClose();
-
-    if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
-  };
-
-  // Window capture runs before every other listener: while the sheet is open no key reaches a Terminal or a chord.
-  const onKey = (press: KeyboardEvent) => {
-    if (press.key === "Escape") {
-      press.stopPropagation();
-      press.preventDefault();
-      leave();
-    } else if (press.key === "Tab") {
-      const fields = [...(panel?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])];
-      const at = fields.findIndex((field) => field === document.activeElement);
-
-      press.stopPropagation();
-      press.preventDefault();
-      fields[(at + (press.shiftKey ? fields.length - 1 : 1)) % fields.length]?.focus();
-    }
-  };
+  registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, []);
 
   onMount(() => {
     void choices.load();
@@ -49,7 +30,6 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
 
         setMcp(project.mcp.on);
         setStored(project.models);
-        queueMicrotask(() => panel?.querySelector<HTMLElement>(FOCUSABLE)?.focus());
       } catch (error) {
         if (!(error instanceof Error)) throw error;
 
@@ -57,8 +37,6 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
       }
     })();
   });
-  window.addEventListener("keydown", onKey, true);
-  onCleanup(() => window.removeEventListener("keydown", onKey, true));
 
   /** Each change calls `project.setModels` once with the whole state; a failure shows the line and the control returns to the stored value. */
   const save = async (next: ProjectModels, undo: () => void) => {
@@ -105,8 +83,12 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
   };
 
   return (
-    <section class="models-sheet" role="dialog" aria-modal="true" aria-label={copy.models} ref={(element) => (panel = element)}>
-      <h2>{copy.models}</h2>
+    <Dialog.Root open={open()} onOpenChange={({ open }) => setOpen(open)}
+      onExitComplete={() => props.onClose()}
+      finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}>
+    <Dialog.Positioner>
+    <Dialog.Content class="models-sheet" aria-label={copy.models} ref={(element) => (panel = element)}>
+      <Dialog.Title>{copy.models}</Dialog.Title>
       <Show when={failure() ?? choices.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={stored()}>
         {(current) => (
@@ -169,6 +151,8 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
           </Show>
         )}
       </Show>
-    </section>
+    </Dialog.Content>
+    </Dialog.Positioner>
+    </Dialog.Root>
   );
 };

@@ -304,6 +304,8 @@ describe("u17 Todo detail", () => {
     fireEvent.click(within(drawer()).getByText("Blocker"));
     fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(1));
+    // The reply, not the event, is what hides #7; the call is recorded a microtask before it lands.
+    await new Promise((settle) => setTimeout(settle, 0));
 
     fireEvent.click(within(drawer()).getByText("Blocker"));
 

@@ -70,6 +70,10 @@ const TOOLS: &[(&str, &str)] = &[
         "ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved",
     ),
     (
+        "agent_wake",
+        "ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking",
+    ),
+    (
         "agent_set_order",
         "replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open",
     ),

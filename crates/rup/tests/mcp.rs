@@ -224,7 +224,8 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 62] = [
+const TOOL_METHODS: [&str; 63] = [
+    "agent.wake",
     "todo.create",
     "todo.get",
     "todo.list",
@@ -466,6 +467,20 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
+}
+
+#[tokio::test]
+async fn b45_agent_wake_is_offered_to_every_agent() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    let tool = tools.iter().find(|t| t.name == "agent_wake").unwrap();
+    assert_eq!(
+        Value::Object((*tool.input_schema).clone()),
+        serde_json::to_value(schemars::schema_for!(contracts::agent::WakeParams)).unwrap()
+    );
 }
 
 #[tokio::test]
