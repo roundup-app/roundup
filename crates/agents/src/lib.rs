@@ -140,6 +140,8 @@ struct Shared {
     scan: Scan,
     /// Each Door's strays as last announced; a Door with none has no entry.
     strays: Mutex<HashMap<String, Vec<Stray>>>,
+    /// H21: the task serving each Agent's lead inbox, with the Attempt it serves.
+    serving: Mutex<HashMap<String, (String, tokio::task::AbortHandle)>>,
     /// H11: how long a Steer waits for its `UserPromptSubmit` Signal.
     steer_bound: Duration,
     steer: SteerSettings,
@@ -431,6 +433,7 @@ mod rail_view;
 mod registration;
 mod removal;
 mod resume;
+mod serving;
 mod spawn;
 mod steer;
 mod store;

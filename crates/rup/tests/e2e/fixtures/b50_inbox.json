@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Waiting for the team."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "B50 inbox note"
+      },
+      "response": {
+        "content": "Took the inbox note."
+      }
+    }
+  ]
+}

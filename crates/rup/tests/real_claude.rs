@@ -7,6 +7,7 @@ use daemon::aimock;
 use contracts::{EventData, Kind};
 use daemon::{next, rail_tree};
 use serde_json::{Value, json};
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[test]
@@ -3858,6 +3859,46 @@ async fn h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_
     assert_eq!(touch["actor"]["id"], door);
     let open = client.request("decision.list", Value::Null).await.unwrap();
     assert!(open.as_array().unwrap().iter().all(|d| d["id"] != "d1"));
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn b50_a_real_door_takes_an_entry_of_its_inbox_and_the_transcript_records_it() {
+    use agents::claude_code::{Launcher, mailbox::DAEMON};
+    let project = daemon::start_real("b50_inbox", &[]);
+    let client = project.client().await;
+    let door = workstream(&client, "team").await;
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    idle(&client, &door).await;
+    let config = project.dir.path().join("claude-config");
+    let team = Launcher::new(
+        "claude",
+        config.join(".claude.json"),
+        PathBuf::from(env!("CARGO_BIN_EXE_rup")),
+        None,
+    )
+    .team(&project.data_dir(), &door)
+    .unwrap();
+    team.deliver(DAEMON, "B50 inbox note", Some("note"))
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    until_async("the transcript records the entry", async || {
+        let transcripts = std::process::Command::new("grep")
+            .args([
+                "-rl",
+                "-F",
+                "<teammate-message teammate_id=\\\"rupd\\\"",
+                "--include=*.jsonl",
+            ])
+            .arg(config.join("projects"))
+            .output()
+            .unwrap();
+        transcripts.status.success().then_some(())
+    })
+    .await;
     model.assert_matched();
 }
 

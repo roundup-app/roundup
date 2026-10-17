@@ -1,0 +1,1 @@
+{"type": "user", "message": {"role": "user", "content": "<teammate-message teammate_id=\"rupd\" summary=\"hi\">\nhello from the inbox\n</teammate-message>"}, "teamName": "t1", "agentName": "worker", "userType": "external", "entrypoint": "cli", "version": "2.1.300"}

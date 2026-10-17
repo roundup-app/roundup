@@ -16,6 +16,7 @@ use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
+use super::mailbox::Team;
 use super::plugins;
 
 /// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it. Every other tool Claude Code has, `Bash`, `Edit`,
@@ -211,6 +212,16 @@ impl Launcher {
         Ok(launcher)
     }
 
+    /// Agent `id`'s team, whose mailbox its Claude Code reads (B50) and asks its permissions in (H21).
+    pub fn team(&self, data: &Path, id: &str) -> Option<Team> {
+        let data = data.canonicalize().ok()?;
+        Some(Team::of(
+            &self.conversation_dir,
+            &data,
+            &parse_id(id)?.to_string(),
+        ))
+    }
+
     /// Delete what `prepare` wrote for Agent `id`, for an Agent that never started.
     pub fn discard(dir: &Path, id: &str) -> std::io::Result<()> {
         // `prepare` writes nothing for an id that is not a node id.
@@ -333,6 +344,8 @@ impl Launcher {
         let brief_file = brief_path(&dir, id);
         replace_text(&brief_file, &brief::text(role, mcp)).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
+        let team = Team::of(&self.conversation_dir, &dir, &id.to_string());
+        team.prepare(&cwd).map_err(RpcError::internal)?;
         // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![
             self.bin.clone(),
@@ -359,6 +372,7 @@ impl Launcher {
             argv.push("--resume".into());
             argv.push(conversation_id.to_owned());
         }
+        argv.extend(team.argv());
         Ok(argv)
     }
 
@@ -390,6 +404,7 @@ impl Launcher {
         let mut env = pair.env();
         // I5: every shell the Agent's `claude` runs inherits who it is, and finds `rup` on its PATH.
         env.insert("ROUNDUP_AGENT".to_owned(), id.to_owned());
+        env.insert(Team::ENV.0.to_owned(), Team::ENV.1.to_owned());
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
             let inherited = std::env::var_os("PATH").unwrap_or_default();
             let paths = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&inherited));
@@ -630,14 +645,14 @@ fn parse_id(id: &str) -> Option<u64> {
 
 /// The directory lock Claude Code 2.1.286 holds while it saves its config (`<config>.lock`, as
 /// npm's `proper-lockfile` makes it); Claude re-reads the config under it. Released on drop.
-struct ConfigLock {
+pub(super) struct ConfigLock {
     path: PathBuf,
 }
 
 impl ConfigLock {
     /// Wait for the lock, breaking it once stale. An error once it has been held past `STALE`
     /// and then some, which no live holder does.
-    fn take(config: &Path) -> std::io::Result<Self> {
+    pub(super) fn take(config: &Path) -> std::io::Result<Self> {
         let mut path = config.as_os_str().to_owned();
         path.push(".lock");
         let path = PathBuf::from(path);
