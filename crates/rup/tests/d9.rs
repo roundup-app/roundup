@@ -14,7 +14,9 @@ async fn observe(completion: bool) {
     std::thread::spawn(move || std::io::copy(&mut stderr, &mut std::io::stderr()));
     let mut client = rpc::Client::connect(&daemon.socket).await.unwrap();
     let ws = fixture::start_door(&client).await;
-    fixture.ready().await;
+    fixture
+        .ready(async || client.request("rail.tree", Value::Null).await.unwrap())
+        .await;
     let before = client.request("rail.tree", Value::Null).await.unwrap();
     let todos = client.request("todo.list", Value::Null).await.unwrap();
     let pads = client.request("pad.list", Value::Null).await.unwrap();

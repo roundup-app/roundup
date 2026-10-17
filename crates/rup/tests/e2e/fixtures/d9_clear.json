@@ -1,0 +1,76 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "clearing Workstream",
+        "hasToolResult": false
+      },
+      "latency": 2000,
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_d9_handoff",
+            "name": "mcp__roundup__workstream_handoff",
+            "arguments": "{\"summary\": \"D9 handoff\", \"keep_todos\": [], \"keep_pads\": []}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_d9_handoff"
+      },
+      "response": {
+        "content": "Handed off."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "D9 handoff",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Handoff received."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"D9 clear\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_d9_todos",
+            "name": "mcp__roundup__todo_list",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_d9_todos"
+      },
+      "response": {
+        "content": "Listed."
+      }
+    }
+  ]
+}
