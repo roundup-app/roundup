@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
@@ -23,8 +23,8 @@ it("u444_the_strip_is_the_centres_last_line_under_the_terminal", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load("/harness.html?seed=door-report", width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load("/harness.html?seed=door-report", width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { const node = window.__fake.app.handlers['rail.tree']().find(n => n.status && n.status.kind !== 'done'); document.querySelector('[data-id="' + node.id + '"]').click(); }`);
       await page.until(`() => Boolean(document.querySelector('.resource-agent .resource-num'))`);
