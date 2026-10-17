@@ -195,24 +195,29 @@
   white-space: nowrap;
 }
 
-/* U490a: Up and Down appear in the row's right gutter on hover and focus, after the tick box in reading order; the title always leaves the gutter, so no row moves, rewraps or lays text under them (U112, U361). */
+/* U490a: Up and Down appear in the row's right gutter only while focus is inside the row, so a pointer rests on drag alone and no row rewraps under a hover (U112); the title yields the gutter only then, so no text lies under them (U361). A control that cannot step reads struck through in --disabled. */
 .shelf-row.todo-inset {
   position: relative;
 }
 
-.shelf-row.todo-inset .todo-row-button {
+.shelf-row.todo-inset:focus-within .todo-row-button {
   max-width: calc(100% - var(--space-6) * 2 - var(--space-4));
 }
 
 .shelf-row.todo-inset .shelf-move {
+  display: none;
   position: absolute;
   top: var(--space-1);
   right: var(--space-2);
-  display: flex;
   gap: var(--space-1);
 }
 
+.shelf-row.todo-inset:focus-within .shelf-move {
+  display: flex;
+}
+
 .shelf-row.todo-inset .shelf-move [aria-disabled="true"] {
-  color: var(--grey);
+  color: var(--disabled);
+  text-decoration: line-through;
   cursor: default;
 }
