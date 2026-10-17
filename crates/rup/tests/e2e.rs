@@ -4296,4 +4296,3 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delive
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(b39_log(&prompts, 2).await.len(), 2, "typed a third time");
 }
-
