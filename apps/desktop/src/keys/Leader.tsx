@@ -26,6 +26,7 @@ export const Leader = () => {
   const place = (panel: HTMLElement) => {
     const centre = document.querySelector(".centre")?.getBoundingClientRect();
     const strip = document.querySelector(".resource-strip")?.getBoundingClientRect();
+
     if (!centre) return;
 
     panel.style.setProperty("--leader-right", `${Math.max(0, window.innerWidth - centre.right)}px`);
