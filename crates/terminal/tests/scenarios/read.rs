@@ -437,7 +437,14 @@ async fn x16_the_second_read_is_only_the_delta() {
     let first = terminals.read(&read_as(&spawned.id, "a1")).unwrap();
     assert_eq!((first.from, first.text.as_str()), (0, "one\n"));
     terminals.write(&spawned.id, b"x\n").await.unwrap();
-    read_to_a_line_end(&terminals, &mut spawned.events, &spawned.id, first.next).await;
+    while !terminals
+        .read(&read(&spawned.id, first.next, None))
+        .unwrap()
+        .text
+        .ends_with("two\n")
+    {
+        until_printed(&mut spawned.events, "two").await;
+    }
     let second = terminals.read(&read_as(&spawned.id, "a1")).unwrap();
     assert_eq!(second.from, first.next);
     assert!(second.text.ends_with("two\n") && !second.text.contains("one"));
