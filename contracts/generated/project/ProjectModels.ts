@@ -4,8 +4,4 @@ import type { RoleModels } from "./RoleModels";
 /**
  * A36: what `project.setModels` takes and `project.get` returns.
  */
-export type ProjectModels = { roles: Array<RoleModels>, 
-/**
- * The Models a Door may start a child Agent on; empty for a Project that never set it.
- */
-allowed: Array<string>, };
+export type ProjectModels = { roles: Array<RoleModels>, };
