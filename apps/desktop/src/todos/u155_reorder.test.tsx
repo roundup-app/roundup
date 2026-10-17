@@ -9,7 +9,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** jsdom lays nothing out: rows are 28 high, 30 apart, in document order, inside a list spanning y 0 to 300. */
+/** jsdom lays nothing out: rows are 28 high, 30 apart, in document order. */
 beforeEach(() => {
   const rowIndex = (el: HTMLElement) => [...el.parentElement!.children].indexOf(el);
 
@@ -17,7 +17,6 @@ beforeEach(() => {
     return this.classList.contains("todo-row") ? rowIndex(this) * 30 : 0;
   });
   vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(28);
-  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ top: 0, bottom: 300, left: 0, right: 500, width: 500, height: 300, x: 0, y: 0, toJSON: () => ({}) });
 });
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
@@ -28,30 +27,9 @@ const buttonOf = (id: number) => screen.getByRole<HTMLButtonElement>("button", {
 
 const refetch = ({ app, store }: Mounted) => app.emit(todoEvent("todo.updated", { ...store.todos[0]! }));
 
-const pointer = (target: Element | Window, type: string, init: MouseEventInit) => fireEvent(target, new MouseEvent(type, { bubbles: true, button: 0, ...init }));
-
-/** A drag of `id` from y `from` to y `to`, released at `to`. */
-const drag = (id: number, from: number, to: number, release = true) => {
-  pointer(buttonOf(id), "pointerdown", { clientY: from, clientX: 10 });
-  pointer(window, "pointermove", { clientY: to, clientX: 10 });
-
-  if (release) pointer(window, "pointerup", { clientY: to, clientX: 10 });
-};
-
 const three = () => mountTodos([todo(1), todo(2), todo(3), todo(4, { done: true })]);
 
 describe("u155 reorder a Todo row", () => {
-  it("u155_dragging_the_third_row_above_the_first_calls_reorder_once_and_the_refetch_places_it", async () => {
-    const mounted = await three();
-
-    await screen.findByText(/todo 3/);
-    drag(3, 70, 5);
-    await waitFor(() => expect(callsTo(mounted.app, "todo.reorder")).toEqual([{ method: "todo.reorder", params: { id: 3, before: 1 } }]));
-    expect(ids()).toEqual([1, 2, 3]);
-    refetch(mounted);
-    await waitFor(() => expect(ids()).toEqual([3, 1, 2]));
-  });
-
   it("u155_alt_down_on_the_first_row_calls_reorder_before_the_third_and_focus_stays_on_it", async () => {
     const mounted = await three();
 
@@ -82,47 +60,7 @@ describe("u155 reorder a Todo row", () => {
     await waitFor(() => expect(callsTo(mounted.app, "todo.reorder")).toEqual([{ method: "todo.reorder", params: { id: 2, before: 4 } }]));
   });
 
-  it("u155_escape_cancels_a_drag_and_a_release_outside_the_list_cancels_it", async () => {
-    const mounted = await three();
-
-    await screen.findByText(/todo 3/);
-    drag(3, 70, 5, false);
-    fireEvent.keyDown(window, { key: "Escape" });
-    pointer(window, "pointerup", { clientY: 5, clientX: 10 });
-    drag(3, 70, 5, false);
-    pointer(window, "pointerup", { clientY: 5, clientX: 900 });
-    expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
-    expect(ids()).toEqual([1, 2, 3]);
-  });
-
-  it("u155_a_release_over_the_rows_own_place_calls_nothing", async () => {
-    const mounted = await three();
-
-    await screen.findByText(/todo 3/);
-    drag(3, 70, 62);
-    expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
-  });
-
-  it("u155_a_3px_press_is_a_click_that_opens_the_drawer_and_calls_nothing", async () => {
-    const mounted = await three();
-
-    await screen.findByText(/todo 3/);
-    drag(2, 40, 43);
-    fireEvent.click(buttonOf(2));
-    await screen.findByRole("complementary", { name: "Drawer" });
-    expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
-  });
-
-  it("u155_a_drag_opens_no_drawer", async () => {
-    await three();
-
-    await screen.findByText(/todo 3/);
-    drag(3, 70, 5);
-    fireEvent.click(buttonOf(3));
-    expect(screen.queryByRole("complementary", { name: "Drawer" })?.textContent ?? "").not.toMatch(/todo 3/);
-  });
-
-  it("u155_the_done_fold_takes_no_drag_and_no_alt_key", async () => {
+  it("u155_the_done_fold_takes_no_alt_key", async () => {
     const mounted = await three();
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
@@ -131,9 +69,6 @@ describe("u155 reorder a Todo row", () => {
 
     expect(done.getAttribute("aria-description")).toBeNull();
     fireEvent.keyDown(done, { key: "ArrowUp", altKey: true });
-    pointer(done, "pointerdown", { clientY: 100 });
-    pointer(window, "pointermove", { clientY: 5 });
-    pointer(window, "pointerup", { clientY: 5 });
     expect(callsTo(mounted.app, "todo.reorder")).toEqual([]);
   });
 

@@ -1,5 +1,5 @@
 import { copy } from "../../copy";
-import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -9,17 +9,14 @@ import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
 import { OpenRow } from "../../todos/Todos";
-import type { SortedRow } from "../../todos/Todos";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
-import { beforeOf, REORDER_EASING, REORDER_MS } from "../../todos/beforeOf";
+import { createSortedList } from "../../todos/sortedList";
 import { Sortable } from "../../ui";
 import { useTodoList } from "../../todos/todoList";
 import { Trunks } from "../Trunks";
 import { openTodosBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
-
-type SortableParts = Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0];
 
 /** The Pads and open Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
 export const createAgentPads = (node: Accessor<RailNode>) => {
@@ -31,89 +28,12 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
   const ownedTodos = createMemo(() => (node().kind === "agent" ? openTodosBy(todos.all(), node().id) : []));
   const connected = useConnectedProject();
 
-  const frames = new Map<number, HTMLElement>();
-  const buttons = new Map<number, HTMLButtonElement>();
-  const fails = new Map<number, (message: string | null) => void>();
-  const tops = new Map<number, number>();
-  let refocus: number | null = null;
-
-  /** U156: slides each row from where it showed to where the refetched list puts it. */
-  const settle = () => {
-    for (const [id, el] of frames) {
-      const top = el.offsetTop;
-      const was = tops.get(id);
-
-      tops.set(id, top);
-
-      if (was === undefined || connected.reducedMotion() || !("animate" in el) || Math.abs(was - top) < 1) continue;
-      el.getAnimations().forEach((animation) => animation.cancel());
-      el.animate([{ transform: `translateY(${was - top}px)` }, { transform: "none" }], { duration: REORDER_MS, easing: REORDER_EASING });
-    }
-
-    if (refocus !== null) buttons.get(refocus)?.focus();
-
-    refocus = null;
-  };
-
-  createEffect(on(() => ownedTodos().map((todo) => todo.id), settle, { defer: true }));
-
-  /** U490a: one `todo.reorder` putting `id` at index `to` of this Agent's list. */
-  const move = async (id: number, to: number) => {
-    const message = await failureOf(() => connected.app.rpc("todo.reorder", { id, before: beforeOf(todos.all(), ownedTodos().map((todo) => todo.id), id, to) }));
-
-    fails.get(id)?.(message);
-
-    if (message !== null) {
-      refocus = null;
-      buttons.get(id)?.focus();
-    }
-  };
-
-  const reorder = {
-    /** The Sortable's new order of the ids: the row it moved goes to its index. */
-    order: (next: readonly string[]) => {
-      const before = ownedTodos().map((todo) => String(todo.id));
-      const at = next.findIndex((id, index) => id !== before[index]);
-      const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
-
-      if (moved === undefined) return;
-      refocus = Number(moved);
-      void move(refocus, next.indexOf(moved));
-    },
-    row: (id: number, parts: SortableParts): SortedRow => ({
-      frame: (el) => {
-        if (el) {
-          frames.set(id, el);
-          parts.ref(el);
-        } else {
-          frames.delete(id);
-          tops.delete(id);
-        }
-      },
-      button: (el) => {
-        if (el) buttons.set(id, el);
-        else {
-          buttons.delete(id);
-          fails.delete(id);
-        }
-
-        parts.handleRef(el ?? undefined);
-      },
-      fail: (show) => fails.set(id, show),
-      key: (event) => {
-        if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
-
-        event.preventDefault();
-
-        const to = ownedTodos().findIndex((todo) => todo.id === id) + (event.key === "ArrowUp" ? -1 : 1);
-
-        if (to < 0 || to >= ownedTodos().length) return;
-        frames.forEach((el, other) => tops.set(other, el.offsetTop));
-        refocus = id;
-        void move(id, to);
-      },
-    }),
-  };
+  const reorder = createSortedList({
+    ids: () => ownedTodos().map((todo) => todo.id),
+    all: todos.all,
+    call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
+    reducedMotion: connected.reducedMotion,
+  });
 
   const count = () => owned().length + ownedTodos().length;
 

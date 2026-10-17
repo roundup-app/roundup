@@ -15,6 +15,8 @@ type External<T extends ExternalTarget> = {
   /** The target under the pointer for a dragged row, else null. */
   target: (id: string, x: number, y: number) => T | null;
   onDropOutside: (id: string, target: T) => void;
+  /** The attribute the target carries while the pointer is over it; default `data-drop`. */
+  attribute?: string;
 };
 
 type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & {
@@ -30,9 +32,11 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   let over: T | null = null;
 
   const mark = (next: T | null) => {
+    const attribute = local.external?.attribute ?? "data-drop";
+
     if (next?.element !== over?.element) {
-      over?.element.removeAttribute("data-drop");
-      next?.element.setAttribute("data-drop", "");
+      over?.element.removeAttribute(attribute);
+      next?.element.setAttribute(attribute, "");
     }
 
     over = next;

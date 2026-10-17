@@ -16,8 +16,8 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { RowButton } from "./RowButton";
-import { createReorder } from "./reorder";
-import type { Reorder } from "./reorder";
+import { createSortedList } from "./sortedList";
+import { Sortable } from "../ui";
 import { useShelfScope } from "./shelfScope";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
@@ -41,6 +41,8 @@ export type SortedRow = {
   button: (el: HTMLButtonElement | null) => void;
   /** Where a failed move shows. */
   fail: (show: (message: string | null) => void) => void;
+  /** The Move up and Move down controls of a row: one step. */
+  step: (by: -1 | 1) => void;
   /** `⌥↑` and `⌥↓`. */
   key: (event: KeyboardEvent) => void;
 };
@@ -58,13 +60,11 @@ export const OpenRow = (props: {
   onOpen: (todo: Todo) => void;
   onComplete: (todo: Todo) => Promise<string | null>;
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
-  /** U155: the list this row moves in. */
-  reorder?: Reorder;
   /** U490a: a row ordered through `ui/Sortable` instead. */
   sorted?: SortedRow;
 }) => {
   const connected = useConnectedProject();
-  const near = props.nested ? createNear() : null;
+  const near = props.nested || props.sorted ? createNear() : null;
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -87,8 +87,6 @@ export const OpenRow = (props: {
 
   onCleanup(() => {
     props.registerRow?.(props.todo.id, null);
-    props.reorder?.frame(props.todo.id, null);
-    props.reorder?.button(props.todo.id, null);
     props.sorted?.frame(null);
     props.sorted?.button(null);
   });
@@ -102,24 +100,25 @@ export const OpenRow = (props: {
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
           pressed={props.pressed}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo)}
-          reorderable={props.reorder !== undefined || props.sorted !== undefined}
+          reorderable={props.sorted !== undefined}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
             if (event.defaultPrevented) return;
 
-            props.reorder?.key(props.todo.id, event, setFailure);
             props.sorted?.key(event);
           }}
-          onPointerDown={(event) => props.reorder?.press(props.todo.id, event, setFailure)}
           ref={(row) => {
             props.registerRow?.(props.todo.id, row);
-            props.reorder?.button(props.todo.id, row);
             props.sorted?.button(row);
           }}
         >
           <span class="shelf-title" title={props.todo.title}>{props.todo.title}</span>
         </RowButton>
+        <Show when={!props.nested && props.sorted && near?.near()}>
+          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoUp(props.todo.id)} onClick={() => props.sorted!.step(-1)}>{copy.moveUp}</button>
+          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoDown(props.todo.id)} onClick={() => props.sorted!.step(1)}>{copy.moveDown}</button>
+        </Show>
         <Show when={props.nested && (near?.near() || listOpen())}>
           <HomeMove
             id={props.todo.id}
@@ -153,7 +152,6 @@ export const OpenRow = (props: {
       head={props.nested ? undefined : head}
       {...near?.handlers}
       ref={(frame) => {
-        props.reorder?.frame(props.todo.id, frame);
         props.sorted?.frame(frame);
       }}
     >
@@ -232,7 +230,7 @@ export const Todos = () => {
   const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
   const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
 
-  const reorder = createReorder({
+  const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
     call: (params) => failureOf(() => connected.app.rpc("todo.reorder", params)),
@@ -374,9 +372,11 @@ export const Todos = () => {
         </p>
       </Show>
       <Show when={open().length > 0}>
-        <div class="todo-list shelf-list">
+        <Sortable.Root class="todo-list shelf-list" plain ids={open().map((todo) => String(todo.id))} onOrderChange={sorted.order} external={sorted.external}>
         <For each={open()}>
-          {(todo) => (
+          {(todo, at) => (
+            <Sortable.Item id={String(todo.id)} index={at()} pressable>
+              {(parts) => (
             <OpenRow
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
@@ -386,7 +386,7 @@ export const Todos = () => {
               known={todos.byId()}
               onOpen={show}
               onComplete={complete}
-              reorder={reorder}
+              sorted={sorted.row(todo.id, parts)}
               registerRow={(id, row) => {
                 selection.register(id, row);
 
@@ -394,9 +394,11 @@ export const Todos = () => {
                 else rows.delete(id);
               }}
             />
+              )}
+            </Sortable.Item>
           )}
         </For>
-        </div>
+        </Sortable.Root>
       </Show>
       <Show when={done().length > 0}>
         <div class="shelf-list">

@@ -166,6 +166,40 @@ run('u362 rendered Todo drag', () => {
   }
 });
 
+run('u362 rendered Todo drag that moves nothing', () => {
+  it('u362_a_drop_elsewhere_escape_or_on_an_agent_calls_nothing', async () => {
+    await page.scheme('light');
+    await setup();
+    const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
+    const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
+    const home = await point('.rail-row[aria-expanded]');
+    const elsewhere = await point('.shelf-head, .shelf');
+    const calls = () => page.call<string[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move' || c.method === 'todo.reorder').map(c => c.method)`);
+
+    // Escape over a Home.
+    await page.pointer('down', from.x, from.y);
+    await page.pointer('move', home.x, home.y);
+    expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
+    await page.press('Escape', 'Escape');
+    await page.pointer('up', home.x, home.y);
+    expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
+    // Over a Home, then back out of the Rail and released there.
+    await page.pointer('down', from.x, from.y);
+    await page.pointer('move', home.x, home.y);
+    await page.pointer('move', elsewhere.x + 10, elsewhere.y);
+    expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
+    await page.pointer('up', elsewhere.x + 10, elsewhere.y);
+    // An Agent row is no Home.
+    const agent = await point('.rail-row[data-id]:not([aria-expanded])');
+    await page.pointer('down', from.x, from.y);
+    await page.pointer('move', agent.x, agent.y);
+    expect(await page.call(`() => document.querySelector('[data-todo-drop]')`)).toBeNull();
+    await page.pointer('up', agent.x, agent.y);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(await calls()).toEqual([]);
+  }, 60_000);
+});
+
 run('u363 Todo rows in the worst case', () => {
   // Row geometry reads both Shelf widths in light; D5 reads dark once, at the narrowest.
   for (const [scheme, shelfWidth] of [['light', 163], ['light', 480], ['dark', 163]] as const) {
