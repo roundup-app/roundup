@@ -419,25 +419,30 @@ p {
 /* U2240: the keys ⌘K waits for; it appears and goes in the frame of the key, takes no focus and no pointer events, and has no motion. */
 .leader {
   position: fixed;
-  right: calc(var(--leader-right, 0px) + var(--space-4));
-  bottom: calc(var(--leader-bottom, 0px) + var(--space-3));
-  max-width: calc(100vw - 2 * var(--space-4));
-  padding: var(--space-3) var(--space-4);
+  top: 0;
+  left: var(--leader-left, 0px);
+  width: var(--leader-width, 100%);
+  min-height: var(--header-height, calc(var(--space-5) * 2));
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
   overflow: hidden;
   pointer-events: none;
   background-color: var(--ground);
-  border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .leader-line {
-  margin: var(--space-1) 0 0;
   white-space: pre;
 }
 
 .leader-keys {
   display: inline-block;
-  min-width: 8ch;
+  min-width: 2ch;
 }
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
