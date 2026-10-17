@@ -175,14 +175,6 @@ p.ink[role="alert"] {
   white-space: nowrap;
 }
 
-.section-head::after {
-  content: "";
-  flex: 1;
-  min-width: 0;
-  height: 1px;
-  background: var(--hairline);
-}
-
 /* U501: the Tooltip of a truncated or multiline element keeps its line breaks. */
 .ink-tip {
   max-width: var(--measure);

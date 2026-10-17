@@ -150,13 +150,15 @@ Perf: `just perf` holds rule 7's limits (cold start under 300 ms, keystroke-to-r
 
 `docs/motion.md` gains the row "`working` Glyph arc: turns, 1 s, linear, `transform` only, still under reduced motion" in the implementing PR. Observer: Vitest `u446_` cases; the harness captures the Glyph at three angles to `artifacts/ux/U446/`; the turn on WKWebView stays the user's `just app` observation. Moves: D1, D9, D12.
 
-**U447 a Rail section opens with a head: icon, spaced capitals, a rule.** Found by Issue #1097. Overturns U403's "the `WORKSTREAMS` head and its rule are not rendered" and #1077's removal of the head; adds one component and no Token (16 px is `--space-4`, the rule is `--hairline`). Webview only: the component is one in `apps/desktop/src/ink/`, which the Shelf's tabs reuse (#1117); the Rail's call is in `apps/desktop/src/rail/`. Given the Rail on `agents-10` and `tree-40` (U26) at a 288 px Rail and 1280 by 800, in both schemes, when a test reads the rendered boxes and computed style, then:
+**U447 a Rail section opens with a head: icon and spaced capitals.** Found by Issue #1097. Overturns U403's "the `WORKSTREAMS` head and its rule are not rendered" and #1077's removal of the head; adds one component and no Token (16 px is `--space-4`). Webview only: the component is one in `apps/desktop/src/ink/`, which the Shelf's tabs reuse (#1117); the Rail's call is in `apps/desktop/src/rail/`. Given the Rail on `agents-10` and `tree-40` (U26) at a 288 px Rail and 1280 by 800, in both schemes, when a test reads the rendered boxes and computed style, then:
 
-- **Parts.** `WORKSTREAMS` heads the Workstreams: in one row, an `Icon` 16 px square that names the section (decorative, `aria-hidden`), the label in capitals with letter spacing and `--text-caption`, and a `--hairline` rule that fills the rest of the row to the Rail's right edge. The rule is a pseudo-element or background, never a border (D8). Test: `u447_the_workstreams_head_has_icon_label_and_rule`.
+- **Parts.** `WORKSTREAMS` heads the Workstreams: in one row, an `Icon` 16 px square that names the section (decorative, `aria-hidden`), the label in capitals with letter spacing and `--text-caption`. Test: `u447_the_workstreams_head_has_icon_and_label`.
 - **One component.** The head is one exported component in `apps/desktop/src/ink/`; the Rail holds no copy of its markup or style. Test: `u447_the_head_is_one_component`.
 - **Contrast and tone.** The label and icon are `--grey` and meet D5's 3:1 for the icon and 4.5:1 for the label on the Rail's ground. Test: `u447_head_tones_meet_contrast`.
 - **Still and not a row.** The head is no button and takes no focus. Test: `u447_the_head_is_inert`.
-- **Fit.** At 252 px there is no horizontal scroll, overlap or clipped label (D10); the rule gives way before the label. Test: `u447_the_head_fits_at_252`.
+- **Fit.** At 252 px there is no horizontal scroll, overlap or clipped label (D10). Test: `u447_the_head_fits_at_252`.
+
+Amended 2026-10-17 by the owner: the head has no trailing rule.
 
 Observer: Vitest `u447_` cases; the harness captures to `artifacts/ux/U447/`. Moves: D2, D5, D8, D10.
 

@@ -36,10 +36,6 @@
   text-transform: uppercase;
 }
 
-.shelf-tab > .section-head::after {
-  content: none;
-}
-
 .shelf-bar > .shelf-toggle {
   flex: none;
 }
