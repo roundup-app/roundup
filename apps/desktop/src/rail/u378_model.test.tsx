@@ -238,7 +238,7 @@ describe("u378 the Model at the add", () => {
   it("u378_both_add_paths_focus_an_open_composing_field", async () => {
     const mounted = await mountAdd();
     fireEvent.keyDown(document, {key: "n", metaKey: true, shiftKey: true});
-    const field = await screen.findByLabelText("Prompt");
+    const field = await screen.findByLabelText("Task");
 
     for (const name of ["Add Agent", "Choose Model and Effort"]) {
       fireEvent.click(screen.getByLabelText(name));
@@ -257,7 +257,7 @@ describe("u378 the Model at the add", () => {
     expect(railCallsTo(mounted.app, "agent.spawn")[0]).toMatchObject({model: null, effort: null});
     await waitFor(() => expect(screen.getByLabelText("Add Agent").getAttribute("aria-disabled")).toBeNull());
     fireEvent.keyDown(document, {key: "n", metaKey: true, shiftKey: true});
-    const field = await screen.findByLabelText("Prompt");
+    const field = await screen.findByLabelText("Task");
     fireEvent.keyDown(document, {key: "n", metaKey: true});
     expect(document.activeElement).toBe(field);
     expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1);
