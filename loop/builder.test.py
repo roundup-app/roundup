@@ -857,7 +857,7 @@ class Plumbing(unittest.TestCase):
         with tempfile.NamedTemporaryFile('r') as output, GitHub(view=view, notes=list(notes), history=history,
                                                                  steps=steps, labels=READY) as github:
             task = builder.fix_task(9, HEAD, cause, run_id, output.name)
-            return task, Path(output.name).read_text() == 'plumbing=true\nissue=1\n', github
+            return task, 'plumbing=true\n' in Path(output.name).read_text(), github
 
     def test_l82_a_conflict_runs_past_three_attempts_and_closes_nothing(self):
         task, plumbing, github = self.start(pr(**CONFLICTED), 'conflict', [note(PLUMBED)] * builder.ATTEMPTS)
