@@ -109,7 +109,7 @@ it("u371_scrim_and_escape_close_the_shelf", async () => {
   await settle();
   expect(await evaluate("document.querySelector('.shelf').hidden")).toBe(true);
   await toggle();
-  await evaluate(`(() => { document.querySelector('.rail [role=treeitem]').focus(); return true; })()`);
+  await evaluate(`(() => { document.querySelector('.rail .rail-row').focus(); return true; })()`);
   await settle();
   await browser("press", "Escape");
   await settle();

@@ -19,7 +19,7 @@ export const railCollection = (rows: readonly RailRow[]) => {
 
     const parent = path[row.depth];
 
-    if (!parent) throw new Error(`no parent row at depth ${row.depth} for ${row.node.id}`);
+    if (!parent) throw new Error(`no node parent at depth ${row.depth} for ${row.node.id}`);
 
     (parent.children ??= []).push(node);
     path.length = row.depth + 1;
