@@ -53,6 +53,7 @@ jobs:
       matrix:
         partition: [1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
         with:
@@ -81,6 +82,7 @@ jobs:
   mac:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
         with:
@@ -145,6 +147,7 @@ jobs:
       matrix:
         partition: [1, 2, 3, 4, 5, 6, 7]
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
