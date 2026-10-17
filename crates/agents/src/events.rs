@@ -357,6 +357,13 @@ pub(super) async fn watch(
     attempt: String,
     mut events: Receiver<EventData>,
 ) {
+    struct Serving(Arc<Shared>, String, String);
+    impl Drop for Serving {
+        fn drop(&mut self) {
+            self.0.stop_requests(&self.1, &self.2);
+        }
+    }
+    let _serving = Serving(Arc::clone(&shared), id.clone(), attempt.clone());
     let mut tick: Option<Instant> = None;
     loop {
         let observation = tokio::select! {

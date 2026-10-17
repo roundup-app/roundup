@@ -1,0 +1,29 @@
+[
+  {
+    "from": "worker",
+    "text": "{\"type\":\"permission_request\",\"request_id\":\"perm-1792260062313-4sv9igf\",\"agent_id\":\"worker\",\"tool_name\":\"Bash\",\"tool_use_id\":\"toolu_x1\",\"description\":\"Make\",\"input\":{\"command\":\"mkdir made\",\"description\":\"Make\"},\"permission_suggestions\":[{\"type\":\"addDirectories\",\"directories\":[\"/work\"],\"destination\":\"session\"},{\"type\":\"setMode\",\"mode\":\"acceptEdits\",\"destination\":\"session\"}]}",
+    "timestamp": "2026-10-17T18:01:02.319Z",
+    "msgV": 1,
+    "msg_id": "03242f7b-1b3e-464c-8d98-e7c77d7e17e8",
+    "type": "message",
+    "read": false
+  },
+  {
+    "from": "worker",
+    "text": "{\"type\":\"idle_notification\",\"from\":\"worker\",\"timestamp\":\"2026-10-17T18:01:03.572Z\",\"idleReason\":\"available\",\"result\":\"Made.\"}",
+    "timestamp": "2026-10-17T18:01:03.572Z",
+    "msgV": 1,
+    "msg_id": "e8c97211-f4fd-430d-9b4c-9356f6747f18",
+    "type": "message",
+    "read": false
+  },
+  {
+    "from": "worker",
+    "text": "{\"type\":\"idle_notification\",\"from\":\"worker\",\"timestamp\":\"2026-10-17T18:01:11.502Z\",\"idleReason\":\"available\",\"result\":\"Got the note.\"}",
+    "timestamp": "2026-10-17T18:01:11.502Z",
+    "msgV": 1,
+    "msg_id": "4371ebcf-e44b-4004-a9e3-03e2a740e73d",
+    "type": "message",
+    "read": false
+  }
+]

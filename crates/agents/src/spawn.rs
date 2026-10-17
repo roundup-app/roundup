@@ -280,6 +280,7 @@ impl Agents {
         let prompts = match prompts {
             Ok(prompts) => prompts,
             Err(err) => {
+                self.shared.stop_requests(id, attempt);
                 report_undo(
                     "kill obsolete start Terminal",
                     self.shared.terminals.kill(&spawned.id).await,
@@ -359,6 +360,9 @@ impl Agents {
         }
         let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
         self.shared.watch_channel(id, &started);
+        if let Some(team) = self.launcher.team(&self.dir, id) {
+            self.shared.serve_requests(id, &started, team);
+        }
         if role == Role::Door
             && let Some(marker) = claude_code::settings_marker(&self.dir, id)
         {
