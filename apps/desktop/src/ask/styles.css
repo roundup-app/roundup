@@ -59,7 +59,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  border-radius: var(--radius-row);
 }
 
 .ask-line {
@@ -68,6 +67,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-2);
+  --button-radius: 0;
   font: inherit;
   text-align: start;
 }
@@ -112,4 +112,32 @@
 .app-mentions {
   max-height: 160px;
   overflow-y: auto;
+}
+
+.app-mentions [data-highlighted] {
+  background-color: var(--hover);
+}
+
+.app-mentions .app-listbox-item {
+  min-height: var(--space-5);
+  align-items: center;
+}
+
+/* The picker's visible label would repeat its trigger; the accessible name stays. */
+.ask-choices .app-select-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.ask-choices .app-select-trigger {
+  color: var(--grey);
+  background: none;
+}
+
+.ask-choices .app-select-trigger:hover {
+  color: var(--text);
+  background: none;
 }
