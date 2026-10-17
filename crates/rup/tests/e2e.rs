@@ -429,7 +429,6 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
                     {"role": "door", "model": null, "effort": null},
                     {"role": "subagent", "model": null, "effort": null},
                 ],
-                "allowed": [],
             },
             "mcp": {"on": true},
         })
