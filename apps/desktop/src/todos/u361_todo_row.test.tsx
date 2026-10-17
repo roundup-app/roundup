@@ -63,7 +63,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     const row = rowOf(3);
 
-    for (const act of [() => {}, () => fireEvent.mouseEnter(row), () => fireEvent.focusIn(screen.getByRole("button", { name: /#3/ }))]) {
+    for (const act of [() => {}, () => fireEvent.mouseEnter(row), () => fireEvent.focusIn(screen.getByRole("button", { name: /^Idle #3 / }))]) {
       act();
 
       expect(within(row).queryByText("complete")).toBeNull();
