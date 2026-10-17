@@ -3890,7 +3890,7 @@ async fn b50_a_real_door_takes_an_entry_of_its_inbox_and_the_transcript_records_
             .args([
                 "-rl",
                 "-F",
-                "<teammate-message teammate_id=\\\"rupd\\\"",
+                &format!("<teammate-message teammate_id=\\\"{DAEMON}\\\""),
                 "--include=*.jsonl",
             ])
             .arg(config.join("projects"))

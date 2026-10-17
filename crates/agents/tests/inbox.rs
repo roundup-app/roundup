@@ -77,8 +77,8 @@ fn h21_a_deny_reply_fails_the_call_and_a_reply_that_decides_nothing_writes_nothi
 #[test]
 fn b50_a_note_entry_has_the_recorded_shape_and_follows_the_entries_before_it() {
     let (_dir, team) = team();
-    team.deliver("rupd", "earlier", None).unwrap();
-    team.deliver("rupd", "hello from the inbox", Some("hi"))
+    team.deliver(mailbox::DAEMON, "earlier", None).unwrap();
+    team.deliver(mailbox::DAEMON, "hello from the inbox", Some("hi"))
         .unwrap();
     let written = json_of(&team.inbox_of_agent());
     assert_eq!(written[0]["text"], "earlier");
@@ -111,7 +111,7 @@ fn h21_a_team_is_started_as_the_leads_teammate_and_an_attempt_starts_with_empty_
             .join("config.json"),
     );
     assert_eq!(config["leadAgentId"], format!("team-lead@{}", argv[5]));
-    team.deliver("rupd", "left over", None).unwrap();
+    team.deliver(mailbox::DAEMON, "left over", None).unwrap();
     team.prepare(Path::new("/work")).unwrap();
     assert_eq!(json_of(&team.inbox_of_agent()), json!([]));
     assert_eq!(json_of(&team.lead_inbox()), json!([]));
