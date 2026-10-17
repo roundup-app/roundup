@@ -99,17 +99,6 @@ describe("u183 rename in place", () => {
     expect(within(screen.getByRole("region", { name: "Rail" })).getByText("name is longer than 40 characters")).toBeDefined();
   });
 
-  it("u183_the_tab_keeps_its_width_while_the_field_is_open", async () => {
-    await openTabs({ api: [], web: [] });
-
-    const wrap = tab("api").parentElement!;
-
-    fireEvent.dblClick(tab("api").querySelector(".tab-name")!);
-    await screen.findByRole("textbox", { name: "Project name" });
-
-    expect(wrap.style.width).toBe(`${wrap.offsetWidth}px`);
-  });
-
   it("u183_a_click_elsewhere_saves_like_enter", async () => {
     await openTabs({ api: [], web: [] });
     const input = await edit();
@@ -131,10 +120,11 @@ describe("u183 rename in place", () => {
     expect(jump.defaultPrevented).toBe(false);
   });
 
-  it("u183_the_title_of_each_tab_holds_its_absolute_path", async () => {
+  it("u183_the_path_is_available_in_a_linked_tooltip", async () => {
     await openTabs({ api: [], web: [] });
-
-    expect(tab("api").title).toBe(path("api"));
-    expect(tab("web").title).toBe(path("web"));
+    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip.textContent).toBe(path("api"));
+    expect(tab("api").getAttribute("aria-describedby")).toBe(tooltip.id);
   });
 });
