@@ -145,7 +145,7 @@ it("u471_source_observer_covers_jsx_attributes_and_helper_prose", () => {
 
 const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagents", "Usage", "Iteration", "Project", "App", "Editor", "Skill"]);
 
-const ACRONYMS = new Set(["B", "KB", "MB", "GB", "TB", "CPU", "RSS"]);
+const ACRONYMS = new Set(["B", "KB", "MB", "GB", "TB", "CPU", "RSS", "MCP"]);
 
 const SHORTCUTS = new Set(["⌘Enter", "⌫ / Esc", "↑ / ↓", "⇧↑ / ⇧↓", "⌘N", "⌘C", "⌘V", "Alt+Up", "Alt+Down"]);
 

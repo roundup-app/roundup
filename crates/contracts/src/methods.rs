@@ -162,6 +162,7 @@ pub const METHODS: &[Method] = &[
     m("rail.startDoor", "agent_StartDoorParams", "agent_RailNode"),
     m("agent.run", "agent_RunParams", "terminal_Opened"),
     m("project.setWorktrees", "project_Worktrees", "null"),
+    m("project.setMcp", "project_Mcp", "null"),
     m("project.get", "null", "project_ProjectSettings"),
     m("project.setModels", "project_ProjectModels", "null"),
     m("models.list", "null", "project_ModelList"),
