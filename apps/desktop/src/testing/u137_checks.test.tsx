@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { CHECK_IDS, runChecks } from "./checks";
 import { withStylesheets } from "./contrast";
