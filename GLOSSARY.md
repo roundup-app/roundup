@@ -51,6 +51,13 @@ _Avoid_: session, bot, worker
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble.
 _Avoid_: process, console
 
+**Shell mark**:
+An OSC 133 (prompt, command start and end with its exit code) or OSC 7 (directory) sequence a shell the user opened prints, as iTerm2, VS Code and WezTerm read them. The Daemon makes zsh, bash and fish print them by environment only (X15).
+_Avoid_: shell integration (as a name; it is the means)
+
+**Turn** (user label: command):
+One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514).
+
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
@@ -58,7 +65,7 @@ The Agent or Door attached to a Terminal as its Message receiver, with its Attem
 A scoped fresh SQL execution using a compiled statement in rusqlite's bounded cache. Its exclusive Connection borrow keeps rows inside the callback; reset and binding cleanup precede return. It retains no owner facts.
 
 **Bubble**:
-How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip and makes more or less transparent. It ends with its Terminal.
+How the App shows a Terminal that is not an Agent's pane: a panel floating over the centre pane that the user moves, resizes, minimises to a chip. It ends with its Terminal.
 _Avoid_: overlay, popup
 
 **Pull**:
@@ -88,7 +95,7 @@ One fresh conversation of a Workstream's Door, counted from 1; a Clear starts th
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf shows a selected Workstream's own items until the user asks for all (U347).
 
 **Contract fingerprint**:
-A hash of every RPC method's name with its params and result types, computed in `crates/contracts`, written to `contracts/generated/contract.ts` and reported by the Daemon's `daemon.ping`. The App compares it with its own at connect (A38, S11).
+A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
 
 **Door**:
 The coordinating Agent role of one Workstream, with a system prompt tuned to that role. Its Rail id is the Workstream id; its program may be starting, running or stopped without changing the Workstream. Direct access to any Agent remains (P1).
@@ -132,7 +139,7 @@ How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, a
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
 
 **Resource use**:
-The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows only the selected running Agent’s values at the right of the shared bottom bar below the Thread’s composer, never on the Rail (U408, U444, U469).
+The memory, CPU and disk an Agent uses, sampled only when `project.resources` is called (D8): memory and CPU over its program and every program that program started, disk as its Worktree's size. The App shows only the selected running Agent’s values at the right of the shared bottom bar below the Terminal, never on the Rail (U408, U444, U469).
 
 **Landing**:
 Rebasing an Agent's branch onto its Base, running the Project's check, then fast-forwarding the Base (`agent.land`, which returns `Landed`: the Base's new commit).
@@ -198,21 +205,21 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.appendSection` can require (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Editor**:
 A Pad's single formatted Markdown surface the user reads and types in.
 
 **Attachment**:
-An image pasted or dropped into the Thread's input, shown inline as its name and size with a hover preview; not a Chip.
+An image pasted or dropped into a Message's draft, shown inline as its name and size with a hover preview; not a Chip. (U467 removed the Thread's input, so the App has no such draft today.)
 
 **Attachment file**:
 The copy of a pasted image the Daemon keeps under its data folder (`attachment.save`) so a path can name it in a Message; a native-dropped Attachment needs none.
 _Avoid_: upload, temp image
 
 **Pasted image**:
-An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is the Thread's input.
+An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is a Message's draft.
 
 **Paste placeholder**:
 The short `[Pasted text #N +M lines]` the Thread's input shows for a long paste; the full text is what the Door receives.
@@ -317,6 +324,9 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 **Channel**:
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
+**Mcp**:
+The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
+
 **Stray**:
 A process under a Door's Terminal whose program name is one an Adapter supplies and that the Daemon did not register, found by name (F5). `RailNode.stray` lists them and the event `agent.stray` announces a change; it only detects.
 
@@ -387,6 +397,12 @@ complete prompt, request kind (`RequestKind`: question or permission), requestin
 Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
 Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
 
+**Failed answer** (`FailedAnswer`, `Decision.failure`):
+The latest refused authenticated Agent answer on one original live Decision,
+read through `decision.list` with its Reach filtering: requesting Attempt,
+answering Actor, failure time and exact RPC error code and message. It is not a
+successful answer record; replacement, clearing or successful delivery discards it.
+
 **Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
 An `ask_user` question the user reads and answers in its Agent's primary Terminal.
 The answer belongs to the original Decision and Attempt and retains its authenticated
@@ -402,6 +418,11 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
+**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::Close`, `HeldCall::Kill`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
+A durably accepted Door action waiting for a child's Takeover to end, with its
+original Actor, target, method and parameters retained. Its outcome records
+waiting, in-progress, completion or a dropped reason; acceptance is not execution.
+
 **Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
 An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
 
@@ -411,10 +432,19 @@ It reports lag separately from control events and ordinary replies; retained eve
 keep their Terminal ids and byte offsets for Snapshot recovery. It does not select
 a Terminal or change the Daemon's subscription contract.
 
+**Event log**:
+The Daemon's table in `project.db` of every Event but Terminal output, kept to the last 10 000 (`EVENT_WINDOW`); `events.subscribe` replays from it (`scenarios/daemon.md` D10, D11).
+
+**Event number** (`seq`):
+The positive integer the Event log gives an Event as its row id: it rises by one per saved Event, never repeats across a Daemon restart, and rides on the Event every subscriber sees. Terminal output has none (D10).
+
+**Event head** (`head`):
+The highest Event number saved when an `events.subscribe` was accepted, 0 for an empty log: its answer is `{head}`, and `rup events` without `--follow` stops once it has printed that Event (`scenarios/cli.md` I9).
+
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
 
-**Reach**:
+**Reach** (`Agents::guard_reach`):
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
 
 **project.requested**:
@@ -529,6 +559,12 @@ A Token-styled set of named App views, with one selected view and its panel visi
 **IconButton**:
 An App button of the icon kind, named for its action for assistive technology.
 
+**TreeView**:
+A shared navigable hierarchy preserving caller-rendered rows.
+
+**Sortable**:
+A shared reorderable region with named drag handles and caller-owned committed order.
+
 ### Keyboard registration
 
 **KeyScope**:
@@ -542,17 +578,17 @@ The matching spellings of one displayed Help chord.
 
 ### Ask placement
 
-**Ask**:
-One message the user sends from the Ask bar; distinct from an Agent's Decision.
+**Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
+One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
-**Ask part** (`AskPart`):
+**Ask part** (`AskPart`, `ask::State`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 
-**Placement** (`Placement`, `Destination`):
+**Placement** (`Placement`, `Destination`, `Target`):
 An Ask part's proposed destination: routed to a Workstream, new with an Order title, or unclear with a question and up to three candidate Workstreams.
 
 **Placement request** (`placement::Request`, `EarlierAsk`):
 An Ask's text and its context: the five newest earlier Asks' parts and destinations, and every Workstream's name, Order and Status Kind.
 
-**Placement call** (`PlacementCall`):
+**Placement call** (`PlacementCall`, `Agents::placement_call`):
 The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.

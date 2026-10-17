@@ -227,7 +227,6 @@ export const Strip = (props: {
         <div class="strip-slot" data-side={side}>
           <IconButton
             class={`strip-edge strip-edge-${side} ink`}
-            data-button-surface
             data-tone={MARKS[hidden().mark].tone}
             data-kind={hidden().mark}
             aria-label={copy.hiddenAttention(hidden().count, MARKS[hidden().mark].label.toLowerCase(), side)}

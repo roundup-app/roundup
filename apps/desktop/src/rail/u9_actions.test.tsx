@@ -298,9 +298,8 @@ it("u62_failed_start_retries_the_same_workstream_and_leaves_its_terminal_unfocus
   const live = door("actual", "working", "starting");
   tree.splice(0, 1, live);
   finish!(live);
-  // U187: the started Door is in Thread mode, so its Terminal is out of the layout and takes no focus.
-  await waitFor(() => expect(document.querySelector(".pane-screen")?.hasAttribute("hidden")).toBe(true));
-  expect(document.activeElement?.getAttribute("data-terminal")).toBeNull();
+  // U467: the started Door's own Terminal fills the centre.
+  await waitFor(() => expect(document.querySelector(".pane-screen")?.hasAttribute("hidden")).toBe(false));
   expect(railCallsTo(mounted.app, "rail.createWorkstream")).toHaveLength(1);
   expect(railCallsTo(mounted.app, "rail.startDoor")).toEqual([{id:"actual"},{id:"actual"}]);
 });

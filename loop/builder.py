@@ -2,6 +2,8 @@
 """L23, L24, L79, L81, L82: what GitHub Actions leaves to roundup around Builder runs: which Issues to build, how a run
 ended, when a PR gets a fix run and how a review run's answer reaches the PR. Exit 4: GitHub could not be read or
 written."""
+import base64
+import binascii
 import json
 import os
 import re
@@ -21,6 +23,7 @@ NEEDS_MAC = orders.NEEDS_MAC
 # L79: the model that screens a build run's `ask` (`.agents/screen.md`), and the verdicts it gives.
 SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
+SCREEN_TRIES = 2
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 # L23: where claude-code-action trades the job's OIDC token for a Claude App token (its `src/github/token.ts`), and the
@@ -30,8 +33,12 @@ AUDIENCE = 'claude-code-github-action'
 RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
 # L23: a build or fix run's token holds `keep`'s rights and reads CI evidence.
 RUN_RIGHTS = {**RIGHTS, 'actions': 'read', 'checks': 'read'}
-# L23: build and fix runs run on Codex with the user's ChatGPT login. The Codex App lends a workflow no token, so a run's
-# commits name its account and push with a Claude App token.
+# L23: build and fix runs run on Claude Code with the Max token, on Codex with the user's ChatGPT login when Claude Code did
+# no work. Neither App lends a workflow a token, so a run's commits name its engine's account and push with a Claude App
+# token.
+CLAUDE_MODEL = 'claude-sonnet-5-5'
+CODEX_MODEL = 'gpt-6.1-sol'
+CLAUDE_ACCOUNT = ('claude[bot]', '209825114+claude[bot]@users.noreply.github.com')
 CODEX_ACCOUNT = ('chatgpt-codex-connector[bot]', '199175422+chatgpt-codex-connector[bot]@users.noreply.github.com')
 # The items of Codex's `--json` event lines that a tool use leaves.
 CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'}
@@ -39,7 +46,23 @@ CODEX_TOOLS = {'command_execution', 'file_change', 'mcp_tool_call', 'web_search'
 STOPPED = re.compile(r'^Stopped:.*(?:\r?\n.*\S.*)*', re.M)
 # The Issue a PR body's first `Refs`, `Closes` or `Fixes #<n>` line names.
 LINKED = re.compile(r'^(?:Refs|Closes|Fixes) #(\d+)', re.M)
+# A scenario id, such as U467 or V4b.
+SCENARIO_ID = r'[A-Za-z]+[0-9]+[a-z]?'
+# A scenario file's heading line, `**<id> <title>.**`, where a scenario starts.
+HEADING = re.compile(rf'\*\*({SCENARIO_ID}) ')
 ATTEMPTS = 3
+# L82: causes about a PR's plumbing, not its work, start a fix run that posts no comment and counts no attempt: a conflict
+# with `main`, and a `rules` failure whose every failed step checks PR shape (a base, `Author-Agent` trailers, scenario ids).
+# Actions history counts these runs, and past PLUMBING_RUNS of them on one PR the next such cause counts as any other.
+PLUMBING = ('conflict', 'rules')
+PLUMBING_STEPS = re.compile(r'rules\.sh (?:base|ci-trailers|scenario-ids)\b')
+PLUMBING_RUNS = 6
+# L82: the paths a fix run's script regenerates instead of a model resolving them, and the command that regenerates them
+# (`crates/contracts` writes `contracts/generated/`).
+GENERATED = ('contracts/generated/',)
+REGENERATE = ('cargo', 'test', '--quiet', '-p', 'contracts')
+# The Issue a build task's first line, `Work order: <url>/issues/<n>`, names.
+WORK_ORDER = re.compile(r'\AWork order: \S+/issues/(\d+)')
 # How long a reject a fix run answered awaits the next verdict before a fix run starts anyway (L82).
 IDLE = 3 * 3600
 # A review run whose model did no work (a usage limit) leaves `review` pending; pick reruns it this many times in all.
@@ -50,7 +73,8 @@ CAUSES = {
     'rules': FAILED,
     'review': 'The review run rejected this head; its findings are the last verdict below.',
     'critic': 'The design critic rejected this head (L103); its findings are the last `CRITIC:` comment below. Meet each '
-              'finding, or the bar it names, without loosening `docs/design-system.md`.',
+              'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
+              'the notes are polish the critic raises once and never blocks on again.',
     'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
@@ -90,8 +114,31 @@ def prompt(task, output, name='builder'):
     """Append the step output `prompt`: `.agents/<name>.md` (the Builder's unless a role is named), a `## Task` heading,
     then the task."""
     delimiter = 'PROMPT_' + secrets.token_hex(8)
+    work = WORK_ORDER.match(task)
+    if work and name == 'builder' and 'Open no PR' not in task:
+        task = '\n\n'.join(part for part in (task.rstrip(), left_off(int(work[1]))) if part)
     with open(output, 'a') as out:
         out.write(f'prompt<<{delimiter}\n{role(name)}\n## Task\n\n{task.rstrip()}\n{delimiter}\n')
+
+
+def left_off(issue):
+    """L82: the paragraph that sends a build run to continue from the Issue's last Builder PR that used its fix runs and
+    closed unmerged (its `<!-- fix-exhausted #<pr> -->` comment): its head, `refs/pull/<pr>/head`, and its last review and
+    critic findings; '' when the Issue has none."""
+    exhausted = orders.marked(issue, '<!-- fix-exhausted #')
+    if not exhausted:
+        return ''
+    pr = int(re.match(r'<!-- fix-exhausted #(\d+) -->', exhausted[-1]['body'])[1])
+    closed = orders.gh('pr', 'view', str(pr), '--json', 'state,mergedAt,url')
+    if closed['state'] != 'CLOSED' or closed['mergedAt']:
+        return ''
+    findings = [c['body'] for marker in ('VERDICT:', 'CRITIC:') for c in orders.marked(pr, marker)[-1:]]
+    return '\n\n'.join([
+        f"Continue PR #{pr}, do not start over: it used its {ATTEMPTS} fix runs and was closed unmerged ({closed['url']}). "
+        f"Instead of starting from `origin/main`, create the branch named above from its head: `git fetch origin "
+        f"pull/{pr}/head && git switch -c <that branch> FETCH_HEAD && git merge origin/main`, keeping the behaviour of both "
+        f"sides. Its last verdicts follow; meet each finding, keep the work that stands, and name PR #{pr} in your PR body.",
+        *findings])
 
 
 def asked(answer):
@@ -110,25 +157,54 @@ def question(answer, branch):
 
 def screen(ask):
     """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one."""
+    `reason` and `preview`, or None when Claude Code gave no valid one in `SCREEN_TRIES` tries. Each failed try is logged."""
+    for attempt in range(1, SCREEN_TRIES + 1):
+        try:
+            out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                                  '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
+                                 input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                                 timeout=300, check=True)
+            verdict = json.loads(out.stdout).get('structured_output')
+        except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
+            print(f'screen: try {attempt} gave no verdict: {error}', file=sys.stderr)
+            continue
+        if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS:
+            return verdict
+        print(f'screen: try {attempt} gave no valid verdict: {verdict!r}', file=sys.stderr)
+    return None
+
+
+def encode(verdict):
+    """A screen `verdict` as a step output: base64, because GitHub drops an output holding a masked value and the
+    Codex login's `{` and `}` lines are masked, so a JSON object never arrived (L79). '' for no verdict."""
+    return base64.b64encode(json.dumps(verdict).encode()).decode() if verdict else ''
+
+
+def decode(text):
+    """The screen verdict `encode` wrote, or None when `text` is empty or holds no valid one."""
     try:
-        out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
-                              '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                             input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
-                             timeout=300, check=True)
-        verdict = json.loads(out.stdout).get('structured_output')
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
-        print(f'screen: Claude Code gave no verdict: {error}', file=sys.stderr)
+        verdict = json.loads(base64.b64decode(text, validate=True))
+    except (binascii.Error, ValueError):
         return None
     return verdict if isinstance(verdict, dict) and verdict.get('verdict') in VERDICTS else None
+
+
+def summarise(line):
+    """Say `line` as a workflow warning and in the job's run summary, so a failure of the loop shows."""
+    print(f'::warning::{line}')
+    if path := os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(path, 'a') as out:
+            out.write(f'{line}\n')
 
 
 def put(number, ask, verdict, run_url, back):
     """Send what a run asked the user where `screen`'s verdict says (L79): `loop` calls `back` with the screen's reason,
     `mac` holds Issue or PR `number` for an agent on the user's Mac, and `user` asks the user, preview first. With no
-    verdict the user gets the ask, told it went unscreened."""
+    verdict the question goes back to the loop like a `loop` verdict, and the run summary says so: the user is never
+    asked unscreened."""
     if verdict is None:
-        flag(number, f'{ask}\n\nThe screen gave no verdict, so this reached you unscreened: {run_url}')
+        summarise(f'The screen gave no verdict after {SCREEN_TRIES} tries on #{number}, so the question went back to the loop: {run_url}')
+        back('The screen gave no verdict, so a Builder settles the question itself.')
     elif verdict['verdict'] == 'loop':
         back(verdict['reason'])
     elif verdict['verdict'] == 'mac':
@@ -137,17 +213,23 @@ def put(number, ask, verdict, run_url, back):
         flag(number, f"{verdict['preview']}\n\n---\n\n{ask}")
 
 
+def tool_use(event):
+    """Whether one event of a run is its model using a tool: an assistant message holding a `tool_use` part
+    (claude-code-action's execution file, Claude Code's `stream-json`) or a completed Codex item of `CODEX_TOOLS`."""
+    if event.get('type') == 'assistant':
+        return any(part.get('type') == 'tool_use' for part in event.get('message', {}).get('content', []))
+    return event.get('item', {}).get('type') in CODEX_TOOLS
+
+
 def worked(path):
-    """A run worked when its model used a tool, read from claude-code-action's execution file (a JSON array) or Codex's
-    `--json` event lines; a usage limit or a setup failure leaves no tool use."""
+    """A run worked when its model used a tool, read from claude-code-action's execution file (a JSON array) or the
+    event lines of Claude Code or Codex; a usage limit or a setup failure leaves no tool use."""
     if not path or not Path(path).is_file():
         return False
     text = Path(path).read_text()
     if text.lstrip().startswith('['):
-        return any(entry.get('type') == 'assistant' and
-                   any(part.get('type') == 'tool_use' for part in entry.get('message', {}).get('content', []))
-                   for entry in json.loads(text))
-    return any(json.loads(line).get('item', {}).get('type') in CODEX_TOOLS for line in text.splitlines() if line.strip())
+        return any(map(tool_use, json.loads(text)))
+    return any(tool_use(json.loads(line)) for line in text.splitlines() if line.strip())
 
 
 def app_token(rights=RIGHTS):
@@ -168,12 +250,66 @@ def app_token(rights=RIGHTS):
     return token
 
 
-def codex(prompt, model, schema, output):
-    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login in `CODEX_AUTH`, `git` and
-    `gh` holding a fresh App token with a run's rights, answering the JSON Schema `schema` unless it is None. Appends the
-    step output `execution_file`, Codex's event lines, before the run starts, so a run cut off still leaves them, then
-    `structured_output`, its answer; revokes the token after. Returns Codex's exit code."""
-    login = os.environ.pop('CODEX_AUTH', '')
+def stream(command, prompt, events, env, account):
+    """Run `command` on `prompt` as `account`, `git` and `gh` holding a fresh App token with a run's rights, writing its
+    stdout lines to `events`, which the public step log shows only as each event's kind; revokes the token after.
+    Returns the exit code."""
+    name, email = account
+    env = {**env, 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name, 'GIT_AUTHOR_EMAIL': email,
+           'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
+    try:
+        subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
+        with open(events, 'w') as log, subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                                        text=True, env=env) as run:
+            run.stdin.write(prompt)
+            run.stdin.close()
+            for line in run.stdout:
+                log.write(line)
+                log.flush()
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    event = {}
+                content = event.get('message', {}).get('content', [])
+                kinds = [part.get('type', '') for part in content] if isinstance(content, list) else []
+                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), *kinds, flush=True)
+    finally:
+        subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
+    return run.returncode
+
+
+def answer_out(output, answer):
+    """Append the step output `structured_output`, `answer`."""
+    delimiter = 'ANSWER_' + secrets.token_hex(8)
+    with open(output, 'a') as out:
+        out.write(f'structured_output<<{delimiter}\n{answer}\n{delimiter}\n')
+
+
+def claude(prompt, model, schema, output):
+    """L23: run `prompt` on Claude Code's `model` in this checkout, signed in with the Max token in
+    `CLAUDE_CODE_OAUTH_TOKEN`, answering the JSON Schema `schema` unless it is None. Appends the step output
+    `execution_file`, its event lines, before the run starts, then `structured_output` when it answered. Returns its exit
+    code."""
+    home = Path(os.environ['RUNNER_TEMP']) / 'claude'
+    home.mkdir(mode=0o700)
+    events = home / 'events.jsonl'
+    with open(output, 'a') as out:
+        out.write(f'execution_file={events}\n')
+    command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose',
+               '--dangerously-skip-permissions']
+    if schema is not None:
+        command += ['--json-schema', schema]
+    code = stream(command, prompt, events, os.environ, CLAUDE_ACCOUNT)
+    results = [event for event in map(json.loads, events.read_text().splitlines()) if event.get('type') == 'result']
+    if schema is not None and results and isinstance(results[-1].get('structured_output'), dict):
+        answer_out(output, json.dumps(results[-1]['structured_output']))
+    return code
+
+
+def codex(login, prompt, model, schema, output):
+    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
+    Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
+    starts, so a run cut off still leaves them, then `structured_output`, its answer. Returns Codex's exit code."""
     auth = json.loads(login or '{}')
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
@@ -193,31 +329,22 @@ def codex(prompt, model, schema, output):
     if schema is not None:
         (home / 'schema.json').write_text(schema)
         command += ['--output-schema', str(home / 'schema.json')]
-    name, email = CODEX_ACCOUNT
-    env = {**os.environ, 'CODEX_HOME': str(home), 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name,
-           'GIT_AUTHOR_EMAIL': email, 'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
-    try:
-        subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
-        # The public step log shows each event's kind; only the event file keeps commands, their output and messages.
-        with open(events, 'w') as log, subprocess.Popen([*command, '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                        text=True, env=env) as run:
-            run.stdin.write(prompt)
-            run.stdin.close()
-            for line in run.stdout:
-                log.write(line)
-                log.flush()
-                try:
-                    event = json.loads(line)
-                except ValueError:
-                    event = {}
-                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), flush=True)
-    finally:
-        subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
+    code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT)
     if schema is not None and answer.is_file():
-        delimiter = 'ANSWER_' + secrets.token_hex(8)
-        with open(output, 'a') as out:
-            out.write(f'structured_output<<{delimiter}\n{answer.read_text().strip()}\n{delimiter}\n')
-    return run.returncode
+        answer_out(output, answer.read_text().strip())
+    return code
+
+
+def engine(prompt, schema, output):
+    """L23: run `prompt` on Claude Code and, when its model used no tool (a usage limit or a setup failure, as `worked`
+    reads it, so the checkout is untouched), on Codex. The ChatGPT login leaves the environment first, so a Claude Code
+    run's shell never holds it. Returns the exit code of the run that was last."""
+    login = os.environ.pop('CODEX_AUTH', '')
+    code = claude(prompt, CLAUDE_MODEL, schema, output)
+    if worked(Path(os.environ['RUNNER_TEMP']) / 'claude' / 'events.jsonl'):
+        return code
+    print('engine: Claude Code did no work; falling back to Codex', file=sys.stderr)
+    return codex(login, prompt, CODEX_MODEL, schema, output)
 
 
 def keep(branch, issue, run_url):
@@ -405,6 +532,66 @@ def pick(most):
     print(json.dumps(choose(rows, taken, free)))
 
 
+def changed_scenarios(pr, head):
+    """Ids, in file order, of the scenarios PR `pr`'s diff adds or changes: the heading above each changed line of a
+    `scenarios/*.md` file at `head`. A deleted heading is a retired scenario and names none."""
+    touched, path, hunk, at = {}, None, False, 0
+    for line in call('pr', 'diff', str(pr)).splitlines():
+        if line.startswith('diff --git'):
+            path, hunk = None, False
+        elif found := re.fullmatch(r'\+\+\+ b/(scenarios/[^/]+\.md)', line):
+            path = found[1]
+        elif found := re.match(r'@@ -\d+(?:,\d+)? \+(\d+)', line):
+            hunk, at = True, int(found[1])
+        elif path and hunk and line.startswith('+'):
+            touched.setdefault(path, []).append(at)
+            at += 1
+        elif path and hunk and line.startswith('-'):
+            if not HEADING.match(line[1:]):
+                touched.setdefault(path, []).append(max(at - 1, 1))
+        elif path and hunk:
+            at += 1
+    ids = []
+    for path, numbers in touched.items():
+        text = call('api', f'repos/{{owner}}/{{repo}}/contents/{path}?ref={head}', '-H',
+                    'Accept: application/vnd.github.raw').splitlines()
+        for number in sorted(set(numbers)):
+            above = [m[1] for line in reversed(text[:number]) if (m := HEADING.match(line))][:1]
+            ids += [i for i in above if i not in ids]
+    return ids
+
+
+def issue_of(branch):
+    """The Issue whose work Key names `build/<key>`, or None."""
+    return next((row['issue'] for row in orders.read_orders() if row['slug'] and f"build/{row['slug']}" == branch), None)
+
+
+def link(pr, issue=None):
+    """L82: the loop writes PR `pr`'s `Refs #<issue>` and `Scenarios:` lines, never the Builder: the Issue is `issue`, else
+    the one the branch's work Key names, else the one the body links; `Scenarios:` comes from that Issue's own line, else
+    from the scenarios the diff adds or changes. A wrong or missing line is replaced in place, with no comment and no fix
+    run; a `Closes` or `Fixes` line already naming the Issue stays. Returns the PR with its new body."""
+    body = original = pr['body'] or ''
+    found = LINKED.search(body)
+    issue = issue or issue_of(pr['headRefName']) or (int(found[1]) if found else None)
+    ids = ''
+    if issue is None:
+        print(f"PR #{pr['number']} names no Issue and no work Key finds one; no Refs line to write", file=sys.stderr)
+    else:
+        if not found or int(found[1]) != issue:
+            body = f"Refs #{issue}\n{re.sub(r'^(?:Refs|Closes|Fixes):? #?\d+.*\n?', '', body, count=1, flags=re.M)}"
+        ids = orders.field(orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')['body'] or '', 'Scenarios', '')
+    ids = ids or ', '.join(changed_scenarios(pr['number'], pr['headRefOid']))
+    if ids and f'Scenarios: {ids}' not in body.splitlines():
+        line = f'Scenarios: {ids}'
+        body = re.sub(r'^Scenarios:.*\n?', '', body, count=1, flags=re.M)
+        body = re.sub(r'^((?:Refs|Closes|Fixes) #\d+.*)$', lambda m: f'{m[1]}\n{line}', body, count=1, flags=re.M) \
+            if LINKED.search(body) else f'{line}\n{body}'
+    if body != original:
+        call('api', '-X', 'PATCH', f"repos/{{owner}}/{{repo}}/pulls/{pr['number']}", '-f', f'body={body}')
+    return dict(pr, body=body)
+
+
 def ended(pr, verdict, run_url):
     """After a run that worked: a draft's `Stopped:` question goes where its screen `verdict` says (`put`), and one the
     screen sends back to the loop resumes (`resume`); another draft gets a fix run."""
@@ -447,9 +634,10 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
             except ValueError as error:
                 strike(issue, f'The repair run {run_url} left the order unreadable: {error}.')
         return
-    prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json', 'number,headRefOid,isDraft,body')
+    prs = orders.gh('pr', 'list', '--head', f'build/{slug}', '--state', 'open', '--json',
+                    'number,headRefName,headRefOid,isDraft,body')
     if prs:
-        ended(prs[0], verdict, run_url)
+        ended(link(prs[0], issue), verdict, run_url)
         return
     current = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{issue}')
     if current['state'] == 'closed':
@@ -478,7 +666,7 @@ def strike(issue, why):
 
 def view(pr):
     return orders.gh('pr', 'view', str(pr), '--json',
-                     'number,url,state,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
+                     'number,url,state,createdAt,headRefOid,headRefName,isDraft,isCrossRepository,body,statusCheckRollup')
 
 
 def started(attempt):
@@ -488,15 +676,92 @@ def started(attempt):
     return orders.created(began) if began else None
 
 
-def fix_task(pr, head, cause):
+def rules_plumbing(current):
+    """True when the PR head's latest `rules` failure has failed steps, every one a PLUMBING_STEPS check."""
+    check = max((c for c in current.get('statusCheckRollup') or [] if c.get('name') == 'rules'),
+                key=lambda c: c.get('completedAt') or '', default=None)
+    if not check or check.get('conclusion') != 'FAILURE':
+        return False
+    job = re.search(r'/job/(\d+)', check.get('detailsUrl') or '')
+    if not job:
+        return False
+    steps = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/jobs/{job[1]}')['steps']
+    return (bad := [step['name'] for step in steps if step['conclusion'] == 'failure']) != [] and \
+        all(PLUMBING_STEPS.search(name) for name in bad)
+
+
+def plumbing_runs(pr, opened, run_id):
+    """How many fix runs other than `run_id` answered a PLUMBING cause on PR `pr` since `opened`, read from Actions
+    history: a run counts once its `fix-run` model job started."""
+    title = re.compile(rf"Fix PR #{pr}: (?:{'|'.join(PLUMBING)})\Z")
+    runs = [run for page in orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?created=%3E%3D{opened}&per_page=100',
+                                      '--paginate', '--slurp')
+            for run in page['workflow_runs'] if run['id'] != run_id and title.match(run['display_title'])]
+    return sum(any(job['name'] == 'fix-run' and job['conclusion'] in ('success', 'failure')
+                   for job in orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs'])
+               for run in runs)
+
+
+def git(*args):
+    """`git <args>` as the Claude App's account, since a merge needs a committer even before it commits."""
+    name, email = CLAUDE_ACCOUNT
+    return subprocess.run(['git', '-c', f'user.name={name}', '-c', f'user.email={email}', *args], text=True, capture_output=True, timeout=3600)
+
+
+def resolve_generated(regenerate=REGENERATE):
+    """L82: merge `origin/main` into the checked-out branch and commit it when every conflicted path is GENERATED: take
+    main's side, run `regenerate`, and require no conflict marker and no change from a second run. Returns whether it
+    committed; any other conflict, a failed `regenerate` or a changed second run leaves the branch as it was."""
+    def undo(why):
+        print(f'resolve-generated: {why}; the branch is left as it was', file=sys.stderr)
+        # `merge --abort` refuses a file the index and the worktree hold differently, so the reset comes first.
+        git('reset', '-q', '--hard', 'HEAD')
+        git('merge', '--abort')
+        git('clean', '-fdq', '--', *GENERATED)
+        return False
+
+    merge = git('merge', '--no-commit', '--no-ff', 'origin/main')
+    conflicted = git('diff', '--name-only', '--diff-filter=U').stdout.split()
+    if merge.returncode and not conflicted:
+        return undo(f'the merge failed: {merge.stderr.strip()}')
+    if other := [path for path in conflicted if not path.startswith(GENERATED)]:
+        return undo(f'{", ".join(other)} conflict and are not generated')
+    for path in conflicted:
+        if git('cat-file', '-e', f'origin/main:{path}').returncode:
+            git('rm', '-q', '-f', '--', path)
+        else:
+            git('checkout', 'origin/main', '--', path)
+    if subprocess.run(regenerate, timeout=3600).returncode:
+        return undo('the regenerate command failed')
+    git('add', '-A', '--', *GENERATED)
+    # The second run must leave the worktree as the index holds it: no change, and no file the first run left unstaged.
+    if subprocess.run(regenerate, timeout=3600).returncode:
+        return undo('the second regenerate failed')
+    if changed := git('status', '--porcelain', '--untracked-files=all').stdout:
+        unstaged = [line for line in changed.splitlines() if line[1] != ' ']
+        if unstaged:
+            return undo(f'the regenerate left changes: {unstaged}')
+    if git('grep', '--cached', '-lE', r'^(<{7}|>{7})( |$)', '--', *GENERATED).stdout:
+        return undo('a conflict marker remains')
+    commit = git('commit', '--no-edit')
+    return not commit.returncode or undo(f'the commit failed: {commit.stderr.strip()} {commit.stdout.strip()}')
+
+
+def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
-    `rules` cause there, or used its ATTEMPTS."""
+    `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
+    to the step output file `output`, so its run posts no attempt."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
         return None
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
         return None
+    plumbing = cause in PLUMBING and (cause == 'conflict' or rules_plumbing(current)) and \
+        plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
+    if plumbing and output:
+        with open(output, 'a') as out:
+            out.write('plumbing=true\n')
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
@@ -510,7 +775,7 @@ def fix_task(pr, head, cause):
                                   orders.created(criticisms[-1]['created_at']) > answered):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
-    if len(attempts) >= ATTEMPTS:
+    if len(attempts) >= ATTEMPTS and not plumbing:
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [c['body'] for c in {'review': verdicts, 'critic': criticisms}.get(cause, [])][-1:]
@@ -553,37 +818,60 @@ def exhaust(current, attempts, verdicts, cause):
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
-                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nTake another approach.')
+                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nThe next build run continues from that head.')
     strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
 
-def fixed(pr, cause, ran, run_url, verdict=None):
-    """After a fix run that worked (`ran`): count the attempt on the PR, then hand the PR on with its screen `verdict`.
+def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
+    """After a fix run that worked (`ran`): count the attempt on the PR (a `plumbing` run, L82, counts none), then hand the PR on with its screen `verdict`.
     A ready head that still holds the reject this run answered, with no `check` running on it, gets its review run
     again: with no push or re-ready, no `check` ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
-    comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
-    current = view(pr)
+    if not plumbing:
+        comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
+    current = link(view(pr))
     ended(current, verdict, run_url)
     if cause in ('review', 'critic') and not current['isDraft'] and 'check' not in running(current):
         for run in review_runs(current, 'FAILURE', cause):
             call('run', 'rerun', run)
 
 
+def clauses(ids):
+    """The full text of each scenario `ids` names, as this checkout's `scenarios/` holds it: its heading line through the
+    line before the next scenario or Markdown heading, in file order. An id no heading holds gets a line saying so."""
+    wanted, found = set(re.findall(rf'\b{SCENARIO_ID}\b', ids)), {}
+    for path in sorted((ROOT / 'scenarios').glob('*.md')):
+        current = None
+        for line in path.read_text().splitlines():
+            heading = HEADING.match(line)
+            if heading or re.match(r'#+ ', line):
+                current = heading[1] if heading and heading[1] in wanted else None
+                if current:
+                    found[current] = [f'From `scenarios/{path.name}`:', '']
+            if current:
+                found[current].append(line)
+    missing = [f'No scenario on `main` holds {name}.' for name in sorted(wanted - found.keys())]
+    return '\n\n'.join(['\n'.join(text).rstrip() for text in found.values()] + missing)
+
+
 def review_task(pr, head):
-    """The review run's task, or None when the PR is not open at `head` or is a draft."""
+    """The review run's task, or None when the PR is not open at `head` or is a draft: the body's `Scenarios:` and
+    `Moves:` lines and never the rest of the body (rule 5), the full text of each scenario the `Scenarios:` line names
+    as `main` holds it, then the earlier verdicts, whose findings the run re-derives."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
-    lines = [f'Review PR #{pr}, head {head}.', *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)]
+    named = re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)
+    ids = ' '.join(line for line in named if line.startswith('Scenarios:'))
+    lines = [f'Review PR #{pr}, head {head}.', *named, '\nThe scenarios, as `main` holds them:\n\n' +
+             (clauses(ids) or 'The PR names none.')]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
-        lines += ['If an earlier approval names an ancestor, focus on the changes since that head, including conflict '
-                  'resolutions and their effects. Your verdict still covers the current head; do not repeat unchanged '
-                  'findings.', '\nEarlier verdicts, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
+        lines += ['\nEarlier verdicts, oldest first. Each finding is a claim to re-derive as Review run step 3 says, '
+                  'never one to repeat:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
 
@@ -621,6 +909,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
 BAR = 'elegant, well designed and tasteful. That is the bar'
 # L103: a reject posts as the critic wrote it, up to this many characters.
 CRITIC_CAP = 6000
+# L103: a finding line starting so is polish or an idea; it never blocks.
+POLISH = re.compile(r'(NOTE:|ideas\b)')
 
 
 def touches_desktop(pr):
@@ -649,7 +939,9 @@ def critic_task(pr, head):
     if earlier:
         last = orders.field(earlier[-1], 'Head', '')
         lines += ['\nThis is a later round (`.agents/design-critic.md`, Later rounds): judge the earlier findings below and '
-                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only.',
+                  + (f'`git diff {last}...HEAD`' if last else 'the commits since the last judged head') + ' only. Block '
+                  'only on a block: an unfixed earlier block, a new block, a failure of the scenario\'s goal, or ugly or '
+                  'hacky UI or code; raise no new polish and never block on an earlier `NOTE:`.',
                   '\nEarlier critic findings, oldest first:\n\n' + '\n\n---\n\n'.join(earlier)]
     return '\n'.join(lines)
 
@@ -675,6 +967,8 @@ def critic_post(pr, head, critic, answer, ran, run_url):
         status(head, 'error', 'The critic run gave no usable verdict', run_url, 'critic')
         flag(pr, f'The critic run {run_url} gave no usable verdict on {head}; rerun it from that page.')
         return False
+    if verdict == 'reject' and all(POLISH.match(line) for line in findings if line.strip()):
+        verdict = 'approve'  # polish alone never blocks, in any round
     text = '\n'.join(findings)
     if len(text) > CRITIC_CAP:
         text = text[:CRITIC_CAP].rstrip() + '\n[cut: the critic wrote more than ' + str(CRITIC_CAP) + ' characters]'
@@ -699,25 +993,28 @@ def main(args):
             prompt(sys.stdin.read(), os.environ['GITHUB_OUTPUT'], *name)
         case ['worked', path]:
             return 0 if worked(path) else 1
-        case ['codex', model, *schema] if len(schema) < 2:
-            return codex(sys.stdin.read(), model, schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['engine', *schema] if len(schema) < 2:
+            return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
             if ask := question(sys.stdin.read(), branch):
-                print(json.dumps(screen(ask)))
+                print(encode(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
-            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, json.loads(verdict or 'null'))
+            built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
+        case ['resolve-generated']:
+            return 0 if resolve_generated() else 1
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
                       'repair this PR still needs.', file=sys.stderr)
                 return 3
-            return task_or_nothing(fix_task(int(pr), head, cause))
-        case ['fixed', pr, cause, ran, verdict] if pr.isdigit() and ran in ('true', 'false'):
-            fixed(int(pr), cause, ran == 'true', run_url, json.loads(verdict or 'null'))
+            return task_or_nothing(fix_task(int(pr), head, cause, int(os.environ['GITHUB_RUN_ID']), os.environ['GITHUB_OUTPUT']))
+        case ['fixed', pr, cause, ran, verdict, plumbing] if pr.isdigit() and ran in ('true', 'false') and \
+                plumbing in ('true', 'false'):
+            fixed(int(pr), cause, ran == 'true', run_url, decode(verdict), plumbing == 'true')
         case ['review-task', pr, head] if pr.isdigit():
             return task_or_nothing(review_task(int(pr), head))
         case ['review-post', pr, head, reviewer, ran] if pr.isdigit() and ran in ('true', 'false'):
@@ -727,9 +1024,9 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | codex <model> [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | resolve-generated | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
-                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> | review-task <pr> <head> | '
+                  '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
                   file=sys.stderr)
             return 2

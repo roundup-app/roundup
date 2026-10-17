@@ -7,6 +7,53 @@ pub(super) struct State {
     pub(super) kill: Arc<dyn KillsTerminals>,
 }
 
+impl Agents {
+    /// B6: check the original Attempt under the run lock that claims Interrupt's Escape.
+    pub async fn interrupt_attempt(
+        &self,
+        ctx: &Ctx,
+        id: &str,
+        attempt: &str,
+    ) -> Result<(), RpcError> {
+        self.may_steer(&ctx.actor, id, "Interrupt")?;
+        self.shared.interrupt(id, Some(attempt)).await?;
+        Self::touch_rail(ctx, id)
+    }
+
+    /// B6: write a held prompt only while the original Attempt still runs, checked under the
+    /// admission lock that claims the Terminal.
+    pub async fn prompt_attempt(
+        &self,
+        ctx: &Ctx,
+        params: contracts::agent::PromptParams,
+        attempt: &str,
+    ) -> Result<(), RpcError> {
+        let contracts::agent::PromptParams { id, text } = params;
+        self.may_steer(&ctx.actor, &id, "Steer")?;
+        self.shared
+            .prompt(&id, &text, None, Some(attempt), false)
+            .await
+            .map_err(PromptError::from)?;
+        Self::touch_rail(ctx, &id)
+    }
+
+    /// B6: check the original Attempt under the same locks that claim Stop's effect.
+    pub async fn stop_attempt(&self, ctx: &Ctx, id: &str, attempt: &str) -> Result<(), RpcError> {
+        self.shared.guard_reach(&ctx.actor, id, false)?;
+        let attempt = contracts::agent::parse_positive_ordinal(attempt)
+            .ok_or_else(|| RpcError::new(code::INVALID_PARAMS, "invalid original Attempt"))?;
+        self.shared
+            .end_with(
+                ctx.actor.clone(),
+                id,
+                Ending::StopAttempt(attempt),
+                RailPublication::Immediate,
+            )
+            .await?;
+        Self::touch_rail(ctx, id)
+    }
+}
+
 impl Shared {
     pub(super) fn release_closing(&self, id: &str, ended: bool) {
         let mut runs = self.runs();
@@ -62,7 +109,10 @@ impl Shared {
         ending: Ending,
         publication: RailPublication,
     ) -> Result<(), RpcError> {
-        let remove = !matches!(ending, Ending::Stop | Ending::StopForRemoval);
+        let remove = !matches!(
+            ending,
+            Ending::Stop | Ending::StopAttempt(_) | Ending::StopForRemoval
+        );
         let checked_node = if ending == Ending::Remove {
             Some(self.rail().node(id)?)
         } else {
@@ -90,6 +140,19 @@ impl Shared {
                 )));
             }
             let mut runs = self.runs();
+            if let Ending::StopAttempt(expected) = ending {
+                let expected = expected.to_string();
+                if node.attempt.as_deref() != Some(expected.as_str())
+                    || runs.get(id).is_none_or(|slot| {
+                        slot.attempt() != expected
+                            || matches!(slot, Slot::Running(run) if run.ended)
+                    })
+                {
+                    return Err(RpcError::conflict(format!(
+                        "{id}: original Attempt changed or ended before Stop"
+                    )));
+                }
+            }
             if !remove
                 && node.terminal_id.is_none()
                 && runs
@@ -272,6 +335,8 @@ pub(super) enum RailPublication {
 pub(super) enum Ending {
     /// Stop the program; the node stays on the Rail.
     Stop,
+    /// Stop only while the original Attempt still owns the node.
+    StopAttempt(i64),
     /// A34: stop without publishing a Rail change before coordinated removal commits.
     StopForRemoval,
     /// A16: delete the node and its Worktree when landed.

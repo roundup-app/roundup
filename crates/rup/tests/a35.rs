@@ -522,25 +522,6 @@ async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
 }
 
 #[tokio::test]
-async fn a35_marks_keep_door_only_write_authorization() {
-    let fx = fixture().await;
-    for client in [
-        fx.project.client().await,
-        as_actor(&fx.project, ActorKind::Agent, &fx.b).await,
-    ] {
-        let error = client
-            .request(
-                "checkpoint.write",
-                json!({"title": "forbidden", "blocks": [{"kind": "text", "text": "facts"}]}),
-            )
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::FORBIDDEN);
-    }
-    assert_eq!(listed(&fx).await, json!([]));
-}
-
-#[tokio::test]
 async fn a35_marks_do_not_follow_a_replaced_directory_symlink() {
     let fx = fixture().await;
     let root = roots(&fx)

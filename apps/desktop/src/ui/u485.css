@@ -1,0 +1,12 @@
+.sortable-fixture {
+  max-height: var(--order-field-max-height);
+  overflow: auto;
+  padding: var(--space-1);
+}
+
+.sortable-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-6);
+}

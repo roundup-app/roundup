@@ -1,4 +1,6 @@
+import { TreeView as ArkTreeView } from "@ark-ui/solid/tree-view";
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
+import { Editable as ArkEditable } from "@ark-ui/solid/editable";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
 import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
@@ -21,6 +23,11 @@ export const Menu = {
   ...ArkMenu,
   Root: (props: ArkMenu.RootProps) => <ArkMenu.Root lazyMount unmountOnExit {...props} />,
   Content: (props: ArkMenu.ContentProps) => <ArkMenu.Content {...props} class={`app-menu ${props.class ?? ""}`} />,
+};
+
+export const Editable = {
+  ...ArkEditable,
+  Root: (props: ArkEditable.RootProps) => <ArkEditable.Root selectOnFocus autoResize {...props} class={`app-editable ${props.class ?? ""}`} />,
 };
 
 export const Tooltip = {
@@ -66,3 +73,20 @@ export const IconButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElemen
     <Portal><Tooltip.Positioner><Tooltip.Content>{props["aria-label"]}</Tooltip.Content></Tooltip.Positioner></Portal>
   </Tooltip.Root>;
 };
+
+export const TreeView = {
+  ...ArkTreeView,
+  Tree: (props: ArkTreeView.TreeProps) => <ArkTreeView.Tree {...props} class={`app-tree ${props.class ?? ""}`} />,
+};
+
+export { Sortable } from "./sortable";
+
+export { Splitter } from "./Splitter";
+
+export { Select } from "./Select";
+
+export { createToast, ToastProvider } from "./Toast";
+
+export { Listbox } from "./Listbox";
+
+export { Combobox } from "./Combobox";

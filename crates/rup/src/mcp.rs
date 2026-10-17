@@ -23,20 +23,41 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 
 /// A Todo or Pad call is a few SQLite statements; past this the Daemon is wedged, and a hung tool call would hang the Agent's turn.
-const CALL_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// `ttlMs` and `cacheScope` are required by the client's `tools/list` schema (M4). The tool set is fixed for
 /// the life of this process, so the reply is `public` and fresh for an hour.
 const TOOLS_TTL_MS: u64 = 3_600_000;
 
-struct Offered {
-    method: &'static str,
-    tool: Tool,
+/// One entry of the one tool list: `rup mcp` offers it as a tool and `rup` as a command (I1).
+pub(crate) struct Offered {
+    pub(crate) method: &'static str,
+    pub(crate) tool: Tool,
     takes_params: bool,
     /// E4: the params are `{id}` with the shim's own Agent id, and the tool takes no input.
     own_id: bool,
     /// H14: the call waits for the user, so no `CALL_TIMEOUT` applies and its result is the answer's text.
-    waits_for_user: bool,
+    pub(crate) waits_for_user: bool,
+    /// B20, A32, M10: only a Door is offered it.
+    pub(crate) door_only: bool,
+    /// I9: the call answers once and then pushes Events, so `rup` has it as a command and `rup mcp` does not offer it.
+    pub(crate) stream: bool,
+}
+
+impl Offered {
+    /// The params of a call by Agent `agent` with the tool's `arguments`.
+    pub(crate) fn params(&self, agent: &str, arguments: Option<JsonObject>) -> Value {
+        match (self.takes_params, self.own_id, arguments) {
+            (false, true, _) => serde_json::json!({ "id": agent }),
+            (true, true, arguments) => {
+                let mut arguments = arguments.unwrap_or_default();
+                arguments.insert("id".into(), agent.into());
+                Value::Object(arguments)
+            }
+            (true, false, arguments) => Value::Object(arguments.unwrap_or_default()),
+            (false, false, _) => Value::Null,
+        }
+    }
 }
 
 /// The Daemon cannot be spoken to; the shim exits instead of answering the Agent.
@@ -84,6 +105,8 @@ fn ask_user() -> Offered {
         takes_params: true,
         own_id: false,
         waits_for_user: true,
+        door_only: false,
+        stream: false,
     }
 }
 
@@ -104,6 +127,8 @@ fn offer(
         takes_params,
         own_id: false,
         waits_for_user: false,
+        door_only: false,
+        stream: false,
     }
 }
 
@@ -122,6 +147,7 @@ fn agent_context() -> Offered {
 fn agent_digest() -> Offered {
     Offered {
         own_id: true,
+        door_only: true,
         ..offered_without_params(
             "agent.digest",
             "Ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.",
@@ -131,10 +157,13 @@ fn agent_digest() -> Offered {
 
 /// M10: only a Door writes a Checkpoint.
 fn checkpoint_write() -> Offered {
-    offered::<checkpoint::WriteParams>(
-        "checkpoint.write",
-        "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
-    )
+    Offered {
+        door_only: true,
+        ..offered::<checkpoint::WriteParams>(
+            "checkpoint.write",
+            "Write a Checkpoint: a short card of facts for the user, with a title and one to eight Blocks (rows, table, diagram or text) you choose to suit what happened.",
+        )
+    }
 }
 
 /// H21: `decision.answer` takes `{id, answer, note}`; an Agent has no `proof` to send, and the Daemon
@@ -206,9 +235,39 @@ fn with_own_id<P: JsonSchema>(
     }
     Offered {
         own_id: true,
+        door_only: method == "workstream.handoff",
         tool: Tool::new(name, description, schema),
         ..offer(method, "", JsonObject::new(), true)
     }
+}
+
+/// I9: `events.subscribe`, the one stream of the list.
+fn events_stream() -> Offered {
+    Offered {
+        stream: true,
+        ..offered::<contracts::SubscribeParams>(
+            "events.subscribe",
+            "Print the Events saved after a number, one JSON object per line, then stop at the end of the log. `--follow` keeps streaming new ones; without `--after` it starts at the end.",
+        )
+    }
+}
+
+/// I1: the one list both `rup mcp` and `rup` read: M5's tools, and the Door-only ones (marked) when `door`.
+/// The streams are in `commands`, not here: an MCP call returns once (I9).
+pub(crate) fn tools(door: bool) -> Vec<Offered> {
+    commands(door)
+        .into_iter()
+        .filter(|offer| !offer.stream)
+        .collect()
+}
+
+/// I1, I9: every entry of the one list, the streams included.
+pub(crate) fn commands(door: bool) -> Vec<Offered> {
+    let mut list = offered_tools();
+    list.extend([agent_digest(), workstream_handoff(), checkpoint_write()]);
+    list.push(events_stream());
+    list.retain(|offer| door || !offer.door_only);
+    list
 }
 
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
@@ -228,6 +287,10 @@ fn offered_tools() -> Vec<Offered> {
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>("pad.write", "Rewrite a Pad's whole text. Owner only."),
         offered::<pad::AppendParams>("pad.append", "Add text to the end of any Pad."),
+        offered::<pad::AppendSectionParams>(
+            "pad.appendSection",
+            "Add text at the end of the section under a Markdown heading of any Pad; the heading ignores case and extra whitespace. Pass expectedRevision (from a read) to refuse if the Pad changed since.",
+        ),
         offered::<pad::SetOwnerParams>("pad.setOwner", "Give a Pad to another Actor."),
         offered::<pad::PadName>("pad.delete", "Delete a Pad."),
         offered::<message::SendParams>(
@@ -272,7 +335,10 @@ fn offered_tools() -> Vec<Offered> {
             "rail.startDoor",
             "Start the Door of a Workstream you made, or of one in your Reach. It asks the user what the Workstream is for.",
         ),
-        offered::<agent::RenameParams>("rail.rename", "Rename yourself or a node in your Reach."),
+        offered::<agent::RenameParams>(
+            "rail.rename",
+            "Rename yourself or a node in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+        ),
         offered::<agent::MoveParams>(
             "rail.move",
             "Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root.",
@@ -281,14 +347,17 @@ fn offered_tools() -> Vec<Offered> {
             "rail.remove",
             "Remove a node in your Reach, never yourself. Its children move to its parent.",
         ),
-        offered::<agent::NodeId>("agent.stop", "Stop an Agent in your Reach, never yourself."),
+        offered::<agent::NodeId>(
+            "agent.stop",
+            "Stop an Agent in your Reach, never yourself. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+        ),
         offered::<agent::NodeId>(
             "agent.interrupt",
-            "Interrupt the turn of an Agent in your Reach.",
+            "Interrupt the turn of an Agent in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<agent::PromptParams>(
             "agent.prompt",
-            "Send a prompt to an Agent in your Reach as the user would.",
+            "Send a prompt to an Agent in your Reach as the user would. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<agent::NodeId>(
             "agent.resume",
@@ -363,7 +432,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
-            "Stop a Terminal you or your Reach own and forget it.",
+            "Stop a Terminal you or your Reach own and forget it. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
@@ -379,7 +448,11 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
-            "Stop the program of a Terminal you or your Reach own.",
+            "Stop the program of a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.actionHistory",
+            "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
         ),
         agent_context(),
         agent_set_order(),
@@ -398,7 +471,7 @@ fn agent_spawn() -> Offered {
 }
 
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.
-fn success_text(method: &str, params: &Value, result: Value) -> String {
+pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
         .iter()
         .any(|m| m.name == method && m.result == "null");
@@ -430,9 +503,6 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
                 "disabled"
             }
         ),
-        "agent.stop" => format!("stopped Agent {id}"),
-        "agent.interrupt" => format!("interrupted Agent {id}"),
-        "agent.prompt" => format!("sent prompt to Agent {id}"),
         "agent.discard" => format!("discarded Worktree of Agent {id}"),
         "rail.move" => format!(
             "moved {id} to {}",
@@ -452,11 +522,28 @@ fn success_text(method: &str, params: &Value, result: Value) -> String {
         ),
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
-        "terminal.close" => format!("closed Terminal {id}"),
-        "terminal.kill" => format!("stopped Terminal {id}"),
         "terminal.write" => format!("wrote to Terminal {id}"),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
+    }
+}
+
+/// B20: whether Agent `id` is a Door, a Workstream's Door, which the Rail shows as a Workstream node with its own id.
+pub(crate) async fn is_door(client: &rpc::Client, id: &str) -> Result<bool, String> {
+    let tree = client.request("rail.tree", Value::Null);
+    match tokio::time::timeout(CALL_TIMEOUT, tree).await {
+        Ok(Ok(tree)) => Ok(
+            serde_json::from_value::<Vec<agent::RailNode>>(tree).is_ok_and(|nodes| {
+                nodes
+                    .iter()
+                    .any(|node| node.id == id && node.kind == agent::NodeKind::Workstream)
+            }),
+        ),
+        Ok(Err(err)) => Err(format!("the Daemon would not show the Rail: {err}")),
+        Err(_) => Err(format!(
+            "no answer to the Rail within {}s",
+            CALL_TIMEOUT.as_secs()
+        )),
     }
 }
 
@@ -497,27 +584,12 @@ impl Shim {
             })?
     }
 
-    /// B20: whether this Agent is a Door, a Workstream's Door, which the Rail shows as a
-    /// Workstream node with its own id. A Daemon that cannot say leaves the tool out, and says so.
+    /// B20: whether this Agent is a Door. A Daemon that cannot say leaves the tool out, and says so.
     async fn is_door(&self, start: &rpc::Client) -> bool {
-        let tree = start.request("rail.tree", Value::Null);
-        match tokio::time::timeout(CALL_TIMEOUT, tree).await {
-            Ok(Ok(tree)) => {
-                serde_json::from_value::<Vec<agent::RailNode>>(tree).is_ok_and(|nodes| {
-                    nodes.iter().any(|node| {
-                        node.id == self.actor.id && node.kind == agent::NodeKind::Workstream
-                    })
-                })
-            }
-            Ok(Err(err)) => {
-                eprintln!("rup: the Daemon would not show the Rail, so no digest tool: {err}");
-                false
-            }
-            Err(_) => {
-                eprintln!(
-                    "rup: no answer to the Rail within {}s, so no digest tool",
-                    CALL_TIMEOUT.as_secs()
-                );
+        match is_door(start, &self.actor.id).await {
+            Ok(door) => door,
+            Err(why) => {
+                eprintln!("rup: {why}, so no digest tool");
                 false
             }
         }
@@ -527,6 +599,10 @@ impl Shim {
     /// `daemon.identify`) and before any tool call. A refusal or silence is one line on stderr:
     /// the tools still work, and the Daemon's Channel says `missing` on its own.
     async fn report_channel(&self, start: &rpc::Client) {
+        // CL2: an Ext Actor has no Channel to report.
+        if self.actor.kind != ActorKind::Agent {
+            return;
+        }
         let up = start.request(
             "agent.channelUp",
             contracts::agent::NodeId {
@@ -661,16 +737,7 @@ impl Shim {
         offer: &Offered,
         arguments: Option<JsonObject>,
     ) -> Result<Result<String, RpcError>, Gone> {
-        let params = match (offer.takes_params, offer.own_id, arguments) {
-            (false, true, _) => serde_json::json!({ "id": self.actor.id }),
-            (true, true, arguments) => {
-                let mut arguments = arguments.unwrap_or_default();
-                arguments.insert("id".into(), self.actor.id.clone().into());
-                Value::Object(arguments)
-            }
-            (true, false, arguments) => Value::Object(arguments.unwrap_or_default()),
-            (false, false, _) => Value::Null,
-        };
+        let params = offer.params(&self.actor.id, arguments);
         let client = self.connect().await?;
         if offer.waits_for_user {
             return Ok(client
@@ -766,12 +833,8 @@ impl ServerHandler for Shim {
     }
 }
 
-pub async fn run(agent_id: Option<String>) -> ExitCode {
-    let Some(id) = agent_id else {
-        eprintln!("usage: rup mcp <agent-id>");
-        return ExitCode::from(2);
-    };
-    match serve(id).await {
+pub async fn run(actor: Actor) -> ExitCode {
+    match serve(actor).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(why) => {
             eprintln!("rup: {why}");
@@ -781,26 +844,20 @@ pub async fn run(agent_id: Option<String>) -> ExitCode {
     }
 }
 
-async fn serve(id: String) -> Result<(), String> {
+async fn serve(actor: Actor) -> Result<(), String> {
     let socket = rpc::socket_path().map_err(|err| err.to_string())?;
     let (gone, mut gone_rx) = mpsc::channel(1);
     let mut shim = Shim {
         socket,
-        actor: Actor {
-            kind: ActorKind::Agent,
-            id,
-            parent: None,
-        },
-        tools: offered_tools(),
+        actor,
+        tools: tools(false),
         gone,
     };
     let start = shim.connect().await.map_err(|gone| gone.to_string())?;
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
-        shim.tools.push(agent_digest());
-        shim.tools.push(workstream_handoff());
-        shim.tools.push(checkpoint_write());
+        shim.tools = tools(true);
     }
     drop(start);
     let running = shim

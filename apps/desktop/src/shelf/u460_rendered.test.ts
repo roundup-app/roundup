@@ -3,12 +3,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { createServer } from "vite";
 import { describe, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { contrastRgb } from "../testing/contrast";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
+import { appServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
@@ -17,9 +17,7 @@ describe("u135_selected_shelf_metadata_keeps_compound_contrast", () => {
     ["light", 1280], ["light", 1440], ["dark", 1280], ["dark", 1440],
   ] as const)("u460_rendered_bulk_actions_keep_checks_and_failure_names_visible %s %i", async (scheme, width) => {
     const profile = mkdtempSync(join(tmpdir(), "u460-browser-"));
-    const cacheDir = mkdtempSync(join(tmpdir(), "u460-vite-"));
-    const server = await createServer({ root: process.cwd(), cacheDir, server: { port: 0, hmr: false }, logLevel: "silent" });
-    await server.listen();
+    const server = await appServer();
     const session = `u460-${process.pid}`;
     const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
     const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script));
@@ -39,7 +37,7 @@ describe("u135_selected_shelf_metadata_keeps_compound_contrast", () => {
       // U135: both schemes and Shelf viewport widths must keep the selected metadata readable.
       await browser("set", "viewport", String(width), "800");
       await browser("set", "media", scheme);
-      await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tree-40`);
+      await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
       await browser("wait", ".shelf-tabs");
       await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Todos')).click(); return true; })()`);
       await settle();
@@ -155,7 +153,6 @@ describe("u135_selected_shelf_metadata_keeps_compound_contrast", () => {
       await browser("close");
       await server.close();
       rmSync(profile, { recursive: true, force: true });
-      rmSync(cacheDir, { recursive: true, force: true });
     }
   }, 90_000);
 });

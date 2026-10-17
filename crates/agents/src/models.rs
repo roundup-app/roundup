@@ -106,6 +106,12 @@ pub fn check_settings(settings: &ProjectModels) -> Result<(), RpcError> {
     Ok(())
 }
 
+/// M2219: whether Agents launch with the roundup MCP server: the Daemon's `ROUNDUP_MCP=off` turns it
+/// off for every Project, and any other value, or none, leaves the Project's own value in force.
+pub fn mcp_on(env: Option<&std::ffi::OsStr>, project: bool) -> bool {
+    project && env != Some(std::ffi::OsStr::new("off"))
+}
+
 /// A36: for each of Model and Effort, the call's own, else the Project's for `role`, else none.
 pub fn resolve(
     project: &ProjectModels,
@@ -117,6 +123,7 @@ pub fn resolve(
     Pair {
         model: model.or_else(|| own.and_then(|entry| entry.model.clone())),
         effort: effort.or_else(|| own.and_then(|entry| entry.effort.clone())),
+        mcp_off: false,
     }
 }
 

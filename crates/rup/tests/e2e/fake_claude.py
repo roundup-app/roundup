@@ -66,13 +66,6 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_STRAY        a script path (F5): started as `sh <path>`, a child of this process
   FAKE_CLAUDE_MCP_STRAY    a script path (F5): a fake MCP server is started as a child of this process and
                            told to call a tool, which starts `sh <path>` under it
-  FAKE_CLAUDE_LOOP         a count N: run a tool-use loop of N iterations, each trying the hook
-                           command for PreToolUse then PostToolUse (H15, scenario control.md);
-                           an event with no entry in `--settings` (a dropped one) is skipped, the
-                           same way Claude Code itself never runs a command for an unregistered
-                           event
-  FAKE_CLAUDE_LOOP_REPORT  a file path: after the loop, written with a JSON list of the event
-                           names whose hook command actually ran, in order, between a UserPromptSubmit and a final Stop
 
 It then sleeps until the Daemon stops it.
 """
@@ -119,28 +112,6 @@ def play_hooks():
             continue
         for command in commands:
             run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
-
-
-def play_loop():
-    settings = json.load(open(flag("--settings")))
-    count = int(os.environ["FAKE_CLAUDE_LOOP"])
-    ran = []
-    start = settings["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
-    run_hook(start, json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": "loop"}))
-    for _ in range(count):
-        for event in ("PreToolUse", "PostToolUse"):
-            hooks = settings["hooks"].get(event)
-            if not hooks:
-                continue
-            payload = json.dumps({"hook_event_name": event, "tool_name": "Bash"})
-            command = hooks[0]["hooks"][0]["command"]
-            run_hook(command, payload)
-            ran.append(event)
-    stop = settings["hooks"]["Stop"][0]["hooks"][0]["command"]
-    run_hook(stop, json.dumps({"hook_event_name": "Stop"}))
-    if "FAKE_CLAUDE_LOOP_REPORT" in os.environ:
-        with open(os.environ["FAKE_CLAUDE_LOOP_REPORT"], "w") as report:
-            json.dump(ran, report)
 
 
 def run_commands():
@@ -461,8 +432,6 @@ if process:
     stray.append(subprocess.Popen(json.loads(process), env={**os.environ, **settings_env}))
 if "FAKE_CLAUDE_MCP_STRAY" in os.environ:
     stray.append(play_mcp_stray(os.environ["FAKE_CLAUDE_MCP_STRAY"]))
-if "FAKE_CLAUDE_LOOP" in os.environ:
-    play_loop()
 if any(k in os.environ for k in ("FAKE_CLAUDE_TOOL", "FAKE_CLAUDE_TOOLS", "FAKE_CLAUDE_BRIEF_REPORT")):
     calls = json.loads(os.environ.get("FAKE_CLAUDE_TOOLS", "[]"))
     if "FAKE_CLAUDE_TOOL" in os.environ:

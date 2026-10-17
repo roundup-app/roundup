@@ -1,6 +1,6 @@
 # UI: scoped shortcuts (U479 to U481)
 
-The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent, draft or place in the Thread. This specification defines implementation acceptance; it claims no shipped registry.
+The keyboard layer serves the Enter and Intervene stages of `.agents/data/journey.md`: opening Help must not change the user's selected Agent or place in the centre. This specification defines implementation acceptance; it claims no shipped registry.
 
 Scope (policy): `apps/desktop/src/keys/`, `apps/desktop/src/app/`, `apps/desktop/src/App.tsx` and only Help's rules in `apps/desktop/src/styles.css`. Dependency: #1629 supplies `ui/Dialog` and is completed. Its implementation did not install a shortcut library; the registry implementation adds the selected dependency and regenerated lockfile. Other directories' listeners remain their UI lanes' responsibility. No RPC, App seam command or domain model change is required.
 
@@ -26,7 +26,7 @@ Policy observer: inspect all production keydown subscriptions in the owned files
 rg -n 'addEventListener\("keydown"' apps/desktop/src/keys apps/desktop/src/app apps/desktop/src/App.tsx --glob '!*test*'
 ```
 
-**U481 closing Help restores the Thread without acting beneath it.** Given an open Project, keyboard focus on the Thread's non-editable frame, and a draft in its composer, when `?` opens Help and Escape closes it, then Help is gone, the exact previously focused Thread element has focus, the draft and selection are unchanged, no underlying Escape action ran and no Terminal input was sent. Test: `u481_help_escape_restores_thread_without_underlying_action`, in a headless real-browser harness test under `apps/desktop/src/keys/`, using the actual App and Dialog, not a mocked focus trap. This extends U54's allowed pane-frame origin; it does not allow `?` in text fields, Terminals, Drawers or the Switcher.
+**U481 closing Help restores focus without acting beneath it.** Given an open Project and keyboard focus on the centre pane's non-editable frame, when `?` opens Help and Escape closes it, then Help is gone, the exact previously focused element has focus, the selection is unchanged, no underlying Escape action ran and no Terminal input was sent. Test: `u481_help_escape_restores_focus_without_underlying_action`, in a headless real-browser harness test under `apps/desktop/src/keys/`, using the actual App and Dialog, not a mocked focus trap. This extends U54's allowed pane-frame origin; it does not allow `?` in text fields, Terminals, Drawers or the Switcher.
 
 Given open Help, Tab and Shift+Tab keep focus inside it; `?` again and outside click each close it and restore the origin. If the origin is removed while Help is open, closing never focuses a disconnected node or throws. Tests: `u481_help_dialog_traps_and_returns_focus` and `u481_help_close_after_origin_removal_is_safe`. Policy: Help uses `ui/Dialog`; delete its hand-written focus trap, capture-order comment and dismissal listeners. Ark owns Escape, Tab and outside dismissal; the registry owns opening Help, the Help-specific `?` toggle and suppression of underlying shortcuts. Preserve U54's opening guards, content and daemon-exited availability.
 

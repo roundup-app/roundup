@@ -34,13 +34,12 @@ describe("u159 a Workstream's Todos are found from the Workstream on the real Da
 
     fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
 
-    const input = await screen.findByRole("textbox", { name: /^Tell .* sends$/ });
-
     await waitFor(async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting"), { timeout: 30_000 });
-    fireEvent.input(input, { target: { value: "ship j4" } });
-    fireEvent.click(await screen.findByRole("button", { name: "Send" }));
 
     const workstream = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream");
+
+    // U467: the user types to the Door in its Terminal; the Message is the same Daemon delivery without the keystrokes.
+    await app.rpc("message.send", { to: workstream!.id, kind: "note", body: "ship j4", replyTo: null });
 
     await waitFor(async () => expect((await app.rpc("todo.list", null)).find((todo) => todo.title === "ship j4")?.home).toBe(workstream?.id), { timeout: 30_000 });
 

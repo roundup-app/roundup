@@ -32,6 +32,7 @@ export const padOf = (name: string, owner: Actor, text = ""): Pad => ({
   owner,
   text,
   updated_at: 0,
+  revision: 1,
   home: null,
 });
 

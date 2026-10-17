@@ -1,6 +1,6 @@
 # Messages between Actors
 
-Design for `scenarios/messages.md` (B1 to B37) Serves `PRINCIPLES.md` P1, P3 and P4 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
+Design for `scenarios/messages.md` (B1 to B40) Serves `PRINCIPLES.md` P1, P3 and P4 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
 
 ## What exists and what does not
 
@@ -15,7 +15,7 @@ Exists: the `Delivery` type and the `bus.route` Hook type (`contracts/hooks.ts`)
 | `delivered` | typed into the Terminal, or stored for the user | final |
 | `dropped` | never typed, with a reason | final |
 
-Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery is at most once (B8). `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
+Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery is exactly once (B39, B40): `delivered` is recorded when the Agent's `UserPromptSubmit` Signal confirms the prompt, and an unconfirmed prompt is typed again. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
 
 ## B37 lifecycle-to-model mapping
 
@@ -264,6 +264,104 @@ or transitions changes or weakens here.
 
 Door `terminal.resize` calls during Takeover are stored in the Daemon's Project database before their receipts return. `terminal.resizeHistory` (MCP `terminal_resizeHistory`) exposes the accepting Agent's own receipts; the user sees all receipts for that Terminal, including after it is gone. The receipt's `ResizeOutcome` distinguishes waiting for Takeover, an effect in progress, completion and a drop reason. Direct user resizing retains its null result and remains available during Takeover.
 
-The socket reader registers each authorized resize’s child order with Tokio oneshot channels before spawning its request, so pipelined frames cannot acquire durable ids in scheduler order. Completed requests release those channels and retire their entries. Release serializes accepted resizes for one child before any later Door resize. Before each physical effect, its in-progress outcome is committed; a crash after that cut never retries it. A restarted Daemon has no surviving Terminals or Takeovers, so unfinished resizes receive a durable drop reason, distinguishing an unavailable original Terminal from an uncertain prior effect. Completed outcomes remain completed. Terminal exit or child Attempt replacement also drops unavailable resizes; later valid resizes proceed.
+The socket reader registers each authorized resize’s child order with Tokio watch channels before spawning its request, so pipelined frames cannot acquire durable ids in scheduler order. Completed requests release those channels and retire their entries. Release serializes accepted resizes for one child before any later Door resize. Before each physical effect, its in-progress outcome is committed; a crash after that cut never retries it. A restarted Daemon has no surviving Terminals or Takeovers, so unfinished resizes receive a durable drop reason, distinguishing an unavailable original Terminal from an uncertain prior effect. Completed outcomes remain completed. Terminal exit or child Attempt replacement also drops unavailable resizes; later valid resizes proceed.
 
 This is an integration-tested B6 slice for resize only, touching M1, M3, M4, M6, M7, M9 and M10. The Message model in `proofs/messages` still models Messages, not Door resizes; none of its laws or Message exceptions changes. #1581 retains the other action paths and full B6 acceptance.
+
+## B6 Door rename actions
+
+Door `rail.rename` calls during Takeover return a durable `HeldAction`, rather
+than the Rail node returned by an executed rename. `agent.actionHistory {id}`
+(MCP `agent_actionHistory`) lists the accepting Agent's own actions on that
+child; the user can read all of them, including after removal. Receipts retain
+method, parameters and the same outcome tags as resize receipts. The MCP tool
+keeps that JSON, so a waiting receipt is never described as an executed rename.
+The wire reader captures a known Agent process's identity before waiting for
+prior calls; claiming the user cannot bypass rename holds or receipt privacy.
+
+Resizes and renames share one append-only acceptance sequence and outcome
+ledger. Existing resize history migrates with its ids and outcomes intact;
+`terminal.resizeHistory` keeps its existing shape and filters only resizes.
+Release preserves their mixed order and checks current Reach before effect.
+User renames remain immediate. Child removal or lost Reach drops the rename
+with a retained reason and does not block later actions.
+
+No Takeover survives restart. A waiting rename can still name the same
+persistent child, so startup releases it. An in-progress rename is never retried:
+its retained reason explains that its effect may have happened. Terminal resize
+recovery retains the unavailable-original-Terminal rule. A child exit releases
+valid renames through the Takeover change observer.
+
+This slice integration-tests M1, M3, M4, M6, M7, M9 and M10. The existing Message
+proofs model Messages, not held Door actions; no law or Message transition is
+changed. #1581 still owns the remaining action families and full B6 acceptance.
+
+## B6 Door Stop actions
+
+Door `agent.stop` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and append-only ledger
+as resizes and renames. MCP preserves both waiting receipts and the null result
+of an immediate Stop; it never describes acceptance as a completed stop.
+Known Agent processes cannot bypass the hold by claiming the user. Direct user
+Stop remains immediate.
+
+Release rechecks Reach and the original Attempt before stopping. A Terminal
+attaching to that same starting Attempt keeps its waiting Stop valid. During
+pending Resume, the old displayed Terminal does not invalidate a Stop of the
+resuming Attempt. The Agent checks the ordinal atomically with its Stop claim.
+A removed child, an exited Terminal or a replaced Attempt produces a retained
+drop reason; later actions still proceed. Stop completion waits for the Agent's
+existing exit confirmation. An uncertain effect remains explained by its
+recorded reason and is never automatically retried.
+
+No Takeover or Terminal survives restart. A waiting Stop is dropped with the
+original-Attempt reason rather than applied to a replacement Attempt. A Stop
+recorded in progress is dropped as possibly already applied; a completed Stop
+retains its completion. These are integration-tested action guarantees for
+M1, M3, M4, M6, M7, M9 and M10. Message proofs and laws are unchanged. #1581
+retains the remaining action families and full acceptance.
+
+## B6 Door Interrupt actions
+
+Door `agent.interrupt` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and ledger as Stop.
+Without a Takeover an Interrupt still runs under the shared child lock, so it
+reaches an in-flight Steer; the Takeover check is made under that lock, where
+`takeover.begin` cannot interleave. MCP preserves the waiting receipt and tells
+the Door that acceptance is not execution.
+
+Release rechecks Reach and claims the Escape only while the original Attempt
+still runs, so a replacement Attempt's turn is never interrupted. A removed
+child, an exited Terminal or a replaced Attempt gives a retained drop reason and
+later actions proceed. A waiting Interrupt does not survive a Daemon restart: it
+is dropped with the original-Attempt reason; one recorded in progress is dropped
+as possibly applied, and none is retried. These are integration-tested guarantees
+for M1, M3, M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581
+retains the remaining action families and full acceptance.
+
+## B6 Door prompt actions
+
+Door `agent.prompt` calls during Takeover use the same durable `HeldAction`
+receipts, `agent.actionHistory`, per-child arrival order and ledger as Interrupt.
+Release rechecks Reach and writes the prompt only while the original Attempt
+still runs, checked under the admission lock that claims the Terminal, so a
+replacement Attempt never receives it. A prompt that finds the child busy, a
+removed child, an exited Terminal or a replaced Attempt gives a retained drop or
+failure reason and later actions proceed. A waiting prompt does not survive a
+Daemon restart: it is dropped with the original-Attempt reason; one recorded in
+progress is dropped as possibly typed, and none is retried. These are
+integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs
+and laws are unchanged. #1581 retains the remaining action families (resume,
+Terminal writes, answers, rewind, reads) and full acceptance.
+
+## B6 Door Terminal close and kill actions
+
+Door `terminal.close` and `terminal.kill` calls on a taken-over child's Terminal
+use the same durable `HeldAction` receipts, `agent.actionHistory`, per-child
+arrival order and ledger as resize. Release rechecks that the child still owns
+the original Terminal and that it still runs; an exited Terminal, a removed or
+replaced child gives a retained drop reason and later actions proceed. A waiting
+call does not survive a Daemon restart: it is dropped with the original-Terminal
+reason, and none is retried. These are integration-tested guarantees for M1, M3,
+M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581 retains
+Terminal writes, answers, rewind and reads.

@@ -951,12 +951,11 @@ fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
 }
 
 #[test]
-fn f2_an_agents_settings_have_no_path_and_no_shim_directory_exists() {
+fn f2_no_shim_directory_exists_for_an_agent() {
     let s = setup();
 
-    let argv = s.prepare("8").unwrap();
+    s.prepare("8").unwrap();
 
-    assert!(read(Path::new(&argv[2]))["env"].get("PATH").is_none());
     assert!(!s.dir.join("agents/8.bin").exists());
 }
 
@@ -972,7 +971,10 @@ fn f4_a_doors_settings_put_its_shim_directory_before_the_daemons_path() {
         .to_owned();
     let shims = s.real(&s.dir.join("agents/7.bin"));
     let inherited = std::env::var("PATH").unwrap();
-    assert_eq!(path, format!("{shims}:{inherited}"));
+    assert_eq!(
+        path,
+        format!("{}:{shims}:{inherited}", s.rup.parent().unwrap().display())
+    );
 }
 
 #[test]
@@ -1388,6 +1390,25 @@ fn q11_every_role_gets_plain_for_every_reply() {
 }
 
 #[tokio::test]
+async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
+    let s = setup();
+    let launcher = plugin_launcher(&s);
+    let (_, env) = launcher
+        .launch_on(
+            folders(&s.dir),
+            "7",
+            "1",
+            &s.cwd,
+            None,
+            Role::Agent,
+            &Default::default(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(env["ROUNDUP_AGENT"], "7");
+}
+
+#[tokio::test]
 async fn q11_each_launch_loads_all_three_pinned_plugins() {
     let s = setup();
     let launcher = plugin_launcher(&s);
@@ -1656,4 +1677,189 @@ fn user_files(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
     let mut files = std::collections::BTreeMap::new();
     visit(root, root, &mut files);
     files
+}
+
+fn env_of(argv: &[String]) -> Value {
+    read(Path::new(&argv[2]))["env"].clone()
+}
+
+fn rup_dir(s: &Setup) -> String {
+    s.rup.parent().unwrap().to_string_lossy().into_owned()
+}
+
+#[test]
+fn a43_an_agents_settings_set_its_id_and_put_the_rup_folder_first_on_path() {
+    let s = setup();
+    let env = env_of(&s.prepare("7").unwrap());
+    assert_eq!(env["ROUNDUP_AGENT_ID"], "7");
+    assert_eq!(
+        env["PATH"].as_str().unwrap(),
+        format!("{}:{}", rup_dir(&s), std::env::var("PATH").unwrap())
+    );
+    assert_eq!(env["CLAUDE_CODE_ENABLE_FUNCTION_HOOKS"], "1");
+}
+
+#[test]
+fn a43_a_doors_path_is_the_rup_folder_then_its_shims_then_the_daemons() {
+    let s = setup();
+    let env = env_of(&s.prepare_as("7", Role::Door).unwrap());
+    assert_eq!(env["ROUNDUP_AGENT_ID"], "7");
+    assert_eq!(
+        env["PATH"].as_str().unwrap(),
+        format!(
+            "{}:{}:{}",
+            rup_dir(&s),
+            s.real(&s.dir.join("agents/7.bin")),
+            std::env::var("PATH").unwrap()
+        )
+    );
+}
+
+#[test]
+fn a43_an_empty_daemon_path_leaves_no_empty_entry() {
+    if std::env::var_os("A43_CHILD").is_none() {
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "a43_an_empty_daemon_path_leaves_no_empty_entry"])
+            .env("A43_CHILD", "1")
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stdout)
+        );
+        return;
+    }
+    let s = setup();
+    assert_eq!(env_of(&s.prepare("7").unwrap())["PATH"], rup_dir(&s));
+}
+
+#[test]
+fn a43_a_resumed_agents_settings_hold_the_same_env() {
+    let s = setup();
+    let first = env_of(&s.prepare("7").unwrap());
+    let argv = s
+        .launcher()
+        .prepare(
+            folders(&s.dir),
+            "7",
+            "2",
+            &s.cwd,
+            Some("saved"),
+            Role::Agent,
+        )
+        .unwrap();
+    assert_eq!(env_of(&argv), first);
+}
+
+#[test]
+fn a43_the_brief_names_the_id_variable_and_rup_help() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_as("7", role).unwrap();
+        let at = argv
+            .iter()
+            .position(|a| a == "--append-system-prompt-file")
+            .unwrap();
+        let brief = std::fs::read_to_string(&argv[at + 1]).unwrap();
+        assert!(brief.contains("ROUNDUP_AGENT_ID") && brief.contains("rup help"));
+    }
+}
+
+impl Setup {
+    /// M2219: prepare Agent `id` with the roundup MCP server off.
+    fn prepare_off(&self, id: &str, role: Role) -> Vec<String> {
+        let pair = agents::claude_code::Pair {
+            mcp_off: true,
+            ..Default::default()
+        };
+        self.launcher()
+            .prepare_on(folders(&self.dir), id, "1", &self.cwd, None, role, &pair)
+            .unwrap()
+    }
+}
+
+fn off_brief(s: &Setup, id: &str, role: Role) -> String {
+    let argv = s.prepare_off(id, role);
+    let at = argv
+        .iter()
+        .position(|arg| arg == "--append-system-prompt-file")
+        .unwrap();
+    std::fs::read_to_string(&argv[at + 1]).unwrap()
+}
+
+#[test]
+fn m2219_off_launches_without_a_roundup_server_or_allow_rule() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let argv = s.prepare_off("7", role);
+        assert!(!argv.iter().any(|arg| arg == "--mcp-config"), "{argv:?}");
+        assert!(!s.dir.join("agents/7.mcp.json").exists());
+        let settings = read(Path::new(&argv[2]));
+        assert!(settings.get("permissions").is_none(), "{settings}");
+        assert!(!settings.to_string().contains("mcp__roundup__"));
+    }
+    // A config left by an earlier launch with MCP on is gone.
+    s.prepare("8").unwrap();
+    assert!(s.dir.join("agents/8.mcp.json").exists());
+    s.prepare_off("8", Role::Agent);
+    assert!(!s.dir.join("agents/8.mcp.json").exists());
+}
+
+#[test]
+fn m2219_off_keeps_the_users_own_servers_and_the_hooks() {
+    let s = setup();
+    let door = s.prepare_off("7", Role::Door);
+    assert!(!door.iter().any(|arg| arg == "--strict-mcp-config"));
+    let at = door.iter().position(|arg| arg == "--tools").unwrap();
+    assert_eq!(door[at + 1], "Read,Grep,Glob");
+    let hooks = &read(Path::new(&door[2]))["hooks"];
+    for event in EVENTS {
+        assert!(hooks[event].is_array(), "{event}");
+    }
+}
+
+#[test]
+fn m2219_off_brief_names_rup_commands_and_no_mcp_tool() {
+    let s = setup();
+    for (role, first) in [
+        (
+            Role::Agent,
+            "Run `rup agent context` and `rup todo list` first.",
+        ),
+        (
+            Role::Door,
+            "Run `rup agent context`, `rup message list`, `rup agent digest` and `rup agent ask` first.",
+        ),
+    ] {
+        let text = off_brief(&s, "7", role);
+        for banned in [
+            "mcp__roundup__",
+            "ToolSearch",
+            "MCP server",
+            "agent_context",
+        ] {
+            assert!(!text.contains(banned), "{role:?} names {banned}");
+        }
+        assert!(text.contains("run `rup help`"));
+        assert!(text.contains(first), "{first}");
+        assert!(text.contains("`rup todo set-blockers`"));
+        assert!(text.contains("`rup pad append-section`"));
+        assert_eq!(text, off_brief(&s, "8", role));
+        assert!(!text.contains("\n7\n"));
+    }
+}
+
+#[test]
+fn m2219_on_brief_is_unchanged() {
+    let s = setup();
+    let golden = |name: &str| {
+        std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/brief/{name}.md")),
+        )
+        .unwrap()
+    };
+    assert_eq!(brief(&s, "7", Role::Agent), golden("agent"));
+    assert_eq!(brief(&s, "7", Role::Door), golden("door"));
 }

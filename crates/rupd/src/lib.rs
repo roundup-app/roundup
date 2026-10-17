@@ -8,6 +8,7 @@ mod context;
 pub mod data;
 mod decision_notes;
 mod digest;
+mod event_log;
 mod handshake;
 mod removal;
 mod resize;
@@ -43,7 +44,7 @@ pub struct Daemon {
     pads: Arc<pads::Pads>,
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    resizes: resize::Resizes,
+    held_actions: resize::HeldActions,
     /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
@@ -124,7 +125,7 @@ impl Daemon {
     ) -> Result<Self, OpenError> {
         std::fs::create_dir_all(dir)?;
         storage::open(dir)?;
-        let bus = Bus::new();
+        let bus = Bus::with_log(Arc::new(event_log::SqliteLog::open(dir)?));
         let terminals = Arc::new(
             terminal::Terminals::open_with(dir, bus.clone(), &agents::claude_code::MARKERS)?
                 .with_input_writer(terminal_input_observer())
@@ -179,10 +180,10 @@ impl Daemon {
             pads: Arc::clone(&pads),
             door_first_steers: Default::default(),
             child_effects: Default::default(),
-            resizes: resize::Resizes::open(dir)?,
+            held_actions: resize::HeldActions::open(dir)?,
             touches,
             bus: bus.clone(),
-            project: project.to_path_buf(),
+            project: std::path::absolute(project).unwrap_or_else(|_| project.to_path_buf()),
             attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
@@ -227,6 +228,13 @@ impl Daemon {
         )?);
         let _ = messages.set(Arc::clone(&opened));
         daemon.register(opened);
+        let placement = Arc::new(agents.placement_call());
+        daemon.register(Arc::new(agents::Asks::open(
+            dir,
+            daemon.bus.clone(),
+            Arc::clone(&agents),
+            placement,
+        )?));
         daemon.register(agents);
         daemon.register(terminals);
         daemon.start_pushes();
@@ -301,7 +309,7 @@ impl Daemon {
     }
 
     /// Answer one request line. Notifications (no `id`) get no answer.
-    async fn dispatch(&self, conn: &mut Conn, line: &str) -> Option<Value> {
+    async fn dispatch(&self, conn: &mut Conn, line: &str, actor: Option<Actor>) -> Option<Value> {
         let Ok(request) = serde_json::from_str::<Value>(line) else {
             return Some(failure(
                 &Value::Null,
@@ -311,6 +319,19 @@ impl Daemon {
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
         let params = request.get("params").cloned().unwrap_or(Value::Null);
+        if method.starts_with("decision.") {
+            // Preserve the wire reader's authenticated identity while earlier actions finish.
+            conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
+        } else if matches!(
+            method,
+            "rail.rename"
+                | "agent.stop"
+                | "agent.interrupt"
+                | "agent.prompt"
+                | "agent.actionHistory"
+        ) {
+            conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
+        }
         let outcome = self.route(conn, method, params).await;
         let id = id?;
         Some(match outcome {
@@ -330,21 +351,11 @@ impl Daemon {
         // A child may not turn its Terminal keystrokes into a user's answer by
         // claiming `user`; H21's process identity applies to this input path too.
         let input_actor = if method == "terminal.write" {
-            Some(
-                match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
-                    Some(agent) => {
-                        let actor = Actor {
-                            kind: ActorKind::Agent,
-                            id: agent,
-                            parent: None,
-                        };
-                        conn.actor = actor.clone();
-                        actor
-                    }
-                    None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
-                    None => Actor::user(),
-                },
-            )
+            let actor = self.terminal_writer(conn);
+            if actor.kind == ActorKind::Agent {
+                conn.actor = actor.clone();
+            }
+            Some(actor)
         } else {
             None
         };
@@ -353,34 +364,33 @@ impl Daemon {
             return builtin::call(self, conn, namespace, method, &params)
                 .expect("connection-state methods are built in");
         }
+        if method == "agent.actionHistory" {
+            return self.action_history(conn, params).await;
+        }
         if method == "terminal.resizeHistory" {
             return self.resize_history(conn, params).await;
         }
         // These Door calls account for their physical effects before returning, including
         // uncertain outcomes. Begin must not grant the child while an effect can still run.
-        let child = if conn.actor.kind == ActorKind::Agent {
-            match method {
-                "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                    self.guard_terminal_read(&conn.actor, &params).await?
-                }
-                "agent.prompt" | "agent.setOrder" | "agent.interrupt" | "agent.resume"
-                | "agent.stop" | "rail.rename" => Some(rpc::params::<NodeId>(params.clone())?.id),
-                _ => None,
-            }
-        } else {
-            None
-        };
-        let _ordered_effect = if matches!(method, "terminal.resize" | "rail.rename") {
-            if let Some(child) = &child {
+        let children = self
+            .door_effect_children(&conn.actor, method, &params)
+            .await?;
+        let child = children.first();
+        let _ordered_effect = if matches!(
+            method,
+            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+        ) {
+            if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
                 if method == "terminal.resize" {
                     if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
                         return Ok(receipt);
                     }
-                } else if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                    // End may still be delivering a recorded Message. Its older actions
-                    // must run before this rename, without waiting for Message typing.
-                    self.release_resizes(child).await?;
+                } else if let Some(receipt) = self
+                    .hold_child_action(conn, child, method, params.clone())
+                    .await?
+                {
+                    return Ok(receipt);
                 }
                 Some(guard)
             } else {
@@ -389,12 +399,45 @@ impl Daemon {
         } else {
             None
         };
-        let _door_effect = match child {
-            Some(child) if !matches!(method, "terminal.resize" | "rail.rename") => {
-                Some(self.child_effects(&child).read_owned().await)
+        let mut door_effects = Vec::new();
+        if !matches!(
+            method,
+            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+        ) {
+            // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
+            for child in &children {
+                let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
+                    && self.held_actions.waiting(child)?
+                {
+                    let guard = self.child_effects(child).write_owned().await;
+                    // A newer begin may have won while this call waited for exclusion.
+                    if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                        self.release_actions(child).await?;
+                    }
+                    guard.downgrade()
+                } else {
+                    // With no older queue, Interrupt must still reach an in-flight Steer.
+                    self.child_effects(child).read_owned().await
+                };
+                // Begin needs the write lock, so this check under the read guard is final.
+                let guard = if matches!(method, "agent.interrupt" | "agent.prompt")
+                    && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                {
+                    drop(guard);
+                    let write = self.child_effects(child).write_owned().await;
+                    if let Some(receipt) = self
+                        .hold_child_action(conn, child, method, params.clone())
+                        .await?
+                    {
+                        return Ok(receipt);
+                    }
+                    write.downgrade()
+                } else {
+                    guard
+                };
+                door_effects.push(guard);
             }
-            _ => None,
-        };
+        }
         let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             Some(self.child_effects(&agent).write_owned().await)
@@ -481,7 +524,8 @@ impl Daemon {
         }
         if matches!(
             method,
-            "terminal.screen"
+            "terminal.snapshot"
+                | "terminal.screen"
                 | "terminal.read"
                 | "terminal.search"
                 | "terminal.write"
@@ -553,7 +597,7 @@ impl Daemon {
                 .get()
                 .is_some_and(|messages| messages.takeover_active(&agent))
             {
-                self.release_resizes(&agent).await?;
+                self.release_actions(&agent).await?;
             }
         }
         if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
@@ -581,6 +625,125 @@ impl Daemon {
             return outcome;
         }
         outcome
+    }
+
+    /// A known Agent process cannot gain the user's control or receipt access by identifying
+    /// as the user. The wire reader captures this before an earlier action can delay dispatch.
+    fn action_actor(&self, conn: &Conn) -> Actor {
+        let actor = self.terminal_writer(conn);
+        if actor.kind == ActorKind::Agent {
+            actor
+        } else {
+            conn.actor.clone()
+        }
+    }
+
+    fn terminal_writer(&self, conn: &Conn) -> Actor {
+        match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+            Some(agent) => Actor {
+                kind: ActorKind::Agent,
+                id: agent,
+                parent: None,
+            },
+            None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
+            None => Actor::user(),
+        }
+    }
+
+    /// Aggregate reads must respect each child's prior calls, not only the Door's own id.
+    async fn door_effect_children(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<Vec<String>, RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(Vec::new());
+        }
+        let mut children: Vec<String> = match method {
+            "agent.digest" => {
+                let NodeId { id } = rpc::params(params.clone())?;
+                // The Digest module still owns its permission and node-kind checks.
+                if actor.id != id {
+                    return Err(RpcError::forbidden(format!(
+                        "{} may not read the digest of agent {id}",
+                        actor.id
+                    )));
+                }
+                self.rail()
+                    .await?
+                    .into_iter()
+                    .filter(|n| n.parent.as_deref() == Some(&id) && n.status.is_some())
+                    .map(|n| n.id)
+                    .collect()
+            }
+            "decision.list" => {
+                // Use the Agent's Reach filtering; never wait on an unrelated Workstream.
+                let listed = self.modules["decision"]
+                    .call(&self.ctx(actor.clone()), method, Value::Null)
+                    .await?;
+                let decisions: Vec<contracts::decision::Decision> =
+                    serde_json::from_value(listed).map_err(RpcError::internal)?;
+                decisions.into_iter().map(|d| d.agent).collect()
+            }
+            _ => self
+                .door_effect_child(actor, method, params)
+                .await?
+                .into_iter()
+                .collect(),
+        };
+        children.sort();
+        children.dedup();
+        Ok(children)
+    }
+
+    /// The wire reader and router must agree which effects share a child's arrival order.
+    async fn door_effect_child(
+        &self,
+        actor: &Actor,
+        method: &str,
+        params: &Value,
+    ) -> Result<Option<String>, RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(None);
+        }
+        match method {
+            "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
+            | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
+                self.guard_terminal_read(actor, params).await
+            }
+            "decision.answers" => {
+                let answers: contracts::decision::AnswersParams = rpc::params(params.clone())?;
+                Ok(Some(answers.agent))
+            }
+            "decision.answer" | "decision.capture" => {
+                let id = if method == "decision.answer" {
+                    rpc::params::<contracts::decision::AnswerParams>(params.clone())?.id
+                } else {
+                    rpc::params::<contracts::decision::CaptureParams>(params.clone())?.id
+                };
+                let listed = self.modules["decision"]
+                    .call(&self.ctx(actor.clone()), "decision.list", Value::Null)
+                    .await?;
+                let decisions: Vec<contracts::decision::Decision> =
+                    serde_json::from_value(listed).map_err(RpcError::internal)?;
+                Ok(decisions.into_iter().find(|d| d.id == id).map(|d| d.agent))
+            }
+            "agent.prompt"
+            | "agent.setOrder"
+            | "agent.interrupt"
+            | "agent.resume"
+            | "agent.stop"
+            | "agent.discard"
+            | "agent.land"
+            | "agent.worktreeState"
+            | "agent.spawnPrompt"
+            | "agent.run"
+            | "rail.rename"
+            | "rail.move"
+            | "rail.remove" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
+            _ => Ok(None),
+        }
     }
 
     fn child_effects(&self, child: &str) -> Arc<tokio::sync::RwLock<()>> {
@@ -614,8 +777,8 @@ impl Daemon {
             std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
         }
         let observed = match method {
-            "agent.stop" | "rail.rename" | "terminal.kill" | "terminal.close"
-            | "terminal.resize" => actor.kind == ActorKind::Agent,
+            "agent.stop" | "agent.interrupt" | "agent.prompt" | "rail.rename" | "terminal.kill"
+            | "terminal.close" | "terminal.resize" => actor.kind == ActorKind::Agent,
             "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
             "terminal.write" => params["identity"].is_object(),
             _ => false,
@@ -640,46 +803,31 @@ impl Daemon {
         Ok(())
     }
 
-    /// H21: `decision.list` and `decision.answer` are judged by the caller's process, never by
-    /// the actor it claimed: the Agent whose `claude` it descends from, else a non-Agent, which
-    /// is the user's path (H4's `proof`).
-    async fn decision_call(
-        &self,
-        conn: &Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let actor = match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
+    /// H21: a Decision caller is the Agent owning its peer process, else the user.
+    fn decision_actor(&self, conn: &Conn) -> Actor {
+        match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
             Some(id) => Actor {
                 kind: ActorKind::Agent,
                 id,
                 parent: None,
             },
             None => Actor::user(),
-        };
+        }
+    }
+
+    async fn decision_call(
+        &self,
+        conn: &Conn,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
         let module = self
             .modules
             .get("decision")
             .ok_or_else(|| RpcError::method_not_found(method))?;
-        let ctx = self.ctx(actor);
-        // H21 derives identity from the peer, so the connection's claimed role must
-        // never decide whether this child effect excludes Takeover acquisition.
-        let child = if method == "decision.answer" && ctx.actor.kind == ActorKind::Agent {
-            let answer: contracts::decision::AnswerParams = rpc::params(params.clone())?;
-            let listed = module.call(&ctx, "decision.list", Value::Null).await?;
-            let decisions: Vec<contracts::decision::Decision> =
-                serde_json::from_value(listed).map_err(RpcError::internal)?;
-            decisions
-                .into_iter()
-                .find(|d| d.id == answer.id)
-                .map(|d| d.agent)
-        } else {
-            None
-        };
-        let _door_effect = match child {
-            Some(child) => Some(self.child_effects(&child).read_owned().await),
-            None => None,
-        };
+        // The router holds the child's effect guard; taking it again could deadlock
+        // behind a waiting Takeover writer. Identity was fixed before that guard.
+        let ctx = self.ctx(conn.actor.clone());
         self.before_prompt_effect(&ctx.actor, method, &params)
             .await?;
         module.call(&ctx, method, params).await
@@ -1027,11 +1175,30 @@ fn failure(id: &Value, err: &RpcError) -> Value {
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     let mut exits = daemon.bus.subscribe();
+    daemon.reconcile_actions().await.map_err(io::Error::other)?;
     let weak = Arc::downgrade(&daemon);
     tokio::spawn(async move {
         loop {
             match exits.recv().await {
                 Ok(event) => {
+                    // User release can still be typing a recorded Message; its router call
+                    // owns that later cut. Only the Daemon's exit release runs here.
+                    if let contracts::EventData::TakeoverChanged(change) = &event.data
+                        && event.actor == Actor::daemon()
+                        && !change.on
+                    {
+                        let Some(daemon) = weak.upgrade() else { return };
+                        let _child = daemon.child_effects(&change.agent).write_owned().await;
+                        if !daemon
+                            .sender
+                            .get()
+                            .is_some_and(|m| m.takeover_active(&change.agent))
+                            && let Err(e) = daemon.release_actions(&change.agent).await
+                        {
+                            eprintln!("rupd: held action release failed: {}", e.message);
+                            return;
+                        }
+                    }
                     if let contracts::EventData::TerminalExited(exit) = event.data {
                         let Some(daemon) = weak.upgrade() else { return };
                         if let Err(e) = daemon.resize_exit(&exit.id).await {
@@ -1043,7 +1210,7 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
                     // A missed exit must not silently strand an accepted resize.
                     let Some(daemon) = weak.upgrade() else { return };
-                    if let Err(e) = daemon.reconcile_resizes().await {
+                    if let Err(e) = daemon.reconcile_actions().await {
                         eprintln!("rupd: resize exit reconciliation failed: {}", e.message);
                         return;
                     }
@@ -1127,38 +1294,73 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             method.as_deref(),
             Some("daemon.identify" | "events.subscribe")
         ) {
-            if let Some(reply) = daemon.dispatch(&mut conn, &line).await {
+            if let Some(reply) = daemon.dispatch(&mut conn, &line, None).await {
                 let _ = frames.send(reply);
             }
             continue;
         }
-        let child_arrival = if matches!(method.as_deref(), Some("terminal.resize" | "rail.rename"))
-            && conn.actor.kind == ActorKind::Agent
-        {
-            let params = request
-                .as_ref()
-                .and_then(|r| r.get("params"))
-                .unwrap_or(&Value::Null);
-            let child = if method.as_deref() == Some("rail.rename") {
-                rpc::params::<NodeId>(params.clone()).map(|node| Some(node.id))
+        let actor = if method.as_deref() == Some("terminal.write") {
+            let writer = daemon.terminal_writer(&conn);
+            if writer.kind == ActorKind::Agent {
+                writer
             } else {
-                daemon.guard_terminal_read(&conn.actor, params).await
-            };
-            // Both ordered effects join before spawning: a rename must not take the
-            // child lock ahead of a resize still waiting for its arrival predecessor.
-            match child {
-                Ok(Some(child)) => Some(daemon.resizes.arrive(child)),
-                Ok(None) => None,
-                Err(error) => {
-                    // Reject the original target; a later target must not revive an invalid call.
-                    if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
-                        let _ = frames.send(failure(id, &error));
-                    }
-                    continue;
-                }
+                conn.actor.clone()
             }
+        } else if method
+            .as_deref()
+            .is_some_and(|m| m.starts_with("decision."))
+        {
+            daemon.decision_actor(&conn)
+        } else if matches!(
+            method.as_deref(),
+            Some(
+                "rail.rename"
+                    | "agent.stop"
+                    | "agent.interrupt"
+                    | "agent.prompt"
+                    | "agent.actionHistory"
+            )
+        ) {
+            daemon.action_actor(&conn)
         } else {
-            None
+            conn.actor.clone()
+        };
+        let params = request
+            .as_ref()
+            .and_then(|r| r.get("params"))
+            .unwrap_or(&Value::Null);
+        // Register before spawning so scheduler order cannot overtake wire arrival.
+        let child_arrival = match daemon
+            .door_effect_children(&actor, method.as_deref().unwrap_or_default(), params)
+            .await
+        {
+            Ok(children) => children
+                .into_iter()
+                .map(|child| {
+                    daemon.held_actions.arrive(
+                        child,
+                        matches!(
+                            method.as_deref(),
+                            Some(
+                                "terminal.resize"
+                                    | "terminal.close"
+                                    | "terminal.kill"
+                                    | "rail.rename"
+                                    | "agent.stop"
+                                    | "agent.interrupt"
+                                    | "agent.prompt"
+                            )
+                        ),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            Err(error) => {
+                // Reject the original target; a later target must not revive an invalid call.
+                if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
+                    let _ = frames.send(failure(id, &error));
+                }
+                continue;
+            }
         };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
@@ -1174,26 +1376,27 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                 if let Some(before) = before {
                     let _ = before.await;
                 }
-                if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
+                if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
                 }
                 let _ = done.send(());
             });
         } else {
             ordinary.spawn(async move {
-                let done = if let Some((before, done)) = child_arrival {
-                    if let Some(before) = before {
-                        let _ = before.await;
+                let mut completed = Vec::new();
+                for (before, done) in child_arrival {
+                    if let Some(mut before) = before {
+                        let _ = before.wait_for(|done| *done).await;
                     }
-                    Some(done)
-                } else {
-                    None
-                };
-                if let Some(reply) = daemon.dispatch(&mut request_conn, &line).await {
+                    if let Some(done) = done {
+                        completed.push(done);
+                    }
+                }
+                if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
                 }
-                if let Some(done) = done {
-                    daemon.resizes.finish_arrival(done);
+                for done in completed {
+                    daemon.held_actions.finish_arrival(done);
                 }
             });
         }
@@ -1229,7 +1432,7 @@ mod tests {
             peer: None,
             events,
         };
-        daemon.dispatch(&mut conn, line).await.unwrap()
+        daemon.dispatch(&mut conn, line, None).await.unwrap()
     }
 
     fn daemon() -> (tempfile::TempDir, Daemon) {
@@ -1386,16 +1589,26 @@ mod tests {
         ))
         .unwrap();
         let contract = &reply["result"]["contract"];
-        let fingerprint = contract["fingerprint"].as_str().unwrap();
-        assert!(generated.contains(&format!("fingerprint: \"{fingerprint}\"")));
-        let listed: String = contract["methods"]
+        let listed: Vec<(&str, &str)> = generated
+            .lines()
+            .filter_map(|line| line.trim().strip_suffix("\","))
+            .filter_map(|line| line.strip_prefix('"')?.split_once("\": \""))
+            .collect();
+        let names: Vec<&str> = contract["methods"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|n| format!("    \"{}\",\n", n.as_str().unwrap()))
+            .map(|n| n.as_str().unwrap())
             .collect();
-        assert!(!listed.is_empty());
-        assert!(generated.contains(&listed));
+        assert!(!names.is_empty());
+        assert_eq!(
+            listed.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            names
+        );
+        assert_eq!(
+            contract["fingerprint"].as_str().unwrap(),
+            contracts::methods::fingerprint_of_hashes(&listed)
+        );
     }
 
     #[tokio::test]
@@ -1590,7 +1803,7 @@ mod tests {
         let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
         let mut client = UnixStream::connect(&socket).await.unwrap();
         client
-            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\"}\n")
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"fixture\"}}\n")
             .await
             .unwrap();
         client.shutdown().await.unwrap();

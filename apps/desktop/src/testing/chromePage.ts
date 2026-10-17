@@ -4,8 +4,7 @@ import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, r
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { finished } from "node:stream/promises";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
+import { appServer } from "./appServer.ts";
 
 /** A headless Chromium on a fresh profile, driven over its DevTools pipe, with Vite serving the U26 harness; never the user's browser. */
 
@@ -47,6 +46,8 @@ export type ChromePage = {
   pointer(type: "down" | "move" | "up", x: number, y: number): Promise<void>;
   /** One real left click (press, then release) at the page point (x, y). */
   click(x: number, y: number): Promise<void>;
+  /** Two real left clicks at the page point (x, y), the second with a click count of 2, so the page receives `dblclick`. */
+  doubleClick(x: number, y: number): Promise<void>;
   /** Presses the left button down at the page point (x, y) and holds it; `release` lets go. */
   down(x: number, y: number): Promise<void>;
   release(x: number, y: number): Promise<void>;
@@ -59,10 +60,10 @@ export type ChromePage = {
   close(): Promise<void>;
 };
 
-/** Startup awaits the page acknowledgement and attachment within startupMs (defaults to replyMs). Post-startup replies retain replyMs; observe reports completed stages in elapsed milliseconds. */
+/** Startup awaits the page acknowledgement and attachment within startupMs (defaults to the measured 60000 ms stall bound; tools/chromium-faults/issue-1977.md). Post-startup replies retain replyMs; observe reports completed stages in elapsed milliseconds. */
 export const openPage = async (
   found: string,
-  { root = process.cwd(), clock, replyMs = 20_000, startupMs = replyMs, observe }: { root?: string; clock?: number; replyMs?: number; startupMs?: number; observe?: (stage: string, elapsedMs: number) => void } = {},
+  { root = process.cwd(), clock, replyMs = 20_000, startupMs = 60_000, observe }: { root?: string; clock?: number; replyMs?: number; startupMs?: number; observe?: (stage: string, elapsedMs: number) => void } = {},
 ): Promise<ChromePage> => {
   const startup = performance.now();
   let stage = "executable-reading";
@@ -93,11 +94,7 @@ export const openPage = async (
 
   completed("executable-read");
 
-  // Each server bundles into its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
-  const cacheDir = mkdtempSync(join(tmpdir(), "vite-cache-"));
-  const server: ViteDevServer = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false }, logLevel: "silent" });
-
-  await server.listen();
+  const server = await appServer({ root });
 
   completed("server-listening");
 
@@ -309,12 +306,6 @@ export const openPage = async (
     await server.close();
 
     try {
-      rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    } catch {
-      // vite's dep optimizer may still be writing into its temp cache; the OS clears /tmp
-    }
-
-    try {
       rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     } catch (error) {
       // Chrome helpers can still write after the browser exits; the OS clears this temporary profile.
@@ -393,6 +384,14 @@ export const openPage = async (
       await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
     },
+    doubleClick: async (x, y) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+
+      for (const clickCount of [1, 2]) {
+        await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount }, session);
+        await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount }, session);
+      }
+    },
     down: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
       await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
@@ -442,19 +441,4 @@ export const openPage = async (
     },
     close,
   };
-};
-
-/** U422: opens the Thread's `⋯` menu and chooses `All Messages`, once the menu holds it; the Messages are drawn only under it. */
-export const openLog = async (page: ChromePage): Promise<void> => {
-  await page.until(
-    `() => {
-      if (document.querySelector("[data-log]")) return true;
-      const more = document.querySelector("[aria-label='More']");
-      if (!more) return false;
-      if (more.getAttribute("aria-expanded") !== "true") more.click();
-      const item = [...document.querySelectorAll("[role=menuitem]")].find((each) => each.textContent === "All Messages");
-      item?.click();
-      return Boolean(document.querySelector("[data-log]"));
-    }`,
-  );
 };

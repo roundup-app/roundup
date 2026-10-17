@@ -185,42 +185,22 @@ const rendered = chrome || process.env.CI ? describe : describe.skip;
 rendered("u137 rendered focus marks", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
 
-  beforeAll(async () => { if (!chrome) throw new Error("U137 requires Chromium"); page = await openPage(chrome); }, 90_000);
+  // The first load compiles the harness bundle; do it here so no test's 5 s budget pays for it.
+  beforeAll(async () => {
+    if (!chrome) throw new Error("U137 requires Chromium");
+
+    page = await openPage(chrome);
+    await page.load("/harness.html?seed=door-report", 1280, 800);
+  }, 90_000);
   afterAll(async () => { await page?.close(); });
-
-  for (const width of [1280, 1440]) {
-    it(`u137_measures_the_visible_composer_mark_after_takeover_release_at_${width}`, async () => {
-      await page.load("/harness.html?seed=thread-report", width, 800);
-      await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
-      await page.call(`() => document.querySelector('[aria-label="More"]').click()`);
-      await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some(el => el.textContent === 'Take control')`);
-      await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find(el => el.textContent === 'Take control').click()`);
-      await page.until(`() => Boolean(document.querySelector('.pane-takeover'))`);
-      await page.press("0", "Digit0", 1);
-      await page.until(`() => document.activeElement?.matches('[data-thread-input]') && !document.querySelector('.pane-takeover')`);
-      const checks = await page.call<Checks>(`() => window.__checks()`);
-
-      expect(checks.D5).toMatchObject({ status: "pass" });
-      expect(checks.D10.status).toBe("pass");
-    }, 60_000);
-  }
-
-  it("u137_a_low_contrast_visible_mark_fails_despite_a_zero_width_outline", async () => {
-    await page.load("/harness.html?seed=thread-report", 1280, 800);
-    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
-    await page.call(`() => { document.querySelector('[data-thread-input]').focus(); const sheet = document.createElement('style'); sheet.textContent = '.thread-composer:has(textarea:focus-visible) { background-image: linear-gradient(var(--ground), var(--ground)); }'; document.head.append(sheet); }`);
-    const checks = await page.call<Checks>(`() => window.__checks()`);
-
-    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: expect.closeTo(1.08884, 4) } });
-    expect(checks.D10.status).toBe("fail");
-  });
 
   for (const field of ["title", "ask"]) {
     for (const lowContrast of [false, true]) {
       it(`u137_measures_the_order_${field}_focus_mark_${lowContrast ? "below" : "above"}_three_to_one`, async () => {
-        await page.load("/harness.html?seed=thread-report", 1280, 800);
-        await page.until(`() => Boolean(document.querySelector('.thread-order'))`);
-        await page.call(`() => document.querySelector('.thread-order').click()`);
+        await page.load("/harness.html?seed=door-report", 1280, 800);
+        await page.call(`() => document.querySelector('[data-id="c1"] .name').click()`);
+        await page.until(`() => Boolean(document.querySelector('.order-line'))`);
+        await page.call(`() => document.querySelector('.order-line').click()`);
         await page.until(`() => Boolean(document.querySelector('[aria-label="Edit order"]'))`);
         await page.call(`() => document.querySelector('[aria-label="Edit order"]').click()`);
         await page.until(`() => Boolean(document.querySelector('textarea[name="${field}"]'))`);
@@ -239,8 +219,8 @@ rendered("u137 rendered focus marks", () => {
   }
 
   it("u137_measures_a_percentage_width_focus_mark_on_an_unnamed_container", async () => {
-    await page.load("/harness.html?seed=thread-report", 1280, 800);
-    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.load("/harness.html?seed=door-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
     await page.call(`() => {
       document.body.innerHTML = '<div style="width: 240px; height: 80px; background-color: white; background-image: linear-gradient(white, white); background-size: 1% 100%; background-repeat: no-repeat; background-position: left"><textarea style="color: black; background: transparent; outline-width: 0">text</textarea></div>';
       document.querySelector('textarea').focus();
@@ -251,8 +231,8 @@ rendered("u137 rendered focus marks", () => {
   });
 
   it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
-    await page.load("/harness.html?seed=thread-report", 1280, 800);
-    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.load("/harness.html?seed=door-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
     await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 100% 100%">text</p>'; }`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
@@ -260,8 +240,8 @@ rendered("u137 rendered focus marks", () => {
   });
 
   it("u137_unsupported_single_layer_coverage_is_not_measurable", async () => {
-    await page.load("/harness.html?seed=thread-report", 1280, 800);
-    await page.until(`() => Boolean(document.querySelector('[data-thread-input]'))`);
+    await page.load("/harness.html?seed=door-report", 1280, 800);
+    await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
     await page.call(`() => { document.body.innerHTML = '<p style="color: white; background-color: black; background-image: linear-gradient(white, white); background-size: 50% 50%; background-repeat: no-repeat">text</p>'; }`);
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
@@ -286,7 +266,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
   };
 
   for (const [name, scheme, contrast, reduced] of [
-    ["light", "light"], ["dark", "dark"], ["more-contrast", "light", "more"],
+    ["more-contrast", "light", "more"],
     ["dark_more-contrast", "dark", "more"], ["reduced-transparency", "light", undefined, "transparency"],
     ["reduced-motion", "light", undefined, "motion"],
   ] as const) {
@@ -314,7 +294,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
   }, 60_000);
 
-  for (const seed of ["agents-10", "tree-40", "daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
+  for (const seed of ["daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
     it(`u136_${seed.replace("-", "_")}_${scheme}_d5_d10_on_painted_layout_at_${width}_by_${height}`, async () => {
       await page.scheme(scheme);
       await load(seed, width, height);

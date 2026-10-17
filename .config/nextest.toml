@@ -30,6 +30,131 @@ default-filter = '''
 | (package(rupd) & binary(b6_prompt_identity) & test(/^cleanup_completion::/))
 '''
 
+# L89: the Rust lanes. A lane runs the test binaries its profile names, packed so the lanes' replayed test time (the
+# per-test seconds of a `main` run through nextest's scheduling: four threads in list order, isolated tests alone first)
+# is as even as whole binaries allow, with the three CPU-heavy daemon binaries (`perf::flood`, `b6_prompt_identity`,
+# `b21_stopped_door`) in three lanes: together their timed waits overran. `ci5` is everything the others do not name:
+# a new test binary runs in `ci5` until it is packed. Edit the lists together.
+[profile.ci1]
+default-filter = '''
+binary_id(=agents::launch)
+| binary_id(=checkpoints)
+| binary_id(=perf::bin/perf)
+| binary_id(=perf::r13)
+| binary_id(=perf::webview)
+| binary_id(=rup::attachment)
+| binary_id(=rup::d9)
+| binary_id(=rup::m12)
+| binary_id(=rup::models)
+| binary_id(=rup::project_data)
+| binary_id(=rupd::b21_stopped_door)
+| binary_id(=terminal::library_attach)
+| binary_id(=todos)
+'''
+
+[profile.ci2]
+default-filter = '''
+binary_id(=agents)
+| binary_id(=agents::asks)
+| binary_id(=contracts)
+| binary_id(=contracts::spawn)
+| binary_id(=desktop)
+| binary_id(=desktop::h18)
+| binary_id(=desktop::window)
+| binary_id(=pads)
+| binary_id(=perf::bin/perf-keystroke)
+| binary_id(=perf::hook_loop)
+| binary_id(=rup::a35)
+| binary_id(=rup::environment)
+| binary_id(=rup::permission)
+| binary_id(=rupd)
+| binary_id(=rupd::b6_prompt_identity)
+| binary_id(=rupd::n7_data)
+| binary_id(=rupd::store_migrations)
+'''
+
+[profile.ci3]
+default-filter = '''
+binary_id(=agents::scenarios)
+| binary_id(=agents::title)
+| binary_id(=agents::working_files)
+| binary_id(=contracts::event_wire)
+| binary_id(=pads::pads)
+| binary_id(=perf::cli)
+| binary_id(=perf::n7)
+| binary_id(=perf::paced)
+| binary_id(=rup::a34)
+| binary_id(=rup::e2e)
+| binary_id(=rupd::m8_project)
+| binary_id(=terminal::library_parser)
+'''
+
+[profile.ci4]
+default-filter = '''
+binary_id(=agents::state_events)
+| binary_id(=rup::bin/rup)
+| binary_id(=rup::ping)
+| (binary_id(=rup::real_claude) & test(/^a32_/))
+| binary_id(=rup::t15)
+| binary_id(=rupd::h18_handshake)
+| binary_id(=terminal::library_edits)
+'''
+
+[profile.ci5]
+default-filter = '''
+not (
+binary_id(=agents::launch)
+| binary_id(=checkpoints)
+| binary_id(=perf::bin/perf)
+| binary_id(=perf::r13)
+| binary_id(=perf::webview)
+| binary_id(=rup::attachment)
+| binary_id(=rup::d9)
+| binary_id(=rup::m12)
+| binary_id(=rup::models)
+| binary_id(=rup::project_data)
+| binary_id(=rupd::b21_stopped_door)
+| binary_id(=terminal::library_attach)
+| binary_id(=todos)
+| binary_id(=agents)
+| binary_id(=agents::asks)
+| binary_id(=contracts)
+| binary_id(=contracts::spawn)
+| binary_id(=desktop)
+| binary_id(=desktop::h18)
+| binary_id(=desktop::window)
+| binary_id(=pads)
+| binary_id(=perf::bin/perf-keystroke)
+| binary_id(=perf::hook_loop)
+| binary_id(=rup::a35)
+| binary_id(=rup::environment)
+| binary_id(=rup::permission)
+| binary_id(=rupd)
+| binary_id(=rupd::b6_prompt_identity)
+| binary_id(=rupd::n7_data)
+| binary_id(=rupd::store_migrations)
+| binary_id(=agents::scenarios)
+| binary_id(=agents::title)
+| binary_id(=agents::working_files)
+| binary_id(=contracts::event_wire)
+| binary_id(=pads::pads)
+| binary_id(=perf::cli)
+| binary_id(=perf::n7)
+| binary_id(=perf::paced)
+| binary_id(=rup::a34)
+| binary_id(=rup::e2e)
+| binary_id(=rupd::m8_project)
+| binary_id(=terminal::library_parser)
+| binary_id(=agents::state_events)
+| binary_id(=rup::bin/rup)
+| binary_id(=rup::ping)
+| (binary_id(=rup::real_claude) & test(/^a32_/))
+| binary_id(=rup::t15)
+| binary_id(=rupd::h18_handshake)
+| binary_id(=terminal::library_edits)
+)
+'''
+
 # E14: a real Claude uses up to 370 MB; bound the tests sharing these runners.
 [test-groups.real-claude]
 max-threads = 4

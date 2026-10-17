@@ -492,6 +492,7 @@ mod tests {
         let lock = lock_db_for_writes(dir.path());
 
         let prompts = shared.finish_starting(&id, "1", |named| Run {
+            startup_context: true,
             attempt: "1".into(),
             status_revision: 1,
             closing: false,
@@ -543,6 +544,7 @@ mod tests {
         let lock = lock_db_for_writes(dir.path());
 
         let result = shared.finish_starting(&id, "1", |named| Run {
+            startup_context: true,
             attempt: "1".into(),
             status_revision: 1,
             closing: false,
@@ -612,6 +614,7 @@ mod tests {
                         holding_tx.send(()).unwrap();
                         go_rx.recv().unwrap();
                         Run {
+                            startup_context: true,
                             attempt: "1".into(),
                             status_revision: 1,
                             closing: false,

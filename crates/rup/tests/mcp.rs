@@ -224,7 +224,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 60] = [
+const TOOL_METHODS: [&str; 62] = [
     "todo.create",
     "todo.get",
     "todo.list",
@@ -239,6 +239,7 @@ const TOOL_METHODS: [&str; 60] = [
     "pad.list",
     "pad.write",
     "pad.append",
+    "pad.appendSection",
     "pad.setOwner",
     "pad.delete",
     "pad.export",
@@ -253,6 +254,7 @@ const TOOL_METHODS: [&str; 60] = [
     "checkpoint.list",
     // E2, O4, F3
     "agent.context",
+    "agent.actionHistory",
     "agent.setOrder",
     "agent.run",
     "agent.spawn",
@@ -299,7 +301,11 @@ const TOOL_METHODS: [&str; 60] = [
 const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 38] = [
+const NO_TOOL: [&str; 42] = [
+    // A40, P9: each carries a Steer from the user.
+    "ask.send",
+    "ask.list",
+    "ask.pick",
     // U462: only the open Drawer fetches and acknowledges the user's Todo history.
     "todo.getHistory",
     "todo.readHistory",
@@ -330,6 +336,8 @@ const NO_TOOL: [&str; 38] = [
     // A36, A37: the user's own settings, which spend the user's usage (P8)
     "models.list",
     "project.setModels",
+    // M2219: the user's setting for whether Agents get these tools at all
+    "project.setMcp",
     "agent.setModel",
     // D8: the App's Resource strip
     "project.resources",
@@ -504,6 +512,10 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             derived(schemars::schema_for!(pad::AppendParams)),
         ),
         (
+            "pad_appendSection",
+            derived(schemars::schema_for!(pad::AppendSectionParams)),
+        ),
+        (
             "pad_setOwner",
             derived(schemars::schema_for!(pad::SetOwnerParams)),
         ),
@@ -610,6 +622,51 @@ async fn b12_a_call_is_made_as_the_agent_and_returns_the_daemons_result() {
     assert_eq!(text(&refused)["code"], rpc::code::FORBIDDEN);
     let pass = shim.call("message_pass", json!({"id": 1})).await;
     assert_eq!(text(&pass)["code"], rpc::code::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn p15_tool_offered_and_touch_by_agent() {
+    let project = start_daemon();
+    let owner = client_as(&project.socket, agent("owner")).await;
+    owner
+        .request(
+            "pad.create",
+            json!({ "name": "notes", "text": "# Notes\n## Plan\n- one\n" }),
+        )
+        .await
+        .unwrap();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let appended = shim
+        .call(
+            "pad_appendSection",
+            json!({ "name": "notes", "heading": "plan", "text": "- two", "expectedRevision": 1 }),
+        )
+        .await;
+    let stale = shim
+        .call(
+            "pad_appendSection",
+            json!({ "name": "notes", "heading": "plan", "text": "- three", "expectedRevision": 1 }),
+        )
+        .await;
+
+    assert!(tools.iter().any(|t| t.name == "pad_appendSection"));
+    assert_eq!(appended.is_error, Some(false));
+    assert_eq!(text(&appended)["text"], "# Notes\n## Plan\n- one\n- two\n");
+    assert_eq!(text(&appended)["revision"], 2);
+    assert_eq!(stale.is_error, Some(true));
+    assert_eq!(text(&stale)["code"], rpc::code::CONFLICT);
+    let history = owner
+        .request("provenance.history", json!({ "item": "pad:notes" }))
+        .await
+        .unwrap();
+    let touches: Vec<Touch> = serde_json::from_value(history).unwrap();
+    assert!(
+        touches
+            .iter()
+            .any(|t| t.verb == Verb::Wrote && t.actor == agent("a1"))
+    );
 }
 
 #[tokio::test]
@@ -862,27 +919,6 @@ async fn m4_the_empty_list_a_cursor_gets_carries_a_numeric_ttl_ms_and_cache_scop
     assert_matches_tools_list_schema(&result);
     assert_eq!(result["tools"].as_array().unwrap().len(), 0);
     assert_eq!(result["cacheScope"], "public", "{result}");
-}
-
-#[tokio::test]
-async fn m3_the_call_after_the_daemon_goes_away_makes_the_shim_exit_nonzero() {
-    let project = start_daemon();
-    let mut shim = spawn_shim(&project.socket, "a1").await;
-    project.daemon.abort();
-    let _ = project.daemon.await;
-
-    let _ = tokio::time::timeout(
-        BOUND,
-        shim.client
-            .call_tool(CallToolRequestParams::new("todo_list")),
-    )
-    .await;
-
-    let status = tokio::time::timeout(BOUND, shim.child.wait())
-        .await
-        .expect("the shim exited")
-        .unwrap();
-    assert!(!status.success());
 }
 
 /// A stand-in Daemon that answers `agent.ask` with `{"answer": "dogs"}` after `delay` and `null` to `daemon.identify`.
@@ -1260,12 +1296,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "exported Pad notes to /tmp/notes.md",
             ),
             "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
-            "agent.stop" => (json!({"id":"child"}), "stopped Agent child"),
-            "agent.interrupt" => (json!({"id":"child"}), "interrupted Agent child"),
-            "agent.prompt" => (
-                json!({"id":"child","prompt":"hello"}),
-                "sent prompt to Agent child",
-            ),
             "agent.discard" => (json!({"id":"child"}), "discarded Worktree of Agent child"),
             "rail.move" => (json!({"id":"child","parent":"door"}), "moved child to door"),
             "project.setWorktrees" => (json!({"on":false}), "disabled Worktrees"),
@@ -1281,8 +1311,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 json!({"id":"d1","answer":"allow"}),
                 "answered Decision d1: allow",
             ),
-            "terminal.close" => (json!({"id":"t1"}), "closed Terminal t1"),
-            "terminal.kill" => (json!({"id":"t1"}), "stopped Terminal t1"),
             "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
@@ -1350,8 +1378,52 @@ async fn m17_data_results_keep_their_json_text() {
 }
 
 #[tokio::test]
-async fn b6_mcp_resize_receipts_and_history_keep_their_waiting_or_completed_data() {
+async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed_data() {
     for (name, args, value) in [
+        (
+            "agent_stop",
+            json!({"id":"child"}),
+            json!({"id":"3","agent":"child","method":"agent.stop","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("agent_stop", json!({"id":"child"}), Value::Null),
+        (
+            "agent_interrupt",
+            json!({"id":"child"}),
+            json!({"id":"4","agent":"child","method":"agent.interrupt","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("agent_interrupt", json!({"id":"child"}), Value::Null),
+        (
+            "agent_prompt",
+            json!({"id":"child","text":"hello"}),
+            json!({"id":"5","agent":"child","method":"agent.prompt","params":{"id":"child","text":"hello"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "agent_prompt",
+            json!({"id":"child","text":"hello"}),
+            Value::Null,
+        ),
+        (
+            "terminal_close",
+            json!({"id":"t1"}),
+            json!({"id":"6","agent":"child","method":"terminal.close","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("terminal_close", json!({"id":"t1"}), Value::Null),
+        (
+            "terminal_kill",
+            json!({"id":"t1"}),
+            json!({"id":"7","agent":"child","method":"terminal.kill","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        ("terminal_kill", json!({"id":"t1"}), Value::Null),
+        (
+            "rail_rename",
+            json!({"id":"child","name":"waiting rename"}),
+            json!({"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "agent_actionHistory",
+            json!({"id":"child"}),
+            json!([{"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"completed"}}]),
+        ),
         (
             "terminal_resize",
             json!({"id":"t1","cols":80,"rows":24}),

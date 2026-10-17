@@ -1,0 +1,38 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A41 initial"
+      },
+      "response": {
+        "content": "{\"title\":\"Skill proof\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\n/a41-proof x"
+      },
+      "response": {
+        "content": "{\"title\":\"Skill proof\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A41_SKILL_MARKER",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Skill received."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A41 initial",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    }
+  ]
+}

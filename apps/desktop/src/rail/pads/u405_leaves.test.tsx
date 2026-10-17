@@ -18,7 +18,7 @@ afterEach(cleanup);
 
 const by = (id: string): Actor => ({ kind: "agent", id, parent: null });
 
-const padOf = (name: string): Pad => ({ name, owner: by("a1"), text: "", updated_at: 0, home: null });
+const padOf = (name: string): Pad => ({ name, owner: by("a1"), text: "", updated_at: 0, revision: 1, home: null });
 
 const mount = async (todos: Todo[], pads: Pad[]) => {
   const app = createFakeApp();

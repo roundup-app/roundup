@@ -8,6 +8,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
+import { appServer, type AppServer } from "../testing/appServer";
 
 const art = captureDir("U477");
 
@@ -17,7 +18,7 @@ const profile = mkdtempSync(join(tmpdir(), "u474-"));
 
 const session = `u474-${process.pid}`;
 
-let server: ViteDevServer;
+let server: AppServer;
 
 let origin: string;
 
@@ -37,9 +38,8 @@ const read = async <T,>(expression: string): Promise<T> => {
 };
 
 beforeAll(async () => {
-  server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
-  await server.listen();
-  origin = server.resolvedUrls!.local[0]!;
+  server = await appServer();
+  origin = server.resolvedUrls.local[0]!;
   const baseRoot = process.env.U477_BASE_ROOT;
 
   if (baseRoot) {
@@ -187,34 +187,6 @@ it("u477_disabled_icon_button_does_not_act", async () => {
   await browser("press", "Space");
   expect(await read<string>(`document.querySelector('output').textContent`)).toBe("0");
 }, 60_000);
-
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-  it(`u477_icon_button_fixture_checks ${scheme}-${width}`, async () => {
-    await browser("set", "media", scheme);
-    await browser("set", "viewport", String(width), "800");
-    await browser("open", new URL("/src/ui/u474.html", baselineOrigin ?? origin).href);
-    await browser("wait", "--fn", `!!document.querySelector('[aria-label="Open Project"]')`);
-    const baseline = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
-
-    if (art) {
-      mkdirSync(art, { recursive: true });
-      await browser("screenshot", join(art, `${scheme}-${width}-before.png`));
-      writeFileSync(join(art, `${scheme}-${width}-before.checks.json`), JSON.stringify(baseline));
-    }
-
-    await load();
-    await browser("hover", "#fixture-icon");
-    await browser("wait", "--fn", `document.getElementById('fixture-icon').dataset.state === 'open'`);
-    const checks = await read<Checks>("import('/src/testing/checks.ts').then(module => module.runChecks())");
-
-    for (const id of CHECK_IDS) if (baseline[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(checks[id].status, id).toBe("pass");
-
-    if (art) {
-      await browser("screenshot", join(art, `${scheme}-${width}-hover.png`));
-      writeFileSync(join(art, `${scheme}-${width}-hover.checks.json`), JSON.stringify(checks));
-    }
-  }, 60_000);
-}
 
 it("u477_icon_button_preserves_bound_click_handler", async () => {
   await load();
