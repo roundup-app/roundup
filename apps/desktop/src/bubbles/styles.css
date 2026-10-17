@@ -117,10 +117,12 @@
   height: var(--space-2);
   margin-inline-start: var(--space-2);
   border-radius: var(--radius-drawer);
-  background: radial-gradient(circle, transparent 55%, var(--grey) 60%);
+  outline: 1px solid var(--grey);
+  outline-offset: -1px;
 }
 
 .bubble-state[data-running="true"] {
+  outline-color: var(--accent);
   background: var(--accent);
 }
 
