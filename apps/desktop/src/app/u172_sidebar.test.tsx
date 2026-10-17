@@ -10,7 +10,9 @@ import { resolveToken, tokensFrom } from "../testing/contrast";
 import tokenCss from "../tokens.css?raw";
 import appCss from "../styles.css?inline";
 import railCss from "../rail/styles.css?inline";
-import uiCss from "../ui/styles.css?inline";
+
+const uiCss = Object.values(import.meta.glob<string>("../ui/*.css", { query: "?inline", import: "default", eager: true })).join("\n");
+
 import buttonCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import rowCss from "../todos/rowButton.styles.css?inline";

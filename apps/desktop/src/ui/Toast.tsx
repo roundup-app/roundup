@@ -1,6 +1,6 @@
 import { createToaster, Toaster, Toast, type ToastStatusChangeDetails } from "@ark-ui/solid/toast";
 import { onCleanup, type JSX } from "solid-js";
-import "./styles.css";
+import "./Toast.css";
 
 type Card = { id: string; label?: string; name: JSX.Element; content: JSX.Element; glyph?: JSX.Element; duration?: number };
 
