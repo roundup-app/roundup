@@ -6099,6 +6099,32 @@ async fn b6_a_door_order_waits_for_takeover_release() {
 }
 
 #[tokio::test]
+async fn b6_a_waiting_order_is_dropped_with_a_reason_after_a_daemon_restart() {
+    let (mut run, caller, receipt) = idle_child_with_held_order().await;
+    run.daemon.child.kill().unwrap();
+    run.daemon.child.wait().unwrap();
+    run.daemon = launch(run.dir.path(), run.data.path());
+    run.user = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    // The Attempt does not survive the restart, so the Order is explained, never applied.
+    let ask = ordered_ask(&run).await;
+    let history = run
+        .user
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    drop(caller);
+    run.finish().await;
+    assert_eq!(history.as_array().unwrap().len(), 1, "{history}");
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+    assert!(
+        !history[0]["outcome"]["reason"].as_str().unwrap().is_empty(),
+        "{history}"
+    );
+    assert_ne!(ask, "first order");
+}
+
+#[tokio::test]
 async fn b6_a_held_order_is_dropped_when_the_child_exits() {
     let (run, caller, receipt) = idle_child_with_held_order().await;
     run.user
