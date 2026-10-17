@@ -3,6 +3,8 @@ import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
+import { attachTurns } from "./turns";
+import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -25,6 +27,10 @@ export type Emulator = {
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   selection(): string;
+  /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
+  turns(): TurnRows[];
+  /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
+  selectTurn(index: number, extend: boolean): void;
   paste(text: string): void;
   /** Moves the emulator into `host` (opening it the first time), returns its fitted size, and focuses it unless restoring the Rail. */
   show(host: HTMLElement, focus?: boolean): Size;
@@ -165,6 +171,7 @@ export const createXtermEmulators = (
     element.addEventListener("mousemove", trackCmd);
     terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
 
+    const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
     const scheme = schemeQuery();
 
     const followScheme = () => {
@@ -251,6 +258,8 @@ export const createXtermEmulators = (
         linkListener = listener;
       },
       selection: () => terminal.getSelection(),
+      turns: shellTurns.turns,
+      selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
       show: (host, focus = true) => {
         host.replaceChildren(element);
@@ -290,6 +299,7 @@ export const createXtermEmulators = (
         window.removeEventListener("keyup", trackCmd);
         window.removeEventListener("blur", dropCmd);
         disposers.forEach((dispose) => dispose());
+        shellTurns.dispose();
         fontViewport?.dispose();
         terminal.dispose();
       },

@@ -52,7 +52,11 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "null | agent_HeldAction",
     ),
-    m("terminal.write", "terminal_WriteParams", "null"),
+    m(
+        "terminal.write",
+        "terminal_WriteParams",
+        "null | agent_HeldAction",
+    ),
     m(
         "terminal.resize",
         "terminal_ResizeParams",
@@ -126,7 +130,11 @@ pub const METHODS: &[Method] = &[
     ),
     m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
     m("agent.channelUp", "agent_NodeId", "null"),
-    m("agent.signal", "agent_SignalParams", "null"),
+    m(
+        "agent.signal",
+        "agent_SignalParams",
+        "agent_SignalOutcome | null",
+    ),
     m(
         "agent.permission",
         "decision_PermissionParams",
@@ -210,20 +218,40 @@ pub fn method_names() -> Vec<&'static str> {
     names
 }
 
-/// The Contract fingerprint (A38): FNV-1a 64 over each method's name, params and result, in name order.
-pub fn fingerprint_of(methods: &[Method]) -> String {
-    let mut sorted: Vec<&Method> = methods.iter().collect();
-    sorted.sort_unstable_by_key(|m| m.name);
+/// FNV-1a 64 over `parts`, each followed by a zero byte, as 16 hex digits.
+fn fnv1a<'a>(parts: impl IntoIterator<Item = &'a str>) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for method in sorted {
-        for part in [method.name, method.params, method.result] {
-            for byte in part.bytes().chain([0]) {
-                hash ^= u64::from(byte);
-                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-            }
+    for part in parts {
+        for byte in part.bytes().chain([0]) {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
         }
     }
     format!("{hash:016x}")
+}
+
+/// One method's hash (A38): FNV-1a 64 over its name, params and result. It is the method's own line in `contract.ts`.
+pub fn method_hash(method: &Method) -> String {
+    fnv1a([method.name, method.params, method.result])
+}
+
+/// The Contract fingerprint (A38): FNV-1a 64 over each method's name and `method_hash`, in name order.
+/// The App derives it from the hashes `contract.ts` lists with the same function (`contractFingerprint`).
+pub fn fingerprint_of_hashes(entries: &[(&str, &str)]) -> String {
+    let mut sorted = entries.to_vec();
+    sorted.sort_unstable_by_key(|(name, _)| *name);
+    fnv1a(sorted.into_iter().flat_map(|(name, hash)| [name, hash]))
+}
+
+/// The fingerprint of `methods`, in any order.
+pub fn fingerprint_of(methods: &[Method]) -> String {
+    let hashes: Vec<String> = methods.iter().map(method_hash).collect();
+    let entries: Vec<(&str, &str)> = methods
+        .iter()
+        .zip(&hashes)
+        .map(|(method, hash)| (method.name, hash.as_str()))
+        .collect();
+    fingerprint_of_hashes(&entries)
 }
 
 /// The fingerprint of `METHODS`.
@@ -231,18 +259,27 @@ pub fn fingerprint() -> String {
     fingerprint_of(METHODS)
 }
 
-/// Render the fingerprint and method names as `contracts/generated/contract.ts`.
-pub fn render_contract_typescript() -> String {
+/// Render `methods` as `contracts/generated/contract.ts`: one line per method, in name order, holding that method's hash.
+/// No line depends on any other method, so two changes to the contract merge without a conflict.
+pub fn render_contract_typescript_of(methods: &[Method]) -> String {
+    let mut sorted: Vec<&Method> = methods.iter().collect();
+    sorted.sort_unstable_by_key(|m| m.name);
     let mut out = String::from("// Generated from crates/contracts/src/methods.rs. Do not edit.\n");
-    out.push_str(&format!(
-        "export const CONTRACT = {{\n  fingerprint: \"{}\",\n  methods: [\n",
-        fingerprint()
-    ));
-    for name in method_names() {
-        out.push_str(&format!("    \"{name}\",\n"));
+    out.push_str("export const CONTRACT = {\n  methods: {\n");
+    for method in sorted {
+        out.push_str(&format!(
+            "    \"{}\": \"{}\",\n",
+            method.name,
+            method_hash(method)
+        ));
     }
-    out.push_str("  ],\n} as const;\n");
+    out.push_str("  },\n} as const;\n");
     out
+}
+
+/// Render `METHODS` as `contracts/generated/contract.ts`.
+pub fn render_contract_typescript() -> String {
+    render_contract_typescript_of(METHODS)
 }
 
 /// Render `METHODS` as `contracts/generated/methods.ts`.
@@ -330,6 +367,30 @@ mod tests {
         let mut retyped = copy(METHODS);
         retyped[0] = m(retyped[0].name, "other_Params", retyped[0].result);
         assert_ne!(fingerprint_of(&retyped), base);
+    }
+
+    #[test]
+    fn a38_fingerprint_is_pinned_for_the_app_to_derive() {
+        // The App's `contractFingerprint` pins the same literal (`a38_the_app_derives_the_fingerprint_rust_computes`).
+        let entries = [("b.two", "0123456789abcdef"), ("a.one", "fedcba9876543210")];
+        assert_eq!(fingerprint_of_hashes(&entries), "0595958c4791a090");
+    }
+
+    #[test]
+    fn a38_a_change_to_one_method_rewrites_only_its_line() {
+        let base = render_contract_typescript();
+        let lines = |text: &str| -> std::collections::BTreeSet<String> {
+            text.lines().map(str::to_owned).collect()
+        };
+        let mut added = copy(METHODS);
+        added.push(m("extra.method", "null", "null"));
+        let mut retyped = copy(METHODS);
+        retyped[0] = m(retyped[0].name, "other_Params", retyped[0].result);
+        for changed in [added, retyped] {
+            let after = render_contract_typescript_of(&changed);
+            assert_eq!(lines(&after).difference(&lines(&base)).count(), 1);
+            assert!(lines(&base).difference(&lines(&after)).count() <= 1);
+        }
     }
 
     fn method(name: &str) -> &'static Method {

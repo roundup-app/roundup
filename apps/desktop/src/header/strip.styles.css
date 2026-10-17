@@ -208,7 +208,7 @@
   margin-top: var(--space-2);
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   text-align: center;
   color: var(--text);
 }

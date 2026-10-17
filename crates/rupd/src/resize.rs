@@ -235,6 +235,7 @@ impl Daemon {
         let call = match method {
             "terminal.close" => HeldCall::Close(rpc::params(params)?),
             "terminal.kill" => HeldCall::Kill(rpc::params(params)?),
+            "terminal.write" => HeldCall::Write(rpc::params(params)?),
             "rail.rename" => HeldCall::Rename(rpc::params(params)?),
             "agent.stop" => HeldCall::Stop(rpc::params(params)?),
             "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
@@ -371,6 +372,20 @@ impl Daemon {
                             }
                             _ => self.agents.interrupt_attempt(&ctx, child, attempt).await?,
                         }
+                    } else if let HeldCall::Write(write) = &action.call {
+                        use base64::Engine;
+                        let bytes = base64::engine::general_purpose::STANDARD
+                            .decode(&write.data)
+                            .map_err(|err| RpcError::internal(format!("held bytes: {err}")))?;
+                        self.agents
+                            .write_terminal(
+                                &ctx.actor,
+                                &ctx.actor,
+                                &write.id,
+                                bytes,
+                                write.identity.clone(),
+                            )
+                            .await?;
                     } else {
                         let namespace = method.split('.').next().unwrap_or_default();
                         self.modules[namespace]
@@ -433,6 +448,7 @@ impl Daemon {
             "agent.stop" => "after-stop",
             "agent.interrupt" => "after-interrupt",
             "agent.prompt" => "after-prompt",
+            "terminal.write" => "after-write",
             _ => "after-resize",
         };
         if std::fs::read_to_string(gate).ok().as_deref() != Some(boundary) {
@@ -579,7 +595,7 @@ impl Daemon {
 fn terminal_call(call: &HeldCall) -> bool {
     matches!(
         call,
-        HeldCall::Resize(_) | HeldCall::Close(_) | HeldCall::Kill(_)
+        HeldCall::Resize(_) | HeldCall::Close(_) | HeldCall::Kill(_) | HeldCall::Write(_)
     )
 }
 
@@ -604,6 +620,7 @@ fn action_method(call: &HeldCall) -> &'static str {
         HeldCall::Resize(_) => "terminal.resize",
         HeldCall::Close(_) => "terminal.close",
         HeldCall::Kill(_) => "terminal.kill",
+        HeldCall::Write(_) => "terminal.write",
         HeldCall::Rename(_) => "rail.rename",
         HeldCall::Stop(_) => "agent.stop",
         HeldCall::Interrupt(_) => "agent.interrupt",
@@ -618,6 +635,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
         HeldCall::Close(params) | HeldCall::Kill(params) => serde_json::to_value(params),
         HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
         HeldCall::Prompt(params) => serde_json::to_value(params),
+        HeldCall::Write(params) => serde_json::to_value(params),
     }
     .map_err(RpcError::internal)
 }
@@ -626,6 +644,7 @@ fn original_terminal(call: &HeldCall) -> Option<&str> {
     match call {
         HeldCall::Resize(params) => Some(&params.id),
         HeldCall::Close(params) | HeldCall::Kill(params) => Some(&params.id),
+        HeldCall::Write(params) => Some(&params.id),
         HeldCall::Rename(_) | HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_) => {
             None
         }

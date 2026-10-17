@@ -242,6 +242,7 @@ export const copy = {
   switcherPlaceholder: "Name",
   noMatch: "No match",
   selectAnAgentOrATerminal: "Select an Agent or a Terminal",
+  selectCommand: "Select command",
   creatingWorkstream: "Creating Workstream…",
   noWorkstreamYet: "No Workstream yet",
   newWorkstreamWord: " New Workstream",

@@ -1,5 +1,7 @@
 import { copy } from "../copy";
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
+import { Tooltip } from "../ui";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -42,6 +44,22 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 );
 
 
+/** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
+const ignoringControls = <T extends { onPointerMove?: unknown; onPointerLeave?: unknown }>(props: T): T => {
+  // SAFETY: the row's Ark tooltip trigger props carry these as pointer-event handlers when present.
+  const move = props.onPointerMove as ((event: PointerEvent) => void) | undefined;
+  // SAFETY: same trigger props; onPointerLeave is the handler that closes the row's tooltip.
+  const leave = props.onPointerLeave as ((event: PointerEvent) => void) | undefined;
+
+  return {
+    ...props,
+    onPointerMove: (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest("button, input")) move?.(event);
+      else leave?.(event);
+    },
+  };
+};
+
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
@@ -71,6 +89,32 @@ export const RailRowView = (props: {
   const pads = createAgentPads(() => props.row.node);
 
   const workstream = () => isWorkstream(props.row.node);
+
+  // U2228a: a name cut to `…` in the layout it has now (hovered, focused or selected included) shows in full in the row's Tooltip.
+  const [cut, setCut] = createSignal(false);
+  let nameBox: HTMLSpanElement | undefined;
+  const measure = () => setCut(!!nameBox && nameBox.scrollWidth > nameBox.clientWidth);
+
+  createEffect(() => {
+    props.row.node.name;
+    props.runs;
+    near();
+    props.selected;
+    editing();
+    queueMicrotask(measure);
+  });
+
+  createEffect(() => {
+    const row = nameBox?.closest(".rail-row");
+
+    if (!nameBox || !row || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    observer.observe(nameBox);
+    onCleanup(() => observer.disconnect());
+  });
+
   const kind = (): Kind | null => props.row.node.status?.kind ?? null;
 
   const inkTone = () => {
@@ -84,7 +128,17 @@ export const RailRowView = (props: {
 
   return (
     <>
+    <Tooltip.Root disabled={!cut()} positioning={{ placement: "bottom-start" }}>
+    <Tooltip.Trigger
+      asChild={(trigger) => (
     <div
+      {...ignoringControls(trigger({
+        onClick: props.onSelect,
+        onPointerDown: (press: PointerEvent) => {
+          if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
+        },
+        ...handlers,
+      }))}
       class="rail-row"
       role="treeitem"
       aria-level={props.row.depth + 1}
@@ -99,15 +153,10 @@ export const RailRowView = (props: {
       title={workstream() ? undefined : props.row.node.status?.label}
       tabIndex={props.tabbable ? 0 : -1}
       style={{ "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` }}
-      onClick={props.onSelect}
       onContextMenu={(press) => {
         press.preventDefault();
         props.onOpenMenu(press);
       }}
-      onPointerDown={(press) => {
-        if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
-      }}
-      {...handlers}
     >
       <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
       <p class="line">
@@ -131,6 +180,7 @@ export const RailRowView = (props: {
           fallback={
             <span
               class="name"
+              ref={nameBox}
               classList={{ ink: inkTone() !== undefined }}
               data-tone={inkTone()}
               onDblClick={() => setEditing(true)}
@@ -195,6 +245,16 @@ export const RailRowView = (props: {
         <PadsControl pads={pads} />
       </p>
     </div>
+      )}
+    />
+    <Show when={cut()}>
+      <Portal>
+        <Tooltip.Positioner>
+          <Tooltip.Content class="rail-name-tip">{props.row.node.name}</Tooltip.Content>
+        </Tooltip.Positioner>
+      </Portal>
+    </Show>
+    </Tooltip.Root>
     <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
   );
