@@ -65,7 +65,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     await waitFor(() => expect(card()).not.toBeNull());
     expect(card()!.textContent).toContain("keep v1 routes?");
-    expect(within(card()!).getAllByRole("option").map((row) => row.querySelector(".ask-label")?.textContent)).toEqual(["keep", "drop", "ask me later"]);
+    expect(within(card()!).getAllByRole("option").map((row) => row.getAttribute("aria-labelledby") && row.querySelector(`[id="${row.getAttribute("aria-labelledby")}"]`)?.textContent)).toEqual(["keep", "drop", "ask me later"]);
     expect(buttons()).toEqual(["Send"]);
   });
 

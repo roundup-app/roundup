@@ -33,7 +33,7 @@ const fail = async () => {
     window.__fake.failNext(-32003, 'U464 call refused');
     [...document.querySelectorAll('button')].find(el => el.textContent.includes('Start supervisor')).click();
   }`);
-  await page.until(`() => document.querySelector('p.ink[role=alert]')?.title === 'U464 call refused'`);
+  await page.until(`() => document.querySelector('p.ink[role=alert]')?.getAttribute('aria-label') === 'U464 call refused'`);
 };
 
 const checks = () => page.call<Checks>(`() => window.__checks()`);
@@ -65,7 +65,7 @@ run("u464 a failed start on a stopped Door", () => {
         expect(await page.call(`() => {
           const el = document.querySelector('p.ink[role=alert]');
           const style = getComputedStyle(el);
-          return {kind: el.dataset.kind, title: el.title, text: el.textContent, colour: style.color};
+          return {kind: el.dataset.kind, title: el.getAttribute('aria-label'), text: el.textContent, colour: style.color};
         }`)).toEqual({kind: "error", title: "U464 call refused", text: "U464 call refused", colour: "rgb(196, 38, 46)"});
         await save(`start-${width}x800`);
       }

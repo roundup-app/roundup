@@ -74,18 +74,24 @@ it("u371_resizing_preserves_the_selection", async () => {
   await selectDoor();
   const read = () => evaluate(`document.querySelector('.rail [aria-selected="true"]').dataset.id`);
   const before = await read();
-  await evaluate(`(() => { const edge = document.querySelector('.shelf-edge'); edge.focus(); edge.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})); return true; })()`);
+
+  const press = async (edge: string, key: string) => {
+    await evaluate(`(() => { document.querySelector('.${edge}-edge').focus(); return true; })()`);
+    await browser("press", key);
+  };
+
+  await press("shelf", "ArrowLeft");
   await settle();
   expect(await evaluate("document.querySelector('.window').dataset.shelfMode")).toBe("overlay");
   expect(await read()).toEqual(before);
-  await evaluate(`(() => { document.querySelector('.shelf-edge').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true})); return true; })()`);
+  await press("shelf", "ArrowRight");
   await settle();
   expect(await evaluate("document.querySelector('.window').dataset.shelfMode")).toBe("reserved");
   expect(await read()).toEqual(before);
   // Rail resizing crosses the same floor without replacing the Terminal.
-  await evaluate(`(() => { document.querySelector('.shelf-edge').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})); return true; })()`);
+  await press("shelf", "ArrowLeft");
   await settle();
-  await evaluate(`(() => { document.querySelector('.rail-edge').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})); return true; })()`);
+  await press("rail", "ArrowLeft");
   await settle();
   expect(await evaluate("document.querySelector('.window').dataset.shelfMode")).toBe("reserved");
   expect(await read()).toEqual(before);

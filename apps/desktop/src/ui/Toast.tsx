@@ -2,7 +2,7 @@ import { createToaster, Toaster, Toast, type ToastStatusChangeDetails } from "@a
 import { onCleanup, type JSX } from "solid-js";
 import "./styles.css";
 
-type Card = { id: string; name: JSX.Element; content: JSX.Element; glyph?: JSX.Element; duration?: number };
+type Card = { id: string; label?: string; name: JSX.Element; content: JSX.Element; glyph?: JSX.Element; duration?: number };
 
 /** Caller supplies eligibility, identity and summaries. Ark alone owns card lifetimes. */
 export function createToast(policy: {
@@ -27,7 +27,7 @@ export function createToast(policy: {
         for (const old of visible.slice(Math.max(0, policy.limit - 1))) store.remove(old.id);
       }
 
-      store.create({ id: card.id, title: card.name, description: card.content, duration: card.duration ?? 5000, meta: { glyph: card.glyph, duration: card.duration ?? 5000 }, onStatusChange(details: ToastStatusChangeDetails) {
+      store.create({ id: card.id, title: card.name, description: card.content, duration: card.duration ?? 5000, meta: { glyph: card.glyph, label: card.label, duration: card.duration ?? 5000 }, onStatusChange(details: ToastStatusChangeDetails) {
         if (details.status === "dismissing") {
           closing.add(card.id);
           policy.onDismiss?.(card.id);
@@ -57,7 +57,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
 
   onCleanup(() => store.remove());
 
-  return <Toaster toaster={store} label={props.label} class="app-toasts" data-newest-first={props.toast.newestFirst}>
+  return <Toaster toaster={store} label={props.label} aria-label={props.label} class="app-toasts" data-newest-first={props.toast.newestFirst}>
     {(card) => {
       let hovered = false;
       let focused = false;
@@ -68,7 +68,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
       return <Toast.Root onFocusIn={(event) => event.stopPropagation()} class="app-toast" tabIndex={-1} style={{ "--duration": "initial", "--remove-delay": "var(--duration-toast)" }} onKeyDown={(event) => {
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.toast.dismiss(card().id!); }
       }}>
-        <button type="button" data-button="quiet" class="app-toast-action"
+        <button type="button" data-button="quiet" class="app-toast-action" aria-label={card().meta?.label}
           onClick={() => props.toast.activate(card().id!)}
           onPointerEnter={() => { hovered = true; pause(); }}
           onPointerLeave={() => { hovered = false; restart(); }}
