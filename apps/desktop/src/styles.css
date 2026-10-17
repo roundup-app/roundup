@@ -111,9 +111,10 @@ p {
   padding-left: var(--space-2);
 }
 
-/* U2340a: while the floating Show work items button shows, the order line ends one --space-2 before it. */
-.window:is([data-shelf="closed"], [data-shelf-mode="overlay"]):not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre .order-line {
-  padding-right: calc(var(--space-5) + var(--space-2) * 2);
+/* U2340a: while the floating Show work items button shows, the order line ends --space-6 from the edge, one --space-2 past the button. */
+.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line,
+.window[data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line {
+  padding-right: var(--space-6);
 }
 
 /* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The failure line takes the Rail's side padding; the list and footer reach both edges. */
