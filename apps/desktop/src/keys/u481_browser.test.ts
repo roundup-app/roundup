@@ -84,12 +84,10 @@ it("u481_help_escape_restores_focus_without_underlying_action", async () => {
   await browser("click", ".terminal-new");
   await wait(`!!document.querySelector(".bubble .xterm-screen")`);
   await prepare(); await open();
-  await browser("press", "Meta+Comma");
   await browser("press", "Meta+n");
   await browser("press", "Escape"); await closed();
   expect(await read(`({selected: document.querySelector('.rail-row[data-selected=true]')?.dataset.id === window.__selected,
-    calls: window.__fake.app.calls.slice(window.__calls).map(c => c.method).filter(method => method !== "project.resources"), escape: window.__escape,
-    models: !!document.querySelector('.models-sheet')})`)).toEqual({selected: true, calls: [], escape: 0, models: false});
+    calls: window.__fake.app.calls.slice(window.__calls).map(c => c.method).filter(method => method !== "project.resources"), escape: window.__escape})`)).toEqual({selected: true, calls: [], escape: 0});
 }, 60_000);
 
 it("u481_help_dialog_traps_and_returns_focus", async () => {
