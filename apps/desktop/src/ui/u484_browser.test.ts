@@ -39,8 +39,8 @@ afterAll(async () => {
 });
 
 
-const load = async (dense = false) => {
-  await browser("open", new URL(`${new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html")}${dense ? "?dense" : ""}`, origin).href);
+const load = async (dense = false, query = dense ? "?dense" : "") => {
+  await browser("open", new URL(`${new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html")}${query}`, origin).href);
   await browser("wait", "--fn", `document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])').length === ${dense ? 40 : 3}`);
 };
 
@@ -74,6 +74,43 @@ const drag = async (id: string, target: string) => {
   await browser("wait", "--fn", `document.querySelector('[data-id="${id}"]').dataset.dragging === 'true'`);
   await browser("mouse", "move", String(Math.round(end.x)), String(Math.round(end.y)));
 };
+
+it("u484_external_drop", async () => {
+  const outside = async () => {
+    const point = await read<{ x: number; y: number }>(`(() => { const rect = document.querySelector('[data-outside]').getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
+
+    for (const step of [0.25, 0.5, 0.75, 1]) await browser("mouse", "move", String(Math.round(28 + (point.x - 28) * step)), String(Math.round(20 + (point.y - 20) * step)));
+    await browser("wait", "--fn", `document.querySelector('[data-outside]').hasAttribute('data-drop')`);
+  };
+
+  const dropped = () => read<string>(`document.querySelector('[aria-label=Dropped]').textContent`);
+
+  await load(false, "?external");
+  await drag("A", "A");
+  await outside();
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `document.querySelector('[aria-label=Dropped]').textContent === 'A>Rail'`);
+  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+  expect(await read<boolean>(`document.querySelector('[data-outside]').hasAttribute('data-drop')`)).toBe(false);
+  expect(await order()).toEqual(["A", "B", "C"]);
+  await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
+
+  await load(false, "?external");
+  await drag("A", "A");
+  await outside();
+  await browser("press", "Escape");
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `document.querySelector('[data-id=A]').dataset.dragging === 'false'`);
+  expect(await dropped()).toBe("");
+  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+  expect(await read<boolean>(`document.querySelector('[data-outside]').hasAttribute('data-drop')`)).toBe(false);
+
+  await load(false, "?external");
+  await drag("A", "C");
+  await browser("mouse", "up");
+  await committed("B,C,A");
+  expect(await dropped()).toBe("");
+}, 90_000);
 
 it("u484_keyboard_reorder", async () => {
   await load();
