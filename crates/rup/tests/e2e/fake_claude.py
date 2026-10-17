@@ -8,44 +8,12 @@ file. What it does comes from the environment, so one script serves every scenar
   FAKE_CLAUDE_BRIEF_REPORT a file path: written with JSON {"brief": the text of the file named by
                            `--append-system-prompt-file`, "tools": the names the server lists}, as
                            the Brief and the real MCP list stand together
-  FAKE_CLAUDE_ORDER_PROMPTS a legacy count of nonempty initial work lines: their complete prompts are
-                           submitted and stopped, and no ASK or ON_PROMPT behaviour plays for them
-  FAKE_CLAUDE_ON_PROMPT    JSON {"name", "arguments"}, or a list of them played in order (O12), a call with "skip_prompt" (a regex) not played for a prompt it matches (U146): after SessionStart (source `resume` with the id of `--resume` when started with it, U177), once per submitted prompt typed into
-                           the Terminal, play UserPromptSubmit, then this tool call with "$prompt" in a
-                           string argument replaced by the typed text, then Stop
-  FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
+  FAKE_CLAUDE_PROMPT_LOG   a file path (A32): each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
   FAKE_CLAUDE_BLOCKED_LOG  a file path (B39): each typed prompt whose UserPromptSubmit hook exited 2 is appended as one
                            JSON line {"prompt": the text}; Claude Code runs no turn for it, so neither does this
   FAKE_CLAUDE_HOLD_PROMPT  a file path (B40): a typed prompt that carries Messages is logged, then its UserPromptSubmit waits until the file
                            exists, as a Daemon that is killed meanwhile never gets that Signal
-  FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
-                           UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
-                           `tool_input` replaced by the typed text) and wait for its hook command to exit;
-                           the tool call is made only when the Decision was allowed
-  FAKE_CLAUDE_KINDS        JSON list of "working", "error", "needs-you", "idle" or "blocked" (U351, U356): the Nth run started with no
-                           `--tools` in its argv (an Agent, not a Door) acknowledges the typed startup prompt
-                           after SessionStart, then plays entry N: wait for stdin to close (working), StopFailure (error), a
-                           PermissionRequest waited on as FAKE_CLAUDE_ON_PROMPT_ASK does (needs-you), or Stop
-                           (idle), or, for blocked (U356), a Todo made through the MCP server as a blocker and a
-                           second Todo waiting on it, then Stop. A run past the list's end plays nothing. The runs are counted in files under
-                           CLAUDE_CONFIG_DIR, as the runs are separate processes. Claims and exhaustion are
-                           recorded in fake-claude-kind-claims.jsonl there, with pid, parent pid and argv
-  FAKE_CLAUDE_GATE         a file path: after the played PermissionRequest hook command (which waits for
-                           the user's answer, H9) is started, the next event waits until the file exists,
-                           as the user's own act in the Terminal (H7a) happens in its own time
-  FAKE_CLAUDE_DOOR_TOOLS   JSON list of {"name", "arguments"}: tools called in order on the `roundup` server (the string "$id" in an argument is the `id` of the previous result, "$ask" (U376) the `ask.to` of the last `agent_context` result), made only when this run has `--tools` in its argv (F2), as a
-                           Door's has and an Agent's has not
-  FAKE_CLAUDE_AGENT_TOOLS  JSON like FAKE_CLAUDE_DOOR_TOOLS, made only by the first run with no `--tools` in its argv (A26,
-                           the first Agent that is not a Door); its results go to FAKE_CLAUDE_AGENT_REPORT. The
-                           run that claims it is the one that creates `<FAKE_CLAUDE_AGENT_REPORT>.claimed`
-  FAKE_CLAUDE_AGENT_REPORT a file path: written with the JSON list of what FAKE_CLAUDE_AGENT_TOOLS returned
-  FAKE_CLAUDE_TOOL_REPORT  a file path: written with the JSON list of what each tool call returned
-  "may_fail": true         in a tool call of FAKE_CLAUDE_DOOR_TOOLS, FAKE_CLAUDE_AGENT_TOOLS and
-                           FAKE_CLAUDE_ON_PROMPT (H21): an error result is reported as {"error": ...}, not asserted away
-  "after": "<file>"        in the same tool calls (H21): the call is made once the file exists
-  FAKE_CLAUDE_HOLD_START   a file path (H21): with FAKE_CLAUDE_ON_PROMPT, SessionStart is played only once the file exists,
-                           so the Agent is not idle, and takes no Message, until then
   FAKE_CLAUDE_CHILD_PROCESS / FAKE_CLAUDE_DOOR_PROCESS
                            JSON argv (H21): started as a child of this process, with the environment of the `--settings`
                            file added, by a run with no `--tools` in its argv / with it; a process below `claude`
@@ -164,26 +132,7 @@ def typed_prompts():
                 yield text
 
 
-def shown(prompt):
-    """The prompt as its sender wrote it, without the id line the Daemon appends (B39)."""
-    head, sep, tail = prompt.rpartition("\n\n[rup messages: ")
-    return head if sep and tail.endswith("]") and "\n" not in tail else prompt
-
-
-def ask_permission(ask, prompt, report=None):
-    """Play a PermissionRequest and wait for `rup permission` to exit; whether the Decision was allowed."""
-    command = json.load(open(flag("--settings")))["hooks"]["PermissionRequest"][0]["hooks"][0]["command"]
-    tool_input = {key: value.replace("$prompt", shown(prompt)) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
-    payload = {"hook_event_name": "PermissionRequest", "tool_name": ask["tool_name"], "tool_input": tool_input}
-    ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
-    received = json.loads(ran.stdout or "{}")
-    if report:
-        with open(report, "w") as out:
-            json.dump(received, out)
-    return received.get("hookSpecificOutput", {}).get("decision", {}).get("behavior") == "allow"
-
-
-def play_prompts(tool):
+def play_prompts():
     hold = os.environ.get("FAKE_CLAUDE_HOLD_START")
     if hold and not os.path.exists(hold) and "FAKE_CLAUDE_HELD_START" in os.environ:
         with open(os.environ["FAKE_CLAUDE_HELD_START"], "w"):
@@ -197,7 +146,6 @@ def play_prompts(tool):
         hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
     else:
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000146", "source": "startup"})
-    orders = int(os.environ.get("FAKE_CLAUDE_ORDER_PROMPTS", "0"))
     for prompt in typed_prompts():
         if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
@@ -213,84 +161,11 @@ def play_prompts(tool):
                 with open(os.environ["FAKE_CLAUDE_BLOCKED_LOG"], "a") as log:
                     log.write(json.dumps({"prompt": prompt}) + "\n")
             continue
-        if orders:
-            # Older observers counted the two nonempty clarification lines separately.
-            count = len([line for line in prompt.splitlines() if line.strip()])
-            orders = max(0, orders - count)
-            hook("Stop")
-            continue
-        if "FAKE_CLAUDE_ON_PROMPT_ASK" in os.environ and not ask_permission(json.loads(os.environ["FAKE_CLAUDE_ON_PROMPT_ASK"]), prompt):
-            hook("Stop")
-            continue
-        # H21: "$decision" is the id of the `[decision <id>]` note the prompt is.
-        decisions = re.findall(r"^(?:\[from [^\]]+\] )?\[decision (\w+)\]", prompt, re.MULTILINE)
-        answers_decisions = "$decision" in json.dumps(tool)
-        if answers_decisions and not decisions:
-            hook("Stop")
-            continue
-        calls = [call for call in (tool if isinstance(tool, list) else [tool]) if not re.match(call.get("skip_prompt", "(?!)"), prompt)]
-        if not calls:
-            hook("Stop")
-            continue
-        for decision in decisions if answers_decisions else [""]:
-            mcp_session([{**call, "arguments": {key: value.replace("$prompt", shown(prompt)).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
 
 
-def claim_kind():
-    """U351: the entry of FAKE_CLAUDE_KINDS for this run, the Nth to be started with no `--tools`; None past the end."""
-    kinds = json.loads(os.environ["FAKE_CLAUDE_KINDS"])
-    directory = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "fake-claude-kinds")
-    os.makedirs(directory, exist_ok=True)
-    for n, kind in enumerate(kinds):
-        try:
-            os.close(os.open(os.path.join(directory, str(n)), os.O_CREAT | os.O_EXCL))
-        except FileExistsError:
-            continue
-        log_kind_claim(n, kind)
-        return kind
-    log_kind_claim(None, None)
-    return None
-
-
-def log_kind_claim(index, kind):
-    record = {"index": index, "kind": kind, "pid": os.getpid(), "ppid": os.getppid(), "argv": sys.argv, "cwd": os.getcwd()}
-    path = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "fake-claude-kind-claims.jsonl")
-    # One append syscall keeps concurrent launches individually attributable.
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    try:
-        os.write(descriptor, (json.dumps(record) + "\n").encode())
-    finally:
-        os.close(descriptor)
-
-
-def play_kind(kind):
-    sys.stdout.write("\033]0;\u2733 claude\007")  # the star title that opens H19's gate, as in play_prompts
-    sys.stdout.flush()
-    hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000351", "source": "startup"})
-    # H12 admits the first Steer while Idle; inventing a submission here races that admission.
-    prompt = next(typed_prompts(), None)
-    if prompt is None:
-        return
-    hook("UserPromptSubmit", {"prompt": prompt})
-    if kind == "working":
-        while os.read(0, 4096):
-            pass
-    elif kind == "error":
-        hook("StopFailure", {"error": "u351"})
-    elif kind == "needs-you":
-        ask_permission({"tool_name": "Bash", "tool_input": {"command": "echo u351"}}, "u351", os.environ.get("FAKE_CLAUDE_AGENT_REPORT"))
-    elif kind == "idle":
-        hook("Stop")
-    elif kind == "blocked":
-        mcp_session([
-            {"name": "todo_create", "arguments": {"title": "u356 blocker"}},
-            {"name": "todo_create", "arguments": {"title": "u356 waiting", "blockers": ["$id"]}},
-        ], None, os.devnull)
-        hook("Stop")
-
-
-def mcp_session(calls, report=None, results_to=None):
+def brief_report(report):
+    """Talk MCP to the `roundup` server and write what it lists with the Brief the Terminal was given."""
     config = json.load(open(flag("--mcp-config")))["mcpServers"]["roundup"]
     server = subprocess.Popen(
         [config["command"], *config["args"]],
@@ -315,49 +190,10 @@ def mcp_session(calls, report=None, results_to=None):
         "clientInfo": {"name": "fake-claude", "version": "0"},
     })
     send({"method": "notifications/initialized"})
-    if report:
-        names = [t["name"] for t in request(2, "tools/list", {})["tools"]]
-        brief = open(flag("--append-system-prompt-file")).read()
-        with open(report, "w") as out:
-            json.dump({"brief": brief, "tools": names}, out)
-    last = None
-    asked = None
-    results = []
-    for n, tool in enumerate(calls):
-        while tool.get("after") and not os.path.exists(tool["after"]):
-            time.sleep(0.02)
-        arguments = {
-            key: [last if each == "$id" else each for each in value] if isinstance(value, list) else last if value == "$id" else asked if value == "$ask" else value
-            for key, value in tool.get("arguments", {}).items()
-        }
-        result = request(10 + n, "tools/call", {"name": tool["name"], "arguments": arguments})
-        if result.get("isError") and tool.get("may_fail"):
-            # H21: a refusal is the thing observed; its JSON error is what the report holds.
-            results.append({"error": json.loads(result["content"][0]["text"])})
-            continue
-        assert not result.get("isError"), result
-        raw = result["content"][0]["text"]
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            parsed = raw
-        last = parsed.get("id") if isinstance(parsed, dict) else None
-        # U376: "$ask" in a string argument is `ask.to` of the previous `agent_context` result, the Agent that started this one.
-        asked = (parsed.get("ask") or {}).get("to", asked) if isinstance(parsed, dict) else asked
-        results.append(parsed)
-    results_to = results_to or os.environ.get("FAKE_CLAUDE_TOOL_REPORT")
-    if results_to and results:
-        with open(results_to, "w") as out:
-            json.dump(results, out)
-
-
-def claim_agent_tools():
-    report = os.environ["FAKE_CLAUDE_AGENT_REPORT"]
-    try:
-        os.close(os.open(report + ".claimed", os.O_CREAT | os.O_EXCL))
-    except FileExistsError:
-        return
-    mcp_session(json.loads(os.environ["FAKE_CLAUDE_AGENT_TOOLS"]), None, report)
+    names = [t["name"] for t in request(2, "tools/list", {})["tools"]]
+    brief = open(flag("--append-system-prompt-file")).read()
+    with open(report, "w") as out:
+        json.dump({"brief": brief, "tools": names}, out)
 
 
 def log_launch():
@@ -392,18 +228,9 @@ if process:
 if "FAKE_CLAUDE_MCP_STRAY" in os.environ:
     stray.append(play_mcp_stray(os.environ["FAKE_CLAUDE_MCP_STRAY"]))
 if "FAKE_CLAUDE_BRIEF_REPORT" in os.environ:
-    mcp_session([], os.environ["FAKE_CLAUDE_BRIEF_REPORT"])
-if "FAKE_CLAUDE_DOOR_TOOLS" in os.environ and "--tools" in sys.argv:
-    mcp_session(json.loads(os.environ["FAKE_CLAUDE_DOOR_TOOLS"]))
-if "FAKE_CLAUDE_AGENT_TOOLS" in os.environ and "--tools" not in sys.argv:
-    claim_agent_tools()
-if "FAKE_CLAUDE_KINDS" in os.environ and "--tools" not in sys.argv:
-    kind = claim_kind()
-    if kind:
-        play_kind(kind)
-        time.sleep(3600)
-if "FAKE_CLAUDE_ON_PROMPT" in os.environ or "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
-    play_prompts(json.loads(os.environ.get("FAKE_CLAUDE_ON_PROMPT", "[]")))
+    brief_report(os.environ["FAKE_CLAUDE_BRIEF_REPORT"])
+if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
+    play_prompts()
 if "FAKE_CLAUDE_LAUNCH_LOG" in os.environ:
     play_session()
 time.sleep(3600)
