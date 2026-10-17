@@ -38,7 +38,8 @@ p {
   --shelf-span: var(--shelf-width);
   /* U409, U430: wider than the Shelf by a step; the centre ends where it begins, and it never covers the Rail. */
   --drawer-span: max(560px, calc(var(--shelf-span) + var(--space-5)));
-  --header-height: calc(var(--space-5) * 2);
+  /* The user set the window bar to 38 px (2026-10-17). */
+  --header-height: 38px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);

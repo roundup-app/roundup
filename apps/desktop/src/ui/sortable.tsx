@@ -1,10 +1,13 @@
 import "./sortable.css";
-import { Cursor, Feedback, type Draggable } from "@dnd-kit/dom";
+import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { effect } from "@dnd-kit/state";
 import { DragDropProvider } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { onCleanup, splitProps, type JSX } from "solid-js";
+import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
+
+/** A press that moves less than this is a click. */
+const PRESS_DRAG_PX = 4;
 
 /** A drop target outside the list; `element` carries `data-drop` while the pointer is over it. */
 type ExternalTarget = { element: HTMLElement };
@@ -13,6 +16,8 @@ type External<T extends ExternalTarget> = {
   /** The target under the pointer for a dragged row, else null. */
   target: (id: string, x: number, y: number) => T | null;
   onDropOutside: (id: string, target: T) => void;
+  /** The attribute the target carries while the pointer is over it; default `data-drop`. */
+  attribute?: string;
 };
 
 /** A row of the caller's tree, in display order. */
@@ -41,6 +46,8 @@ type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & 
   onOrderChange?: ((ids: string[]) => void) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
+  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them, and the list draws no box or radius around a moved row. */
+  plain?: boolean;
 };
 
 type DepthRow = TreeRow & { depth: number };
@@ -111,8 +118,7 @@ const isInPlace = (rows: readonly DepthRow[], dragged: string, drop: SortableDro
 };
 
 /** The click the browser sends after a pointer release would reach whatever lies under the pointer; this drops the next one. */
-// fallow-ignore-next-line unused-export -- todos/reorder.ts moves its import here in its own change (U535).
-export const swallowNextClick = (): (() => void) => {
+const swallowNextClick = (): (() => void) => {
   const swallow = (click: Event) => click.stopPropagation();
   const forget = () => window.removeEventListener("click", swallow, { capture: true });
 
@@ -123,7 +129,7 @@ export const swallowNextClick = (): (() => void) => {
 };
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "children"]);
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "children"]);
   let over: T | null = null;
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
@@ -163,9 +169,11 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   };
 
   const mark = (next: T | null) => {
+    const attribute = local.external?.attribute ?? "data-drop";
+
     if (next?.element !== over?.element) {
-      over?.element.removeAttribute("data-drop");
-      next?.element.setAttribute("data-drop", "");
+      over?.element.removeAttribute(attribute);
+      next?.element.setAttribute(attribute, "");
     }
 
     over = next;
@@ -209,7 +217,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     window.addEventListener("keydown", turn, { capture: true });
     stopListening = () => window.removeEventListener("keydown", turn, { capture: true });
-  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+  }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
     track(source, position);
@@ -277,15 +285,17 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(source.index, 0, moved);
     local.onOrderChange?.(order);
-  }}><div {...rest}>{local.children}</div></DragDropProvider>;
+  }}><div {...rest} data-plain={local.plain ? "" : undefined}>{local.children}</div></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
+  /** The handle is also a button: a pointer drag starts after 4 px, so a click stays a click, and Space and Enter stay the button's own. */
+  pressable?: boolean;
   children: (parts: ReturnType<typeof useSortable>) => JSX.Element;
 };
 
 const Item = (props: ItemProps) => {
-  const sortable = useSortable(props);
+  const sortable = useSortable(props.pressable ? mergeProps(props, { sensors: [PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] })] }) : props);
 
   return props.children(sortable);
 };
