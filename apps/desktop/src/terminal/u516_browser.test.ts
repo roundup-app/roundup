@@ -16,5 +16,5 @@ it("u516_browser_one_agent_receives_the_turn_and_the_user_sees_where_it_went", a
   await browser("press", "Enter");
   await wait("window.__calls.length === 1");
   expect(await read<string>("window.__calls[0].body")).toBe("why\n\n```\n$ one\n1\n```\n\ncommand: one\ncwd: /work\nexit: 0");
-  await wait("[...document.querySelectorAll('.toast')].some(t => t.getAttribute('aria-label') === 'Sent to Alpha')");
+  await wait("[...document.querySelectorAll('.app-toast-action')].some(t => t.getAttribute('aria-label') === 'Sent to Alpha')");
 }, 90_000);

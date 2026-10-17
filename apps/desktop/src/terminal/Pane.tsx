@@ -12,7 +12,7 @@ import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { TAKE_CONTROL, WRITING_KEYS } from "../keys/chords";
-import { Menu } from "../ui";
+import { Menu } from "../ui/Menu";
 import type { ToastQueue } from "../toasts/queue";
 import { createSendSelection } from "./sendSelection";
 import { SendToAgent } from "./SendToAgent";

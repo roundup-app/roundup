@@ -4,7 +4,8 @@ import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
-import { Menu, Popover } from "../ui";
+import { Menu } from "../ui/Menu";
+import { Popover } from "../ui/Popover";
 import { NOTE_MAX } from "./excerpt";
 import type { createSendSelection } from "./sendSelection";
 
