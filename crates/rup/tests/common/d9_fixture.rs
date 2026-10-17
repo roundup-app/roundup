@@ -52,7 +52,7 @@ impl Fixture {
             .unwrap()
             .to_path_buf();
         let wrapper = dir.path().join("rupd");
-        std::fs::write(&wrapper, format!("#!/bin/sh\nexport ROUNDUP_CLAUDE_BIN='{}' HOME='{}' CLAUDE_CODE_OAUTH_TOKEN='' CLAUDE_CONFIG_DIR='{}/claude-config' ROUNDUP_RUP_BIN='{}/rup' ROUNDUP_HANDOFF_BOUND_MS='{}'\nexec '{}/rupd' \"$@\"\n", aimock::package_bin("claude").display(), home.display(), dir.path().display(), bin.display(), handoff_bound_ms, bin.display())).unwrap();
+        std::fs::write(&wrapper, format!("#!/bin/sh\nexport ROUNDUP_CLAUDE_BIN='{}' HOME='{}' CLAUDE_CODE_OAUTH_TOKEN='' CLAUDE_CONFIG_DIR='{}/claude-config' ROUNDUP_RUP_BIN='{}/rup' ROUNDUP_HANDOFF_BOUND_MS='{}' ROUNDUP_RESTART_BOUND_MS='60000'\nexec '{}/rupd' \"$@\"\n", aimock::package_bin("claude").display(), home.display(), dir.path().display(), bin.display(), handoff_bound_ms, bin.display())).unwrap();
         std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
         Self {
             dir,

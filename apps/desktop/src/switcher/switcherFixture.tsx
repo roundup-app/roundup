@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 import { render } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -71,7 +72,8 @@ export const press = (key: string, init: KeyboardEventInit = {}, target: EventTa
   return event;
 };
 
-export const cmdK = (): KeyboardEvent => press("k", { metaKey: true });
+/** Open the switcher as the leader does: `⌘K` then `K` (U2239). */
+export const openSwitcher = (): void => void leaderKey("KeyK");
 
 export const field = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>(".switcher input");
 
