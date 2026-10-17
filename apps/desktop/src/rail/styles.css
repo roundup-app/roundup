@@ -730,6 +730,14 @@
   outline-offset: calc(-1 * var(--space-1));
 }
 
+/* U2228a: the full name of a cut row wraps inside the Rail's width on an opaque panel that stands apart from the Rail. */
+.app-tooltip.rail-name-tip {
+  max-width: min(var(--rail-width), calc(100vw - 2 * var(--space-4)));
+  overflow-wrap: anywhere;
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+}
+
 /* U350: the clear prompt's fields. */
 .clear-prompt {
   display: grid;

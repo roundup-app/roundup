@@ -364,4 +364,16 @@ replaced child gives a retained drop reason and later actions proceed. A waiting
 call does not survive a Daemon restart: it is dropped with the original-Terminal
 reason, and none is retried. These are integration-tested guarantees for M1, M3,
 M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581 retains
-Terminal writes, answers, rewind and reads.
+answers, rewind and reads.
+
+## B6 Door Terminal writes
+
+Door `terminal.write` calls on a taken-over child's Terminal use the same durable
+`HeldAction` receipts, per-child arrival order and ledger as close and kill. The
+bytes and any prompt identity are kept as accepted; release rechecks Reach and
+Terminal ownership and writes through the same guarded path, so bytes aimed at a
+prompt the user has since answered or replaced are refused and dropped with a
+reason. A waiting write does not survive a Daemon restart (dropped with the
+original-Terminal reason) and none is retried. The user's own writes are never held.
+Integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs and
+laws are unchanged.

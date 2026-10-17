@@ -378,7 +378,12 @@ impl Daemon {
         let child = children.first();
         let _ordered_effect = if matches!(
             method,
-            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+            "terminal.resize"
+                | "terminal.close"
+                | "terminal.kill"
+                | "terminal.write"
+                | "rail.rename"
+                | "agent.stop"
         ) {
             if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
@@ -402,7 +407,12 @@ impl Daemon {
         let mut door_effects = Vec::new();
         if !matches!(
             method,
-            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+            "terminal.resize"
+                | "terminal.close"
+                | "terminal.kill"
+                | "terminal.write"
+                | "rail.rename"
+                | "agent.stop"
         ) {
             // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
             for child in &children {
@@ -1345,6 +1355,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                                 "terminal.resize"
                                     | "terminal.close"
                                     | "terminal.kill"
+                                    | "terminal.write"
                                     | "rail.rename"
                                     | "agent.stop"
                                     | "agent.interrupt"
@@ -1589,16 +1600,26 @@ mod tests {
         ))
         .unwrap();
         let contract = &reply["result"]["contract"];
-        let fingerprint = contract["fingerprint"].as_str().unwrap();
-        assert!(generated.contains(&format!("fingerprint: \"{fingerprint}\"")));
-        let listed: String = contract["methods"]
+        let listed: Vec<(&str, &str)> = generated
+            .lines()
+            .filter_map(|line| line.trim().strip_suffix("\","))
+            .filter_map(|line| line.strip_prefix('"')?.split_once("\": \""))
+            .collect();
+        let names: Vec<&str> = contract["methods"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|n| format!("    \"{}\",\n", n.as_str().unwrap()))
+            .map(|n| n.as_str().unwrap())
             .collect();
-        assert!(!listed.is_empty());
-        assert!(generated.contains(&listed));
+        assert!(!names.is_empty());
+        assert_eq!(
+            listed.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            names
+        );
+        assert_eq!(
+            contract["fingerprint"].as_str().unwrap(),
+            contracts::methods::fingerprint_of_hashes(&listed)
+        );
     }
 
     #[tokio::test]

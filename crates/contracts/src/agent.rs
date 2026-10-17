@@ -551,6 +551,8 @@ pub enum HeldCall {
     Close(crate::terminal::TerminalId),
     #[serde(rename = "terminal.kill")]
     Kill(crate::terminal::TerminalId),
+    #[serde(rename = "terminal.write")]
+    Write(crate::terminal::WriteParams),
     #[serde(rename = "rail.rename")]
     Rename(RenameParams),
     #[serde(rename = "agent.stop")]
