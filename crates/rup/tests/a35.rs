@@ -331,6 +331,7 @@ async fn a35_marks_survive_a_restart() {
     for mark in &saved.agents {
         assert_eq!(regular(mark, b"README"), b"keep");
     }
+    fx.project.model.as_ref().unwrap().assert_matched();
 }
 
 #[tokio::test]
