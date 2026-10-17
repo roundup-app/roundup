@@ -4,6 +4,7 @@ import { isTodoOfRunning } from "../rail/pads/owned";
 import { createSelection } from "../shelf/selection";
 import { TickBox } from "./TickBox";
 import { Icon } from "../ink/Icon";
+import { EmptyState } from "../ink/EmptyState";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -355,7 +356,7 @@ export const Todos = () => {
         />
       </Show>
       <Show when={isEmpty()}>
-        <p>{copy.noTodosYet}</p>
+        <EmptyState icon="check" title={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={noneRunning()}>
         <p>{copy.noTodosFromRunningAgents}</p>

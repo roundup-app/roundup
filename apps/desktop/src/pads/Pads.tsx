@@ -4,6 +4,7 @@ import { createBulkDelete } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
+import { EmptyState } from "../ink/EmptyState";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
@@ -95,7 +96,7 @@ export const Pads = () => {
         {(message) => <ErrorLine message={message()} />}
       </Show>
       <Show when={isEmpty()}>
-        <p>{copy.noPadsYet}</p>
+        <EmptyState icon="order" title={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
       <Show when={noneRunning()}>
         <p>{copy.noPadsFromRunningAgents}</p>
