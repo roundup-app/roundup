@@ -22,8 +22,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { ExitState } from "../state/rail";
 import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
-import { createChoices } from "../models/choices";
-import { AddAgentPicker } from "./AddAgentPicker";
 import { ClearPrompt } from "./ClearPrompt";
 import { clearingOf } from "./clear";
 import "./styles.css";
@@ -58,13 +56,6 @@ export const Rail = () => {
     keepDraft("");
     setComposing(false);
   };
-
-  /** U378: each picker opening starts from the Project defaults. */
-  const choices = createChoices(app);
-  const [modelOpen, setModelOpen] = createSignal(false);
-  /** The Workstream whose row the Model pick opens under. */
-  const [modelUnder, setModelUnder] = createSignal<string | null>(null);
-  const [picked, setPicked] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
 
   const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }));
 
@@ -294,28 +285,16 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent(), pair: { model: string | null; effort: string | null } = { model: null, effort: null }, fromPicker = false) =>
+  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
-      const params: SpawnParams = { cwd: project.path, prompt, parent: under, ...pair };
+      const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
       const spawned = await app.rpc("agent.spawn", params);
 
-      setPicked({ model: null, effort: null });
-      setModelOpen(false);
-
-      if (fromPicker) focusPicker();
       setWanted(spawned.id);
 
       if (composing()) endCompose();
     });
-
-  const focusPicker = () => document.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(modelUnder() ?? "")}"] [aria-label="${copy.chooseModelAndEffort}"]`)?.focus();
-
-  const closePicker = () => {
-    setModelOpen(false);
-    setPicked({ model: null, effort: null });
-    focusPicker();
-  };
 
   const spawnAgent = () => spawnAgentWith(null);
 
@@ -336,25 +315,11 @@ export const Rail = () => {
         kind: "workstream",
         add: {
           disabled: !canSpawn(),
-          expanded: modelOpen() && modelUnder() === node.id,
-          run: (modelPick) => {
+          run: () => {
             if (!canSpawn()) return;
 
-            if (composing()) {
-              field()?.focus();
-
-              return;
-            }
-
-            if (modelPick) {
-              setPicked({ model: null, effort: null });
-              setModelOpen(modelUnder() !== node.id || !modelOpen());
-              setModelUnder(node.id);
-              void choices.load();
-            } else if (canSpawn()) {
-              if (composing()) field()?.focus();
-              else spawnAgentWith(null, node.id);
-            }
+            if (composing()) field()?.focus();
+            else spawnAgentWith(null, node.id);
           },
         },
       };
@@ -569,31 +534,6 @@ export const Rail = () => {
                         </div>
                       )}
                     </Show>
-                    <Show when={modelOpen() && modelUnder() === node()?.node.id && choices.list()}>
-                      {(list) => (
-                        <div class="model-panel" style={{ "--indent": `calc(${(node()?.depth ?? 0) + 1} * var(--rail-step) + var(--rail-inset))` }}>
-                          <AddAgentPicker
-                            app={app}
-                            list={list()}
-                            pair={picked()}
-                            onChange={setPicked}
-                            disabled={!canSpawn()}
-                            onClose={closePicker}
-                            onAdd={() => {
-                              if (!canSpawn()) return;
-
-                              if (composing()) {
-                                field()?.focus();
-
-                                return;
-                              }
-
-                              spawnAgentWith(null, modelUnder(), picked(), true);
-                            }}
-                          />
-                        </div>
-                      )}
-                    </Show>
                   </>
                 );
               }}
@@ -611,7 +551,6 @@ export const Rail = () => {
       <Show when={asking()}>
         <p class="light">{copy.askingTheDoor}</p>
       </Show>
-      <Show when={modelOpen() ? choices.failure() : null}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={menu.state() !== null || clearPrompt() !== null}>
         <Portal>
           <RailMenu menu={menu} />

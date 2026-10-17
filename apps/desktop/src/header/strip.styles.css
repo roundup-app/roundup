@@ -230,7 +230,3 @@
   --button-surface: transparent;
   --button-hover: var(--selected-hover);
 }
-
-.tab-menu {
-  z-index: 3;
-}

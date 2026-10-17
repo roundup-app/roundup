@@ -1,9 +1,8 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { DrawerHost } from "../drawer/DrawerHost";
-import { ModelsSheet } from "../models/ModelsSheet";
 import { Tabs } from "../ui";
 import { Strip } from "./Strip";
 import type { StripTab } from "./tab";
@@ -19,8 +18,6 @@ app.handlers['models.list'] = () => ({ models: [{ id: 'opus', label: 'Authored é
 const connected = await connectProject(app, { path: '/fixture', name: 'Fixture' }, () => true, () => 0);
 
 const Fixture = () => {
-  const [models, setModels] = createSignal(false);
-
   const [tabs, setTabs] = createSignal<StripTab[]>(Array.from({ length: 8 }, (_, at) => ({
     path: `/project ${at} é›ª`, name: `Project number ${at}`, busy: false, exitText: null,
     needsYou: at === 1 ? 1 : 0, error: at === 7 ? 1 : 0, running: ['Authored Agent'],
@@ -38,9 +35,8 @@ const Fixture = () => {
         onClose={(path) => { const next = tabs().filter(tab => tab.path !== path); setTabs(next);
 
  if (active() === path) setActive(next[0]!.path); }}
-        onChoose={() => {}} onModels={() => setModels(true)} />
+        onChoose={() => {}} />
     </div>
-    <Show when={models()}><ModelsSheet onClose={() => setModels(false)} /></Show>
   </>;
 
   const Draw = () => <div><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></div>;

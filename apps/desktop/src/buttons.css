@@ -74,13 +74,11 @@ button {
 }
 
 /* U137: the Add Agent icon and label rest at a stronger grey on the selected wash to keep D5; hover reaches --text. */
-.rail-row[data-selected="true"] button:has(.rail-add-label):not([aria-disabled="true"], :active, [data-pressed="true"]),
-.rail-row[data-selected="true"] .rail-split-add [data-button="icon"]:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row[data-selected="true"] button:has(.rail-add-label):not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 
-.rail-row[data-selected="true"] button:has(.rail-add-label):hover:not([aria-disabled="true"], :active, [data-pressed="true"]),
-.rail-row[data-selected="true"] .rail-split-add [data-button="icon"]:hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row[data-selected="true"] button:has(.rail-add-label):hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--text);
 }
 
@@ -144,8 +142,8 @@ button[aria-disabled="true"] {
   cursor: default;
 }
 
-/* U137: disabled split actions keep one distinct ink with D5 contrast on the selected wash. */
-.rail-row[data-selected="true"] .rail-split-add > button[aria-disabled="true"] {
+/* U137: a disabled add keeps one distinct ink with D5 contrast on the selected wash. */
+.rail-row[data-selected="true"] .rail-add[aria-disabled="true"] {
   color: var(--grey);
 }
 
