@@ -120,6 +120,15 @@ class Permissions(unittest.TestCase):
             self.assertIn(f'python3 "{loop}/builder.py" engine', step, workflow)
             self.assertNotIn('github.token', step, workflow)
 
+    def test_l82_the_engine_waits_for_the_generated_conflict_script(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        resolve = source.split('      - id: resolve\n', 1)[1].split('\n      - ', 1)[0]
+        engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("needs.task.outputs.cause == 'conflict'", resolve)
+        self.assertIn('builder.py" resolve-generated', resolve)
+        self.assertIn("if: steps.resolve.outputs.resolved != 'true'", engine)
+        self.assertLess(source.index('      - id: resolve'), source.index('      - id: engine'))
+
     def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):
         inputs = action_inputs('review')
         self.assertIn('github_token: ${{ github.token }}', inputs)
@@ -247,8 +256,7 @@ class L89(unittest.TestCase):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
         files = subprocess.check_output(['git', 'grep', '-l', 'target_os = "macos"', '--', 'crates'], cwd=ROOT, text=True)
         self.assertEqual(['crates/agents/tests/working_files.rs', 'crates/checkpoints/src/marks_tests.rs',
-                          'crates/desktop/Cargo.toml', 'crates/desktop/src/lib.rs', 'crates/desktop/src/open.rs',
-                          'crates/desktop/tests/s2297a.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
+                          'crates/desktop/src/open.rs', 'crates/pads/tests/pads.rs', 'crates/rup/tests/project_data.rs',
                           'crates/rupd/src/data.rs'], files.split())
 
     def test_l89_every_setup_input_a_step_reads_or_a_job_passes_is_declared(self):
