@@ -1863,3 +1863,66 @@ fn m2219_on_brief_is_unchanged() {
     assert_eq!(brief(&s, "7", Role::Agent), golden("agent"));
     assert_eq!(brief(&s, "7", Role::Door), golden("door"));
 }
+
+#[test]
+fn b45_the_brief_says_to_wake_not_poll() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        for (text, ask) in [
+            (brief(&s, "7", role), "`agent_wake`"),
+            (off_brief(&s, "7", role), "`rup agent wake`"),
+        ] {
+            let line = text
+                .lines()
+                .find(|line| line.starts_with(&format!("- {ask}")))
+                .unwrap_or_else(|| panic!("{role:?} brief names no {ask}"));
+            assert!(
+                line.contains("end your turn instead of polling `terminal_read` or `rail_tree`")
+                    || line.contains(
+                        "end your turn instead of polling `rup terminal read` or `rup rail tree`"
+                    ),
+                "{line}"
+            );
+            assert!(line.contains("tells you without asking"), "{line}");
+        }
+    }
+}
+
+/// `rup help`, from the `rup` that `cargo build -p rup` left beside the test binaries.
+fn rup_help() -> String {
+    let rup = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .and_then(Path::parent)
+        .unwrap()
+        .join("rup");
+    assert!(rup.is_file(), "cargo build -p rup first");
+    let out = std::process::Command::new(rup)
+        .arg("help")
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    String::from_utf8(out.stdout).unwrap()
+}
+
+#[test]
+fn b45_every_command_the_brief_names_is_in_rup_help() {
+    let s = setup();
+    let help = rup_help();
+    for role in [Role::Agent, Role::Door] {
+        let text = off_brief(&s, "7", role);
+        let named: Vec<&str> = text
+            .lines()
+            .filter(|line| line.starts_with("- `rup "))
+            .filter_map(|line| line.strip_prefix("- `")?.split('`').next())
+            .collect();
+        assert!(named.contains(&"rup agent wake"), "{named:?}");
+        for command in named {
+            assert!(
+                help.contains(&format!("    {command} "))
+                    || help.contains(&format!("    {command}\n")),
+                "{command} is in no line of `rup help`"
+            );
+        }
+    }
+}

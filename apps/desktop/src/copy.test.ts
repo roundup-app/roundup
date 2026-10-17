@@ -107,6 +107,10 @@ const candidates = (source: string): { line: number; text: string }[] => {
     if (attribute && !uiAttribute && !inContent) return;
 
     if (parent?.type === "ObjectProperty" && parent.key === node || parent?.type === "MemberExpression") return;
+
+    const holder = ancestors.at(-2);
+
+    if (parent?.type === "ArrayExpression" && holder?.type === "ObjectProperty" && holder.key.type === "Identifier" && holder.key.name === "chords") return;
     let text: string;
 
     if (node.type === "JSXText") text = node.value.trim();

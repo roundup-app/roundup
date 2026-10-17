@@ -14,18 +14,18 @@ describe("u185 a Daemon gone, in a tab", () => {
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-tone")).toBe("red"));
 
-    fireEvent.pointerEnter(tab("api").parentElement!);
+    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("Daemon exited 3");
+    expect((await screen.findByRole("tooltip")).textContent).toBe("/Users/me/apiDaemon exited 3");
   });
 
   it("u185_a_signal_exit_reads_by_signal", async () => {
     const { app } = await openTabs({ api: [], web: [] });
 
     app.exitDaemon({ code: null }, path("api"));
-    fireEvent.pointerEnter(tab("api").parentElement!);
+    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("Daemon exited by signal");
+    expect((await screen.findByRole("tooltip")).textContent).toBe("/Users/me/apiDaemon exited by signal");
   });
 
   it("u185_the_header_text_shows_for_the_open_project_only", async () => {

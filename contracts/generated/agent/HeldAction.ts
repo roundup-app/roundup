@@ -6,8 +6,9 @@ import type { WriteParams } from "../terminal/WriteParams";
 import type { NodeId } from "./NodeId";
 import type { PromptParams } from "./PromptParams";
 import type { RenameParams } from "./RenameParams";
+import type { SetOrderParams } from "./SetOrderParams";
 
 /**
  * B6: durable acceptance of an action that waits for a child's Takeover.
  */
-export type HeldAction = { id: string, agent: string, outcome: ResizeOutcome, } & ({ "method": "terminal.resize", "params": ResizeParams } | { "method": "terminal.close", "params": TerminalId } | { "method": "terminal.kill", "params": TerminalId } | { "method": "terminal.write", "params": WriteParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.stop", "params": NodeId } | { "method": "agent.interrupt", "params": NodeId } | { "method": "agent.prompt", "params": PromptParams });
+export type HeldAction = { id: string, agent: string, outcome: ResizeOutcome, } & ({ "method": "terminal.resize", "params": ResizeParams } | { "method": "terminal.close", "params": TerminalId } | { "method": "terminal.kill", "params": TerminalId } | { "method": "terminal.write", "params": WriteParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.setOrder", "params": SetOrderParams } | { "method": "agent.stop", "params": NodeId } | { "method": "agent.interrupt", "params": NodeId } | { "method": "agent.prompt", "params": PromptParams });
