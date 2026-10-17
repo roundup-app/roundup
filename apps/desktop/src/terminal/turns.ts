@@ -2,7 +2,10 @@ import { copy } from "../copy";
 import type { IDisposable, IMarker, Terminal } from "@xterm/xterm";
 
 /** U514: one command of a shell Terminal, as buffer rows from its prompt to its last line of output. */
-export type TurnRows = { first: number; last: number; exit: number | null; cwd: string | null };
+export type TurnRows = { first: number; last: number; exit: number | null; cwd: string | null; command: string | null };
+
+/** U516: what a Turn tells the Agent that receives it; `exit` is `"running"` while the command has not ended. */
+export type TurnFacts = { command: string | null; cwd: string | null; exit: number | "running" | null };
 
 type Turn = {
   start: IMarker;
@@ -11,6 +14,7 @@ type Turn = {
   endColumn: number;
   exit: number | null;
   cwd: string | null;
+  command: string | null;
   gutter: HTMLButtonElement | null;
 };
 
@@ -32,6 +36,8 @@ const directoryOf = (data: string): string | null => {
 export const attachTurns = (terminal: Terminal, select: (first: number, last: number) => void) => {
   const turns: Turn[] = [];
   let cwd: string | null = null;
+  /** Where the prompt ended (`B`), until the command starts (`C`). */
+  let typing: { at: IMarker; column: number } | null = null;
   let anchor: Turn | null = null;
   const listeners: IDisposable[] = [];
 
@@ -48,7 +54,7 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
     return Math.max(first, turn.endColumn === 0 ? turn.end.line - 1 : turn.end.line);
   };
 
-  const rows = (turn: Turn): TurnRows => ({ first: turn.start.line, last: lastRow(turn), exit: turn.exit, cwd: turn.cwd });
+  const rows = (turn: Turn): TurnRows => ({ first: turn.start.line, last: lastRow(turn), exit: turn.exit, cwd: turn.cwd, command: turn.command });
 
   const drop = (turn: Turn) => {
     const index = turns.indexOf(turn);
@@ -116,6 +122,21 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
     }
   };
 
+  /** The text from the end of the prompt to the cursor, where the command starts running. */
+  const commandText = (row: number, column: number): string | null => {
+    const buffer = terminal.buffer.active;
+    const last = buffer.baseY + buffer.cursorY;
+    const lines: string[] = [];
+
+    for (let at = row; at <= last; at += 1) {
+      const text = buffer.getLine(at)?.translateToString(true, at === row ? column : 0, at === last ? buffer.cursorX : undefined) ?? "";
+
+      lines.push(text);
+    }
+
+    return lines.join("\n").trim() || null;
+  };
+
   const choose = (turn: Turn, extend: boolean) => {
     const base = extend && anchor !== null && turns.includes(anchor) ? anchor : turn;
     const [from, to] = [turns.indexOf(base), turns.indexOf(turn)].sort((x, y) => x - y);
@@ -145,16 +166,24 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
         previous.endColumn = terminal.buffer.active.cursorX;
       }
 
-      const turn: Turn = { start: line, end: null, endColumn: 0, exit: null, cwd: null, gutter: null };
+      const turn: Turn = { start: line, end: null, endColumn: 0, exit: null, cwd: null, command: null, gutter: null };
 
       line.onDispose(() => drop(turn));
       turns.push(turn);
       drawGutters();
+    } else if (kind === "B") {
+      typing?.at.dispose();
+      typing = { at: line, column: terminal.buffer.active.cursorX };
     } else if (kind === "C") {
       const turn = open();
 
-      if (turn) turn.cwd = cwd;
+      if (turn) {
+        turn.cwd = cwd;
+        turn.command = typing ? commandText(typing.at.line, typing.column) : null;
+      }
 
+      typing?.at.dispose();
+      typing = null;
       line.dispose();
     } else if (kind === "D") {
       const turn = open();
@@ -186,6 +215,12 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
   return {
     turns: (): TurnRows[] => turns.map(rows),
+    /** The facts of the Turn holding buffer row `row`, or null for a row outside every Turn. */
+    factsAt: (row: number): TurnFacts | null => {
+      const turn = turns.find((each) => row >= each.start.line && row <= lastRow(each));
+
+      return turn ? { command: turn.command, cwd: turn.cwd, exit: turn.end === null ? "running" : turn.exit } : null;
+    },
     /** Selects Turn `index`; with `extend`, from the Turn last selected on its own through it, in order. */
     selectTurn: (index: number, extend: boolean) => {
       const turn = turns[index];

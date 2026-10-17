@@ -5,7 +5,14 @@
   padding: var(--space-4);
 }
 
+.app-menu {
+  z-index: 4;
+}
+
 .app-menu [data-part="item"] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   padding: var(--space-2);
 }
 
