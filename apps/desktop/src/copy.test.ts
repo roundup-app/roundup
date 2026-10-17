@@ -165,7 +165,7 @@ const usesCase = (label: string): boolean => {
   if (SECTION_HEADS.has(label) || ACRONYMS.has(label) || SHORTCUTS.has(label) || CODE_NAMES.has(label) || MARKS.has(label)) return true;
 
   if (/\b(Door|Doors|Takeover|Shelf|Handoff)\b/.test(label)) return false;
-  const words = label.replace(/^[+↓]\s*/, "").trim().split(/\s+/);
+  const words = label.replace(/^[+↓✕]\s*/, "").trim().split(/\s+/);
   const first = words[0] ?? "";
 
   if (!/^[\p{Lu}\d]/u.test(first)) return false;
@@ -255,6 +255,8 @@ const FORMAT_SAMPLES = {
   stopAndRemoveQuestion: () => copy.stopAndRemoveQuestion("authored"),
   removeQuestion: () => copy.removeQuestion("authored"),
   answerRefused: (count: number) => copy.answerRefused(count, "Unavailable"),
+  sentTo: () => copy.sentTo("Agent"),
+  couldNotSendTo: () => copy.couldNotSendTo("Agent", "Unavailable"),
 } satisfies { [Key in keyof typeof copy as typeof copy[Key] extends (...args: never[]) => string ? Key : never]: (count: number) => string };
 
 it("u471_catalogue_uses_sentence_case_and_user_labels", () => {

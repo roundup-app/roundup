@@ -61,10 +61,9 @@ p {
 }
 
 .header {
-  border-bottom: 1px solid var(--hairline);
   position: relative;
   color: var(--text);
-  background-color: var(--ground);
+  background-color: var(--sunken);
   box-sizing: border-box;
   height: var(--header-height);
   min-width: 0;
@@ -455,10 +454,6 @@ p {
   inset: 0;
   border: 2px solid var(--accent);
   pointer-events: none;
-}
-
-.project-tab[data-drop="hover"] {
-  background: var(--hover);
 }
 
 /* U430: each resource group must fit the centre or flex-end clips its start. */
