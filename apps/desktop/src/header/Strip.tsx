@@ -1,4 +1,5 @@
 import { copy } from "../copy";
+import { flat } from "../ui";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
@@ -239,7 +240,7 @@ export const Strip = (props: {
   );
 
   return (
-    <div class="strip" onFocusIn={(press) => {
+    <div class="strip" {...flat.bar} onFocusIn={(press) => {
       if (!asking() && press.target === closeOpener()) setCloseOpener(undefined);
     }}>
       <div class="strip-scroll">
@@ -271,7 +272,7 @@ export const Strip = (props: {
         </div>
         {edge(copy.right, right())}
       </div>
-      <button data-button="icon" type="button" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</button>
+      <button data-button="icon" type="button" class="word strip-add" {...flat.add} aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</button>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 

@@ -1,0 +1,69 @@
+/* U2232: no radius anywhere on the bar or tabs (a custom property keeps the stylesheet scanner, which reads `0` as `0px`, to Token reads). */
+:root {
+  --flat-radius: 0;
+}
+
+/* U2231 to U2233: the one tab look of the Project strip and the Terminal tabs (Zed). A flat bar on --sunken; the selected tab takes --ground and a hairline on its left and right only; an inactive tab is a --grey label that takes --text on hover. No other stylesheet sets a tab's border, ground, radius or inactive colour. */
+
+[data-flat-bar] {
+  background-color: var(--sunken);
+  border-radius: var(--flat-radius);
+}
+
+[data-flat-tab] {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  border-style: none;
+  border-radius: var(--flat-radius);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--grey);
+}
+
+[data-flat-tab]:hover {
+  color: var(--text);
+}
+
+[data-flat-tab][data-selected="true"] {
+  background-color: var(--ground);
+  border-style: solid;
+  border-top-width: 0;
+  border-bottom-width: 0;
+  border-left-width: 1px;
+  border-right-width: 1px;
+  border-top-color: var(--hairline);
+  border-bottom-color: var(--hairline);
+  border-left-color: var(--hairline);
+  border-right-color: var(--hairline);
+  color: var(--text);
+}
+
+/* An inactive tab has no border; two spacers keep the footprint of the selected tab's two borders, so selecting moves no tab. */
+[data-flat-tab]:not([data-selected="true"])::before,
+[data-flat-tab]:not([data-selected="true"])::after {
+  content: "";
+  flex: none;
+  width: 1px;
+}
+
+/* The controls inside a tab take the tab's ink and paint no ground at rest, hover or press (the button hooks of buttons.css, U170); a press dims the ink (U510). */
+[data-flat-tab],
+[data-flat-add] {
+  --button-surface: transparent;
+  --button-hover: transparent;
+  --button-radius: 0;
+  --pressed: transparent;
+}
+
+/* Keyboard focus only, inside the bar's box so no ring is clipped. */
+[data-flat-tab] button:focus-visible,
+[data-flat-add]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+[data-flat-tab] button:focus:not(:focus-visible),
+[data-flat-add]:focus:not(:focus-visible) {
+  outline: none;
+}

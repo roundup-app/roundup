@@ -7,6 +7,7 @@ import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
 import { mergeProps, splitProps, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import "./styles.css";
+import "./flat-tab.styles.css";
 
 export const Dialog = {
   ...ArkDialog,
@@ -88,3 +89,10 @@ export { Select } from "./Select";
 export { createToast, ToastProvider } from "./Toast";
 
 export { Listbox } from "./Listbox";
+
+/** U2231: the attributes that give a Project tab and a Terminal tab one look (`flat-tab.styles.css`); callers pass only selection. */
+export const flat = {
+  bar: { "data-flat-bar": "" },
+  tab: (selected: boolean) => ({ "data-flat-tab": "", "data-selected": selected }),
+  add: { "data-flat-add": "" },
+};

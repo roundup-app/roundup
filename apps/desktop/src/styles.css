@@ -69,7 +69,7 @@ p {
   border-bottom: 1px solid var(--hairline);
   position: relative;
   color: var(--text);
-  background-color: var(--ground);
+  background-color: var(--sunken);
   box-sizing: border-box;
   height: var(--header-height);
   min-width: 0;

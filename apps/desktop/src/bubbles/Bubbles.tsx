@@ -1,4 +1,4 @@
-import { Editable, IconButton, Menu } from "../ui";
+import { Editable, flat, IconButton, Menu } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -668,7 +668,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   return (
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
-      <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-tabs-host")}>
+      <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); element.setAttribute("data-flat-bar", ""); }}>
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
@@ -688,7 +688,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                 renameChosen = false;
                 setTimeout(() => setEditing(id));
               }}>
-              <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} data-bubble={id}>
+              <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} {...flat.tab(!placeOf(id).min)} data-bubble={id}>
                 <Show when={editing() === id} fallback={
                   <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                     aria-label={name()} aria-describedby={`terminal-state-${id}`} title={name()} aria-pressed={!placeOf(id).min}
@@ -722,7 +722,7 @@ export const Bubbles = (props: { screens: Screens }) => {
               </Menu.Content></Menu.Positioner></Portal>
             </Menu.Root>;
           }}</For>
-          <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
+          <button type="button" data-button="add" class="terminal-new" {...flat.add} aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
       </Portal>}</Show>
       <Show when={selectionMessage()}><div class="bubble-failure" role="status">{copy.selectAWorkstreamFirst}</div></Show>

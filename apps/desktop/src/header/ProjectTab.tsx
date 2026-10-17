@@ -1,4 +1,5 @@
 import { copy } from "../copy";
+import { flat } from "../ui";
 import { createMemo, createSignal, createUniqueId, onCleanup, Show } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
@@ -121,7 +122,7 @@ export const ProjectTab = (props: {
   return (
     <div
       class="project-tab"
-      data-selected={props.selected}
+      {...flat.tab(props.selected)}
       role="presentation"
       data-path={props.tab.path}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
