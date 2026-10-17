@@ -1,7 +1,7 @@
 import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
-import { swallowNextClick } from "../ui";
+import { swallowNextClick } from "../ui/sortable";
 
 /** U156: the layout animation of a row that changed place, the one U53 gives a row below a completed one. */
 export const REORDER_MS = 150;

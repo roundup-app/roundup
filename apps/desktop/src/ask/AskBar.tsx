@@ -4,7 +4,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
-import { Mentions } from "../ui";
+import { Mentions } from "../ui/Mentions";
 import { AskRows } from "./AskRows";
 import "./styles.css";
 

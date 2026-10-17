@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
-import { IconButton } from "../ui";
+import { IconButton } from "../ui/IconButton";
 import { Tip } from "./Tip";
 import { ownKeys } from "./rows";
 

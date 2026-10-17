@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
-import { Tabs } from "./index";
+import { Tabs } from "./Tabs";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";

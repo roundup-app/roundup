@@ -4,7 +4,7 @@ import { ConnectedProjectContext, connectProject } from "../state/connectedProje
 import { createFakeApp } from "../testing/fakeApp";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { ModelsSheet } from "../models/ModelsSheet";
-import { Tabs } from "../ui";
+import { Tabs } from "../ui/Tabs";
 import { Strip } from "./Strip";
 import type { StripTab } from "./tab";
 import "../tokens.css";

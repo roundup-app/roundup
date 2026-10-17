@@ -6,7 +6,7 @@ import { createEffect, createMemo, createResource, createSignal, createUniqueId,
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
-import { Tabs } from "./ui";
+import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";

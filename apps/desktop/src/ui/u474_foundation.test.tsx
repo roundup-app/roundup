@@ -5,7 +5,10 @@ import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
 import packageJson from "../../package.json";
-import { AlertDialog, Dialog, Menu, Tooltip, IconButton } from "./index";
+import { AlertDialog, Dialog } from "./Dialog";
+import { Menu } from "./Menu";
+import { Tooltip } from "./Tooltip";
+import { IconButton } from "./IconButton";
 
 afterEach(cleanup);
 
@@ -68,7 +71,7 @@ it("u477_app_has_no_raw_icon_only_buttons", () => {
   const unowned: string[] = [];
 
   for (const file of readdirSync("src", { recursive: true }).map(String).filter(file => file.endsWith(".tsx") && !/test|Fixture/.test(file)).sort()) {
-    if (file === "ui/index.tsx") continue;
+    if (file === "ui/IconButton.tsx") continue;
 
     const source = readFileSync(`src/${file}`, "utf8");
 

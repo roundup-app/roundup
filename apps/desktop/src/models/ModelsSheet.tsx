@@ -6,7 +6,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { createChoices } from "./choices";
 import { ModelPair } from "./ModelPair";
 import "./styles.css";
-import { Dialog } from "../ui";
+import { Dialog } from "../ui/Dialog";
 import { registerKeys } from "../keys/registry";
 
 /** The `Models` sheet of the open Project (U377): one row per role the Daemon returns, and the Models a Door may start a child on. `Esc` closes it and focus returns to where it opened from. */

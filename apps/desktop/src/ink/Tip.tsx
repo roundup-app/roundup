@@ -1,6 +1,6 @@
 import { Portal } from "solid-js/web";
 import { createSignal, onCleanup, type Accessor, type JSX } from "solid-js";
-import { Tooltip } from "../ui";
+import { Tooltip } from "../ui/Tooltip";
 
 type Trigger = () => Omit<JSX.HTMLAttributes<HTMLElement>, "ref" | "children">;
 
