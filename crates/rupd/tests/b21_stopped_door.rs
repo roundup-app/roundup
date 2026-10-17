@@ -1,9 +1,11 @@
-//! B21/B22 through a real Daemon, fake claude, captured stderr and a fake clock.
+//! B21/B22 through a real Daemon, the pinned real `claude` on aimock, captured stderr and a fake clock.
+#[path = "../../rup/tests/e2e/aimock.rs"]
+#[allow(dead_code)]
+mod aimock;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
 
 use std::io::{BufRead, BufReader};
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -17,6 +19,7 @@ const BOUND: Duration = Duration::from_secs(30);
 struct Run {
     // Rust drops fields in declaration order, including when shutdown panics.
     daemon: rupd_harness::Rupd,
+    model: aimock::Model,
     dir: tempfile::TempDir,
     data: tempfile::TempDir,
     log: Arc<Mutex<String>>,
@@ -31,7 +34,8 @@ impl Run {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("clock"), "0").unwrap();
-        let (daemon, log) = launch(dir.path(), data.path());
+        let model = model();
+        let (daemon, log) = launch(dir.path(), data.path(), &model);
         let user = Client::connect(&daemon.socket).await.unwrap();
         wait(|| {
             snapshots(dir.path())
@@ -68,6 +72,7 @@ impl Run {
             .await
             .unwrap();
         let run = Self {
+            model,
             dir,
             data,
             daemon,
@@ -84,8 +89,7 @@ impl Run {
     }
 
     async fn idle(&self, id: &str) {
-        // fake_claude.py's play_prompts acknowledges the initial order with Submit then Stop:
-        // revision 4 is its Idle after Starting (1), SessionStart (2) and Submit (3).
+        // The initial order's turn ends Idle at revision 4: Starting (1), SessionStart (2), Submit (3).
         wait(|| {
             snapshots(self.dir.path()).iter().any(|v| {
                 v["nodes"].as_array().unwrap().iter().any(|n| {
@@ -214,16 +218,30 @@ impl Run {
     }
 }
 
-fn launch(project: &Path, data: &Path) -> (rupd_harness::Rupd, Arc<Mutex<String>>) {
-    let rup = PathBuf::from(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup");
-    assert!(rup.is_file(), "cargo build -p rup first");
-    let fake = project.join("fake-claude");
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../rup/tests/e2e/fake_claude.py"),
-        &fake,
+fn model() -> aimock::Model {
+    aimock::Model::start_at(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/b21_stopped_door.json"),
     )
-    .unwrap();
-    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+fn launch(
+    project: &Path,
+    data: &Path,
+    model: &aimock::Model,
+) -> (rupd_harness::Rupd, Arc<Mutex<String>>) {
+    let built = PathBuf::from(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup");
+    assert!(built.is_file(), "cargo build -p rup first");
+    // A copy the failed-start test can take away: the Launcher checks `rup` before every launch.
+    let rup = project.join("rup");
+    if !rup.exists() {
+        std::os::unix::fs::symlink(&built, &rup).unwrap();
+    }
+    let claude = project.join("claude");
+    if !claude.exists() {
+        std::os::unix::fs::symlink(aimock::package_bin("claude"), &claude).unwrap();
+    }
+    let config = project.join("config");
+    aimock::configure(&config, project, &model.url);
     let mut daemon = rupd_harness::start(
         Path::new(env!("CARGO_BIN_EXE_rupd")),
         project,
@@ -233,10 +251,8 @@ fn launch(project: &Path, data: &Path) -> (rupd_harness::Rupd, Arc<Mutex<String>
                 .env("ROUNDUP_DATA_DIR", data)
                 .env("CLAUDE_CONFIG_DIR", project.join("config"))
                 .env("ROUNDUP_RUP_BIN", rup)
-                .env("ROUNDUP_CLAUDE_BIN", &fake)
-                .env("FAKE_CLAUDE_LAUNCH_LOG", project.join("launches"))
-                .env("FAKE_CLAUDE_ON_PROMPT", "[]")
-                .env("FAKE_CLAUDE_PASTE_WHOLE", "1")
+                .env("ROUNDUP_CLAUDE_BIN", &claude)
+                .env("CLAUDE_CODE_OAUTH_TOKEN", "")
                 .env("RUPD_DIGEST_OBSERVER", project.join("comparisons"))
                 .env("RUPD_MESSAGES_CLOCK", project.join("clock"))
                 .env("RUPD_MESSAGES_OBSERVER", project.join("attempts"))
@@ -304,6 +320,7 @@ async fn b21_a_stopped_door_waits_silently_and_gets_the_newest_entry_on_start() 
         "{newest}"
     );
     assert_eq!(run.digests().await.len(), before + 1);
+    run.model.assert_matched();
 }
 
 #[tokio::test]
@@ -312,7 +329,7 @@ async fn b21_a_reopened_door_waits_until_explicit_start() {
     drop(run.daemon.stdin.take());
     run.daemon.child.wait().unwrap();
     std::fs::write(run.dir.path().join("comparisons"), "").unwrap();
-    let (daemon, log) = launch(run.dir.path(), run.data.path());
+    let (daemon, log) = launch(run.dir.path(), run.data.path(), &run.model);
     run.daemon = daemon;
     run.log = log;
     run.user = Client::connect(&run.daemon.socket).await.unwrap();
@@ -349,6 +366,7 @@ async fn b21_a_reopened_door_waits_until_explicit_start() {
     let newest = run.newest().await;
     assert!(newest["body"].as_str().unwrap().contains("review"));
     assert_eq!(run.digests().await.len(), before + 1);
+    run.model.assert_matched();
 }
 
 impl Run {
@@ -377,15 +395,14 @@ async fn b21_a_failed_start_keeps_the_entries_waiting() {
     let run = Run::start().await;
     let before = run.digests().await.len();
     run.change("first").await;
-    let fake = run.dir.path().join("fake-claude");
-    let saved = run.dir.path().join("saved-claude");
+    let fake = run.dir.path().join("rup");
+    let saved = run.dir.path().join("saved-rup");
     std::fs::rename(&fake, &saved).unwrap();
-    assert!(
-        run.user
-            .request("rail.startDoor", json!({"id":run.door}))
-            .await
-            .is_err()
-    );
+    let started = run
+        .user
+        .request("rail.startDoor", json!({"id":run.door}))
+        .await;
+    assert!(started.is_err(), "{started:?}");
     // A failed launch returns before publishing a Status; a later child change acknowledges
     // the comparison with that Door still stopped.
     run.change("second").await;
@@ -402,6 +419,7 @@ async fn b21_a_failed_start_keeps_the_entries_waiting() {
         "{newest}"
     );
     assert_eq!(run.digests().await.len(), before + 1);
+    run.model.assert_matched();
 }
 
 #[tokio::test]
@@ -464,6 +482,7 @@ async fn b21_a_removed_door_gets_no_waiting_digest() {
     .await;
     run.assert_silent().await;
     assert_eq!(run.digests().await.len(), before);
+    run.model.assert_matched();
 }
 
 #[tokio::test]
@@ -485,6 +504,7 @@ async fn b21_a_refusal_other_than_a_stopped_door_is_logged_and_retried() {
     run.change("second").await;
     run.newest().await;
     assert!(run.digests().await.len() > before);
+    run.model.assert_matched();
 }
 
 fn weight(message: &Value) -> u32 {
@@ -534,9 +554,10 @@ async fn accounted(run: &Run, after: u64, expected: u32) -> Vec<Value> {
 
 #[tokio::test]
 async fn b21_start_releases_each_changed_child_under_b22s_caps() {
-    tokio::time::timeout(BOUND, changed_children_under_caps())
+    // About 30 real Claude turns, one per delivered Digest, fit well inside this.
+    tokio::time::timeout(BOUND * 4, changed_children_under_caps())
         .await
-        .expect("B21/B22 burst completes inside BOUND");
+        .expect("B21/B22 burst completes inside four BOUNDs");
 }
 
 async fn delivered(events: &mut Client, id: u64) {
@@ -760,6 +781,7 @@ async fn changed_children_under_caps() {
             .await
             .unwrap();
     }
+    run.model.assert_matched();
 }
 
 #[path = "support/n7_data.rs"]
@@ -775,11 +797,13 @@ async fn n7_launch_sites_clean_on_success_and_failure() {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("clock"), "0").unwrap();
-        let (daemon, log) = launch(dir.path(), data.path());
+        let model = model();
+        let (daemon, log) = launch(dir.path(), data.path(), &model);
         let user = Client::connect(&daemon.socket).await.unwrap();
         let agent = Client::connect(&daemon.socket).await.unwrap();
         let mut run = Run {
             daemon,
+            model,
             dir,
             data,
             log,
