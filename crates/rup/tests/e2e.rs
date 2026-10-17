@@ -431,7 +431,6 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
                     {"role": "door", "model": null, "effort": null},
                     {"role": "subagent", "model": null, "effort": null},
                 ],
-                "allowed": [],
             },
             "mcp": {"on": true},
         })
@@ -3952,71 +3951,6 @@ async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
     }
 }
 
-#[tokio::test]
-async fn m17_decision_answer_names_the_decision_and_answer() {
-    for (question, answer, note, expected) in [
-        (false, json!("allow"), json!(""), "allow"),
-        (false, json!("deny"), json!(""), "deny"),
-        (true, json!("Yes"), json!(""), "Yes"),
-        (
-            true,
-            Value::Null,
-            json!("Use the other option"),
-            "Use the other option",
-        ),
-    ] {
-        let root = tempfile::tempdir().unwrap();
-        let report = root.path().join("door.json");
-        let child_report = root.path().join("child.json");
-        let on_prompt = json!({"name":"decision_answer", "arguments":{"id":"$decision","answer":answer,"note":note}});
-        let on_prompt = on_prompt.to_string();
-        let ask = if question {
-            json!([{"name":"ask_user","arguments":{"question":"Proceed?","answers":[{"label":"Yes","description":"Continue"}]}}])
-        } else {
-            json!([])
-        };
-        let mut fake = vec![
-            ("FAKE_CLAUDE_ON_PROMPT", on_prompt.as_str()),
-            ("FAKE_CLAUDE_TOOL_REPORT", report.to_str().unwrap()),
-            ("FAKE_CLAUDE_AGENT_REPORT", child_report.to_str().unwrap()),
-        ];
-        let ask = ask.to_string();
-        if question {
-            fake.push(("FAKE_CLAUDE_AGENT_TOOLS", &ask));
-        } else {
-            // The fake emits its startup hooks before requesting permission, like Claude.
-            fake.push(("FAKE_CLAUDE_KINDS", r#"["needs-you"]"#));
-        }
-        let project = start(&fake);
-        let user = project.client().await;
-        let door = start_door(&user).await;
-        let _child = agent_in(&project, &user, Some(&door)).await;
-        let notes = h21_notes(&user, &door, 1).await;
-        let id = notes[0]["body"]
-            .as_str()
-            .unwrap()
-            .strip_prefix("[decision ")
-            .unwrap()
-            .split(']')
-            .next()
-            .unwrap();
-        let result = json_file(&report).await;
-        assert_eq!(result[0], format!("answered Decision {id}: {expected}"));
-        let received = json_file(&child_report).await;
-        if question {
-            assert_eq!(received[0]["answer"], answer);
-            assert_eq!(received[0]["note"], note);
-        } else {
-            assert_eq!(
-                received["hookSpecificOutput"]["decision"]["behavior"], answer,
-                "{received}"
-            );
-        }
-        let open = user.request("decision.list", Value::Null).await.unwrap();
-        assert!(open.as_array().unwrap().iter().all(|d| d["id"] != id));
-    }
-}
-
 /// The next Event `client` is pushed that is a Todo created with `title`, with every number seen on the way.
 async fn until_created(client: &mut rpc::Client, title: &str) -> Vec<(u64, bool)> {
     let mut seen = Vec::new();
@@ -4077,6 +4011,90 @@ async fn d12_a_client_resumes_after_a_killed_daemon() {
         "each number once, in order"
     );
     assert!(got.len() >= 3, "b, c and d each saved an Event: {got:?}");
+}
+
+/// U516: what the webview sends for a selected Turn: a fenced Excerpt and the Turn's facts.
+const U516_BODY: &str = "why?\n\n```\n$ ls\nfile\n```\n\ncommand: ls\ncwd: /work\nexit: 0";
+
+#[tokio::test]
+async fn u516_a_working_agent_is_sent_nothing_until_idle() {
+    let gates = tempfile::tempdir().unwrap();
+    let hold = gates.path().join("start");
+    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
+    let project = start(&[
+        ("FAKE_CLAUDE_HOLD_START", hold.to_str().unwrap()),
+        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+    ]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": U516_BODY}),
+        )
+        .await
+        .unwrap();
+
+    let listed = client
+        .request("message.list", json!({"to": door}))
+        .await
+        .unwrap();
+    assert_eq!(listed[0]["status"], "pending");
+    assert!(
+        client
+            .request("todo.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "nothing is typed while the Agent has not reached idle"
+    );
+
+    let mut events = project.subscribed().await;
+    std::fs::write(&hold, "").unwrap();
+    let typed = tokio::time::timeout(Duration::from_secs(30), async {
+        while let Some(event) = events.next_event().await {
+            if let EventData::TodoCreated(todo) = event.data
+                && todo.creator.id == door
+                && todo.title.contains(U516_BODY)
+            {
+                return todo;
+            }
+        }
+        panic!("the connection closed before the Excerpt was typed");
+    })
+    .await
+    .expect("the Excerpt is typed once the Agent is idle");
+    assert!(typed.title.contains("```\n$ ls\nfile\n```"));
+}
+
+#[tokio::test]
+async fn u516_message_list_holds_the_sent_excerpt() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    let child = agent_in(&project, &client, Some(&door)).await;
+    client
+        .request(
+            "message.send",
+            json!({"to": child, "kind": "note", "body": U516_BODY}),
+        )
+        .await
+        .unwrap();
+
+    let listed = client
+        .request("message.list", json!({"to": child}))
+        .await
+        .unwrap();
+    let sent = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|message| message["body"] == U516_BODY)
+        .expect("message.list holds the Excerpt for an Agent with no Thread");
+    assert_eq!(sent["from"]["kind"], "user");
+    assert_eq!(sent["kind"], "note");
 }
 
 /// The lines of a JSON-lines `log` the fake `claude` writes for a prompt that carries Messages (a

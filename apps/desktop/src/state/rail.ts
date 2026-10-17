@@ -153,6 +153,13 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
     }
   };
 
+  /** U3703: select the Agent that owns Terminal `id` (its own, or the Bubble's owner); an unknown id or an owner with no row changes nothing. */
+  const showTerminal = (id: string): void => {
+    const owner = model.tree.find((node) => node.terminal_id === id)?.id ?? terminals().find((terminal) => terminal.id === id)?.owner;
+
+    if (owner && owner !== selected() && model.tree.some((node) => node.id === owner)) select(owner);
+  };
+
   /** Fetches run one after another, and Events that arrive meanwhile wait: the answer may predate them. */
   const fetching = (work: () => Promise<void>): void => {
     pending += 1;
@@ -183,6 +190,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
       } else if (event.name === "terminal.changed") {
         fetching(fetchTerminals);
+      } else if (event.name === "terminal.shown") {
+        showTerminal(event.data.id);
       } else if (event.name === "terminal.exited") {
         setModel("exited", event.data.id, event.data.code);
       }

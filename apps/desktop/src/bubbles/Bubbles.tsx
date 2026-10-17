@@ -1,4 +1,5 @@
 import { Editable } from "../ui/Editable";
+import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Menu } from "../ui/Menu";
 import { copy } from "../copy";
@@ -774,7 +775,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   return (
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
-      <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-tabs-host")}>
+      <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
@@ -795,7 +796,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                 renameChosen = false;
                 setTimeout(() => setEditing(id));
               }}>
-              <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} data-bubble={id}>
+              <Menu.ContextTrigger asChild={(trigger) => <FlatTab {...trigger({ class: "terminal-tab-pair" })} selected={!placeOf(id).min} data-bubble={id}>
                 <Show when={editing() === id} fallback={
                   <Tip content={name()} cut={nameCut}>
                     {(trigger) => (
@@ -827,13 +828,13 @@ export const Bubbles = (props: { screens: Screens }) => {
                   </div>
                 </Show>
                 <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-              </span>} />
+              </FlatTab>} />
               <Portal><Menu.Positioner><Menu.Content>
                 <Menu.Item value="rename">{copy.rename}</Menu.Item>
               </Menu.Content></Menu.Positioner></Portal>
             </Menu.Root>;
           }}</For>
-          <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
+          <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
         </div>
       </Portal>}</Show>
       <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>
