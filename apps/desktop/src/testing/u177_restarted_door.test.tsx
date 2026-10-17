@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -11,9 +12,8 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeEach(async () => {
-  real = await startRealDaemon({
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
-  });
+  // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u177_restarted_door.json"));
 }, 120_000);
 
 afterEach(async () => {
@@ -76,5 +76,6 @@ describe("u177 a stopped Door starts again on the real Daemon", () => {
       expect(todos.some((text) => text.includes("ship b"))).toBe(true);
     });
     expect(within(reopened).queryByRole("button", { name: /Retry supervisor/i })).toBeNull();
+    await real.model!.assertMatched();
   }, 300_000);
 });
