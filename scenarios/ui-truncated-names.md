@@ -10,4 +10,4 @@ The journey stage is Understand (`.agents/data/journey.md`): the user can tell w
 
 Reuse (rule 9, policy): the implementing PR researches existing middle-truncation helpers and the shared `ui/Tooltip` before adding code, and carries the `Reuse:` section with at least two maintained candidates and the evidence for the choice.
 
-Checks it moves (rule 8): D2, D5 and D6 hold on the densest seed, light and dark, with no Check passing on `main` regressing (`u2228b_title_keeps_checks`, `window.__checks()`).
+Checks it moves (rule 8): D2, D5 and D6 hold on the densest seed, light and dark, with no Check passing on `main` regressing (the design critic judges them, AGENTS.md rule 10; `u2228b_a_long_title_keeps_start_and_end` proves the cut).

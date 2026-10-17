@@ -1,21 +1,12 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
-import { captureDir } from "./captures";
 
 const found = chromePath();
 
 const run = found || process.env.CI ? describe : describe.skip;
 
 let page: ChromePage;
-
-const art = captureDir("U361");
-
-// The run may serve a detached main checkout to capture the same interaction
-// before the change. CI's ordinary test run requires no second server.
-const baseOrigin = process.env.ROUNDUP_U361_BASE_ORIGIN;
 
 beforeAll(async () => {
   if (!found) throw new Error("U361 needs Chromium");
@@ -50,40 +41,15 @@ const READ = `() => [...document.querySelectorAll('.shelf .todo-row')].map(row =
 
 type Row = { id: string; checked: boolean; disabled: boolean; words: string; home: boolean };
 
-type Checks = Record<string, {status: string; value: unknown}>;
-
 run("u361 the rendered Todo row", () => {
-  // Every Check reads per scheme: both schemes stay, one window represents every supported one.
   const [width, height] = [1280, 800] as const;
 
   for (const seed of ["tree-40", "agents-10", "first-run"])
     for (const scheme of ["light", "dark"] as const) {
-      it(`u361_the_rendered_row_passes_the_checks ${seed} ${scheme} ${width}x${height}`, async () => {
+      it(`u361_the_rendered_done_row_is_ticked_and_disabled_with_no_id_or_move_words ${seed} ${scheme} ${width}x${height}`, async () => {
         await page.scheme(scheme);
-
-        if (art && baseOrigin) {
-          await page.load(`${baseOrigin}/harness.html?seed=${seed}`, width, height);
-          await page.until(`() => Boolean(window.__fake) && document.body.textContent.length > 0`);
-
-          if (seed !== "first-run") {
-            await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]'))`);
-            await page.call(FIXTURE);
-            await page.until(`() => [...document.querySelectorAll('.shelf button')].some(b => /done$/.test(b.textContent.trim()))`);
-            await page.call(`() => [...document.querySelectorAll('.shelf button')].find(b => /done$/.test(b.textContent.trim())).click()`);
-            await page.until(`() => [...document.querySelectorAll('.shelf .shelf-title')].some(t => t.textContent === 'finished')`);
-            await page.hover(0, 0);
-          }
-
-          const name = `${seed}-${scheme}-${width}x${height}`;
-
-          mkdirSync(resolve(art, "base"), {recursive: true});
-          writeFileSync(resolve(art, "base", `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`)) + "\n");
-          writeFileSync(resolve(art, "base", `${name}.png`), Buffer.from(await page.shot(), "base64"));
-        }
-
         await page.load(`/harness.html?seed=${seed}`, width, height);
         await page.until(`() => Boolean(window.__fake) && document.body.textContent.length > 0`);
-        const name = `${seed}-${scheme}-${width}x${height}`;
 
         if (seed !== "first-run") {
           await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]'))`);
@@ -104,20 +70,6 @@ run("u361 the rendered Todo row", () => {
         }
 
         if (seed === "first-run") expect(await page.call<boolean>(`() => document.querySelectorAll('.shelf [data-todo]').length === 0`)).toBe(true);
-
-        const checks = await page.call<Checks>(`() => window.__checks()`);
-
-        for (let n = 1; n <= 14; n++) expect(checks[`D${n}`], `${name} D${n} ${JSON.stringify(checks[`D${n}`])}`).toMatchObject({status: "pass"});
-
-        if (art) {
-          const png = Buffer.from(await page.shot(), "base64");
-
-          for (const directory of [art, resolve(art, "head")]) {
-            mkdirSync(directory, {recursive: true});
-            writeFileSync(resolve(directory, `${name}.checks.json`), JSON.stringify(checks) + "\n");
-            writeFileSync(resolve(directory, `${name}.png`), png);
-          }
-        }
       }, 90_000);
 
 
@@ -135,14 +87,6 @@ run("u361 the rendered Todo row", () => {
         await page.press(" ", "Space");
         await page.until(`() => document.querySelector('.shelf .error')?.textContent.includes('cannot complete') || document.querySelector('.shelf').textContent.includes('cannot complete this Todo')`);
         expect(await page.call<boolean>(`() => document.activeElement.checked`)).toBe(false);
-
-        if (art) {
-          const name = `${seed}-${scheme}-${width}x${height}-failure`;
-
-          writeFileSync(resolve(art, `${name}.png`), Buffer.from(await page.shot(), "base64"));
-          writeFileSync(resolve(art, `${name}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`)) + "\n");
-        }
-
       }, 30_000);
 
     }

@@ -82,8 +82,5 @@ export const ASK_CLOSE = "Escape".split(" ");
 
 export const SWITCHER_TAKE = "Shift+Enter".split(" ");
 
-/** The keys that would have written a line into a Terminal (U532). */
-export const WRITING_KEYS = "Enter Backspace ArrowUp ArrowDown ArrowLeft ArrowRight".split(" ");
-
 /** Fields that take typing (a modal layer's own text field, U529). */
 export const TEXT_FIELDS = "input,textarea";

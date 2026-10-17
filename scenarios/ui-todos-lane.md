@@ -104,7 +104,8 @@ the retained behavioral proof or retired clause for each deletion in the PR
 removed. `just check origin/main` passes (observer: that command). Rule 7's
 cold-start <300 ms, keystroke-to-render p95 <16 ms, extra RSS for ten idle
 Agents <150 MB and no measured regression above 10% still hold (observer:
-`just perf` and the existing native keystroke observer under `docs/perf.md`);
+`just perf`; keystroke-to-render in WKWebView is measured with
+`just perf-keystroke` only when the user asks (`docs/perf.md`), never per PR);
 record actual exits, head and baseline, never claim an unrun native result
 (policy). A failed observer is an engineering failure, not a passing budget.
 

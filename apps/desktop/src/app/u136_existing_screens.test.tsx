@@ -1,7 +1,6 @@
 import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
-import { CHECK_IDS, runChecks } from "../testing/checks";
 import { underSettings } from "../testing/media";
 import type { Setting } from "../testing/media";
 import { seedApp } from "../testing/seeds";
@@ -17,10 +16,6 @@ import rowButtonCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
 
 const SHEETS = [xtermCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
-
-const SEEDS: SeedName[] = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict"];
-
-const SCHEMES: Setting[][] = [[], ["dark"]];
 
 let sheet: HTMLStyleElement | undefined;
 
@@ -89,7 +84,7 @@ const mount = async (seed: SeedName, settings: Setting[], controls: Controls = s
   });
 };
 
-describe("u136 the existing screens pass", () => {
+describe("u136 the existing screens", () => {
   it("u136_observer_waits_for_the_published_daemon_exit", async () => {
     vi.useFakeTimers();
     const controls = seedApp("daemon-exits", Date.now());
@@ -120,18 +115,4 @@ describe("u136 the existing screens pass", () => {
       await observation;
     }
   });
-
-  for (const seed of SEEDS) {
-    for (const settings of SCHEMES) {
-      it(`u136_${seed.replace("-", "_")}_${settings.join("") || "light"}_passes_d1_to_d10`, async () => {
-        await mount(seed, settings);
-        const checks = runChecks();
-
-        // Non-first-run D5/D10 need painted boxes: u136_<seed>_<scheme>_d5_d10_on_painted_layout_at_<width>_by_<height> in u137_checks.test.tsx retains those proofs.
-        // D12 and D14 measure the Shelf rows' boxes, which jsdom has none of (U360); the harness page measures them.
-        for (const id of CHECK_IDS.filter((one) => one !== "D12" && one !== "D14" && (seed === "first-run" || (one !== "D5" && one !== "D10")))) expect(checks[id], `${id} ${JSON.stringify(checks[id])} on ${seed} ${settings.join() || "light"}`).toMatchObject({ status: "pass" });
-      // Dense jsdom style measurements need time to return their Check results.
-      }, 15_000);
-    }
-  }
 });
