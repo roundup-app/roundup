@@ -51,8 +51,8 @@ run("U476 rendered font inheritance", () => {
       await pair.head.until(`() => document.querySelector('[role=menuitem]')`);
       expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('[role=menuitem]')).fontFamily`)).toBe(fonts.ui);
       await pair.head.call(`() => window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "agent.status", data: { id: "review-agent", attempt: "1", status_revision: "9", status: { kind: "needs-you", label: "Please review the result", since: Date.now() } } })`);
-      await pair.head.until(`() => document.querySelector('.toast-line')`);
-      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('.toast-line')).fontFamily`)).toBe(fonts.ui);
+      await pair.head.until(`() => document.querySelector('.app-toast-action')`);
+      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('.app-toast-action')).fontFamily`)).toBe(fonts.ui);
 
     }
   }, 120_000);

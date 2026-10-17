@@ -117,9 +117,12 @@ run("u364 on the real Daemon", () => {
     await page.resize(1600, 800);
 
     // The Rail's default is 288 px (U389) and its row also holds the badge, name and age, so the whole label needs a wider Rail: the user's Resize edge widens it by key.
-    const edge = (key: string) => page.call(`(key) => document.querySelector('[role="separator"][aria-label="Resize Rail"]').dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))`, key);
+    const edge = async (key: string) => {
+      await page.call(`() => document.querySelector('[role="separator"][aria-label="Resize Rail"]').focus()`);
+      await page.press(key, key);
+    };
 
-    await page.until(`() => { const edge = document.querySelector('[role="separator"][aria-label="Resize Rail"]'); if (Number(edge.getAttribute("aria-valuenow")) < ${WIDE}) edge.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); return Number(edge.getAttribute("aria-valuenow")) >= ${WIDE}; }`);
+    while (await page.call<number>(`() => Number(document.querySelector('[role="separator"][aria-label="Resize Rail"]').getAttribute("aria-valuenow"))`) < WIDE) await edge("ArrowRight");
 
     const wide = await READ();
 

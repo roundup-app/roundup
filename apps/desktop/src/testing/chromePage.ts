@@ -68,6 +68,8 @@ export const openPage = async (
   const startup = performance.now();
   let stage = "executable-reading";
   let ready = false;
+  // A move while the button is held carries `buttons: 1`, as a real drag does.
+  let held = false;
 
   const completed = (name: string) => {
     stage = name;
@@ -377,7 +379,9 @@ export const openPage = async (
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
     },
     pointer: async (type, x, y) => {
-      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
+      if (type !== "move") held = type === "down";
+
+      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" || (type === "move" && held) ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
     },
     click: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
@@ -394,9 +398,11 @@ export const openPage = async (
     },
     down: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
-      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1 }, session);
+      held = true;
     },
     release: async (x, y) => {
+      held = false;
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
     },
     press: async (key, code, modifiers = 0) => {
