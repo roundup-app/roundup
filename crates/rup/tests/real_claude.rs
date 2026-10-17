@@ -4203,13 +4203,15 @@ impl Fresh {
             )
             .await
             .unwrap();
-        tokio::time::timeout(Duration::from_secs(25), async {
+        let asked = tokio::time::timeout(Duration::from_secs(25), async {
             while requests_holding(self.model(), "Write the Handoff") == 0 {
                 tokio::time::sleep(Duration::from_millis(25)).await;
             }
         })
-        .await
-        .unwrap_or_else(|_| {
+        .await;
+        if asked.is_err() {
+            let tree = rail_tree(&self.client).await;
+            let messages = self.client.request("message.list", json!({})).await;
             let seen: Vec<String> = self
                 .model()
                 .journal()
@@ -4219,8 +4221,8 @@ impl Fresh {
                     format!("{} {:.160}", e["response"]["status"], last)
                 })
                 .collect();
-            panic!("DIAG never asked: {seen:#?} rows {:#?}", self.launches())
-        });
+            panic!("DIAG never asked: {seen:#?} tree {tree:#?} messages {messages:#?}")
+        }
         self.settled().await;
         let actor = self.project.client().await;
         actor
