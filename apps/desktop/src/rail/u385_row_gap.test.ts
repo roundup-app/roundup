@@ -41,7 +41,7 @@ run("u385 adjacent items in a Rail row never touch", () => {
 
   for (const [width, height] of [[1280, 800]] as const) {
     it(`u385_adjacent_children_are_at_least_space_1_apart at ${width}x${height}`, async () => {
-      await page.load("/harness.html?seed=thread-report", width, height);
+      await page.load("/harness.html?seed=door-report", width, height);
       await page.until(`() => Boolean(window.__fake) && document.querySelector(".rail-row .line") !== null`);
       await page.call(`() => document.querySelector('.rail-row[aria-expanded]').click()`);
       await page.until(`() => document.querySelector('.rail-row[aria-expanded][data-selected="true"]') !== null`);
