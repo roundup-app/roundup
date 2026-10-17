@@ -12,7 +12,7 @@ import { OpenRow } from "../../todos/Todos";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
 import { createSortedList } from "../../todos/sortedList";
-import { Sortable } from "../../ui";
+import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { Tip } from "../Tip";

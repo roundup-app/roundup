@@ -17,7 +17,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
-import { Sortable } from "../ui";
+import { Sortable } from "../ui/sortable";
 import { useShelfScope } from "./shelfScope";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";

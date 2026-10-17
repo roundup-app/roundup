@@ -1,7 +1,7 @@
 import { createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
-import type { Sortable } from "../ui";
+import type { Sortable } from "../ui/sortable";
 import type { SortedRow } from "./Todos";
 import { beforeOf, REORDER_EASING, REORDER_MS } from "./beforeOf";
 
