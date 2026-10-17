@@ -26,7 +26,7 @@ const focusPane = (): void => {
 };
 
 /** U505, U506: one row for each part of each Ask, newest first. */
-export const AskRows = (props: { onOpened: () => void }) => {
+export const AskRows = () => {
   const { asks, rail } = useConnectedProject();
 
   const parts = createMemo(() => asks.entries().flatMap((entry) => entry.parts.map((part, index) => ({ entry, part, index }))));
@@ -45,7 +45,6 @@ export const AskRows = (props: { onOpened: () => void }) => {
 
   const open = (id: string): void => {
     rail.select(id);
-    props.onOpened();
     focusPane();
   };
 

@@ -93,8 +93,6 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       from.dispatchEvent(press);
       // `⌘K` arms the leader, which would take every later probe.
       endLeader();
-      // `⌘/` opens the Ask bar, which would swallow every later probe.
-      document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
       // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
       document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
@@ -129,7 +127,7 @@ describe("u54 keyboard help", () => {
       "⌘N  New Agent", "⇧⌘N  New Agent with a prompt", "⌘T  New Terminal", "⌘K  Wait for one more key",
       "⌘K J  Jump to what needs you", "⌘K ⇧J  Jump to what needs you in another Project", "⌘K K  Switch to a row by name",
       "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items",
-      "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar",
+      "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control",
     ]);
   });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {

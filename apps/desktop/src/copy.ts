@@ -244,7 +244,6 @@ export const copy = {
   readOnlyTakeControlWith: "Read-only. ⌘⏎ takes control",
   askBarLabel: "Ask",
   askBarPlaceholder: "Ask anything. @ names a Workstream",
-  askBarShortcut: "Ask bar",
   askRows: "Asks",
   askMentions: "Workstreams",
   askPlacing: "Placing",

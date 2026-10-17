@@ -1,8 +1,6 @@
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
-import { ASK_CLOSE, chordsFor } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui";
 import { AskRows } from "./AskRows";
@@ -11,19 +9,16 @@ import "./styles.css";
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
 const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
 
-/** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
+/** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream; U2241 leaves it no key of its own. */
 export const AskBar = () => {
-  const { asks, rail, daemonExit } = useConnectedProject();
-  const [over, setOver] = createSignal(false);
+  const { asks, rail } = useConnectedProject();
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
-  let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
-  let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => over() || (rail.selected() === null && rail.nodes.length > 0);
+  const shown = () => rail.selected() === null && rail.nodes.length > 0;
 
   asks.load();
 
@@ -40,28 +35,6 @@ export const AskBar = () => {
 
     if (!list.some((item) => item.value === highlighted())) setHighlighted(list[0]?.value ?? null);
   });
-
-  const close = (restore: boolean): void => {
-    setOver(false);
-
-    if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
-  };
-
-  const open = (): void => {
-    returnTo = document.activeElement;
-    setOver(true);
-    queueMicrotask(() => field?.focus());
-  };
-
-  registerKeys({ kind: "app" }, [{
-    chords: chordsFor("⌘/"),
-    when: () => daemonExit() === null && !over(),
-    run: (press) => { if (!press.repeat) open(); },
-  }]);
-  registerKeys({ kind: "layer", element: () => panel, active: over, modal: true }, [
-    { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
-    { chords: ASK_CLOSE, run: () => close(true) },
-  ]);
 
   const send = (): void => {
     const value = text();
@@ -96,7 +69,7 @@ export const AskBar = () => {
 
   return (
     <Show when={shown()}>
-      <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
+      <section class="ask-bar" aria-label={copy.askBarLabel}>
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={(element: HTMLTextAreaElement) => { field = element; }}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
@@ -104,7 +77,7 @@ export const AskBar = () => {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-        <AskRows onOpened={() => close(false)} />
+        <AskRows />
       </section>
     </Show>
   );

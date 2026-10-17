@@ -9,7 +9,7 @@ export type HintPlace = "rail" | "agent" | "bubble";
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
 
-/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⌘K` and `⌘/` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
+/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T` and `⌘K` bind at App scope; every other `⌃`, `⌥` and `⌘` key reaches the Terminal. `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 export const CHORDS: readonly Chord[] = [
   { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
@@ -18,7 +18,6 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⇧⏎", what: copy.takeControlInTheSwitcher, presses: ["shift+Enter"], inSwitcher: true },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
-  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
@@ -76,8 +75,6 @@ export const HELP_KEYS = ["[Shift]+?"];
 export const TAKE_CONTROL = chordsFor("⌘⏎");
 
 export const SWITCHER_CLOSE = "Escape".split(" ");
-
-export const ASK_CLOSE = "Escape".split(" ");
 
 export const SWITCHER_TAKE = "Shift+Enter".split(" ");
 

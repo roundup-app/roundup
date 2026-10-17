@@ -1,7 +1,6 @@
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { Keys } from "../keys/Keys";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, workstream } from "../testing/nodes";
@@ -14,7 +13,7 @@ const TREE: RailNode[] = [
   workstream("docs", { order: 2, name: "docs" }),
 ];
 
-/** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
+/** The Ask bar of an open Project on the fake Daemon,; `asks` seeds `ask.list`. */
 export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null) => {
   const app = createFakeApp();
 
@@ -27,7 +26,6 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Keys />
       <button type="button" class="outside">outside</button>
       <div class="centre-stack"><AskBar /></div>
     </ConnectedProjectContext.Provider>

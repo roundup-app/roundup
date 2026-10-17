@@ -1,30 +1,14 @@
-/* U504: the home screen fills the centre; `⌘/` floats the same panel over it, opaque with Help's hairline (D8: no shadow). */
+/* U504: the home screen fills the centre. */
 .ask-bar {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
   padding: var(--space-4);
   background-color: var(--ground);
-}
-
-.ask-bar[data-mode="home"] {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-}
-
-.ask-bar[data-mode="over"] {
-  position: absolute;
-  top: var(--space-5);
-  left: 50%;
-  z-index: 3;
-  width: min(640px, calc(100% - var(--space-5)));
-  max-height: calc(100% - var(--space-6));
-  transform: translateX(-50%);
-  overflow-y: auto;
-  border-radius: var(--radius-row);
-  border: 1px solid var(--hairline);
 }
 
 .ask-input {

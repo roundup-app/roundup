@@ -22,22 +22,6 @@ describe("u504 the Ask bar", () => {
     await waitFor(() => expect(input()).not.toBeNull());
   });
 
-  it("u504_the_shortcut_opens_it_over_a_door_and_escape_returns", async () => {
-    await mountAskBar([], "lead");
-    const outside = document.querySelector<HTMLElement>(".outside")!;
-
-    outside.focus();
-    expect(input()).toBeNull();
-
-    expect(press("/", { metaKey: true }, outside).defaultPrevented).toBe(true);
-    await waitFor(() => expect(document.activeElement).toBe(input()));
-    expect(document.querySelector(".ask-bar")!.getAttribute("data-mode")).toBe("over");
-
-    press("Escape", {}, input()!);
-    await waitFor(() => expect(input()).toBeNull());
-    expect(document.activeElement).toBe(outside);
-  });
-
   it("u504_enter_shows_the_row_before_send_returns", async () => {
     const { app } = await mountAskBar();
     let answer!: (value: Ask) => void;
