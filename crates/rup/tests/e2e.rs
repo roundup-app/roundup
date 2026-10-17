@@ -3228,8 +3228,8 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .iter()
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
-                // M16: a Door lacks `terminal_spawn` and `terminal_open`.
-                == if id == &rail.m { 8 } else { 10 },
+                // M16: a Door lacks `terminal_spawn` and `terminal_open`; B53: it alone has `terminal_show`.
+                == if id == &rail.m { 9 } else { 10 },
             "{offered:?}"
         );
     }
