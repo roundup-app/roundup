@@ -13,9 +13,17 @@ import type { createSendSelection } from "./sendSelection";
  * U515: the control by the selection. One running Agent receives at once; several open a menu; none disable it.
  * It takes the keyboard only when the user activates it (the shortcut or the context-menu item).
  */
-export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection>; sendSelection?: undefined }) => {
+export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection>; focusTerminal: () => void }) => {
   const control = props.send;
-  const [choosing, setChoosing] = createSignal(false);
+  const [choosing, setChoosingNow] = createSignal(false);
+
+  const [highlighted, setHighlighted] = createSignal<string | null>(null);
+
+  const setChoosing = (open: boolean) => {
+    setHighlighted(open ? control.receivers()[0]?.id ?? null : null);
+    setChoosingNow(open);
+  };
+
   let input: HTMLInputElement | undefined;
 
   createEffect(on(control.focusNote, (count) => {
@@ -29,12 +37,18 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
     return at === null ? null : { x: at.x, y: at.y, width: 0, height: 0 };
   };
 
+  const close = () => {
+    control.dismiss();
+    setChoosing(false);
+    props.focusTerminal();
+  };
+
   const activate = () => {
     const [only, ...others] = control.receivers();
 
     if (only === undefined) return;
 
-    if (others.length === 0) void control.send(only);
+    if (others.length === 0) void control.send(only).then(() => { if (!control.open()) props.focusTerminal(); });
     else setChoosing(true);
   };
 
@@ -54,7 +68,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
     <Popover.Root open={control.open()} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
       <Show when={control.open()}><Portal>
         <Popover.Positioner>
-          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent}>
+          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent} onKeyDown={(press) => { if (press.key === "Escape" && !choosing()) { press.preventDefault(); close(); } }}>
             <input
               ref={input}
               class="send-to-agent-note"
@@ -72,12 +86,12 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
               }}
             />
             <Show when={control.receivers().length > 1} fallback={button({ onClick: activate })}>
-              <Menu.Root open={choosing()} onOpenChange={(change) => setChoosing(change.open)} onSelect={(chosen) => {
+              <Menu.Root open={choosing()} highlightedValue={highlighted()} onHighlightChange={(change) => setHighlighted(change.highlightedValue)} onOpenChange={(change) => setChoosing(change.open)} onSelect={(chosen) => {
                 const to = control.receivers().find((receiver) => receiver.id === chosen.value);
 
                 setChoosing(false);
 
-                if (to) void control.send(to);
+                if (to) void control.send(to).then(() => { if (!control.open()) props.focusTerminal(); });
               }}>
                 <Menu.Trigger asChild={(trigger) => button(trigger())} />
                 <Show when={choosing()}><Portal>
