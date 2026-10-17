@@ -42,7 +42,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
       type="button"
       class="toast"
       data-leaving={view.leaving}
-      aria-label={copy.toastLine(view.name, view.line)}
+      aria-label={view.name === "" ? view.line : copy.toastLine(view.name, view.line)}
       onClick={() => void props.queue.activate(view.id)}
       onPointerEnter={() => keep(view.id, "hover", true)}
       onPointerLeave={() => keep(view.id, "hover", false)}
@@ -53,7 +53,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
       }}
     >
       <KindGlyph kind={view.kind} decorative />
-      <span class="toast-name">{view.name}</span>
+      <Show when={view.name !== ""}><span class="toast-name">{view.name}</span></Show>
       <span class="toast-line">{view.line}</span>
     </button>
   );
