@@ -91,6 +91,8 @@ const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MOD
       from.dispatchEvent(press);
       // `⌘K` arms the leader, which would take every later probe.
       endLeader();
+      // `⌘/` opens the Ask bar, which would swallow every later probe.
+      document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
       return press.defaultPrevented ? [pressOf(press)] : [];
     }),
