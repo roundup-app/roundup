@@ -6,6 +6,7 @@ pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
 mod hops;
+mod inbox;
 mod pushes;
 mod restart;
 mod retirement;
@@ -30,6 +31,7 @@ use contracts::message::{
     SendParams, SetRouteParams, TakeoverChanged, TakeoverParams,
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
+pub use inbox::NoteInbox;
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
 use step::{Effect, Event, State, step};
@@ -139,6 +141,8 @@ struct Inner {
     /// B39: the Messages being typed by this Daemon run, so no second `idle` types them again
     /// while their prompt waits for its Signal. A Message in flight at a kill is not in it.
     typing: Mutex<std::collections::HashSet<u32>>,
+    /// B50: where a `note` goes instead of the Terminal; absent in tests that type every Message.
+    inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
     /// Tests: a typed prompt stands for its Signal, as the Agent's would, unless a test turns
     /// this off to play the Signal itself.
     #[cfg(test)]
@@ -209,6 +213,7 @@ impl Messages {
             pushes: tokio::sync::Mutex::default(),
             delivery: tokio::sync::RwLock::default(),
             typing: Mutex::default(),
+            inbox: std::sync::OnceLock::new(),
             #[cfg(test)]
             auto_confirm: true.into(),
         });
@@ -225,6 +230,16 @@ impl Messages {
     /// prompt, or a store that cannot answer, is `false`.
     pub fn confirm_prompt(&self, agent: &str, prompt: &str) -> bool {
         confirm(&self.inner, agent, prompt)
+    }
+
+    /// B50: send every `note` through `inbox`, never `Deliver`. Set once, before any Message.
+    pub fn set_inbox(&self, inbox: Arc<dyn NoteInbox>) {
+        let _ = self.inner.inbox.set(inbox);
+    }
+
+    /// B50(c): the transcript of `agent` records these Messages' entries, so they are `delivered`.
+    pub fn confirm_inbox(&self, agent: &str, ids: &[u32]) {
+        confirm_ids(&self.inner, agent, ids);
     }
 
     /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
@@ -538,6 +553,9 @@ impl Messages {
             return Err(RpcError::conflict(
                 "an escalated Message is answered with a reply, or dropped",
             ));
+        }
+        if message.reason == Some(Reason::Inbox) {
+            inbox::require_usable(&self.inner, &message.to).await?;
         }
         let receiver = self.resolve_receiver(&message.to).await?;
         {
@@ -1191,6 +1209,11 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
 /// batch the next `idle` would pick is typed now, though its Status revision is the current one.
 async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pick: Pick) {
     let _delivery = inner.delivery.read().await;
+    // B51(d): the check at an `idle` releases what an earlier failed one held.
+    let inbox_state = match inner.inbox.get() {
+        Some(inbox) => Some(inbox::check_and_release(inner, inbox.as_ref(), agent).await),
+        None => None,
+    };
     loop {
         let found = {
             let store = lock(&inner.store);
@@ -1222,6 +1245,18 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
                 .into_iter()
                 .filter(|m| ids.contains(&m.id))
                 .collect::<Vec<_>>()
+        };
+        // B50: a `note` goes to the inbox; the rest is typed below.
+        let found = match inbox_state {
+            Some(state) => {
+                let (notes, rest): (Vec<Message>, Vec<Message>) =
+                    found.into_iter().partition(inbox::is_note);
+                if !notes.is_empty() && !inbox::send(inner, agent, at, pick, notes, state).await {
+                    return;
+                }
+                rest
+            }
+            None => found,
         };
         if found.is_empty() {
             return;
@@ -1355,6 +1390,11 @@ fn confirm(inner: &Inner, agent: &str, prompt: &str) -> bool {
     let Some(ids) = flight_ids(prompt) else {
         return false;
     };
+    confirm_ids(inner, agent, &ids)
+}
+
+fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
+    let ids = ids.to_vec();
     let confirmed = lock(&inner.store).confirm_flight(agent, &ids);
     match confirmed {
         Ok((mut messages, repeated)) => {
@@ -1794,6 +1834,7 @@ mod tests {
             effort: None,
             work: None,
             iteration: None,
+            inbox: None,
         }
     }
 

@@ -4,6 +4,7 @@
 
 mod brief;
 mod conversation;
+pub mod inbox;
 mod launch;
 mod models;
 mod placement;

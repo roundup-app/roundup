@@ -20,6 +20,7 @@ fs-more = "0.8.1"
 sha2 = "0.10"
 terminal = { path = "../terminal" }
 tempfile.workspace = true
+time = { version = "0.3", features = ["formatting"] }
 tokio = { workspace = true, features = ["process"] }
 unicode-normalization = "0.1"
 
