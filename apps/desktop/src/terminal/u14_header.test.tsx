@@ -28,7 +28,7 @@ describe("pane empty states and error sizing", () => {
     expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
   });
 
-  it("u13_an_error_line_never_changes_the_height_of_the_slot_that_holds_it", async () => {
+  it("u13_an_error_line_shows_in_a_slot_that_reserves_no_height", async () => {
     const sheet = document.head.appendChild(document.createElement("style"));
 
     sheet.textContent = pane;
@@ -56,7 +56,7 @@ describe("pane empty states and error sizing", () => {
 
     sheet.remove();
 
-    expect([before, after]).toEqual([["24px", "0"], ["24px", "0"]]);
+    expect([before, after]).toEqual([["auto", "0"], ["auto", "0"]]);
     expect(failure.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 });
