@@ -2,8 +2,8 @@ name: fix
 run-name: "${{ format('Fix PR #{0}: {1}', inputs.pr || github.event.workflow_run.pull_requests[0].number, inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check')) }}"
 
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
-# draft its run left unfinished. A PR gets three fix runs that worked; the fourth cause closes the PR, deletes its
-# branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
+# draft its run left unfinished. A conflict only in generated files is resolved by a script with no model run. A PR gets
+# three fix runs that worked; the fourth cause closes the PR, deletes its branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
 # A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
 # does a plumbing cause (a conflict, a `rules` failure about PR shape): it gets a run with no comment, up to six per PR.
@@ -121,8 +121,18 @@ jobs:
         run: |
           bash .loop-main/loop/author.sh "builder-$GITHUB_RUN_ID"
           mv .loop-main "$RUNNER_TEMP/main"
+      # L82: a conflict only in generated files (`GENERATED` in `loop/builder.py`) is merged, regenerated and committed by a
+      # script, which `keep` below pushes; the model never starts. Any other conflict, or a failed regenerate, leaves the
+      # branch as it was and the engine runs as for any conflict.
+      - id: resolve
+        if: needs.task.outputs.cause == 'conflict'
+        run: |
+          resolved=false
+          if python3 "$RUNNER_TEMP/main/loop/builder.py" resolve-generated; then resolved=true; fi
+          echo "resolved=$resolved" >>"$GITHUB_OUTPUT"
       # L23: Claude Code on Sonnet with the Max token, Codex on the user's ChatGPT plan when it did no work.
       - id: engine
+        if: steps.resolve.outputs.resolved != 'true'
         name: Run Claude Code, then Codex
         # L23: inside the job's two hours, so `keep` runs after the longest run.
         timeout-minutes: 105
