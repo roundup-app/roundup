@@ -465,7 +465,7 @@ impl Daemon {
                 // Begin needs the write lock, so this check under the read guard is final.
                 let guard = if matches!(
                     method,
-                    "agent.interrupt" | "agent.prompt" | "agent.setOrder"
+                    "agent.interrupt" | "agent.prompt" | "agent.setOrder" | "decision.answer"
                 ) && self.sender.get().is_some_and(|m| m.takeover_active(child))
                 {
                     drop(guard);

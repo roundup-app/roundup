@@ -31,7 +31,7 @@ export const CONTRACT = {
     "checkpoint.write": "7c29e6996e1bf419",
     "daemon.identify": "2a0bf35352bb8646",
     "daemon.ping": "7aeffc4baed0ae72",
-    "decision.answer": "b7499b6c0c082a75",
+    "decision.answer": "55d009f9aed93b4e",
     "decision.answers": "62fa35a8b218f55c",
     "decision.capture": "daa8a9b947ed0149",
     "decision.list": "584a15f937c38aff",

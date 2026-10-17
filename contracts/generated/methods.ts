@@ -163,7 +163,7 @@ export type RpcMethods = {
   "decision.list": { params: null; result: decision_Decision[] };
   "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
   "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };
-  "decision.answer": { params: decision_AnswerParams; result: null };
+  "decision.answer": { params: decision_AnswerParams; result: null | agent_HeldAction };
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };

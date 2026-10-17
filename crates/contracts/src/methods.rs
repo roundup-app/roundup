@@ -157,7 +157,11 @@ pub const METHODS: &[Method] = &[
         "decision_CaptureParams",
         "decision_PromptIdentity",
     ),
-    m("decision.answer", "decision_AnswerParams", "null"),
+    m(
+        "decision.answer",
+        "decision_AnswerParams",
+        "null | agent_HeldAction",
+    ),
     m("rail.tree", "null", "agent_RailNode[]"),
     m(
         "rail.createWorkstream",
