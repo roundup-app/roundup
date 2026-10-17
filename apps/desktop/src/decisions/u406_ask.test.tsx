@@ -101,7 +101,7 @@ describe("u406 the Card for ask_user", () => {
     expect(calls(app)).toEqual([]);
     await waitFor(() => expect(note().placeholder).toBe("Note for B · Conversation, or your own answer"));
     fireEvent.input(note(), { target: { value: "ship it" } });
-    press(note(), "Enter");
+    fireEvent.submit(note().form!);
 
     await waitFor(() => expect(calls(app)).toEqual([{ id: "d1", answer: "B · Conversation", note: "ship it", proof: "proof-1" }]));
   });
@@ -114,7 +114,7 @@ describe("u406 the Card for ask_user", () => {
     await waitFor(() => expect(note().placeholder).toBe("Your own answer"));
     expect(send().getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(send());
-    press(note(), "Enter");
+    fireEvent.submit(note().form!);
     expect(calls(app)).toEqual([]);
 
     fireEvent.input(note(), { target: { value: "neither" } });
@@ -142,7 +142,7 @@ describe("u406 the Card for ask_user", () => {
     fireEvent.click(send());
     await waitFor(() => expect(calls(app)).toHaveLength(1));
     fireEvent.click(send());
-    press(note(), "Enter");
+    fireEvent.submit(note().form!);
     fireEvent.click(rows()[2]!);
 
     expect(calls(app)).toHaveLength(1);
