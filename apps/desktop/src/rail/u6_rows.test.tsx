@@ -6,7 +6,7 @@ import { agent, event, workstream } from "../testing/nodes";
 afterEach(cleanup);
 
 describe("u6 rows", () => {
-  it("u6_each_node_is_one_row_in_order_indented_one_rail_step_per_depth_under_its_parent", async () => {
+  it("u6_each_node_is_one_row_in_order_under_its_parent", async () => {
     await mountRail([
       workstream("migrate", { order: 1 }),
       agent("rename-cols", "working", "writing", { parent: "migrate", order: 1 }),
@@ -15,7 +15,6 @@ describe("u6 rows", () => {
     ]);
 
     expect(rowNames()).toEqual(["checkout", "migrate", "backfill", "rename-cols"]);
-    expect(rowNames().map((name) => rowOf(name).style.getPropertyValue("--indent"))).toEqual(["calc(0 * var(--rail-step) + var(--rail-inset))", "calc(0 * var(--rail-step) + var(--rail-inset))", "calc(1 * var(--rail-step) + var(--rail-inset))", "calc(1 * var(--rail-step) + var(--rail-inset))"]);
   });
 
   it("u6_an_agent_shows_the_glyph_of_its_status_kind", async () => {

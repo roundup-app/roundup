@@ -70,10 +70,6 @@ export function shelfBrowser() {
     await settle();
   };
 
-  const boxes = () => evaluate<number[][]>(`(() => ['.rail','.centre','.shelf','.drawer'].map(selector => {
-    const r = document.querySelector(selector).getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom, r.width];
-  }))()`);
-
   const toggle = async () => {
     await evaluate(`(() => { document.querySelector('[aria-label="Hide work items"], [aria-label="Show work items"]').click(); return true; })()`);
     await settle();
@@ -88,5 +84,5 @@ export function shelfBrowser() {
     await browser("screenshot", join(dir, side, `${step}.png`));
   };
 
-  return { rig, browser, evaluate, settle, openShelf, boxes, toggle, capture };
+  return { rig, browser, evaluate, settle, openShelf, toggle, capture };
 }

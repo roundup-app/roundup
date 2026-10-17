@@ -32,7 +32,7 @@ const snapshotOf = (el: Element): CSSStyleDeclaration => {
 export const styleIn = (el: Element, state: PointerState | "rest"): CSSStyleDeclaration => stylesIn([el], state)[0]!;
 
 /** `styleIn` for many elements at once: jsdom drops its style cache on every attribute change, so one change per state, not per element, computes each ancestor once. Elements nested in one another share the state. */
-export const stylesIn = (els: readonly Element[], state: PointerState | "rest"): CSSStyleDeclaration[] => {
+const stylesIn = (els: readonly Element[], state: PointerState | "rest"): CSSStyleDeclaration[] => {
   if (state !== "rest") for (const el of els) el.setAttribute(ATTRIBUTE[state], "");
 
   const snapshots = els.map(snapshotOf);

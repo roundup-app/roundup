@@ -23,8 +23,6 @@ Orders observer: `apps/desktop/src/orders/u471_copy_preservation.test.tsx`; `u47
 
 Bubbles observer: `apps/desktop/src/bubbles/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_bubble_controls_use_sentence_case`, `u471_previous_copy_assertions_are_preserved_bubble_status_uses_sentence_case_*` and `u471_previous_copy_assertions_are_preserved_bubble_signal_exit_uses_sentence_case` assert the controls and running, code and signal exit labels. `u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_written` asserts the exempt program title. Before U471, D15 gated the bubbles directory in this slice.
 
-Shelf observer: `apps/desktop/src/shelf/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_shelf_scope_controls_use_sentence_case`, `u471_previous_copy_assertions_are_preserved_shelf_toggle_uses_sentence_case_*` and `u471_previous_copy_assertions_are_preserved_shelf_tablist_uses_its_glossary_capital` assert `Show all Workstreams`, `Hide work items`, `Show work items`, `Work items`, `Todos` and `Pads`. Before U471, D15 gated the Shelf directory in this slice; the App-owned region label and each list’s labels belong to their own slices.
-
 Todos observer: `apps/desktop/src/todos/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_todo_` tests assert sentence case for creation, empty hints, Drawer controls, editor labels and row status, preserving authored titles and bodies. `u471_previous_copy_assertions_are_preserved_todo_drawer_omits_move_and_home` preserves U461’s absence of those Drawer actions. Before U471, D15 gated Todos-owned labels in this slice; shared Glyph and Drawer frame labels belong to their own directories.
 
 Ink observer: `apps/desktop/src/ink/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_glyph_names_use_sentence_case_for_*` and `u471_previous_copy_assertions_are_preserved_owner_marks_use_sentence_case_for_*` assert the shared marks’ spoken labels. `u471_previous_copy_assertions_are_preserved_decorative_marks_have_no_spoken_label` keeps decorative marks silent. Before U471, D15 gated Ink-owned mark labels in this slice; exit prose is composed by the Rail and App and belongs to their slices.
@@ -41,7 +39,6 @@ Models observer, retired by U377 (it deletes `apps/desktop/src/models/` and this
 
 Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now the Rail row's, and the catalogue test covers its copy.
 
-Resize edge observer: `apps/desktop/src/resize/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_resize_edge_names_use_sentence_case_and_keep_glossary_capitals` asserts the rendered separator names `Resize Rail` and `Resize work items`. Before U471, D15 gated Resize-owned labels in this slice.
 
 **U471 one catalogue separates code terms from user labels.** Given every App-authored string under `apps/desktop/src`, when the catalogue migration is complete, then:
 
