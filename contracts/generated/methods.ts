@@ -19,6 +19,8 @@ import type { SignalParams as agent_SignalParams } from "./agent/SignalParams";
 import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
 import type { StartDoorParams as agent_StartDoorParams } from "./agent/StartDoorParams";
+import type { WakeParams as agent_WakeParams } from "./agent/WakeParams";
+import type { Woken as agent_Woken } from "./agent/Woken";
 import type { WorktreeState as agent_WorktreeState } from "./agent/WorktreeState";
 import type { Ask as ask_Ask } from "./ask/Ask";
 import type { PickParams as ask_PickParams } from "./ask/PickParams";
@@ -151,6 +153,7 @@ export type RpcMethods = {
   "agent.brief": { params: agent_NodeId; result: agent_Brief };
   "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
+  "agent.wake": { params: agent_WakeParams; result: agent_Woken };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
   "agent.channelUp": { params: agent_NodeId; result: null };

@@ -103,6 +103,10 @@ pub struct World {
 }
 
 impl World {
+    pub fn nodes(&self) -> &[contracts::agent::RailNode] {
+        &self.nodes
+    }
+
     pub fn sources(&self) -> messages::digest::Sources<'_> {
         messages::digest::Sources {
             nodes: &self.nodes,

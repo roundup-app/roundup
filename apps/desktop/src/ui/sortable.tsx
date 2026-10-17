@@ -8,19 +8,52 @@ import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
 
-type RootProps = JSX.HTMLAttributes<HTMLDivElement> & {
-  ids: readonly string[];
-  onOrderChange: (ids: string[]) => void;
+/** A drop target outside the list; `element` carries `data-drop` while the pointer is over it. */
+type ExternalTarget = { element: HTMLElement };
+
+type External<T extends ExternalTarget> = {
+  /** The target under the pointer for a dragged row, else null. */
+  target: (id: string, x: number, y: number) => T | null;
+  onDropOutside: (id: string, target: T) => void;
 };
 
-const Root = (props: RootProps) => {
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "children"]);
+type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & {
+  ids: readonly string[];
+  onOrderChange: (ids: string[]) => void;
+  external?: External<T> | undefined;
+};
+
+const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "external", "children"]);
+  let over: T | null = null;
+
+  const mark = (next: T | null) => {
+    if (next?.element !== over?.element) {
+      over?.element.removeAttribute("data-drop");
+      next?.element.setAttribute("data-drop", "");
+    }
+
+    over = next;
+  };
+
   let stopRestoringFocus: (() => void) | undefined;
 
-  onCleanup(() => stopRestoringFocus?.());
+  onCleanup(() => { stopRestoringFocus?.(); mark(null); });
 
-  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragEnd={(event) => {
+  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
+    const { source, position } = event.operation;
+
+    if (!local.external || !source) return;
+    // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
+    const x = event.to?.x ?? position.current.x + (event.by?.x ?? 0);
+    const y = event.to?.y ?? position.current.y + (event.by?.y ?? 0);
+
+    mark(local.external.target(String(source.id), x, y));
+  }} onDragEnd={(event) => {
     const source = event.operation.source;
+    const outside = over;
+
+    mark(null);
 
     const handle = source?.handle;
 
@@ -38,6 +71,12 @@ const Root = (props: RootProps) => {
     }
 
     if (event.canceled) return;
+
+    if (outside && source && local.external) {
+      local.external.onDropOutside(String(source.id), outside);
+
+      return;
+    }
 
     if (!isSortable(source) || source.initialIndex === source.index) return;
     const order = [...local.ids];
