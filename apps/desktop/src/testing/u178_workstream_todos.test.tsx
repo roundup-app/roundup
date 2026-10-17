@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -11,7 +12,8 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeEach(async () => {
-  real = await startRealDaemon({ FAKE_CLAUDE_ORDER_PROMPTS: "2", FAKE_CLAUDE_ON_PROMPT_ASK: JSON.stringify({ tool_name: "Bash", tool_input: { command: "echo $prompt" } }), FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }) });
+  // E10: the Agent's Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u178_agent_todo.json"));
 }, 120_000);
 
 afterEach(async () => {
@@ -62,4 +64,5 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
   });
 
   expect(within(list).getByRole("button", { name: new RegExp(`#${todo.id} ship d`) })).toBeTruthy();
+  await real.model!.assertMatched();
 }, 240_000);
