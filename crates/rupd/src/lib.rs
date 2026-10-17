@@ -1008,7 +1008,8 @@ impl Daemon {
             .output
             .as_ref()
             .ok_or_else(|| RpcError::internal("this call cannot receive Terminal output"))?;
-        self.guard_terminal_read(&conn.actor, method, &params).await?;
+        self.guard_terminal_read(&conn.actor, method, &params)
+            .await?;
         if method == "terminal.outputStop" {
             port.release(&id);
             return rpc::reply(&());
