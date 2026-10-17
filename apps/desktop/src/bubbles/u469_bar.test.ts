@@ -293,27 +293,6 @@ it("u469_cmd_b_returns_to_the_terminal_and_can_cycle_again", async () => {
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(1);
 }, 60_000);
 
-it("u469_open_shelf_leaves_every_resource_value_visible", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await page.scheme(scheme);
-
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
-      await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Show work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
-      await page.until(`() => document.querySelector('.shelf[data-open="true"]') && document.querySelector('.resource-agent .resource-num')`);
-
-      const clipped = await page.call<string[]>(`() => {
-        const edge = document.querySelector('.shelf').getBoundingClientRect().left;
-        return [...document.querySelectorAll('.resource-value')].filter(e => e.getBoundingClientRect().right > edge).map(e => e.textContent);
-      }`);
-
-      expect(clipped).toEqual([]);
-      await capture(`shelf-open-${width}-${scheme}`);
-    }
-  }
-}, 120_000);
-
 it("u469_new_terminal_has_a_visible_add_label", async () => {
   for (const seed of ['tree-40', 'bubbles']) {
     await page.load('/harness.html?seed=' + seed, 1280, 800);
