@@ -181,3 +181,38 @@ it("u484_scroll_and_stop", async () => {
   await committed(final.join(","));
   expect(new Set(await stopped()).size).toBe(1);
 }, 90_000);
+
+it("u484_external_drop", async () => {
+  const marked = `document.querySelector('[data-target=W]').hasAttribute('data-drop')`;
+
+  const dragOut = async () => {
+    await drag("A", "C");
+    const to = await read<{ x: number; y: number }>(`(() => { const rect = document.querySelector('[data-target=W]').getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
+    await browser("mouse", "move", String(Math.round(to.x)), String(Math.round(to.y)));
+    await browser("wait", "--fn", marked);
+  };
+
+  await load();
+  await dragOut();
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `document.querySelector('[aria-label=Dropped]').textContent === 'A>W'`);
+  expect(await read<boolean>(marked)).toBe(false);
+  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+  expect(await order()).toEqual(["A", "B", "C"]);
+  await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
+
+  await load();
+  await dragOut();
+  await browser("press", "Escape");
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `document.querySelector('[data-id=A]').dataset.dragging === 'false'`);
+  expect(await read<boolean>(marked)).toBe(false);
+  expect(await read<string>(`document.querySelector('[aria-label=Dropped]').textContent`)).toBe("");
+  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
+
+  await load();
+  await drag("A", "C");
+  await browser("mouse", "up");
+  await committed("B,C,A");
+  expect(await read<string>(`document.querySelector('[aria-label=Dropped]').textContent`)).toBe("");
+}, 90_000);
