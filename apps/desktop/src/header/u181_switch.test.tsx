@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
@@ -56,7 +57,7 @@ describe("u181 clicking a tab", () => {
     expect(tab("api").getAttribute("aria-selected")).toBe("true");
   });
 
-  it("u181_no_call_goes_to_the_project_that_is_hidden_and_cmd_j_uses_the_new_one", async () => {
+  it("u181_no_call_goes_to_the_project_that_is_hidden_and_leader_j_uses_the_new_one", async () => {
     const { app } = await openTabs({ api: [agent("a1", "needs-you", "x")], web: [agent("w1", "needs-you", "x")] });
 
     fireEvent.click(tab("api"));
@@ -64,7 +65,7 @@ describe("u181 clicking a tab", () => {
 
     const hidden = app.of(path("web")).calls.length;
 
-    fireEvent.keyDown(document, { key: "j", metaKey: true });
+    leaderKey("KeyJ");
 
     await waitFor(() => expect(rowSelected("a1")).toBe("true"));
     expect(app.of(path("web")).calls.length).toBe(hidden);

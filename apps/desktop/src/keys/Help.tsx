@@ -1,6 +1,6 @@
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
-import { CHORDS, HELP_KEYS } from "./chords";
+import { HELP_KEYS, HELP_ROWS } from "./chords";
 import { placeOf } from "./places";
 import { registerKeys } from "./registry";
 import { Dialog } from "../ui/Dialog";
@@ -39,7 +39,7 @@ export const Help = () => {
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
       <Dialog.Content class="help" aria-label={copy.help} ref={(element) => (panel = element)}>
-        <For each={CHORDS}>
+        <For each={HELP_ROWS}>
           {(chord) => (
             <p class="help-line">
               <span class="help-keys">{chord.keys}</span>

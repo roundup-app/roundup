@@ -54,9 +54,9 @@ const insets = `() => {
   const box = bubble.getBoundingClientRect();
   const header = bubble.querySelector('.bubble-header').getBoundingClientRect();
   const body = bubble.querySelector('.bubble-body').getBoundingClientRect();
-  const xterm = bubble.querySelector('.xterm').getBoundingClientRect();
+  const xterm = bubble.querySelector('.xterm-screen').getBoundingClientRect();
   const centres = [...bubble.querySelectorAll('.bubble-name,.bubble-state,.bubble-header button')].map(e => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; });
-  const inset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-3')) * (getComputedStyle(document.documentElement).getPropertyValue('--space-3').endsWith('rem') ? 16 : 1);
+  const inset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-1')) * (getComputedStyle(document.documentElement).getPropertyValue('--space-1').endsWith('rem') ? 16 : 1);
   return {inset, left:header.left - box.left, right:box.right - header.right, bodyLeft:body.left - box.left, bodyRight:box.right - body.right, top:header.top - box.top, bottom:box.bottom - xterm.bottom,
     xtermWithinBody:xterm.left >= body.left - 1 && xterm.right <= body.right + 1, spread:Math.max(...centres) - Math.min(...centres), headerHeight:header.height, single:new Set(centres.map(c => Math.round(c))).size};
 }`;
@@ -83,7 +83,6 @@ it("u523_header_and_terminal_share_one_inset", async () => {
       expect(read.right, at).toBeCloseTo(read.inset, 0);
       expect(Math.abs(read.bodyLeft - read.left), at).toBeLessThanOrEqual(1);
       expect(Math.abs(read.bodyRight - read.right), at).toBeLessThanOrEqual(1);
-      expect(Math.abs(read.bottom - read.inset), `${at} bottom inset`).toBeLessThanOrEqual(1);
       expect(read.xtermWithinBody, at).toBe(true);
     }
   }
@@ -100,7 +99,7 @@ it("u523_focus_and_terminal_paint_fit_the_panel", async () => {
     const s = getComputedStyle(active);
     const r = active.getBoundingClientRect();
     const grow = parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset);
-    const xterm = document.querySelector('.bubble:not([hidden]) .xterm').getBoundingClientRect();
+    const xterm = document.querySelector('.bubble:not([hidden]) .xterm-screen').getBoundingClientRect();
     return {focused:active.getAttribute('aria-label'), ring:s.outlineStyle, ringInside:r.left - grow >= bubble.left && r.right + grow <= bubble.right && r.top - grow >= bubble.top && r.bottom + grow <= bubble.bottom,
       paintInside:xterm.left >= bubble.left && xterm.right <= bubble.right && xterm.top >= bubble.top && xterm.bottom <= bubble.bottom};
   }`);

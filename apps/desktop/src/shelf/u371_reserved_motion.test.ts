@@ -14,11 +14,13 @@ for (const overlay of [false,true]) it(`u371_drawer_reserves_width_once_${overla
   expect(Math.abs(before[1]![2]! - before[3]![0]!)).toBeLessThanOrEqual(1);
   expect(before[3]![1]).toBe(38);
   expect(before[3]![3]).toBe(800);
-  await browser("press", "Meta+Backslash");
+  await browser("press", "Meta+k");
+  await browser("press", "s");
   await settle();
   expect((await boxes()).slice(0, 2)).toEqual(before.slice(0,2));
   expect((await boxes())[3]).toEqual(before[3]);
-  await browser("press", "Meta+Backslash");
+  await browser("press", "Meta+k");
+  await browser("press", "s");
   await settle();
   expect((await boxes()).slice(0, 2)).toEqual(before.slice(0,2));
   await browser("press", "Escape");
