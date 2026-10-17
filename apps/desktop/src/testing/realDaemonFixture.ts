@@ -7,13 +7,15 @@ import { configure } from "@testing-library/dom";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { realDaemon } from "./realDaemonPlugin";
+import { claudeBin, configureClaude, startModel, takeSlot } from "./realModel";
+import type { Model } from "./realModel";
 
 const REPO = resolve(process.cwd(), "../..");
 
 export const PROOF = "0".repeat(64);
 
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
-export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; restart: () => Promise<void>; stop: () => Promise<void> };
+export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
 
 const served = async (base: string) => {
   for (let tries = 0; tries < 300; tries += 1) {
@@ -66,8 +68,8 @@ const DAEMON_WAIT_MS = 20_000;
 /** How the fixture launches the Daemon and the dev server; N5 watches both. */
 type FixtureRuntime = { spawn: (command: string, args: string[], options: SpawnOptions) => ChildProcess; createServer: typeof createServer };
 
-/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. */
-export const startRealDaemon = async (env: Record<string, string>, inBrowser = false, runtime: FixtureRuntime = { spawn, createServer }): Promise<StartedDaemon> => {
+/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. With `fixture` (E10), `rupd` starts the pinned Claude Code against aimock serving that file's turns, one of four real-Claude slots (E14) held until `stop`. */
+export const startRealDaemon = async (env: Record<string, string>, inBrowser = false, runtime: FixtureRuntime = { spawn, createServer }, fixture?: string): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
 
@@ -75,6 +77,8 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
   // N5: the Daemon's data is this fixture's own folder, outside its Project; no caller environment redirects it.
   const dataDir = await mkdtemp(join(resolve(tmpdir()), "roundup-real-data-"));
   const socket = join(dir, "rupd.sock");
+  let model: Model | undefined;
+  let release: (() => Promise<void>) | undefined;
   let daemon: ChildProcess | undefined;
   let server: ViteDevServer | undefined;
   let cacheDir: string | undefined;
@@ -84,9 +88,13 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     (stopped ??= (async () => {
       if (daemon) await ended(daemon);
       await server?.close();
+      await model?.stop();
+      await release?.();
 
       for (const folder of [cacheDir, dataDir, dir]) if (folder) await rm(folder, { recursive: true, force: true });
     })());
+
+  let launch = {};
 
   const start = async () => {
     const child = runtime.spawn(join(REPO, "target/debug/rupd"), [dir, "--attached"], {
@@ -96,6 +104,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
         CLAUDE_CONFIG_DIR: join(dir, "claude-config"),
         ROUNDUP_RUP_BIN: join(REPO, "target/debug/rup"),
         ROUNDUP_CLAUDE_BIN: join(REPO, "crates/rup/tests/e2e/fake_claude.py"),
+        ...launch,
         ...env,
         ROUNDUP_DATA_DIR: dataDir,
       },
@@ -115,6 +124,14 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
   let base: string;
 
   try {
+    if (fixture) {
+      release = await takeSlot();
+      model = await startModel(fixture);
+      await mkdir(join(dir, "home"));
+      await configureClaude(join(dir, "claude-config"), dir, model.url);
+      launch = { ROUNDUP_CLAUDE_BIN: claudeBin(), HOME: join(dir, "home"), CLAUDE_CODE_OAUTH_TOKEN: "" };
+    }
+
     await start();
 
     // Its own cache: servers sharing node_modules/.vite/deps delete one another's on start.
@@ -146,6 +163,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     dir,
     dataDir,
     base,
+    model,
     // U177: the Daemon ends and a new one serves the same Project on the same socket.
     restart: async () => {
       await ended(daemon!);

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { captureDir } from "./captures";
@@ -15,12 +15,15 @@ const execute = promisify(execFile);
 
 const ART = captureDir("U463");
 
-const observer = async (width: number, input: "keyboard" | "pointer", name: string) => {
+// E10: the Door's Claude is the pinned one, its model aimock serving these turns.
+const DOOR_REQUEST = resolve(process.cwd(), "src/testing/fixtures/u463_door_request.json");
+
+const observer = async (width: number, input: "keyboard" | "pointer", name: string, fixture?: string) => {
   const executable = chromePath();
 
   if (!executable) throw new Error("U463 needs a Chrome binary: set CHROME_PATH");
 
-  const real = await startRealDaemon({ FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }) }, true);
+  const real = await startRealDaemon({}, true, undefined, fixture);
   const profile = await mkdtemp(join(tmpdir(), "u463-browser-"));
   const config = join(profile, "agent-browser-config.json");
 
@@ -83,7 +86,7 @@ const width = 1280;
 
 for (const input of ["keyboard", "pointer"] as const) {
   it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal ${width} ${input}`, async () => {
-    const fixture = await observer(width, input, "choose");
+    const fixture = await observer(width, input, "choose", DOOR_REQUEST);
     const { real, browser, wait, observe, activate, app } = fixture;
 
     try {
@@ -120,7 +123,7 @@ for (const input of ["keyboard", "pointer"] as const) {
       expect(rendered.terminal).toBe(workstream.terminal_id);
       expect((await browser("eval", "window.__u463Calls.find(call => call.method === 'rail.startDoor').params.id")).result).toBe(workstream.id);
       expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(workstream.terminal_id);
-      // U467: the user types to the Door in its own Terminal; the fake Claude reads the line as its prompt.
+      // U467: the user types to the Door in its own Terminal; the real Claude reads the line as its prompt.
       await browser("click", ".pane-screen");
       await browser("type", ".pane-screen textarea", "u463 real request");
       await browser("press", "Enter");
@@ -128,6 +131,7 @@ for (const input of ["keyboard", "pointer"] as const) {
       await wait(`window.__u463Calls.some(call => call.method === 'todo.list' && call.outcome.result?.some(todo => todo.title === 'u463 real request'))`);
       expect((await app.rpc("message.list", { to: null, status: null })).map((message) => message.body)).not.toContain("u463 real request");
       expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("u463 real request");
+      await real.model!.assertMatched();
 
       if (ART) await writeFile(join(ART, `${width}-${input}-choose-door.rpc.json`), JSON.stringify({
         tree,
