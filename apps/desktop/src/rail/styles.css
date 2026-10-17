@@ -35,12 +35,12 @@
 /* The tree's row is a flex line with its own inset; a Rail row is the indent column and the line. */
 .rail-tree .app-tree {
   padding: 0;
+  /* The selected row is a full-bleed band: its 2 px bar and trailing edge stay square. */
+  --tree-row-radius: 0;
 }
 
 .rail-tree .app-tree .rail-row {
   display: grid;
-  /* The selected row is a full-bleed band: its 2 px bar and trailing edge stay square. */
-  border-radius: 0;
   grid-template-columns: var(--indent) minmax(0, 1fr);
   gap: 0;
   padding-left: var(--space-4);
@@ -783,10 +783,4 @@
 
 .rail-row[data-drop="hover"] {
   background: var(--hover);
-}
-
-/* The selected band is full-bleed and square (radius only on floating panels); this outranks the tree's selected radius. */
-.rail-tree .app-tree [data-part="item"].rail-row,
-.rail-tree .app-tree [data-part="branch-control"].rail-row {
-  border-radius: 0;
 }
