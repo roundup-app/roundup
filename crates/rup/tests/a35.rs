@@ -208,9 +208,8 @@ fn conversations(fx: &Fix, cwd: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Whether the conversation file holds a turn's last writes. After the reply, Claude Code writes
-/// the turn's duration and, concurrently, re-appends its session metadata, which always restates
-/// the last prompt.
+/// Whether the conversation file holds a turn's end: after the reply, Claude Code writes the turn's
+/// duration.
 fn ended(file: &Path) -> bool {
     let records: Vec<Value> = std::fs::read_to_string(file)
         .unwrap_or_default()
@@ -221,11 +220,9 @@ fn ended(file: &Path) -> bool {
         .iter()
         .rposition(|record| record["type"] == "assistant")
         .is_some_and(|reply| {
-            let after = &records[reply..];
-            after
+            records[reply..]
                 .iter()
                 .any(|record| record["type"] == "system" && record["subtype"] == "turn_duration")
-                && after.iter().any(|record| record["type"] == "last-prompt")
         })
 }
 
