@@ -40,6 +40,16 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
           app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Authored 雪 Model'}],efforts:[{id:'high',label:'High'}]});
           app.handlers['project.setModels'] = () => { throw new Error(${JSON.stringify(failure)}); };
         }
+        // tabs-8 has no Todos: its second Project gets one made by its running Agent, which is what the Shelf lists.
+        const second = window.__fake.app.of(document.querySelectorAll('.project-tab')[1].dataset.path);
+        if (!second.handlers['todo.list']().length) {
+          second.handlers['todo.create']({ title: 'Authored 雪 Todo', body: 'Body', blockers: [] });
+          const agent = (todo) => ({ ...todo, creator: { kind: 'agent', id: 'p2-agent', parent: null } });
+          const list = second.handlers['todo.list'];
+          const get = second.handlers['todo.get'];
+          second.handlers['todo.list'] = () => list().map(agent);
+          second.handlers['todo.get'] = (params) => agent(get(params));
+        }
         window.__fake.app.closeProject = async () => { throw new Error(${JSON.stringify(failure)}); };
       })()`);
 
@@ -82,8 +92,10 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       await wait(`!document.querySelector('[role=alertdialog]') && document.body.textContent.includes(${JSON.stringify(failure)})`);
       expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(e => e.textContent.includes(${JSON.stringify(failure)}) && e.checkVisibility() && e.scrollHeight <= e.clientHeight + 1)`)).toBe(true);
       await record('rejected-close');
-      await browser('eval', `document.querySelector('.project-tab [role=tab]').click()`);
-      await wait(`document.querySelector('.project-tab').dataset.selected === 'true'`);
+      // `tabs-8`'s first Project answers no Todo calls; its second is the one with a Shelf Store.
+      const drawerAt = seed === 'tabs-8' ? 1 : 0;
+      await browser('eval', `document.querySelectorAll('.project-tab [role=tab]')[${drawerAt}].click()`);
+      await wait(`document.querySelectorAll('.project-tab')[${drawerAt}].dataset.selected === 'true'`);
       await wait(`!!document.querySelector('.shelf .todo-row-button')`);
       await browser('click', '.shelf .todo-row-button');
       await wait(`document.querySelector('.drawer').dataset.open === 'true' && !!document.querySelector('.drawer .todo-detail-title')`);
