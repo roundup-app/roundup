@@ -1,4 +1,5 @@
-import { Tabs, IconButton } from "../ui";
+import { Tabs } from "../ui/Tabs";
+import { IconButton } from "../ui/IconButton";
 import { registerKeys } from "../keys/registry";
 import { chordsFor } from "../keys/chords";
 import { copy } from "../copy";

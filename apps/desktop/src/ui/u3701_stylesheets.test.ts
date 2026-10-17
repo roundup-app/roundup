@@ -37,5 +37,5 @@ it("u3701_two_components_styled_on_two_branches_merge_cleanly", () => {
 
 it("u3701_styles_css_is_gone_and_no_ui_file_imports_it", () => {
   expect(existsSync(join(import.meta.dirname, "styles.css"))).toBe(false);
-  expect(readFileSync(join(import.meta.dirname, "index.tsx"), "utf8")).not.toMatch(/"\.\/styles\.css"/);
+  expect(readFileSync(join(import.meta.dirname, "Dialog.tsx"), "utf8")).not.toMatch(/"\.\/styles\.css"/);
 });
