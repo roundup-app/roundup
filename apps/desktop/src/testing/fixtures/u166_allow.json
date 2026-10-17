@@ -1,0 +1,83 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_u166a_1"
+      },
+      "response": {
+        "content": "Done."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u166a_0"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u166a_1",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"ship a\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: [from rupd, note]"
+      },
+      "response": {
+        "content": "{\"title\":\"Status\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: [from rupd, note]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship a",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u166a_0",
+            "name": "Read",
+            "arguments": "{\"file_path\": \"/tmp/ship a\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    }
+  ]
+}

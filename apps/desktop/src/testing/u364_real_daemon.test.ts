@@ -19,19 +19,15 @@ let page: ChromePage;
 
 const ART = captureDir("U356");
 
-// U356's seed: two Workstreams of five Agents each, one `blocked` in each.
+// U356's seed (fixtures/u356_blocked.json): two Workstreams of five Agents each, one `blocked` in each.
 // The Rail's width in px at which both labels fit whole at 1600 by 800 (U364's Given).
 const WIDE = 400;
-
-const KINDS = ["blocked", "working", "idle", "working", "idle", "error", "needs-you", "blocked", "error", "needs-you"];
 
 beforeAll(async () => {
   if (!found) throw new Error("U364 needs a Chrome binary: set CHROME_PATH");
 
-  real = await startRealDaemon(
-    { FAKE_CLAUDE_KINDS: JSON.stringify(KINDS), FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }) },
-    true,
-  );
+  // E10: U356's ten Agents, each Agent's turns chosen by its id; its Claude is the pinned one, its model aimock serving that file's turns.
+  real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u356_blocked.json"));
   page = await openPage(found);
 }, 300_000);
 
@@ -154,5 +150,7 @@ run("u364 on the real Daemon", () => {
 
       await save(`blocked-${width}x${height}`);
     }
+
+    await real.model!.assertMatched(2);
   });
 });

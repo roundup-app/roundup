@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 import { rowStatusLabel } from "./rowTip";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -15,15 +13,8 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 beforeAll(async () => {
-  // The first Agent that is not a Door creates a blocker and a Todo waiting on it (A33).
-  real = await startRealDaemon({
-    FAKE_CLAUDE_AGENT_TOOLS: JSON.stringify([
-      { name: "todo_create", arguments: { title: "blocker" } },
-      { name: "todo_create", arguments: { title: "waiting", blockers: [1] } },
-    ]),
-    FAKE_CLAUDE_AGENT_REPORT: join(mkdtempSync(join(tmpdir(), "a33-")), "report.json"),
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
-  });
+  // E10: the first Agent that is not a Door hears its order and creates a blocker and a Todo waiting on it (A33); its Claude is the pinned one, its model aimock serving this file's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/a33_blocked.json"));
 }, 120_000);
 
 afterAll(async () => {
@@ -77,5 +68,6 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
     await app.rpc("todo.complete", { id: 1 });
     await waitFor(async () => expect((await agentNode())?.status?.kind).toBe("idle"), { timeout: 30_000 });
     await waitFor(() => expect(row().querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe("Idle"));
+    await real.model!.assertMatched();
   }, 240_000);
 });
