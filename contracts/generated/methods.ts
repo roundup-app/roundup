@@ -14,6 +14,7 @@ import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
+import type { SignalOutcome as agent_SignalOutcome } from "./agent/SignalOutcome";
 import type { SignalParams as agent_SignalParams } from "./agent/SignalParams";
 import type { Skills as agent_Skills } from "./agent/Skills";
 import type { SpawnParams as agent_SpawnParams } from "./agent/SpawnParams";
@@ -153,7 +154,7 @@ export type RpcMethods = {
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
   "agent.channelUp": { params: agent_NodeId; result: null };
-  "agent.signal": { params: agent_SignalParams; result: null };
+  "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
   "agent.ask": { params: decision_AskCall; result: decision_AskOutput };
   "decision.list": { params: null; result: decision_Decision[] };
