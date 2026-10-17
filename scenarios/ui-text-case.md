@@ -37,7 +37,7 @@ Rail menu observer: `apps/desktop/src/rail/menu/u471_copy_preservation.test.tsx`
 
 Digest observer: retired by U467 with the digest card; the catalogue test covers the labels of the surfaces left.
 
-Models observer: `apps/desktop/src/models/u471_copy_preservation.test.tsx`; `u471_previous_copy_assertions_are_preserved_model_controls_use_sentence_case` asserts `Model for door`, `Effort for door` and `Default`. `u471_previous_copy_assertions_are_preserved_model_choices_and_role_ids_stay_as_written` preserves role ids and Adapter-provided Model and Effort labels. Shared selectors prefix their subject with `Model for` or `Effort for`, preserving authored Agent names and role ids. Before U471, D15 gated Models-owned labels in this slice; the Rail-supplied add subject belongs to its remaining slice.
+Models observer, retired by U377 (it deletes `apps/desktop/src/models/` and this test): `u471_previous_copy_assertions_are_preserved_model_controls_use_sentence_case` asserts `Model for door`, `Effort for door` and `Default`. `u471_previous_copy_assertions_are_preserved_model_choices_and_role_ids_stay_as_written` preserves role ids and Adapter-provided Model and Effort labels. Shared selectors prefix their subject with `Model for` or `Effort for`, preserving authored Agent names and role ids. Before U471, D15 gated Models-owned labels in this slice; the Rail-supplied add subject belongs to its remaining slice.
 
 `u471_previous_copy_assertions_are_preserved_default_model_in_a_confirmation_stays_sentence_case` in the Rail menu observer asserts `Change lowercase to default?`: the option starts with `Default`, while its word inside a confirmation stays prose.
 
