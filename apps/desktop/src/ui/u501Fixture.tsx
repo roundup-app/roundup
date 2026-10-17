@@ -1,5 +1,5 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import type { Listbox } from "./index";
+import type { Listbox } from "./Listbox";
 import { Markdown } from "../plain/Markdown";
 import { copy } from "../copy";
 import "../tokens.css";

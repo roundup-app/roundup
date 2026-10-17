@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
-import { Listbox } from "./index";
+import { Listbox } from "./Listbox";
 import { u501Fixture } from "./u501Fixture";
 
 const answers = [
