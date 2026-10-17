@@ -18,8 +18,8 @@ const laidOut = (element: Element | null) => {
 };
 
 const meetsD2 = () => {
-  // the test container is outside the app's stylesheet and holds no text of its own
-  document.body.firstElementChild!.setAttribute("style", "font-size: var(--text-body)");
+  // the test container and portal roots are outside the app's stylesheet and hold no text of their own
+  for (const root of document.body.children) root.setAttribute("style", "font-size: var(--text-body)");
   const checks = runChecks();
   expect(checks.D2.status, JSON.stringify(checks.D2)).toBe("pass");
 };
@@ -112,8 +112,8 @@ describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
       expect(getComputedStyle(part).whiteSpace).not.toBe("nowrap");
     }
 
-    // the test container is outside the app's stylesheet and holds no text of its own
-    document.body.firstElementChild!.setAttribute("style", "font-size: var(--text-body)");
+    // the test container and portal roots are outside the app's stylesheet and hold no text of their own
+    for (const root of document.body.children) root.setAttribute("style", "font-size: var(--text-body)");
 
     // D5 needs painted layout: src/testing/u197_column.test.ts::q3_long_drawer_wraps_and_meets_d2_d5_on_painted_layout.
     const checks = runChecks();

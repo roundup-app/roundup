@@ -360,6 +360,8 @@ impl Daemon {
                 | "agent.stop"
                 | "agent.interrupt"
                 | "agent.prompt"
+                | "agent.setOrder"
+                | "agent.resume"
                 | "agent.actionHistory"
         ) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
@@ -448,22 +450,42 @@ impl Daemon {
         ) {
             // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
             for child in &children {
-                let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
-                    && self.held_actions.waiting(child)?
-                {
-                    let guard = self.child_effects(child).write_owned().await;
-                    // A newer begin may have won while this call waited for exclusion.
-                    if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                        self.release_actions(child).await?;
+                let guard = loop {
+                    // A Door's read of a taken-over child waits for the Takeover's end,
+                    // behind the actions released then.
+                    if is_child_read(method) {
+                        self.wait_takeover_end(child).await;
                     }
-                    guard.downgrade()
-                } else {
-                    // With no older queue, Interrupt must still reach an in-flight Steer.
-                    self.child_effects(child).read_owned().await
+                    let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
+                        && self.held_actions.waiting(child)?
+                    {
+                        let guard = self.child_effects(child).write_owned().await;
+                        // A newer begin may have won while this call waited for exclusion.
+                        if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                            self.release_actions(child).await?;
+                        }
+                        guard.downgrade()
+                    } else {
+                        // With no older queue, Interrupt must still reach an in-flight Steer.
+                        self.child_effects(child).read_owned().await
+                    };
+                    // Begin needs the write lock, so a begin since the wait shows here.
+                    if is_child_read(method)
+                        && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                    {
+                        continue;
+                    }
+                    break guard;
                 };
                 // Begin needs the write lock, so this check under the read guard is final.
-                let guard = if matches!(method, "agent.interrupt" | "agent.prompt")
-                    && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                let guard = if matches!(
+                    method,
+                    "agent.interrupt"
+                        | "agent.prompt"
+                        | "agent.setOrder"
+                        | "agent.resume"
+                        | "decision.answer"
+                ) && self.sender.get().is_some_and(|m| m.takeover_active(child))
                 {
                     drop(guard);
                     let write = self.child_effects(child).write_owned().await;
@@ -695,6 +717,17 @@ impl Daemon {
             },
             None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
             None => Actor::user(),
+        }
+    }
+
+    /// Return once no Takeover holds `child`: subscribe first, so an end cannot slip past.
+    async fn wait_takeover_end(&self, child: &str) {
+        let (mut events, _) = self.subscribe();
+        while self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+            match events.recv().await {
+                Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+            }
         }
     }
 
@@ -1366,6 +1399,8 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                     | "agent.stop"
                     | "agent.interrupt"
                     | "agent.prompt"
+                    | "agent.setOrder"
+                    | "agent.resume"
                     | "agent.actionHistory"
             )
         ) {
@@ -2089,4 +2124,12 @@ fn test_daemon_with_agents(
 ) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
     Daemon::open_stores(dir, dir, None, configure)
+}
+
+/// A Door's read of a child's Terminal, which waits out the child's Takeover.
+fn is_child_read(method: &str) -> bool {
+    matches!(
+        method,
+        "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
+    )
 }

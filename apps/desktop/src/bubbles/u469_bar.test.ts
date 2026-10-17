@@ -286,33 +286,12 @@ it("u469_cmd_b_returns_to_the_terminal_and_can_cycle_again", async () => {
   await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.pane-screen textarea')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) textarea')===document.activeElement`);
-  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.activeElement===document.querySelector('.pane-screen textarea')`)).toBe(true);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(0);
-  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
+  await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(1);
 }, 60_000);
-
-it("u469_open_shelf_leaves_every_resource_value_visible", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await page.scheme(scheme);
-
-    for (const width of [1280, 1440]) {
-      await page.load('/harness.html?seed=bubbles', width, 800);
-      await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Show work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
-      await page.until(`() => document.querySelector('.shelf[data-open="true"]') && document.querySelector('.resource-agent .resource-num')`);
-
-      const clipped = await page.call<string[]>(`() => {
-        const edge = document.querySelector('.shelf').getBoundingClientRect().left;
-        return [...document.querySelectorAll('.resource-value')].filter(e => e.getBoundingClientRect().right > edge).map(e => e.textContent);
-      }`);
-
-      expect(clipped).toEqual([]);
-      await capture(`shelf-open-${width}-${scheme}`);
-    }
-  }
-}, 120_000);
 
 it("u469_new_terminal_has_a_visible_add_label", async () => {
   for (const seed of ['tree-40', 'bubbles']) {

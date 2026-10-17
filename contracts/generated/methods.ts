@@ -155,7 +155,7 @@ export type RpcMethods = {
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.wake": { params: agent_WakeParams; result: agent_Woken };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
-  "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode };
+  "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode | agent_HeldAction };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
@@ -163,7 +163,7 @@ export type RpcMethods = {
   "decision.list": { params: null; result: decision_Decision[] };
   "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
   "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };
-  "decision.answer": { params: decision_AnswerParams; result: null };
+  "decision.answer": { params: decision_AnswerParams; result: null | agent_HeldAction };
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
@@ -192,7 +192,7 @@ export type RpcMethods = {
   "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
   "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
-  "agent.resume": { params: agent_NodeId; result: agent_RailNode };
+  "agent.resume": { params: agent_NodeId; result: agent_RailNode | agent_HeldAction };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.handoff": { params: workstream_HandoffParams; result: null };
