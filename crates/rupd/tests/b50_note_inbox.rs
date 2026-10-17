@@ -35,10 +35,20 @@ def hook(event, fields):
 hook('SessionStart', {'session_id': '00000000-0000-4000-8000-000000000050', 'source': 'resume' if '--resume' in sys.argv else 'startup', 'transcript_path': here + '/transcript.jsonl'})
 hook('Stop', {})
 print('READY', flush=True)
+line = b''
 while True:
     data = os.read(0, 1)
     if not data: break
-    print('BYTE:' + data.hex(), flush=True)
+    # The Terminal read caps at 200 lines; the bytes typed are counted from this file instead.
+    with open(here + '/typed.bin', 'ab') as typed: typed.write(data)
+    if data == b'\r':
+        # A submitted prompt is signalled as Claude Code's `UserPromptSubmit`, then its turn ends.
+        text = line.replace(b'\x1b[200~', b'').replace(b'\x1b[201~', b'').decode(errors='replace').strip()
+        line = b''
+        hook('UserPromptSubmit', {'prompt': text, 'transcript_path': here + '/transcript.jsonl'})
+        hook('Stop', {'transcript_path': here + '/transcript.jsonl'})
+    else:
+        line += data
 "#;
 
 struct Run {
@@ -159,7 +169,7 @@ impl Run {
     }
 
     async fn screen_bytes(&self) -> usize {
-        self.screen().await.matches("BYTE:").count()
+        std::fs::metadata(self.dir.path().join("typed.bin")).map_or(0, |m| m.len() as usize)
     }
 
     async fn screen(&self) -> String {
