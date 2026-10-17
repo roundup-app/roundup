@@ -8,6 +8,8 @@ export const CONTRACT = {
     "agent.context": "5afea722eb616445",
     "agent.digest": "03bc0665308ea78d",
     "agent.discard": "56f6155cde8d424e",
+    "agent.extras": "aecce751dcffa4df",
+    "agent.extras_add": "02666c2b3b7ec153",
     "agent.interrupt": "955c5fa955654c7e",
     "agent.land": "5aba65a94dd09a2a",
     "agent.permission": "4fc43162a2dd39d4",

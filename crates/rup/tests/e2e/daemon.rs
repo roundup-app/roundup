@@ -131,6 +131,8 @@ impl Project {
             parent: None,
             model: None,
             effort: None,
+            scout: None,
+            extras: None,
         };
         let node = client.request("agent.spawn", params).await.unwrap();
         serde_json::from_value(node).unwrap()
@@ -284,12 +286,13 @@ pub fn start_real(fixture: &str, env: &[(&str, &str)]) -> Project {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path().join("home");
     std::fs::create_dir(&home).unwrap();
-    aimock::configure(&dir.path().join("claude-config"), dir.path(), &model.url);
-    let claude = aimock::package_bin("claude");
+    aimock::configure(&dir.path().join("claude-config"), dir.path());
+    let claude = aimock::routed_claude(dir.path());
     let mut launch = vec![
         ("ROUNDUP_CLAUDE_BIN", claude.to_str().unwrap()),
         ("HOME", home.to_str().unwrap()),
         ("CLAUDE_CODE_OAUTH_TOKEN", ""),
+        ("AIMOCK_URL", model.url.as_str()),
     ];
     launch.extend_from_slice(env);
     let mut project = start_in(dir, tempfile::tempdir().unwrap(), &launch);
