@@ -45,14 +45,16 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => void; on
 
 
 /** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
-const ignoringControls = <T extends { onPointerMove?: unknown }>(props: T): T => {
-  // SAFETY: the row's Ark tooltip trigger props carry onPointerMove as a pointer-event handler when present.
+const ignoringControls = <T extends { onPointerMove?: unknown; onPointerLeave?: unknown }>(props: T): T => {
+  // SAFETY: the row's Ark tooltip trigger props carry these as pointer-event handlers when present.
   const move = props.onPointerMove as ((event: PointerEvent) => void) | undefined;
+  const leave = props.onPointerLeave as ((event: PointerEvent) => void) | undefined;
 
   return {
     ...props,
     onPointerMove: (event: PointerEvent) => {
       if (!(event.target instanceof Element) || !event.target.closest("button, input")) move?.(event);
+      else leave?.(event);
     },
   };
 };
@@ -247,7 +249,7 @@ export const RailRowView = (props: {
     <Show when={cut()}>
       <Portal>
         <Tooltip.Positioner>
-          <Tooltip.Content>{props.row.node.name}</Tooltip.Content>
+          <Tooltip.Content class="rail-name-tip">{props.row.node.name}</Tooltip.Content>
         </Tooltip.Positioner>
       </Portal>
     </Show>

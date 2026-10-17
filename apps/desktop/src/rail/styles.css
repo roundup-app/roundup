@@ -716,3 +716,11 @@
 .rail-row:focus-visible {
   outline-offset: calc(-1 * var(--space-1));
 }
+
+/* U2228a: the full name of a cut row wraps inside the Rail's width on an opaque panel that stands apart from the Rail. */
+.app-tooltip.rail-name-tip {
+  max-width: min(40ch, calc(100vw - 2 * var(--space-4)));
+  overflow-wrap: anywhere;
+  background-color: var(--ground);
+  box-shadow: var(--shadow-drawer);
+}
