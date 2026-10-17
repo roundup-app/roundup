@@ -260,7 +260,7 @@ fn specs(door: bool) -> Vec<Spec> {
                 fields.sort_by_key(|field| !field.positional);
             }
             if offer.method == "terminal.read" {
-                // `rup terminal read 3 --after 120`: a loop of reads names the offset, a first read starts at 0.
+                // `rup terminal read 3 --after 120`: a read without it returns what is new since your last read (X16).
                 for field in fields.iter_mut().filter(|field| field.name == "after") {
                     field.positional = false;
                     field.required = false;
@@ -797,9 +797,6 @@ fn arguments(spec: &Spec, leaf: &ArgMatches) -> Result<JsonObject, Usage> {
             (None, None) => return Err(Usage("give the text to type, or --base64 <data>".into())),
         };
         out.insert("data".into(), Value::String(data));
-    }
-    if spec.method == "terminal.read" && !leaf.contains_id("after") {
-        out.insert("after".into(), Value::from(0));
     }
     for field in &spec.fields {
         if spec.method == "terminal.write"

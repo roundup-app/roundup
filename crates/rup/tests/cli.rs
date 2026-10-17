@@ -728,7 +728,7 @@ async fn i7_read_prints_text_on_stdout_and_next_on_stderr() {
     assert_eq!(err(&output), "next: 5\ntruncated\n");
     assert_eq!(
         request_of(&mut seen, "terminal.read").await,
-        json!({"id": "3", "after": 120})
+        json!({"id": "3", "after": 120, "reader": "a1"})
     );
 }
 
