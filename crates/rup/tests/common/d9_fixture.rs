@@ -45,12 +45,12 @@ impl Fixture {
         let needle = "        hook(\"UserPromptSubmit\", {\"prompt\": prompt})";
         assert_eq!(source.matches(needle).count(), 1);
         let source = source.replace(needle, &format!("{needle}\n        if prompt.startswith('The user is clearing Workstream'):\n            with open({:?}, 'w') as receipt:\n                receipt.write('received')\n            time.sleep(60)\n            mcp_session([{{'name': 'workstream_handoff', 'arguments': {{'summary': 'D9 handoff', 'keep_todos': [], 'keep_pads': []}}}}])", receipt.to_str().unwrap()));
-        let needle = "        hook(\"Stop\")\n        log_marked(marked, ready=True)";
+        let needle = "        hook(\"Stop\")\n\n\ndef claim_kind():";
         assert_eq!(source.matches(needle).count(), 1);
         let source = source.replace(
             needle,
             &format!(
-                "{needle}\n        with open({:?}, 'w') as ready:\n            ready.write('idle')",
+                "        hook(\"Stop\")\n        with open({:?}, 'w') as ready:\n            ready.write('idle')\n\n\ndef claim_kind():",
                 ready.to_str().unwrap()
             ),
         );

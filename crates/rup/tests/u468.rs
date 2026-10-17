@@ -417,8 +417,8 @@ async fn u468_takeover_keeps_the_native_question_for_the_user() {
         .await
         .unwrap();
     let response = run.door_answer(&door, &id, "dogs").await;
-    assert_eq!(response["isError"], true, "{response}");
-    assert!(response.to_string().contains("Takeover"), "{response}");
+    assert_ne!(response["isError"], true, "{response}");
+    assert!(response.to_string().contains("takeover"), "{response}");
     assert_eq!(
         run.client.request("decision.list", ()).await.unwrap()[0]["id"],
         id

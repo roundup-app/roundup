@@ -73,7 +73,7 @@ it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_th
   const mounted = await mountBubbles(null);
 
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);
   expect(mounted.connected.rail.selected()).toBeNull();
@@ -87,7 +87,7 @@ it.each(["plus", "chord"])("u524_an_empty_project_shows_the_message_in_the_bar_a
   document.body.append(add);
 
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   const note = document.querySelector('.terminal-note');
   expect(note?.getAttribute("role")).toBe("status");
   expect(note?.textContent).toBe("Select a Workstream first");
@@ -133,7 +133,7 @@ it.each(["plus", "chord"])("u469_plus_and_cmd_t_share_one_opening_path_and_show_
   const mounted = await mountBubbles();
 
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);

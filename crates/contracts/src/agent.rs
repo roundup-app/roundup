@@ -583,6 +583,12 @@ pub enum HeldCall {
     Write(crate::terminal::WriteParams),
     #[serde(rename = "rail.rename")]
     Rename(RenameParams),
+    #[serde(rename = "agent.setOrder")]
+    SetOrder(SetOrderParams),
+    #[serde(rename = "decision.answer")]
+    Answer(crate::decision::AnswerParams),
+    #[serde(rename = "agent.resume")]
+    Resume(NodeId),
     #[serde(rename = "agent.stop")]
     Stop(NodeId),
     #[serde(rename = "agent.interrupt")]
