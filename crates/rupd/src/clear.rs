@@ -16,13 +16,22 @@ use contracts::workstream::{
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
 use serde_json::{Value, json};
-use tokio::sync::oneshot;
+use tokio::sync::{broadcast, oneshot};
 use tokio::time::Instant;
 
 use super::Daemon;
 
 /// How long the Door has to write its Handoff.
 const HANDOFF_BOUND: Duration = Duration::from_secs(120);
+
+/// What `ROUNDUP_HANDOFF_BOUND_MS` and `ROUNDUP_RESTART_BOUND_MS` hold, for tests that cannot inject a
+/// clock.
+fn bound_from_env(name: &str, default: Duration) -> Duration {
+    std::env::var(name)
+        .ok()
+        .and_then(|ms| ms.parse().ok())
+        .map_or(default, Duration::from_millis)
+}
 
 /// What the Door chose to keep.
 struct Kept {
@@ -74,6 +83,8 @@ pub(crate) struct Clears {
     /// The Daemon itself, set once it serves, so a clear can go on after its call has returned.
     pub(crate) me: OnceLock<Weak<Daemon>>,
     bound: Duration,
+    /// How long the restarted Door has to send its `SessionStart`.
+    restart_bound: Duration,
     agents: OnceLock<Arc<agents::Agents>>,
     stages: Mutex<HashMap<String, Stage>>,
 }
@@ -83,6 +94,7 @@ impl Default for Clears {
         Self {
             me: OnceLock::new(),
             bound: HANDOFF_BOUND,
+            restart_bound: agents::START_DOOR_ACK_BOUND,
             agents: OnceLock::new(),
             stages: Mutex::new(HashMap::new()),
         }
@@ -90,15 +102,13 @@ impl Default for Clears {
 }
 
 impl Clears {
-    /// `ROUNDUP_HANDOFF_BOUND_MS` replaces the bound, for tests that cannot inject a clock.
+    /// `ROUNDUP_HANDOFF_BOUND_MS` replaces the Handoff bound and `ROUNDUP_RESTART_BOUND_MS` the
+    /// restart's.
     pub(crate) fn new(agents: Arc<agents::Agents>) -> Self {
-        let bound = std::env::var("ROUNDUP_HANDOFF_BOUND_MS")
-            .ok()
-            .and_then(|ms| ms.parse().ok())
-            .map_or(HANDOFF_BOUND, Duration::from_millis);
         Self {
             me: OnceLock::new(),
-            bound,
+            bound: bound_from_env("ROUNDUP_HANDOFF_BOUND_MS", HANDOFF_BOUND),
+            restart_bound: bound_from_env("ROUNDUP_RESTART_BOUND_MS", agents::START_DOOR_ACK_BOUND),
             agents: OnceLock::from(agents),
             stages: Mutex::new(HashMap::new()),
         }
@@ -326,7 +336,7 @@ impl Daemon {
         let deadline = Instant::now() + self.clears.bound;
         let timeout =
             || RpcError::new(code::NOT_ACKED, format!("no Handoff from {} in time", p.id));
-        tokio::time::timeout_at(deadline, agents.prompt(&p.id, text))
+        tokio::time::timeout_at(deadline, self.steer_when_free(agents, &p.id, text))
             .await
             .map_err(|_| timeout())?
             .map_err(RpcError::from)?;
@@ -334,6 +344,34 @@ impl Daemon {
             Err(_) => Err(timeout().into()),
             Ok(Err(_)) => Err(RpcError::internal("the Handoff was lost").into()),
             Ok(Ok(kept)) => Ok(kept),
+        }
+    }
+
+    /// Steer `id` once it takes a Steer: a Busy refusal, which writes nothing (B6), is tried again
+    /// at `id`'s next Status, so an Agent still in a turn, its first prompt included, is Steered
+    /// when the turn ends.
+    async fn steer_when_free(
+        &self,
+        agents: &agents::Agents,
+        id: &str,
+        text: &str,
+    ) -> Result<(), agents::PromptError> {
+        let mut events = self.bus.subscribe();
+        loop {
+            let busy = match agents.prompt(id, text).await {
+                Err(busy @ agents::PromptError::Busy { .. }) => busy,
+                done => return done,
+            };
+            loop {
+                match events.recv().await {
+                    Ok(event) if matches!(&event.data, EventData::AgentStatus(s) if s.id == id) => {
+                        break;
+                    }
+                    Ok(_) => {}
+                    Err(broadcast::error::RecvError::Lagged(_)) => break,
+                    Err(broadcast::error::RecvError::Closed) => return Err(busy),
+                }
+            }
         }
     }
 
@@ -377,7 +415,13 @@ impl Daemon {
         let next = saved.iteration + 1;
         let ctx = self.ctx(Actor::user());
         agents
-            .restart_door(&ctx, id, saved.handoff.clone(), next)
+            .restart_door(
+                &ctx,
+                id,
+                saved.handoff.clone(),
+                next,
+                self.clears.restart_bound,
+            )
             .await?;
         if let Some(messages) = self.sender.get() {
             messages.end_iteration(id)?;

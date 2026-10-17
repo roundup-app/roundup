@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { cmdK, field, mountSwitcher, press, rows } from "./switcherFixture";
+import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
 
 afterEach(cleanup);
 
 const open = async (text: string, row: string) => {
-  cmdK();
+  openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());
   fireEvent.input(field()!, { target: { value: text } });
   await waitFor(() => expect(rows()[0]).toBe(row));

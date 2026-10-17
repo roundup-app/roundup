@@ -57,7 +57,7 @@ it("u2307c_a_long_title_truncates_before_it_reaches_a_dot", async () => {
 
 it("u2307c_a_hovered_dot_shows_a_glyph_that_differs_from_its_disc_and_the_disc_follows_the_ink", async () => {
   const dot = `() => { const b = document.querySelector('.bubble:not([hidden]) [aria-label="Close"]'); const d = b.querySelector('.bubble-dot'); const r = d.getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2, disc: getComputedStyle(d).backgroundColor, glyph: getComputedStyle(d, '::after').color, glyphText: getComputedStyle(d, '::after').content }; }`;
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2, disc: getComputedStyle(d).backgroundColor, glyph: getComputedStyle(d.querySelector('svg')).color }; }`;
 
   for (const scheme of ["light", "dark"] as const) {
     await showBubble(page, scheme);
@@ -65,14 +65,71 @@ it("u2307c_a_hovered_dot_shows_a_glyph_that_differs_from_its_disc_and_the_disc_f
     const rest = await page.call<{ x: number; y: number; disc: string }>(dot);
 
     await page.hover(rest.x, rest.y);
-    const hovered = await page.call<{ disc: string; glyph: string; glyphText: string }>(dot);
+    const hovered = await page.call<{ disc: string; glyph: string }>(dot);
     await page.pointer("down", rest.x, rest.y);
     const pressed = await page.call<{ disc: string }>(dot);
     await page.pointer("up", 1, 1);
 
-    expect(hovered.glyphText, scheme).toContain("×");
-    expect(hovered.glyph, `${scheme} glyph differs from disc`).not.toBe(hovered.disc);
+        expect(hovered.glyph, `${scheme} glyph differs from disc`).not.toBe(hovered.disc);
     expect(hovered.disc, `${scheme} hover moves the ink`).not.toBe(rest.disc);
     expect(pressed.disc, `${scheme} press dims it`).not.toBe(hovered.disc);
   }
 }, 120_000);
+
+it("u2307c_each_glyph_is_centred_in_its_dot_within_half_a_pixel", async () => {
+  const centres = `() => [...document.querySelectorAll('.bubble:not([hidden]) .bubble-header .bubble-dot')].map((d) => {
+    const dot = d.getBoundingClientRect();
+    const g = d.querySelector('svg path').getBoundingClientRect();
+    return { dx: g.x + g.width / 2 - (dot.x + dot.width / 2), dy: g.y + g.height / 2 - (dot.y + dot.height / 2) };
+  })`;
+
+  for (const scheme of ["light", "dark"] as const) {
+    await showBubble(page, scheme);
+    await page.hover(1, 1);
+
+    const offsets = await page.call<{ dx: number; dy: number }[]>(centres);
+
+    expect(offsets, scheme).toHaveLength(2);
+
+    for (const { dx, dy } of offsets) {
+      expect(Math.abs(dx), `${scheme} horizontal`).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(dy), `${scheme} vertical`).toBeLessThanOrEqual(0.5);
+    }
+  }
+}, 120_000);
+
+const gaps = `() => {
+  const bubble = document.querySelector('.bubble:not([hidden])').getBoundingClientRect();
+  const body = document.querySelector('.bubble:not([hidden]) .bubble-body').getBoundingClientRect();
+  const bar = document.querySelector('.bubble:not([hidden]) .bubble-header').getBoundingClientRect();
+  const screen = document.querySelector('.bubble:not([hidden]) .xterm-screen').getBoundingClientRect();
+  const measure = document.querySelector('.bubble:not([hidden]) .xterm-char-measure-element');
+  const rows = document.querySelector('.bubble:not([hidden]) .xterm-rows').children.length;
+
+  return { left: body.left - bubble.left, right: bubble.right - body.right, bottom: bubble.bottom - body.bottom, band: body.top - bar.bottom,
+    spareX: body.right - screen.right, spareY: body.bottom - screen.bottom, cellW: measure.getBoundingClientRect().width / measure.textContent.length, cellH: screen.height / rows, inset: parseFloat(getComputedStyle(document.body).getPropertyValue('--space-1')) };
+}`;
+
+type Gaps = { left: number; right: number; bottom: number; band: number; spareX: number; spareY: number; cellW: number; cellH: number; inset: number };
+
+it("u2307c_the_terminal_sits_the_small_inset_from_the_left_right_and_bottom_and_meets_the_bar_at_the_default_size_and_after_a_resize", async () => {
+  await showBubble(page);
+
+  const check = async (when: string) => {
+    // The fit runs a frame after the frame changes; wait for it to settle.
+    await page.until(`() => { const g = (${gaps})(); return g.spareX >= 0 && g.spareX < g.cellW && g.spareY >= 0 && g.spareY < g.cellH; }`);
+
+    const g = await page.call<Gaps>(gaps);
+
+    expect([g.left, g.right, g.bottom], when).toEqual([g.inset, g.inset, g.inset]);
+    expect(g.band, `${when} the bar meets the Terminal`).toBe(0);
+    expect(g.spareX, `${when} spare width is under a cell`).toBeGreaterThanOrEqual(0);
+    expect(g.spareX, `${when} spare width is under a cell`).toBeLessThan(g.cellW);
+    expect(g.spareY, `${when} spare height is under a cell`).toBeGreaterThanOrEqual(0);
+    expect(g.spareY, `${when} spare height is under a cell`).toBeLessThan(g.cellH);
+  };
+
+  await check("default");
+  await page.call(`() => { const b = document.querySelector('.bubble:not([hidden])'); b.style.width = (b.getBoundingClientRect().width - 97) + 'px'; b.style.height = (b.getBoundingClientRect().height - 61) + 'px'; }`);
+  await check("resized");
+}, 60_000);

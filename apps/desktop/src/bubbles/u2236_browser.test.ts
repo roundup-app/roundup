@@ -43,6 +43,9 @@ it("u2236_zones_show_native_cursors_draw_nothing_and_leave_the_controls_clear", 
     await page.scheme(scheme);
     await open();
 
+    // The emulator refits after the bubble shows; probe once its viewport sits inside the body.
+    await page.until(`() => { const body = document.querySelector('.bubble:not([hidden]) .bubble-body'); const view = body?.querySelector('.xterm-viewport'); if (!body || !view) return false; const b = body.getBoundingClientRect(); const v = view.getBoundingClientRect(); return v.top >= b.top - 1 && v.bottom <= b.bottom + 1; }`);
+
     const looks = await page.call<Look[]>(probe);
 
     expect(Object.fromEntries(looks.map((look) => [look.name, look.cursor]))).toEqual({ n: "ns-resize", s: "ns-resize", w: "ew-resize", e: "ew-resize", nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize" });
