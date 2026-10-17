@@ -4,8 +4,6 @@
   flex: 1 1 auto;
   box-sizing: border-box;
   height: 100%;
-  /* The boxes hang a step below the window's top edge and keep their bottoms on the rule; the + shares their centre line. */
-  padding-top: var(--space-2);
   align-items: center;
   min-width: 0;
 }
@@ -36,19 +34,15 @@
 }
 
 .project-tab {
-  --button-surface: var(--sunken);
-  background-color: var(--button-surface);
   position: relative;
   display: flex;
   flex: 0 1 auto;
   box-sizing: border-box;
   height: 100%;
-  border: var(--rule) solid var(--hairline);
   padding-inline: var(--space-1);
   align-items: center;
   /* U382’s text floor and close target stay intact when the required name inset is added. */
   min-width: calc(8ch + var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule));
-  margin-right: var(--space-1);
 }
 
 .tab-name-button {
@@ -109,6 +103,7 @@
   min-height: var(--space-5);
   padding: 0 var(--space-1);
   font: inherit;
+  line-height: inherit;
   color: var(--text);
   background: transparent;
   border: 0;
@@ -152,9 +147,8 @@
   justify-content: center;
   gap: var(--space-1);
   --button-inline: 0;
-  border: var(--rule) solid var(--hairline);
+  border: 0;
   --button-radius: 0;
-  --button-surface: var(--sunken);
   white-space: nowrap;
 }
 
@@ -187,12 +181,12 @@
 
 /* U449: symmetric title allocation keeps its midpoint on the whole window. */
 .window-bar {
-  /* D8: the one border width, named once for the tab boxes, the edges and the row that overlaps the header rule. */
+  /* D8: the one border width, named once for the tab boxes and the edges; the bar's own rule sits at its bottom edge (flat-tab.styles.css). */
   --rule: 1px;
   display: grid;
   grid-template-columns: calc(var(--space-5) * 4) minmax(0, 1fr) fit-content(calc((100% - var(--space-5) * 8) / 3)) minmax(0, 1fr) calc(var(--space-5) * 4);
   align-items: center;
-  height: calc(100% + var(--rule));
+  height: 100%;
   padding-inline: var(--space-2);
   box-sizing: border-box;
   user-select: none;
@@ -204,29 +198,9 @@
   grid-column: 3;
   min-width: 0;
   padding-inline: var(--space-4);
-  /* The tabs hang a step below the window top (.strip): the title keeps their centre line. */
-  margin-top: var(--space-2);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: clip;
   text-align: center;
   color: var(--text);
-}
-
-.project-tab:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-
-.project-tab[data-selected="true"] {
-  --button-surface: var(--selected);
-}
-
-.project-tab[data-selected="true"]:hover {
-  background-color: var(--selected-hover);
-  background-image: none;
-}
-
-.project-tab[data-selected="true"] .tab-name-button {
-  --button-surface: transparent;
-  --button-hover: var(--selected-hover);
 }

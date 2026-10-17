@@ -24,7 +24,9 @@ describe("u164 surfaces and contrast", () => {
 
     expect(contrastRatio(text, ground)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(grey, ground)).toBeGreaterThanOrEqual(4.5);
-    expect(bubbleCss).toMatch(/\.terminal-tab\s*\{[^}]*--button-surface:\s*var\(--ground\)/);
+    // U2232: an inactive tab's grey label sits on the bar's --sunken ground; the selected label on --ground.
+    expect(contrastRatio(grey, tokens.get("sunken")!)).toBeGreaterThanOrEqual(4.5);
+    expect(bubbleCss).not.toMatch(/\.terminal-tab\s*\{[^}]*--button-surface/);
   });
 
   it("u164_the_bubble_layer_floats_over_the_stack", async () => {

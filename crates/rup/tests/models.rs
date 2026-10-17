@@ -123,12 +123,9 @@ impl Run {
     }
 }
 
-async fn set_models(client: &Client, roles: Value, allowed: Value) -> Result<Value, rpc::RpcError> {
+async fn set_models(client: &Client, roles: Value) -> Result<Value, rpc::RpcError> {
     client
-        .request(
-            "project.setModels",
-            json!({ "roles": roles, "allowed": allowed }),
-        )
+        .request("project.setModels", json!({ "roles": roles }))
         .await
 }
 
@@ -189,12 +186,10 @@ async fn a36_set_models_round_trips_and_survives_a_restart() {
         role("subagent", Some("haiku"), None),
     ]);
     assert_eq!(
-        set_models(&client, roles.clone(), json!(["haiku", "sonnet"]))
-            .await
-            .unwrap(),
+        set_models(&client, roles.clone()).await.unwrap(),
         Value::Null
     );
-    let expected = json!({ "roles": roles, "allowed": ["haiku", "sonnet"] });
+    let expected = json!({ "roles": roles });
     assert_eq!(project_models(&client).await, expected);
 
     run.project
@@ -223,35 +218,24 @@ async fn a36_every_listed_role_is_in_project_get() {
             (&Value::Null, &Value::Null)
         );
     }
-    assert_eq!(models["allowed"], json!([]));
+    assert!(models.get("allowed").is_none());
 }
 
 #[tokio::test]
 async fn a36_an_unlisted_id_is_invalid_params_and_changes_nothing() {
     let run = run();
     let client = run.project.client().await;
-    set_models(
-        &client,
-        json!([role("door", Some("opus"), None)]),
-        json!([]),
-    )
-    .await
-    .unwrap();
+    set_models(&client, json!([role("door", Some("opus"), None)]))
+        .await
+        .unwrap();
     let before = project_models(&client).await;
 
-    for (roles, allowed) in [
-        (
-            json!([role("door", Some("no-such-model"), None)]),
-            json!([]),
-        ),
-        (
-            json!([role("door", None, Some("no-such-effort"))]),
-            json!([]),
-        ),
-        (json!([role("door", None, None)]), json!(["no-such-model"])),
-        (json!([role("no-such-role", None, None)]), json!([])),
+    for roles in [
+        json!([role("door", Some("no-such-model"), None)]),
+        json!([role("door", None, Some("no-such-effort"))]),
+        json!([role("no-such-role", None, None)]),
     ] {
-        let refused = set_models(&client, roles, allowed).await.unwrap_err();
+        let refused = set_models(&client, roles).await.unwrap_err();
         assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
         assert!(refused.message.contains("no-such"), "{}", refused.message);
     }
@@ -279,7 +263,6 @@ async fn a36_each_role_runs_on_its_project_pair() {
             role("door", Some("opus"), Some("high")),
             role("subagent", Some("haiku"), Some("low")),
         ]),
-        json!([]),
     )
     .await
     .unwrap();
@@ -332,7 +315,6 @@ async fn a36_a_calls_pair_beats_the_projects() {
     set_models(
         &client,
         json!([role("subagent", Some("haiku"), Some("low"))]),
-        json!([]),
     )
     .await
     .unwrap();
@@ -400,14 +382,11 @@ async fn a36_a_door_start_carries_its_own_pair() {
     assert_eq!(door.model.as_deref(), Some("opus"));
 }
 
-/// M12's rule, enforced by the Daemon: an Agent's own call is limited to the allowed Models.
+/// M12's rule, enforced by the Daemon: an Agent's call takes any listed Model and no Effort.
 #[tokio::test]
-async fn a36_an_agents_spawn_is_limited_to_the_allowed_models() {
+async fn a36_an_agents_spawn_takes_any_listed_model_and_no_effort() {
     let run = run();
     let user = run.project.client().await;
-    set_models(&user, json!([]), json!(["haiku"]))
-        .await
-        .unwrap();
     let parent = run.spawn(&user, json!({})).await;
     let agent = {
         let client = run.project.client().await;
@@ -423,16 +402,6 @@ async fn a36_an_agents_spawn_is_limited_to_the_allowed_models() {
         client
     };
 
-    let refused = agent
-        .request("agent.spawn", json!({ "cwd": run.cwd(), "model": "opus" }))
-        .await
-        .unwrap_err();
-    assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
-    assert!(
-        refused.message.contains("haiku (Haiku)"),
-        "{}",
-        refused.message
-    );
     let effort = agent
         .request("agent.spawn", json!({ "cwd": run.cwd(), "effort": "low" }))
         .await
@@ -574,13 +543,9 @@ async fn a37_a_confirmed_change_makes_one_launch_with_resume_and_the_new_model()
 async fn a37_the_agent_keeps_its_identity_and_the_project_keeps_its_setting() {
     let run = run();
     let client = run.project.client().await;
-    set_models(
-        &client,
-        json!([role("subagent", Some("sonnet"), None)]),
-        json!([]),
-    )
-    .await
-    .unwrap();
+    set_models(&client, json!([role("subagent", Some("sonnet"), None)]))
+        .await
+        .unwrap();
     let parent = run.spawn(&client, json!({ "name": "boss" })).await;
     let before = run.idle(&client, &parent.id).await;
 
@@ -678,7 +643,6 @@ async fn a37_project_set_models_does_not_touch_a_running_agent() {
     set_models(
         &client,
         json!([role("subagent", Some("opus"), Some("max"))]),
-        json!(["haiku"]),
     )
     .await
     .unwrap();
@@ -738,7 +702,7 @@ async fn a37_no_slash_command_is_ever_typed() {
 async fn p14_scribe_role_is_gone() {
     let mut run = run();
     let client = run.project.client().await;
-    let refused = set_models(&client, json!([role("scribe", None, None)]), json!([]))
+    let refused = set_models(&client, json!([role("scribe", None, None)]))
         .await
         .unwrap_err();
     assert_eq!(refused.code, rpc::code::INVALID_PARAMS);

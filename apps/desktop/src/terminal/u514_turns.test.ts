@@ -31,9 +31,9 @@ it("u514_a_turn_spans_its_prompt_command_and_output", async () => {
 
   await write(turn("ls", ["a", "b"]) + turn("false", ["no"], 1, "/other") + OSC("133;A") + "$ " + OSC("133;B") + "sleep 9\r\n" + OSC("133;C"));
   expect(emulator.turns()).toEqual([
-    { first: 0, last: 2, exit: 0, cwd: "/work" },
-    { first: 3, last: 4, exit: 1, cwd: "/other" },
-    { first: 5, last: 5, exit: null, cwd: "/other" },
+    { first: 0, last: 2, exit: 0, cwd: "/work", command: "ls" },
+    { first: 3, last: 4, exit: 1, cwd: "/other", command: "false" },
+    { first: 5, last: 5, exit: null, cwd: "/other", command: "sleep 9" },
   ]);
   emulator.selectTurn(0, false);
   expect(emulator.selection()).toBe("$ ls\na\nb");
@@ -93,3 +93,14 @@ it("u514_shift_click_extends_over_the_turns_between", async () => {
   emulator.dispose();
 });
 
+
+it("u516_a_selected_turn_gives_its_command_directory_and_exit", async () => {
+  const { emulator, write } = open();
+
+  await write(turn("ls", ["a"]) + turn("false", ["no"], 1, "/other") + OSC("133;A") + "$ " + OSC("133;B") + "sleep 9\r\n" + OSC("133;C"));
+  emulator.selectTurn(1, false);
+  expect(emulator.selectionFacts()).toEqual({ command: "false", cwd: "/other", exit: 1 });
+  emulator.selectTurn(2, false);
+  expect(emulator.selectionFacts()).toEqual({ command: "sleep 9", cwd: "/other", exit: "running" });
+  emulator.dispose();
+});

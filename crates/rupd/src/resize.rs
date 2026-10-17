@@ -312,7 +312,7 @@ impl Daemon {
         };
         if terminal_call(&call) {
             // The Terminal's owner is the child, checked again at release.
-            self.guard_terminal_read(&conn.actor, &action_params(&call)?)
+            self.guard_terminal_read(&conn.actor, "terminal.write", &action_params(&call)?)
                 .await?;
         } else {
             self.agents
@@ -407,7 +407,9 @@ impl Daemon {
             } else {
                 let effect = async {
                     if terminal_call(&action.call) {
-                        let owner = self.guard_terminal_read(&accepted.actor, &params).await?;
+                        let owner = self
+                            .guard_terminal_read(&accepted.actor, "terminal.write", &params)
+                            .await?;
                         if owner.as_deref() != Some(child) {
                             return Err(RpcError::conflict("original Terminal owner changed"));
                         }

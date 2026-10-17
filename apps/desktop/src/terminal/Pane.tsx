@@ -1,3 +1,4 @@
+import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
@@ -11,6 +12,10 @@ import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { TAKE_CONTROL, WRITING_KEYS } from "../keys/chords";
+import { Menu } from "../ui/Menu";
+import type { ToastQueue } from "../toasts/queue";
+import { createSendSelection } from "./sendSelection";
+import { SendToAgent } from "./SendToAgent";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -23,7 +28,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void }) => {
+export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; toasts?: ToastQueue }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -79,6 +84,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
+  /** U515, U516: the selection of this Terminal, sent to a running Agent. */
+  const [contextOpen, setContextOpen] = createSignal(false);
+  const sending = createSendSelection(connected, screens, terminalId, props.toasts);
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
@@ -172,6 +180,15 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (id === null) return;
 
     const key = press.key.toLowerCase();
+
+    // U515: `⇧⌘A` opens the control by the selection with the keyboard in its note.
+    if (press.shiftKey && key === "a") {
+      press.preventDefault();
+      press.stopPropagation();
+      sending.openNote();
+
+      return;
+    }
 
     const grows = key === "=" || key === "+";
 
@@ -359,9 +376,13 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     onCleanup(() => watched?.disconnect());
   };
 
+  const pointerUp = () => sending.pointer(false);
+
   window.addEventListener("resize", onWindowResize);
+  window.addEventListener("mouseup", pointerUp);
   onCleanup(() => {
     window.removeEventListener("resize", onWindowResize);
+    window.removeEventListener("mouseup", pointerUp);
 
     if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
 
@@ -419,7 +440,27 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           watch(element);
         }}
       >
-        <div class="pane-screen" ref={setScreen} />
+        <Menu.Root onOpenChange={(change) => setContextOpen(change.open)} onSelect={(chosen) => {
+          const id = terminalId();
+
+          if (id === null) return;
+
+          if (chosen.value === "copy") void screens.copy(id, navigator.clipboard);
+          else if (chosen.value === "paste") void screens.paste(id, navigator.clipboard);
+          else sending.openNote();
+        }}>
+          <Menu.ContextTrigger asChild={(trigger) => <div {...trigger({ class: "pane-screen", ref: setScreen, onMouseDown: () => sending.pointer(true) })} />} />
+          <Show when={contextOpen()}><Portal>
+            <Menu.Positioner>
+              <Menu.Content aria-label={copy.terminalMenu}>
+                <Show when={sending.selected()}><Menu.Item value="copy">{copy.copy}</Menu.Item></Show>
+                <Menu.Item value="paste">{copy.paste}</Menu.Item>
+                <Show when={sending.selected()}><Menu.Item value="send">{copy.sendToAgent}</Menu.Item></Show>
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal></Show>
+        </Menu.Root>
+        <SendToAgent send={sending} focusTerminal={focusTerminal} />
         <Show when={selected() === null && notice() === null}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">
