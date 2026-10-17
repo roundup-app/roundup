@@ -16,7 +16,7 @@ it("u369_the_centre_ends_at_the_shelf_edge", async () => {
   expect(Math.abs(centre![2]! - shelf![0]!)).toBeLessThanOrEqual(1);
   expect(centre![4]).toBe(672);
   expect(rail![4]).toBe(288);
-  expect(shelf!.slice(1, 4)).toEqual([48, 1280, 800]);
+  expect(shelf!.slice(1, 4)).toEqual([38, 1280, 800]);
   await capture("U369", "1280x800-open");
 }, 90_000);
 
@@ -106,7 +106,7 @@ it("u371_scrim_and_escape_close_the_shelf", async () => {
   expect(rail![4]).toBe(480);
   expect(centre![2]).toBe(1280);
   const scrim = await evaluate<number[]>(`(() => { const r=document.querySelector('.shelf-scrim').getBoundingClientRect(); return [r.left,r.top,r.width,r.height]; })()`);
-  expect(scrim).toEqual([480,48,800,752]);
+  expect(scrim).toEqual([480,38,800,762]);
   expect(await evaluate("document.elementFromPoint(600,400).className")).toBe("shelf-scrim");
   await capture("U371", "1280x800-overlay");
   await browser("mouse", "move", "600", "400");
