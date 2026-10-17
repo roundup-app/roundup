@@ -599,7 +599,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target } = event;
 
-    if (!(target instanceof Element) || target.closest("[data-bubble], .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
 
     for (const { id } of shown()) if (!placeOf(id).min) setPlace(id, { ...placeOf(id), min: true });
   };
@@ -789,8 +789,8 @@ export const Bubbles = (props: { screens: Screens }) => {
                   if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
                 }}>
                 <span class="bubble-controls">
-                  <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}><span class="bubble-dot" data-glyph="×" /></IconButton>
-                  <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot" data-glyph="−" /></IconButton>
+                  <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
+                  <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
                 </span>
                 <span class="bubble-name">{nameFor(terminal()!)}</span>
                 <span class="bubble-state" role="img" aria-label={stateText(terminal()!)} data-running={running(terminal()!)} />
