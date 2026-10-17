@@ -319,6 +319,7 @@ async fn a35_write_records_a_mark_per_agent() {
 async fn a35_marks_survive_a_restart() {
     let mut fx = fixture().await;
     write(&fx).await;
+    fx.project.model.as_ref().unwrap().assert_matched();
     let saved = store(&fx).marks(&fx.ws, 1, 1).unwrap();
     for mark in &saved.agents {
         std::fs::write(Path::new(&mark.worktree).join("README"), "later files").unwrap();
@@ -330,7 +331,6 @@ async fn a35_marks_survive_a_restart() {
     for mark in &saved.agents {
         assert_eq!(regular(mark, b"README"), b"keep");
     }
-    fx.project.model.as_ref().unwrap().assert_matched();
 }
 
 #[tokio::test]
