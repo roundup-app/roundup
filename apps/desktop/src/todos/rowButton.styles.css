@@ -194,31 +194,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* U490a: Up and Down are in the Tab order but unseen until focus is inside the row; then they overlay the row's end on a short fade from the Shelf's own ground, so a long title runs under them. Nothing is reserved at rest and nothing rewraps (U112, U361). A control that cannot step reads dimmed. */
-.shelf-row.todo-inset {
-  position: relative;
-}
-
-.shelf-row.todo-inset .shelf-move {
-  position: absolute;
-  top: var(--space-1);
-  right: var(--space-2);
-  display: flex;
-  gap: var(--space-1);
-  padding-inline-start: var(--space-4);
-  background-image: linear-gradient(to right, transparent, var(--sunken) var(--space-4));
-  opacity: 0;
-  pointer-events: none;
-}
-
-.shelf-row.todo-inset:focus-within .shelf-move {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.shelf-row.todo-inset .shelf-move [aria-disabled="true"] {
-  color: var(--disabled);
-  opacity: 0.5;
-  cursor: default;
-}

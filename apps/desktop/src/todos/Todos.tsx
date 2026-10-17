@@ -41,10 +41,6 @@ export type SortedRow = {
   button: (el: HTMLButtonElement | null) => void;
   /** Where a failed move shows. */
   fail: (show: (message: string | null) => void) => void;
-  /** The Move up and Move down controls of a row: one step. */
-  step: (by: -1 | 1) => void;
-  /** False at the list's edge, where a step calls nothing. */
-  canStep: (by: -1 | 1) => boolean;
   /** `⌥↑` and `⌥↓`. */
   key: (event: KeyboardEvent) => void;
 };
@@ -153,12 +149,6 @@ export const OpenRow = (props: {
         props.sorted?.frame(frame);
       }}
     >
-      <Show when={!props.nested && props.sorted && near?.near()}>
-        <div class="shelf-move">
-          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoUp(props.todo.id)} aria-disabled={!props.sorted!.canStep(-1)} onClick={() => props.sorted!.step(-1)}>{copy.moveUp}</button>
-          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoDown(props.todo.id)} aria-disabled={!props.sorted!.canStep(1)} onClick={() => props.sorted!.step(1)}>{copy.moveDown}</button>
-        </div>
-      </Show>
       <Show when={props.nested}>{head}</Show>
       <Show when={props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
