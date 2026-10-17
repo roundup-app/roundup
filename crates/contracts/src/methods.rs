@@ -123,12 +123,17 @@ pub const METHODS: &[Method] = &[
     m("agent.brief", "agent_NodeId", "agent_Brief"),
     m("agent.skills", "agent_NodeId", "agent_Skills"),
     m("agent.digest", "agent_NodeId", "agent_Digest"),
+    m("agent.wake", "agent_WakeParams", "agent_Woken"),
     m(
         "agent.spawnPrompt",
         "agent_NodeId",
         "{ prompt: string | null }",
     ),
-    m("agent.setOrder", "agent_SetOrderParams", "agent_RailNode"),
+    m(
+        "agent.setOrder",
+        "agent_SetOrderParams",
+        "agent_RailNode | agent_HeldAction",
+    ),
     m("agent.channelUp", "agent_NodeId", "null"),
     m(
         "agent.signal",
