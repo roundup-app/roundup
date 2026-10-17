@@ -16,7 +16,7 @@ use contracts::workstream::{
 use contracts::{Actor, ActorKind, EventData};
 use rpc::{RpcError, code};
 use serde_json::{Value, json};
-use tokio::sync::oneshot;
+use tokio::sync::{broadcast, oneshot};
 use tokio::time::Instant;
 
 use super::Daemon;
@@ -326,7 +326,7 @@ impl Daemon {
         let deadline = Instant::now() + self.clears.bound;
         let timeout =
             || RpcError::new(code::NOT_ACKED, format!("no Handoff from {} in time", p.id));
-        tokio::time::timeout_at(deadline, agents.prompt(&p.id, text))
+        tokio::time::timeout_at(deadline, self.steer_when_free(agents, &p.id, text))
             .await
             .map_err(|_| timeout())?
             .map_err(RpcError::from)?;
@@ -334,6 +334,34 @@ impl Daemon {
             Err(_) => Err(timeout().into()),
             Ok(Err(_)) => Err(RpcError::internal("the Handoff was lost").into()),
             Ok(Ok(kept)) => Ok(kept),
+        }
+    }
+
+    /// Steer `id` once it takes a Steer: a Busy refusal, which writes nothing (B6), is tried again
+    /// at `id`'s next Status, so an Agent still in a turn, its first prompt included, is Steered
+    /// when the turn ends.
+    async fn steer_when_free(
+        &self,
+        agents: &agents::Agents,
+        id: &str,
+        text: &str,
+    ) -> Result<(), agents::PromptError> {
+        let mut events = self.bus.subscribe();
+        loop {
+            let busy = match agents.prompt(id, text).await {
+                Err(busy @ agents::PromptError::Busy { .. }) => busy,
+                done => return done,
+            };
+            loop {
+                match events.recv().await {
+                    Ok(event) if matches!(&event.data, EventData::AgentStatus(s) if s.id == id) => {
+                        break;
+                    }
+                    Ok(_) => {}
+                    Err(broadcast::error::RecvError::Lagged(_)) => break,
+                    Err(broadcast::error::RecvError::Closed) => return Err(busy),
+                }
+            }
         }
     }
 
