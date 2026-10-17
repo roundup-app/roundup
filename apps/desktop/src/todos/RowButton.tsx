@@ -1,4 +1,4 @@
-import { registerKeys } from "../keys/registry";
+import { modalOpen, registerKeys } from "../keys/registry";
 import { copy } from "../copy";
 import type { JSX } from "solid-js";
 import "./rowButton.styles.css";
@@ -7,7 +7,7 @@ import "./rowButton.styles.css";
 export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; hang?: boolean; label?: string; onKeyDown?: (event: KeyboardEvent) => void; onPointerDown?: (event: PointerEvent) => void }) => {
   let button: HTMLButtonElement | undefined;
 
-  if (props.onKeyDown) registerKeys({ kind: "layer", element: () => button, active: () => document.activeElement === button, modal: false }, [{
+  if (props.onKeyDown) registerKeys({ kind: "layer", element: () => button, active: () => document.activeElement === button && !modalOpen(), modal: false }, [{
     chords: ["Meta+Enter", "ArrowUp", "ArrowDown", "Shift+ArrowUp", "Shift+ArrowDown", "Alt+ArrowUp", "Alt+ArrowDown", "Backspace", "Escape"],
     when: (event) => event.target === button
       && (event.altKey ? props.reorderable === true : props.pressed !== undefined)
