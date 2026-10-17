@@ -38,8 +38,7 @@
   font: inherit;
   color: inherit;
   background: none;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-control);
+  border: 0;
 }
 
 .ask-input:focus-visible {
@@ -114,8 +113,8 @@
   overflow-y: auto;
 }
 
-.app-mentions [data-highlighted] {
-  background-color: var(--hover);
+.app-mentions .app-listbox-item[data-highlighted] {
+  color: var(--accent);
 }
 
 .app-mentions .app-listbox-item {
