@@ -204,11 +204,24 @@
   display: block;
   width: 100%;
   min-height: 24px;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   font: inherit;
   color: var(--text);
   background: var(--ground);
-  border: 1px solid var(--hairline);
+  border: 0;
+  resize: none;
+  overflow-y: auto;
+  line-height: var(--space-4);
+  max-height: calc(6lh + 2 * var(--space-1));
+}
+
+.spawn-prompt-field::placeholder {
+  color: var(--grey);
+  opacity: 1;
+}
+
+.spawn-prompt-field:focus-visible {
+  outline-width: 0;
 }
 
 .spawn-prompt-field:hover {
@@ -502,7 +515,7 @@
 }
 
 .rail-clear {
-  padding: var(--space-4);
+  padding: var(--space-3);
   border: 0;
   width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
@@ -715,4 +728,50 @@
 /* Full-width rows keep their keyboard ring inside the clipping Rail. */
 .rail-row:focus-visible {
   outline-offset: calc(-1 * var(--space-1));
+}
+
+/* U350: the clear prompt's fields. */
+.clear-prompt {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.clear-title {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text);
+  font-size: var(--text-body);
+}
+
+.clear-reason {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background: var(--ground);
+  border: 1px solid var(--hairline);
+  resize: none;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.clear-line,
+.clear-failure {
+  font-size: var(--text-small);
+}
+
+/* The action and its dismissal share one line, `Keep` trailing; `Clear without a summary` wraps after the action. */
+.clear-words {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+/* Quiet words paint no box, so they drop the menu's inline pad: with it, `Keep` no longer fits beside the action on the 288 px Rail's card. */
+.clear-words button {
+  --button-inline: 0;
 }

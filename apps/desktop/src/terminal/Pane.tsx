@@ -3,14 +3,14 @@ import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
-import { askedOf } from "../decisions/AskCard";
 import { DecisionCard } from "../decisions/DecisionCard";
 import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
-import { createDoorMode } from "../state/doorMode";
 import { useConnectedProject } from "../state/connectedProject";
+import { registerKeys } from "../keys/registry";
+import { TAKE_CONTROL, WRITING_KEYS } from "../keys/chords";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -32,10 +32,31 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? createXtermEmulators();
 
-  const doorMode = createDoorMode(connected);
+  /** U375: an Agent below a Door is read-only until the user takes it over; the Door itself is always typed into (U467),
+   * and a child that needs you takes keys, so the user answers its question or permission in its own Terminal (U468). */
+  const inWatch = (): boolean => {
+    const id = rail.selected();
 
-  /** U375: an Agent below the Door is read-only until the user takes it over. */
-  const inWatch = (): boolean => doorMode.mode() === "agent" && connected.takeover.taken() !== rail.selected();
+    return id !== null && !isDoor(id) && belowDoor(id) && !needsYou(id) && connected.takeover.taken() !== id;
+  };
+
+  const needsYou = (id: string): boolean => rail.nodes.find((node) => node.id === id)?.status?.kind === "needs-you";
+
+  const belowDoor = (from: string): boolean => {
+    for (let id: string | null = from; id !== null; ) {
+      const found = rail.nodes.find((node) => node.id === id);
+
+      if (found === undefined) return false;
+
+      if (found.kind === "workstream") return true;
+
+      id = found.parent;
+    }
+
+    return false;
+  };
+
+  const isDoor = (id: string): boolean => rail.nodes.find((node) => node.id === id)?.kind === "workstream";
 
   const screens = createScreens(connected, (id) => {
     fontSize ??= storage.read() ?? DEFAULT_FONT_SIZE;
@@ -48,8 +69,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   props.screensRef?.(screens);
 
-  /** U187: while the Thread is the way into the Door, its Terminal keeps running but is not in the layout. */
-  const hidden = () => doorMode.mode() === "thread";
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
@@ -75,7 +94,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     if (resizeDragging() || drawerSliding() || shelfSliding()) return;
 
-    if (id !== null && !hidden() && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
+    if (id !== null && connected.daemonExit() === null) screens.resize(id, screens.emulatorFor(id).fit(), !windowResized);
 
     windowResized = false;
   };
@@ -88,9 +107,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     windowResized = true;
     refitNextFrame();
   };
-
-  // The pane left out of the layout has no size to fit, so its Terminal is fitted again when it comes back.
-  createEffect(on(hidden, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
   // U389, U371: a Resize edge drag changes the pane's width every frame; the Terminal is fitted once when it ends.
   createEffect(on(resizeDragging, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
@@ -113,9 +129,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
 
     untrack(() => {
-      const size = screens.show(id, host, !rail.restored() && !hidden() && !inWatch());
+      const size = screens.show(id, host, !rail.restored() && !inWatch());
 
-      if (!hidden()) screens.resize(id, size);
+      screens.resize(id, size);
     });
   });
 
@@ -126,14 +142,23 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const latest = createMemo(() => {
     const id = terminalId();
 
-    if (id === null || hidden()) return null;
+    if (id === null) return null;
 
     screens.emulatorFor(id);
 
     return screens.isAtBottom(id) ? null : id;
   });
 
+  /** U532: a key landed on the watched pane, so the band says why nothing was sent. */
+  const [refused, setRefused] = createSignal(false);
+
+  const typed = (press: KeyboardEvent): boolean =>
+    !press.metaKey && !press.ctrlKey && !press.altKey
+    && (press.key.length === 1 || WRITING_KEYS.includes(press.key));
+
   const onKeyDown = (press: KeyboardEvent): void => {
+    if (inWatch() && typed(press) && press.target instanceof Element && press.target.closest(".pane-screen")) setRefused(true);
+
     if (!press.metaKey || press.ctrlKey || press.altKey) return;
 
     const target = press.target;
@@ -183,6 +208,10 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   onCleanup(() => pane?.removeEventListener("keydown", onKeyDown, true));
 
+  const leftThePane = (leave: FocusEvent): void => {
+    if (!(leave.relatedTarget instanceof Element) || !leave.relatedTarget.closest(".pane-screen")) setRefused(false);
+  };
+
   const taken = (): boolean => {
     const id = selected()?.id ?? null;
 
@@ -190,6 +219,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   createEffect(on(() => rail.selected(), () => setTakeFailure(null), { defer: true }));
+  createEffect(() => { if (!inWatch()) setRefused(false); });
 
   const takeOver = async (): Promise<void> => {
     const id = selected()?.id;
@@ -224,13 +254,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
 
-  // U423: in Thread mode the Thread draws an `ask_user` question it can.
-  const drawn = createMemo(() => {
-    const open = decision();
-
-    return open && doorMode.mode() === "thread" && askedOf(open) !== null ? undefined : open;
-  });
-
   let card: HTMLElement | undefined;
   let focusInCard = false;
 
@@ -253,6 +276,27 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (current !== null) screens.emulatorFor(current).focus();
   };
 
+  /** U531: `⌘⏎` takes control of the selected Agent in Watch, from anywhere but a text field, a Shelf row button or a Terminal that is taken. */
+  registerKeys({ kind: "app" }, [{
+    chords: TAKE_CONTROL,
+    when: (press) => {
+      const target = press.target;
+
+      if (!(target instanceof Element)) return true;
+
+      if (target.closest(".shelf-row") && target.closest("button")) return false;
+
+      return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && inWatch());
+    },
+    run: (press) => {
+      const id = terminalId();
+
+      if (press.repeat || !inWatch() || id === null || screens.exited(id) || connected.daemonExit() !== null || selected()?.kind !== "agent") return;
+
+      void takeOver();
+    },
+  }]);
+
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   const [dropOver, setDropOver] = createSignal(false);
   let body: HTMLElement | undefined;
@@ -260,7 +304,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const takesDrop = (): string | null => {
     const id = terminalId();
 
-    return id !== null && !hidden() && !inWatch() && connected.daemonExit() === null && !screens.exited(id) ? id : null;
+    return id !== null && !inWatch() && connected.daemonExit() === null && !screens.exited(id) ? id : null;
   };
 
   const inBody = (x: number, y: number): boolean => {
@@ -325,9 +369,10 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   return (
-    <div class="pane" data-thread={hidden() ? "" : undefined} data-takeover={taken() ? "" : undefined} ref={(element) => {
+    <div class="pane" data-takeover={taken() ? "" : undefined} ref={(element) => {
       pane = element;
       element.addEventListener("keydown", onKeyDown, true);
+      element.addEventListener("focusout", leftThePane);
     }}>
       <Show when={connected.decisions.listFailure()}>
         {(message) => (
@@ -337,7 +382,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           </div>
         )}
       </Show>
-      <Show when={drawn()}>
+      <Show when={decision()}>
         {(open) => (
           <DecisionCard
               decision={open()}
@@ -352,7 +397,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             />
         )}
       </Show>
-      <Show when={doorMode.mode() === "none" || doorMode.mode() === "agent" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
+      <Show when={selected()?.kind !== "workstream" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <Show when={taken()}>
         <p class="pane-takeover" role="status"><span>{copy.takeoverTypingGoesStraightTo}{selected()?.name}</span>
           <Show when={selected()?.kind === "agent"}>
@@ -362,8 +407,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       </Show>
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
         <div class="pane-watch" role="status">
-          <span>{copy.watching}{selected()?.name}{copy.readOnly}</span>
-          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={takeControl} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}</button>
+          <span>{refused() ? copy.readOnlyTakeControlWith : `${copy.watching}${selected()?.name}${copy.readOnly}`}</span>
+          <button data-button="quiet" type="button" class="word" aria-label={copy.takeOver} aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={takeControl} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}<span class="light" aria-hidden="true">{" "}{copy.takeControlKeys}</span></button>
         </div>
       </Show>
       <div
@@ -374,7 +419,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           watch(element);
         }}
       >
-        <div class="pane-screen" ref={setScreen} hidden={hidden()} inert={hidden()} />
+        <div class="pane-screen" ref={setScreen} />
         <Show when={selected() === null && notice() === null}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">

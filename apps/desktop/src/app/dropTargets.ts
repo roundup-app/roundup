@@ -23,8 +23,8 @@ const under = (selector: string, container: string, x: number, y: number): HTMLE
 
 /**
  * U348: the drag of files over the window. It reads the App seam's `onFileDrop`, shows the drop targets, opens a row or tab held for HOLD_MS, and on a drop
- * selects the target and hands the drop to the pane or composer it lands in. `forProject` returns calls whose `onFileDrop` is this router's feed,
- * so a Pane or Thread hears what the router lets through.
+ * selects the target and hands the drop to the pane it lands in. `forProject` returns calls whose `onFileDrop` is this router's feed,
+ * so a Pane hears what the router lets through.
  */
 export const createDropTargets = (
   app: App,
@@ -63,14 +63,12 @@ export const createDropTargets = (
     return rail?.nodes.find((node) => node.id === rail.selected());
   };
 
-  /** The pane or composer that takes a drop now: the selected Workstream's composer, or a live Agent's Terminal pane. */
+  /** The pane that takes a drop now: the selected Door's or live Agent's Terminal pane. */
   const receiver = (): Element | null => {
     const node = selectedNode();
     const rail = host.rail();
 
     if (node === undefined || rail === undefined) return null;
-
-    if (node.kind === "workstream") return document.querySelector(".thread-composer");
 
     return rail.exitOf(node) === null ? document.querySelector(".pane-body") : null;
   };
@@ -122,7 +120,7 @@ export const createDropTargets = (
 
     const box = receiver()?.getBoundingClientRect();
 
-    // U415: a tab that delivers nothing reports the drop where it fell, which no target holds, so the Thread says it could not place it.
+    // U415: a tab that delivers nothing reports the drop where it fell, which no target holds, so the Pane says it could not place it.
     emit(box ? { ...drop, ...centre(box) } : drop);
   };
 
