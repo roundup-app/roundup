@@ -195,25 +195,26 @@
   white-space: nowrap;
 }
 
-/* U490a: Up and Down appear in the row's right gutter only while focus is inside the row, so a pointer rests on drag alone and no row rewraps under a hover (U112); the title yields the gutter only then, so no text lies under them (U361). A control that cannot step reads dimmed. */
+/* U490a: Up and Down are in the Tab order but unseen until focus is inside the row; then they overlay the row's end on a short fade from the Shelf's own ground, so a long title runs under them. Nothing is reserved at rest and nothing rewraps (U112, U361). A control that cannot step reads dimmed. */
 .shelf-row.todo-inset {
   position: relative;
 }
 
-.shelf-row.todo-inset:focus-within .todo-row-button {
-  max-width: calc(100% - var(--space-6) * 2 - var(--space-4));
-}
-
 .shelf-row.todo-inset .shelf-move {
-  display: none;
   position: absolute;
   top: var(--space-1);
   right: var(--space-2);
+  display: flex;
   gap: var(--space-1);
+  padding-inline-start: var(--space-4);
+  background-image: linear-gradient(to right, transparent, var(--sunken) var(--space-4));
+  opacity: 0;
+  pointer-events: none;
 }
 
 .shelf-row.todo-inset:focus-within .shelf-move {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .shelf-row.todo-inset .shelf-move [aria-disabled="true"] {
