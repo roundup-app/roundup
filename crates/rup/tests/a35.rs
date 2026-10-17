@@ -1571,3 +1571,384 @@ fn a35_rewind_has_no_app_only_caller_or_u374_surface() {
         }
     }
 }
+
+// M16: the Door does through its MCP what the user does to a child, and no more.
+
+/// The Door's MCP replies to `tools/call` of each `(tool, arguments)`, in order.
+async fn door_calls(fx: &Fix, calls: &[(&str, Value)]) -> Vec<Value> {
+    let calls: Vec<(&str, Value)> = calls
+        .iter()
+        .map(|(name, arguments)| ("tools/call", json!({"name": name, "arguments": arguments})))
+        .collect();
+    mcp(fx, &fx.ws, &calls).await
+}
+
+/// One call's result, which must have succeeded.
+fn answered(reply: &Value) -> Value {
+    assert_ne!(reply["isError"], true, "{reply}");
+    let raw = reply["content"][0]["text"].as_str().unwrap();
+    serde_json::from_str(raw).unwrap_or_else(|_| Value::String(raw.to_owned()))
+}
+
+fn typed(text: &str) -> Value {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    json!(STANDARD.encode(text))
+}
+
+async fn working(events: &mut rpc::Client, id: &str) {
+    daemon::next(events, |event| match event {
+        contracts::EventData::AgentStatus(status)
+            if status.id == id && status.status.kind == Kind::Working =>
+        {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+}
+
+async fn open_decisions(fx: &Fix, id: &str) -> usize {
+    fx.user
+        .request("decision.list", Value::Null)
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["agent"] == id)
+        .count()
+}
+
+#[tokio::test]
+async fn m16_a_door_can_perform_each_user_action_on_a_child() {
+    let fx = fixture().await;
+    write(&fx).await;
+    give_back(&fx, &fx.ws).await;
+    let model = fx.project.model.as_ref().unwrap();
+    for child in [fx.a.clone(), fx.b.clone()] {
+        let mut events = fx.project.subscribed().await;
+
+        // Prompt and interrupt: the child runs a slow turn on the prompt, and the interrupt ends it early.
+        let started = Instant::now();
+        let reply = door_calls(
+            &fx,
+            &[(
+                "agent_prompt",
+                json!({"id": child, "text": "m16 slow turn"}),
+            )],
+        )
+        .await;
+        answered(&reply[0]);
+        working(&mut events, &child).await;
+        answered(&door_calls(&fx, &[("agent_interrupt", json!({"id": child}))]).await[0]);
+        idle(&fx.user, &child).await;
+        assert!(
+            started.elapsed() < Duration::from_secs(8),
+            "the turn ran to its end"
+        );
+
+        // Terminal bytes: typed into a Terminal the child owns, they reach its program.
+        let spawned = mcp(
+            &fx,
+            &child,
+            &[(
+                "tools/call",
+                json!({"name": "terminal_spawn", "arguments": {"cwd": "/", "command": ["/bin/cat"],
+                    "env": {}, "cols": 80, "rows": 24}}),
+            )],
+        )
+        .await;
+        let run = answered(&spawned[0])["id"].as_str().unwrap().to_owned();
+        answered(
+            &door_calls(
+                &fx,
+                &[(
+                    "terminal_write",
+                    json!({"id": run, "data": typed("m16-bytes\n")}),
+                )],
+            )
+            .await[0],
+        );
+        daemon::h21_poll("the bytes in the child's Terminal", async || {
+            let screen = fx
+                .user
+                .request("terminal.screen", json!({"id": run}))
+                .await
+                .unwrap();
+            screen["lines"]
+                .to_string()
+                .contains("m16-bytes")
+                .then_some(())
+        })
+        .await;
+
+        // Permission prompt and question: the Door's own Claude answers each open Decision through its MCP.
+        let first = if child == fx.a { 1 } else { 3 };
+        let permission = daemon::h21_ask(&fx.project, &child, "Bash", daemon::h21_bash()).await;
+        model
+            .tool_result(&format!("toolu_m16_answer_{first}"))
+            .await;
+        let result = permission.await.unwrap().unwrap();
+        assert!(
+            result["output"]
+                .as_str()
+                .unwrap()
+                .contains("\"behavior\":\"allow\""),
+            "{result}"
+        );
+        let ask = json!({"name": "ask_user", "arguments": {"question": "Proceed?",
+            "answers": [{"label": "Yes", "description": "Continue"}]}});
+        let calls = [("tools/call", ask)];
+        let answer_id = format!("toolu_m16_answer_{}", first + 1);
+        let (asked, _) = tokio::join!(mcp(&fx, &child, &calls), model.tool_result(&answer_id));
+        assert!(
+            answered(&asked[0]).to_string().contains("go"),
+            "{}",
+            asked[0]
+        );
+        assert_eq!(open_decisions(&fx, &child).await, 0);
+        let touch = fx
+            .user
+            .request(
+                "provenance.history",
+                json!({"item": format!("decision:d{first}")}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(touch[0]["actor"]["id"], fx.ws.as_str());
+        idle(&fx.user, &fx.ws).await;
+
+        // Stop and resume: the conversation stays saved and the child runs again.
+        answered(&door_calls(&fx, &[("agent_stop", json!({"id": child}))]).await[0]);
+        daemon::h21_poll("the stopped child can resume", async || {
+            node(&fx.user, &child).await.filter(|n| n.can_resume)
+        })
+        .await;
+        answered(&door_calls(&fx, &[("agent_resume", json!({"id": child}))]).await[0]);
+        idle(&fx.user, &child).await;
+
+        // Rewind to the stored Checkpoint: the child restarts on a new attempt.
+        let before = attempt_of(&rail_tree(&fx.user).await, &child);
+        let reply = door_calls(
+            &fx,
+            &[(
+                "workstream_rewind",
+                json!({"checkpoint": 1, "files": "keep", "agent": child}),
+            )],
+        )
+        .await;
+        assert_eq!(answered(&reply[0])["agents"][0]["state"], "rewound");
+        assert_ne!(attempt_of(&rail_tree(&fx.user).await, &child), before);
+        idle(&fx.user, &child).await;
+    }
+    model.assert_matched();
+}
+
+#[tokio::test]
+async fn m16_door_actions_keep_reach_restrictions() {
+    let fx = fixture().await;
+    write(&fx).await;
+    let other = fx
+        .user
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "other", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let stranger = serde_json::from_value::<RailNode>(
+        fx.user
+            .request(
+                "agent.spawn",
+                json!({"cwd": fx.project.dir.path(), "prompt": null, "parent": other}),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap()
+    .id;
+    idle(&fx.user, &stranger).await;
+    let run = fx
+        .user
+        .request(
+            "agent.run",
+            json!({"id": stranger, "command": ["/bin/cat"]}),
+        )
+        .await
+        .unwrap()["terminal_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let own = node(&fx.user, &fx.ws).await.unwrap().terminal_id.unwrap();
+    let before = (attempts(&rail_tree(&fx.user).await), terminals(&fx).await);
+
+    let forbidden = door_calls(
+        &fx,
+        &[
+            (
+                "agent_prompt",
+                json!({"id": stranger, "text": "after mark"}),
+            ),
+            ("agent_interrupt", json!({"id": stranger})),
+            ("agent_stop", json!({"id": stranger})),
+            ("agent_resume", json!({"id": stranger})),
+            ("terminal_write", json!({"id": run, "data": typed("x\n")})),
+            ("terminal_read", json!({"id": run, "after": 0})),
+            ("terminal_write", json!({"id": own, "data": typed("x\n")})),
+            (
+                "workstream_rewind",
+                json!({"checkpoint": 1, "files": "keep", "agent": stranger}),
+            ),
+        ],
+    )
+    .await;
+    for reply in &forbidden {
+        assert_eq!(reply["isError"], true, "{reply}");
+        assert!(
+            reply["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains(&rpc::code::FORBIDDEN.to_string()),
+            "{reply}"
+        );
+    }
+
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert_eq!(
+        before,
+        (attempts(&rail_tree(&fx.user).await), terminals(&fx).await)
+    );
+    let screen = fx
+        .user
+        .request("terminal.screen", json!({"id": run}))
+        .await
+        .unwrap();
+    assert!(!screen["lines"].to_string().contains('x'), "{screen}");
+}
+
+/// Each Terminal's id, owner and whether it runs; titles change with the programs' own spinners.
+async fn terminals(fx: &Fix) -> Vec<(Value, Value, Value)> {
+    let listed = fx.user.request("terminal.list", Value::Null).await.unwrap();
+    listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| (t["id"].clone(), t["owner"].clone(), t["running"].clone()))
+        .collect()
+}
+
+#[tokio::test]
+async fn m16_door_calls_cannot_bypass_a_child_takeover() {
+    let fx = fixture().await;
+    write(&fx).await;
+    give_back(&fx, &fx.ws).await;
+    let model = fx.project.model.as_ref().unwrap();
+    for child in [fx.b.clone(), fx.a.clone()] {
+        let run = fx
+            .user
+            .request("agent.run", json!({"id": child, "command": ["/bin/cat"]}))
+            .await
+            .unwrap()["terminal_id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        take(&fx, &child).await;
+        if child == fx.b {
+            // A Decision answer: the Door's own Claude calls `decision_answer` for the open Decision.
+            let open = daemon::h21_ask(&fx.project, &child, "Bash", daemon::h21_bash()).await;
+            let decision = daemon::h21_decision(&fx.user, &child, None).await;
+            assert_eq!(decision["id"], "d1");
+            daemon::h21_poll("the Door takes the prompt", async || {
+                fx.user
+                    .request(
+                        "agent.prompt",
+                        json!({"id": fx.ws, "text": "[decision d1]"}),
+                    )
+                    .await
+                    .ok()
+            })
+            .await;
+            let receipt = model.tool_result("toolu_m16_answer_1").await;
+            assert!(
+                receipt["content"].to_string().contains("waiting"),
+                "{receipt}"
+            );
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            assert!(!open.is_finished(), "the held answer reached the child");
+            assert_eq!(open_decisions(&fx, &child).await, 1);
+            give_back(&fx, &child).await;
+            let released = open.await.unwrap().unwrap();
+            assert!(
+                released["output"].to_string().contains("allow"),
+                "{released}"
+            );
+            take(&fx, &child).await;
+        }
+        let mut events = fx.project.subscribed().await;
+        let before = attempt_of(&rail_tree(&fx.user).await, &child);
+        let replies = door_calls(
+            &fx,
+            &[
+                ("agent_prompt", json!({"id": child, "text": "after mark"})),
+                ("agent_interrupt", json!({"id": child})),
+                (
+                    "terminal_write",
+                    json!({"id": run, "data": typed("m16-held\n")}),
+                ),
+                ("agent_stop", json!({"id": child})),
+                ("agent_resume", json!({"id": child})),
+                (
+                    "workstream_rewind",
+                    json!({"checkpoint": 1, "files": "keep", "agent": child}),
+                ),
+            ],
+        )
+        .await;
+        for reply in &replies {
+            assert!(
+                answered(reply).to_string().contains("waiting"),
+                "not held: {reply}"
+            );
+        }
+        let quiet =
+            tokio::time::timeout(Duration::from_millis(800), working(&mut events, &child)).await;
+        assert!(quiet.is_err(), "the child ran while taken over");
+        let node = node(&fx.user, &child).await.unwrap();
+        assert_eq!(node.attempt, before);
+        assert!(!node.can_resume, "the child was stopped");
+        let screen = fx
+            .user
+            .request("terminal.screen", json!({"id": run}))
+            .await
+            .unwrap();
+        assert!(
+            !screen["lines"].to_string().contains("m16-held"),
+            "{screen}"
+        );
+        // Given back, the held prompt reaches the child.
+        give_back(&fx, &child).await;
+        // The held actions run once, in order, and the history says so.
+        let history = daemon::h21_poll("the held actions' outcomes", async || {
+            let reply = door_calls(&fx, &[("agent_actionHistory", json!({"id": child}))]).await;
+            let entries = answered(&reply[0]);
+            let entries = entries.as_array().unwrap().clone();
+            let settled =
+                entries.len() >= 6 && entries.iter().all(|e| e["outcome"]["status"] != "waiting");
+            settled.then_some(entries)
+        })
+        .await;
+        // The Decision above leaves `b` mid-turn, so only `a` can take the held prompt.
+        let ran: &[&str] = if child == fx.a {
+            &["agent.prompt", "agent.interrupt", "terminal.write"]
+        } else {
+            &["terminal.write"]
+        };
+        for method in ran {
+            let entry = history.iter().find(|e| e["method"] == *method).unwrap();
+            assert_eq!(entry["outcome"]["status"], "completed", "{entry}");
+        }
+    }
+}
