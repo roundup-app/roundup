@@ -31,6 +31,8 @@ impl Run {
         let fake = dir.path().join("claude");
         std::fs::write(&fake, r#"#!/usr/bin/env python3
 import json, os, socket, subprocess, sys, threading, time, tty
+if sys.argv[1:2] == ['--version']:
+    print('2.1.296 (Claude Code)'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -44,6 +46,28 @@ def hook(event, fields):
         for item in group['hooks']:
             subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True)
 hook('SessionStart', {'session_id':'00000000-0000-4000-8000-000000000006','source':'resume' if '--resume' in sys.argv else 'startup'})
+# B50: Claude Code records an inbox entry in its transcript and takes a turn on it.
+agent = settings['hooks']['Stop'][0]['hooks'][0]['command'].split()[-1].strip("'")
+inbox = os.path.join(os.environ.get('CLAUDE_CONFIG_DIR', os.getcwd() + '/config'), 'teams/roundup/inboxes', agent + '.json')
+transcript = os.path.join(os.getcwd(), 'transcript-' + agent + '.jsonl')
+def watch():
+  try:
+    seen = set()
+    while True:
+        try: entries = json.load(open(inbox))
+        except Exception: entries = []
+        for entry in entries:
+            ident = entry.get('id', '')
+            if ident.startswith('rup-') and ident not in seen:
+                # The fixture's Claude never records a Decision note: it stays written, not delivered.
+                if os.path.isfile('decision-notice-fixture') and '[decision ' in entry.get('text', ''): continue
+                seen.add(ident)
+                with open(transcript, 'a') as out: out.write(json.dumps({'type': 'teammate_message', 'id': ident}) + '\n')
+                hook('PostToolUse', {'transcript_path': transcript})
+                hook('Stop', {'transcript_path': transcript})
+        time.sleep(0.02)
+  except BaseException: pass
+threading.Thread(target=watch, daemon=True).start()
 if '--resume' not in sys.argv:
     pending = b''
     while not pending.endswith(b'\r'):
@@ -1180,7 +1204,9 @@ async fn failed_notice(
 
 #[tokio::test]
 async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
-    for failure in ["send", "full", "terminal"] {
+    // B50(e): a note never reaches the Terminal, so a Terminal refusal cannot fail one; the failure
+    // of its inbox is a hold (B51), not a drop.
+    for failure in ["send", "full"] {
         let mut run = Run::start().await;
         let door = run
             .user
@@ -2614,35 +2640,34 @@ async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
         .await
         .unwrap();
     assert_eq!(stored["status"], "delivered");
-    let text = tokio::time::timeout(BOUND, async {
-        loop {
-            let screen = run
-                .user
-                .request(
-                    "terminal.read",
-                    json!({"id":door_node["terminal_id"],"after":0}),
-                )
-                .await
-                .unwrap()["text"]
-                .as_str()
-                .unwrap()
-                .to_owned();
-            // Terminal output can lag the hook event; wait for the note's actual bytes.
-            let bytes: Vec<_> = screen
-                .lines()
-                .filter_map(|line| line.strip_prefix("BYTE:"))
-                .map(|hex| u8::from_str_radix(hex.trim(), 16).unwrap())
-                .collect();
-            let text = String::from_utf8(bytes).unwrap();
-            if text.contains(&marker) {
-                break text;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
+    // B50: the note is one entry in the Door's Claude inbox, and none of it is typed.
+    let inbox = std::fs::read_to_string(
+        run.dir
+            .path()
+            .join(format!("config/teams/roundup/inboxes/{door}.json")),
+    )
     .unwrap();
-    assert_eq!(text.matches(&marker).count(), 1, "{text}");
+    assert_eq!(inbox.matches(&marker).count(), 1, "{inbox}");
+    let screen = run
+        .user
+        .request(
+            "terminal.read",
+            json!({"id":door_node["terminal_id"],"after":0}),
+        )
+        .await
+        .unwrap()["text"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let typed: Vec<u8> = screen
+        .lines()
+        .filter_map(|line| line.strip_prefix("BYTE:"))
+        .map(|hex| u8::from_str_radix(hex.trim(), 16).unwrap())
+        .collect();
+    assert!(
+        !String::from_utf8_lossy(&typed).contains(&marker),
+        "{screen}"
+    );
     run.finish().await;
 }
 
