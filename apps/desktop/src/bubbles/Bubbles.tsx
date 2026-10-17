@@ -774,8 +774,8 @@ export const Bubbles = (props: { screens: Screens }) => {
                   if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
                 }}>
                 <span class="bubble-controls">
-                  <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}><span class="bubble-dot" /></IconButton>
-                  <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot" /></IconButton>
+                  <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}><span class="bubble-dot" data-glyph="×" /></IconButton>
+                  <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot" data-glyph="−" /></IconButton>
                 </span>
                 <span class="bubble-name">{nameFor(terminal()!)}</span>
                 <span class="bubble-state" role="img" aria-label={stateText(terminal()!)} data-running={running(terminal()!)} />
