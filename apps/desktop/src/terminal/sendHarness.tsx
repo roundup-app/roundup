@@ -19,7 +19,7 @@ export const mountSend = async (others: RailNode[], answer: (params: Params) => 
   const { factory, made } = fakeEmulators();
   const [front] = createSignal(true);
   const chimes = { count: 0 };
-  const toasts = createToastQueue(front, () => { chimes.count += 1; }, () => true);
+  const toasts = createToastQueue(front, () => { chimes.count += 1; });
   const sent: Params[] = [];
 
   app.handlers["message.send"] = (params) => {
