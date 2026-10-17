@@ -183,3 +183,10 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+.todo-tooltip {
+  box-sizing: border-box;
+  max-width: calc(100vw - var(--space-6));
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
