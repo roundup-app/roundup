@@ -207,12 +207,13 @@ impl Shared {
         self.table.lock().expect("terminal table lock")
     }
 
-    /// Hand a title or exit event to this Terminal's subscribers and to the Bus. Neither can block the caller.
+    /// Hand a title or exit event to the Bus, then to this Terminal's subscribers, so a subscriber
+    /// that saw the event can rely on the Bus having it. Neither can block the caller.
     fn publish(&self, number: u64, data: EventData) {
+        self.bus.emit(Actor::daemon(), data.clone());
         if let Some(entry) = self.table().get(&number) {
-            let _ = entry.events.send(data.clone());
+            let _ = entry.events.send(data);
         }
-        self.bus.emit(Actor::daemon(), data);
     }
 
     fn retitle(&self, number: u64, title: String) {
