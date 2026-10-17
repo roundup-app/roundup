@@ -133,6 +133,32 @@ it("u469_empty_and_filled_tabs_and_resources_keep_the_pane_rectangle", async () 
   await capture('bar-minimised');
 }, 60_000);
 
+it("u524_the_bar_message_keeps_the_rectangles_and_passes_the_moved_checks", async () => {
+  type Read = { bar: unknown; pane: unknown; composer: unknown; checks: Record<string, { status: string }> };
+
+  for (const scheme of ['light', 'dark'] as const) {
+    for (const width of [1280, 1440]) {
+      await page.scheme(scheme, 'more');
+      await page.load('/harness.html?seed=empty-project', width, 800);
+      await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.resource-strip')`);
+      const before = await page.call<Read>(geometry);
+
+      await page.call(`() => document.querySelector('.terminal-new').click()`);
+      await page.until(`() => document.querySelector('.resource-strip .terminal-note')?.textContent === 'Select a Workstream first'`);
+      const shown = await page.call<Read>(geometry);
+      const note = await page.call<boolean>(`() => { const n = document.querySelector('.terminal-note'); const r = n.getBoundingClientRect(); if (r.width <= 0 || r.left < 0 || r.right > innerWidth || r.top < 0) return false; const strip = document.querySelector('.resource-strip').getBoundingClientRect(); if (r.right > strip.right + 0.5) return false; return n.scrollWidth <= n.clientWidth; }`);
+
+      expect(note, `${width} ${scheme} note visible`).toBe(true);
+
+      expect(shown.bar, `${width} ${scheme} bar`).toEqual(before.bar);
+      expect(shown.pane, `${width} ${scheme} pane`).toEqual(before.pane);
+      expect(shown.composer, `${width} ${scheme} composer`).toEqual(before.composer);
+
+      for (const id of ['D2', 'D5', 'D6']) expect(shown.checks[id]?.status, `${width} ${scheme} ${id}`).toBe('pass');
+    }
+  }
+}, 120_000);
+
 it("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable", async () => {
   await page.load('/harness.html?seed=bubbles', 1280, 800);
   await page.until(`() => Boolean(window.__fake)`);
@@ -238,7 +264,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
       await page.call(`() => document.querySelector('.todo-project-root').click()`);
       await page.until(`() => document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true' && document.querySelector('.terminal-new')`);
       await page.call(`() => document.querySelector('.terminal-new').click()`);
-      await page.until(`() => document.querySelector('.bubble-failure[role="status"]')?.textContent==='Select a Workstream first'`);
+      await page.until(`() => document.querySelectorAll('.terminal-tab').length===1 && document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true'`);
       await record('missing-selection');
     }
   }
