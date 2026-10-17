@@ -23,6 +23,10 @@ file. What it does comes from the environment, so one script serves every scenar
                            string argument replaced by the typed text, then Stop
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32), set with FAKE_CLAUDE_ON_PROMPT: each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
+  FAKE_CLAUDE_BLOCKED_LOG  a file path (B39): each typed prompt whose UserPromptSubmit hook exited 2 is appended as one
+                           JSON line {"prompt": the text}; Claude Code runs no turn for it, so neither does this
+  FAKE_CLAUDE_HOLD_PROMPT  a file path (B40): a typed prompt that carries Messages is logged, then its UserPromptSubmit waits until the file
+                           exists, as a Daemon that is killed meanwhile never gets that Signal
   FAKE_CLAUDE_PASTE_WHOLE legacy flag: ORDER_PROMPTS counts whole pastes instead of nonempty work lines
   FAKE_CLAUDE_ON_PROMPT_ASK JSON {"tool_name", "tool_input"} (U166), set with FAKE_CLAUDE_ON_PROMPT: after
                            UserPromptSubmit, play this PermissionRequest ("$prompt" in a string of
@@ -107,7 +111,7 @@ def play_hooks():
             hook.stdin.write(json.dumps(payload))
             hook.stdin.close()
             gate = os.environ.get("FAKE_CLAUDE_GATE")
-            while gate and not os.path.exists(gate):
+            while gate and "[rup messages: " in prompt and not os.path.exists(gate):
                 time.sleep(0.02)
             continue
         for command in commands:
@@ -140,21 +144,28 @@ def play_mcp_stray(script):
     return server
 
 
-def run_hook(command, payload, **options):
+def run_hook(command, payload, blocks=False, **options):
     """Run one hook command as Claude Code does: any failure but exit 2 goes to stderr and the session goes on,
-    as after a `rup signal` that timed out on a busy Daemon. Exit 2 would block, which `rup` never asks for, so it raises."""
+    as after a `rup signal` that timed out on a busy Daemon. Exit 2 would block, which `rup` asks for only to drop a
+    prompt that repeats delivered Messages (B39), so it raises unless the caller blocks."""
     ran = subprocess.run(command, shell=True, input=payload, text=True, **options)
-    if ran.returncode == 2:
+    if ran.returncode == 2 and not blocks:
         ran.check_returncode()
     if ran.returncode:
         sys.stderr.write(f"hook exited {ran.returncode}: {command}\n")
     return ran
 
 
+BLOCKED = []
+
+
 def hook(event, extra=None):
+    """Play one hook event. A UserPromptSubmit that exits 2 blocks its prompt (B39): it is kept in BLOCKED."""
     command = json.load(open(flag("--settings")))["hooks"][event][0]["hooks"][0]["command"]
     payload = {"hook_event_name": event, **(extra or {})}
-    run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
+    ran = run_hook(command, json.dumps(payload), blocks=event == "UserPromptSubmit", stdout=subprocess.PIPE)
+    if ran.returncode == 2:
+        BLOCKED.append(payload["prompt"])
 
 
 def split_line(pending):
@@ -190,10 +201,16 @@ def typed_prompts():
                 yield text
 
 
+def shown(prompt):
+    """The prompt as its sender wrote it, without the id line the Daemon appends (B39)."""
+    head, sep, tail = prompt.rpartition("\n\n[rup messages: ")
+    return head if sep and tail.endswith("]") and "\n" not in tail else prompt
+
+
 def ask_permission(ask, prompt, report=None):
     """Play a PermissionRequest and wait for `rup permission` to exit; whether the Decision was allowed."""
     command = json.load(open(flag("--settings")))["hooks"]["PermissionRequest"][0]["hooks"][0]["command"]
-    tool_input = {key: value.replace("$prompt", prompt) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
+    tool_input = {key: value.replace("$prompt", shown(prompt)) if isinstance(value, str) else value for key, value in ask.get("tool_input", {}).items()}
     payload = {"hook_event_name": "PermissionRequest", "tool_name": ask["tool_name"], "tool_input": tool_input}
     ran = run_hook(command, json.dumps(payload), stdout=subprocess.PIPE)
     received = json.loads(ran.stdout or "{}")
@@ -250,7 +267,17 @@ def play_prompts(tool):
         if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
+        gate = os.environ.get("FAKE_CLAUDE_HOLD_PROMPT")
+        while gate and "[rup messages: " in prompt and not os.path.exists(gate):
+            time.sleep(0.02)
         hook("UserPromptSubmit", {"prompt": prompt})
+        if BLOCKED:
+            # B39: the prompt is blocked, so no turn runs and no Stop follows.
+            BLOCKED.clear()
+            if "FAKE_CLAUDE_BLOCKED_LOG" in os.environ:
+                with open(os.environ["FAKE_CLAUDE_BLOCKED_LOG"], "a") as log:
+                    log.write(json.dumps({"prompt": prompt}) + "\n")
+            continue
         if orders:
             # Older observers counted the two nonempty clarification lines separately.
             count = 1 if "FAKE_CLAUDE_PASTE_WHOLE" in os.environ else len([line for line in prompt.splitlines() if line.strip()])
@@ -271,7 +298,7 @@ def play_prompts(tool):
             hook("Stop")
             continue
         for decision in decisions if answers_decisions else [""]:
-            mcp_session([{**call, "arguments": {key: value.replace("$prompt", prompt).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
+            mcp_session([{**call, "arguments": {key: value.replace("$prompt", shown(prompt)).replace("$decision", decision) if isinstance(value, str) else value for key, value in call.get("arguments", {}).items()}} for call in calls])
         hook("Stop")
         log_marked(marked, ready=True)
 
