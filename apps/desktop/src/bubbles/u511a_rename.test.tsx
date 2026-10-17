@@ -26,6 +26,7 @@ it("u511a_double_click_selects_the_current_name", async () => {
 });
 
 it("u511a_every_name_surface_updates", async () => {
+  const width = vi.spyOn(Element.prototype, "scrollWidth", "get").mockReturnValue(100);
   await mountBubbles();
   await edit("2");
   fireEvent.input(field()!, { target: { value: "  build  " } });
@@ -36,6 +37,7 @@ it("u511a_every_name_surface_updates", async () => {
   fireEvent.keyDown(document, { key: "Tab" });
   tab("2")!.focus();
   expect((await screen.findByRole("tooltip")).textContent).toBe("build");
+  width.mockRestore();
   expect(tab("2")!.textContent).toContain("build");
   expect(document.querySelector('[aria-label="Close build"]')).not.toBeNull();
   expect(document.querySelector('.bubble[data-bubble="2"] .bubble-name')?.textContent).toBe("build");

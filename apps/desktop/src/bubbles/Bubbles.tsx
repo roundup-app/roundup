@@ -47,9 +47,9 @@ const focusPane = (): void => {
   if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
 
-const ESCAPE = ["Escape"];
+const ESCAPE = "Escape".split(" ");
 
-const SHIFT = "Shift+";
+const SHIFT = "Shift+".split(" ")[0]!;
 
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
