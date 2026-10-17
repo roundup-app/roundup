@@ -57,6 +57,10 @@ ATTEMPTS = 3
 PLUMBING = ('conflict', 'rules')
 PLUMBING_STEPS = re.compile(r'rules\.sh (?:base|ci-trailers|scenario-ids)\b')
 PLUMBING_RUNS = 6
+# L82: the paths a fix run's script regenerates instead of a model resolving them, and the command that regenerates them
+# (`crates/contracts` writes `contracts/generated/`).
+GENERATED = ('contracts/generated/',)
+REGENERATE = ('cargo', 'test', '--quiet', '-p', 'contracts')
 # The Issue a build task's first line, `Work order: <url>/issues/<n>`, names.
 WORK_ORDER = re.compile(r'\AWork order: \S+/issues/(\d+)')
 # How long a reject a fix run answered awaits the next verdict before a fix run starts anyway (L82).
@@ -698,6 +702,51 @@ def plumbing_runs(pr, opened, run_id):
                for run in runs)
 
 
+def git(*args):
+    """`git <args>` as the Claude App's account, since a merge needs a committer even before it commits."""
+    name, email = CLAUDE_ACCOUNT
+    return subprocess.run(['git', '-c', f'user.name={name}', '-c', f'user.email={email}', *args], text=True, capture_output=True, timeout=3600)
+
+
+def resolve_generated(regenerate=REGENERATE):
+    """L82: merge `origin/main` into the checked-out branch and commit it when every conflicted path is GENERATED: take
+    main's side, run `regenerate`, and require no conflict marker and no change from a second run. Returns whether it
+    committed; any other conflict, a failed `regenerate` or a changed second run leaves the branch as it was."""
+    def undo(why):
+        print(f'resolve-generated: {why}; the branch is left as it was', file=sys.stderr)
+        # `merge --abort` refuses a file the index and the worktree hold differently, so the reset comes first.
+        git('reset', '-q', '--hard', 'HEAD')
+        git('merge', '--abort')
+        git('clean', '-fdq', '--', *GENERATED)
+        return False
+
+    merge = git('merge', '--no-commit', '--no-ff', 'origin/main')
+    conflicted = git('diff', '--name-only', '--diff-filter=U').stdout.split()
+    if merge.returncode and not conflicted:
+        return undo(f'the merge failed: {merge.stderr.strip()}')
+    if other := [path for path in conflicted if not path.startswith(GENERATED)]:
+        return undo(f'{", ".join(other)} conflict and are not generated')
+    for path in conflicted:
+        if git('cat-file', '-e', f'origin/main:{path}').returncode:
+            git('rm', '-q', '-f', '--', path)
+        else:
+            git('checkout', 'origin/main', '--', path)
+    if subprocess.run(regenerate, timeout=3600).returncode:
+        return undo('the regenerate command failed')
+    git('add', '-A', '--', *GENERATED)
+    # The second run must leave the worktree as the index holds it: no change, and no file the first run left unstaged.
+    if subprocess.run(regenerate, timeout=3600).returncode:
+        return undo('the second regenerate failed')
+    if changed := git('status', '--porcelain', '--untracked-files=all').stdout:
+        unstaged = [line for line in changed.splitlines() if line[1] != ' ']
+        if unstaged:
+            return undo(f'the regenerate left changes: {unstaged}')
+    if git('grep', '--cached', '-lE', r'^(<{7}|>{7})( |$)', '--', *GENERATED).stdout:
+        return undo('a conflict marker remains')
+    commit = git('commit', '--no-edit')
+    return not commit.returncode or undo(f'the commit failed: {commit.stderr.strip()} {commit.stdout.strip()}')
+
+
 def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
     `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
@@ -955,6 +1004,8 @@ def main(args):
                 print(encode(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
+        case ['resolve-generated']:
+            return 0 if resolve_generated() else 1
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
             if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
@@ -973,7 +1024,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | resolve-generated | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
