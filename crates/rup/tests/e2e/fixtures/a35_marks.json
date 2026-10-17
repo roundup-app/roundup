@@ -20,6 +20,15 @@
     },
     {
       "match": {
+        "userMessage": "after rewind",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Build the login page.",
         "hasToolResult": false
       },

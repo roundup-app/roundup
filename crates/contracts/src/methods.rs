@@ -221,6 +221,16 @@ pub const METHODS: &[Method] = &[
         "workstream_ClearParams",
         "workstream_ClearResult",
     ),
+    m(
+        "workstream.rewindPlan",
+        "workstream_RewindPlanParams",
+        "workstream_RewindPlan",
+    ),
+    m(
+        "workstream.rewind",
+        "workstream_RewindParams",
+        "workstream_Rewind",
+    ),
     m("workstream.handoff", "workstream_HandoffParams", "null"),
 ];
 
