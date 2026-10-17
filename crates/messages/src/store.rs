@@ -6,6 +6,8 @@ use std::path::Path;
 use contracts::Actor;
 use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason, Route};
 use rpc::{OpenError, RpcError};
+
+use crate::wake::Wake;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -963,14 +965,97 @@ impl Store {
         self.get(id)
     }
 
-    /// B1: the Messages to `to` that are `pending` or `held`, pushed digests (B22) left out.
+    pub(crate) fn count_wakes(&self, waiter: &str) -> Result<u32, RpcError> {
+        self.db
+            .query_row(
+                "SELECT COUNT(*) FROM wakes WHERE waiter = ?1",
+                params![waiter],
+                |row| row.get(0),
+            )
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn insert_wake(
+        &self,
+        waiter: &str,
+        ids: &[String],
+        any_of: bool,
+        finished: &[String],
+        seen: u64,
+    ) -> Result<Wake, RpcError> {
+        self.db
+            .execute(
+                "INSERT INTO wakes (waiter, any_of, ids, finished, seen) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![waiter, any_of, list_text(ids), list_text(finished), seen as i64],
+            )
+            .map_err(RpcError::internal)?;
+        let id = u32::try_from(self.db.last_insert_rowid()).map_err(RpcError::internal)?;
+        self.wake(id)?
+            .ok_or_else(|| RpcError::internal("wake request vanished right after it was saved"))
+    }
+
+    pub(crate) fn wakes(&self) -> Result<Vec<Wake>, RpcError> {
+        self.db
+            .prepare("SELECT id, waiter, any_of, ids, finished, seen FROM wakes ORDER BY id")
+            .and_then(|mut stmt| stmt.query_map([], row_to_wake)?.collect())
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn wake(&self, id: u32) -> Result<Option<Wake>, RpcError> {
+        self.db
+            .query_row(
+                "SELECT id, waiter, any_of, ids, finished, seen FROM wakes WHERE id = ?1",
+                params![id],
+                row_to_wake,
+            )
+            .optional()
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn update_wake(
+        &self,
+        id: u32,
+        finished: &[String],
+        seen: u64,
+    ) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE wakes SET finished = ?2, seen = ?3 WHERE id = ?1",
+                params![id, list_text(finished), seen as i64],
+            )
+            .map(drop)
+            .map_err(RpcError::internal)
+    }
+
+    /// Whether the request was open.
+    pub(crate) fn delete_wake(&self, id: u32) -> Result<bool, RpcError> {
+        self.db
+            .execute("DELETE FROM wakes WHERE id = ?1", params![id])
+            .map(|changed| changed > 0)
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn delete_wakes_of(&self, waiter: &str) -> Result<(), RpcError> {
+        self.db
+            .execute("DELETE FROM wakes WHERE waiter = ?1", params![waiter])
+            .map(drop)
+            .map_err(RpcError::internal)
+    }
+
+    /// B1: the Messages to `to` that are `pending` or `held`, pushed digests (B22) and Wake notes
+    /// (B42) left out.
     pub(crate) fn count_open(&self, to: &str) -> Result<u32, RpcError> {
         self.db
             .query_row(
                 &format!(
-                    "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND NOT ({DIGEST})"
+                    "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND NOT ({DIGEST}) AND NOT (from_actor = ?2 AND substr(body, 1, length(?4)) = ?4)"
                 ),
-                params![to, actor_json(&Actor::daemon()), crate::pushes::PREFIX],
+                params![
+                    to,
+                    actor_json(&Actor::daemon()),
+                    crate::pushes::PREFIX,
+                    crate::wake::PREFIX
+                ],
                 |row| row.get(0),
             )
             .map_err(RpcError::internal)
@@ -1070,6 +1155,33 @@ impl Store {
 /// The SQL that picks a pushed digest (B22) out of `messages`, taking the Daemon as `?2` and the
 /// body prefix as `?3`.
 const DIGEST: &str = "from_actor = ?2 AND substr(body, 1, length(?3)) = ?3";
+
+fn list_text(list: &[String]) -> String {
+    serde_json::to_string(list).unwrap_or_else(|_| "[]".to_owned())
+}
+
+fn from_list(column: usize, text: &str) -> rusqlite::Result<Vec<String>> {
+    serde_json::from_str(text).map_err(|err| {
+        rusqlite::Error::FromSqlConversionFailure(
+            column,
+            rusqlite::types::Type::Text,
+            Box::new(err),
+        )
+    })
+}
+
+fn row_to_wake(row: &rusqlite::Row<'_>) -> rusqlite::Result<Wake> {
+    let ids: String = row.get(3)?;
+    let finished: String = row.get(4)?;
+    Ok(Wake {
+        id: row.get(0)?,
+        waiter: row.get(1)?,
+        any_of: row.get(2)?,
+        ids: from_list(3, &ids)?,
+        finished: from_list(4, &finished)?,
+        seen: u64::try_from(row.get::<_, i64>(5)?).unwrap_or(0),
+    })
+}
 
 fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
     let from: String = row.get(1)?;
