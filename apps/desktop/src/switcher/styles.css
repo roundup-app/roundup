@@ -1,0 +1,44 @@
+/* U529: an opaque panel over the centre pane with Help's hairline (D8: only the Drawer and a bubble have a shadow); no hover box. */
+.switcher {
+  position: absolute;
+  top: var(--space-5);
+  left: 50%;
+  z-index: 3;
+  width: min(480px, calc(100% - var(--space-5)));
+  transform: translateX(-50%);
+  padding: var(--space-2);
+  background-color: var(--ground);
+  border-radius: var(--radius-row);
+  border: 1px solid var(--hairline);
+}
+
+.switcher-mark {
+  width: 16px;
+  height: 16px;
+}
+
+.switcher-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switcher-owner {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--grey);
+}
+
+/* Focus is the caret alone: no box wraps the field inside the panel (the Thread composer's rule, U353). */
+.switcher .app-combobox-input:focus-visible {
+  outline-width: 0;
+}
+
+.centre-stack {
+  position: relative;
+}
