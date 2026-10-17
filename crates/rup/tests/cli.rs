@@ -239,10 +239,14 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
             .iter()
             .map(|(name, _)| tool_key(name))
             .collect();
+        // M16: a Door's `rup mcp` omits the three tools that start a Terminal; the command stays.
         let cli: BTreeSet<String> = commands
             .iter()
             .filter(|(_, door_only)| door || !door_only)
             .map(|(usage, _)| command_key(usage))
+            .filter(|key| {
+                !door || !["agentrun", "terminalspawn", "terminalopen"].contains(&key.as_str())
+            })
             .collect();
         assert_eq!(cli, tools, "door: {door}");
     }

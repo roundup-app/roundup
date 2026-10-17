@@ -443,6 +443,10 @@ fn with_tools(role: Role, mcp: bool) -> String {
         &[]
     };
     for &(name, when) in TOOLS.iter().chain(door) {
+        // M16: a Door is offered no tool that starts a Terminal.
+        if role == Role::Door && matches!(name, "agent_run" | "terminal_spawn" | "terminal_open") {
+            continue;
+        }
         let when = if role == Role::Door && name == "message_send" {
             "send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal"
         } else {
