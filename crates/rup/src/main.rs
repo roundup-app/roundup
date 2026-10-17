@@ -2,7 +2,7 @@ use std::io::Read;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use contracts::agent::{Brief, NodeId, SignalParams};
+use contracts::agent::{Brief, NodeId, SignalOutcome, SignalParams};
 use contracts::decision::{PermissionOutput, PermissionParams};
 use contracts::{Actor, ActorKind};
 use serde_json::{Value, json};
@@ -101,8 +101,16 @@ async fn main() -> ExitCode {
     }
     let outcome = match command[..] {
         ["ping"] => ping(&options).await,
-        ["signal", agent_id] if !agent_id.starts_with('-') => signal(agent_id).await,
-        // Exit 2 would tell Claude Code to block its tool call or prompt; `signal` only ever exits 1.
+        ["signal", agent_id] if !agent_id.starts_with('-') => match signal(agent_id).await {
+            // B39: the one reason to exit 2, which blocks a prompt that repeats delivered Messages.
+            Ok(true) => {
+                eprintln!("rup: this prompt repeats Messages already delivered; dropped");
+                return ExitCode::from(2);
+            }
+            Ok(false) => Ok(()),
+            Err(err) => Err(err),
+        },
+        // Exit 2 would tell Claude Code to block its tool call or prompt; `signal` fails only with 1.
         ["signal", ..] => Err("usage: rup signal <agent-id>".into()),
         ["context", agent_id] if !agent_id.starts_with('-') => return context(agent_id).await,
         // As for `signal`: only exit 1, never 2.
@@ -186,8 +194,9 @@ async fn ping(options: &Options) -> Result<(), String> {
     Ok(())
 }
 
-/// Claude Code runs this as the Agent's command hook: one payload on stdin is one Signal.
-async fn signal(agent_id: &str) -> Result<(), String> {
+/// Claude Code runs this as the Agent's command hook: one payload on stdin is one Signal. `true`
+/// when the Daemon says the prompt repeats delivered Messages (B39).
+async fn signal(agent_id: &str) -> Result<bool, String> {
     let attempt =
         std::env::var("ROUNDUP_ATTEMPT").map_err(|_| "ROUNDUP_ATTEMPT is required".to_owned())?;
     if contracts::agent::parse_positive_ordinal(&attempt).is_none() {
@@ -304,7 +313,7 @@ async fn identified(agent_id: &str) -> Result<rpc::Client, String> {
 }
 
 /// Identify as Agent `agent_id` and hand the Daemon its Signal.
-async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<(), String> {
+async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<bool, String> {
     let client = identified(agent_id).await?;
     let signal = SignalParams {
         id: agent_id.to_owned(),
@@ -314,7 +323,11 @@ async fn deliver(agent_id: &str, attempt: String, payload: Value) -> Result<(), 
     client
         .request("agent.signal", signal)
         .await
-        .map(drop)
+        // A reply that cannot be read never drops a prompt.
+        .map(|reply| {
+            serde_json::from_value::<Option<SignalOutcome>>(reply)
+                .is_ok_and(|o| o.is_some_and(|o| o.drop))
+        })
         .map_err(|err| match err.code {
             // The connection closed mid-call: the Daemon may have taken the Signal already.
             rpc::code::UNKNOWN_OUTCOME => format!("{err}; {MAYBE_ARRIVED}"),

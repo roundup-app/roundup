@@ -5,7 +5,12 @@ pub(super) struct State {
     pub(super) gate_observer: Option<GateObserver>,
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     pub(super) channel_deadline: Duration,
+    /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
+    pub(super) prompt_observer: std::sync::OnceLock<PromptObserver>,
 }
+
+/// B39: `(agent id, submitted prompt)` to whether the prompt repeats Messages already delivered.
+pub type PromptObserver = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
 
 impl Shared {
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent

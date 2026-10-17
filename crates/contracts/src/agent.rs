@@ -486,6 +486,14 @@ pub struct SignalParams {
     pub payload: Value,
 }
 
+/// What `agent.signal` answers when it has something to say (otherwise `null`): `drop` tells the
+/// hook to exit 2, which blocks a prompt that repeats Messages already delivered (B39).
+#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct SignalOutcome {
+    pub drop: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct CreateWorkstreamParams {

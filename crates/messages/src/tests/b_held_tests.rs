@@ -44,7 +44,7 @@ fn recording() -> (Deliver, Calls) {
     let calls: Calls = Arc::default();
     let seen = Arc::clone(&calls);
     let deliver: Deliver = Arc::new(move |id: String, text: String| {
-        seen.lock().unwrap().push((id, text));
+        seen.lock().unwrap().push((id, shown(text)));
         let done: Pin<Box<dyn Future<Output = Result<(), Refusal>> + Send>> =
             Box::pin(async { Ok(()) });
         done
@@ -82,6 +82,29 @@ impl Held2 {
             touches: Arc::new(provenance::Touches::in_memory().unwrap()),
             dir: dir.to_path_buf(),
         }
+    }
+
+    /// The same Project and Daemon, typing with `deliver` from now on and playing the Agent's
+    /// Signal only when a test does.
+    fn with_deliver(self, deliver: Deliver) -> Self {
+        let Self { rail, dir, bus, .. } = self;
+        let h = Self::over_with(&dir, rail, bus, deliver, Arc::default());
+        h.messages
+            .inner
+            .auto_confirm
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        h
+    }
+
+    /// `restarted`, typing with `deliver` and playing the Agent's Signal only when a test does.
+    fn restarted_manual(self, deliver: Deliver) -> Self {
+        let Self { rail, dir, .. } = self;
+        let h = Self::over_with(&dir, rail, Bus::new(), deliver, Arc::default());
+        h.messages
+            .inner
+            .auto_confirm
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        h
     }
 
     /// The same Project, a new Daemon: a fresh `Messages` over the same files and Rail.
@@ -623,7 +646,7 @@ fn blocking() -> (Deliver, Calls, Arc<tokio::sync::Notify>) {
     let release = Arc::new(tokio::sync::Notify::new());
     let gate = Arc::clone(&release);
     let deliver: Deliver = Arc::new(move |id: String, text: String| {
-        seen.lock().unwrap().push((id, text));
+        seen.lock().unwrap().push((id, shown(text)));
         let gate = Arc::clone(&gate);
         let done: Pin<Box<dyn Future<Output = Result<(), Refusal>> + Send>> =
             Box::pin(async move {
@@ -644,7 +667,7 @@ fn refusing_with(refusal: Refusal) -> (Deliver, Calls) {
     let calls: Calls = Arc::default();
     let seen = Arc::clone(&calls);
     let deliver: Deliver = Arc::new(move |id: String, text: String| {
-        seen.lock().unwrap().push((id, text));
+        seen.lock().unwrap().push((id, shown(text)));
         let done: Pin<Box<dyn Future<Output = Result<(), Refusal>> + Send>> =
             Box::pin(async move { Err(refusal) });
         done
@@ -890,7 +913,7 @@ fn blocking_then_busy() -> (Deliver, Calls, Arc<tokio::sync::Notify>) {
     let release = Arc::new(tokio::sync::Notify::new());
     let gate = Arc::clone(&release);
     let deliver: Deliver = Arc::new(move |id: String, text: String| {
-        seen.lock().unwrap().push((id, text));
+        seen.lock().unwrap().push((id, shown(text)));
         let gate = Arc::clone(&gate);
         let done: Pin<Box<dyn Future<Output = Result<(), Refusal>> + Send>> =
             Box::pin(async move {
@@ -911,10 +934,10 @@ async fn b6_a_busy_refusal_during_a_takeover_holds_the_message_for_it() {
     h.send_as(agent("a"), "b", "one").await;
     h.becomes("b", Kind::Idle);
     h.typed(1).await;
+    h.names();
     h.call("takeover.begin", json!({"agent": "b"}))
         .await
         .unwrap();
-    h.names();
 
     release.notify_waiters();
     h.until(1, "held").await;
@@ -1059,10 +1082,10 @@ async fn b32_a_busy_refusal_of_a_users_message_during_a_takeover_holds_it() {
     h.send_as(Actor::user(), "b", "one").await;
     h.becomes("b", Kind::Idle);
     h.typed(1).await;
+    h.names();
     h.call("takeover.begin", json!({"agent": "b"}))
         .await
         .unwrap();
-    h.names();
 
     release.notify_waiters();
     h.settle().await;
@@ -1561,30 +1584,348 @@ async fn b30_a_takeover_between_the_check_and_the_record_holds_the_whole_batch()
     assert!(h.calls.lock().unwrap().is_empty(), "something was typed");
 }
 
-#[tokio::test]
-async fn b30_a_killed_daemon_never_types_the_batch_twice() {
+/// The prompt the Agent would submit: what `deliver` was given, id line included.
+fn raw_deliver() -> (Deliver, Arc<StdMutex<Vec<String>>>) {
+    let raw: Arc<StdMutex<Vec<String>>> = Arc::default();
+    let seen = Arc::clone(&raw);
+    let deliver: Deliver = Arc::new(move |_, text: String| {
+        seen.lock().unwrap().push(text);
+        let done: Pin<Box<dyn Future<Output = Result<(), Refusal>> + Send>> =
+            Box::pin(async { Ok(()) });
+        done
+    });
+    (deliver, raw)
+}
+
+/// A Project whose Agent `b` is `working`, where a typed prompt is delivered only when the test
+/// plays the Agent's Signal (`confirm_prompt`).
+fn signalled() -> (tempfile::TempDir, Held2, Arc<StdMutex<Vec<String>>>) {
     let dir = tempfile::tempdir().unwrap();
-    let (deliver, calls, _never_released) = blocking();
+    let (deliver, raw) = raw_deliver();
     let rail = FakeRail::new(vec![agent_node("b", Kind::Working)]);
-    let h = Held2::over_with(dir.path(), rail, Bus::new(), deliver, calls);
+    let h = Held2::over_with(dir.path(), rail, Bus::new(), deliver, Arc::default());
+    h.messages
+        .inner
+        .auto_confirm
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    (dir, h, raw)
+}
+
+async fn prompts(raw: &Arc<StdMutex<Vec<String>>>, n: usize) -> Vec<String> {
+    for _ in 0..500 {
+        if raw.lock().unwrap().len() >= n {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let prompts = raw.lock().unwrap().clone();
+    assert_eq!(prompts.len(), n, "{prompts:?}");
+    prompts
+}
+
+#[tokio::test]
+async fn b39_a_message_is_delivered_only_when_the_signal_arrives() {
+    let (_dir, mut h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    let prompt = prompts(&raw, 1).await.remove(0);
+    h.settle().await;
+
+    assert_eq!(h.states().await[&1], pending());
+    assert!(!h.names().contains(&"message.delivered".to_owned()));
+    assert!(!h.messages.confirm_prompt("b", &prompt));
+
+    assert_eq!(h.states().await[&1].0, "delivered");
+    assert!(h.names().contains(&"message.delivered".to_owned()));
+}
+
+#[tokio::test]
+async fn b39_the_prompt_ends_with_the_id_line() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.send_as(Actor::user(), "b", "two").await;
+    h.becomes("b", Kind::Idle);
+
+    assert_eq!(
+        prompts(&raw, 1).await,
+        ["[from a, note] one\n\n[from you, note] two\n\n[rup messages: 1 2]"]
+    );
+}
+
+#[tokio::test]
+async fn b39_one_signal_confirms_a_batch_in_one_write() {
+    let (_dir, mut h, raw) = signalled();
+    for body in ["one", "two", "three"] {
+        h.send_as(agent("a"), "b", body).await;
+    }
+    h.becomes("b", Kind::Idle);
+    let prompt = prompts(&raw, 1).await.remove(0);
+    h.names();
+
+    assert!(!h.messages.confirm_prompt("b", &prompt));
+
+    let delivered: Vec<Value> = h
+        .seen()
+        .into_iter()
+        .filter(|(name, _)| name == "message.delivered")
+        .map(|(_, data)| data["id"].clone())
+        .collect();
+    assert_eq!(delivered, [json!(1), json!(2), json!(3)]);
+}
+
+#[tokio::test]
+async fn b39_the_hook_exits_2_only_for_a_prompt_whose_messages_are_all_delivered() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    let first = prompts(&raw, 1).await.remove(0);
+    h.send_as(agent("a"), "b", "two").await;
+    let confirm = |text: &str| h.messages.confirm_prompt("b", text);
+
+    // Each of these is exit 0: no line, an id that names no Message, a line that cannot be read, a
+    // Message of another receiver.
+    assert!(!confirm("a prompt with no id line"));
+    assert!(!confirm("text\n\n[rup messages: 9]"));
+    assert!(!confirm("text\n\n[rup messages: x]"));
+    assert!(!confirm("text\n\n[rup messages: ]"));
+    assert!(!confirm("[rup messages: 1] and more text after it"));
+    assert!(!h.messages.confirm_prompt("c", &first));
+    assert_eq!(h.states().await[&1], pending());
+
+    // The Signal confirms Message 1; the same prompt again repeats it. Message 2, unconfirmed,
+    // makes a mixed prompt exit 0.
+    assert!(!confirm(&first));
+    assert!(confirm(&first));
+    assert!(!confirm("text\n\n[rup messages: 1 2]"));
+}
+
+#[tokio::test(start_paused = true)]
+async fn b39_no_timer_decides_delivery() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+
+    tokio::time::advance(Duration::from_secs(24 * 60 * 60)).await;
+    h.settle().await;
+
+    assert_eq!(h.states().await[&1], pending());
+}
+
+#[tokio::test]
+async fn b30_a_killed_daemon_never_loses_or_double_delivers_the_batch() {
+    let (_dir, h, raw) = signalled();
     h.send_as(agent("a"), "b", "one").await;
     h.send_as(agent("a"), "b", "two").await;
     h.becomes("b", Kind::Idle);
-    h.typed(1).await;
+    let first = prompts(&raw, 1).await.remove(0);
 
-    let h = h.restarted();
-    h.states().await;
+    // Killed before the Signal: nothing was recorded, nothing is lost.
+    let (deliver, retried) = raw_deliver();
+    let h = h.restarted_manual(deliver);
+    assert_eq!(
+        (h.states().await[&1].clone(), h.states().await[&2].clone()),
+        (pending(), pending())
+    );
     h.becomes("b", Kind::Idle);
-    h.settle().await;
+    let again = prompts(&retried, 1).await.remove(0);
 
+    // The retry is one batch with the same id line, and delivers each Message once.
+    assert_eq!(again, first);
+    assert!(!h.messages.confirm_prompt("b", &again));
+    assert!(h.messages.confirm_prompt("b", &again));
     assert_eq!(
         (
-            h.get(1).await["status"].clone(),
-            h.get(2).await["status"].clone()
+            h.states().await[&1].0.clone(),
+            h.states().await[&2].0.clone()
         ),
-        ("delivered".into(), "delivered".into())
+        ("delivered".to_owned(), "delivered".to_owned())
     );
-    assert!(h.calls.lock().unwrap().is_empty(), "typed again");
+    assert_eq!(retried.lock().unwrap().len(), 1, "typed a third time");
+}
+
+#[tokio::test]
+async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_at_the_next_idle() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+
+    let (deliver, retried) = raw_deliver();
+    let h = h.restarted_manual(deliver);
+    h.settle().await;
+    assert!(retried.lock().unwrap().is_empty(), "typed before an idle");
+    h.becomes("b", Kind::Idle);
+
+    assert_eq!(
+        prompts(&retried, 1).await,
+        ["[from a, note] one\n\n[rup messages: 1]"]
+    );
+    assert_eq!(h.states().await[&1], pending());
+}
+
+#[tokio::test]
+async fn b40_a_batch_in_flight_at_a_kill_is_retried_as_one_batch() {
+    let (_dir, h, raw) = signalled();
+    for body in ["one", "two", "three"] {
+        h.send_as(agent("a"), "b", body).await;
+    }
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+
+    let (deliver, retried) = raw_deliver();
+    let mut h = h.restarted_manual(deliver);
+    h.becomes("b", Kind::Idle);
+
+    // One prompt holds all three, in id order, with one id line.
+    let again = prompts(&retried, 1).await.remove(0);
+    assert_eq!(
+        again,
+        "[from a, note] one\n\n[from a, note] two\n\n[from a, note] three\n\n[rup messages: 1 2 3]"
+    );
+    h.names();
+    assert!(!h.messages.confirm_prompt("b", &again));
+    assert!(h.messages.confirm_prompt("b", &again));
+
+    let delivered = h
+        .names()
+        .into_iter()
+        .filter(|name| name == "message.delivered")
+        .count();
+    assert_eq!(delivered, 3);
+    assert_eq!(retried.lock().unwrap().len(), 1, "typed a third time");
+}
+
+#[tokio::test]
+async fn b40_the_retry_is_confirmed_and_delivered_once() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+    let (deliver, retried) = raw_deliver();
+    let mut h = h.restarted_manual(deliver);
+    h.becomes("b", Kind::Idle);
+    let again = prompts(&retried, 1).await.remove(0);
+    h.names();
+
+    assert!(!h.messages.confirm_prompt("b", &again));
+    assert!(h.messages.confirm_prompt("b", &again));
+
+    let delivered = h
+        .names()
+        .into_iter()
+        .filter(|name| name == "message.delivered")
+        .count();
+    assert_eq!(delivered, 1);
+    assert_eq!(h.states().await[&1].0, "delivered");
+}
+
+#[tokio::test]
+async fn b40_a_retried_prompt_whose_messages_were_confirmed_is_dropped_by_the_hook() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    let first = prompts(&raw, 1).await.remove(0);
+    let (deliver, retried) = raw_deliver();
+    let h = h.restarted_manual(deliver);
+    h.becomes("b", Kind::Idle);
+    let again = prompts(&retried, 1).await.remove(0);
+
+    // The first typing's Signal reaches the restarted Daemon after the retry was typed.
+    assert!(!h.messages.confirm_prompt("b", &first));
+    assert_eq!(h.states().await[&1].0, "delivered");
+
+    assert!(h.messages.confirm_prompt("b", &again));
+    assert_eq!(h.states().await[&1].0, "delivered");
+}
+
+#[tokio::test]
+async fn b40_a_message_sent_after_the_restart_is_a_later_batch() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "one").await;
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+    let (deliver, retried) = raw_deliver();
+    let h = h.restarted_manual(deliver);
+    h.becomes("b", Kind::Idle);
+    let first = prompts(&retried, 1).await.remove(0);
+    assert!(!h.messages.confirm_prompt("b", &first));
+
+    h.send_as(agent("a"), "b", "two").await;
+    h.becomes("b", Kind::Working);
+    h.becomes("b", Kind::Idle);
+
+    assert_eq!(
+        prompts(&retried, 2).await[1],
+        "[from a, note] two\n\n[rup messages: 2]"
+    );
+}
+
+#[tokio::test]
+async fn b40_a_message_in_flight_to_a_gone_terminal_waits_for_the_resumed_agent() {
+    let (_dir, h, raw) = signalled();
+    h.send_as(agent("a"), "b", "typed").await;
+    h.becomes("b", Kind::Idle);
+    prompts(&raw, 1).await;
+    h.becomes("b", Kind::Working);
+    h.send_as(agent("a"), "b", "never typed").await;
+    let (unused, _) = raw_deliver();
+    let h = h.restarted_manual(unused);
+
+    // The Terminal did not survive: Attempt 1 is gone.
+    {
+        let mut nodes = h.rail.0.lock().unwrap();
+        nodes[0].status_revision = None;
+        nodes[0].terminal_id = None;
+        nodes[0].status = Some(Status {
+            kind: Kind::Done,
+            label: "terminal gone".into(),
+            since: 0,
+        });
+    }
+    h.bus.emit(Actor::daemon(), EventData::RailChanged);
+    h.settle().await;
+    assert_eq!(
+        (h.states().await[&1].clone(), h.states().await[&2].clone()),
+        (pending(), dropped("receiver gone"))
+    );
+
+    // `agent.resume` brings Attempt 2 back, and the Message typed at the kill is typed there.
+    let (deliver, retried) = raw_deliver();
+    let h = h.with_deliver(deliver);
+    {
+        let mut nodes = h.rail.0.lock().unwrap();
+        nodes[0] = RailNode {
+            attempt: Some("2".into()),
+            status_revision: Some("1".into()),
+            ..agent_node("b", Kind::Working)
+        };
+    }
+    h.bus.emit(Actor::daemon(), EventData::RailChanged);
+    h.settle().await;
+    h.rail.0.lock().unwrap()[0] = RailNode {
+        attempt: Some("2".into()),
+        status_revision: Some("2".into()),
+        ..agent_node("b", Kind::Idle)
+    };
+    h.bus.emit(
+        Actor::daemon(),
+        EventData::AgentStatus(Box::new(StatusEvent {
+            id: "b".into(),
+            attempt: "2".into(),
+            status_revision: "2".into(),
+            status: Status {
+                kind: Kind::Idle,
+                label: "x".into(),
+                since: 0,
+            },
+        })),
+    );
+
+    assert_eq!(
+        prompts(&retried, 1).await,
+        ["[from a, note] typed\n\n[rup messages: 1]"]
+    );
 }
 
 #[tokio::test]
@@ -2016,7 +2357,7 @@ async fn b37_a_busy_error_delivery_returns_to_pending_until_the_next_turn() {
     let deliver: Deliver = Arc::new(move |id, text| {
         let refusal = busy.swap(false, std::sync::atomic::Ordering::SeqCst);
         if !refusal {
-            accepted.lock().unwrap().push((id, text));
+            accepted.lock().unwrap().push((id, shown(text)));
         }
         Box::pin(async move { if refusal { Err(Refusal::Busy) } else { Ok(()) } })
     });
