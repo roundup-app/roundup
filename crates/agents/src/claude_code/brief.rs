@@ -241,7 +241,7 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 5] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 6] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
@@ -253,6 +253,10 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 5] = [
     (
         "checkpoint_write",
         "mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made",
+    ),
+    (
+        "terminal_show",
+        "show a Terminal in your Reach to the user, who sees its owner selected; it reads nothing",
     ),
     (
         "workstream_rewindPlan",
@@ -275,10 +279,11 @@ Start a child with `agent_spawn` and talk to it with `message_send`. \
 A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
 Open another Project with `project_open`. \
+When the user asks to see a child's output, call `terminal_show` with the id of the child's Terminal and read nothing: no `terminal_screen`, `terminal_read`, `terminal_search` or `message_send`. \
 Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
-Read `agent_context` for the Models you may start a child on, and pass `model` as the smallest one that does the child's job; omit it to take the Project's. \
+Pass `model` as the smallest Model that does the child's job (`haiku`, `sonnet`, `opus` or `fable`); omit it to take the Project's. \
 Give each child an `order`: a `title` of at most six words, the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 When the user gives you the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then report directly in your Terminal: name the new Agent and give its ask in one sentence. \
 You write orders only for the Agents you spawn; an Agent the user started writes its own. \

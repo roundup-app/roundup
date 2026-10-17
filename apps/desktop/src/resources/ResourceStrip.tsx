@@ -110,7 +110,7 @@ export const ResourceStrip = () => {
   };
 
   return (
-    <div class="resource-strip" role="status" aria-live="off" aria-hidden="false">
+    <div class="resource-strip" data-flat-bar="" role="status" aria-live="off" aria-hidden="false">
       <HintLine />
       {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
       <span class="resource-agent">

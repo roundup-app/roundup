@@ -2,7 +2,7 @@ use super::*;
 
 impl Agents {
     /// A36, M12: check a call's Model and Effort and settle the pair `role` starts on: the call's
-    /// own, else the Project's. An Agent's call is limited to the Models the Project allows.
+    /// own, else the Project's. An Agent's call may not set an Effort.
     pub(super) fn choose(
         &self,
         actor: &Actor,
@@ -13,7 +13,7 @@ impl Agents {
         models::check_listed(model.as_deref(), effort.as_deref())?;
         let project = self.project_models()?;
         if actor.kind == ActorKind::Agent {
-            models::check_agents_choice(model.as_deref(), effort.as_deref(), &project.allowed)?;
+            models::check_agents_choice(effort.as_deref())?;
         }
         Ok(models::resolve(&project, role, model, effort))
     }
