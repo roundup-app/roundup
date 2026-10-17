@@ -52,7 +52,11 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "null | agent_HeldAction",
     ),
-    m("terminal.write", "terminal_WriteParams", "null"),
+    m(
+        "terminal.write",
+        "terminal_WriteParams",
+        "null | agent_HeldAction",
+    ),
     m(
         "terminal.resize",
         "terminal_ResizeParams",
