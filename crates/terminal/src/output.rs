@@ -10,6 +10,8 @@ use rpc::{RpcError, code};
 pub(crate) const LOG_BYTES: usize = 1_048_576;
 /// The most text any reply holds.
 pub(crate) const REPLY_BYTES: usize = 16_384;
+/// X16: the most lines a read holds.
+pub(crate) const REPLY_LINES: usize = 200;
 const MATCH_CHARS: usize = 400;
 const MATCHES: usize = 50;
 /// What a match costs in the reply beyond its text: its offset and the JSON around it.
@@ -224,12 +226,16 @@ fn decode(bytes: &[u8]) -> (char, usize) {
         .map_or(('\u{fffd}', 1), |c| (c, width))
 }
 
-/// `terminal.read`: whole lines while they fit `cap`; a first line longer than `cap` is cut on a character boundary.
+/// `terminal.read`: whole lines while they fit `cap` and [`REPLY_LINES`]; a first line longer than `cap` is cut on a character boundary.
 pub(crate) fn read(window: &Window, cap: usize) -> Read {
     let mut text = String::new();
     let mut next = window.from;
     let mut truncated = false;
-    for line in lines(window) {
+    for (count, line) in lines(window).into_iter().enumerate() {
+        if count == REPLY_LINES {
+            truncated = true;
+            break;
+        }
         let mut piece = line.text();
         if line.newline {
             piece.push('\n');
