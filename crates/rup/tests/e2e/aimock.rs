@@ -160,7 +160,7 @@ pub fn configure(config: &Path, cwd: &Path, base_url: &str) {
 }
 
 /// A launch gate in front of the pinned Claude: it logs each start's argv and the launch settings
-/// it saw, creates `held` when `hold` is missing, waits for `hold`, then runs the real program.
+/// it saw, creates `held` when `hold` is missing, waits for `hold` (an Agent's start only, never the Daemon's probes), then runs the real program.
 /// It scripts nothing of what Claude does.
 pub fn launch_wrapper(dir: &Path, hold: &Path, held: &Path, log: &Path) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
@@ -174,10 +174,11 @@ import json, os, sys, time
 seen = {{n: os.environ[n] for n in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if n in os.environ}}
 with open({log}, "a") as log:
     log.write(json.dumps({{"argv": sys.argv[1:], "env": seen, "functionHooks": os.environ.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")}}) + "\n")
-if not os.path.exists({hold}):
-    open({held}, "w").close()
-while not os.path.exists({hold}):
-    time.sleep(0.02)
+if sys.argv[1:2] == ["--settings"]:
+    if not os.path.exists({hold}):
+        open({held}, "w").close()
+    while not os.path.exists({hold}):
+        time.sleep(0.02)
 claude = {claude}
 os.execv(claude, [claude, *sys.argv[1:]])
 "#,
