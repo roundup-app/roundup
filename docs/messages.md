@@ -404,3 +404,14 @@ waiting answer does not survive a Daemon restart (dropped with the Attempt reaso
 and none is retried. The user's own answers are never held.
 Integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs and
 laws are unchanged.
+
+## B6 Door Resumes
+
+Door `agent.resume` calls on a taken-over child use the same durable `HeldAction`
+receipts, per-child arrival order and ledger as Orders. Nothing starts while the
+Takeover lasts. Release resumes the child if it has exited, as an exit ends the
+Takeover; a child still running makes the Resume invalid, and it is dropped with that
+reason. A Resume refused while the exit settles had no effect and is tried again.
+A waiting Resume that a Daemon restart finds is released in order; one recorded in
+progress is dropped as possibly applied, and none is retried. Integration-tested
+guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs and laws are unchanged.
