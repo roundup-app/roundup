@@ -1033,6 +1033,63 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
 }
 
 #[tokio::test]
+async fn m16_real_claude_runs_tests_with_bash_without_a_run() {
+    let project = daemon::start_real("m16_door_child_bash", &[]);
+    std::fs::write(project.dir.path().join("test.sh"), "exit 0\n").unwrap();
+    let client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let spawned: contracts::agent::RailNode = serde_json::from_str(
+        model.tool_result("toolu_m16_spawn").await["content"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    let owned = |terminals: &Value, owner: &str| {
+        terminals
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry["owner"] == owner)
+            .count()
+    };
+    let before = owned(
+        &client.request("terminal.list", Value::Null).await.unwrap(),
+        &spawned.id,
+    );
+    let decision = daemon::h21_decision(&client, &spawned.id, None).await;
+    assert_eq!(decision["tool"], "Bash");
+    client
+        .request(
+            "decision.answer",
+            json!({"id": decision["id"], "answer": "allow", "proof": daemon::H21_PROOF}),
+        )
+        .await
+        .unwrap();
+    let result = model.tool_result("toolu_m16_bash").await;
+    assert_eq!(result["is_error"], json!(null), "{result}");
+    let after = owned(
+        &client.request("terminal.list", Value::Null).await.unwrap(),
+        &spawned.id,
+    );
+    assert_eq!(after, before, "the child's Bash started no Terminal");
+    model.assert_matched();
+}
+
+#[tokio::test]
 async fn f3_a_door_spawns_into_a_worktree_when_the_setting_is_on() {
     let project = daemon::start_real("f3_child_worktree", &[]);
     let path = project.dir.path();
