@@ -931,6 +931,73 @@ class Generated(unittest.TestCase):
                 self.assertEqual((head, after), (before, ''))
 
 
+class MergeLoss(unittest.TestCase):
+    """L120: a `rules` failure only on `merge-loss` is repaired by restoring main's files, with no model."""
+
+    def repo(self):
+        """A branch whose merge of `main` kept its stale `src/lost.txt` and whose own commit touched only `src/own.txt`."""
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(root)]))
+
+        def git(*args):
+            subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', *args],
+                           cwd=root, check=True, capture_output=True)
+
+        def commit(name, text, subject):
+            (root / name).write_text(text)
+            git('add', '-A')
+            git('commit', '-m', subject)
+
+        git('init')
+        (root / 'src').mkdir()
+        commit('src/lost.txt', 'old\n', 'base')
+        git('switch', '-c', 'build/x')
+        commit('src/own.txt', 'mine\n', 'own')
+        git('switch', 'main')
+        commit('src/lost.txt', 'new\n', 'main edits')
+        git('update-ref', 'refs/remotes/origin/main', 'main')
+        git('switch', 'build/x')
+        git('merge', '-s', 'ours', '-m', 'merge main, keeping the stale side', 'origin/main')
+        return root
+
+    def restore(self, root, rules=None):
+        with chdir(root):
+            return builder.restore_merge_loss(rules=rules)
+
+    def test_l120_a_merge_that_kept_a_stale_file_is_restored_from_main_with_no_model(self):
+        root = self.repo()
+        self.assertTrue(self.restore(root))
+        self.assertEqual((root / 'src/lost.txt').read_text(), 'new\n')
+        self.assertEqual((root / 'src/own.txt').read_text(), 'mine\n')
+        message = subprocess.run(['git', 'log', '-1', '--format=%B'], cwd=root, text=True, capture_output=True).stdout
+        self.assertRegex(message, r'Author-Agent: builder-\d+\n')
+
+    def test_l120_a_restore_that_still_fails_or_has_nothing_to_restore_leaves_the_branch_untouched(self):
+        stale = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(stale)]))
+        # A `merge-loss` that lists the file on every run still fails after the restore.
+        (stale / 'rules.sh').write_text('echo "merge-loss: lost" >&2; echo "  src/lost.txt" >&2; exit 1\n')
+        # One that fails and lists nothing has no file to restore.
+        (stale / 'silent.sh').write_text('exit 1\n')
+        for script in ('rules.sh', 'silent.sh'):
+            with self.subTest(script=script):
+                root = self.repo()
+                before = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
+                self.assertFalse(self.restore(root, stale / script))
+                state = subprocess.run(['git', 'status', '--porcelain'], cwd=root, text=True, capture_output=True).stdout
+                head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
+                self.assertEqual((head, state), (before, ''))
+                self.assertEqual((root / 'src/lost.txt').read_text(), 'old\n')
+
+    def test_l120_only_a_rules_failure_on_merge_loss_alone_asks_for_the_restore(self):
+        for steps, asks in ((['loop/rules.sh merge-loss'], True), (['loop/rules.sh merge-loss', 'loop/rules.sh vocab'], False)):
+            with self.subTest(steps=steps):
+                view, failing = rules_run(*steps)
+                with tempfile.NamedTemporaryFile('r') as output, GitHub(view=view, steps=failing, labels=READY):
+                    builder.fix_task(9, HEAD, 'rules', 99, output.name)
+                    self.assertEqual('merge_loss=true' in Path(output.name).read_text(), asks)
+
+
 class Continue(unittest.TestCase):
     def prompt(self, github):
         with tempfile.NamedTemporaryFile('r') as output, github:

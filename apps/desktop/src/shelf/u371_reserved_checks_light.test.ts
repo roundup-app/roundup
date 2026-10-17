@@ -5,10 +5,11 @@ import { captureDir } from "../testing/captures";
 import { CHECK_IDS } from "../testing/checks";
 import type { Checks } from "../testing/checks";
 import { shelfBrowser } from "./u371Browser";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const { rig, evaluate, settle, openShelf, toggle, capture } = shelfBrowser();
 
-for (const scheme of ["light"]) for (const seed of ["tree-40","agents-10","first-run"]) for (const width of [1280,1440]) it(`u371_checks_hold_with_open_closed_and_fallback_shelf_${scheme}_${seed}_${width}`, async () => {
+for (const scheme of ["light"]) for (const seed of ["tree-40","agents-10","first-run"]) for (const width of [FULLSCREEN.width]) it(`u371_checks_hold_with_open_closed_and_fallback_shelf_${scheme}_${seed}_${width}`, async () => {
   const baselines = new Map<string, Checks>();
 
   for (const side of rig.main ? ['base', 'head'] : ['head']) {
