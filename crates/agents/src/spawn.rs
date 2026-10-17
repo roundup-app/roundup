@@ -29,6 +29,25 @@ impl Agents {
                 "{parent} is an Agent: only an Agent's own start nests under it"
             )));
         }
+        // LC4, LC7: only an Agent's own start is lean, so only it names a scout or extras.
+        let by_agent = ctx.actor.kind == ActorKind::Agent;
+        if !by_agent && (params.scout == Some(true) || params.extras.is_some()) {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "scout and extras are for an Agent's start: the user's own Agents keep the full setup",
+            ));
+        }
+        let lean = by_agent.then(|| claude_code::Lean {
+            scout: params.scout == Some(true),
+            extras: params.extras.take().unwrap_or_default(),
+            fresh_brief: false,
+        });
+        if let Some(lean) = &lean {
+            claude_code::extras::resolve(
+                &self.launcher.extras_sources(self.project_dir()),
+                &lean.extras,
+            )?;
+        }
         let pair = self.choose(
             &ctx.actor,
             Role::Agent,
@@ -36,7 +55,6 @@ impl Agents {
             params.effort.take(),
         )?;
         let cwd = Path::new(&params.cwd);
-        let by_agent = ctx.actor.kind == ActorKind::Agent;
         let explicit = params.order.is_some();
         let (order, spawn_prompt) = match (params.prompt, params.order) {
             (Some(prompt), Some(order)) if by_agent => (order, Some(prompt)),
@@ -95,6 +113,9 @@ impl Agents {
                 rail.set_spawner(&node.id, &ctx.actor.id)?;
             }
             rail.set_pair(&node.id, pair.model.as_deref(), pair.effort.as_deref())?;
+            if let Some(lean) = &lean {
+                Launcher::save_lean(&self.dir, &node.id, lean)?;
+            }
             let attempt = rail.allocate_attempt(&node.id)?;
             self.shared.mark_starting(&node.id, attempt.clone());
             if given.is_some()
@@ -322,6 +343,7 @@ impl Agents {
                 std::env::var_os("ROUNDUP_MCP").as_deref(),
                 self.shared.rail().get_mcp()?.on,
             ),
+            lean: Launcher::load_lean(&self.dir, id),
         };
         let started = attempt.to_owned();
         let (argv, env) = self

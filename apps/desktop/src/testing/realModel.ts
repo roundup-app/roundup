@@ -11,7 +11,14 @@ const REPO = resolve(process.cwd(), "../..");
 
 const KEY = "sk-mock-key-000000000000000000000001";
 
-export const claudeBin = () => join(REPO, "node_modules/.bin/claude");
+/** The pinned Claude behind the model route. The Launcher strips `ANTHROPIC_BASE_URL` from a child's environment (A30) and a lean child (LC2) reads none of the user's `env` setting, so only a program in front of Claude can carry the route. */
+export const routedClaude = async (dir: string, url: string) => {
+  const path = join(dir, "claude-routed");
+
+  await writeFile(path, `#!/bin/sh\nexport ANTHROPIC_BASE_URL='${url}' CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 CLAUDE_CODE_MAX_RETRIES=0\nexec '${join(REPO, "node_modules/.bin/claude")}' "$@"\n`, { mode: 0o755 });
+
+  return path;
+};
 
 export type Model = { url: string; journal: () => Promise<Journal[]>; assertMatched: (failed?: number) => Promise<void>; stop: () => Promise<void> };
 
@@ -97,23 +104,18 @@ export const startModel = async (fixture: string): Promise<Model> => {
   };
 };
 
-/** A test-owned `CLAUDE_CONFIG_DIR`: model routed to `url`, a dummy credential, no outside traffic, default permission mode, onboarding and trust seeded. */
-export const configureClaude = async (config: string, cwd: string, url: string) => {
+/** A test-owned `CLAUDE_CONFIG_DIR`: a dummy credential, onboarding and trust seeded; the Project pins the default permission mode. */
+export const configureClaude = async (config: string, cwd: string) => {
   await mkdir(config, { recursive: true });
   await writeFile(
     join(config, "settings.json"),
     JSON.stringify({
       apiKeyHelper: `printf ${KEY}`,
-      env: {
-        ANTHROPIC_BASE_URL: url,
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-        DISABLE_AUTOUPDATER: "1",
-        CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1",
-        CLAUDE_CODE_MAX_RETRIES: "0",
-      },
-      permissions: { defaultMode: "default" },
     }),
   );
+  // A lean child (LC2) reads no user `permissions.defaultMode`; the Project's settings pin it.
+  await mkdir(join(cwd, ".claude"), { recursive: true });
+  await writeFile(join(cwd, ".claude/settings.json"), JSON.stringify({ permissions: { defaultMode: "default" } }));
 
   const projects: Record<string, { hasTrustDialogAccepted: boolean }> = {};
 

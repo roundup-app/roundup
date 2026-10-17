@@ -3,6 +3,8 @@ import type { Brief as agent_Brief } from "./agent/Brief";
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
+import type { Extras as agent_Extras } from "./agent/Extras";
+import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { HeldAction as agent_HeldAction } from "./agent/HeldAction";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
@@ -147,6 +149,8 @@ export type RpcMethods = {
   "pad.export": { params: pad_ExportParams; result: null };
   "pad.setStorage": { params: pad_SetStorageParams; result: null };
   "agent.spawn": { params: agent_SpawnParams; result: agent_RailNode };
+  "agent.extras": { params: null; result: agent_Extras };
+  "agent.extras_add": { params: agent_ExtrasAddParams; result: agent_RailNode };
   "agent.actionHistory": { params: agent_NodeId; result: agent_HeldAction[] };
   "agent.stop": { params: agent_NodeId; result: null | agent_HeldAction };
   "agent.prompt": { params: agent_PromptParams; result: null | agent_HeldAction };

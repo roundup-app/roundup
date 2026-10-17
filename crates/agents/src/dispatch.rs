@@ -10,6 +10,16 @@ impl Module for Agents {
         let shared = &self.shared;
         match method {
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
+            "agent.extras" => reply(&claude_code::extras::available(
+                &self.launcher.extras_sources(self.project_dir()),
+            )),
+            "agent.extras_add" => {
+                let params: ExtrasAddParams = params(value)?;
+                let id = params.id.clone();
+                let node = self.add_extras(ctx, params).await?;
+                Self::touch_rail(ctx, &id)?;
+                reply(&node)
+            }
             "agent.prompt" => {
                 let PromptParams { id, text } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Steer")?;
