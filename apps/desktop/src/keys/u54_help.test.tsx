@@ -63,7 +63,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code.startsWith("Arrow") ? code : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Enter" ? code : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code.startsWith("Arrow") ? code : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -75,7 +75,7 @@ const MODS = [
   { altKey: true, shiftKey: true },
 ];
 
-const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash"]);
+const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash", "Slash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
 const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): string[] =>
@@ -88,7 +88,7 @@ const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MOD
 
       from.dispatchEvent(press);
       // `⌘K` opens the modal switcher, which would swallow every later probe.
-      document.querySelector(".switcher input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      document.querySelector(".switcher input, .ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
       return press.defaultPrevented ? [pressOf(press)] : [];
     }),
@@ -108,7 +108,7 @@ describe("u54 keyboard help", () => {
       "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘↑  Previous Agent", "⌘↓  Next Agent", "⌘⌫  Remove",
       "⌘⏎  Take control", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
       "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
-      "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
+      "⌘/  Ask bar", "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
     ]);
   });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {

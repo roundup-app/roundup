@@ -21,6 +21,7 @@ export const CONTRACT = {
     "agent.spawn": "e2da2683d27ba6c2",
     "agent.spawnPrompt": "bbfc3c016e4ec01c",
     "agent.stop": "e45a66a4284e42e5",
+    "agent.wake": "9c757b5158c12baa",
     "agent.worktreeState": "79ecd2bbd18d5127",
     "ask.list": "dd8bee1eec2326f2",
     "ask.pick": "d0407cda8d9f736b",

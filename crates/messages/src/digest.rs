@@ -159,6 +159,28 @@ impl Seen {
         Ok(Digest { children: items })
     }
 
+    /// B41, B43: `child`'s entry as its parent is told it, `None` when it has no Status. `tell`
+    /// records it as told and its Pads as named, as a digest read by the parent would, so no push
+    /// repeats it.
+    pub fn entry_of(&self, child: &str, from: &Sources, tell: bool) -> Option<DigestEntry> {
+        let node = from
+            .nodes
+            .iter()
+            .find(|node| node.id == child && is_agent(node) && node.status.is_some())?;
+        let parent = node.parent.clone().unwrap_or_default();
+        let mut book = self.book();
+        let key = (parent.clone(), child.to_owned());
+        let after = book.named.get(&key).copied();
+        let (entry, newest) = entry(node, &parent, from, after);
+        if tell && node.parent.is_some() {
+            if let Some(newest) = newest {
+                book.name(&key, newest);
+            }
+            book.told.insert(key, told(&entry, node, from));
+        }
+        Some(entry)
+    }
+
     /// B21: what the Daemon records as told without sending it, so that only a change after now
     /// is pushed. Children that already have an entry keep it.
     pub fn baseline(&self, from: &Sources) {
@@ -186,11 +208,16 @@ impl Seen {
             let after = book.named.get(&key).copied();
             let (entry, newest) = entry(child, &meta.id, from, after);
             let now = told(&entry, child, from);
+            // B43: the change into `error` or `needs-you` is the parent's note, not a push.
+            let attention = matches!(now.kind, Kind::Error | Kind::NeedsYou);
             let moved = book.told.get(&key).is_none_or(|was| {
-                (was.kind != now.kind && !is_flip(was, &now))
+                (was.kind != now.kind && !is_flip(was, &now) && !attention)
                     || was.todos != now.todos
                     || (!entry.pads.is_empty() && now.pads > was.pads)
             });
+            if !moved && attention && book.told.get(&key).is_some_and(|was| was.kind != now.kind) {
+                book.told.insert(key.clone(), now.clone());
+            }
             if moved {
                 let before = (after, book.told.get(&key).cloned());
                 if let Some(newest) = newest {
@@ -252,7 +279,7 @@ pub fn entry_text(entry: &DigestEntry) -> String {
     text
 }
 
-fn kind_word(kind: Kind) -> String {
+pub(crate) fn kind_word(kind: Kind) -> String {
     serde_json::to_value(kind)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))
@@ -917,13 +944,28 @@ mod tests {
     }
 
     #[test]
-    fn b35_entering_each_of_error_needs_you_blocked_and_done_is_pushed() {
-        for kind in [Kind::Error, Kind::NeedsYou, Kind::Blocked, Kind::Done] {
+    fn b35_entering_each_of_blocked_and_done_is_pushed() {
+        for kind in [Kind::Blocked, Kind::Done] {
             let seen = Seen::default();
             let mut nodes = rail();
             let none: Vec<Todo> = vec![];
             seen.baseline(&sources(&nodes, &none, &[], &[]));
             nodes[1].status = Some(status(kind, "reading"));
+            assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+        }
+    }
+
+    #[test]
+    fn b43_other_kind_changes_are_pushed_as_b21_says() {
+        for kind in [Kind::Error, Kind::NeedsYou] {
+            let seen = Seen::default();
+            let mut nodes = rail();
+            let none: Vec<Todo> = vec![];
+            seen.baseline(&sources(&nodes, &none, &[], &[]));
+            nodes[1].status = Some(status(kind, "reading"));
+            assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+            // The change is told, so the way out of it is a change again.
+            nodes[1].status = Some(status(Kind::Done, "reading"));
             assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
         }
     }

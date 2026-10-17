@@ -33,6 +33,7 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌥0", what: copy.endTheTakeover, presses: digits(0, 0) },
   { keys: "⇧⌘J", what: copy.jumpToWhatNeedsYouInAnotherProject, presses: ["meta+shift+KeyJ"] },
   { keys: "⌘\\", what: copy.showOrHideTheShelf, presses: ["meta+Backslash"] },
+  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
   { keys: "⌘,", what: copy.models, presses: ["meta+Comma"] },
   { keys: "⇧⌘]", what: copy.nextProject, presses: ["meta+shift+BracketRight"] },
   { keys: "⇧⌘[", what: copy.previousProject, presses: ["meta+shift+BracketLeft"] },
@@ -68,6 +69,8 @@ export const HELP_KEYS = ["[Shift]+?"];
 export const TAKE_CONTROL = chordsFor("⌘⏎");
 
 export const SWITCHER_CLOSE = "Escape".split(" ");
+
+export const ASK_CLOSE = "Escape".split(" ");
 
 export const SWITCHER_TAKE = "Shift+Enter".split(" ");
 
