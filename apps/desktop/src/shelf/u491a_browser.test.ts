@@ -44,6 +44,17 @@ describe("u491a Shelf questions and navigation", () => {
     expect((await lane.calls("todo.reorder")).map(call => call.params)).toEqual([{ id: one, before: three }, { id: one, before: two }]);
   }, 120_000);
 
+  it("u491a_owned_tooltips_reveal_titles_and_blockers", async () => {
+    const [one, , three] = await rows(lane);
+
+    await lane.browser("hover", `.shelf [data-id="${one}"] .shelf-title`);
+    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'first')");
+    expect(await lane.evaluate<string>("document.querySelector('[role=tooltip]').textContent")).toBe("first");
+    await lane.browser("hover", `.shelf [data-id="${three}"] [data-todo-waits]`);
+    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'Waits on first')");
+    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("Waits on first");
+  }, 120_000);
+
   it("u491a_bulk_question_focus", async () => {
     await ask();
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=\"alertdialog\"] li')].map(item => item.textContent)")).toHaveLength(2);

@@ -116,7 +116,7 @@ export const OpenRow = (props: {
           }}
         >
           <Tooltip.Root><Tooltip.Trigger asChild={(trigger) => <span {...trigger()} class="shelf-title">{props.todo.title}</span>} />
-            <Portal><Tooltip.Positioner><Tooltip.Content>{props.todo.title}</Tooltip.Content></Tooltip.Positioner></Portal>
+            <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{props.todo.title}</Tooltip.Content></Tooltip.Positioner></Portal>
           </Tooltip.Root>
         </RowButton>
         <Show when={!props.nested && (props.sorted || props.onSelect)}>
@@ -172,7 +172,7 @@ export const OpenRow = (props: {
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
           <Show when={failure() === null && waitingOn().length > 0}>
-            <span data-todo-waits>
+            <Tooltip.Root><Tooltip.Trigger asChild={(trigger) => <span {...trigger()} data-todo-waits>
               <span>{copy.waitsOnWord}</span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
                   <Show when={index() > 0}><span>{copy.comma}</span></Show>
@@ -181,7 +181,9 @@ export const OpenRow = (props: {
                   </button>
                 </>
               )}</For></span>
-            </span>
+            </span>} />
+              <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}</Tooltip.Content></Tooltip.Positioner></Portal>
+            </Tooltip.Root>
           </Show>
           <Show when={props.nested}>
             {" "}<span data-todo-home>{copy.in}<span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
@@ -440,7 +442,7 @@ export const Todos = () => {
                       onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo))}
                     >
                       <Tooltip.Root><Tooltip.Trigger asChild={(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>} />
-                        <Portal><Tooltip.Positioner><Tooltip.Content>{todo.title}</Tooltip.Content></Tooltip.Positioner></Portal>
+                        <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{todo.title}</Tooltip.Content></Tooltip.Positioner></Portal>
                       </Tooltip.Root>
                     </RowButton>
                   }
