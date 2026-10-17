@@ -147,17 +147,46 @@ async fn fixture() -> Fix {
     }
     project.model.as_ref().unwrap().assert_matched();
     let user = project.client().await;
-    Fix {
+    let fx = Fix {
         project,
         user,
         ws,
         a,
         b,
+    };
+    // Claude Code writes a turn's records to its conversation file after the turn's Stop Signal.
+    // A Mark recorded before then holds no message, and a rewind's resume of it finds no
+    // conversation.
+    for node in rail_tree(&fx.user).await {
+        let cwd = node.worktree.map_or_else(
+            || fx.project.dir.path().to_owned(),
+            |tree| PathBuf::from(tree.path),
+        );
+        daemon::h21_poll(
+            "each turn's end in its conversation file",
+            async || match conversations(&fx, &cwd).as_slice() {
+                [file] => ended(file).then_some(()),
+                _ => None,
+            },
+        )
+        .await;
     }
+    fx
 }
 
 /// The conversation file real Claude saved for `agent`, found by the words of its first ask.
 fn transcript(fx: &Fix, cwd: &Path) -> PathBuf {
+    let files = conversations(fx, cwd);
+    assert_eq!(
+        files.len(),
+        1,
+        "one saved conversation for {cwd:?}: {files:?}"
+    );
+    files.into_iter().next().unwrap()
+}
+
+/// The conversation files real Claude has saved for an Agent working in `cwd`.
+fn conversations(fx: &Fix, cwd: &Path) -> Vec<PathBuf> {
     let project: String = cwd
         .canonicalize()
         .unwrap()
@@ -171,17 +200,30 @@ fn transcript(fx: &Fix, cwd: &Path) -> PathBuf {
         .path()
         .join("claude-config/projects")
         .join(project);
-    let files: Vec<PathBuf> = std::fs::read_dir(&dir)
-        .unwrap_or_else(|e| panic!("{dir:?}: {e}"))
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
         .map(|e| e.unwrap().path())
         .filter(|p| p.extension().is_some_and(|x| x == "jsonl"))
+        .collect()
+}
+
+/// Whether the conversation file holds a turn's end: after the reply, Claude Code writes the turn's
+/// duration.
+fn ended(file: &Path) -> bool {
+    let records: Vec<Value> = std::fs::read_to_string(file)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|line| serde_json::from_str(line).ok())
         .collect();
-    assert_eq!(
-        files.len(),
-        1,
-        "one saved conversation in {dir:?}: {files:?}"
-    );
-    files.into_iter().next().unwrap()
+    records
+        .iter()
+        .rposition(|record| record["type"] == "assistant")
+        .is_some_and(|reply| {
+            records[reply..]
+                .iter()
+                .any(|record| record["type"] == "system" && record["subtype"] == "turn_duration")
+        })
 }
 
 async fn write(fx: &Fix) -> Value {
