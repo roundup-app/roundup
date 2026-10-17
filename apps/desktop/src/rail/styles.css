@@ -59,8 +59,12 @@
   min-height: var(--space-6);
 }
 
-/* U426, U3704: transparent actions stay tabbable and keep their room, so a name cut for them is cut the same at rest, so a state beside it never moves. */
+/* U426, U3704: transparent actions stay tabbable but sit out of flow at rest, so a name has the row's whole free room; near the row they take their place in flow, a state --space-3 from the first. */
 .rail-row .row-icons {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  transform: translateY(-50%);
   display: flex;
   flex: none;
   gap: 0;
@@ -73,6 +77,8 @@
 .rail-row[data-near="true"] .row-icons,
 .rail-row:hover .row-icons,
 .rail-row:focus-within .row-icons {
+  position: static;
+  transform: none;
   opacity: 1;
   pointer-events: auto;
 }
@@ -154,11 +160,6 @@
 .rail-row .line > .fill {
   flex: 1 1 0;
   min-width: 0;
-}
-
-.rail-row .door-action-room {
-  flex: none;
-  width: var(--space-5);
 }
 
 .rail-row .door-action {
