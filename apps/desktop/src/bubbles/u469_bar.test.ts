@@ -19,7 +19,7 @@ afterAll(async () => { await page?.close(); });
 
 const geometry = `() => {
   const rect = selector => { const r = document.querySelector(selector)?.getBoundingClientRect(); return r ? {x:r.x,y:r.y,w:r.width,h:r.height} : null; };
-  return {bar:rect('.resource-strip'), pane:rect('.pane'), composer:rect('.thread-composer'),
+  return {bar:rect('.resource-strip'), pane:rect('.pane'),
     focused:document.activeElement?.outerHTML, shown:[...document.querySelectorAll('.bubble:not([hidden])')].map(e => e.dataset.bubble),
     calls:window.__fake.app.calls.filter(c => ['terminal.open','terminal.close'].includes(c.method)), checks:window.__checks()};
 }`;
@@ -63,7 +63,7 @@ it("u469_the_bar_is_the_last_line_with_tabs_left_and_resources_right", async () 
   }
 }, 120_000);
 
-it("u469_a_bubble_covers_neither_composer_nor_bar", async () => {
+it("u469_a_bubble_does_not_cover_the_bar", async () => {
   await page.load('/harness.html?seed=door-stopped', 1280, 800);
   await page.until(`() => document.querySelector('.terminal-new')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
@@ -71,11 +71,11 @@ it("u469_a_bubble_covers_neither_composer_nor_bar", async () => {
 
   const safe = await page.call<boolean>(`() => {
     const bubble = document.querySelector('.bubble:not([hidden])').getBoundingClientRect();
-    return [...document.querySelectorAll('.thread-composer,.resource-strip')].every(e => bubble.bottom <= e.getBoundingClientRect().top);
+    return [...document.querySelectorAll('.resource-strip')].every(e => bubble.bottom <= e.getBoundingClientRect().top);
   }`);
 
   expect(safe).toBe(true);
-  await capture('composer-open');
+  await capture('bar-open');
 }, 60_000);
 
 it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => {
@@ -115,24 +115,22 @@ it("u469_dense_tabs_scroll_without_clipping_resources_or_failures", async () => 
   }
 }, 120_000);
 
-it("u469_empty_and_filled_tabs_and_resources_keep_the_pane_and_composer_rectangles", async () => {
+it("u469_empty_and_filled_tabs_and_resources_keep_the_pane_rectangle", async () => {
   await page.load('/harness.html?seed=door-stopped', 1440, 800);
-  await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.thread-composer')`);
-  const before = await page.call<{bar:unknown;pane:unknown;composer:unknown}>(geometry);
+  await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.pane')`);
+  const before = await page.call<{bar:unknown;pane:unknown}>(geometry);
 
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.terminal-tab')`);
-  const filled = await page.call<{bar:unknown;pane:unknown;composer:unknown}>(geometry);
+  const filled = await page.call<{bar:unknown;pane:unknown}>(geometry);
 
   expect(filled.bar).toEqual(before.bar);
   expect(filled.pane).toEqual(before.pane);
-  expect(filled.composer).toEqual(before.composer);
   await page.call(`() => document.querySelector('.terminal-tab').click()`);
-  const minimised = await page.call<{bar:unknown;pane:unknown;composer:unknown}>(geometry);
+  const minimised = await page.call<{bar:unknown;pane:unknown}>(geometry);
 
-  expect(minimised.composer).toEqual(before.composer);
   expect(minimised.pane).toEqual(before.pane);
-  await capture('composer-minimised');
+  await capture('bar-minimised');
 }, 60_000);
 
 it("u469_every_tab_close_and_plus_is_named_and_keyboard_reachable", async () => {
@@ -257,13 +255,13 @@ it.each([["Enter", "Enter"], [" ", "Space"]])("u469_visibility_buttons_activate_
   expect(await page.call(`() => [...document.querySelectorAll('.bubble:not([hidden])')].map(e=>e.dataset.bubble)`)).toEqual(['101']);
 }, 60_000);
 
-it("u469_cmd_b_returns_to_the_thread_and_can_cycle_again", async () => {
-  await page.load('/harness.html?seed=thread-report', 1280, 800);
-  await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.thread-composer textarea')`);
+it("u469_cmd_b_returns_to_the_terminal_and_can_cycle_again", async () => {
+  await page.load('/harness.html?seed=door-report', 1280, 800);
+  await page.until(`() => document.querySelector('.terminal-new') && document.querySelector('.pane-screen textarea')`);
   await page.call(`() => document.querySelector('.terminal-new').click()`);
   await page.until(`() => document.querySelector('.bubble:not([hidden]) textarea')===document.activeElement`);
   await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
-  expect(await page.call(`() => document.activeElement===document.querySelector('.thread-composer textarea')`)).toBe(true);
+  expect(await page.call(`() => document.activeElement===document.querySelector('.pane-screen textarea')`)).toBe(true);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(0);
   await page.call(`() => window.dispatchEvent(new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true}))`);
   expect(await page.call(`() => document.querySelectorAll('.bubble:not([hidden])').length`)).toBe(1);

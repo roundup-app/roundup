@@ -31,7 +31,7 @@ const Values = (props: { memory: string; cpu: string; disk: string }) => (
   </>
 );
 
-/** U444: the centre's last line, under the Thread's composer, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
+/** U444: the centre's last line, under the Terminal, with the selected Agent's memory, CPU and disk only; none of it is on the Rail. The line stays when empty. */
 export const ResourceStrip = () => {
   const { app, rail, daemonExit } = useConnectedProject();
   const [result, setResult] = createSignal<Resources | null>(null);
