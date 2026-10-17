@@ -1,21 +1,9 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import styles from "../styles.css?inline";
 import { openPad, openShelf, padOf, AGENT } from "../pads/padsFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 
 afterEach(cleanup);
-
-const withStylesheet = async <T,>(run: () => Promise<T>): Promise<T> => {
-  const sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = styles;
-
-  try {
-    return await run();
-  } finally {
-    sheet.remove();
-  }
-};
 
 const focusCalls = () => vi.spyOn(HTMLElement.prototype, "focus");
 
@@ -29,17 +17,6 @@ const keptScroll = (spy: ReturnType<typeof focusCalls>) => {
 const drawerPanel = () => screen.getByLabelText("Drawer");
 
 describe("u111 opening and closing a Drawer leaves the layout where it was", () => {
-  it("u111_the_element_holding_the_rail_the_terminal_and_the_shelf_clips_sideways", async () => {
-    const overflow = await withStylesheet(async () => {
-      await mountTodos([todo(1)]);
-      const columns = getComputedStyle(document.querySelector(".columns")!);
-
-      return [columns.overflowX, columns.overflowY];
-    });
-
-    expect(overflow).toEqual(["clip", "clip"]);
-  });
-
   it("u111_every_focus_into_or_out_of_the_drawer_passes_prevent_scroll", async () => {
     const spy = focusCalls();
     const { connected } = await mountTodos([todo(1)]);

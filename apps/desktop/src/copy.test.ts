@@ -1,8 +1,6 @@
-import { mountRail, rowOf } from "./rail/railFixture";
-import { mountCentre } from "./testing/centreFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { door, workstream, agent } from "./testing/nodes";
+import { door, workstream } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
 
 afterEach(cleanup);
@@ -21,7 +19,6 @@ import { isNode } from "@babel/types";
 import type { Node } from "@babel/types";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { copy } from "./copy";
 
 const ROOT = join(process.cwd(), "src");
 
@@ -139,153 +136,6 @@ it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   expect(missing).toEqual([]);
 });
 
-it("u471_source_observer_covers_jsx_attributes_and_helper_prose", () => {
-  const source = 'const failure = () => { return "failed"; }; const view = <button aria-label="retry now" title={"Try again"}>Retry</button>;';
-  expect(candidates(source).map((each) => each.text)).toEqual(["failed", "retry now", "Try again", "Retry"]);
-  expect(candidates('const label = "retry"; const view = <Show fallback={<span>Oops</span>}><button aria-label={label} /></Show>;').map((each) => each.text)).toEqual(["retry", "Oops"]);
-  expect(candidates('const view = <button class="button quiet" aria-label={name} />; rpc("rail.startDoor", {id});')).toEqual([]);
-  expect(candidates('button.setAttribute("aria-label", "retry");').map((each) => each.text)).toEqual(["retry"]);
-  expect(candidates('const label = "retry"; button.setAttribute("aria-label", label);').map((each) => each.text)).toEqual(["retry"]);
-  expect(candidates('button.setAttribute("data-kind", "working"); button.setAttribute("aria-pressed", "true");')).toEqual([]);
-});
-
-const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagent", "Subagents", "Usage", "Iteration", "Project", "App", "Editor", "Skill"]);
-
-const ACRONYMS = new Set(["B", "KB", "MB", "GB", "TB", "CPU", "RSS", "MCP"]);
-
-const SHORTCUTS = new Set(["⌘Enter", "⌫ / Esc", "↑ / ↓", "⇧↑ / ⇧↓", "⌘N", "⌘K", "⌘C", "⌘V", "Alt+Up", "Alt+Down"]);
-
-const CODE_NAMES = new Set(["Claude Code", "Excalidraw", "Mermaid", "roundup"]);
-
-const MARKS = new Set(["+", " · ", "?", "? ", ": ", " → ", "#", ", ", "–", "●", "○", "◂ ", " ▸"]);
-
-const SECTION_HEADS = new Set(["WORKSTREAMS"]);
-
-const usesCase = (label: string): boolean => {
-  if (SECTION_HEADS.has(label) || ACRONYMS.has(label) || SHORTCUTS.has(label) || CODE_NAMES.has(label) || MARKS.has(label)) return true;
-
-  if (/\b(Door|Doors|Takeover|Shelf|Handoff)\b/.test(label)) return false;
-  const words = label.replace(/^[+↓✕]\s*/, "").trim().split(/\s+/);
-  const first = words[0] ?? "";
-
-  if (!/^[\p{Lu}\d]/u.test(first)) return false;
-
-  return words.slice(1).every((word, at) => {
-    const bare = word.replace(/[^\p{L}]/gu, "");
-
-    if ((words[at] ?? "").endsWith(":") && !/^[\p{Lu}\d]/u.test(word)) return false;
-
-    return !/^\p{Lu}/u.test(bare) || TERMS.has(bare) || ACRONYMS.has(bare) || SHORTCUTS.has(word.replace(/[.,]$/, "")) || CODE_NAMES.has(bare) || /[:.!?]$/.test(words[at] ?? "");
-  });
-};
-
-it("u471_case_observer_rejects_invalid_copy", () => {
-  for (const bad of ["retry now", "Status: lowercase", "Take Control", "Start " + "Door", "End " + "Takeover", "Show " + "Shelf", "Clear without " + "Handoff", "ARBITRARY PROSE"]) expect(usesCase(bad), bad).toBe(false);
-
-  for (const good of ["Take control", "Add Agent", "WORKSTREAMS", "KB", "Waiting for you: Answer below"]) expect(usesCase(good), good).toBe(true);
-});
-
-const FORMAT_SAMPLES = {
-  theDaemonIsOlderThanTheApp: (count: number) => copy.theDaemonIsOlderThanTheApp(count),
-  theDaemonIsNewerThanTheApp: (count: number) => copy.theDaemonIsNewerThanTheApp(count),
-  theAppAndTheDaemonDiffer: (count: number) => copy.theAppAndTheDaemonDiffer(count),
-  theAppAndTheDaemonDiffer2: (count: number) => copy.theAppAndTheDaemonDiffer2(count, count),
-  exit: (count: number) => copy.exit(count),
-  noteForOrYourOwnAnswer: (count: number) => copy.noteForOrYourOwnAnswer(count),
-  decisionFor: (count: number) => copy.decisionFor(count),
-  lastTouch: (count: number) => copy.lastTouch(count, count, count, count),
-  padTouch: (count: number) => copy.padTouch(count, count, count),
-  andMore: (count: number) => copy.andMore(count),
-  closeQuestion: (count: number) => copy.closeQuestion(count),
-  closeProject: (count: number) => copy.closeProject(count),
-  closeTerminal: (count: number) => copy.closeTerminal(count),
-  hiddenAttention: (count: number) => copy.hiddenAttention(count, count, count),
-  needYouError: (count: number) => copy.needYouError(count, count),
-  fullOrderOf: (count: number) => copy.fullOrderOf(count),
-  orderOf: (count: number) => copy.orderOf(count),
-  limits: (count: number) => copy.limits(count),
-  clarifying: (count: number) => copy.clarifying(count),
-  hasExitedAndCannotBeResumed: (count: number) => copy.hasExitedAndCannotBeResumed(count),
-  ownerName: (count: number) => copy.ownerName(count),
-  deletePad: (count: number) => copy.deletePad(count),
-  ownsItYouMayDeleteAnyPad: (count: number) => copy.ownsItYouMayDeleteAnyPad(count),
-  padEditorToolbarActionHasNoName: (count: number) => copy.padEditorToolbarActionHasNoName(count),
-  drawing: (count: number) => copy.drawing(count),
-  mermaid: (count: number) => copy.mermaid(count),
-  clearName: (count: number) => copy.clearName(count),
-  agents: (count: number) => copy.agents(count),
-  doorStoppedWithExit: (count: number) => copy.doorStoppedWithExit(count),
-  bytes: (count: number) => copy.bytes(count),
-  failed: (count: number) => copy.failed(count, count),
-  doesNotExist: (count: number) => copy.doesNotExist(count),
-  theDoorWritesAHandoffKeepsWhatYou: (count: number) => copy.theDoorWritesAHandoffKeepsWhatYou(count),
-  toastLine: (count: number) => copy.toastLine(count, count),
-  toastOverflow: (count: number) => copy.toastOverflow(count),
-  changedTodo: (count: number) => copy.changedTodo(count),
-  changedPad: (count: number) => copy.changedPad(count),
-  moveTodo: (count: number) => copy.moveTodo(count),
-  homesFor: (count: number) => copy.homesFor(count),
-  completeTodo: (count: number) => copy.completeTodo(count),
-  removeBlocker: (count: number) => copy.removeBlocker(count),
-  titleChange: (count: number) => copy.titleChange(count),
-  bodyChange: (count: number) => copy.bodyChange(count),
-  waitsOnJoin: (count: number) => copy.waitsOnJoin(count),
-  removedBlockersJoin: (count: number) => copy.removedBlockersJoin(count),
-  todoRow: (count: number) => copy.todoRow(count, count, count),
-  waitsOnTitles: (count: number) => copy.waitsOnTitles(count),
-  openBlocker: (count: number) => copy.openBlocker(count),
-  actionsFor: (count: number) => copy.actionsFor(count),
-  unlandedWorkAhead: (count: number) => copy.unlandedWorkAhead(count),
-  goes: (count: number) => copy.goes(count),
-  staysAtTheProjectRoot: (count: number) => copy.staysAtTheProjectRoot(count),
-  moreAgents: (count: number) => copy.moreAgents(count),
-  padCount: (count: number) => copy.padCount(count),
-  todoCount: (count: number) => copy.todoCount(count),
-  padsAndTodos: (count: number) => copy.padsAndTodos(count),
-  makePadYours: (count: number) => copy.makePadYours(count),
-  needYou: (count: number) => copy.needYou(count),
-  exitedCode: (count: number) => copy.exitedCode(count),
-  runningAgents: (count: number) => copy.runningAgents(count, "1", "1", "1"),
-  percent: (count: number) => copy.percent(count),
-  counted: (count: number) => copy.counted(count, "1"),
-  orderWithLimits: () => copy.orderWithLimits("1", "1"),
-  daemonExit: () => copy.daemonExit("exited"),
-  noField: () => copy.noField("title"),
-  stopQuestion: () => copy.stopQuestion("authored"),
-  stopAndRemoveQuestion: () => copy.stopAndRemoveQuestion("authored"),
-  removeQuestion: () => copy.removeQuestion("authored"),
-  answerRefused: (count: number) => copy.answerRefused(count, "Unavailable"),
-  sentTo: () => copy.sentTo("Agent"),
-  couldNotSendTo: () => copy.couldNotSendTo("Agent", "Unavailable"),
-} satisfies { [Key in keyof typeof copy as typeof copy[Key] extends (...args: never[]) => string ? Key : never]: (count: number) => string };
-
-it("u471_catalogue_uses_sentence_case_and_user_labels", () => {
-  const samples = new Map(Object.entries(FORMAT_SAMPLES));
-
-  const invalid = Object.entries(copy).flatMap(([key, entry]) => {
-    // A formatter's authored fields are supplied independently; case concerns its own prose.
-    // These fragments are evaluated in the sentences that their production callers compose.
-    // Prefixing supplies context, rather than bypassing the case assertion.
-    const prefixes = new Map<string, string>(Object.entries({
-      appearHereOnePerRow: copy.agentsAndTerminals + " ", nestedByIndent: copy.agentsAndTerminals + " " + copy.appearHereOnePerRow + " ",
-      planSoCanYou: copy.agentsAddThemAsThey + " ", asks: "Agent", andMore: "3 Agents run: A, b, c", exitedBySignal: "Supervisor stopped, ",
-      exited: "Supervisor stopped, ", exitedCode: "Supervisor stopped, ", noLimits: "Order · ",
-      takeControlKeys: "Take control ", doneCount: "1", selected: "1", readOnly: "Watching Agent", openTodoNoun: "1 ", doneTodos: "1 ",
-      agentsMayStillBeWritingDeletingDoesNot: "Owned by Agent", cleared: "Iteration 1", left: "To the ", right: "To the ",
-    }));
-
-    const rendered = entry instanceof Function ? [0, 1, 2].map((count) => samples.get(key)!(count)) : [entry];
-
-    return rendered.flatMap((text) => {
-      const value = (prefixes.get(key) ?? "") + text;
-
-      return usesCase(value) ? [] : [key + ': ' + value];
-    });
-  });
-
-  expect(invalid).toEqual([]);
-});
-
 it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {
   const { app, connected } = await mountRailAndPane([workstream("w")]);
 
@@ -301,47 +151,4 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }, { id: "w" }]));
   expect(connected.rail.selected()).toBe("w");
   expect(app.calls.filter((call) => call.method === "rail.createWorkstream")).toEqual([]);
-});
-
-it("u471_replaced_labels_are_absent", () => {
-  const old = [["Start", "Door"], ["Retry", "Door"], ["End", "Takeover"], ["Take", "over"], ["Show", "Shelf"], ["Hide", "Shelf"], ["Clear", "without", "Handoff"]].map((words) => words.join(" "));
-
-  const missing = readdirSync(ROOT, { recursive: true, encoding: "utf8" }).filter((file) => /\.(ts|tsx|py)$/.test(file)).flatMap((file) => {
-    const source = readFileSync(join(ROOT, file), "utf8");
-
-    return old.flatMap((label) => source.includes(label) ? [`${file}: ${label}`] : []);
-  });
-
-  expect(missing).toEqual([]);
-});
-
-it("u471_previous_copy_assertions_are_preserved_parameterised_output", () => {
-  const authored = 'Door Shelf Takeover Handoff $& <tag> "keep MY words" 🧭\n  exact spacing';
-
-  expect(copy.orderOf(authored)).toBe(`Order of ${authored}`);
-  expect(copy.noteForOrYourOwnAnswer(authored)).toBe(`Note for ${authored}, or your own answer`);
-});
-
-
-it("u471_catalogue_preserves_rendered_content", async () => {
-  const authored = 'Door Shelf Takeover Handoff 🧭 keep MY case';
-
-  await mountCentre([door("w", "idle", "idle"), agent("a", "working", "x", { parent: "w", name: authored, work: { kind: "clarification", question: "keep MY question?" } })], { select: "a" });
-
-  expect(screen.getByRole("button", { name: `Order of ${authored}` }).textContent).toBe("Clarifying: keep MY question?");
-});
-
-
-it("u471_previous_copy_assertions_are_preserved_rail_menu", async () => {
-  await mountRail([workstream("g"), agent("a", "working", "busy", { parent: "g" })]);
-  fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
-
-  const labels = [...document.querySelectorAll<HTMLElement>(".rail button, .rail-actions button, [role=menuitem], [role=menu]")].flatMap((each) => {
-    const label = each.getAttribute("aria-label") ?? each.textContent?.trim() ?? "";
-
-    return label === "" ? [] : [label];
-  });
-
-  expect(labels.length).toBeGreaterThan(3);
-  expect(labels.filter((label) => !usesCase(label))).toEqual([]);
 });

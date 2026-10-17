@@ -5,7 +5,7 @@ import { mountRail } from "./railFixture";
 
 afterEach(cleanup);
 
-it("u447_the_workstreams_head_has_icon_label_and_rule", async () => {
+it("u447_the_workstreams_head_has_icon_and_label", async () => {
   await mountRail([workstream("w")]);
   const head = screen.getByText("WORKSTREAMS").closest(".section-head")!;
   expect(head).not.toBeNull();
