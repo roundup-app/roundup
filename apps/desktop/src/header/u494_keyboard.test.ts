@@ -4,6 +4,15 @@ import { browser, read, wait, url } from "../ui/tabsBrowser";
 /** The Drawer, Models and Project menu mounted together, in either order: `u496Fixture.tsx` through `u496.html`. */
 const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
 
+/** Models opens from the Project tab's menu (U377): `⌘,` is retired (U2238 to U2241). */
+const openModels = async () => {
+  await browser("press", "Shift+F10");
+  await wait(`!!document.querySelector('[role=menu]')`);
+  await browser("press", "ArrowDown");
+  await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
+  await browser("press", "Enter");
+};
+
 const prepareModels = () => browser("eval", `(() => { for (const tab of document.querySelectorAll('.project-tab')) { const app = window.__fake.app.of(tab.dataset.path); app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}}); app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Opus'}],efforts:[{id:'high',label:'High'}]}); } })()`);
 
 for (const surface of ["models", "confirmation"]) it(`u494_dialog_keyboard_wrap_escape_and_return_${surface}`, async () => {
@@ -12,7 +21,7 @@ for (const surface of ["models", "confirmation"]) it(`u494_dialog_keyboard_wrap_
   await prepareModels();
   await browser("eval", `document.querySelector('[role=tab]').focus()`);
 
-  if (surface === "models") await browser("press", "Meta+,");
+  if (surface === "models") await openModels();
   else {
     await browser("hover", ".project-tab");
     await browser("eval", `(() => { const button = document.querySelector('.tab-close'); button.focus(); button.click(); })()`);
@@ -36,7 +45,7 @@ for (const surface of ["models", "confirmation"]) it(`u494_modal_blocks_underlyi
   await prepareModels();
   await browser("eval", `document.querySelector('[role=tab]').focus()`);
 
-  if (surface === 'models') await browser("press", "Meta+,");
+  if (surface === 'models') await openModels();
   else await browser("eval", `document.querySelector('.project-tab:nth-child(2) .tab-close').click()`);
   await wait(`!!document.querySelector('[role=${surface === 'models' ? 'dialog' : 'alertdialog'}]')`);
   const writes = await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`);
