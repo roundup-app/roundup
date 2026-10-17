@@ -434,7 +434,7 @@ p {
   padding: 0 var(--space-4);
   overflow: hidden;
   pointer-events: none;
-  background-color: var(--ground);
+  background-color: var(--sunken);
   border-bottom: 1px solid var(--hairline);
 }
 
