@@ -2600,6 +2600,29 @@ async fn m10_list_returns_checkpoints_in_order_after_a_restart() {
 }
 
 #[tokio::test]
+async fn u467_checkpoints_survive_view_removal() {
+    let mut project = start(&[]);
+    let user = project.client().await;
+    let workstream = workstream(&user, "m").await;
+    user.request("rail.startDoor", json!({"id":workstream}))
+        .await
+        .unwrap();
+    let mut door = Shim::start(&project, &workstream).await;
+    let written = door.call("checkpoint_write", card("login merged")).await;
+    drop(door);
+    drop(user);
+
+    project.restart(&[]);
+    let user = project.client().await;
+    let listed = user
+        .request("checkpoint.list", json!({ "workstream": workstream }))
+        .await
+        .unwrap();
+
+    assert_eq!(listed, json!([written]));
+}
+
+#[tokio::test]
 async fn m10_write_emits_the_event_and_logs_a_touch() {
     let project = start(&[]);
     let user = project.client().await;

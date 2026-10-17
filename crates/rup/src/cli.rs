@@ -53,6 +53,8 @@ struct Spec {
     fields: Vec<Field>,
     door_only: bool,
     waits_for_user: bool,
+    /// I9: a top-level command with no verb (`rup events`) that prints what the Daemon pushes.
+    stream: bool,
 }
 
 fn kebab(name: &str) -> String {
@@ -231,11 +233,21 @@ fn first_sentence(description: &str) -> &str {
 }
 
 fn specs(door: bool) -> Vec<Spec> {
-    mcp::tools(door)
+    mcp::commands(door)
         .into_iter()
         .map(|offer| {
             let (noun, verb) = offer.method.split_once('.').unwrap_or((offer.method, ""));
+            let verb = if offer.stream { "" } else { verb };
             let mut fields = fields_of(&offer.tool.input_schema);
+            if offer.stream {
+                fields.push(Field {
+                    name: "follow".into(),
+                    kind: Kind::Bool,
+                    required: false,
+                    positional: false,
+                    doc: "Keep streaming Events as they are saved, after the saved ones.".into(),
+                });
+            }
             if offer.method == "terminal.write" {
                 fields = terminal_write_fields(fields);
             }
@@ -260,6 +272,7 @@ fn specs(door: bool) -> Vec<Spec> {
                 fields,
                 door_only: offer.door_only,
                 waits_for_user: offer.waits_for_user,
+                stream: offer.stream,
             }
         })
         .collect()
@@ -275,9 +288,18 @@ fn placeholder(field: &Field) -> String {
     }
 }
 
+/// What the user types before the arguments: `rup pad read`, or `rup events` for a stream.
+fn invocation(spec: &Spec) -> String {
+    if spec.stream {
+        format!("rup {}", spec.noun)
+    } else {
+        format!("rup {} {}", spec.noun, spec.verb)
+    }
+}
+
 /// The usage line: `rup pad read <name>`.
 fn usage(spec: &Spec) -> String {
-    let mut line = format!("rup {} {}", spec.noun, spec.verb);
+    let mut line = invocation(spec);
     for field in &spec.fields {
         let flag = field.flag();
         let part = match (field.positional, field.required, &field.kind) {
@@ -296,7 +318,10 @@ fn usage(spec: &Spec) -> String {
 }
 
 fn example(spec: &Spec) -> String {
-    let mut line = format!("rup {} {}", spec.noun, spec.verb);
+    if spec.stream {
+        return format!("{} --after 12 --follow --json", invocation(spec));
+    }
+    let mut line = invocation(spec);
     for field in spec.fields.iter().filter(|f| f.positional) {
         let sample = match (&field.kind, field.name.as_str()) {
             (Kind::Int | Kind::Number, _) => "1".to_owned(),
@@ -398,10 +423,13 @@ fn tree(specs: &[Spec]) -> Command {
                 .help("Print the method's result as JSON on stdout"),
         );
     let mut nouns: Vec<&str> = Vec::new();
-    for spec in specs {
+    for spec in specs.iter().filter(|spec| !spec.stream) {
         if !nouns.contains(&spec.noun.as_str()) {
             nouns.push(&spec.noun);
         }
+    }
+    for spec in specs.iter().filter(|spec| spec.stream) {
+        root = root.subcommand(verb_command(spec).name(spec.noun.clone()));
     }
     for noun in nouns {
         let mut group = Command::new(noun.to_owned())
@@ -482,7 +510,7 @@ pub fn help_text() -> String {
     text.push_str(EXAMPLES);
     text.push_str("\n\nCommands:\n");
     let mut nouns: Vec<&str> = Vec::new();
-    for spec in &specs {
+    for spec in specs.iter().filter(|spec| !spec.stream) {
         if !nouns.contains(&spec.noun.as_str()) {
             nouns.push(&spec.noun);
         }
@@ -497,6 +525,15 @@ pub fn help_text() -> String {
                 first_sentence(&spec.description)
             ));
         }
+    }
+    text.push_str("\n  streams\n");
+    for spec in specs.iter().filter(|spec| spec.stream) {
+        text.push_str(&format!(
+            "    {}\n        {}.\n        Example: {}\n",
+            usage(spec),
+            first_sentence(&spec.description),
+            example(spec)
+        ));
     }
     text.push_str("\n  other\n");
     for (usage, what) in OTHER {
@@ -534,6 +571,12 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     let Some((noun, group)) = matches.subcommand() else {
         return bad_usage("no command");
     };
+    if let Some(spec) = tree_specs
+        .iter()
+        .find(|spec| spec.stream && spec.noun == noun)
+    {
+        return events(spec, group).await;
+    }
     let Some((verb, leaf)) = group.subcommand() else {
         return bad_usage("no command");
     };
@@ -779,6 +822,7 @@ fn code_name(code: i64) -> &'static str {
         rpc::code::NOT_ACCEPTED => "NOT_ACCEPTED",
         rpc::code::NOT_RUNNING => "NOT_RUNNING",
         rpc::code::NOT_ACKED => "NOT_ACKED",
+        rpc::code::EVENTS_EXPIRED => "EVENTS_EXPIRED",
         _ => "INTERNAL",
     }
 }
@@ -794,6 +838,7 @@ fn fail(spec: &Spec, failure: &Failure) -> ExitCode {
                 "{}",
                 match err.code {
                     rpc::code::FORBIDDEN => "this Agent may not act on that node".to_owned(),
+                    rpc::code::EVENTS_EXPIRED => return ExitCode::from(FAILED),
                     rpc::code::NOT_FOUND => format!("list them with `rup {} list`", spec.noun),
                     rpc::code::UNKNOWN_OUTCOME => format!(
                         "the call may or may not have been applied; read before you retry: `rup help {} list`",
@@ -963,4 +1008,75 @@ fn print_result(method: &str, params: &Value, result: &Value, json: bool) {
             }
         }
     }
+}
+
+/// I9: print the saved Events past `--after` one JSON object per line, and with `--follow` the live ones after them.
+/// It adds no timer, poll or retry: a lost connection is exit 1 and the caller decides to reconnect.
+async fn events(spec: &Spec, leaf: &ArgMatches) -> ExitCode {
+    use std::io::Write;
+
+    let after = match leaf
+        .get_one::<i64>("after")
+        .copied()
+        .map(u64::try_from)
+        .transpose()
+    {
+        Ok(after) => after,
+        Err(_) => return bad_usage("--after takes an Event number, 0 or more"),
+    };
+    let follow = leaf.get_flag("follow");
+    let subscribe = async {
+        let socket = rpc::socket_path().map_err(|err| Failure::Gone(err.to_string()))?;
+        let shown = socket.display().to_string();
+        let client = rpc::Client::connect(&socket)
+            .await
+            .map_err(|err| gone(&shown, err))?;
+        let answer = client
+            .request(spec.method, contracts::SubscribeParams { after })
+            .await
+            .map_err(Failure::Rpc)?;
+        Ok::<_, Failure>((client, answer))
+    };
+    let subscribed = tokio::time::timeout(CALL_TIMEOUT, subscribe)
+        .await
+        .unwrap_or_else(|_| {
+            Err(Failure::Gone(format!(
+                "no answer within {} s",
+                CALL_TIMEOUT.as_secs()
+            )))
+        });
+    let (mut client, answer) = match subscribed {
+        Ok(subscribed) => subscribed,
+        Err(failure) => return fail(spec, &failure),
+    };
+    let head = answer["head"].as_u64().unwrap_or_default();
+    let mut last = after;
+    if !follow && last.is_none_or(|last| last >= head) {
+        return ExitCode::from(DONE);
+    }
+    let mut out = std::io::stdout().lock();
+    while let Some(event) = client.next_event().await {
+        let Some(seq) = event.seq else { continue };
+        let written = serde_json::to_string(&event)
+            .map_err(std::io::Error::other)
+            .and_then(|json| writeln!(out, "{json}"))
+            .and_then(|()| out.flush());
+        match written {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::BrokenPipe => {
+                return ExitCode::from(DONE);
+            }
+            Err(err) => {
+                eprintln!("rup: cannot write to stdout: {err}");
+                return ExitCode::from(FAILED);
+            }
+        }
+        last = Some(seq);
+        if !follow && seq >= head {
+            return ExitCode::from(DONE);
+        }
+    }
+    let at = last.unwrap_or(head);
+    eprintln!("rup: connection lost after event {at}; resume with --after {at}");
+    ExitCode::from(FAILED)
 }

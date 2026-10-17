@@ -120,6 +120,15 @@ class Permissions(unittest.TestCase):
             self.assertIn(f'python3 "{loop}/builder.py" engine', step, workflow)
             self.assertNotIn('github.token', step, workflow)
 
+    def test_l82_the_engine_waits_for_the_generated_conflict_script(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        resolve = source.split('      - id: resolve\n', 1)[1].split('\n      - ', 1)[0]
+        engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("needs.task.outputs.cause == 'conflict'", resolve)
+        self.assertIn('builder.py" resolve-generated', resolve)
+        self.assertIn("if: steps.resolve.outputs.resolved != 'true'", engine)
+        self.assertLess(source.index('      - id: resolve'), source.index('      - id: engine'))
+
     def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):
         inputs = action_inputs('review')
         self.assertIn('github_token: ${{ github.token }}', inputs)

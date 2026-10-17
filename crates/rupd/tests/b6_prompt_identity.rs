@@ -3020,7 +3020,7 @@ async fn b6_wire_door_decision_calls_wait_for_all_earlier_resizes() {
 
 // U468's backend prerequisite; the App observer belongs to #1497.
 #[tokio::test]
-async fn u468_answered_decisions_survive_without_an_app_reader() {
+async fn u468_a_door_answer_remains_visible_with_its_identity() {
     let (mut run, door, door_terminal) = answer_child().await;
     let unrelated = run
         .user
@@ -3177,6 +3177,55 @@ async fn u468_answered_decisions_survive_without_an_app_reader() {
         .unwrap();
     assert_eq!(&after.as_array().unwrap()[..3], records.as_array().unwrap());
     assert_eq!(after.as_array().unwrap().len(), 4);
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u468_a_child_permission_is_answered_in_its_terminal() {
+    let run = Run::start().await;
+    let (decision, waiting) = run.open("native").await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let kinds: Vec<_> = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|node| node["id"] == run.child)
+        .map(|node| node["status"]["kind"].clone())
+        .collect();
+    assert_eq!(kinds, [json!("needs-you")]);
+    // The user answers by typing into the child's Terminal, with no Takeover.
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"y")}),
+        )
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        while !run.screen().await.contains("BYTE:79") {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        run.user.request("decision.list", ()).await.unwrap()[0]["id"],
+        decision["id"]
+    );
+    run.clear().await;
+    waiting.await.unwrap().unwrap();
+    assert_eq!(
+        run.user.request("decision.list", ()).await.unwrap(),
+        json!([])
+    );
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .filter(|node| node["id"] == run.child)
+            .all(|node| node["status"]["kind"] != "needs-you")
+    );
     run.finish().await;
 }
 
