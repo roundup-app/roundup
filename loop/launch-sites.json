@@ -421,6 +421,11 @@
     "kind": "in-process",
     "sha256": "a457b620ef75c65a71b6cff4bda12b86e6c7d1e5df2dbed3612127f08beb8b04"
   },
+  "crates/rup/tests/cli.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rup/tests/common/d9_fixture.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Writes a wrapper that execs built rupd with the caller env; d9.rs launches it through rupd_harness with ROUNDUP_DATA_DIR in the fixture TempDir.",
@@ -448,6 +453,11 @@
     "issue": 1571,
     "kind": "indirect",
     "sha256": "d2cc08610cc9b30f4b01ef5eabcc73cd56f41691d14ca7041aeedf411435c526"
+  },
+  "crates/rup/tests/e2e/wake.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   },
   "crates/rup/tests/i9.rs": {
     "cleanup": "The test aborts the serving task on stop and drops it; the temp directory is removed with the test.",
@@ -527,6 +537,11 @@
     "sha256": "97078e1396e0e866ea3eb662d31d7476859579e8b367dca6191d29047a447eef"
   },
   "crates/rupd/src/main.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/src/wake.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
