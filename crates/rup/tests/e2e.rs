@@ -4314,3 +4314,37 @@ async fn m16_each_offered_terminal_description_states_the_bubble_rule() {
         }
     }
 }
+
+#[tokio::test]
+async fn m16_action_descriptions_prefer_direct_tools() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let listed = door.request("tools/list", json!({})).await;
+    let described = |name: &str| -> String {
+        listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("the Door lacks {name}"))["description"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let write = described("terminal_write");
+    for direct in [
+        "agent_prompt",
+        "agent_interrupt",
+        "agent_stop",
+        "decision_answer",
+    ] {
+        assert!(write.contains(&format!("`{direct}`")), "{write}");
+        assert!(!described(direct).contains("keystroke"), "{direct}");
+    }
+    assert!(
+        write.contains("type keystrokes only when no direct tool does"),
+        "{write}"
+    );
+}
