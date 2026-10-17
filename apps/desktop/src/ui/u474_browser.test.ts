@@ -9,6 +9,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
 import { appServer, type AppServer } from "../testing/appServer";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const art = captureDir("U477");
 
@@ -265,7 +266,7 @@ for (const path of ["hover", "focus"] as const) {
   }, 120_000);
 }
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) {
   it(`u477_tooltip_checks ${scheme}-${width}`, async () => {
     await browser("set", "media", scheme);
     await browser("set", "viewport", String(width), "800");

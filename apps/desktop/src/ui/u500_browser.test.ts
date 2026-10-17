@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { captureDir } from "../testing/captures";
 import { action, browser, click, load, read, selected, url, wait } from "./tabsBrowser";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const art = captureDir("U500");
 
@@ -25,7 +26,7 @@ const noRegression = (base: Checks, head: Checks) => {
   for (const id of CHECK_IDS) if (base[id].status === "pass" || ["D2", "D5", "D6"].includes(id)) expect(head[id].status, `${id}: ${JSON.stringify(head[id])}`).toBe("pass");
 };
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) {
   it(`u500_rendered_checks ${scheme}-${width}`, async () => {
     // Captured baselines must be main's styles with raw installed Ark, not the new wrapper.
     if (art) expect(process.env.U500_BASE_ROOT).toBeTruthy();
