@@ -23,12 +23,7 @@ existing `before` translation (`u490a_nested_order_boundary`).
 Given the same list with a row focused, when Alt+Up or Alt+Down moves it, then
 exactly one reorder call is made, the refetched order changes and focus stays
 on the moved row; moving past either boundary calls nothing
-(`u490a_keyboard_reorders`). Given the Shelf and no pointer use, when the user
-Tabs to a row's accessible move controls and activates Move up or Move down
-with Space or Enter, then the same call, readback and focus rules hold
-(`u490a_tab_space_enter_reorders`). These controls supplement the existing
-Alt chords so the work order's Tab/Space/Enter-only observer needs no arrow
-key or synthetic click.
+(`u490a_keyboard_reorders`).
 
 Implementation composes `ui/Sortable`, deletes `todos/reorder.ts`, adds no
 local drag engine and delegates drag interaction state to the primitive
@@ -59,7 +54,7 @@ Todos and confirm their deletion, then exactly those two disappear after
 readback, the third remains and focus is on a connected Shelf control
 (`u491a_tab_space_enter_bulk_deletes`). The test sends real browser key events;
 it uses no pointer, programmatic focus or synthetic click after initial entry
-(policy). The same restriction applies to `u490a_tab_space_enter_reorders`.
+(policy).
 
 Given Todos and Pads tabs, when pointer activation or Left/Right and Home/End
 navigation switches tabs, then exactly one tab is selected, each tab is linked
