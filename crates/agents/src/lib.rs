@@ -457,7 +457,7 @@ struct SteerSettings {
 impl Shared {
     /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
     /// Steer, which goes before any Message. `text` goes out once, as one
-    /// bracketed paste and `\r`, when `id` is `idle`; this returns when its `UserPromptSubmit`
+    /// bracketed paste and then `\r` as a write of its own, when `id` is `idle`; this returns when its `UserPromptSubmit`
     /// Signal arrives. `first` binds the initial Steer to its Attempt.
     /// Nothing is written again on any failure.
     async fn prompt(
@@ -542,14 +542,9 @@ impl Shared {
                 if let Some(before) = before {
                     before(&agent)?;
                 }
-                writer
-                    .write_all(&bytes)
-                    .and_then(|()| writer.flush())
-                    .map_err(|err| {
-                        RpcError::unknown_outcome(format!(
-                            "Steer bytes may have been written: {err}"
-                        ))
-                    })
+                claude_code::write_submitted(writer, &bytes).map_err(|err| {
+                    RpcError::unknown_outcome(format!("Steer bytes may have been written: {err}"))
+                })
             })
             .await;
         let failure = match written {
