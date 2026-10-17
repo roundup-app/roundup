@@ -5,7 +5,7 @@ import { ToastProvider } from "../ui";
 import type { ToastQueue } from "./queue";
 import "./styles.css";
 
-/** U411, U414: the layer of Toasts at the window's bottom-right. The shared Toast renders and times each card; with none showing, only its empty polite live region remains. */
+/** U411, U414: the layer of Toasts at the window's bottom-right. The shared Toast renders and times each card; the polite live region stays mounted and empty while none shows, so a new card changes text inside it. */
 export const Toasts = (props: { queue: ToastQueue }) => {
   const [layer, setLayer] = createSignal<HTMLElement>();
 
@@ -29,7 +29,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
   });
 
   return (
-    <div class="toasts" ref={setLayer}>
+    <div class="toasts" role="status" aria-live="polite" ref={setLayer}>
       <Show when={props.queue.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <ToastProvider toast={props.queue.toast} label={copy.toastsRegion} />
     </div>

@@ -155,7 +155,7 @@ export const App = (props: {
   const now = createNow(props.clock);
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
-  const toasts = createToastQueue(inFront, props.chime ?? webChime(), props.reducedMotion);
+  const toasts = createToastQueue(inFront, props.chime ?? webChime());
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);

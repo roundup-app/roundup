@@ -24,7 +24,7 @@ it.each(["Todo", "Pad"] as const)("u471_previous_copy_assertions_are_preserved_c
 
   const line = kind === "Todo" ? 'Changed Todo "keep this TITLE"' : "Changed Pad keep this NAME";
 
-  expect(screen.getByRole("button", { name: `lowercase ${line}` }).textContent).toBe(`lowercase ${line}`);
+  expect(screen.getByRole("button", { name: `lowercase: ${line}` }).textContent).toBe(`lowercase ${line}`);
 });
 
 it("u471_previous_copy_assertions_are_preserved_toast_overflow_uses_sentence_case", async () => {
@@ -43,7 +43,7 @@ it("u471_previous_copy_assertions_are_preserved_a_gone_toast_target_uses_sentenc
   app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
   await vi.advanceTimersByTimeAsync(0);
   await vi.advanceTimersToNextFrame();
-  fireEvent.click(screen.getByRole("button", { name: 'lowercase Changed Todo "ship it"' }));
+  fireEvent.click(screen.getByRole("button", { name: 'lowercase: Changed Todo "ship it"' }));
   await vi.advanceTimersByTimeAsync(0);
   await vi.advanceTimersToNextFrame();
 
@@ -60,7 +60,7 @@ it.each([
   await vi.advanceTimersByTimeAsync(0);
   await vi.advanceTimersToNextFrame();
 
-  const toast = screen.getByRole("button", { name: `keep lowercase ${line}` });
+  const toast = screen.getByRole("button", { name: `keep lowercase: ${line}` });
 
   expect(toast.textContent).toBe(`keep lowercase ${line}`);
 });

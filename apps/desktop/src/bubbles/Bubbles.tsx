@@ -5,7 +5,7 @@ import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
-import { Tip } from "../ink/Tip";
+import { createCut, Tip } from "../ink/Tip";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -47,9 +47,9 @@ const focusPane = (): void => {
   if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
 
-const ESCAPE = "Escape".split(" ");
+const ESCAPE = ["Escape"];
 
-const SHIFT = "Shift+".split(" ")[0]!;
+const SHIFT = "Shift+";
 
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
@@ -778,6 +778,7 @@ export const Bubbles = (props: { screens: Screens }) => {
             const terminal = () => shown().find((candidate) => candidate.id === id)!;
 
             const name = () => nameFor(terminal());
+            const [nameRef, nameCut] = createCut();
             let renameChosen = false;
 
             const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
@@ -792,13 +793,13 @@ export const Bubbles = (props: { screens: Screens }) => {
               }}>
               <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} data-bubble={id}>
                 <Show when={editing() === id} fallback={
-                  <Tip content={name()}>
+                  <Tip content={name()} cut={nameCut}>
                     {(trigger) => (
                       <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
                         aria-label={name()} aria-describedby={`terminal-state-${id}`} aria-pressed={!placeOf(id).min}
                         onClick={() => toggleMinimised(id)}
                         onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
-                        <span class="terminal-tab-name">{name()}</span>
+                        <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
                         <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
                       </button>
                     )}
