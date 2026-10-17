@@ -32,17 +32,17 @@ Data for the QA sweep and the Design critic.
 | `failNext(-32003, "name already taken")` | the next call rejects |
 | `app.exitDaemon({code: 1})` | `daemon-exited`; `app.calls` lists every call |
 
-`window.__checks()` (U137) runs D1 to D14 on the screen. `agent-browser`: one session name per agent, `set viewport W H`, single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
+`window.__checks()` (U137) runs D1 to D14 on the screen. `agent-browser`: one session name per agent, `set viewport 1512 950` (the only viewport, `.agents/data/journey.md`), single key events via `eval` (after `press Enter` a key may repeat; count keydowns first).
 
 ## Held-out screens
 
 No Builder prompt lists these.
 
-- `tree-40`, 1280x800, dark, the Todo Drawer open on `#5`.
-- `agents-10`, 1280x800, light, `prefers-contrast: more`.
-- `tree-40` with a 60-character Agent name (U29), 1280x800, dark.
-- `first-run`, 1280x800, dark.
-- `conflict`, 1280x800, light, a Pad Drawer open.
+- `tree-40`, 1512x950, dark, the Todo Drawer open on `#5`.
+- `agents-10`, 1512x950, light, `prefers-contrast: more`.
+- `tree-40` with a 60-character Agent name (U29), 1512x950, dark.
+- `first-run`, 1512x950, dark.
+- `conflict`, 1512x950, light, a Pad Drawer open.
 
 ## Rules the Checks do not cover
 

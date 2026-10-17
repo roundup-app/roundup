@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const source = new URL("./u509Fixture.tsx", import.meta.url).pathname;
 
@@ -93,7 +94,7 @@ const art = captureDir("U509");
 
 const MOVED: readonly string[] = ["D1", "D2", "D5", "D6", "D7"];
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
+for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) {
   it(`u509_form_preserves_checks ${scheme}-${width}`, async () => {
     await browser("set", "media", scheme);
     const readings: Record<string, Checks> = {};
