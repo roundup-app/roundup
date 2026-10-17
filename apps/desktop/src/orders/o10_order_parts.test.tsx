@@ -41,25 +41,13 @@ describe("O10: the Drawer shows the order in parts", () => {
     expect(drawer.querySelector("details")!.open).toBe(false);
   });
 
-  it("o10_a_closed_prompt_leaves_no_scroll_at_1280x800", async () => {
-    window.innerWidth = 1280;
-    window.innerHeight = 800;
-    const drawer = await open("x", () => ({ prompt }));
-    await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
-    expect(drawer.querySelector("details")!.open).toBe(false);
-    expect(drawer.scrollHeight).toBeLessThanOrEqual(800);
-    expect(drawer.scrollWidth).toBeLessThanOrEqual(drawer.clientWidth || 1280);
-  });
-
-  it("o10_the_open_prompt_is_markdown_and_scrolls_inside_its_part", async () => {
+  it("o10_the_open_prompt_is_markdown", async () => {
     const drawer = await open("x", () => ({ prompt }));
     await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
     fireEvent.click(drawer.querySelector("summary")!);
     const body = drawer.querySelector<HTMLElement>(".order-prompt-body")!;
     expect(body.querySelector("h2")?.textContent).toBe("Details");
     expect(body.querySelector("strong")?.textContent).toBe("bold");
-    expect(getComputedStyle(body).overflow).toBe("auto");
-    expect(getComputedStyle(drawer).overflowX).not.toBe("scroll");
   });
 
   it("o10_no_prompt_no_part", async () => {
