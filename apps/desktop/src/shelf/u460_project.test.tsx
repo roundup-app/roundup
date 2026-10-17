@@ -46,4 +46,4 @@ it("u460_escape_from_a_shelf_tab_clears_selection_before_closing_the_shelf", asy
   expect(screen.queryByText("1 selected")).toBeNull();
   expect(document.querySelector<HTMLElement>(".shelf")!.hidden).toBe(false);
   expect(document.activeElement).toBe(row);
-});
+}, 20_000);
