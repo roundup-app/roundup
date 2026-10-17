@@ -11,12 +11,10 @@ const u484Fixture = () => {
   const [ids, order] = createSignal(dense ? Array.from({ length: 40 }, (_, index) => String(index + 1)) : ["A", "B", "C"]);
   const [commits, commit] = createSignal(0);
   const [actions, action] = createSignal(0);
-  const [drops, drop] = createSignal<string[]>([]);
   const [files, file] = createSignal<string[]>([]);
 
   return <>
-    <Sortable.Root ids={ids()}
-      external={{ target: (_id, x, y) => document.elementsFromPoint(x, y).find((el): el is HTMLElement => el instanceof HTMLElement && el.hasAttribute("data-target")) ?? null, onDropOutside: (id, target) => drop([...drops(), `${id}>${target.dataset.target}`]) }} onOrderChange={(next) => { order(next); commit(commits() + 1); }}
+    <Sortable.Root ids={ids()} onOrderChange={(next) => { order(next); commit(commits() + 1); }}
       aria-label="Ordered rows" class="sortable-fixture" onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => { event.preventDefault(); file([...files(), ...Array.from(event.dataTransfer?.files ?? [], (entry) => entry.name)]); }}>
       <For each={ids()}>{(id, index) => <Sortable.Item id={id} index={index()}>{(parts) =>
@@ -27,8 +25,6 @@ const u484Fixture = () => {
         </div>
       }</Sortable.Item>}</For>
     </Sortable.Root>
-    <div data-target="W" aria-label="Target W" style={{ padding: "16px" }}>Target W</div>
-    <output aria-label="Dropped">{drops().join(",")}</output>
     <output aria-label="Committed order">{ids().join(",")}</output>
     <output aria-label="Commits">{commits()}</output>
     <output aria-label="Actions">{actions()}</output>

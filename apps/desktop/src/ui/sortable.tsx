@@ -8,41 +8,15 @@ import { onCleanup, splitProps, type JSX } from "solid-js";
 type RootProps = JSX.HTMLAttributes<HTMLDivElement> & {
   ids: readonly string[];
   onOrderChange: (ids: string[]) => void;
-  /** U362: a drop target outside the list. `target` is the hit test at a pointer position; a release over one calls `onDropOutside` instead of `onOrderChange`. */
-  external?: {
-    target: (id: string, x: number, y: number) => HTMLElement | null;
-    onDropOutside: (id: string, target: HTMLElement) => void;
-  };
 };
 
 const Root = (props: RootProps) => {
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "external", "children"]);
-  let marked: HTMLElement | undefined;
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "children"]);
   let stopRestoringFocus: (() => void) | undefined;
 
-  const mark = (target: HTMLElement | null) => {
-    if (marked === target) return;
-    marked?.removeAttribute("data-drop");
-    marked = target ?? undefined;
-    marked?.setAttribute("data-drop", "");
-  };
+  onCleanup(() => stopRestoringFocus?.());
 
-  // The operation's own position lags a move event, so the pointer is read from the native event.
-  let pointer: { x: number; y: number } | undefined;
-
-  const hit = (id: string | number | undefined) => local.external && pointer && id !== undefined ? local.external.target(String(id), pointer.x, pointer.y) : null;
-
-  onCleanup(() => { stopRestoringFocus?.(); mark(null); });
-
-  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragStart={() => { pointer = undefined; }} onDragMove={(event) => {
-    const native = event.nativeEvent;
-
-    if (native instanceof PointerEvent) pointer = { x: native.clientX, y: native.clientY };
-    mark(hit(event.operation.source?.id));
-  }} onDragEnd={(event) => {
-    const outside = event.canceled ? null : hit(event.operation.source?.id);
-
-    mark(null);
+  return <DragDropProvider plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragEnd={(event) => {
     const source = event.operation.source;
 
     const handle = source?.handle;
@@ -61,12 +35,6 @@ const Root = (props: RootProps) => {
     }
 
     if (event.canceled) return;
-
-    if (outside && source) {
-      local.external!.onDropOutside(String(source.id), outside);
-
-      return;
-    }
 
     if (!isSortable(source) || source.initialIndex === source.index) return;
     const order = [...local.ids];
