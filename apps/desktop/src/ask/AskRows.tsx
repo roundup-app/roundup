@@ -6,7 +6,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
-import { Select } from "../ui";
+import { Select } from "../ui/Select";
 
 /** The Workstream a part went to, once it has one. */
 const workstreamOf = (part: AskPart): string | null =>

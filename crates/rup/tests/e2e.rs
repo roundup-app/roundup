@@ -4,6 +4,8 @@
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
+#[path = "e2e/notes.rs"]
+mod notes;
 #[path = "e2e/wake.rs"]
 mod wake;
 
@@ -3279,6 +3281,35 @@ async fn m13_an_agent_reads_its_own_runs_and_its_workstreams_terminals() {
         .unwrap();
     let shell = opened["terminal_id"].as_str().unwrap();
     shim.call("terminal_screen", json!({ "id": shell })).await;
+}
+
+/// X16: the shim fills `reader` with the Agent id, so a second read holds only what is new, and a
+/// second Agent's first read starts at the log's start.
+#[tokio::test]
+async fn x16_a_shims_reads_are_a_delta_per_agent() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let as_b = client_as(&project, actor(ActorKind::Agent, &rail.b)).await;
+    let run = m13_run(&as_b, &rail.b, "echo ZEBRA; sleep 30").await;
+    let mut door = Shim::start(&project, &rail.m).await;
+    let mut other = Shim::start(&project, &rail.b).await;
+
+    let mut first = door.call("terminal_read", json!({ "id": run })).await;
+    for _ in 0..200 {
+        if first["text"].as_str().unwrap().contains("ZEBRA") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        first = door.call("terminal_read", json!({ "id": run })).await;
+    }
+    assert!(first["text"].as_str().unwrap().contains("ZEBRA"));
+    let again = door.call("terminal_read", json!({ "id": run })).await;
+    assert_eq!(again["text"], "");
+    let theirs = other.call("terminal_read", json!({ "id": run })).await;
+    assert!(theirs["text"].as_str().unwrap().contains("ZEBRA"));
+    let digest = digest_of(&user, &rail.m).await.unwrap();
+    assert!(!digest.to_string().contains("ZEBRA"));
 }
 
 #[tokio::test]

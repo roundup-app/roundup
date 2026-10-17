@@ -36,6 +36,8 @@ pub(crate) struct Offered {
     takes_params: bool,
     /// E4: the params are `{id}` with the shim's own Agent id, and the tool takes no input.
     own_id: bool,
+    /// X16: the params carry `reader`, the shim's own Agent id, and the tool's schema lacks it.
+    own_reader: bool,
     /// H14: the call waits for the user, so no `CALL_TIMEOUT` applies and its result is the answer's text.
     pub(crate) waits_for_user: bool,
     /// B20, A32, M10: only a Door is offered it.
@@ -47,6 +49,13 @@ pub(crate) struct Offered {
 impl Offered {
     /// The params of a call by Agent `agent` with the tool's `arguments`.
     pub(crate) fn params(&self, agent: &str, arguments: Option<JsonObject>) -> Value {
+        let arguments = match arguments {
+            Some(mut arguments) if self.own_reader => {
+                arguments.insert("reader".into(), agent.into());
+                Some(arguments)
+            }
+            other => other,
+        };
         match (self.takes_params, self.own_id, arguments) {
             (false, true, _) => serde_json::json!({ "id": agent }),
             (true, true, arguments) => {
@@ -104,6 +113,7 @@ fn ask_user() -> Offered {
         ),
         takes_params: true,
         own_id: false,
+        own_reader: false,
         waits_for_user: true,
         door_only: false,
         stream: false,
@@ -126,6 +136,7 @@ fn offer(
         tool: Tool::new(method.replace('.', "_"), description, schema),
         takes_params,
         own_id: false,
+        own_reader: false,
         waits_for_user: false,
         door_only: false,
         stream: false,
@@ -194,7 +205,7 @@ fn decision_answer() -> Offered {
 fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(
         "agent.wake",
-        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
+        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`, and `why` when it did not fire; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
     )
 }
 
@@ -270,6 +281,27 @@ fn agent_run() -> Offered {
             bubble_rule!()
         ),
     )
+}
+
+/// X16: `terminal.read` returns what is new since the caller's last read; the shim fills `reader`.
+fn terminal_read() -> Offered {
+    let Ok(Value::Object(mut schema)) =
+        serde_json::to_value(schemars::schema_for!(terminal::ReadParams))
+    else {
+        unreachable!("a params struct's schema is an object");
+    };
+    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
+        properties.remove("reader");
+    }
+    Offered {
+        own_reader: true,
+        tool: Tool::new(
+            "terminal_read",
+            "Read a Terminal's output you have not read yet, as plain text; `next` is the offset after it. At most 200 lines and 16 384 bytes a call, `truncated` says more remains. With `after`, read from that offset instead and keep your place.",
+            schema,
+        ),
+        ..offer("terminal.read", "", JsonObject::new(), true)
+    }
 }
 
 /// A tool for `method` whose params carry the caller's own `id`, which the shim fills: the tool's schema lacks it.
@@ -473,10 +505,7 @@ fn offered_tools() -> Vec<Offered> {
             "terminal.screen",
             "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
         ),
-        offered::<terminal::ReadParams>(
-            "terminal.read",
-            "Read a Terminal's output from the offset `after` on, as plain text; `next` is the offset for the next read. At most 16 384 bytes a call.",
-        ),
+        terminal_read(),
         offered::<terminal::SearchParams>(
             "terminal.search",
             "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
