@@ -200,7 +200,7 @@
   padding-inline: var(--space-4);
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   text-align: center;
   color: var(--text);
 }
