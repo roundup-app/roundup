@@ -73,6 +73,8 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_digest`: ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.
 - `workstream_handoff`: answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to.
 - `checkpoint_write`: mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made.
+- `workstream_rewindPlan`: read what rewinding your children to one of your Checkpoints would do, changing nothing.
+- `workstream_rewind`: take one child or every child back to one of your Checkpoints, choosing whether the files go back too.
 
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. Never read from 0 again; every answer is capped, and says `truncated` when more is left.
 
