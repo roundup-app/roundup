@@ -1,4 +1,4 @@
-//! A26, A32, D2, E3, E6, E11, E12, F3, H15, H21, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
+//! A26, A32, D2, E3, E6, E11, E12, F3, H15, H21, LC9, M9, Q11: real Claude at the model boundary; aimock owns matching and the request journal.
 #[path = "e2e/daemon.rs"]
 #[allow(dead_code)]
 mod daemon;
@@ -1032,6 +1032,89 @@ async fn f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_ow
     model.assert_matched();
 }
 
+/// The names of the tools in a request's `tools` array, and the request's text size in characters.
+fn tool_names_and_size(request: &Value) -> (Vec<String>, usize) {
+    let mut names: Vec<String> = request["tools"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| tool["function"]["name"].as_str().map(str::to_owned))
+        .collect();
+    names.sort();
+    (names, request.to_string().len())
+}
+
+#[tokio::test]
+async fn lc9_the_profile_holds_in_the_real_tui() {
+    let project = daemon::start_real("f3_child_home", &[]);
+    let mut client = project.subscribed().await;
+    let door = client
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "team", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    client
+        .request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    let spawned: contracts::agent::RailNode = serde_json::from_str(
+        model.tool_result("toolu_f3_spawn").await["content"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    for kind in [Kind::Working, Kind::Idle] {
+        next(&mut client, |event| match event {
+            EventData::AgentStatus(status)
+                if status.id == spawned.id && status.status.kind == kind =>
+            {
+                Some(())
+            }
+            _ => None,
+        })
+        .await;
+    }
+    let journal = model.journal();
+    let first_with = |needle: &str, absent: bool| {
+        journal
+            .iter()
+            .map(|entry| &entry["body"])
+            .filter(|body| body["tools"].is_array())
+            .find(|body| body.to_string().contains(needle) != absent)
+            .map(tool_names_and_size)
+            .unwrap()
+    };
+    let (door_tools, door_size) = first_with("coordinating Door", false);
+    let (worker_tools, worker_size) = first_with("coordinating Door", true);
+    // Recorded for the PR body: the first request of each, in characters (about four to a token).
+    eprintln!(
+        "lc9 door {door_size} chars {door_tools:?}\nlc9 worker {worker_size} chars {worker_tools:?}"
+    );
+    for name in &door_tools {
+        assert!(
+            [
+                "DeferredToolPlaceholder",
+                "Glob",
+                "Grep",
+                "Read",
+                "ToolSearch"
+            ]
+            .contains(&name.as_str()),
+            "a Door lists only its row's tools, and roundup's load on demand: {name}"
+        );
+    }
+    assert!(door_tools.iter().any(|name| name == "Read"));
+    assert!(worker_tools.iter().any(|name| name == "Skill"));
+    assert!(worker_tools.iter().any(|name| name == "Bash"));
+    assert!(worker_size > door_size, "a worker carries more than a Door");
+}
+
 #[tokio::test]
 async fn m16_real_claude_runs_tests_with_bash_without_a_run() {
     let project = daemon::start_real("m16_door_child_bash", &[]);
@@ -1319,7 +1402,7 @@ os.execv(os.environ["E6_RUP_BIN"], [os.environ["E6_RUP_BIN"], *sys.argv[1:]])
 }
 
 #[tokio::test]
-async fn a41_a_leading_slash_runs_the_skill() {
+async fn a41_a_leading_slash_stays_first() {
     let project = daemon::start_real("a41_skill", &[]);
     let skill = project.dir.path().join("claude-config/skills/a41-proof");
     std::fs::create_dir_all(&skill).unwrap();
@@ -1340,11 +1423,25 @@ async fn a41_a_leading_slash_runs_the_skill() {
         .request("ask.send", json!({"text":"@Skill /a41-proof x"}))
         .await
         .unwrap();
-    next(&mut client, |event| matches!(event, EventData::AskChanged { ask: changed } if changed.id == ask["id"].as_str().unwrap() && changed.parts[0].state == contracts::ask::State::Typed).then_some(())).await;
-    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    let state = next(&mut client, |event| match event {
+        EventData::AskChanged { ask: changed }
+            if changed.id == ask["id"].as_str().unwrap()
+                && !matches!(
+                    changed.parts[0].state,
+                    contracts::ask::State::Placing | contracts::ask::State::Queued
+                ) =>
+        {
+            Some(changed.parts[0].state)
+        }
+        _ => None,
+    })
+    .await;
+    // LC3: a Door runs with --disable-slash-commands, so Claude Code swallows the leading
+    // `/` text without a UserPromptSubmit: the Ask fails visibly and no skill runs.
+    assert_eq!(state, contracts::ask::State::Failed);
     let journal = project.model.as_ref().unwrap().journal();
     let text = serde_json::to_string(&journal).unwrap();
-    assert!(text.contains("A41_SKILL_MARKER"), "{text}");
+    assert!(!text.contains("A41_SKILL_MARKER"), "{text}");
     assert!(
         journal.iter().all(|entry| entry["response"]["status"]
             .as_i64()
@@ -3803,13 +3900,20 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .filter(|pair| pair[0] == "--plugin-dir")
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
-        assert_eq!(paths.len(), 4);
-        for (path, (name, version)) in paths.iter().zip([
+        // LC5: a Door is lean and gets the question plugin only; its children are workers.
+        let bundled = [
             ("hope", "13.1.0"),
             ("hunch", "0.9.4"),
             ("hold", "0.0.9"),
             ("roundup-question", "0.0.1"),
-        ]) {
+        ];
+        let wanted = if argv.iter().any(|arg| arg == "--tools") {
+            &bundled[3..]
+        } else {
+            &bundled[..]
+        };
+        assert_eq!(paths.len(), wanted.len());
+        for (path, &(name, version)) in paths.iter().zip(wanted) {
             let manifest: Value = serde_json::from_slice(
                 &std::fs::read(path.join(".claude-plugin/plugin.json")).unwrap(),
             )

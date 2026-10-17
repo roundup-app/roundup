@@ -10,12 +10,15 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+use contracts::agent::Extras;
 use rpc::{OpenError, RpcError, code};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
+use super::extras;
 use super::plugins;
 
 /// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it. Every other tool Claude Code has, `Bash`, `Edit`,
@@ -24,6 +27,82 @@ pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch";
 
 /// M2219: a Door's tools with no roundup server; its Brief no longer tells it to load tools, so `ToolSearch` goes.
 pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob";
+
+/// LC1: a scout's tools; it reads and searches, and `Bash` is how it searches a repository.
+pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Bash,ToolSearch";
+
+/// M2219 for a scout.
+pub const SCOUT_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash";
+
+/// LC1: what a Role's child starts with, beyond LC2's settings, which every row shares.
+pub struct Profile {
+    /// `--tools` with roundup's MCP server and without it; `None` is every tool.
+    pub tools: Option<(&'static str, &'static str)>,
+    /// Skills are on: no `--disable-slash-commands`, and the Project's skills are listed.
+    pub skills: bool,
+    /// `--plugin-dir` for `hope`, `hunch` and `hold` (LC5).
+    pub bundled_plugins: bool,
+    /// The user's global `CLAUDE.md` is appended to the Brief file (LC5).
+    pub global_instructions: bool,
+}
+
+/// LC1: the one table of launch profiles, a row for each lean Role.
+pub const PROFILES: [(Role, Profile); 3] = [
+    (
+        Role::Door,
+        Profile {
+            tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
+            skills: false,
+            bundled_plugins: false,
+            global_instructions: false,
+        },
+    ),
+    (
+        Role::Scout,
+        Profile {
+            tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
+            skills: false,
+            bundled_plugins: false,
+            global_instructions: false,
+        },
+    ),
+    (
+        Role::Agent,
+        Profile {
+            tools: None,
+            skills: true,
+            bundled_plugins: true,
+            global_instructions: true,
+        },
+    ),
+];
+
+/// LC1: `role`'s row.
+pub fn profile(role: Role) -> &'static Profile {
+    &PROFILES
+        .iter()
+        .find(|(row, _)| *row == role)
+        .expect("PROFILES has a row for every Role")
+        .1
+}
+
+/// LC2: the settings keys that sign a child in, which spare an interruption and cost no token.
+const LOGIN_KEYS: [&str; 5] = [
+    "apiKeyHelper",
+    "awsAuthRefresh",
+    "awsCredentialExport",
+    "forceLoginMethod",
+    "forceLoginOrgUUID",
+];
+
+/// LC2: the user's settings a lean child keeps.
+struct Carried {
+    allow: Vec<Value>,
+    deny: Vec<Value>,
+    mode: Option<Value>,
+    login: Map<String, Value>,
+    env: Map<String, Value>,
+}
 
 /// F4: what the shim for a vendor program prints on stderr before it exits 1.
 const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
@@ -128,6 +207,24 @@ pub struct Pair {
     pub effort: Option<String>,
     /// M2219: launch with no roundup MCP server; false (the default) keeps it.
     pub mcp_off: bool,
+    /// LC2, LC4, LC7: a child a Door or an Agent started launches lean; `None` is an Agent the
+    /// user started, which keeps the user's full setup (LC6). A Door is always lean.
+    pub lean: Option<Lean>,
+}
+
+/// What distinguishes a lean child within its Role, kept in the Project's data folder beside its
+/// settings so that every resume launches the same.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Lean {
+    /// LC4: a scout, not a worker.
+    #[serde(default)]
+    pub scout: bool,
+    /// LC7, LC8: the extras its Door named.
+    #[serde(default)]
+    pub extras: Extras,
+    /// LC8: the next launch applies a changed Brief, so it passes `--system-prompt-snapshot off`.
+    #[serde(default)]
+    pub fresh_brief: bool,
 }
 
 impl Pair {
@@ -221,13 +318,40 @@ impl Launcher {
             settings_path(dir, id),
             mcp_config_path(dir, id),
             brief_path(dir, id),
+            lean_path(dir, id),
         ] {
             match std::fs::remove_file(file) {
                 Err(err) if err.kind() != ErrorKind::NotFound => return Err(err),
                 _ => {}
             }
         }
+        match std::fs::remove_dir_all(extras_dir(dir, id)) {
+            Err(err) if err.kind() != ErrorKind::NotFound => return Err(err),
+            _ => {}
+        }
         remove_shims(dir, id)
+    }
+
+    /// LC4, LC7: remember that Agent `id` launches lean as `lean` says, for every launch after.
+    pub fn save_lean(dir: &Path, id: &str, lean: &Lean) -> Result<(), RpcError> {
+        let id = parse_id(id).ok_or_else(|| RpcError::internal("not a node id"))?;
+        let value = serde_json::to_value(lean).map_err(RpcError::internal)?;
+        replace_file(&lean_path(dir, id), &value).map_err(RpcError::internal)
+    }
+
+    /// What `save_lean` kept; `None` for an Agent that launches with the user's full setup.
+    pub fn load_lean(dir: &Path, id: &str) -> Option<Lean> {
+        let bytes = std::fs::read(lean_path(dir, parse_id(id)?)).ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
+
+    /// The names LC7 resolves against, for a Project at `project`.
+    pub fn extras_sources<'a>(&'a self, project: &'a Path) -> extras::Sources<'a> {
+        extras::Sources {
+            claude_dir: &self.conversation_dir,
+            claude_json: &self.claude_json,
+            project,
+        }
     }
 
     /// Write Agent `id`'s settings, MCP config and Brief (E1, for its `role`) under `dir` (the Project's data folder, N1), trust
@@ -315,10 +439,30 @@ impl Launcher {
             write_shims(&shims).map_err(RpcError::internal)?;
         }
         let mcp = !pair.mcp_off;
-        replace_file(&settings, &self.settings_json(id, attempt, &path, mcp))
-            .map_err(RpcError::internal)?;
+        let lean = lean_of(role, pair);
+        let role = match (&lean, role) {
+            (Some(lean), Role::Agent) if lean.scout => Role::Scout,
+            _ => role,
+        };
+        let delivery = match &lean {
+            Some(lean) => extras::resolve(&self.extras_sources(&project), &lean.extras)?,
+            None => extras::Delivery::default(),
+        };
+        let carried = lean.as_ref().map(|_| self.user_carried());
+        replace_file(
+            &settings,
+            &self.settings_json(id, attempt, &path, mcp, carried.as_ref()),
+        )
+        .map_err(RpcError::internal)?;
+        let mut servers = Map::new();
         if mcp {
-            replace_file(&mcp_config, &self.mcp_json(id)).map_err(RpcError::internal)?;
+            servers.extend(self.mcp_servers(id));
+        }
+        servers.extend(delivery.servers.clone());
+        let has_config = !servers.is_empty();
+        if has_config {
+            replace_file(&mcp_config, &json!({ "mcpServers": servers }))
+                .map_err(RpcError::internal)?;
         } else if is_symlink(&mcp_config) {
             return Err(invalid(format!("{} is a symlink", mcp_config.display())));
         } else {
@@ -331,23 +475,45 @@ impl Launcher {
             }
         }
         let brief_file = brief_path(&dir, id);
-        replace_text(&brief_file, &brief::text(role, mcp)).map_err(RpcError::internal)?;
+        let mut brief = brief::text(role, mcp);
+        if lean.is_some() && profile(role).global_instructions {
+            self.append_global_instructions(&mut brief);
+        }
+        replace_text(&brief_file, &brief).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
-        // No `--strict-mcp-config`: the Agent keeps the user's own servers.
         let mut argv = vec![
             self.bin.clone(),
             "--settings".into(),
             settings.to_string_lossy().into_owned(),
         ];
-        if mcp {
+        if has_config {
             argv.push("--mcp-config".into());
             argv.push(mcp_config.to_string_lossy().into_owned());
         }
         argv.push("--append-system-prompt-file".into());
         argv.push(brief_file.to_string_lossy().into_owned());
-        if role == Role::Door {
-            argv.push("--tools".into());
-            argv.push(if mcp { DOOR_TOOLS } else { DOOR_TOOLS_NO_MCP }.into());
+        if let Some(lean) = &lean {
+            // LC2: nothing of the user's settings, plugins or servers but what `--settings` copies.
+            argv.extend(["--strict-mcp-config", "--setting-sources", "project"].map(String::from));
+            let row = profile(role);
+            if let Some((with, without)) = row.tools {
+                argv.push("--tools".into());
+                argv.push(if mcp { with } else { without }.into());
+            }
+            let skills = !delivery.skills.is_empty();
+            if !row.skills && !skills {
+                argv.push("--disable-slash-commands".into());
+            }
+            if skills {
+                let folder = self.extras_plugin(&dir, id, &delivery.skills)?;
+                argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
+            }
+            for plugin in &delivery.plugins {
+                argv.extend(["--plugin-dir".into(), plugin.to_string_lossy().into_owned()]);
+            }
+            if lean.fresh_brief && resume.is_some() {
+                argv.extend(["--system-prompt-snapshot", "off"].map(String::from));
+            }
         }
         for (flag, value) in [("--model", &pair.model), ("--effort", &pair.effort)] {
             if let Some(value) = value {
@@ -388,6 +554,16 @@ impl Launcher {
         );
         // Trust/config locks and disk delivery cannot hold the async runtime thread.
         let mut env = pair.env();
+        let lean = lean_of(role, &pair);
+        let (resume_given, id_text) = (resume.is_some(), id.clone());
+        // LC2: no memory of the user's other work.
+        if lean.is_some() {
+            env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".to_owned(), "1".to_owned());
+        }
+        let bundled = lean.as_ref().is_none_or(|lean| {
+            let role = if lean.scout { Role::Scout } else { role };
+            profile(role).bundled_plugins
+        });
         // I5: every shell the Agent's `claude` runs inherits who it is, and finds `rup` on its PATH.
         env.insert("ROUNDUP_AGENT".to_owned(), id.to_owned());
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
@@ -465,11 +641,14 @@ impl Launcher {
         }
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        argv.extend(
-            command
-                .get_args()
-                .map(|arg| arg.to_string_lossy().into_owned()),
-        );
+        // LC5: `hope`, `hunch` and `hold` go to a worker, or to an Agent the user started (LC6).
+        if bundled {
+            argv.extend(
+                command
+                    .get_args()
+                    .map(|arg| arg.to_string_lossy().into_owned()),
+            );
+        }
         argv.extend([
             "--plugin-dir".to_owned(),
             delivery.question.path().to_string_lossy().into_owned(),
@@ -481,6 +660,11 @@ impl Launcher {
                     value.to_string_lossy().into_owned(),
                 );
             }
+        }
+        // LC8: the changed Brief has applied once.
+        if let Some(mut lean) = lean.filter(|lean| lean.fresh_brief && resume_given) {
+            lean.fresh_brief = false;
+            Self::save_lean(folders.data, &id_text, &lean)?;
         }
         Ok((argv, env))
     }
@@ -537,7 +721,14 @@ impl Launcher {
 
     /// A20: the hook command, not the program, carries the launch's Attempt.
     /// A43: `path` is the Agent's `PATH` in Claude Code's `env`, and `ROUNDUP_AGENT_ID` its id.
-    fn settings_json(&self, id: u64, attempt: &str, path: &OsStr, mcp: bool) -> Value {
+    fn settings_json(
+        &self,
+        id: u64,
+        attempt: &str,
+        path: &OsStr,
+        mcp: bool,
+        carried: Option<&Carried>,
+    ) -> Value {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
         let id = shell_quote(&id.to_string());
@@ -573,8 +764,42 @@ impl Launcher {
         if mcp {
             settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });
         }
+        // LC2: the user's permission rules follow roundup's, a rule once.
+        if let Some(Carried { allow, deny, .. }) = carried {
+            let merge = |mut rules: Vec<Value>, more: &[Value]| {
+                for rule in more {
+                    if !rules.contains(rule) {
+                        rules.push(rule.clone());
+                    }
+                }
+                rules
+            };
+            let own: Vec<Value> = settings["permissions"]["allow"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            let allow = merge(own, allow);
+            if !allow.is_empty() {
+                settings["permissions"]["allow"] = Value::Array(allow);
+            }
+            let deny = merge(Vec::new(), deny);
+            if !deny.is_empty() {
+                settings["permissions"]["deny"] = Value::Array(deny);
+            }
+        }
         // M11: ask for tool search, so the roundup tools' schemas load on demand; the user's own value wins.
         let mut env = Map::new();
+        // LC2: the user's `env` carries over (a proxy, a provider), under roundup's own values.
+        if let Some(carried) = carried {
+            if let Some(mode) = &carried.mode {
+                settings["permissions"]["defaultMode"] = mode.clone();
+            }
+            env.extend(carried.env.clone());
+            for (key, value) in &carried.login {
+                settings[key] = value.clone();
+            }
+            env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".into(), "1".into());
+        }
         env.insert("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into());
         if !self.user_tool_search {
             env.insert("ENABLE_TOOL_SEARCH".into(), "true".into());
@@ -603,12 +828,81 @@ impl Launcher {
     }
 
     /// `RUPD_SOCKET` is left out: Claude Code's environment, which the server inherits, has it.
-    fn mcp_json(&self, id: u64) -> Value {
-        json!({ "mcpServers": { "roundup": {
+    fn mcp_servers(&self, id: u64) -> Map<String, Value> {
+        let Value::Object(servers) = json!({ "roundup": {
             "type": "stdio",
             "command": self.rup.to_string_lossy(),
             "args": ["mcp", id.to_string()],
-        } } })
+        } }) else {
+            unreachable!("an object literal");
+        };
+        servers
+    }
+
+    /// LC2: what a lean child takes from the user's settings file; nothing else of it.
+    fn user_carried(&self) -> Carried {
+        let settings = std::fs::read(self.conversation_dir.join("settings.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+            .unwrap_or(Value::Null);
+        let rules = |key: &str| {
+            settings["permissions"][key]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+        };
+        Carried {
+            allow: rules("allow"),
+            deny: rules("deny"),
+            mode: settings["permissions"].get("defaultMode").cloned(),
+            login: LOGIN_KEYS
+                .iter()
+                .filter_map(|key| Some(((*key).to_owned(), settings.get(key)?.clone())))
+                .collect(),
+            env: settings["env"].as_object().cloned().unwrap_or_default(),
+        }
+    }
+
+    /// LC5: the user's global `CLAUDE.md`, as read-only text under a heading.
+    fn append_global_instructions(&self, brief: &mut String) {
+        if let Ok(text) = std::fs::read_to_string(self.conversation_dir.join("CLAUDE.md"))
+            && !text.trim().is_empty()
+        {
+            brief.push_str("\n## The user's global instructions (read-only)\n\n");
+            brief.push_str(text.trim_end());
+            brief.push('\n');
+        }
+    }
+
+    /// LC7: a plugin folder of its own whose skills are the extras' skill folders.
+    fn extras_plugin(
+        &self,
+        dir: &Path,
+        id: u64,
+        skills: &[(String, PathBuf)],
+    ) -> Result<PathBuf, RpcError> {
+        let folder = extras_dir(dir, id);
+        if is_symlink(&folder) {
+            return Err(RpcError::internal(format!(
+                "{} is a symlink",
+                folder.display()
+            )));
+        }
+        match std::fs::remove_dir_all(&folder) {
+            Err(err) if err.kind() != ErrorKind::NotFound => return Err(RpcError::internal(err)),
+            _ => {}
+        }
+        replace_text(
+            &folder.join(".claude-plugin/plugin.json"),
+            r#"{"name":"roundup-extras","version":"0.0.1"}"#,
+        )
+        .map_err(RpcError::internal)?;
+        std::fs::create_dir_all(folder.join("skills")).map_err(RpcError::internal)?;
+        for (name, source) in skills {
+            std::os::unix::fs::symlink(source, folder.join("skills").join(name))
+                .map_err(RpcError::internal)?;
+        }
+        Ok(folder)
     }
 
     fn unreadable(&self, err: impl std::fmt::Display) -> RpcError {
@@ -786,6 +1080,24 @@ fn remove_shims(dir: &Path, id: u64) -> std::io::Result<()> {
     match std::fs::remove_dir_all(shim_dir(dir, id)) {
         Err(err) if err.kind() != ErrorKind::NotFound => Err(err),
         _ => Ok(()),
+    }
+}
+
+fn lean_path(dir: &Path, id: u64) -> PathBuf {
+    agents_dir(dir).join(format!("{id}.lean.json"))
+}
+
+fn extras_dir(dir: &Path, id: u64) -> PathBuf {
+    agents_dir(dir).join(format!("{id}.extras"))
+}
+
+/// LC1, LC6: how `role`'s child launches: lean for a Door and for the child of a Door or an Agent,
+/// the user's full setup for an Agent the user started.
+fn lean_of(role: Role, pair: &Pair) -> Option<Lean> {
+    match (role, &pair.lean) {
+        (_, Some(lean)) => Some(lean.clone()),
+        (Role::Door, None) => Some(Lean::default()),
+        _ => None,
     }
 }
 

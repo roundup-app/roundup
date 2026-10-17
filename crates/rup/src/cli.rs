@@ -63,6 +63,8 @@ fn kebab(name: &str) -> String {
         if ch.is_ascii_uppercase() {
             out.push('-');
             out.push(ch.to_ascii_lowercase());
+        } else if ch == '_' {
+            out.push('-');
         } else {
             out.push(ch);
         }
