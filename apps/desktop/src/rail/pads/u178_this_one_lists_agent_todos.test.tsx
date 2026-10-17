@@ -103,7 +103,11 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
     const named = async (row: string, name: string) => {
       const button = await waitFor(() => within(rowOf(row)).getByRole("button", { name }));
 
-      expect(button.title).toBe(name);
+      fireEvent.keyDown(document, { key: "Tab" });
+      button.focus();
+      await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(name));
+      button.blur();
+      await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
     };
 
     await named("auth", "2 pads and todos");
@@ -115,6 +119,8 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
 
     const button = await waitFor(() => within(rowOf("auth")).getByRole("button", { name: "1 pads" }));
 
-    expect(button.title).toBe("1 pads");
+    fireEvent.keyDown(document, { key: "Tab" });
+    button.focus();
+    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("1 pads"));
   });
 });

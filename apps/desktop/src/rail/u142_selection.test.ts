@@ -243,7 +243,7 @@ const editName = async (nth: number) => {
 
 /** Selects the first Workstream, so its row shows its icons (U426). */
 const openInside = async () => {
-  await browser.click(await pointOf(".rail-row[aria-expanded] .name", { dx: 1 }));
+  await browser.click(await pointOf("[data-part=branch-control].rail-row .name", { dx: 1 }));
   await until(`() => document.querySelector(".rail-row[data-selected=true] .row-icons") !== null`);
 };
 
@@ -266,7 +266,7 @@ run("u142 the Rail selects rows, not browser text", () => {
       ["within a name, right to left", async () => [await pointOf(".rail-row .name", { fx: 1, dx: -1 }), await pointOf(".rail-row .name", { dx: 1 })]],
       ["from the gap right of a name across the rows below", async () => [await pointOf(".rail-row", { fx: 1, dx: -3 }), await pointOf(".rail-row", { dx: 2, nth: 3 })]],
       ["from the left gap upward across rows", async () => [await pointOf(".rail-row", { dx: 1, nth: 3 }), await pointOf(".rail-row", { fx: 1, dx: -3, nth: 0 })]],
-      ["across a Group label", async () => [await pointOf(".rail-row[aria-expanded] .name", { dx: 1 }), await pointOf(".rail-row[aria-expanded] .name", { fx: 1 })]],
+      ["across a Group label", async () => [await pointOf("[data-part=branch-control].rail-row .name", { dx: 1 }), await pointOf("[data-part=branch-control].rail-row .name", { fx: 1 })]],
       ["through two Agents across rows", async () => [await pointOf(".rail-row .name", { dx: 1, nth: 2 }), await pointOf(".rail-row .name", { fx: 1, nth: 5 })]],
       ["from the left gap of the done summary across its label", async () => [await pointOf(".rail-fold", { dx: 1 }), await pointOf(".rail-fold", { fx: 1, dx: -2 })]],
       ["from the right gap of the done summary leftwards", async () => [await pointOf(".rail-fold", { fx: 1, dx: -2 }), await pointOf(".rail-fold button", { dx: 1 })]],
@@ -296,7 +296,7 @@ run("u142 the Rail selects rows, not browser text", () => {
     it(`u142_${at}_clicking_a_row_selects_it`, async () => {
       await load(size);
       await browser.click(await nameAt(2));
-      await until(`() => document.querySelector('.rail-row[aria-selected="true"]')?.dataset.id === document.querySelectorAll(".rail-row")[2].dataset.id`);
+      await until(`() => document.querySelector('.rail-row[data-selected="true"]')?.dataset.id === document.querySelectorAll(".rail-row")[2].dataset.id`);
     }, 30_000);
 
     it(`u142_${at}_clicking_the_done_summary_folds_it`, async () => {

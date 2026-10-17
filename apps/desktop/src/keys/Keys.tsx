@@ -1,71 +1,31 @@
 import { registerKeys } from "./registry";
 import { chordsFor, RAIL_KEYS } from "./chords";
-import { useConnectedProject } from "../state/connectedProject";
 import { placeOf } from "./places";
-import { railStep } from "./railStep";
+import { ROW } from "../rail/rows";
 
-const isRow = (target: EventTarget | null): target is HTMLElement =>
-  target instanceof HTMLElement && target.dataset.id !== undefined;
+const rowOf = (target: EventTarget | null): HTMLElement | null =>
+  target instanceof HTMLElement && target.matches(ROW) ? target : null;
 
-/** `aria-expanded` is set only on a Workstream's row (U8's `▾`/`▸`); anything else has no fold to read. */
-const expandedOf = (row: HTMLElement): boolean | null => {
-  const value = row.getAttribute("aria-expanded");
-
-  return value === null ? null : value === "true";
-};
-
-/** The row right after `row` in Rail order, one level deeper: `→`'s first child (U41). A child folded into U8's
- * `✓ n done` line is never it, because the Rail renders no row for it until the fold opens. */
-const firstVisibleChildOf = (row: HTMLElement): string | undefined => {
-  let next = row.nextElementSibling;
-
-  while (next instanceof HTMLElement && next.dataset.pads !== undefined) next = next.nextElementSibling;
-
-  if (!(next instanceof HTMLElement) || next.dataset.id === undefined) return undefined;
-
-  const level = Number(row.getAttribute("aria-level"));
-  const nextLevel = Number(next.getAttribute("aria-level"));
-
-  return nextLevel > level ? next.dataset.id : undefined;
-};
-
-const rowElement = (id: string): HTMLElement | null =>
-  document.querySelector<HTMLElement>(`[role="tree"] [data-id="${id}"]`);
-
-const focusTabbableRow = (): void => document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')?.focus();
+const focusTabbableRow = (): void => document.querySelector<HTMLElement>(`[role="tree"] :is(${ROW})[tabindex="0"]`)?.focus();
 
 const focusPane = (): void =>
   document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]")?.focus();
 
-/** `⌘1`, `⌘2`, `←`, `→` and `F2`, the Rail keys U31 leaves to U41 (GLOSSARY.md, Rail). No UI of its own. */
+/** The `◇<n>` control of a leaf Agent's row when `←` or `→` is its Pads' to take: `→` opens them, `←` folds them before the tree takes it (U41, U58). A row with children keeps `→` for the tree. */
+const padsControlFor = (row: HTMLElement, key: string): HTMLElement | null => {
+  const control = row.querySelector<HTMLElement>("[data-pads-control]");
+
+  if (!control) return null;
+
+  const shown = control.getAttribute("aria-expanded") === "true";
+
+  if (key === "ArrowLeft") return shown ? control : null;
+
+  return !shown && row.closest("[role=treeitem]")?.getAttribute("aria-expanded") === null ? control : null;
+};
+
+/** `⌘1`, `⌘2` and `F2`, the Rail keys U31 leaves to U41, and `←`, `→` on a leaf Agent's Pads (GLOSSARY.md, Rail); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
 export const Keys = () => {
-  const { rail } = useConnectedProject();
-
-  const onArrow = (row: HTMLElement, direction: "left" | "right"): void => {
-    const id = row.dataset.id;
-
-    if (id === undefined) return;
-
-    const control = row.querySelector<HTMLElement>("[data-pads-control]");
-    const padsShown = control?.getAttribute("aria-expanded") === "true";
-
-    /** U58: `→` on a leaf Agent opens its Pads, and `←` folds them before it selects the parent. */
-    if (control && (direction === "left" ? padsShown : expandedOf(row) === null && !padsShown && firstVisibleChildOf(row) === undefined)) {
-      control.click();
-
-      return;
-    }
-
-    const step = railStep(rail.nodes, id, direction, expandedOf(row), firstVisibleChildOf(row));
-
-    if (step.kind === "collapse" || step.kind === "expand") {
-      row.querySelector<HTMLElement>('button[aria-label="Collapse"]')?.click();
-    } else if (step.kind === "select") {
-      rowElement(step.id)?.focus();
-      rail.select(step.id);
-    }
-  };
-
   const onRename = (row: HTMLElement): void => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   };
@@ -78,12 +38,18 @@ export const Keys = () => {
   ]);
   registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>('[role="tree"]') ?? undefined }, [
     { chords: RAIL_KEYS,
-      when: (press) => placeOf(press.target instanceof Element ? press.target : null) === "rail" && isRow(press.target),
-      run: (press) => {
-        if (!isRow(press.target)) return;
+      when: (press) => {
+        const row = rowOf(press.target);
 
-        if (press.key === "F2") onRename(press.target);
-        else onArrow(press.target, press.key === "ArrowLeft" ? "left" : "right");
+        return placeOf(press.target instanceof Element ? press.target : null) === "rail" && row !== null && (press.key === "F2" || padsControlFor(row, press.key) !== null);
+      },
+      run: (press) => {
+        const row = rowOf(press.target);
+
+        if (!row) return;
+
+        if (press.key === "F2") onRename(row);
+        else padsControlFor(row, press.key)?.click();
       },
     },
   ]);

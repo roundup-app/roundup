@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream, door, MINUTE, NOW } from "../testing/nodes";
-import { rowOf } from "../rail/railFixture";
+import { itemOf, rowOf, settled } from "../rail/railFixture";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { mountKeys } from "./keysFixture";
 
@@ -76,6 +76,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_cmd_1_focuses_the_rail", async () => {
     const { rail } = await mountKeys([agent("a", "idle", "x")], { pane: focusableEmulator() });
     rail.select("a");
+    await settled();
     screen.getByRole("textbox").focus();
 
     press("1", { metaKey: true });
@@ -86,6 +87,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_cmd_2_focuses_the_pane", async () => {
     const { rail } = await mountKeys([agent("a", "idle", "x")], { pane: focusableEmulator() });
     rail.select("a");
+    await settled();
     rowOf("a").focus();
 
     press("2", { metaKey: true });
@@ -100,6 +102,8 @@ describe("u41 rail by keyboard, the rest", () => {
     );
 
     rail.select("b");
+
+    await settled();
     screen.getByRole("textbox").focus();
 
     press("1", { metaKey: true });
@@ -142,6 +146,7 @@ describe("u41 rail by keyboard, the rest", () => {
   ])("u41_a_cmd_1_with_another_modifier_does_nothing_%s", async (_, held) => {
     const { rail } = await mountKeys([agent("a", "idle", "x")], { pane: focusableEmulator() });
     rail.select("a");
+    await settled();
     screen.getByRole("textbox").focus();
     const field = document.activeElement;
 
@@ -156,7 +161,9 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowLeft");
 
-    expect(rowOf("g").getAttribute("aria-expanded")).toBe("false");
+    await settled();
+
+    expect(itemOf("g").getAttribute("aria-expanded")).toBe("false");
   });
 
   it("u41_left_on_an_expanded_group_among_several_collapses_only_the_focused_one", async () => {
@@ -165,33 +172,38 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowLeft");
 
-    expect(rowOf("g2").getAttribute("aria-expanded")).toBe("false");
-    expect(rowOf("g1").getAttribute("aria-expanded")).toBe("true");
+    await settled();
+
+    expect(itemOf("g2").getAttribute("aria-expanded")).toBe("false");
+    expect(itemOf("g1").getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("u41_left_on_a_collapsed_group_selects_its_parent", async () => {
-    const { rail } = await mountKeys([workstream("outer"), workstream("inner", { parent: "outer" })]);
+  it("u41_left_on_a_collapsed_group_moves_to_its_parent", async () => {
+    await mountKeys([workstream("outer"), workstream("inner", { parent: "outer" })]);
     fireEvent.click(within(rowOf("inner")).getByRole("button", { name: "Collapse" }));
+    await settled();
     rowOf("inner").focus();
 
     press("ArrowLeft");
 
-    expect(rail.selected()).toBe("outer");
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("outer"));
   });
 
-  it("u41_left_on_a_leaf_selects_its_parent", async () => {
-    const { rail } = await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
+  it("u41_left_on_a_leaf_moves_to_its_parent", async () => {
+    await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
     rowOf("child").focus();
 
     press("ArrowLeft");
 
-    expect(rail.selected()).toBe("g");
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("g"));
   });
 
-  it("u41_left_at_depth_three_selects_the_immediate_parent_not_the_root", async () => {
-    const { rail } = await mountKeys([
+  it("u41_left_at_depth_three_moves_to_the_immediate_parent_not_the_root", async () => {
+    await mountKeys([
       workstream("outer"),
       workstream("inner", { parent: "outer" }),
       agent("leaf", "idle", "x", { parent: "inner" }),
@@ -201,7 +213,8 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowLeft");
 
-    expect(rail.selected()).toBe("inner");
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("inner"));
   });
 
@@ -211,6 +224,8 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowLeft");
 
+    await settled();
+
     expect(rail.selected()).toBeNull();
     expect(document.activeElement).toBe(rowOf("a"));
   });
@@ -218,28 +233,35 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_right_on_a_collapsed_group_expands_it", async () => {
     await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
     fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    await settled();
     rowOf("g").focus();
 
     press("ArrowRight");
 
-    expect(rowOf("g").getAttribute("aria-expanded")).toBe("true");
+    await settled();
+
+    expect(itemOf("g").getAttribute("aria-expanded")).toBe("true");
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
   });
 
   it("u41_right_on_a_collapsed_group_among_several_expands_only_the_focused_one", async () => {
     await mountKeys([workstream("g1", { order: 0 }), workstream("g2", { order: 1 })]);
     fireEvent.click(within(rowOf("g1")).getByRole("button", { name: "Collapse" }));
+    await settled();
     fireEvent.click(within(rowOf("g2")).getByRole("button", { name: "Collapse" }));
+    await settled();
     rowOf("g2").focus();
 
     press("ArrowRight");
 
-    expect(rowOf("g2").getAttribute("aria-expanded")).toBe("true");
-    expect(rowOf("g1").getAttribute("aria-expanded")).toBe("false");
+    await settled();
+
+    expect(itemOf("g2").getAttribute("aria-expanded")).toBe("true");
+    expect(itemOf("g1").getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("u41_right_on_an_expanded_group_selects_its_first_child", async () => {
-    const { rail } = await mountKeys([
+  it("u41_right_on_an_expanded_group_moves_to_its_first_child", async () => {
+    await mountKeys([
       workstream("g"),
       agent("b", "idle", "x", { parent: "g", order: 1 }),
       agent("a", "idle", "x", { parent: "g", order: 0 }),
@@ -249,12 +271,13 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowRight");
 
-    expect(rail.selected()).toBe("a");
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("a"));
   });
 
-  it("u41_right_selects_the_first_visible_child_skipping_a_row_folded_into_done", async () => {
-    const { rail } = await mountKeys([
+  it("u41_right_moves_to_the_first_visible_child_skipping_a_row_folded_into_done", async () => {
+    await mountKeys([
       workstream("g"),
       agent("old", "done", "finished", { parent: "g", order: 0, status: { kind: "done", label: "finished", since: NOW - 11 * MINUTE } }),
       agent("live", "idle", "x", { parent: "g", order: 1 }),
@@ -264,18 +287,20 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowRight");
 
-    expect(rail.selected()).toBe("live");
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("live"));
   });
 
-  it("u41_right_on_an_expanded_door_selects_its_first_child", async () => {
-    const { rail } = await mountKeys([door("m", "working", "x"), agent("a", "idle", "y", { parent: "m" })]);
+  it("u41_right_on_an_expanded_door_moves_to_its_first_child", async () => {
+    await mountKeys([door("m", "working", "x"), agent("a", "idle", "y", { parent: "m" })]);
 
     rowOf("m").focus();
 
     press("ArrowRight");
 
-    expect(rail.selected()).toBe("a");
+    await settled();
+
     expect(document.activeElement).toBe(rowOf("a"));
   });
 
@@ -290,6 +315,8 @@ describe("u41 rail by keyboard, the rest", () => {
 
     press("ArrowLeft");
 
+    await settled();
+
     expect(rail.collapsed().has("m")).toBe(true);
     expect(document.activeElement).toBe(rowOf("m"));
     expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(2);
@@ -300,6 +327,8 @@ describe("u41 rail by keyboard, the rest", () => {
     rowOf("a").focus();
 
     press("ArrowRight");
+
+    await settled();
 
     expect(rail.selected()).toBeNull();
     expect(document.activeElement).toBe(rowOf("a"));
@@ -314,6 +343,8 @@ describe("u41 rail by keyboard, the rest", () => {
     rowOf("a").focus();
 
     press("ArrowRight");
+
+    await settled();
 
     expect(rail.selected()).toBeNull();
     expect(document.activeElement).toBe(rowOf("a"));
@@ -330,7 +361,6 @@ describe("u41 rail by keyboard, the rest", () => {
   it.each<[string, KeyboardEventInit]>([
     ["ctrl", { ctrlKey: true }],
     ["alt", { altKey: true }],
-    ["shift", { shiftKey: true }],
     ["cmd", { metaKey: true }],
   ])("u41_arrow_left_with_a_modifier_does_nothing_%s", async (_, held) => {
     await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
@@ -338,8 +368,10 @@ describe("u41 rail by keyboard, the rest", () => {
 
     const notPrevented = press("ArrowLeft", held);
 
+    await settled();
+
     expect(notPrevented).toBe(true);
-    expect(rowOf("g").getAttribute("aria-expanded")).toBe("true");
+    expect(itemOf("g").getAttribute("aria-expanded")).toBe("true");
   });
 
   it("u41_shift_f2_does_nothing", async () => {
@@ -358,10 +390,14 @@ describe("u41 rail by keyboard, the rest", () => {
     );
 
     rail.select("a");
+
+    await settled();
     screen.getByRole("textbox").focus();
     const field = document.activeElement;
 
     const notPrevented = press("ArrowLeft");
+
+    await settled();
 
     expect(notPrevented).toBe(true);
     expect(rail.selected()).toBe("a");
@@ -376,6 +412,8 @@ describe("u41 rail by keyboard, the rest", () => {
 
     const notPrevented = press("ArrowLeft");
 
+    await settled();
+
     expect(notPrevented).toBe(true);
     expect(document.activeElement).toBe(field);
   });
@@ -383,6 +421,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_f2_prevents_the_default_action", async () => {
     const { rail } = await mountKeys([agent("a", "idle", "x")]);
     rail.select("a");
+    await settled();
     rowOf("a").focus();
 
     expect(press("F2")).toBe(false);
@@ -391,6 +430,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_a_plain_key_other_than_f2_does_not_open_rename", async () => {
     const { rail } = await mountKeys([agent("a", "idle", "x")]);
     rail.select("a");
+    await settled();
     rowOf("a").focus();
 
     press("j");
@@ -401,6 +441,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_f2_on_the_collapse_button_does_nothing", async () => {
     const { rail } = await mountKeys([workstream("g")]);
     rail.select("g");
+    await settled();
     screen.getByRole("button", { name: "Collapse" }).focus();
 
     press("F2");
@@ -408,7 +449,7 @@ describe("u41 rail by keyboard, the rest", () => {
     expect(screen.queryByLabelText("Name")).toBeNull();
   });
 
-  it("u41_right_selecting_a_row_shows_its_terminal_exactly_as_a_click_does", async () => {
+  it("u41_enter_on_the_row_right_moved_to_shows_its_terminal_exactly_as_a_click_does", async () => {
     await mountKeys(
       [workstream("g"), agent("child", "idle", "x", { parent: "g" })],
       { pane: terminalMarkerEmulator() },
@@ -416,6 +457,9 @@ describe("u41 rail by keyboard, the rest", () => {
     rowOf("g").focus();
 
     press("ArrowRight");
+    await settled();
+    press("Enter");
+    await settled();
 
     expect(document.querySelector<HTMLElement>(".pane-screen [data-terminal]")?.dataset.terminal).toBe("t-child");
   });
@@ -426,6 +470,8 @@ describe("u41 rail by keyboard, the rest", () => {
     const before = app.calls.length;
 
     press("ArrowRight");
+
+    await settled();
 
     expect(app.calls.length).toBe(before);
   });
@@ -445,6 +491,8 @@ describe("u41 rail by keyboard, the rest", () => {
     screen.getByLabelText("field").focus();
 
     const notPrevented = press(key);
+
+    await settled();
 
     expect(notPrevented).toBe(true);
     expect(rail.selected()).toBeNull();

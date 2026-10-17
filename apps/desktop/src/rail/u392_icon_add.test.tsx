@@ -17,7 +17,11 @@ describe("u392 the Agent add is an icon button", () => {
 
     const buttons = [...document.querySelectorAll<HTMLElement>("[aria-label='Add Agent']")];
 
-    expect(buttons.map((button) => [button.dataset.button, button.title, button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent ⌘N", "Agent", "g"]]);
+    expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent", "Agent", "g"]]);
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    buttons[0]!.focus();
+    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("Add Agent ⌘N"));
   });
 
   it("u392_the_icon_add_spawns_with_the_workstream_as_parent", async () => {

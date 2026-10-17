@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { buttonNamed, LIST, settings, selectNamed } from "../models/modelsFixture";
 import { agent, door, workstream } from "../testing/nodes";
-import { mountRail, railCallsTo, rowOf } from "./railFixture";
+import { mountRail, railCallsTo, rowOf, settled } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -326,6 +326,7 @@ describe("u378 the Model on a row", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     await waitFor(() => expect(document.activeElement?.textContent).toBe("Cancel"));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await settled();
 
     expect(railCallsTo(mounted.app, "agent.setModel")).toEqual([]);
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -358,7 +359,8 @@ describe("u378 the Model on a row", () => {
 
     await waitFor(() => expect(mounted.rail.nodes.find((node) => node.id === "a")?.model).toBe("m-sonnet"));
     expect(order()).toEqual(before);
-    expect(rowOf("a").title).toBe("again");
+    fireEvent.pointerMove(rowOf("a"), { pointerType: "mouse" });
+    expect((await screen.findByRole("tooltip")).textContent).toBe("again");
   });
 
   it("u378_a_workstream_row_offers_model_and_changes_its_door", async () => {

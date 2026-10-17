@@ -87,8 +87,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
-  await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
-  await waitFor(() => expect(rail.querySelector(`[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
   clearInterval(pump);
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
@@ -109,7 +109,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   expect(await app.rpc("decision.list", null)).toHaveLength(0);
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
-  await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
 
   if (answer === "allow") {
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain(prompt), { timeout: 30_000 });
