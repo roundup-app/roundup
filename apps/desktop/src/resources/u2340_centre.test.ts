@@ -18,10 +18,10 @@ type Box = { l: number; r: number; t: number; b: number; w: number; h: number };
 const BOXES = `() => {
   const box = selector => { const e = document.querySelector(selector); if (!e) return null; const r = e.getBoundingClientRect(); return {l:r.left,r:r.right,t:r.top,b:r.bottom,w:r.width,h:r.height}; };
   return {centre:box('.centre'), pane:box('.pane'), bar:box('.resource-strip'), show:box('[aria-label="Show work items"]'), failure:box('.pane-failure'), body:box('.pane-body'),
-    space2:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-2')), space5:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-5'))};
+    space2:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-2')), space5:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-5')), space4:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-4'))};
 }`;
 
-type Boxes = { centre: Box; pane: Box; bar: Box; show: Box | null; failure: Box; body: Box; space2: number; space5: number };
+type Boxes = { centre: Box; pane: Box; bar: Box; show: Box | null; failure: Box; body: Box; space2: number; space5: number; space4: number };
 
 const open = async (width = 1512): Promise<void> => {
   await page.load("/harness.html?seed=resources", width, 950);
@@ -82,10 +82,10 @@ it("u2340b_no_failure_takes_no_height", async () => {
 
 it("u2340c_the_bar_is_one_line_the_terminals_width", async () => {
   await open();
-  const { pane, bar, space2, space5 } = await page.call<Boxes>(BOXES);
+  const { pane, bar, space2, space5, space4 } = await page.call<Boxes>(BOXES);
 
   expect(bar.w).toBeCloseTo(pane.w, 0);
-  expect(bar.h).toBeCloseTo(space5, 0);
+  expect(bar.h).toBeCloseTo(space4 + space5, 0);
   expect(await page.call<number>(`() => parseFloat(getComputedStyle(document.querySelector('.resource-strip')).paddingLeft)`)).toBe(space2);
 }, 60_000);
 
@@ -124,7 +124,7 @@ it("u2340a_checks_hold_on_the_densest_seed", async () => {
   }`);
   await page.until(`() => document.querySelectorAll('.terminal-tab').length === 16 && document.querySelector('.resource-stale') && document.querySelector('.pane-failure [role="alert"]')`);
 
-  const { pane, bar, space5 } = await page.call<Boxes>(BOXES);
+  const { pane, bar, space5, space4 } = await page.call<Boxes>(BOXES);
 
   const read = await page.call<{ clipped: string[] }>(`() => {
     const bar = document.querySelector('.resource-strip').getBoundingClientRect();
@@ -132,7 +132,7 @@ it("u2340a_checks_hold_on_the_densest_seed", async () => {
   }`);
 
   expect(bar.w).toBeCloseTo(pane.w, 0);
-  expect(bar.h).toBeCloseTo(space5, 0);
+  expect(bar.h).toBeCloseTo(space4 + space5, 0);
   expect(read.clipped).toEqual([]);
 
   const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
