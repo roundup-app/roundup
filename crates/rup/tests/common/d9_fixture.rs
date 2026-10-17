@@ -124,7 +124,6 @@ impl Fixture {
         })
         .await;
         if completion {
-            self.model.tool_result("toolu_d9_handoff").await;
             self.seen("the new session's Handoff prompt", |entry| {
                 entry["response"]["status"] == 200 && Self::user_text(entry, "D9 handoff")
             })
