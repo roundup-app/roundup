@@ -64,3 +64,16 @@ it("u501_browser_pending_keeps_note_focus_and_blocks_repeat_enter", async () => 
   await action("press", "Enter");
   expect(await read<string>("document.querySelector('output').textContent")).toBe("1");
 }, 60_000);
+
+it("u501_close_failure_alert_carries_the_full_message", async () => {
+  await browser("open", url("/harness.html?seed=tree-40"));
+  await wait(`!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+  await read(`window.__fake.app.closeProject = async () => { throw new Error('Could not close project\\nTry again after saving the draft'); }`);
+  await browser("hover", ".project-tab");
+  await wait(`(() => { const close = document.querySelector('[aria-label^="Close "]'); return close?.checkVisibility() && Number(getComputedStyle(close).opacity) > 0; })()`);
+  await browser("click", '[aria-label^="Close "]');
+  await wait(`document.activeElement?.textContent === 'Cancel'`);
+  await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
+  await wait(`document.querySelector('[role=alert]')?.textContent.includes('Could not close project')`);
+  expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('Could not close project') && (el.getAttribute('title') ?? el.getAttribute('aria-label')) === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
+}, 60_000);
