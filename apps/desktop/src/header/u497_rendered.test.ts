@@ -18,11 +18,9 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
   rendered(`u497_rendered_checks_and_failures_${seed}_${width}_${scheme}_${contrast}`, async () => {
     const baseline = new Map<string, Checks>();
 
-    // Increased contrast needs a browser launched in forced-colours-free high-contrast mode (as u481), in its own fresh profile.
-    if (contrast === 'more') {
-      await browser('close');
-      await browser('--profile', mkdtempSync(join(tmpdir(), 'u497-contrast-')), '--args', '--force-high-contrast,--disable-blink-features=ForcedColors', 'open', url('/harness.html?seed=tabs-8'));
-    }
+    // Each case starts a fresh browser and profile; increased contrast needs forced-colours-free high-contrast mode (as u481).
+    await browser('close');
+    await browser('--profile', mkdtempSync(join(tmpdir(), 'u497-')), ...(contrast === 'more' ? ['--args', '--force-high-contrast,--disable-blink-features=ForcedColors'] : []), 'open', url('/harness.html?seed=tabs-8'));
 
     for (const base of [true, false]) {
       const side = base ? 'base' : 'head';
@@ -41,8 +39,9 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
           app.handlers['project.setModels'] = () => { throw new Error(${JSON.stringify(failure)}); };
         }
         // tabs-8 has no Todos: its second Project gets one made by its running Agent, which is what the Shelf lists.
-        const second = window.__fake.app.of(document.querySelectorAll('.project-tab')[1].dataset.path);
-        if (!second.handlers['todo.list']().length) {
+        const tab = document.querySelectorAll('.project-tab')[1];
+        const second = tab && window.__fake.app.of(tab.dataset.path);
+        if (second && !second.handlers['todo.list']().length) {
           second.handlers['todo.create']({ title: 'Authored 雪 Todo', body: 'Body', blockers: [] });
           const agent = (todo) => ({ ...todo, creator: { kind: 'agent', id: 'p2-agent', parent: null } });
           const list = second.handlers['todo.list'];
