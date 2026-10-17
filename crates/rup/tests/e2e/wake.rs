@@ -424,12 +424,7 @@ async fn status_of(user: &rpc::Client, id: u64) -> String {
 async fn b42_the_note_is_typed_at_the_next_idle_with_the_id_line() {
     let logs = tempfile::tempdir().unwrap();
     let prompts = logs.path().join("prompts.jsonl");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}}).to_string();
-    let s = scene(&[
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt),
-        ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
-    ])
-    .await;
+    let s = scene(&[("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap())]).await;
     drive(&s.user, &s.a, STOP).await;
     ask(&s.as_w, &[&s.a], false).await.unwrap();
     let note = &notes(&s.user, &s.w, "[wake]", 1).await[0];
@@ -573,10 +568,8 @@ async fn b44_a_note_in_flight_at_the_kill_is_typed_again_not_made_again() {
     let logs = tempfile::tempdir().unwrap();
     let hold = logs.path().join("signal");
     let prompts = logs.path().join("prompts.jsonl");
-    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}}).to_string();
     let log = prompts.to_str().unwrap();
     let mut project = start(&[
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt),
         ("FAKE_CLAUDE_PROMPT_LOG", log),
         ("FAKE_CLAUDE_HOLD_PROMPT", hold.to_str().unwrap()),
     ]);
@@ -594,10 +587,7 @@ async fn b44_a_note_in_flight_at_the_kill_is_typed_again_not_made_again() {
     let first = typed(&prompts, 1).await;
     assert_eq!(status_of(&user0, id).await, "pending");
 
-    project.restart(&[
-        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt),
-        ("FAKE_CLAUDE_PROMPT_LOG", log),
-    ]);
+    project.restart(&[("FAKE_CLAUDE_PROMPT_LOG", log)]);
     let user = project.client().await;
     let m = user
         .request("message.get", json!({ "id": id }))
