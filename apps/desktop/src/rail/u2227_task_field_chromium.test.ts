@@ -26,7 +26,7 @@ type Read = { pad: number; height: number; line: number; scrollHeight: number; f
 /** Page-side: opens the field with `⇧⌘N`, types `text` through the input event, and reads its layout. */
 const TYPE = `(text) => {
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, shiftKey: true, bubbles: true }));
-  const field = document.querySelector("textarea[aria-label=Ask]");
+  const field = document.querySelector("textarea[aria-label=Task]");
   field.focus();
   Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(field, text);
   field.dispatchEvent(new Event("input", { bubbles: true }));

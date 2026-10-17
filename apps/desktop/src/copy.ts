@@ -119,7 +119,7 @@ export const copy = {
   notDone: "Not done",
   fullOrderOf: (value1: CopyValue) => `Full order of ${value1}`,
   prompt: "Prompt",
-  task: "Ask",
+  task: "Task",
   taskHint: "What should the Agent do?",
   orderOf: (value1: CopyValue) => `Order of ${value1}`,
   noLimits: "no limits",
