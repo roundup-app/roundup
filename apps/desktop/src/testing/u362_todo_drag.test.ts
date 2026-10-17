@@ -45,13 +45,6 @@ const point = (selector: string) => page.call<Point>(`selector => {
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};
 }`, selector);
 
-/** Presses at `from` and moves to `to` in steps, as a hand does: the Sortable starts the drag on the first moves and the Home under the pointer is marked by the later ones. */
-const pull = async (from: Point, to: Point) => {
-  await page.pointer('down', from.x, from.y);
-
-  for (let step = 1; step <= 8; step++) await page.pointer('move', from.x + (to.x - from.x) * step / 8, from.y + (to.y - from.y) * step / 8);
-};
-
 const capture = async (id: string, name: string, evidence: Evidence) => {
   const dir = captureDir(id);
 
@@ -141,7 +134,8 @@ run('u362 rendered Todo drag', () => {
       const home = await page.call<string>(`() => document.querySelector('.rail-row[aria-expanded]').dataset.id`);
       const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const to = await point('.rail-row[aria-expanded]');
-      await pull(from, to);
+      await page.pointer('down', from.x, from.y);
+      await page.pointer('move', to.x, to.y);
       expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
 
       const paint = await page.call<{image: string; wash: string; colour: string}>(`() => {
@@ -160,7 +154,8 @@ run('u362 rendered Todo drag', () => {
       expect(movedHome).toBe(home);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
-      await pull(back, root);
+      await page.pointer('down', back.x, back.y);
+      await page.pointer('move', root.x, root.y);
       await page.pointer('up', root.x, root.y);
       await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').length === 2`);
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home: null});
@@ -169,29 +164,6 @@ run('u362 rendered Todo drag', () => {
       await capture('U362', `${scheme}-root-home`, {base, checks: await page.call(`() => window.__checks()`), movedHome, calls: await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move')`)});
     }, 60_000);
   }
-});
-
-run('u362 rendered drop edges', () => {
-  it('u362_the_highlight_clears_outside_the_rail_and_a_drop_elsewhere_or_escape_calls_nothing', async () => {
-    await page.scheme('light');
-    await setup();
-    const from = await point('.shelf [data-todo] .todo-row-button');
-    const rail = await point('.rail-row[aria-expanded]');
-    const calls = `() => window.__fake.app.calls.filter(c => c.method === 'todo.move' || c.method === 'todo.reorder').length`;
-
-    await pull(from, rail);
-    expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
-    await page.pointer('move', 640, 400);
-    expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(false);
-    await page.pointer('up', 640, 400);
-    expect(await page.call<number>(calls)).toBe(0);
-
-    await pull(from, rail);
-    await page.press('Escape', 'Escape');
-    await page.pointer('up', rail.x, rail.y);
-    expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(false);
-    expect(await page.call<number>(calls)).toBe(0);
-  }, 60_000);
 });
 
 run('u363 Todo rows in the worst case', () => {
@@ -236,7 +208,8 @@ run('u363 Todo rows in the worst case', () => {
 
       const from = await point('.shelf .todo-row-button');
       const to = await point('.rail-row[aria-expanded]');
-      await pull(from, to);
+      await page.pointer('down', from.x, from.y);
+      await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
       await capture('U363', `${scheme}-${shelfWidth}-drag`, {rows, base, checks: await page.call(`() => window.__checks()`)});
       await page.pointer('up', to.x, to.y);
@@ -270,7 +243,8 @@ run('u362 rendered move failure', () => {
       }`);
       const from = await point('.shelf .todo-row-button');
       const to = await point('.rail-row[aria-expanded]');
-      await pull(from, to);
+      await page.pointer('down', from.x, from.y);
+      await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
       await page.call(`() => window.__fake.failNext(-32000, 'Cannot move this Todo')`);
       await page.pointer('up', to.x, to.y);

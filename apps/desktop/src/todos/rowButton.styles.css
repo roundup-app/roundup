@@ -45,34 +45,6 @@
   font-weight: 600;
 }
 
-/* U490a: Move up and Move down are reached by Tab and drawn only while focused, out of the flow so no row moves (U112); unfocused they take no pointer. */
-.row-head,
-.shelf-head {
-  position: relative;
-}
-
-.todo-step {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: var(--space-5);
-  height: var(--space-5);
-  background: var(--sunken);
-}
-
-.todo-step-up {
-  right: var(--space-5);
-}
-
-.todo-step:not(:focus-visible) {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.todo-step:disabled {
-  display: none;
-}
-
 /* U155: a row can be dragged, so it reads as grabbable; the fold's rows are not rows of the order. */
 .todo-row [data-reorderable] {
   cursor: grab;

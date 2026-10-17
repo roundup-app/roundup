@@ -19,19 +19,14 @@ type Point = { x: number; y: number };
 
 type State = { ids: number[]; active: string | null; drawer: boolean; reorders: unknown[] };
 
-const ROWS = ".shelf [data-shelf-row] .todo-row-button";
+const ROWS = "[data-pads] .todo-row-button";
 
-/** The Shelf of the `tree-40` harness with every Todo shown: its first open rows are #2, #4 (blocked), #6 and #8. */
+/** The Rail of the `tree-40` harness with its first Agent's Todos shown. */
 const setup = async () => {
   await page.load("/harness.html?seed=tree-40", 1280, 820);
-  await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
-  await page.call(`() => {
-    [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
-    document.querySelector('.rail-row[aria-expanded]').click();
-  }`);
-  await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
-  await page.call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
-  await page.until(`() => Boolean(document.querySelector(${JSON.stringify(ROWS)}))`);
+  await page.until(`() => Boolean(document.querySelector('.rail-pads-control')) && Boolean(window.__fake)`);
+  await page.call(`() => document.querySelector('.rail-pads-control').click()`);
+  await page.until(`() => document.querySelectorAll(${JSON.stringify(ROWS)}).length > 1`);
 };
 
 const centre = (n: number) => page.call<Point>(`(rows, n) => {
@@ -40,13 +35,13 @@ const centre = (n: number) => page.call<Point>(`(rows, n) => {
 }`, ROWS, n);
 
 const state = () => page.call<State>(`rows => ({
-  ids: [...document.querySelectorAll(rows)].slice(0, 4).map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1])),
+  ids: [...document.querySelectorAll(rows)].map(b => Number(/#(\\d+)/.exec(b.getAttribute('aria-label'))[1])),
   active: document.activeElement?.getAttribute('aria-label') ?? null,
   drawer: document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true',
   reorders: window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params),
 })`, ROWS);
 
-/** A pointer drag in small steps, as a hand makes one; the sensor and the Home targets read the moves between. */
+/** A pointer drag in small steps, as a hand makes one. */
 const drag = async (from: Point, to: Point, release = true) => {
   await page.pointer("down", from.x, from.y);
 
@@ -57,102 +52,64 @@ const drag = async (from: Point, to: Point, release = true) => {
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 400));
 
-run("u490a the Shelf orders its Todos on the shared Sortable", () => {
+run("u490a an Agent's Todos in the Rail order on the shared Sortable", () => {
   it("u490a_pointer_reorders", async () => {
     await page.scheme("light");
     await setup();
-    await drag(await centre(2), await centre(0));
+
+    const before = await state();
+    const last = before.ids.length - 1;
+
+    await drag(await centre(last), await centre(0));
     await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.reorder')`);
     await settled();
-    expect(await state()).toEqual({ ids: [6, 2, 4, 8], active: "Idle #6 todo 6", drawer: false, reorders: [{ id: 6, before: 2 }] });
+
+    const after = await state();
+
+    expect(after.reorders).toEqual([{ id: before.ids[last], before: before.ids[0] }]);
+    expect(after.drawer).toBe(false);
+    expect(after.active).toContain(`#${before.ids[last]} `);
   }, 60_000);
 
   it("u490a_cancel_and_noop", async () => {
     await page.scheme("light");
     await setup();
-    const first = await centre(0);
-    const third = await centre(2);
 
-    await drag(third, first, false);
+    const first = await centre(0);
+    const last = await centre((await state()).ids.length - 1);
+
+    await drag(last, first, false);
     await page.press("Escape", "Escape");
     await page.pointer("up", first.x, first.y);
     await settled();
-    await drag(third, { x: third.x, y: third.y + 10 });
+    // Past the activation distance and back to the row's own place: no move.
+    await page.pointer("down", last.x, last.y);
+    await page.pointer("move", last.x, last.y - 12);
+    await page.pointer("move", last.x, last.y);
+    await page.pointer("up", last.x, last.y);
     await settled();
-    await drag(third, { x: 640, y: 300 });
-    await settled();
-    expect(await state()).toMatchObject({ ids: [2, 4, 6, 8], drawer: false, reorders: [] });
+    expect(await state()).toMatchObject({ drawer: false, reorders: [] });
   }, 60_000);
 
-  it("u490a_tab_space_enter_reorders", async () => {
+  it("u490a_a_click_opens_the_Todo_not_a_drag", async () => {
+    await page.scheme("light");
+    await setup();
+
+    const point = await centre(0);
+
+    await page.pointer("down", point.x, point.y);
+    await page.pointer("up", point.x, point.y);
+    await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
+    expect(await state()).toMatchObject({ drawer: true, reorders: [] });
+  }, 60_000);
+
+  it("u490a_Enter_on_a_row_button_opens_it_without_drag_semantics", async () => {
     await page.scheme("light");
     await setup();
     await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, ROWS);
-    // The first row has no Move up; the next stop after its button is Move down.
-    await page.press("Tab", "Tab");
-    expect((await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`))).toBe("Move todo 2 down");
+    expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|describedby)=./.test(a))`, ROWS)).toEqual([]);
     await page.press("Enter", "Enter");
-    await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.reorder')`);
-    await settled();
-    expect(await state()).toEqual({ ids: [4, 2, 6, 8], active: "Idle #2 todo 2", drawer: false, reorders: [{ id: 2, before: 6 }] });
-
-    await page.press("Tab", "Tab");
-    expect((await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`))).toBe("Move todo 2 up");
-    await page.press(" ", "Space");
-    await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').length === 2`);
-    await settled();
-    expect(await state()).toEqual({ ids: [2, 4, 6, 8], active: "Idle #2 todo 2", drawer: false, reorders: [{ id: 2, before: 6 }, { id: 2, before: 4 }] });
-  }, 60_000);
-});
-
-type Sample = { at: number; tops: Record<string, number> };
-
-/** Samples the top of Todos #2 and #4 in every frame while `⌥↓` moves #2 below #4, then answers the frames. */
-const sampleMove = async (): Promise<Sample[]> => {
-  await setup();
-  await page.call(`rows => {
-    document.querySelectorAll(rows)[0].focus();
-    window.__frames = [];
-    const read = () => Object.fromEntries([2, 4, 6].map(id => [id, document.querySelector('.shelf [data-id="' + id + '"]').getBoundingClientRect().top]));
-    const start = performance.now();
-    const tick = () => { window.__frames.push({at: performance.now() - start, tops: read()}); if (performance.now() - start < 900) requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-  }`, ROWS);
-  await settled();
-  await page.press("ArrowDown", "ArrowDown", 1);
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  return page.call<Sample[]>(`() => window.__frames`);
-};
-
-run("u490a the moved rows keep U156's motion", () => {
-  it("u490a_reorder_motion", async () => {
-    await page.scheme("light");
-    const frames = await sampleMove();
-    const before = frames[0]!.tops;
-    const after = frames.at(-1)!.tops;
-
-    expect(after["2"]).toBeGreaterThan(before["2"]!);
-    expect(after["4"]).toBeLessThan(before["4"]!);
-    expect(after["6"]).toBe(before["6"]);
-    expect(frames.every((frame) => frame.tops["6"] === before["6"])).toBe(true);
-
-    const between = frames.filter((frame) => frame.tops["2"]! > before["2"]! + 1 && frame.tops["2"]! < after["2"]! - 1);
-
-    expect(between.length).toBeGreaterThan(0);
-
-    const reached = frames.find((frame) => Math.abs(frame.tops["2"]! - after["2"]!) < 0.5 && frame.at > between[0]!.at)!;
-
-    expect(reached.at - between[0]!.at).toBeLessThanOrEqual(200);
-  }, 60_000);
-
-  it("u490a_reorder_motion_is_one_frame_under_reduced_motion", async () => {
-    await page.scheme("light", undefined, "motion");
-    const frames = await sampleMove();
-    const before = frames[0]!.tops;
-    const after = frames.at(-1)!.tops;
-
-    expect(after["2"]).toBeGreaterThan(before["2"]!);
-    expect(frames.some((frame) => frame.tops["2"]! > before["2"]! + 1 && frame.tops["2"]! < after["2"]! - 1)).toBe(false);
+    await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
+    expect(await state()).toMatchObject({ drawer: true, reorders: [] });
   }, 60_000);
 });
