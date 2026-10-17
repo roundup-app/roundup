@@ -479,6 +479,8 @@ async fn a35_the_original_conversation_is_untouched() {
 #[tokio::test]
 async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
     let fx = fixture().await;
+    // Real Claude may still be writing the file, and would recreate it.
+    idle(&fx.user, &fx.b).await;
     let cwd = roots(&fx)
         .await
         .into_iter()
