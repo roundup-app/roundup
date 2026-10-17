@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { ChromePage } from "../testing/chromePage";
-import { centreOf, openBubblePage, showBubble } from "./u2307_browser";
+import { centreOf, openBubblePage, showBubble } from "../testing/u2307Browser";
 
 let page: ChromePage;
 
