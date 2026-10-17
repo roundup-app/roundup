@@ -9,7 +9,7 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, resizedAbout, shownFor, shownName, STEP, toggledFill, ZONES,
+  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, ZONES,
 } from "./places";
 import type { Place, Extent, Zone } from "./places";
 import "./styles.css";
@@ -553,7 +553,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (press.target instanceof Element && press.target.closest(".terminal-tab-editor")) return;
 
     // Help is modal: while it is open no chord acts (U54).
-    if (!press.metaKey || press.ctrlKey || press.altKey || document.querySelector(".help") !== null) return;
+    if (!press.metaKey || press.ctrlKey || press.altKey || document.querySelector(".help, .switcher") !== null) return;
 
     const key = press.key.toLowerCase();
     const backspace = press.shiftKey && (press.key === "Backspace" || press.code === "Backspace");
@@ -592,6 +592,18 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (id !== undefined) lastFocused = id;
   };
 
+  // U529: the Switcher chose a Terminal; its owner is selected by now, so the bubble is listed.
+  const onReveal = (event: Event): void => {
+    const id = event instanceof CustomEvent ? String(event.detail) : null;
+
+    if (id === null || !shown().some((terminal) => terminal.id === id)) return;
+
+    show(id);
+    queueMicrotask(() => focusItem(id));
+  };
+
+  window.addEventListener(REVEAL_BUBBLE, onReveal);
+  onCleanup(() => window.removeEventListener(REVEAL_BUBBLE, onReveal));
   window.addEventListener("keydown", onKey, true);
   document.addEventListener("focusin", onFocusIn);
   document.addEventListener("focusin", onBubbleFocus);
