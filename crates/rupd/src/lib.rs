@@ -620,6 +620,9 @@ impl Daemon {
             self.guard_terminal_read(&conn.actor, method, &params)
                 .await?;
         }
+        if method == "terminal.show" {
+            self.guard_terminal(&conn.actor, &params, true).await?;
+        }
         if method == "terminal.open" {
             self.guard_terminal_open(&conn.actor, &params)?;
         }
@@ -941,6 +944,16 @@ impl Daemon {
         method: &str,
         params: &Value,
     ) -> Result<Option<String>, RpcError> {
+        self.guard_terminal(actor, params, false).await
+    }
+
+    /// `guard_terminal_read`, or with `show` B53's wider rule for a Show request.
+    async fn guard_terminal(
+        &self,
+        actor: &Actor,
+        params: &Value,
+        show: bool,
+    ) -> Result<Option<String>, RpcError> {
         if actor.kind != ActorKind::Agent {
             return Ok(None);
         }
@@ -957,6 +970,10 @@ impl Daemon {
         let infos: Vec<TerminalInfo> =
             serde_json::from_value(listed).map_err(RpcError::internal)?;
         match infos.iter().find(|info| info.id == id) {
+            Some(info) if show => self
+                .agents
+                .guard_terminal_show(actor, id, info.owner.as_deref())
+                .map(|()| info.owner.clone()),
             Some(info) => self
                 .agents
                 .guard_terminal_read(actor, id, info.owner.as_deref(), is_child_read(method))

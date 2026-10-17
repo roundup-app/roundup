@@ -187,6 +187,16 @@ impl Agents {
             .guard_terminal_read(actor, terminal, owner, pane_readable)
     }
 
+    /// B53: whether `actor` may ask the App to show Terminal `terminal`.
+    pub fn guard_terminal_show(
+        &self,
+        actor: &Actor,
+        terminal: &str,
+        owner: Option<&str>,
+    ) -> Result<(), RpcError> {
+        self.shared.guard_terminal_show(actor, terminal, owner)
+    }
+
     /// M14: whether `actor` may set the Route in `params`.
     pub fn guard_route(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
         self.shared.guard_route(actor, params)

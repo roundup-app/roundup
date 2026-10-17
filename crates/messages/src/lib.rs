@@ -862,6 +862,20 @@ fn now_ms() -> i64 {
     .unwrap_or(i64::MAX)
 }
 
+/// B53: a send names its `kind`; a missing or unknown one says which values are allowed.
+fn send_params(value: Value) -> Result<SendParams, RpcError> {
+    if !matches!(
+        value.get("kind").and_then(Value::as_str),
+        Some("note" | "question")
+    ) {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            "kind is required and must be `note` or `question`",
+        ));
+    }
+    params(value)
+}
+
 #[async_trait]
 impl Module for Messages {
     fn namespaces(&self) -> &'static [&'static str] {
@@ -888,7 +902,7 @@ impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
         match method {
-            "message.send" => self.send(ctx, params(value)?).await,
+            "message.send" => self.send(ctx, send_params(value)?).await,
             "message.pass" => self.pass(ctx, params(value)?).await,
             "message.get" => self.get(ctx, params(value)?),
             "message.list" => self.list(ctx, params(value)?),
