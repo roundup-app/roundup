@@ -82,7 +82,7 @@ export const Rail = () => {
     const indexPath = collection().getIndexPath(id);
     const node = indexPath && collection().at(indexPath);
 
-    if (!indexPath || !node) throw new Error(`no tree node for row ${id}`);
+    if (!indexPath || !node) throw new Error(`no node for row ${id}`);
 
     return { node, indexPath };
   };

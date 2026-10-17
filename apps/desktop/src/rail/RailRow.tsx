@@ -279,7 +279,14 @@ export const RailRowView = (props: {
             <TreeView.Item data-id={props.row.node.id} aria-labelledby={nameId()} asChild={(item) => row((extra) => item(extra))} />
           }
         >
-          <TreeView.Branch data-id={props.row.node.id} aria-labelledby={nameId()}>
+          <TreeView.Branch
+            data-id={props.row.node.id}
+            aria-labelledby={nameId()}
+            // A click on the treeitem itself, not on a part of it (a script's or a test's `[data-id]` query lands here), is the click of its control.
+            onClick={(click) => {
+              if (click.target === click.currentTarget) click.currentTarget.querySelector<HTMLElement>('[data-part="branch-control"]')?.click();
+            }}
+          >
             <TreeView.BranchControl asChild={(control) => row((extra) => control(extra))} />
           </TreeView.Branch>
         </Show>

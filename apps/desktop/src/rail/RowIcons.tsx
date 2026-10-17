@@ -35,7 +35,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       {(add) => (
         <span class="rail-split-add">
           <Tip text={copy.addAgentN}>
-            {(trigger) => <button {...trigger({ ...ownKeys, type: "button", "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(false); } })} data-button="quiet"><Icon name="plus" /><span class="rail-add-label">{copy.agent}</span></button>}
+            {(trigger) => <button {...trigger({ ...ownKeys, "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(false); } })} type="button" data-button="quiet"><Icon name="plus" /><span class="rail-add-label">{copy.agent}</span></button>}
           </Tip>
           <IconButton {...ownKeys} aria-label={copy.chooseModelAndEffort} aria-expanded={add().expanded} aria-disabled={add().disabled || undefined} onClick={(click) => { click.stopPropagation(); add().run(true); }}><Icon name="down" /></IconButton>
         </span>
