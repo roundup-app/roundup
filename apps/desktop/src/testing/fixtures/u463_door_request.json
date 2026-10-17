@@ -1,0 +1,45 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_u463_todo",
+        "toolResultContains": "u463 real request"
+      },
+      "response": {
+        "content": "Created."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "u463 real request",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u463_todo",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"u463 real request\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    }
+  ]
+}
