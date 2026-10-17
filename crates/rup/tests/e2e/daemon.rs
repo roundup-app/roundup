@@ -88,7 +88,9 @@ impl Project {
         let placeholder = tempfile::tempdir().unwrap();
         let dir = std::mem::replace(&mut self.dir, placeholder);
         let data = std::mem::replace(&mut self.data, tempfile::tempdir().unwrap());
-        let restarted = start_in(dir, data, fake);
+        let model = self.model.take();
+        let mut restarted = start_in(dir, data, fake);
+        restarted.model = model;
         *self = restarted;
     }
 
