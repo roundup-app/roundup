@@ -1,11 +1,12 @@
 import { screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { card, decision, mountApp, select } from "./decisionsFixture";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const long = decision("d1", "a", { args: JSON.stringify({ command: `echo ${"x".repeat(300)}` }) });
 
 describe("u194 a Decision's allow and deny are never covered by the order line", () => {
-  for (const width of [1280]) {
+  for (const width of [FULLSCREEN.width]) {
     it(`u194_the_buttons_stay_in_the_cards_visible_area_at_${width}`, async () => {
       window.innerWidth = width;
       await mountApp([long]);

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
 /** U510 in a real Chromium: ghost, icon and disclosure buttons answer with ink only. */
@@ -296,10 +296,10 @@ run("u510 ghost, icon and disclosure buttons use ink feedback without hover boxe
   }, 120_000);
 
   for (const [label, scheme, contrast] of COLUMNS)
-    for (const width of [1280, 1440])
+    for (const width of [FULLSCREEN.width])
       it(`u510_rendered_checks_${label}_${width}`, async () => {
         await page.scheme(scheme, contrast);
-        await page.load("/harness.html?seed=tree-40", width, 800);
+        await page.load("/harness.html?seed=tree-40", width, FULLSCREEN.height);
         await page.until(`() => Boolean(window.__fake) && document.querySelector('${COVERED}') !== null`);
         await page.until(`() => { const now = document.querySelectorAll('button').length; const same = window.__buttons === now; window.__buttons = now; return same; }`);
 

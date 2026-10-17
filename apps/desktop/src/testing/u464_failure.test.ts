@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openPage, FULLSCREEN } from "./chromePage";
 import type { ChromePage } from "./chromePage";
 import { CHECK_IDS } from "./checks";
 import type { Checks } from "./checks";
@@ -23,7 +23,7 @@ beforeAll(async () => {
 afterAll(async () => { await page?.close(); });
 
 const load = async (width = 1280) => {
-  await page.load("/harness.html?seed=door-stopped", width, 800);
+  await page.load("/harness.html?seed=door-stopped", width, FULLSCREEN.height);
   await page.until(`() => Boolean(window.__fake && document.querySelector('.pane-door'))`);
   await page.call(`() => document.fonts.ready`);
 };
@@ -47,7 +47,7 @@ const save = async (name: string) => {
 
 run("u464 a failed start on a stopped Door", () => {
   it("u464_a_failed_start_is_an_error_for_d3", async () => {
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       {
         await load(width);
         const baseline = await checks();
