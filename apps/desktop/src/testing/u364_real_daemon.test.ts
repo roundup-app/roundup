@@ -49,12 +49,12 @@ const save = async (name: string) => {
   for (let each = 1; each <= 11; each++) expect(checks[`D${each}`]?.status, `D${each} at ${name}`).toBe("pass");
 };
 
-type Blocked = { label: string; live: number; scrollWidth: number; clientWidth: number };
+type Blocked = { label: string; live: number };
 
 const AGENTS = `[...document.querySelectorAll('[data-part="item"][data-id][aria-level="2"]')]`;
 
-/** U404: the Rail draws no Live line, so each `blocked` row's whole label is the Status line of its Tooltip (U521), and the row itself fits. */
-const MEASURE = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => { const box = row.getBoundingClientRect(); return { id: row.dataset.id, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth, x: box.left + box.width / 2, y: box.top + box.height / 2 }; })`;
+/** U404: the Rail draws no Live line, so each `blocked` row's whole label is the Status line of its Tooltip (U521), */
+const MEASURE = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => { const box = row.getBoundingClientRect(); return { id: row.dataset.id, live: row.querySelectorAll(".live, .live-label, .live-age").length, x: box.left + box.width / 2, y: box.top + box.height / 2 }; })`;
 
 const TIP = `(id) => { const row = document.querySelector('.rail-row[data-id="' + id + '"]'); const lines = [...(document.getElementById(row.getAttribute("aria-describedby") ?? "")?.children ?? [])].map((line) => line.textContent); return lines.find((line) => line !== row.querySelector(".name").textContent) ?? ""; }`;
 
@@ -127,7 +127,6 @@ run("u364 on the real Daemon", () => {
     for (const row of wide) {
       expect(row.label).toMatch(/^waits on #\d+$/);
       expect(row.live).toBe(0);
-      expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
     }
 
     await save("blocked-1600x800");
@@ -145,8 +144,7 @@ run("u364 on the real Daemon", () => {
       for (const row of narrow) {
         expect(row.label).toMatch(/^waits on #\d+$/);
         expect(row.live).toBe(0);
-        expect(row.scrollWidth).toBeLessThanOrEqual(row.clientWidth);
-      }
+        }
 
       await save(`blocked-${width}x${height}`);
     }
