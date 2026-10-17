@@ -5,7 +5,7 @@ import { createMemo, createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SCROLLBACK_LINES, createXtermEmulators, xtermOptions } from "./emulator";
 import type { Emulator } from "./emulator";
-import { connectFakeProject, fakeEmulators, mountPane, output } from "./paneHarness";
+import { connectFakeProject, fakeEmulators, mountPane, subscribed } from "./paneHarness";
 import { createScreens } from "./screens";
 import { workstream, info, node, terminal } from "../testing/nodes";
 
@@ -97,19 +97,18 @@ describe("u34 screens keep the latest control hidden through the real emulator's
   });
 });
 
-describe("u34 output regardless of selection (U11)", () => {
-  it("u34_output_is_still_handed_to_the_emulator_in_order_whether_or_not_its_row_is_selected", async () => {
+describe("u34 output reaches the selected Terminal (U11)", () => {
+  it("u34_output_is_handed_to_the_selected_terminals_emulator_in_order_and_none_is_sent_for_another", async () => {
     const { app, connected, emulators } = await mountPane([node("a"), node("b")], [info("t-a"), info("t-b")]);
 
     connected.rail.select("a");
-    app.emit(output("t-a", "one"));
-    app.emit(output("t-b", "elsewhere"));
-    app.emit(output("t-a", "two"));
+    await subscribed(app, "t-a");
+    app.emitOutput("t-a", "one");
+    app.emitOutput("t-b", "elsewhere");
+    app.emitOutput("t-a", "two");
 
-    await vi.waitFor(() => expect([decoded(emulators.get("t-a")?.written ?? []), decoded(emulators.get("t-b")?.written ?? [])]).toEqual([
-      ["one", "two"],
-      ["elsewhere"],
-    ]));
+    await vi.waitFor(() => expect(decoded(emulators.get("t-a")?.written ?? [])).toEqual(["one", "two"]));
+    expect(emulators.get("t-b")?.written).toBeUndefined();
   });
 });
 
@@ -125,14 +124,13 @@ describe("u34 isAtBottom creates the emulator on demand", () => {
   });
 
   it("u34_isAtBottom_called_before_emulatorFor_still_reacts_to_later_scrolling", async () => {
-    const { app, connected } = await connectFakeProject([node("a")], [info("t-a")]);
+    const { connected } = await connectFakeProject([node("a")], [info("t-a")]);
     const { factory, made } = fakeEmulators();
     const screens = createScreens(connected, factory);
 
     const atBottom = createRoot(() => createMemo(() => screens.isAtBottom("t-a")));
     const first = atBottom();
 
-    app.emit(output("t-a", "x"));
     made.get("t-a")?.scroll(false);
 
     expect([first, atBottom()]).toEqual([true, false]);
@@ -221,8 +219,9 @@ describe("u34 the latest control", () => {
     const { app, connected, emulators } = await mountPane([node("a")], [info("t-a")]);
 
     connected.rail.select("a");
+    await subscribed(app, "t-a");
     emulators.get("t-a")?.scroll(false);
-    app.emit(output("t-a", "more"));
+    app.emitOutput("t-a", "more");
 
     expect([emulators.get("t-a")?.scrollsToBottom, screen.queryByText("↓ Latest") !== null]).toEqual([0, true]);
   });

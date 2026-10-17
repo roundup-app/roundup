@@ -36,7 +36,7 @@ export type Controls = {
   emit(event: DaemonEvent): void;
   /** Replaces one node's Status and sends `agent.status`, as the Daemon does when an Adapter decides a new Kind. */
   setStatus(id: string, kind: Kind, label: string): void;
-  /** Sends `terminal.output` to the Terminal as if its program wrote `text`. */
+  /** The Terminal prints `text`: its bytes reach that Terminal's output subscription only, if it has one. */
   writeOutput(terminalId: string, text: string): void;
   /** Makes the Todos and Pads created from now on belong to `actor`, as when that Agent made them; the user until called. */
   actAs(actor: Actor): void;
@@ -346,7 +346,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
     outputOffsets.set(terminalId, offset + bytes.length);
     outputBytes.set(terminalId, [...(outputBytes.get(terminalId) ?? []), bytes]);
-    send({ name: "terminal.output", data: { id: terminalId, offset, data: toBase64(bytes) } });
+    app.emitBytes(terminalId, bytes);
   };
 
   if (withBubbles) {

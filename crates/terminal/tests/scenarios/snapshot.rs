@@ -3,8 +3,9 @@ use base64::engine::general_purpose::STANDARD;
 use contracts::EventData;
 use contracts::terminal::{Snapshot, TerminalId};
 use rpc::{Module, code};
+use terminal::Output;
 
-use crate::common::{PATIENCE, ctx, open, sh, until_exit, until_exit_code, until_printed};
+use crate::common::{ctx, open, sh, until_exit, until_exit_code, until_printed};
 
 #[tokio::test]
 async fn u104_snapshot_restores_the_visible_screen_and_input_modes() {
@@ -17,7 +18,7 @@ async fn u104_snapshot_restores_the_visible_screen_and_input_modes() {
         ))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "@").await;
+    until_printed(&mut spawned.output, "@").await;
     let snapshot = terminals.snapshot(&spawned.id).unwrap();
     let mut restored = vt100::Parser::new(snapshot.rows, snapshot.cols, 1000);
     restored.process(&STANDARD.decode(snapshot.data).unwrap());
@@ -43,7 +44,7 @@ async fn u104_snapshot_of_an_exited_terminal_keeps_its_last_screen() {
         .spawn(sh(dir.path(), "printf 'last-screen' "))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let snapshot = terminals.snapshot(&spawned.id).unwrap();
     let mut restored = vt100::Parser::new(snapshot.rows, snapshot.cols, 1000);
     restored.process(&STANDARD.decode(snapshot.data).unwrap());
@@ -68,9 +69,9 @@ async fn u104_idle_terminal_starts_with_a_blank_snapshot_then_tracks_output() {
     let blank = terminals.snapshot(&spawned.id).unwrap();
     assert_eq!((blank.cols, blank.rows, blank.after), (80, 24, 0));
     terminals.write(&spawned.id, b"hello\n").await.unwrap();
-    until_printed(&mut spawned.events, "hello").await;
+    until_printed(&mut spawned.output, "hello").await;
     assert!(terminals.snapshot(&spawned.id).unwrap().after > blank.after);
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
 }
 
 #[tokio::test]
@@ -81,7 +82,7 @@ async fn u104_snapshot_is_available_over_rpc() {
         .spawn(sh(dir.path(), "printf 'rpc-screen'"))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let value = terminals
         .call(
             &ctx(&dir, &bus),
@@ -105,15 +106,12 @@ async fn u104_output_offsets_are_contiguous_and_snapshot_after_matches_output() 
         .await
         .unwrap();
     let mut next = 0;
-    loop {
-        match spawned.events.recv().await.unwrap() {
-            EventData::TerminalOutput(out) => {
-                assert_eq!(out.offset, next);
-                next += STANDARD.decode(out.data).unwrap().len() as u64;
-            }
-            EventData::TerminalExited(_) => break,
-            _ => {}
-        }
+    while let Some(output) = spawned.output.next().await {
+        let Output::Bytes { offset, bytes } = output else {
+            panic!("a gap in a small output");
+        };
+        assert_eq!(offset, next);
+        next += bytes.len() as u64;
     }
     assert_eq!(terminals.snapshot(&spawned.id).unwrap().after, next);
 }
@@ -126,7 +124,7 @@ async fn u104_resize_changes_the_snapshot_size_without_changing_its_output_offse
         .spawn(sh(dir.path(), "printf ready; read line"))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "ready").await;
+    until_printed(&mut spawned.output, "ready").await;
     let before = terminals.snapshot(&spawned.id).unwrap();
     terminals.resize(&spawned.id, 100, 30).await.unwrap();
     let after = terminals.snapshot(&spawned.id).unwrap();
@@ -143,7 +141,7 @@ async fn u104_snapshot_keeps_the_newest_thousand_scrollback_lines() {
         .spawn(sh(dir.path(), "seq -f 'line-%04g' 1 1100"))
         .await
         .unwrap();
-    until_exit(&mut spawned.events).await;
+    until_exit(&mut spawned).await;
     let snapshot = terminals.snapshot(&spawned.id).unwrap();
     let mut restored = vt100::Parser::new(snapshot.rows, snapshot.cols, 1000);
     restored.process(&STANDARD.decode(snapshot.data).unwrap());
@@ -166,19 +164,7 @@ async fn u104_snapshot_cuts_old_history_before_the_visible_screen_at_one_megabyt
     );
     params.cols = 1000;
     let mut spawned = terminals.spawn(params).await.unwrap();
-    tokio::time::timeout(PATIENCE, async {
-        loop {
-            match spawned.events.recv().await {
-                Ok(EventData::TerminalExited(_)) => break,
-                Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                    panic!("events closed before the Terminal exited")
-                }
-            }
-        }
-    })
-    .await
-    .expect("the Terminal exits in time");
+    until_exit(&mut spawned).await;
     let snapshot = terminals.snapshot(&spawned.id).unwrap();
     let data = STANDARD.decode(snapshot.data).unwrap();
     assert!(data.len() <= 1_048_576);
@@ -196,30 +182,27 @@ async fn u104_snapshot_screen_and_after_name_the_same_output_cut() {
         .await
         .unwrap();
     let mut chunks = Vec::new();
-    let snapshot = loop {
-        match spawned.events.recv().await.unwrap() {
-            EventData::TerminalOutput(out) => {
-                chunks.push(out);
-                break terminals.snapshot(&spawned.id).unwrap();
-            }
-            EventData::TerminalExited(_) => panic!("burst produced no output"),
-            _ => {}
-        }
+    let Output::Bytes { offset, bytes } = spawned
+        .output
+        .next()
+        .await
+        .expect("burst produced no output")
+    else {
+        panic!("a gap in a small output");
     };
-    loop {
-        match spawned.events.recv().await.unwrap() {
-            EventData::TerminalOutput(out) => chunks.push(out),
-            EventData::TerminalExited(_) => break,
-            _ => {}
+    chunks.push((offset, bytes));
+    let snapshot = terminals.snapshot(&spawned.id).unwrap();
+    while let Some(output) = spawned.output.next().await {
+        if let Output::Bytes { offset, bytes } = output {
+            chunks.push((offset, bytes));
         }
     }
     let mut before = vt100::Parser::new(snapshot.rows, snapshot.cols, 1000);
-    for out in chunks {
-        if out.offset >= snapshot.after {
+    for (offset, bytes) in chunks {
+        if offset >= snapshot.after {
             break;
         }
-        let bytes = STANDARD.decode(out.data).unwrap();
-        assert!(out.offset + bytes.len() as u64 <= snapshot.after);
+        assert!(offset + bytes.len() as u64 <= snapshot.after);
         before.process(&bytes);
     }
     let mut restored = vt100::Parser::new(snapshot.rows, snapshot.cols, 1000);
@@ -236,13 +219,13 @@ async fn u104_oversized_window_keeps_titles_and_offsets_but_has_no_snapshot() {
     let mut spawned = terminals.spawn(params).await.unwrap();
     let mut title = None;
     let mut next = 0;
+    while let Some(Output::Bytes { offset, bytes }) = spawned.output.next().await {
+        assert_eq!(offset, next);
+        next += bytes.len() as u64;
+    }
     loop {
         match spawned.events.recv().await.unwrap() {
             EventData::TerminalTitle(event) => title = Some(event.title),
-            EventData::TerminalOutput(event) => {
-                assert_eq!(event.offset, next);
-                next += STANDARD.decode(event.data).unwrap().len() as u64;
-            }
             EventData::TerminalExited(_) => break,
             _ => {}
         }
@@ -265,7 +248,7 @@ async fn u104_oversized_visible_screen_is_conflict_instead_of_internal() {
     );
     (params.cols, params.rows) = (300, 200);
     let mut spawned = terminals.spawn(params).await.unwrap();
-    until_exit_code(&mut spawned.events).await;
+    until_exit_code(&mut spawned).await;
     assert_eq!(
         terminals.snapshot(&spawned.id).unwrap_err().code,
         code::CONFLICT
@@ -280,7 +263,7 @@ async fn u104_shrinking_after_an_oversized_window_cannot_claim_a_complete_screen
         .spawn(sh(dir.path(), "printf before; read line"))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "before").await;
+    until_printed(&mut spawned.output, "before").await;
     terminals
         .resize(&spawned.id, u16::MAX, u16::MAX)
         .await
@@ -301,7 +284,7 @@ async fn u104_resize_that_would_grow_history_past_its_budget_is_conflict() {
         .spawn(sh(dir.path(), "printf before; read line"))
         .await
         .unwrap();
-    until_printed(&mut spawned.events, "before").await;
+    until_printed(&mut spawned.output, "before").await;
     terminals.resize(&spawned.id, 1000, 40).await.unwrap();
     assert_eq!(
         terminals.snapshot(&spawned.id).unwrap_err().code,

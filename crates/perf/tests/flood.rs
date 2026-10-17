@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 #[tokio::test]
-async fn x14_flood_detects_current_transport_and_cleans_up() {
+async fn x14_flood_leaves_rail_events_unlagged_and_cleans_up() {
     let report = perf::flood::observe(Duration::from_secs(180)).await;
     assert!(report.error.is_none(), "{report:?}");
     assert_eq!(report.chunks.len(), 10);
     assert!(report.chunks.values().all(|n| *n > report.capacity));
-    assert!(report.lagged > 0, "{report:?}");
-    assert!(!report.passed());
+    assert_eq!(report.lagged, 0, "{report:?}");
+    assert_eq!(report.markers_received, report.markers_emitted);
+    assert!(report.passed(), "{report:?}");
     assert!(report.cleaned_up);
     assert_eq!(report.stopped, 10);
 }
@@ -44,10 +45,7 @@ fn x14_missing_or_reordered_markers_fail_acceptance() {
 }
 
 #[test]
-fn x14_payload_or_structured_lag_fails_acceptance() {
-    let mut payload = isolated();
-    payload.payloads = 1;
-    assert!(!payload.passed());
+fn x14_structured_lag_fails_acceptance() {
     let mut lag = isolated();
     lag.lagged = 1;
     lag.lag_errors = 1;

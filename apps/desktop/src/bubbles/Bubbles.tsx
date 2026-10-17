@@ -633,6 +633,8 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     onCleanup(() => {
       if (frame !== null) cancelAnimationFrame(frame);
+
+      props.screens.hide(id);
     });
 
     const mount = (host: HTMLDivElement) => {

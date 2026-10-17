@@ -5,15 +5,11 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::SpawnParams;
 use contracts::{Actor, EventData};
 use provenance::Touches;
 use rpc::{Bus, Ctx};
-use terminal::Terminals;
-use tokio::sync::broadcast::Receiver;
-use tokio::sync::broadcast::error::RecvError;
+use terminal::{Output, OutputStream, Spawned, Terminals};
 
 pub fn open(dir: &tempfile::TempDir) -> (Terminals, Bus) {
     let bus = Bus::new();
@@ -28,7 +24,7 @@ pub fn ctx(dir: &tempfile::TempDir, bus: &Bus) -> Ctx {
     }
 }
 
-pub const PATIENCE: Duration = Duration::from_secs(10);
+pub const PATIENCE: Duration = Duration::from_secs(30);
 
 pub fn sh(cwd: &Path, script: &str) -> SpawnParams {
     SpawnParams {
@@ -40,19 +36,30 @@ pub fn sh(cwd: &Path, script: &str) -> SpawnParams {
     }
 }
 
-pub fn decode(data: &str) -> String {
-    String::from_utf8_lossy(&STANDARD.decode(data).expect("base64 output")).into_owned()
-}
-
-/// Everything the program printed and the exit code it ended with.
-pub async fn until_exit(events: &mut Receiver<EventData>) -> (String, Option<i32>) {
+/// What the stream delivers until its Terminal has exited.
+pub async fn drain(output: &mut OutputStream) -> String {
     let mut printed = String::new();
     tokio::time::timeout(PATIENCE, async {
+        while let Some(output) = output.next().await {
+            if let Output::Bytes { bytes, .. } = output {
+                printed.push_str(&String::from_utf8_lossy(&bytes));
+            }
+        }
+    })
+    .await
+    .expect("the output ends in time");
+    printed
+}
+
+/// Everything the program printed and the exit code it ended with: the output ends before the exit is reported.
+pub async fn until_exit(spawned: &mut Spawned) -> (String, Option<i32>) {
+    let printed = drain(&mut spawned.output).await;
+    tokio::time::timeout(PATIENCE, async {
         loop {
-            match events.recv().await.expect("events stay open") {
-                EventData::TerminalOutput(out) => printed.push_str(&decode(&out.data)),
-                EventData::TerminalExited(done) => return (printed, done.code),
-                _ => {}
+            if let EventData::TerminalExited(done) =
+                spawned.events.recv().await.expect("events stay open")
+            {
+                return (printed.clone(), done.code);
             }
         }
     })
@@ -60,30 +67,19 @@ pub async fn until_exit(events: &mut Receiver<EventData>) -> (String, Option<i32
     .expect("the program exits in time")
 }
 
-/// The exit code of a program whose output the test ignores. A program that prints more than the
-/// event backlog makes a slow receiver lag (`Lagged`, then the newest events, exit included), so a
-/// lag is not a closed channel here; `until_exit` keeps the strict read for tests that need output.
-pub async fn until_exit_code(events: &mut Receiver<EventData>) -> Option<i32> {
-    tokio::time::timeout(PATIENCE, async {
-        loop {
-            match events.recv().await {
-                Ok(EventData::TerminalExited(done)) => return done.code,
-                Ok(_) | Err(RecvError::Lagged(_)) => {}
-                Err(RecvError::Closed) => panic!("events stay open"),
-            }
-        }
-    })
-    .await
-    .expect("the program exits in time")
+/// The exit code of a program whose output the test ignores.
+pub async fn until_exit_code(spawned: &mut Spawned) -> Option<i32> {
+    until_exit(spawned).await.1
 }
 
 /// Wait until the program's output so far contains `needle`.
-pub async fn until_printed(events: &mut Receiver<EventData>, needle: &str) {
+pub async fn until_printed(output: &mut OutputStream, needle: &str) {
     let mut printed = String::new();
     tokio::time::timeout(PATIENCE, async {
         while !printed.contains(needle) {
-            if let EventData::TerminalOutput(out) = events.recv().await.expect("events stay open") {
-                printed.push_str(&decode(&out.data));
+            match output.next().await.expect("the output stays open") {
+                Output::Bytes { bytes, .. } => printed.push_str(&String::from_utf8_lossy(&bytes)),
+                Output::Gap { .. } => {}
             }
         }
     })

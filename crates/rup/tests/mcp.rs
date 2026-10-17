@@ -313,7 +313,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 42] = [
+const NO_TOOL: [&str; 46] = [
     // A40, P9: each carries a Steer from the user.
     "ask.send",
     "ask.list",
@@ -327,6 +327,9 @@ const NO_TOOL: [&str; 42] = [
     "takeover.end",
     "terminal.list",
     "terminal.snapshot",
+    // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
+    "terminal.output",
+    "terminal.outputStop",
     "daemon.ping",
     "daemon.identify",
     "events.subscribe",
@@ -367,6 +370,8 @@ const NO_TOOL: [&str; 42] = [
     "plugin:window-bar|zoom_window",
     "rpc",
     "subscribe",
+    "terminal_output",
+    "terminal_output_stop",
 ];
 
 fn tool_name(method: &str) -> String {

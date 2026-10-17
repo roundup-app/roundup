@@ -11,8 +11,6 @@ use crate::{agent, checkpoint, decision, message, pad, project, terminal, todo, 
 pub enum EventData {
     #[serde(rename = "ask.changed")]
     AskChanged { ask: Box<crate::ask::Ask> },
-    #[serde(rename = "terminal.output")]
-    TerminalOutput(terminal::OutputEvent),
     #[serde(rename = "terminal.title")]
     TerminalTitle(terminal::TitleEvent),
     #[serde(rename = "terminal.exited")]
@@ -74,7 +72,7 @@ pub enum EventData {
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Event {
-    /// The Event number: set on every saved Event, absent on Terminal output (D10).
+    /// The Event number: set on every saved Event (D10).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "number")]
     pub seq: Option<u64>,

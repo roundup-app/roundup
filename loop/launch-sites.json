@@ -508,6 +508,11 @@
     "kind": "real",
     "sha256": "1347147f73993c50c49934da325348a26be1d776614c36d2186e02b48500a2e6"
   },
+  "crates/rup/tests/x14.rs": {
+    "cleanup": "The test serves the Daemon within its runtime; TempDir drops with the fixture.",
+    "data": "Daemon::open_project receives an explicit temporary data path; no fallback data resolver.",
+    "kind": "in-process"
+  },
   "crates/rup/tests/signal.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Names the Daemon only in an expected log line; launches delegate to common/served.",

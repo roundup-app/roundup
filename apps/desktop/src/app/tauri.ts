@@ -8,7 +8,7 @@ import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
 import { daemonExitedSchema, INTERNAL_CODE, listedProjectSchema, projectSchema, RpcError } from "./seam";
-import type { App } from "./seam";
+import type { App, OutputMessage } from "./seam";
 
 const METHOD_NOT_FOUND = -32601;
 
@@ -78,6 +78,9 @@ export const tauriFileDrop = (
   );
 
 export const createTauriApp = (): App => {
+  // The live subscription of each Terminal: a replaced or released one is no longer the current, so its late messages and its late stop are inert.
+  const selections = new Map<string, object>();
+
   const app: App = {
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
@@ -117,6 +120,37 @@ export const createTauriApp = (): App => {
       },
       subscribe: async (onEvent) => {
         await command("subscribe", { path, channel: new Channel<DaemonEvent>(onEvent) });
+      },
+      selectOutput: async (id, listener) => {
+        const key = JSON.stringify([path, id]);
+        const token = {};
+
+        // Raw bodies arrive as ArrayBuffer and are passed on as the same bytes; only a gap is a JSON message.
+        const channel = new Channel<ArrayBuffer | Extract<OutputMessage, { gap: unknown }>>((message) => {
+          if (selections.get(key) !== token) return;
+
+          listener("gap" in message ? message : new Uint8Array(message));
+        });
+
+        selections.set(key, token);
+
+        try {
+          const offset = await command<number>("terminal_output", { path, id, channel });
+
+          return {
+            offset,
+            release: async () => {
+              if (selections.get(key) !== token) return;
+
+              selections.delete(key);
+              await command("terminal_output_stop", { path, id });
+            },
+          };
+        } catch (failure) {
+          if (selections.get(key) === token) selections.delete(key);
+
+          throw failure;
+        }
       },
     }),
   };

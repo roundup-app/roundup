@@ -2,7 +2,6 @@ import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as xtermModule from "@xterm/xterm";
 import { Terminal } from "@xterm/xterm";
-import type { Event as DaemonEvent } from "@contracts/Event";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import type { FakeApp } from "../testing/fakeApp";
 import { event, info, node, agent } from "../testing/nodes";
@@ -21,9 +20,6 @@ const snapshotOf = (text: string, after: number, size: Size = { cols: 100, rows:
   after,
   data: toBase64(new TextEncoder().encode(text)),
 });
-
-const chunk = (id: string, text: string, offset: number): DaemonEvent =>
-  event({ name: "terminal.output", data: { id, data: toBase64(new TextEncoder().encode(text)), offset } });
 
 type Recorder = Emulator & { log: string[]; shown: boolean; fits: number };
 
@@ -88,11 +84,17 @@ const mount = async (
   const { app, connected } = await connectFakeProject(tree, terminals);
   const { factory, made } = recordingEmulators();
   const pending: ((reply: Reply) => void)[] = [];
+  /** How many output subscriptions were installed when each snapshot was asked for. */
+  const subscriptionsAtSnapshot: number[] = [];
 
-  app.handlers["terminal.snapshot"] = () =>
-    new Promise<Snapshot>((resolve, reject) =>
+  app.handlers["terminal.snapshot"] = () => {
+    subscriptionsAtSnapshot.push(app.outputSubscriptions.length);
+
+    return new Promise<Snapshot>((resolve, reject) =>
       pending.push((reply) => (reply instanceof Error ? reject(reply) : resolve(reply))),
     );
+  };
+
   configure?.(app);
 
   render(() => (
@@ -106,7 +108,7 @@ const mount = async (
   const log = () => made.get("t-a")?.log ?? [];
   const logOf = (id: string) => made.get(id)?.log ?? [];
 
-  return { app, connected, pending, snapshots, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
+  return { app, connected, pending, snapshots, subscriptionsAtSnapshot, log, logOf, shown: () => made.get("t-a")?.shown ?? false, fits: () => made.get("t-a")?.fits ?? 0 };
 };
 
 const typed = (app: { calls: { method: string }[] }) => app.calls.filter((call) => call.method === "terminal.write");
@@ -131,14 +133,13 @@ describe("u103 a reloaded pane shows the screen", () => {
     emulator.dispose();
   });
 
-  it("u103_the_snapshot_is_asked_for_before_any_output_reaches_the_emulator", async () => {
-    const { app, pending, snapshots, log } = await mount();
-
-    app.emit(chunk("t-a", "live", 0));
+  it("u103_the_output_subscription_is_installed_before_the_snapshot_is_asked_for_and_no_output_reaches_the_emulator_before_it", async () => {
+    const { app, pending, snapshots, subscriptionsAtSnapshot, log } = await mount();
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    expect(snapshots()[0]?.params).toEqual({ id: "t-a" });
-    expect(log()).toEqual([]);
+    app.emitOutput("t-a", "live");
+
+    expect([subscriptionsAtSnapshot, snapshots()[0]?.params, log()]).toEqual([[1], { id: "t-a" }, []]);
     pending[0]?.(snapshotOf("screen", 0));
     await vi.waitFor(() => expect(log()).toContain("live"));
   });
@@ -154,14 +155,14 @@ describe("u103 a reloaded pane shows the screen", () => {
   });
 
   it("u103_the_emulator_is_sized_then_gets_the_data_then_the_held_and_later_output_in_order", async () => {
-    const { app, pending, snapshots, log } = await mount();
+    const { app, pending, snapshots, log } = await mount(undefined, undefined, (fake) => fake.outputPositions.set("t-a", 6));
 
-    app.emit(chunk("t-a", "one", 6));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    app.emit(chunk("t-a", "two", 9));
+    app.emitOutput("t-a", "one");
+    app.emitOutput("t-a", "two");
     pending[0]?.(snapshotOf("screen", 6, { cols: 120, rows: 40 }));
     await vi.waitFor(() => expect(log()).toHaveLength(4));
-    app.emit(chunk("t-a", "three", 12));
+    app.emitOutput("t-a", "three");
 
     expect(log()).toEqual(["size 120x40", "screen", "one", "two", "three"]);
   });
@@ -169,56 +170,47 @@ describe("u103 a reloaded pane shows the screen", () => {
   it("u103_one_snapshot_call_serves_one_terminal_however_much_output_arrives", async () => {
     const { app, pending, snapshots } = await mount();
 
-    for (let offset = 0; offset < 5; offset += 1) app.emit(chunk("t-a", "x", offset));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
+
+    for (let offset = 0; offset < 5; offset += 1) app.emitOutput("t-a", "x");
     pending[0]?.(snapshotOf("", 0));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
   });
 
   it("u103_output_held_during_a_slow_snapshot_stays_bounded_and_resnapshots_after_a_dropped_prefix", async () => {
-    const { app, pending, snapshots } = await mount();
+    const { app, pending, snapshots, log } = await mount();
     const large = "x".repeat(400_000);
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    app.emit(chunk("t-a", large, 0));
-    app.emit(chunk("t-a", large, large.length));
-    app.emit(chunk("t-a", large, large.length * 2));
+    app.emitOutput("t-a", large);
+    app.emitOutput("t-a", large);
+    app.emitOutput("t-a", large);
     pending[0]?.(snapshotOf("", 0));
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     pending[1]?.(snapshotOf("complete", large.length * 3));
+    await vi.waitFor(() => expect(log().at(-1)).toBe("complete"));
+    expect(log().join("")).not.toContain("xx");
   });
 
   it("u103_an_event_at_or_below_the_snapshot_is_dropped_and_a_straddling_one_keeps_only_its_tail", async () => {
     const { app, pending, snapshots, log } = await mount();
 
-    app.emit(chunk("t-a", "abcd", 0));
-    app.emit(chunk("t-a", "efgh", 4));
-    app.emit(chunk("t-a", "ijkl", 8));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
+    app.emitOutput("t-a", "abcd");
+    app.emitOutput("t-a", "efgh");
+    app.emitOutput("t-a", "ijkl");
     pending[0]?.(snapshotOf("SCREEN", 10));
 
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "SCREEN", "kl"]));
   });
 
-  it("u103_a_duplicate_range_after_the_call_is_written_once", async () => {
-    const { app, pending, snapshots, log } = await mount();
-
-    app.emit(chunk("t-a", "abc", 0));
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(snapshotOf("S", 0));
-    await vi.waitFor(() => expect(log()).toContain("abc"));
-    app.emit(chunk("t-a", "abc", 0));
-    app.emit(chunk("t-a", "def", 3));
-
-    expect(log()).toEqual(["size 100x30", "S", "abc", "def"]);
-  });
-
   it("u103_a_gap_requests_a_fresh_snapshot_before_any_later_output", async () => {
     const { app, pending, snapshots, log } = await mount();
 
-    app.emit(chunk("t-a", "late", 50));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
+    app.emitGap("t-a", 0, 50);
+    app.emitOutput("t-a", "late");
     pending[0]?.(snapshotOf("S", 10));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     expect(log()).toEqual(["size 100x30", "S"]);
@@ -232,7 +224,8 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     pending[0]?.(snapshotOf("complete", 8));
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "complete"]));
-    app.emit(chunk("t-a", "late", 50));
+    app.emitGap("t-a", 0, 50);
+    app.emitOutput("t-a", "late");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     pending[1]?.(new Error("recovery failed"));
 
@@ -247,7 +240,8 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
     pending[0]?.(snapshotOf("old", 8));
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "old"]));
-    app.emit(chunk("t-a", "abcdef", 50));
+    app.emitGap("t-a", 0, 50);
+    app.emitOutput("t-a", "abcdef");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     pending[1]?.(snapshotOf("new", 53));
 
@@ -277,7 +271,7 @@ describe("u103 a reloaded pane shows the screen", () => {
 
     expect((await screen.findByRole("alert", { name: /^terminal\.snapshot:/ })).tagName).toBe("P");
     expect(log()).toEqual([]);
-    app.emit(chunk("t-a", "live", 0));
+    app.emitOutput("t-a", "live");
     expect(log()).toEqual(["live"]);
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
@@ -328,17 +322,17 @@ describe("u103 a reloaded pane shows the screen", () => {
   it("u103_output_held_during_a_failed_initial_snapshot_continues_as_live_output", async () => {
     const { app, pending, snapshots, log } = await mount();
 
-    app.emit(chunk("t-a", "live", 0));
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
+    app.emitOutput("t-a", "live");
     expect(log()).toEqual([]);
     pending[0]?.(new Error("boom"));
 
     await vi.waitFor(() => expect(log()).toEqual(["live"]));
-    app.emit(chunk("t-a", "more", 4));
+    app.emitOutput("t-a", "more");
     expect(log()).toEqual(["live", "more"]);
   });
 
-  it("u103_a_background_terminals_snapshot_cannot_clear_or_show_another_panes_failure", async () => {
+  it("u103_a_terminal_left_behind_cannot_clear_or_show_its_failure_in_the_next_pane", async () => {
     const { app, connected, pending, snapshots, logOf } = await mount(
       [node("a"), node("b")],
       [info("t-a"), info("t-b")],
@@ -348,20 +342,20 @@ describe("u103 a reloaded pane shows the screen", () => {
     pending[0]?.(new Error("A failed"));
     await screen.findByRole("alert", { name: "terminal.snapshot: A failed" });
 
-    app.emit(chunk("t-b", "other", 0));
+    connected.rail.select("b");
     await vi.waitFor(() => expect(snapshots()).toHaveLength(2));
     pending[1]?.(snapshotOf("B screen", 0));
     await vi.waitFor(() => expect(logOf("t-b")).toContain("B screen"));
-    expect(screen.getByRole("alert", { name: "terminal.snapshot: A failed" })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
 
-    app.emit(chunk("t-b", "late", 50));
+    app.emitGap("t-b", 0, 50);
     await vi.waitFor(() => expect(snapshots()).toHaveLength(3));
     pending[2]?.(new Error("B failed"));
-    await vi.waitFor(() => expect(screen.getByRole("alert", { name: "terminal.snapshot: A failed" })).toBeTruthy());
-    expect(screen.queryByRole("alert", { name: "terminal.snapshot: B failed" })).toBeNull();
+    await screen.findByRole("alert", { name: "terminal.snapshot: B failed" });
 
-    connected.rail.select("b");
-    expect(await screen.findByRole("alert", { name: "terminal.snapshot: B failed" })).toBeTruthy();
+    connected.rail.select("a");
+    expect(await screen.findByRole("alert", { name: "terminal.snapshot: A failed" })).toBeTruthy();
+    expect(screen.queryByRole("alert", { name: "terminal.snapshot: B failed" })).toBeNull();
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 

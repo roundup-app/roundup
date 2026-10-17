@@ -74,6 +74,15 @@ pub struct TerminalInfo {
     pub owner: Option<String>,
 }
 
+/// X14: what `terminal.output` returns: the offset of the first byte the stream delivers.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct OutputStarted {
+    #[ts(type = "number")]
+    pub offset: u64,
+}
+
+/// X14: the `terminal.output` notification of a connection that selected the Terminal `id`.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "terminal/")]
 pub struct OutputEvent {
@@ -82,6 +91,18 @@ pub struct OutputEvent {
     pub data: String,
     #[ts(type = "number")]
     pub offset: u64,
+}
+
+/// X14: the `terminal.gap` notification: the subscriber fell behind, bytes `from..to` were not
+/// delivered and `terminal.output` bytes resume at `to`. Recover with `terminal.snapshot`.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct OutputGap {
+    pub id: String,
+    #[ts(type = "number")]
+    pub from: u64,
+    #[ts(type = "number")]
+    pub to: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

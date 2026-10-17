@@ -65,6 +65,69 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
       return outcome.result as never;
     });
 
+  const selectOutput: AppSeam["selectOutput"] = (id, listener) =>
+    reach(async () => {
+      let released = false;
+      let controller = new AbortController();
+
+      const open = async (): Promise<{ body: ReadableStream<Uint8Array>; offset: number }> => {
+        controller = new AbortController();
+
+        const response = await fetch(`${base}/__daemon/output?terminal=${encodeURIComponent(id)}`, { signal: controller.signal });
+
+        if (!response.ok || !response.body) {
+          const failure = v.safeParse(v.object({ error: v.object({ code: v.number(), message: v.string() }) }), await response.json().catch(() => null));
+
+          throw failure.success ? new RpcError(failure.output.error.code, failure.output.error.message) : new RpcError(INTERNAL_CODE, `terminal output answered ${response.status}`);
+        }
+
+        return { body: response.body, offset: Number(response.headers.get("x-output-after")) };
+      };
+
+      // The relay fails a stream it cannot continue exactly (a gap, an overlarge frame); a fresh selection resumes it and the listener hears what was skipped.
+      const pump = async (current: { body: ReadableStream<Uint8Array>; offset: number }): Promise<void> => {
+        let position = current.offset;
+
+        try {
+          const reader = current.body.getReader();
+
+          for (;;) {
+            const { value, done } = await reader.read();
+
+            if (done || released) return;
+
+            position += value.length;
+            listener(value);
+          }
+        } catch {
+          if (released) return;
+
+          try {
+            const next = await open();
+
+            if (released) return;
+
+            listener({ gap: { from: position, to: next.offset } });
+            await pump(next);
+          } catch {
+            // The Daemon is gone or the Terminal has exited: the stream ends and the Project's exit says why.
+          }
+        }
+      };
+
+      const first = await open();
+
+      void pump(first);
+
+      return {
+        offset: first.offset,
+        release: async () => {
+          released = true;
+          controller.abort();
+        },
+      };
+    });
+
   const app: AppSeam = {
     projects: () =>
       reach(async () => {
@@ -111,6 +174,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     },
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
+    selectOutput,
     subscribe: (onEvent) =>
       reach(
         () =>

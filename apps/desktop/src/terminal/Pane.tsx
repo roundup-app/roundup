@@ -124,6 +124,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   createEffect(on(shelfSliding, (now) => { if (!now) refitNextFrame(); }, { defer: true }));
 
+  // X14: the Terminal the selection leaves stops receiving output; only its subscription is released.
+  createEffect(on(terminalId, (_id, previous) => { if (previous != null) screens.hide(previous); }, { defer: true }));
+
   createEffect(() => {
     const host = screen();
     const id = terminalId();

@@ -75,6 +75,7 @@ import type { Resources as project_Resources } from "./project/Resources";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
 import type { Opened as terminal_Opened } from "./terminal/Opened";
+import type { OutputStarted as terminal_OutputStarted } from "./terminal/OutputStarted";
 import type { Read as terminal_Read } from "./terminal/Read";
 import type { ReadParams as terminal_ReadParams } from "./terminal/ReadParams";
 import type { ResizeAction as terminal_ResizeAction } from "./terminal/ResizeAction";
@@ -123,6 +124,8 @@ export type RpcMethods = {
   "terminal.show": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
+  "terminal.output": { params: terminal_TerminalId; result: terminal_OutputStarted };
+  "terminal.outputStop": { params: terminal_TerminalId; result: null };
   "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };
   "terminal.read": { params: terminal_ReadParams; result: terminal_Read };
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };

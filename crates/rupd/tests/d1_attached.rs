@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use contracts::EventData;
 use contracts::terminal::{SpawnParams, TerminalId};
+use serde_json::json;
 
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
@@ -71,25 +71,36 @@ fn is_alive(pid: u32) -> bool {
 
 /// Start a program that ignores SIGHUP, so only a SIGKILL ends it; return its pid.
 async fn spawn_stubborn_program(client: &mut rpc::Client, cwd: &Path) -> Program {
-    client.request("events.subscribe", ()).await.unwrap();
+    let mut output = client.take_output().unwrap();
     let params = SpawnParams {
         cwd: cwd.to_string_lossy().into_owned(),
         command: Some(vec![
             "/bin/sh".into(),
             "-c".into(),
-            "trap '' HUP; echo pid=$$; exec sleep 1000".into(),
+            "trap '' HUP; read go; echo pid=$$; exec sleep 1000".into(),
         ]),
         env: BTreeMap::new(),
         cols: 80,
         rows: 24,
     };
     let reply = client.request("terminal.spawn", params).await.unwrap();
-    let _: TerminalId = serde_json::from_value(reply).unwrap();
+    let TerminalId { id } = serde_json::from_value(reply).unwrap();
+    client
+        .request("terminal.output", TerminalId { id: id.clone() })
+        .await
+        .unwrap();
+    // The program waits for this line, so no output precedes the selection.
+    client
+        .request(
+            "terminal.write",
+            json!({ "id": id, "data": STANDARD.encode("\n") }),
+        )
+        .await
+        .unwrap();
     let mut printed = String::new();
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            let event = client.next_event().await.expect("events stay open");
-            if let EventData::TerminalOutput(out) = event.data {
+            if let rpc::OutputFrame::Bytes(out) = output.recv().await.expect("output stays open") {
                 printed.push_str(&String::from_utf8_lossy(
                     &STANDARD.decode(out.data).unwrap(),
                 ));
