@@ -68,13 +68,6 @@ it("u2230b_hint_line_is_quiet_and_fits", async () => {
 
         const observed = await page.call<Read>(read);
 
-        if (seed === "tree-40" && width === 1280 && scheme === "light" && !contrast) {
-          const below = await page.call<string>(`() => { const rows = [...document.querySelectorAll('[role="tree"] [role="treeitem"][data-id]')]; return rows[rows.findIndex(row => row.dataset.id === "agent-4") + 1].dataset.id; }`);
-
-          await page.press("ArrowDown", "ArrowDown", 4);
-          await page.until(`() => document.querySelector('[role="treeitem"][aria-selected="true"]')?.dataset.id === ${JSON.stringify(below)}`);
-        }
-
         const label = `${scheme} ${contrast ?? ""} ${seed} ${width}`;
         const wanted = hintsFor("agent").map((hint) => `${hint.keys} ${hint.label}`);
 

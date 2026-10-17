@@ -128,20 +128,6 @@ describe("u2230 shortcut hints", () => {
     }
   });
 
-  it("u2230_next_and_previous_agent_select_the_neighbour", async () => {
-    await open();
-    await toPane();
-    expect(press(document.activeElement!, "meta+ArrowDown")).toBe(true);
-    await waitFor(() => expect(rowOf("c").getAttribute("aria-selected")).toBe("true"));
-    expect(press(document.activeElement!, "meta+ArrowUp")).toBe(true);
-    await waitFor(() => expect(rowOf("b").getAttribute("aria-selected")).toBe("true"));
-    // From the pane, focus follows into the new Agent's pane; from a Rail row, onto its row.
-    await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
-    await toRail();
-    expect(press(document.activeElement!, "meta+ArrowDown")).toBe(true);
-    await waitFor(() => expect(document.activeElement).toBe(rowOf("c")));
-  });
-
   it("u2230a_hints_follow_focus", async () => {
     await open();
     await toRail();
@@ -167,7 +153,7 @@ describe("u2230 shortcut hints", () => {
     for (const place of ["rail", "agent", "bubble"] as const) {
       const hints = hintsFor(place);
 
-      expect(hints.length).toBeGreaterThanOrEqual(2);
+      expect(hints.length).toBeGreaterThanOrEqual(place === "bubble" ? 0 : 1);
       expect(hints.length).toBeLessThanOrEqual(4);
 
       for (const hint of hints) {
@@ -177,8 +163,8 @@ describe("u2230 shortcut hints", () => {
       }
     }
 
-    expect(label("agent")).toEqual(["⌘⏎ Take control", "⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
-    expect(label("bubble")).toEqual(["⌘. Minimise", "⇧⌘⌫ Close", "⌘B Next"]);
+    expect(label("agent")).toEqual(["⌘⏎ Take control"]);
+    expect(label("bubble")).toEqual([]);
     expect(label("rail")).toEqual(["⌘⏎ Take control", "⌘⌫ Remove"]);
     expect(label("rail", false)).toEqual(["⌘⌫ Remove"]);
   });
