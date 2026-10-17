@@ -141,7 +141,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
       await wait(`document.activeElement?.textContent === 'Cancel'`);
       await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Could not close project')`);
-      expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('Could not close project') && el.getAttribute('title') === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
+      expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('Could not close project') && (el.getAttribute('title') ?? el.getAttribute('aria-label')) === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
       const checks = await capture(side, `${scheme}-${width}-${contrast}-tree-40-failure`);
 
       if (side === "base") baseline.failure = checks;

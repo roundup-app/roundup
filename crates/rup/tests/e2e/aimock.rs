@@ -19,14 +19,19 @@ pub fn package_bin(name: &str) -> PathBuf {
 
 impl Model {
     pub fn start(fixture: &str) -> Self {
+        Self::start_at(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/e2e/fixtures")
+                .join(format!("{fixture}.json")),
+        )
+    }
+
+    pub fn start_at(fixture: &Path) -> Self {
         let port = std::net::TcpListener::bind("127.0.0.1:0")
             .unwrap()
             .local_addr()
             .unwrap()
             .port();
-        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/e2e/fixtures")
-            .join(format!("{fixture}.json"));
         let child = Command::new(package_bin("llmock"))
             .env("AIMOCK_API_KEYS", KEY)
             .args(["--port", &port.to_string(), "--host", "127.0.0.1"])
@@ -160,7 +165,7 @@ pub fn configure(config: &Path, cwd: &Path, base_url: &str) {
 }
 
 /// A launch gate in front of the pinned Claude: it logs each start's argv and the launch settings
-/// it saw, creates `held` when `hold` is missing, waits for `hold`, then runs the real program.
+/// it saw, creates `held` when `hold` is missing, waits for `hold` (an Agent's start only, never the Daemon's probes), then runs the real program.
 /// It scripts nothing of what Claude does.
 pub fn launch_wrapper(dir: &Path, hold: &Path, held: &Path, log: &Path) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
@@ -174,10 +179,11 @@ import json, os, sys, time
 seen = {{n: os.environ[n] for n in ("ANTHROPIC_MODEL", "CLAUDE_CODE_EFFORT_LEVEL") if n in os.environ}}
 with open({log}, "a") as log:
     log.write(json.dumps({{"argv": sys.argv[1:], "env": seen, "functionHooks": os.environ.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")}}) + "\n")
-if not os.path.exists({hold}):
-    open({held}, "w").close()
-while not os.path.exists({hold}):
-    time.sleep(0.02)
+if sys.argv[1:2] == ["--settings"]:
+    if not os.path.exists({hold}):
+        open({held}, "w").close()
+    while not os.path.exists({hold}):
+        time.sleep(0.02)
 claude = {claude}
 os.execv(claude, [claude, *sys.argv[1:]])
 "#,

@@ -7,12 +7,15 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
+#[path = "../e2e/aimock.rs"]
+#[allow(dead_code)]
+mod aimock;
+
 pub struct Fixture {
     pub dir: tempfile::TempDir,
     pub project: PathBuf,
     pub wrapper: PathBuf,
-    pub receipt: PathBuf,
-    ready: PathBuf,
+    pub model: aimock::Model,
 }
 
 impl Fixture {
@@ -35,27 +38,12 @@ impl Fixture {
                     .success()
             );
         }
-        let receipt = dir.path().join("receipt");
-        let ready = dir.path().join("ready");
-        let fake = dir.path().join("claude.py");
-        let source = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../rup/tests/e2e/fake_claude.py"),
-        )
-        .unwrap();
-        let needle = "        hook(\"UserPromptSubmit\", {\"prompt\": prompt})";
-        assert_eq!(source.matches(needle).count(), 1);
-        let source = source.replace(needle, &format!("{needle}\n        if prompt.startswith('The user is clearing Workstream'):\n            with open({:?}, 'w') as receipt:\n                receipt.write('received')\n            time.sleep(60)\n            mcp_session([{{'name': 'workstream_handoff', 'arguments': {{'summary': 'D9 handoff', 'keep_todos': [], 'keep_pads': []}}}}])", receipt.to_str().unwrap()));
-        let needle = "        hook(\"Stop\")\n        log_marked(marked, ready=True)";
-        assert_eq!(source.matches(needle).count(), 1);
-        let source = source.replace(
-            needle,
-            &format!(
-                "{needle}\n        with open({:?}, 'w') as ready:\n            ready.write('idle')",
-                ready.to_str().unwrap()
-            ),
+        let home = dir.path().join("home");
+        std::fs::create_dir(&home).unwrap();
+        let model = aimock::Model::start_at(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("../rup/tests/e2e/fixtures/d9_clear.json"),
         );
-        std::fs::write(&fake, source).unwrap();
-        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        aimock::configure(&dir.path().join("claude-config"), dir.path(), &model.url);
         let bin = std::env::current_exe()
             .unwrap()
             .parent()
@@ -64,24 +52,119 @@ impl Fixture {
             .unwrap()
             .to_path_buf();
         let wrapper = dir.path().join("rupd");
-        std::fs::write(&wrapper, format!("#!/bin/sh\nexport ROUNDUP_CLAUDE_BIN='{}' CLAUDE_CONFIG_DIR='{}/claude-config' ROUNDUP_RUP_BIN='{}/rup' ROUNDUP_HANDOFF_BOUND_MS='{}' FAKE_CLAUDE_PASTE_WHOLE=1 FAKE_CLAUDE_ON_PROMPT='{{\"name\":\"todo_list\",\"arguments\":{{}}}}'\nexec '{}/rupd' \"$@\"\n", fake.display(), dir.path().display(), bin.display(), handoff_bound_ms, bin.display())).unwrap();
+        std::fs::write(&wrapper, format!("#!/bin/sh\nexport ROUNDUP_CLAUDE_BIN='{}' HOME='{}' CLAUDE_CODE_OAUTH_TOKEN='' CLAUDE_CONFIG_DIR='{}/claude-config' ROUNDUP_RUP_BIN='{}/rup' ROUNDUP_HANDOFF_BOUND_MS='{}'\nexec '{}/rupd' \"$@\"\n", aimock::package_bin("claude").display(), home.display(), dir.path().display(), bin.display(), handoff_bound_ms, bin.display())).unwrap();
         std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
         Self {
             dir,
             project,
             wrapper,
-            receipt,
-            ready,
+            model,
         }
     }
 
-    pub async fn received(&self) {
-        signal(&self.receipt).await;
+    fn has_tool_result(entry: &Value, id: &str) -> bool {
+        entry["body"]["messages"].as_array().is_some_and(|m| {
+            m.iter()
+                .any(|m| m["role"] == "tool" && m["tool_call_id"] == id)
+        })
     }
 
-    pub async fn ready(&self) {
-        signal(&self.ready).await;
+    fn user_text(entry: &Value, needle: &str) -> bool {
+        entry["body"]["messages"]
+            .as_array()
+            .is_some_and(|messages| {
+                messages.iter().any(|m| {
+                    m["role"] == "user" && m["content"].as_str().is_some_and(|t| t.contains(needle))
+                })
+            })
     }
+
+    async fn seen(&self, what: &str, found: impl Fn(&Value) -> bool) {
+        tokio::time::timeout(Duration::from_secs(60), async {
+            loop {
+                let journal = self.model.journal();
+                assert!(
+                    journal.iter().all(|e| !e["response"]["fixture"].is_null()),
+                    "unmatched aimock request: {journal:#?}"
+                );
+                if journal.iter().any(&found) {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("aimock never saw {what}: {:#?}", self.model.journal()));
+    }
+
+    /// The Door answered its first turn and the Daemon reports it idle.
+    pub async fn ready(&self, tree: impl AsyncFn() -> Value) {
+        self.seen("the Door's first turn", |entry| {
+            entry["response"]["status"] == 200 && Self::has_tool_result(entry, "toolu_d9_todos")
+        })
+        .await;
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                if tree().await[0]["status"]["kind"] == "idle" {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("the Door never went idle");
+    }
+
+    /// After Clear ends, aimock's own log holds every expected request and none unmatched. A
+    /// completed Clear shows the Handoff round trip and the new session's prompt, all 200; a
+    /// failed one shows the Clear prompt, whose delayed response may be cut off.
+    pub async fn clear_requests(&self, completion: bool) {
+        self.seen("the Clear prompt", |entry| {
+            Self::user_text(entry, "clearing Workstream")
+        })
+        .await;
+        if completion {
+            self.seen("the new session's Handoff prompt", |entry| {
+                entry["response"]["status"] == 200 && Self::user_text(entry, "D9 handoff")
+            })
+            .await;
+            self.model.assert_matched();
+        }
+    }
+
+    /// Real Claude recorded the Clear prompt in its transcript. aimock journals a delayed
+    /// response only once it is sent, so the request log cannot show the prompt arriving.
+    pub async fn received(&self) {
+        let projects = self.dir.path().join("claude-config/projects");
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                if transcripts(&projects)
+                    .iter()
+                    .any(|text| text.contains("clearing Workstream"))
+                {
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("Claude's transcript never held the Clear prompt");
+    }
+}
+
+fn transcripts(dir: &Path) -> Vec<String> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            found.extend(transcripts(&path));
+        } else if path.extension().is_some_and(|e| e == "jsonl")
+            && let Ok(text) = std::fs::read_to_string(&path)
+        {
+            found.push(text);
+        }
+    }
+    found
 }
 
 pub async fn start_door(client: &rpc::Client) -> String {

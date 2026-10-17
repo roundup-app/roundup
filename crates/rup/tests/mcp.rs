@@ -224,7 +224,8 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 62] = [
+const TOOL_METHODS: [&str; 63] = [
+    "agent.wake",
     "todo.create",
     "todo.get",
     "todo.list",
@@ -298,7 +299,13 @@ const TOOL_METHODS: [&str; 62] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
+const DOOR_METHODS: [&str; 5] = [
+    "agent.digest",
+    "checkpoint.write",
+    "workstream.handoff",
+    "workstream.rewindPlan",
+    "workstream.rewind",
+];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
 const NO_TOOL: [&str; 42] = [
@@ -466,6 +473,20 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
+}
+
+#[tokio::test]
+async fn b45_agent_wake_is_offered_to_every_agent() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    let tool = tools.iter().find(|t| t.name == "agent_wake").unwrap();
+    assert_eq!(
+        Value::Object((*tool.input_schema).clone()),
+        serde_json::to_value(schemars::schema_for!(contracts::agent::WakeParams)).unwrap()
+    );
 }
 
 #[tokio::test]
@@ -1311,7 +1332,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 json!({"id":"d1","answer":"allow"}),
                 "answered Decision d1: allow",
             ),
-            "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream a1",
@@ -1325,6 +1345,24 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             expected,
             "{name}"
         );
+    }
+    // A refusal, a chosen option and a note alone each name what was submitted.
+    for (args, expected) in [
+        (
+            json!({"id":"d1","answer":"deny"}),
+            "answered Decision d1: deny",
+        ),
+        (
+            json!({"id":"d1","answer":"Yes","note":""}),
+            "answered Decision d1: Yes",
+        ),
+        (
+            json!({"id":"d1","answer":null,"note":"Use the other option"}),
+            "answered Decision d1: Use the other option",
+        ),
+    ] {
+        let result = shim.call("decision_answer", args).await;
+        assert_eq!(result.content[0].as_text().unwrap().text, expected);
     }
     server.abort();
 }
@@ -1414,6 +1452,16 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
             json!({"id":"7","agent":"child","method":"terminal.kill","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
         ),
         ("terminal_kill", json!({"id":"t1"}), Value::Null),
+        (
+            "terminal_write",
+            json!({"id":"t1","data":"aGk="}),
+            json!({"id":"8","agent":"child","method":"terminal.write","params":{"id":"t1","data":"aGk="},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "terminal_write",
+            json!({"id":"t1","data":"aGk="}),
+            Value::Null,
+        ),
         (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),

@@ -20,10 +20,11 @@ it.each(["Todo", "Pad"] as const)("u471_previous_copy_assertions_are_preserved_c
     ? { name: "todo.updated", data: todo(7, USER, "keep this TITLE") }
     : { name: "pad.changed", data: { name: "keep this NAME" } }));
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersToNextFrame();
 
   const line = kind === "Todo" ? 'Changed Todo "keep this TITLE"' : "Changed Pad keep this NAME";
 
-  expect(screen.getByRole("button", { name: `lowercase: ${line}` }).querySelector(".toast-line")?.textContent).toBe(line);
+  expect(screen.getByRole("button", { name: `lowercase: ${line}` }).textContent).toBe(`lowercase ${line}`);
 });
 
 it("u471_previous_copy_assertions_are_preserved_toast_overflow_uses_sentence_case", async () => {
@@ -31,6 +32,7 @@ it("u471_previous_copy_assertions_are_preserved_toast_overflow_uses_sentence_cas
 
   for (let at = 0; at < 4; at += 1) app.emit(status(`a${at}`, "needs-you"));
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersToNextFrame();
 
   expect(screen.getByText("And 2 more")).toBeTruthy();
 });
@@ -40,8 +42,10 @@ it("u471_previous_copy_assertions_are_preserved_a_gone_toast_target_uses_sentenc
 
   app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersToNextFrame();
   fireEvent.click(screen.getByRole("button", { name: 'lowercase: Changed Todo "ship it"' }));
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersToNextFrame();
 
   expect(screen.getByText("That is gone")).toBeTruthy();
 });
@@ -54,9 +58,9 @@ it.each([
 
   app.emit(status("a", kind));
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersToNextFrame();
 
   const toast = screen.getByRole("button", { name: `keep lowercase: ${line}` });
 
-  expect(toast.querySelector(".toast-name")?.textContent).toBe("keep lowercase");
-  expect(toast.querySelector(".toast-line")?.textContent).toBe(line);
+  expect(toast.textContent).toBe(`keep lowercase ${line}`);
 });

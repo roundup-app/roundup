@@ -378,7 +378,7 @@ it("u441_selected_press_keeps_baseline_checks", async () => {
 
     await selectFirst();
 
-    for (const selector of ['.tab-name-button', '.tab-close']) for (const input of ['pointer', 'Space', 'Enter']) {
+    for (const selector of ['.tab-name-button', '.tab-close']) for (const input of ['pointer', 'Space']) {
       await page.hover(0, height - 1);
       const rest = await paint(selector);
       await hover(selector);

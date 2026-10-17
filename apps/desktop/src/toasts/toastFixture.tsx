@@ -44,7 +44,7 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
   if (options.selected !== undefined) connected.rail.select(options.selected);
 
   const view = render(() => {
-    queue = createToastQueue(front, () => sounds.push(Date.now()), () => options.reducedMotion ?? false);
+    queue = createToastQueue(front, () => sounds.push(Date.now()));
     watchProject(connected, queue.push, () => shown.push("/p"), () => true);
 
     return (
@@ -55,7 +55,7 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
     );
   });
 
-  const toasts = () => [...view.container.querySelectorAll<HTMLElement>(".toast")];
+  const toasts = () => [...view.container.querySelectorAll<HTMLElement>(".app-toast-action")];
 
   return { app, connected, view, queue, sounds, shown, toasts, setFront, leaveWindow: () => { setFront(false); }, comeBack: () => { setFront(true); fireEvent(window, new Event("focus")); } };
 };

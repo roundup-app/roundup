@@ -46,13 +46,13 @@ run("U476 rendered font inheritance", () => {
       expect(fonts.monoText).toEqual(Array(5).fill(fonts.mono));
       expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector(".todo-dependencies .mono")).fontFamily`)).toBe(fonts.mono);
       await pair.head.load('/harness.html?seed=door-report', 1280, 800);
-      await pair.head.until(`() => document.querySelector('[role=treeitem][data-id]')`);
-      await pair.head.call(`() => document.querySelector('[role=treeitem][data-id]').dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 40, clientY: 40}))`);
+      await pair.head.until(`() => document.querySelector('.rail-row[data-id]')`);
+      await pair.head.call(`() => document.querySelector('.rail-row[data-id]').dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 40, clientY: 40}))`);
       await pair.head.until(`() => document.querySelector('[role=menuitem]')`);
       expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('[role=menuitem]')).fontFamily`)).toBe(fonts.ui);
       await pair.head.call(`() => window.__fake.emit({ actor: { kind: "user", id: "you", parent: null }, name: "agent.status", data: { id: "review-agent", attempt: "1", status_revision: "9", status: { kind: "needs-you", label: "Please review the result", since: Date.now() } } })`);
-      await pair.head.until(`() => document.querySelector('.toast-line')`);
-      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('.toast-line')).fontFamily`)).toBe(fonts.ui);
+      await pair.head.until(`() => document.querySelector('.app-toast-action')`);
+      expect(await pair.head.call<string>(`() => getComputedStyle(document.querySelector('.app-toast-action')).fontFamily`)).toBe(fonts.ui);
 
     }
   }, 120_000);

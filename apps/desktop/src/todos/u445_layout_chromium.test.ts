@@ -129,7 +129,7 @@ run("u445 real body height follows input", () => {
       await page.call(U445_READ, "body", true, false);
 
       return page.call<number[]>(String.raw`() => {
-        const field = document.querySelector('textarea');
+        const field = document.querySelector('[aria-label="Drawer"] textarea');
         const initial = field.getBoundingClientRect().height;
         field.value += '\nnext body line'; field.dispatchEvent(new Event('input', {bubbles:true}));
         const grown = field.getBoundingClientRect().height;

@@ -92,7 +92,7 @@ it("u450_latest_selection_wins", async () => {
   fireEvent.click(document.querySelector('[data-id="a"]')!);
   await waitFor(() => expect(finish).toBeTruthy());
   fireEvent.click(document.querySelector('[data-id="b"]')!);
-  expect(document.querySelector('.window-title')?.textContent).toBe("api — b");
+  await waitFor(() => expect(document.querySelector('.window-title')?.textContent).toBe("api — b"));
   finish!();
   await waitFor(() => expect(app.windowOperations.at(-1)).toEqual({ kind: "title", title: "api — b" }));
 });

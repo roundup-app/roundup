@@ -19,19 +19,15 @@ let page: ChromePage;
 
 const ART = captureDir("U356");
 
-// U356's seed: two Workstreams of five Agents each, one `blocked` in each.
+// U356's seed (fixtures/u356_blocked.json): two Workstreams of five Agents each, one `blocked` in each.
 // The Rail's width in px at which both labels fit whole at 1600 by 800 (U364's Given).
 const WIDE = 400;
-
-const KINDS = ["blocked", "working", "idle", "working", "idle", "error", "needs-you", "blocked", "error", "needs-you"];
 
 beforeAll(async () => {
   if (!found) throw new Error("U364 needs a Chrome binary: set CHROME_PATH");
 
-  real = await startRealDaemon(
-    { FAKE_CLAUDE_KINDS: JSON.stringify(KINDS), FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }) },
-    true,
-  );
+  // E10: U356's ten Agents, each Agent's turns chosen by its id; its Claude is the pinned one, its model aimock serving that file's turns.
+  real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u356_blocked.json"));
   page = await openPage(found);
 }, 300_000);
 
@@ -55,10 +51,26 @@ const save = async (name: string) => {
 
 type Blocked = { label: string; live: number; scrollWidth: number; clientWidth: number };
 
-const AGENTS = `[...document.querySelectorAll('[role="treeitem"][data-id][aria-level="2"]')]`;
+const AGENTS = `[...document.querySelectorAll('[data-part="item"][data-id][aria-level="2"]')]`;
 
-/** U404: the Rail draws no Live line, so each `blocked` row's whole label is its `title`, and the row itself fits. */
-const READ = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => ({ label: row.title, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth }))`;
+/** U404: the Rail draws no Live line, so each `blocked` row's whole label is the Status line of its Tooltip (U521), and the row itself fits. */
+const MEASURE = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => { const box = row.getBoundingClientRect(); return { id: row.dataset.id, live: row.querySelectorAll(".live, .live-label, .live-age").length, scrollWidth: row.scrollWidth, clientWidth: row.clientWidth, x: box.left + box.width / 2, y: box.top + box.height / 2 }; })`;
+
+const TIP = `(id) => { const row = document.querySelector('.rail-row[data-id="' + id + '"]'); const lines = [...(document.getElementById(row.getAttribute("aria-describedby") ?? "")?.children ?? [])].map((line) => line.textContent); return lines.find((line) => line !== row.querySelector(".name").textContent) ?? ""; }`;
+
+/** Each blocked row measured, then hovered as a user does so its Tooltip names the whole label (after the name, when the layout cuts it). */
+const READ = async (): Promise<Blocked[]> => {
+  const rows = await page.call<(Omit<Blocked, "label"> & { id: string; x: number; y: number })[]>(MEASURE);
+  const read: Blocked[] = [];
+
+  for (const { id, x, y, ...measured } of rows) {
+    await page.hover(x, y);
+    await page.until(`() => (${TIP})(${JSON.stringify(id)}) !== ""`);
+    read.push({ ...measured, label: await page.call<string>(TIP, id) });
+  }
+
+  return read;
+};
 
 const openHarness = async () => {
   for (let attempt = 1; ; attempt++) {
@@ -82,7 +94,7 @@ run("u364 on the real Daemon", () => {
 
     for (let workstream = 1; workstream <= 2; workstream++) {
       await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
-      await page.until(`() => document.querySelectorAll('[role="treeitem"][data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
+      await page.until(`() => document.querySelectorAll('.rail-row[data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
       await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
       for (let at = 1; at <= 5; at++) {
@@ -101,11 +113,14 @@ run("u364 on the real Daemon", () => {
     await page.resize(1600, 800);
 
     // The Rail's default is 288 px (U389) and its row also holds the badge, name and age, so the whole label needs a wider Rail: the user's Resize edge widens it by key.
-    const edge = (key: string) => page.call(`(key) => document.querySelector('[role="separator"][aria-label="Resize Rail"]').dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))`, key);
+    const edge = async (key: string) => {
+      await page.call(`() => document.querySelector('[role="separator"][aria-label="Resize Rail"]').focus()`);
+      await page.press(key, key);
+    };
 
-    await page.until(`() => { const edge = document.querySelector('[role="separator"][aria-label="Resize Rail"]'); if (Number(edge.getAttribute("aria-valuenow")) < ${WIDE}) edge.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); return Number(edge.getAttribute("aria-valuenow")) >= ${WIDE}; }`);
+    while (await page.call<number>(`() => Number(document.querySelector('[role="separator"][aria-label="Resize Rail"]').getAttribute("aria-valuenow"))`) < WIDE) await edge("ArrowRight");
 
-    const wide = await page.call<Blocked[]>(READ);
+    const wide = await READ();
 
     expect(wide).toHaveLength(2);
 
@@ -123,7 +138,7 @@ run("u364 on the real Daemon", () => {
     for (const [width, height] of [[1280, 800]] as const) {
       await page.resize(width, height);
 
-      const narrow = await page.call<Blocked[]>(READ);
+      const narrow = await READ();
 
       expect(narrow).toHaveLength(2);
 
@@ -135,5 +150,7 @@ run("u364 on the real Daemon", () => {
 
       await save(`blocked-${width}x${height}`);
     }
+
+    await real.model!.assertMatched(2);
   });
 });

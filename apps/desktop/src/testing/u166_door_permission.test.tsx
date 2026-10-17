@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { resolve } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -11,13 +12,6 @@ import type { StartedDaemon } from "./realDaemonFixture";
 let real: StartedDaemon;
 
 let pump: ReturnType<typeof setInterval> | undefined;
-
-beforeEach(async () => {
-  real = await startRealDaemon({
-    FAKE_CLAUDE_ON_PROMPT_ASK: JSON.stringify({ tool_name: "Bash", tool_input: { command: "echo $prompt" } }),
-    FAKE_CLAUDE_ON_PROMPT: JSON.stringify({ name: "todo_create", arguments: { title: "$prompt" } }),
-  });
-}, 120_000);
 
 afterEach(async () => {
   clearInterval(pump);
@@ -34,6 +28,8 @@ const mount = () => {
 };
 
 const settle = async (answer: "allow" | "deny", prompt: string) => {
+  // E10: the Door's Claude is the pinned one, its model aimock serving this test's turns.
+  real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), `src/testing/fixtures/u166_${answer}.json`));
   const app = mount();
   const rail = await screen.findByRole("region", { name: "Rail" });
   const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
@@ -87,8 +83,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("needs-you"), { timeout: 30_000 });
 
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
-  await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
-  await waitFor(() => expect(rail.querySelector(`[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
   clearInterval(pump);
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
@@ -109,7 +105,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   expect(await app.rpc("decision.list", null)).toHaveLength(0);
 
   // The rendered App, not only the Daemon, shows the Workstream idle with no reload.
-  await waitFor(() => expect(rail.querySelector(`[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
+  await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
 
   if (answer === "allow") {
     await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain(prompt), { timeout: 30_000 });
@@ -131,6 +127,8 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   await waitFor(async () => expect((await Reopened.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").map((room) => room.status?.kind)).not.toContain("needs-you"), { timeout: 30_000 });
   expect(await messages()).toContainEqual([prompt, "delivered"]);
+
+  await real.model!.assertMatched();
 
   return (await Reopened.rpc("todo.list", null)).map((todo) => todo.title);
 };

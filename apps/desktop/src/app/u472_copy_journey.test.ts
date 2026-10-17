@@ -103,11 +103,12 @@ type Inventory = { text: string[]; names: string[] };
 // SAFETY: the committed pre-migration fixture contains Checks status literals; JSON imports widen them to strings.
 const baselineReadings = baselineFixture as Record<string, { checks: Checks; inventory?: Inventory }>;
 
+// dnd-kit's hidden keyboard-drag instruction is library text, not Roundup copy.
 const inventory = async (): Promise<Inventory> => evaluate(`(() => {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const text = [];
   for (let node; (node = walker.nextNode());) {
-    if (node.parentElement?.closest('script, style, .xterm, .resource-project')) continue;
+    if (node.parentElement?.closest('script, style, .xterm, .resource-project, [id^=dnd-kit-description]')) continue;
     const value = node.textContent.replace(/\\s+/g, ' ').trim();
     if (value) text.push(value);
   }
@@ -119,6 +120,11 @@ const inventory = async (): Promise<Inventory> => evaluate(`(() => {
     element.closest('.resource-project') ? [] : ['aria-label', 'title', 'placeholder'].map(name => element === panel && name === 'aria-label' ? null : element.getAttribute(name)).filter(value => value));
   return {text, names};
 })()`);
+
+// U520: a Rail row's native `title` became a Tooltip, so its text is no accessible-name attribute in the DOM; the retired baseline names are the titles that were not an aria-label, and a title repeating its element's aria-label sat right after it.
+const RETIRED_TITLES = /^(error|needs-you|blocked|working|idle) label \d+$|^Add Agent ⌘N$|^Clear$|^\d+ need you$|^editing src\/auth\/token\.rs$|^tests failed: 3$|^asks: keep v1 routes\?/;
+
+const withoutTitles = (names: string[]) => names.filter((value) => !RETIRED_TITLES.test(value)).filter((value, index, all) => value !== all[index - 1]);
 
 const mapped = (value: string): string => {
   const labels = new Map([
@@ -170,7 +176,11 @@ for (const [seed, scheme] of [...seeds.map((seed) => [seed, "light"] as const), 
     const after = await inventory();
 
     expect(after.text, `${name} text`).toEqual(before.text.map(mapped));
-    expect(after.names, `${name} accessible names`).toEqual(before.names.map(mapped));
+    // U501 moves the native resource titles to the shared Tooltip; the same words stay in the text inventory above.
+    const tooltipped = new Set(["Resident memory", "CPU of one core", "Worktree on disk"]);
+    const kept = (names: string[]) => withoutTitles(names.filter((value) => !tooltipped.has(value)));
+
+    expect(kept(after.names), `${name} accessible names`).toEqual(kept(before.names.map(mapped)));
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(head[id].status, `${name} ${id}`).toBe("pass");
 
@@ -185,7 +195,7 @@ const baselineFailure = async (width: number, scheme: string): Promise<Checks> =
   if (!baseOrigin) return baselineReadings[name]!.checks;
 
   await load(baseOrigin, "tree-40", width, scheme);
-  await browser("click", '[role="treeitem"][data-id="payments"]');
+  await browser("click", '.rail-row[data-id="payments"]');
   await wait("Boolean(document.querySelector('.pane-screen'))");
   await clickText(['Hide', 'Shelf'].join(' '));
   await evaluate("window.__fake.app.handlers['workstream.clear'] = () => ({pending: true})");
@@ -239,7 +249,7 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
 
   // The densest seed supplies a real Workstream with descendants. Inject at the existing fake seam only.
   await load(origin, "tree-40", width, "light");
-  await browser("click", '[role="treeitem"][data-id="payments"]');
+  await browser("click", '.rail-row[data-id="payments"]');
   await wait("Boolean(document.querySelector('.pane-screen'))");
   await clickText("Hide work items");
   await evaluate(`(() => {
@@ -247,7 +257,7 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
     app.handlers['workstream.clear'] = () => ({pending: true});
     window.__u472TreeBefore = document.querySelectorAll('[role=treeitem]').length;
   })()`);
-  await evaluate(`document.querySelector('[data-id="payments"] [aria-label="Clear"]').click()`);
+  await evaluate(`document.querySelector('[data-id="payments"] [aria-label="Clear Workstream…"]').click()`);
   await browser("fill", "[data-clear-prompt] textarea", "keep MY reason 🧭  exactly");
   await clickText("Clear and keep a summary");
   await wait("document.body.textContent.includes('The supervisor is writing the summary')");

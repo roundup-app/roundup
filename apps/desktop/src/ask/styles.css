@@ -1,0 +1,142 @@
+/* U504: the home screen fills the centre; `⌘/` floats the same panel over it, opaque with Help's hairline (D8: no shadow). */
+.ask-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4);
+  background-color: var(--ground);
+}
+
+.ask-bar[data-mode="home"] {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+}
+
+.ask-bar[data-mode="over"] {
+  position: absolute;
+  top: var(--space-5);
+  left: 50%;
+  z-index: 3;
+  width: min(640px, calc(100% - var(--space-5)));
+  max-height: calc(100% - var(--space-6));
+  transform: translateX(-50%);
+  overflow-y: auto;
+  border-radius: var(--radius-row);
+  border: 1px solid var(--hairline);
+}
+
+.ask-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  max-height: 160px;
+  field-sizing: content;
+  resize: none;
+  padding: var(--space-2);
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
+.ask-input:focus-visible {
+  outline-width: 0;
+}
+
+.ask-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ask-line {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  --button-radius: 0;
+  font: inherit;
+  text-align: start;
+}
+
+.ask-text,
+.ask-where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-where,
+.ask-state {
+  color: var(--grey);
+}
+
+.ask-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ask-back {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) var(--space-2);
+}
+
+.ask-reason {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ask-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app-mentions {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.app-mentions .app-listbox-item[data-highlighted] {
+  color: var(--accent);
+}
+
+.app-mentions .app-listbox-item {
+  min-height: var(--space-5);
+  align-items: center;
+}
+
+/* The picker's visible label would repeat its trigger; the accessible name stays. */
+.ask-choices .app-select-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.ask-choices .app-select-trigger {
+  color: var(--grey);
+  background: none;
+}
+
+.ask-choices .app-select-trigger:hover {
+  color: var(--text);
+  background: none;
+}

@@ -15,7 +15,7 @@ const tabX = (at: number) => at * 100 + 50;
 
 const rowY = (id: string) => ROW_TOP + [...document.querySelectorAll(".rail-row")].findIndex((row) => row.getAttribute("data-id") === id) * 30 + 15;
 
-const selected = () => document.querySelector(".rail-row[aria-selected=true]")?.getAttribute("data-id");
+const selected = () => document.querySelector(".rail-row[data-selected=true]")?.getAttribute("data-id");
 
 
 const mount = async (trees: Record<string, RailNode[]>) => {
@@ -77,7 +77,7 @@ describe("u420 a file dropped on a target lands in that target", () => {
 
     fireEvent.click(screen.getAllByRole("tab")[0]!);
     await waitFor(() => expect(document.querySelectorAll(".rail-row")).toHaveLength(3));
-    fireEvent.click(document.querySelector('[data-id="a1"]')!);
+    fireEvent.click(document.querySelector('.rail-row[data-id="a1"]')!);
     await waitFor(() => expect(selected()).toBe("a1"));
     fireEvent.click(screen.getAllByRole("tab")[1]!);
     await waitFor(() => expect(selected()).not.toBe("a1"));
@@ -91,7 +91,7 @@ describe("u420 a file dropped on a target lands in that target", () => {
 
     fireEvent.click(screen.getAllByRole("tab")[0]!);
     await waitFor(() => expect(document.querySelectorAll(".rail-row")).toHaveLength(3));
-    fireEvent.click(document.querySelector('[data-id="w1"]')!);
+    fireEvent.click(document.querySelector('.rail-row[data-id="w1"]')!);
     await waitFor(() => expect(selected()).toBe("w1"));
     fireEvent.click(screen.getAllByRole("tab")[1]!);
     await waitFor(() => expect(selected()).not.toBe("w1"));

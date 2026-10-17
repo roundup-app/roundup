@@ -176,7 +176,7 @@ it("u466_smaller_glyphs_keep_kind_and_action_targets", async () => {
   await load("agents-10");
   await page.call("() => document.querySelector('.rail-fold button').click()");
   await page.until("() => Boolean(document.querySelector('.rail .glyph[aria-label=\"Done\"]'))");
-  await browser("hover", '[data-id="agent-1"]');
+  await browser("hover", '.rail-row[data-id="agent-1"]');
 
   const seen = await page.call<{kinds:string[];targets:number[][];viewBoxes:string[]}>(`() => ({
     kinds:[...document.querySelectorAll('.rail .glyph')].map(g=>g.getAttribute('aria-label')).filter(Boolean),
@@ -196,7 +196,7 @@ it("u466_smaller_glyphs_keep_trunks_and_elbows_aligned", async () => {
   const offsets=await page.call<number[]>(`() => {
     const stack=[], offsets=[];
     for(const row of document.querySelectorAll('.rail-row[data-id]')) {
-      const depth=Number(row.getAttribute('aria-level'))-1;
+      const depth=Number(row.closest('[role=treeitem]').getAttribute('aria-level'))-1;
       const mark=row.querySelector('.line > .rail-chevron .icon')??row.querySelector('.line > .glyph');
       const b=mark.getBoundingClientRect(); stack.length=depth;
       if(depth>0) {
@@ -214,7 +214,7 @@ it("u466_smaller_glyphs_keep_trunks_and_elbows_aligned", async () => {
 
 it("u466_owned_names_and_done_lines_keep_the_content_inset", async () => {
   await load();
-  await page.call(`() => document.querySelector('[data-id="tokens"] [data-pads-control]').click()`);
+  await page.call(`() => document.querySelector('.rail-row[data-id="tokens"] [data-pads-control]').click()`);
   await page.until("() => document.querySelectorAll('.rail-leaf').length > 0");
 
   const seen=await page.call<{insets:string[][];sizes:string[]}>(`() => ({
@@ -246,7 +246,7 @@ it("u466_nested_selected_states_keep_the_bar_and_geometry", async () => {
   const ids = await page.call<string[]>(`() => {
     const depths = new Set();
     return [...document.querySelectorAll('.rail-row[data-id]')].filter(r=> {
-      const level=r.getAttribute('aria-level');
+      const level=r.closest('[role=treeitem]').getAttribute('aria-level');
       if(depths.has(level)) return false; depths.add(level); return true;
     }).map(r=>r.dataset.id);
   }`);
@@ -254,8 +254,8 @@ it("u466_nested_selected_states_keep_the_bar_and_geometry", async () => {
   expect(ids.length).toBeGreaterThan(1);
 
   for (const id of ids) {
-    const selector = `[data-id="${id}"]`;
-    await page.call("(id) => document.querySelector('[data-id=\"'+id+'\"]').click()",id);
+    const selector = `.rail-row[data-id="${id}"]`;
+    await page.call("(id) => document.querySelector('.rail-row[data-id=\"'+id+'\"]').click()",id);
     await page.until(`() => document.querySelector('${selector}').dataset.selected==='true'`);
 
     const geometry = `() => {

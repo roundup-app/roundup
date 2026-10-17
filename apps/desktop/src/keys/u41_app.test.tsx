@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
-import { rowOf } from "../rail/railFixture";
+import { rowOf, settled } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
@@ -65,8 +65,10 @@ describe("u41 the App mounts Keys", () => {
     await waitFor(() => rowOf("a"));
 
     fireEvent.click(rowOf("a"));
+    await settled();
 
     fireEvent.keyDown(document, { key: "1", metaKey: true });
+    await settled();
 
     expect(document.activeElement).toBe(rowOf("a"));
 

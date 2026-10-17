@@ -1,0 +1,248 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Workstream planning\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What should this Agent do?"
+      },
+      "response": {
+        "content": "{\"title\":\"Agent work\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u356_2_1"
+      },
+      "response": {
+        "content": "Waiting."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u356_2_0"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u356_2_1",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"u356 waiting\", \"blockers\": [1]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 2. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u356_2_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"u356 blocker\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 3. It never changes.",
+        "hasToolResult": false
+      },
+      "latency": 900000,
+      "response": {
+        "content": "Working."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 4. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Idle."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 5. It never changes.",
+        "hasToolResult": false
+      },
+      "latency": 900000,
+      "response": {
+        "content": "Working."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 6. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Idle."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 8. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "error": {
+          "message": "scripted server error",
+          "type": "api_error"
+        },
+        "status": 500
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 9. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u356_9",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch u356_9\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u356_10_1"
+      },
+      "response": {
+        "content": "Waiting."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_u356_10_0"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u356_10_1",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"u356 waiting\", \"blockers\": [3]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 10. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u356_10_0",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"u356 blocker\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 11. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "error": {
+          "message": "scripted server error",
+          "type": "api_error"
+        },
+        "status": 500
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Your Agent id is 12. It never changes.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u356_12",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch u356_12\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Status, nothing to follow: [from rupd, note] [digest]"
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: [from rupd, note]"
+      },
+      "response": {
+        "content": "{\"title\":\"Status\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: [from rupd, note]",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>"
+      },
+      "response": {
+        "content": "{\"title\":\"Session\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What should this Agent do?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "[from rupd",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Status noted."
+      }
+    }
+  ]
+}

@@ -376,6 +376,26 @@ pub struct Digest {
     pub children: Vec<DigestItem>,
 }
 
+/// B41: ask to be woken when the named Agents finish.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct WakeParams {
+    /// The Agents to wait on, one to twenty, none of them yourself.
+    pub ids: Vec<String>,
+    /// Wake when the first of them finishes; the default is when every one has.
+    #[serde(default)]
+    #[ts(optional)]
+    pub any: Option<bool>,
+}
+
+/// What `agent.wake` returns (B41): the request's number, and whether it already fired.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct Woken {
+    pub id: u32,
+    pub fired: bool,
+}
+
 /// What `agent.context` returns (E2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
@@ -486,6 +506,14 @@ pub struct SignalParams {
     pub payload: Value,
 }
 
+/// What `agent.signal` answers when it has something to say (otherwise `null`): `drop` tells the
+/// hook to exit 2, which blocks a prompt that repeats Messages already delivered (B39).
+#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct SignalOutcome {
+    pub drop: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct CreateWorkstreamParams {
@@ -551,12 +579,22 @@ pub enum HeldCall {
     Close(crate::terminal::TerminalId),
     #[serde(rename = "terminal.kill")]
     Kill(crate::terminal::TerminalId),
+    #[serde(rename = "terminal.write")]
+    Write(crate::terminal::WriteParams),
     #[serde(rename = "rail.rename")]
     Rename(RenameParams),
+    #[serde(rename = "agent.setOrder")]
+    SetOrder(SetOrderParams),
+    #[serde(rename = "decision.answer")]
+    Answer(crate::decision::AnswerParams),
+    #[serde(rename = "agent.resume")]
+    Resume(NodeId),
     #[serde(rename = "agent.stop")]
     Stop(NodeId),
     #[serde(rename = "agent.interrupt")]
     Interrupt(NodeId),
     #[serde(rename = "agent.prompt")]
     Prompt(PromptParams),
+    #[serde(rename = "workstream.rewind")]
+    Rewind(crate::workstream::RewindParams),
 }
