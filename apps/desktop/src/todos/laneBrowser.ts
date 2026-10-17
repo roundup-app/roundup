@@ -21,7 +21,7 @@ export type LaneBrowser = {
   tabTo: (name: string) => Promise<void>;
   /** Waits until the page function returns truthy. */
   until: (predicate: string) => Promise<void>;
-  /** Writes the Checks and a screenshot to `artifacts/ux/<id>/` when the capture directory is set. */
+  /** Writes the Checks and a screenshot through the shared capture directory when enabled. */
   capture: (id: string, step: string) => Promise<void>;
   /** Reloads the harness, makes one Todo per title, the third blocked by the first, and shows the Todos tab. */
   seedTodos: (titles: readonly string[]) => Promise<void>;
