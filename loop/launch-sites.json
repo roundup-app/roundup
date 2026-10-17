@@ -635,6 +635,12 @@
     "kind": "real",
     "sha256": "30c3f2890109aeeeac182f41d9fc666d490cd2da212850d69afd7de6bd9cc83a"
   },
+  "crates/rupd/tests/m2219_mcp_setting.rs": {
+    "cleanup": "Serves within the test runtime on a TempDir socket; the TempDir is removed on drop.",
+    "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
+    "kind": "in-process",
+    "sha256": "9e5a848bb5b5fac6558caebae19be855be015732079ff5dd6a04bd4c24e46f51"
+  },
   "crates/rupd/tests/m8_project.rs": {
     "cleanup": "common/served runs the test executable and Drop kills/waits; others serve within the test runtime.",
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
