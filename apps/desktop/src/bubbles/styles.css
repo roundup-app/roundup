@@ -108,15 +108,6 @@
   position: relative;
 }
 
-/* U2232: the rule under the tabs; an inactive tab is transparent over it and the selected tab's ground covers it. */
-.terminal-tabs-host::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0;
-  height: var(--rule, 1px);
-  background-color: var(--hairline);
-}
-
 .terminal-tabs {
   box-sizing: border-box;
   display: flex;
@@ -125,7 +116,9 @@
   position: relative;
   z-index: 1;
   overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-y: hidden;
+  /* The row keeps its full height: the scrollbar would take part of it and cut every label. Wheel, drag and keyboard focus still scroll. */
+  scrollbar-width: none;
   white-space: nowrap;
 }
 

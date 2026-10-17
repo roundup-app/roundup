@@ -8,6 +8,18 @@
 [data-flat-bar] {
   background-color: var(--sunken);
   border-radius: var(--flat-radius);
+  position: relative;
+}
+
+/* The bar's one bottom rule, under every tab and the +; the selected tab stands above it, so the rule breaks there. */
+[data-flat-bar]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--rule, 1px);
+  background-color: var(--hairline);
+  pointer-events: none;
+  z-index: 0;
 }
 
 [data-flat-tab] {
@@ -26,6 +38,8 @@
 }
 
 [data-flat-tab][data-selected="true"] {
+  position: relative;
+  z-index: 1;
   background-color: var(--ground);
   border-style: solid;
   border-top-width: 0;
