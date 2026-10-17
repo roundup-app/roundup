@@ -31,13 +31,8 @@ run("u461 and u462 isolated rendered observers", () => {
       await baseline.listen();
     }
 
-    real = await startRealDaemon({ FAKE_CLAUDE_ORDER_PROMPTS: "0", FAKE_CLAUDE_PROMPT_LOG: join(cache, "prompts.jsonl"), FAKE_CLAUDE_ON_PROMPT: JSON.stringify([
-      { name: "todo_create", arguments: { title: "Door Todo", body: "Initial body", blockers: null }, skip_prompt: "(?s)^(?!.*u462-create-todo)" },
-      { name: "todo_create", arguments: { title: "Door blocker", body: null, blockers: null }, skip_prompt: "(?s)^(?!.*u462-evolve-todo)" },
-      { name: "todo_update", arguments: { id: 1, title: "Evolved Todo", body: "Changed body\nSecond line" }, skip_prompt: "(?s)^(?!.*u462-evolve-todo)" },
-      { name: "todo_setBlockers", arguments: { id: 1, blockers: [2] }, skip_prompt: "(?s)^(?!.*u462-evolve-todo)" },
-      { name: "todo_complete", arguments: { id: 1 }, skip_prompt: "(?s)^(?!.*u462-evolve-todo)" },
-    ]) }, true);
+    // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
+    real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u461_door_todos.json"));
   }, 120_000);
 
   afterAll(async () => {
@@ -59,5 +54,6 @@ run("u461 and u462 isolated rendered observers", () => {
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "real", real.base, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
     await real.restart();
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "restart", real.base, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
+    await real.model!.assertMatched();
   }, 300_000);
 });
