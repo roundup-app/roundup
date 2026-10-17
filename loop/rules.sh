@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -539,6 +539,16 @@ def frozen_gate(pr, base, head):
         *(f'  {path}' for path in paths[:5]), *([f'  and {len(paths) - 5} more'] if len(paths) > 5 else []),
         "Restore main's side of those paths; loop changes come from the user's own PRs."]))
 
+# A PR whose changed files all sit under scenarios/ lands no code, so closing a work Issue from it closes the Issue early.
+CLOSES = re.compile(r'\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?[ \t]+#\d+', re.I)
+
+def scenario_closes_gate(pr, base, head):
+    paths = git('diff', '--name-only', base+'...'+head).splitlines()
+    text = '\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])
+    found = CLOSES.search(text)
+    require(not (paths and all(path.startswith('scenarios/') for path in paths) and found),
+            f'scenario-closes: a scenario-only PR holds "{found and found.group(0)}"; use Refs: #N')
+
 try:
     pr = one(pull)
     base_gate(pr)
@@ -548,6 +558,8 @@ try:
         fetch(base)
         if command == 'ci-trailers':
             trailer_gate(history(base, head), base)
+        elif command == 'scenario-closes':
+            scenario_closes_gate(pr, base, head)
         else:
             frozen_gate(pr, base, head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -557,7 +569,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | frozen)
+  base | ci-trailers | frozen | scenario-closes)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
