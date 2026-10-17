@@ -7,6 +7,71 @@ pub(super) struct State {
     pub(super) channel_deadline: Duration,
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
     pub(super) prompt_observer: std::sync::OnceLock<PromptObserver>,
+    /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
+    pub(super) inbox: InboxState,
+}
+
+/// B50, B51: told the Message ids an Agent's transcript records as received from another session.
+pub type InboxObserver = Arc<dyn Fn(&str, &[u32]) + Send + Sync>;
+
+#[derive(Default)]
+pub(super) struct InboxState {
+    /// B51: the latest check of each Agent's inbox, the Rail fact `inbox`.
+    pub(super) facts: Mutex<HashMap<String, contracts::agent::Inbox>>,
+    /// B50(c): the transcript file of each Agent and how far it has been read.
+    pub(super) transcripts: Mutex<HashMap<String, (PathBuf, u64)>>,
+    pub(super) observer: std::sync::OnceLock<InboxObserver>,
+}
+
+impl InboxState {
+    pub(super) fn fact(&self, agent: &str) -> Option<contracts::agent::Inbox> {
+        let facts = self.facts.lock().unwrap_or_else(|e| e.into_inner());
+        facts.get(agent).copied()
+    }
+
+    pub(super) fn set(&self, agent: &str, state: contracts::agent::Inbox) {
+        let mut facts = self.facts.lock().unwrap_or_else(|e| e.into_inner());
+        facts.insert(agent.to_owned(), state);
+    }
+
+    /// B50(c): read the transcript again from its start, for an entry that Claude Code took up
+    /// before the Message it carries was in flight.
+    pub(super) fn rescan(&self, agent: &str) {
+        {
+            let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((_, offset)) = files.get_mut(agent) {
+                *offset = 0;
+            }
+        }
+        self.scan(agent, &serde_json::Value::Null);
+    }
+
+    /// B50(c): on an Agent's Signal, tell the observer the ids its transcript newly records.
+    pub(super) fn scan(&self, agent: &str, payload: &serde_json::Value) {
+        let Some(observer) = self.observer.get() else {
+            return;
+        };
+        let (ids, ..) = {
+            let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(path) = claude_code::inbox::transcript_of(payload) {
+                match files.get(agent) {
+                    Some((known, _)) if *known == path => {}
+                    _ => {
+                        files.insert(agent.to_owned(), (path, 0));
+                    }
+                }
+            }
+            let Some((path, offset)) = files.get_mut(agent) else {
+                return;
+            };
+            let (ids, next) = claude_code::inbox::recorded(path, *offset);
+            *offset = next;
+            (ids, next)
+        };
+        if !ids.is_empty() {
+            observer(agent, &ids);
+        }
+    }
 }
 
 /// B39: `(agent id, submitted prompt)` to whether the prompt repeats Messages already delivered.

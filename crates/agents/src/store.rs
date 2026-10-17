@@ -1,5 +1,9 @@
 use super::*;
 
+/// B50(c): how often, and how many times, a transcript is read after a note went.
+const TRANSCRIPT_FLUSH_POLL: Duration = Duration::from_millis(200);
+const TRANSCRIPT_FLUSH_POLLS: u32 = 25;
+
 impl Agents {
     /// `project` is the Project folder and `dir` its data folder (N1). `bus` is for events no call
     /// caused. Claude Code is `ROUNDUP_CLAUDE_BIN` (default `claude`); `git` is whatever `PATH` finds.
@@ -104,6 +108,7 @@ impl Agents {
                     gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
                     prompt_observer: std::sync::OnceLock::new(),
+                    inbox: Default::default(),
                 },
                 channels: Mutex::new(HashMap::new()),
                 scan: Scan::new(scan_interval_from_env()),
@@ -215,6 +220,45 @@ impl Agents {
     /// opens Messages.
     pub fn observe_prompts(&self, observer: PromptObserver) {
         let _ = self.shared.events.prompt_observer.set(observer);
+    }
+
+    /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
+    /// session's message, as its Signals arrive. Set once, after the Daemon opens Messages.
+    pub fn observe_inbox(&self, observer: crate::InboxObserver) {
+        let _ = self.shared.events.inbox.observer.set(observer);
+    }
+
+    /// B51: check Agent `id`'s Claude inbox and keep the outcome as its Rail fact `inbox`.
+    pub async fn inbox_check(&self, id: &str) -> contracts::agent::Inbox {
+        let state = self.launcher.inbox_check(id).await;
+        self.shared.events.inbox.set(id, state);
+        state
+    }
+
+    /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state to hold them for,
+    /// and is the Rail fact too.
+    pub fn inbox_write(
+        &self,
+        id: &str,
+        notes: &[claude_code::inbox::Entry],
+    ) -> Result<(), contracts::agent::Inbox> {
+        self.launcher.inbox_write(id, notes).inspect_err(|state| {
+            self.shared.events.inbox.set(id, *state);
+        })?;
+        // Claude Code may have taken the entries up before they were in flight.
+        self.shared.events.inbox.rescan(id);
+        // Claude Code writes the entry to its transcript after the hook that follows the turn, so
+        // the transcript is read again until it has had time to.
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let (shared, id) = (Arc::clone(&self.shared), id.to_owned());
+            runtime.spawn(async move {
+                for _ in 0..TRANSCRIPT_FLUSH_POLLS {
+                    tokio::time::sleep(TRANSCRIPT_FLUSH_POLL).await;
+                    shared.events.inbox.scan(&id, &serde_json::Value::Null);
+                }
+            });
+        }
+        Ok(())
     }
 
     /// H13: wait `bound` instead of `INTERRUPT_BOUND` for an Interrupt's title. Call it before
@@ -490,6 +534,7 @@ pub(super) mod tests {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 prompt_observer: std::sync::OnceLock::new(),
+                inbox: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
@@ -539,6 +584,7 @@ pub(super) mod tests {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 prompt_observer: std::sync::OnceLock::new(),
+                inbox: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
@@ -621,6 +667,7 @@ pub(super) mod tests {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
                 prompt_observer: std::sync::OnceLock::new(),
+                inbox: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),

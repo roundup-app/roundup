@@ -3888,7 +3888,17 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
         .unwrap();
     // B7 batches pending Messages. Put another note first so the Decision notice
     // cannot accidentally pass only because it heads the submitted prompt.
-    client
+    // B50(e): a note from the user is typed on its own, so another sender's note is the one that
+    // can be batched with the Decision notice.
+    let sender = project.client().await;
+    sender
+        .request(
+            "daemon.identify",
+            json!({"actor": {"kind": "ext", "id": "h21"}}),
+        )
+        .await
+        .unwrap();
+    sender
         .request(
             "message.send",
             json!({"to": door, "kind": "note", "body": "queued before the Decision"}),
@@ -3933,7 +3943,7 @@ async fn h21_a_message_delivered_after_the_decision_cleared_is_still_typed() {
         })
     })
     .await;
-    let queued = typed.find("queued before the Decision\n\n").unwrap();
+    let queued = typed.find("queued before the Decision").unwrap();
     assert!(queued < typed.find(&body).unwrap(), "{typed}");
 }
 
