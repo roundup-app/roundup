@@ -11,6 +11,31 @@
   pointer-events: none;
 }
 
+/* U2307b: the frame is a zero-size manual popover at the pane's corner, so it sits in the browser top layer and the bubble keeps its place in the pane's own coordinates; the browser's popover box rules are reset. */
+.bubble-frame {
+  position: fixed;
+  inset: auto;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: none;
+  color: inherit;
+  pointer-events: auto;
+}
+
+.bubble[hidden],
+.bubble-zone[hidden] {
+  display: none;
+}
+
+/* The library's open state is the only display rule; the popover is shown in the same turn. */
+.bubble-frame[data-state="open"] {
+  display: block !important;
+}
+
 .bubble {
   position: absolute;
   box-sizing: border-box;
@@ -22,12 +47,9 @@
   border-radius: var(--radius-drawer);
   box-shadow: var(--shadow-drawer);
   padding: var(--space-3);
+  padding-block-start: var(--space-1);
   gap: var(--space-2);
   pointer-events: auto;
-}
-
-.bubble[hidden] {
-  display: none;
 }
 
 /* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the panel's ground. */
@@ -41,36 +63,68 @@
   right: max(0px, calc(var(--shelf-span) - var(--space-4)));
 }
 
+/* U2307c: a macOS panel bar, 28 px: close and minimise dots at the left, the name centred on the bar, a status dot after it. */
 .bubble-header {
   flex: none;
-  display: flex;
+  box-sizing: border-box;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  min-height: var(--space-5);
-  padding: 0;
+  height: 28px;
   cursor: grab;
 }
 
+.bubble-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The hit target is 24 px square inside the 28 px bar; only the 10 px dot of ink shows. */
+.bubble-controls button {
+  width: var(--space-5);
+  height: var(--space-5);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  outline-offset: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.bubble-controls button::before {
+  content: "";
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: auto;
+  border-radius: var(--radius-drawer);
+  background: currentColor;
+}
+
 .bubble-name {
-  flex: 1 1 8ch;
-  min-width: 8ch;
+  grid-column: 2;
+  max-width: calc(100cqw - 2 * (2 * var(--space-5) + var(--space-1) + var(--space-2)));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--text-body);
 }
 
 .bubble-state {
-  flex: none;
-  color: var(--grey);
+  grid-column: 3;
+  justify-self: start;
+  width: 8px;
+  height: 8px;
+  margin-inline-start: var(--space-2);
+  border-radius: var(--radius-drawer);
+  background: var(--grey);
 }
 
-.bubble-header button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--space-5);
-  min-height: var(--space-5);
+.bubble-state[data-running="true"] {
+  background: var(--accent);
 }
 
 .bubble-body {
@@ -92,10 +146,6 @@
   box-sizing: border-box;
   pointer-events: auto;
   touch-action: none;
-}
-
-.bubble-zone[hidden] {
-  display: none;
 }
 
 /* U469: every Terminal keeps a pair of separate keyboard controls in the last line. */
