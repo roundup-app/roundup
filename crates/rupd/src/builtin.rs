@@ -26,7 +26,7 @@ pub(crate) fn call(
             conn.actor = p.actor;
             Value::Null
         }),
-        (_, "events.subscribe") => subscribe(daemon, conn, args).map(|()| Value::Null),
+        (_, "events.subscribe") => subscribe(daemon, conn, args),
         (_, "provenance.history") => params::<HistoryParams>(args.clone())
             .and_then(|p| daemon.touches.history(&p.item).map_err(RpcError::internal))
             .and_then(|touches| reply(&touches)),
@@ -44,13 +44,14 @@ pub(crate) fn call(
 }
 
 /// D11: a bad `after` fails here, before any Event is sent.
-fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<(), RpcError> {
+fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<Value, RpcError> {
     let SubscribeParams { after } = if args.is_null() {
         SubscribeParams::default()
     } else {
         params(args.clone())?
     };
     let mut events = daemon.bus.subscribe_after(after)?;
+    let head = events.head();
     let frames = conn.events.clone();
     tokio::spawn(async move {
         loop {
@@ -65,5 +66,5 @@ fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<(), RpcError>
             }
         }
     });
-    Ok(())
+    Ok(json!({ "head": head }))
 }

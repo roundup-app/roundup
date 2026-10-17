@@ -14,6 +14,7 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
   const { app, daemonExit } = useConnectedProject();
   const choices = createChoices(app);
   const [stored, setStored] = createSignal<ProjectModels | null>(null);
+  const [mcp, setMcp] = createSignal(true);
   const [failure, setFailure] = createSignal<string | null>(null);
   const returnTo = document.activeElement;
   let panel: HTMLElement | undefined;
@@ -44,7 +45,10 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
     void choices.load();
     void (async () => {
       try {
-        setStored((await app.rpc("project.get", null)).models);
+        const project = await app.rpc("project.get", null);
+
+        setMcp(project.mcp.on);
+        setStored(project.models);
         queueMicrotask(() => panel?.querySelector<HTMLElement>(FOCUSABLE)?.focus());
       } catch (error) {
         if (!(error instanceof Error)) throw error;
@@ -63,6 +67,22 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
     try {
       await app.rpc("project.setModels", next);
       setStored(next);
+      setFailure(null);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      undo();
+      setFailure(error.message);
+    }
+  };
+
+  /** M2219: `project.setMcp` once per change; only Agents started afterward are affected. */
+  const saveMcp = async (on: boolean, undo: () => void) => {
+    if (daemonExit() !== null) return undo();
+
+    try {
+      await app.rpc("project.setMcp", { on });
+      setMcp(on);
       setFailure(null);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
@@ -131,6 +151,18 @@ export const ModelsSheet = (props: { onClose: () => void }) => {
                     )}
                   </For>
                 </fieldset>
+                <label class="models-check">
+                  <input
+                    type="checkbox"
+                    checked={mcp()}
+                    onChange={(change) => {
+                      const box = change.currentTarget;
+
+                      void saveMcp(box.checked, () => (box.checked = !box.checked));
+                    }}
+                  />
+                  <span>{copy.roundupToolsOverMcp}</span>
+                </label>
                 <p class="models-note">{copy.aRunningAgentIsNotChanged}</p>
               </>
             )}

@@ -96,24 +96,8 @@
   pointer-events: none;
 }
 
-/* U187: the Door's Terminal pane is out of the layout in Thread mode; its state line stays above the feed. */
-.pane[data-thread] {
-  height: auto;
-}
-
-.pane[data-thread] .pane-body {
-  flex: none;
-}
-
 .pane-screen[hidden] {
   display: none;
-}
-
-.pane[data-thread] .pane-empty {
-  position: static;
-  transform: none;
-  white-space: normal;
-  padding: var(--space-2) var(--space-3);
 }
 
 /* U375: Watch says so above the pane, with the one way into a Takeover. */
@@ -203,3 +187,15 @@
   cursor: pointer;
 }
 
+
+.centre-stack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.centre-stack > .pane {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}

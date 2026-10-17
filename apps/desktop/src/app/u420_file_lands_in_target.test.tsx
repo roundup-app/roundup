@@ -17,7 +17,6 @@ const rowY = (id: string) => ROW_TOP + [...document.querySelectorAll(".rail-row"
 
 const selected = () => document.querySelector(".rail-row[aria-selected=true]")?.getAttribute("data-id");
 
-const chips = () => [...document.querySelectorAll(".thread-attachment")].map((chip) => chip.textContent?.trim());
 
 const mount = async (trees: Record<string, RailNode[]>) => {
   window.localStorage.clear();
@@ -33,7 +32,7 @@ const mount = async (trees: Record<string, RailNode[]>) => {
     const daemon = app.of(`/Users/me/${name}`);
 
     daemon.handlers["rail.tree"] = () => trees[name] ?? [];
-    daemon.handlers["terminal.list"] = () => [info("t-a1"), info("t-gone", { running: false, exit_code: 0 })];
+    daemon.handlers["terminal.list"] = () => [info("t-a1"), info("t-w1"), info("t-gone", { running: false, exit_code: 0 })];
     daemon.handlers["terminal.write"] = () => null;
     daemon.handlers["terminal.resize"] = () => null;
     daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
@@ -52,7 +51,6 @@ const mount = async (trees: Record<string, RailNode[]>) => {
       [".rail-row", () => new DOMRect(0, ROW_TOP + index(this, ".rail-row") * 30, 200, 30)],
       [".project-tab", () => new DOMRect(index(this, ".project-tab") * 100, 0, 100, 30)],
       [".pane-body", () => new DOMRect(300, 100, 600, 500)],
-      [".thread-composer", () => new DOMRect(300, 600, 600, 100)],
     ];
 
     return rects.find(([selector]) => this.matches(selector))?.[1]() ?? new DOMRect(0, 0, 0, 0);
@@ -89,7 +87,7 @@ describe("u420 a file dropped on a target lands in that target", () => {
   });
 
   it("u420_a_drop_on_a_project_tab_lands_in_its_selected_workstream", async () => {
-    const { app } = await mount({ web: TREE, api: [agent("z", "idle", "z")] });
+    const { app, made } = await mount({ web: TREE, api: [agent("z", "idle", "z")] });
 
     fireEvent.click(screen.getAllByRole("tab")[0]!);
     await waitFor(() => expect(document.querySelectorAll(".rail-row")).toHaveLength(3));
@@ -99,7 +97,7 @@ describe("u420 a file dropped on a target lands in that target", () => {
     await waitFor(() => expect(selected()).not.toBe("w1"));
     app.dropFiles(drop(tabX(0), 15, "/p/notes.txt"));
 
-    await waitFor(() => expect(chips()).toEqual(["notes.txt"]));
+    await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/notes.txt' "]));
   });
 
   it("u420_a_drop_on_a_project_tab_with_no_selection_delivers_nothing", async () => {
@@ -112,23 +110,22 @@ describe("u420 a file dropped on a target lands in that target", () => {
     expect(document.querySelectorAll("[data-drop]")).toHaveLength(0);
     expect(app.of("/Users/me/web").calls.filter((call) => call.method === "terminal.write")).toEqual([]);
     expect([...made.values()].flatMap((emulator) => emulator.pasted)).toEqual([]);
-    expect(chips()).toEqual([]);
     expect(document.querySelector("[role=alert]")).toBeNull();
   });
 
-  it("u420_a_non_image_dropped_on_a_workstream_attaches", async () => {
-    const { app } = await mount({ api: TREE });
+  it("u420_a_non_image_dropped_on_a_workstream_pastes_into_its_door", async () => {
+    const { app, made } = await mount({ api: TREE });
 
     app.dropFiles(drop(100, rowY("w1"), "/p/notes.txt"));
-    await waitFor(() => expect(chips()).toEqual(["notes.txt"]));
+    await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/notes.txt' "]));
 
     expect(document.querySelector("[role=alert]")).toBeNull();
   });
 
-  it("u420_a_directory_dropped_on_a_workstream_attaches", async () => {
-    const { app } = await mount({ api: TREE });
+  it("u420_a_directory_dropped_on_a_workstream_pastes_into_its_door", async () => {
+    const { app, made } = await mount({ api: TREE });
 
     app.dropFiles(drop(100, rowY("w1"), "/p/some dir/"));
-    await waitFor(() => expect(chips()).toEqual(["some dir"]));
+    await waitFor(() => expect(made.get("t-w1")!.pasted).toEqual(["'/p/some dir/' "]));
   });
 });
