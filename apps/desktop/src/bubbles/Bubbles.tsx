@@ -598,7 +598,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target, relatedTarget } = event;
 
-    if (!(target instanceof Element) || !(relatedTarget instanceof Element) || target.closest("[data-bubble], .terminal-tab-pair")) return;
+    if (!(target instanceof Element) || !(relatedTarget instanceof Element) || target.closest("[data-bubble], .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
 
     const id = relatedTarget.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
 
