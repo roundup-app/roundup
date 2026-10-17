@@ -358,7 +358,10 @@ The conversation with a Workstream's Door about that Workstream's work, not a se
 _Avoid_: chat, main agent
 
 **Message**:
-A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`.
+A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`. `delivered` means the Agent's Signal confirmed the prompt that carried it, not that it was typed (B39).
+
+**In-flight record** (`message_flight`, `SignalOutcome`, `Agents::observe_prompts`, `Messages::confirm_prompt`):
+The saved mark that a pending Message was typed in a prompt and its `UserPromptSubmit` Signal has not confirmed it; a Message is `delivered` only when that Signal arrives, and a prompt that only repeats delivered Messages is dropped by the hook (B39, B40).
 
 **Restart reservation**:
 The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
