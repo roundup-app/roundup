@@ -11,7 +11,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { TAKE_CONTROL, WRITING_KEYS } from "../keys/chords";
+import { TAKE_CONTROL } from "../keys/chords";
 import { Menu } from "../ui/Menu";
 import type { ToastQueue } from "../toasts/queue";
 import { createSendSelection } from "./sendSelection";
@@ -70,7 +70,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     emulator.setFontSize(fontSize);
 
     return emulator;
-  }, (id) => inWatch() && id === terminalId());
+  }, (id) => inWatch() && id === terminalId(), () => setRefused(true));
 
   props.screensRef?.(screens);
 
@@ -90,7 +90,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
-  let pane: HTMLDivElement | undefined;
   let pendingFrame: number | null = null;
 
   let windowResized = false;
@@ -163,70 +162,38 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   /** U532: a key landed on the watched pane, so the band says why nothing was sent. */
   const [refused, setRefused] = createSignal(false);
 
-  const typed = (press: KeyboardEvent): boolean =>
-    !press.metaKey && !press.ctrlKey && !press.altKey
-    && (press.key.length === 1 || WRITING_KEYS.includes(press.key));
-
-  const onKeyDown = (press: KeyboardEvent): void => {
-    if (inWatch() && typed(press) && press.target instanceof Element && press.target.closest(".pane-screen")) setRefused(true);
-
-    if (!press.metaKey || press.ctrlKey || press.altKey) return;
-
+  /** U106, U515: the Terminal screen's own chords, run by the registry before xterm.js sees them. */
+  const inScreen = (press: KeyboardEvent): boolean => {
     const target = press.target;
 
-    if (!(target instanceof Element) || !target.closest(".pane-screen")) return;
-
-    if (target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea")) return;
-
-    const id = terminalId();
-
-    if (id === null) return;
-
-    const key = press.key.toLowerCase();
-
-    // U515: `⇧⌘A` opens the control by the selection with the keyboard in its note.
-    if (press.shiftKey && key === "a") {
-      press.preventDefault();
-      press.stopPropagation();
-      sending.openNote();
-
-      return;
-    }
-
-    const grows = key === "=" || key === "+";
-
-    if (press.shiftKey && !grows) return;
-
-    if (grows || key === "-" || key === "0") {
-      if (connected.daemonExit() !== null) return;
-
-      press.preventDefault();
-      press.stopPropagation();
-
-      const next = key === "0" ? DEFAULT_FONT_SIZE : Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, (fontSize ?? DEFAULT_FONT_SIZE) + (grows ? 1 : -1)));
-
-      if (next === fontSize) return;
-
-      fontSize = next;
-      screens.setFontSize(next);
-      setStorageFailure(storage.write(next));
-      refitNextFrame();
-
-      return;
-    }
-
-    if (key !== "c" && key !== "v") return;
-
-    press.preventDefault();
-    press.stopPropagation();
-
-    const clipboard = navigator.clipboard;
-
-    if (key === "c") void screens.copy(id, clipboard);
-    else void screens.paste(id, clipboard);
+    return target instanceof Element && screen()?.contains(target) === true
+      && !(target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea"));
   };
 
-  onCleanup(() => pane?.removeEventListener("keydown", onKeyDown, true));
+  const resize = (key: "grow" | "shrink" | "reset") => (): void => {
+    const next = key === "reset" ? DEFAULT_FONT_SIZE : Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, (fontSize ?? DEFAULT_FONT_SIZE) + (key === "grow" ? 1 : -1)));
+
+    if (next === fontSize) return;
+
+    fontSize = next;
+    screens.setFontSize(next);
+    setStorageFailure(storage.write(next));
+    refitNextFrame();
+  };
+
+  const onScreen = (run: (id: string) => void, needsDaemon = false) => ({
+    when: (press: KeyboardEvent) => terminalId() !== null && inScreen(press) && (!needsDaemon || connected.daemonExit() === null),
+    run: () => run(terminalId()!),
+  });
+
+  registerKeys({ kind: "region", element: screen }, [
+    { chords: ["Meta+Shift+A"], ...onScreen(() => sending.openNote()) },
+    { chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], ...onScreen(resize("grow"), true) },
+    { chords: ["Meta+-"], ...onScreen(resize("shrink"), true) },
+    { chords: ["Meta+0"], ...onScreen(resize("reset"), true) },
+    { chords: ["Meta+C"], ...onScreen((id) => void screens.copy(id, navigator.clipboard)) },
+    { chords: ["Meta+V"], ...onScreen((id) => void screens.paste(id, navigator.clipboard)) },
+  ]);
 
   const leftThePane = (leave: FocusEvent): void => {
     if (!(leave.relatedTarget instanceof Element) || !leave.relatedTarget.closest(".pane-screen")) setRefused(false);
@@ -393,11 +360,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   return (
-    <div class="pane" data-takeover={taken() ? "" : undefined} ref={(element) => {
-      pane = element;
-      element.addEventListener("keydown", onKeyDown, true);
-      element.addEventListener("focusout", leftThePane);
-    }}>
+    <div class="pane" data-takeover={taken() ? "" : undefined} onFocusOut={leftThePane}>
       <Show when={connected.decisions.listFailure()}>
         {(message) => (
           <div class="decision-list-failure">

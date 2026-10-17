@@ -85,7 +85,7 @@ impl InboxState {
                 let mut watches = self.watches.lock().unwrap_or_else(|e| e.into_inner());
                 watches.insert(agent.to_owned(), watcher);
             }
-            Err(err) => eprintln!("rupd: inbox: cannot watch {}: {err}", folder.display()),
+            Err(err) => eprintln!("inbox: cannot watch {}: {err}", folder.display()),
         }
     }
 

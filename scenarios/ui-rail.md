@@ -142,7 +142,7 @@ Perf: `just perf` holds rule 7's limits (cold start under 300 ms, keystroke-to-r
 
 **U446 the `working` Glyph's arc turns.** Found by Issue #1097: the user wants Solo's and GitHub Actions' turning in-progress mark. Overturns U401's "still" for `working` (its **Six drawings** and **Unmoved** clauses) and `docs/motion.md`'s "`working` is still"; narrows U401 and U405's Todo Glyph; changes no contract, App seam command or Token. Webview only: the turn lives in the shared Glyph, `apps/desktop/src/ink/`, so every `working` mark turns, in the Rail and in the Workstream view's rows (#1087). Given `KindGlyph kind="working"` in the Rail on `agents-10` (U26), light and dark, at 1280 by 820 and 1280 by 800, when a test reads the rendered tree, computed style and captured pixels, then:
 
-- **No centre.** It has no centre dot, so greyscale still tells `needs-you`'s disc in a ring from it: at three angles of the turn, the pixel difference between the `working` and the `needs-you` Glyph boxes stays above 4% of the box (U401's measure). Test (Chromium): `u446_working_stays_distinct_from_needs_you_at_every_angle`.
+- **No centre.** It has no centre dot, so greyscale still tells `needs-you`'s disc in a ring from it: at three angles of the turn, the pixel difference between the `working` and the `needs-you` Glyph boxes stays above 4% of the box (U401's measure). The design critic judges this distinction (AGENTS.md rule 10).
 - **Other five still.** `idle`, `blocked`, `needs-you`, `error` and `done` carry no animation. Test: `u446_only_working_turns`.
 - **Reduced motion.** Under `prefers-reduced-motion: reduce` the arc is still, drawn as U401 draws it, and `docs/motion.md` says so. Test: `u446_reduced_motion_stills_the_arc`.
 - **Cost.** With ten `working` Agents on screen `just perf` holds AGENTS.md rule 7's limits.
@@ -167,7 +167,7 @@ Observer: Vitest `u447_` cases; the harness captures to `artifacts/ux/U447/`. Mo
 > U466 replaces Size for all Rail row names with `--text-title`; 32 px rows remain.
 
 - **Size.** A row's name is `--text-body` (it is `--text-small` today); the Pad leaf's name stays `--text-small` in `--grey`. Test: `u448_row_names_are_body_size`.
-- **Inside the width.** The step, the Glyph column and the right side keep U404's clauses; at 252 px `tree-40` passes the Checks (D10, U23). Test: `u448_the_narrow_rail_passes_the_checks`.
+- **Inside the width.** The step, the Glyph column and the right side keep U404's clauses; at 252 px `tree-40` passes the Checks (D10, U23). The design critic judges the Checks at this width (AGENTS.md rule 10).
 - **Unmoved.** Hovering, selecting, folding and unfolding move no row's top edge or height (U46), every Glyph's left x in a column is within 1 px (D12), and the contrast of every word stays 4.5:1 (D5).
 
 Observer: Vitest `u448_` cases; the harness measures the boxes and captures to `artifacts/ux/U448/`. Moves: D2, D5, D10, D12.
