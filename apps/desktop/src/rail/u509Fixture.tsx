@@ -18,7 +18,7 @@ const failing = new URLSearchParams(location.search).has("fail");
 
 const app = createFakeApp();
 
-app.handlers["project.get"] = () => failing ? Promise.reject(new Error(`Could not read the Project settings ${"x".repeat(40)}`)) : ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: "subagent", model: null, effort: null }], allowed: [] } });
+app.handlers["project.get"] = () => failing ? Promise.reject(new Error(`Could not read the Project settings ${"x".repeat(40)}`)) : ({ worktrees: { on: false, check: null }, mcp: { on: true }, models: { roles: [{ role: "subagent", model: null, effort: null }] } });
 
 const Fixture = () => {
   const [pair, setPair] = createSignal<{ model: string | null; effort: string | null }>({ model: null, effort: null });
