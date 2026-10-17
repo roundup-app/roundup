@@ -1,10 +1,17 @@
 import { registerKeys } from "./registry";
 import { chordsFor, RAIL_KEYS } from "./chords";
+import { useConnectedProject } from "../state/connectedProject";
 import { placeOf } from "./places";
 import { ROW } from "../rail/rows";
 
 const rowOf = (target: EventTarget | null): HTMLElement | null =>
   target instanceof HTMLElement && target.matches(ROW) ? target : null;
+
+const rowElement = (id: string): HTMLElement | null => {
+  const item = document.querySelector<HTMLElement>(`[role="tree"] [role="treeitem"][data-id="${id}"]`);
+
+  return item === null || item.matches(ROW) ? item : item.querySelector<HTMLElement>(ROW);
+};
 
 const focusTabbableRow = (): void => document.querySelector<HTMLElement>(`[role="tree"] :is(${ROW})[tabindex="0"]`)?.focus();
 
@@ -37,6 +44,8 @@ const stepsFrom = (press: KeyboardEvent): boolean => {
 
 /** `⌘1`, `⌘2` and `F2`, the Rail keys U31 leaves to U41, and `←`, `→` on a leaf Agent's Pads (GLOSSARY.md, Rail); the tree's own `←`, `→` come from Ark (U520). No UI of its own. */
 export const Keys = () => {
+  const { rail } = useConnectedProject();
+
   const onRename = (row: HTMLElement): void => {
     row.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   };
