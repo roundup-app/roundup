@@ -148,7 +148,7 @@ describe("u2239 the leader takes the next key", () => {
 
     const panel = document.querySelector(".leader")!;
 
-    expect([...panel.querySelectorAll(".leader-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim())).toEqual(LEADER.map((entry) => `${entry.keys} ${entry.what}`));
+    expect([...panel.querySelectorAll(".leader-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim())).toEqual(LEADER.map((entry) => `${entry.keys} ${entry.short}`));
     expect(document.activeElement).toBe(focus);
     expect(panel.querySelector("[tabindex], button, a")).toBeNull();
     key("Escape");

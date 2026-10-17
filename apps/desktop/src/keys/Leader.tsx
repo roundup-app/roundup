@@ -39,7 +39,7 @@ export const Leader = () => {
           {(key) => (
             <span class="leader-line">
               <span class="leader-keys">{key.keys}</span>
-              {`  ${key.what}`}
+              {`  ${key.short}`}
             </span>
           )}
         </For>
