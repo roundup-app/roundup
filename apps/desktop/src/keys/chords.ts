@@ -43,7 +43,7 @@ export const pressOf = (press: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "metaK
 const MODIFIERS = Object.entries({ Control: "ctrl", Alt: "alt", Meta: "meta", Shift: "shift" });
 
 /** tinykeys spellings derived from the same presses Help displays. */
-export const chordsFor = (keys: string): readonly string[] => {
+const chordsFor = (keys: string): readonly string[] => {
   const chord = CHORDS.find((chord) => chord.keys === keys);
 
   return (chord?.presses ?? []).map((press) =>

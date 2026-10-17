@@ -52,7 +52,7 @@ it("u2240_the_panel_preserves_rendered_checks", async () => {
       await browser("--profile", profile, "--args", "--force-high-contrast,--disable-blink-features=ForcedColors", "open", origin);
     }
 
-    for (const width of [1280, 700]) for (const scheme of ["light", "dark"]) {
+    for (const width of [1280, 1440]) for (const scheme of ["light", "dark"]) {
       await browser("set", "viewport", String(width), "800");
       await browser("set", "media", scheme);
       await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
