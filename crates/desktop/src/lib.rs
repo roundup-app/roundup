@@ -17,7 +17,7 @@ use contracts::Event;
 use rpc::RpcError;
 use serde_json::Value;
 pub use state::{AppState, Listed, Project};
-use tauri::ipc::Channel;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Builder, Manager, RunEvent, Runtime, State};
 
 /// `exit` ends the App with a code; `run` passes `AppHandle::exit`. It is a parameter because the
@@ -41,6 +41,8 @@ pub fn build<R: Runtime>(
             rename_project,
             rpc,
             subscribe,
+            terminal_output,
+            terminal_output_stop,
             daemon_proof,
             open_target,
             open_in_editor,
@@ -145,6 +147,26 @@ async fn subscribe(
     channel: Channel<Event>,
 ) -> Result<(), RpcError> {
     state.subscribe(&path, channel).await
+}
+
+/// X14: raw `ArrayBuffer` bodies of one Terminal's bytes, and JSON gaps, on one ordered channel.
+#[tauri::command]
+async fn terminal_output(
+    state: State<'_, AppState>,
+    path: String,
+    id: String,
+    channel: Channel<InvokeResponseBody>,
+) -> Result<u64, RpcError> {
+    state.terminal_output(&path, &id, channel).await
+}
+
+#[tauri::command]
+fn terminal_output_stop(
+    state: State<'_, AppState>,
+    path: String,
+    id: String,
+) -> Result<(), RpcError> {
+    state.terminal_output_stop(&path, &id)
 }
 
 #[tauri::command]

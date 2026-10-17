@@ -184,6 +184,8 @@ async fn agent_env(method: &str) -> String {
                     name: None,
                     model: None,
                     effort: None,
+                    scout: None,
+                    extras: None,
                 },
             )
             .await

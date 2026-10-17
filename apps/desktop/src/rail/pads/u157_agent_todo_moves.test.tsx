@@ -44,12 +44,27 @@ describe("u157 a Todo created by an Agent", () => {
 
     expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("In Project root");
     fireEvent.mouseEnter(nested);
-    fireEvent.click(within(nested).getByRole("button", { name: "Move #1" }));
-    fireEvent.click(within(nested).getByRole("button", { name: "alpha" }));
+    const word = within(nested).getByRole("button", { name: "Move #1" });
+    // The chooser is "Homes for #1": an in-row group on the picker, a portalled menu on the shared Menu.
+    const chooser = () => document.body.querySelector<HTMLElement>('[role="group"][aria-label="Homes for #1"], [role="menu"][aria-label="Homes for #1"]');
+
+    // The shared Menu opens on pointer-down, the picker on click.
+    fireEvent.pointerDown(word, { button: 0, pointerType: "mouse" });
+
+    if (!chooser()) fireEvent.click(word);
+
+    const mounted = await waitFor(() => chooser() ?? Promise.reject(new Error("no Homes chooser")));
+
+    const offer = await waitFor(
+      () => within(mounted).queryByRole("button", { name: "alpha" }) ?? within(mounted).queryByRole("menuitem", { name: "alpha" }) ?? Promise.reject(new Error("no alpha offer")),
+    );
+
+    fireEvent.click(offer);
 
     await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("In alpha"));
     expect(document.querySelector('[data-todo="1"]')).not.toBeNull();
     expect(document.querySelector('[data-shelf-row][data-id="1"]')).toBeNull();
+    expect(app.calls.filter((c) => c.method === "todo.move").map((c) => c.params)).toEqual([{ id: 1, home: "r1" }]);
     expect(store.todos[0]?.creator).toEqual(creator);
   });
 });

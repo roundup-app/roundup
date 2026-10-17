@@ -40,6 +40,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     );
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
+        terminals: terminals.clone(),
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
@@ -279,6 +280,7 @@ async fn u467_unsent_terminal_input_is_not_clobbered() {
     sender.set(messages.clone()).ok();
     let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
     let mut daemon = Daemon {
+        terminals: terminals.clone(),
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),

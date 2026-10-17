@@ -7,7 +7,7 @@ mod module;
 use std::io;
 use std::path::PathBuf;
 
-pub use client::Client;
+pub use client::{Client, OutputFrame};
 pub use error::{RpcError, code};
 pub use module::{Bus, Ctx, EVENT_WINDOW, EventLog, Module, Subscription, params, reply};
 

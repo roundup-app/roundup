@@ -1,13 +1,16 @@
+use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use contracts::Event;
-use rpc::{Client, RpcError, code};
+use rpc::{Client, OutputFrame, RpcError, code};
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 use tauri::async_runtime::JoinHandle;
-use tauri::ipc::Channel;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tokio::process::ChildStdin;
 use tokio::time::timeout;
@@ -52,12 +55,17 @@ struct Open {
     run: u64,
     /// One at a time: a reloaded webview subscribes again and must not receive every Event twice.
     subscription: Option<JoinHandle<()>>,
+    /// X14: one connection and pump per selected Terminal; dropping one releases that selection.
+    outputs: HashMap<String, JoinHandle<()>>,
 }
 
 impl Drop for Open {
     fn drop(&mut self) {
         if let Some(subscription) = self.subscription.take() {
             subscription.abort();
+        }
+        for (_, output) in self.outputs.drain() {
+            output.abort();
         }
     }
 }
@@ -217,6 +225,98 @@ impl AppState {
         }
     }
 
+    /// X14: selects one Terminal's output on its own connection to the Project's Daemon and sends
+    /// its bytes to `channel` as raw bodies: bytes are never JSON, base64 or text. A gap, whether
+    /// the Daemon reported it or this App's intake lagged, goes as the JSON body `{"gap":{"from","to"}}`
+    /// in the same order. Answers the offset of the first byte. A later call for the same Terminal
+    /// replaces the earlier subscription.
+    pub async fn terminal_output(
+        &self,
+        path: &str,
+        id: &str,
+        channel: Channel<InvokeResponseBody>,
+    ) -> Result<u64, RpcError> {
+        let socket = self.open_ref(path, |open| open.socket.path().to_path_buf())?;
+        let mut client = Client::connect(&socket).await.map_err(RpcError::internal)?;
+        let mut frames = client
+            .take_output()
+            .ok_or_else(|| RpcError::internal("the output intake was already taken"))?;
+        let started = self
+            .bounded(
+                "terminal.output",
+                client.request("terminal.output", json!({ "id": id })),
+            )
+            .await?;
+        let first = started["offset"]
+            .as_u64()
+            .ok_or_else(|| RpcError::internal("terminal.output answered no offset"))?;
+        let pump = tauri::async_runtime::spawn(async move {
+            // Dropping the client at the end closes the socket, which releases the selection.
+            let _client = client;
+            let mut next = first;
+            loop {
+                let (from, to, bytes) = match frames.recv().await {
+                    Ok(OutputFrame::Bytes(event)) => {
+                        let Ok(bytes) = STANDARD.decode(&event.data) else {
+                            return;
+                        };
+                        (next, event.offset, Some(bytes))
+                    }
+                    Ok(OutputFrame::Gap(gap)) => (next, gap.to, None),
+                    // Skipped frames show as an offset jump at the next byte frame.
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                };
+                if to != from {
+                    let gap = json!({ "gap": { "from": from, "to": to } }).to_string();
+                    if channel.send(InvokeResponseBody::Json(gap)).is_err() {
+                        return;
+                    }
+                    next = to;
+                }
+                if let Some(bytes) = bytes {
+                    next += bytes.len() as u64;
+                    if channel.send(InvokeResponseBody::Raw(bytes)).is_err() {
+                        return;
+                    }
+                }
+            }
+        });
+        let mut entries = self.entries();
+        match entries.iter_mut().find(|entry| entry.path == path) {
+            Some(Entry {
+                phase: Phase::Open(open),
+                ..
+            }) => {
+                if let Some(previous) = open.outputs.insert(id.to_owned(), pump) {
+                    previous.abort();
+                }
+                Ok(first)
+            }
+            _ => {
+                pump.abort();
+                Err(RpcError::internal("the Daemon went away while subscribing"))
+            }
+        }
+    }
+
+    /// X14: releases the App's selection of one Terminal; the other Terminals' streams go on.
+    pub fn terminal_output_stop(&self, path: &str, id: &str) -> Result<(), RpcError> {
+        let mut entries = self.entries();
+        match entries.iter_mut().find(|entry| entry.path == path) {
+            Some(Entry {
+                phase: Phase::Open(open),
+                ..
+            }) => {
+                if let Some(pump) = open.outputs.remove(id) {
+                    pump.abort();
+                }
+                Ok(())
+            }
+            _ => Err(not_open(path)),
+        }
+    }
+
     /// Ends the Project's Daemon by closing its stdin, so a Daemon started with `--attached` stops
     /// its Agents and Terminals and exits (S3); the other Projects go on.
     pub fn close_project(&self, path: &str) -> Result<(), RpcError> {
@@ -332,6 +432,7 @@ impl AppState {
             socket: started.socket,
             run,
             subscription: None,
+            outputs: HashMap::new(),
         };
         let mut entries = self.entries();
         match entries.iter_mut().find(|entry| entry.path == key) {

@@ -10,6 +10,9 @@ pub enum Role {
     Agent,
     /// A Workstream's Door, started by `rail.startDoor`.
     Door,
+    /// LC4: a Subagent started with `scout: true`, which reads and searches only. It takes the
+    /// Subagent's Model and Effort, so it is no entry of `ALL`.
+    Scout,
 }
 
 impl Role {
@@ -20,7 +23,7 @@ impl Role {
     pub fn id(self) -> &'static str {
         match self {
             Role::Door => "door",
-            Role::Agent => "subagent",
+            Role::Agent | Role::Scout => "subagent",
         }
     }
 }
@@ -241,7 +244,7 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 6] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 8] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
@@ -253,6 +256,14 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 6] = [
     (
         "checkpoint_write",
         "mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made",
+    ),
+    (
+        "agent_extras",
+        "list the skills, plugins and servers of the user's setup that a child can be given",
+    ),
+    (
+        "agent_extras_add",
+        "give a running child of yours such extras by name; it is relaunched with its conversation",
     ),
     (
         "terminal_show",
@@ -283,6 +294,7 @@ When the user asks to see a child's output, call `terminal_show` with the id of 
 Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
+Pass `scout: true` for a child that only reads and searches. A child starts with the tools its job needs and nothing of the user's other setup; when it needs a skill, plugin or server of the user's, read `agent_extras` and pass `extras` to `agent_spawn`. \
 Pass `model` as the smallest Model that does the child's job (`haiku`, `sonnet`, `opus` or `fable`); omit it to take the Project's. \
 Give each child an `order`: a `title` of at most six words, the one-sentence ask, how it knows it is done, and its limits. Put the working detail in `prompt`. \
 When the user gives you the words of a task, write its `order` yourself, call `agent_spawn` with that `order` and the user's words exactly as typed in `prompt`, and then report directly in your Terminal: name the new Agent and give its ask in one sentence. \
@@ -312,6 +324,24 @@ Write every reply, including direct Terminal prose, in hold:Plain regardless of 
 Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. \
 Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
 
+";
+
+/// LC3: Plain's rules in the Door's own words; the Door reads no user `CLAUDE.md` and a Project's
+/// stays in force, so nothing here overrides it or forces a status table.
+const DOOR_PLAIN: &str = "\
+## Output style
+
+Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. \
+Keep prose to a few short lines and put rows in a table. \
+Where the Project's `CLAUDE.md` asks for something else, follow it.
+
+";
+
+/// LC4: what a scout is told.
+const SCOUT: &str = "\
+## Your role
+
+You are a scout: you read and search, and you change nothing. Answer the ask that started you in a few lines and send it to your parent with `message_send`.
 ";
 
 /// Q6: `hope/skills/reduce/SKILL.md` of `saadshahd/moo.md` commit 595eda0e3b477d1af1daad82f395073d4f912c8d,
@@ -466,9 +496,17 @@ fn with_tools(role: Role, mcp: bool) -> String {
     }
     text.push('\n');
     text.push_str(TERMINAL_HABIT);
-    text.push_str(PLAIN_RULE);
-    text.push_str(HOLD_PLAIN);
-    text.push('\n');
+    // LC3, LC5: the vendored body is the worker's; the Door states the rules in its own words and a
+    // scout, which writes only to its parent, needs none.
+    match role {
+        Role::Door => text.push_str(DOOR_PLAIN),
+        Role::Scout => {}
+        Role::Agent => {
+            text.push_str(PLAIN_RULE);
+            text.push_str(HOLD_PLAIN);
+            text.push('\n');
+        }
+    }
     text.push_str(ASK_RULE);
     text.push_str(REDUCE_RULE);
     text.push_str(REDUCE);
@@ -478,6 +516,10 @@ fn with_tools(role: Role, mcp: bool) -> String {
         text.push('\n');
         text.push_str(DOOR);
         text.push_str(DOOR_QUESTIONS);
+    }
+    if role == Role::Scout {
+        text.push('\n');
+        text.push_str(SCOUT);
     }
     text
 }

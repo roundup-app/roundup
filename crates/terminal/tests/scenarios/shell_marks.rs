@@ -3,14 +3,13 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use contracts::EventData;
-use tokio::sync::broadcast::Receiver;
+use terminal::OutputStream;
 
-use crate::common::{PATIENCE, decode, open, sh, until_exit};
+use crate::common::{PATIENCE, open, sh, until_exit};
 
 /// Everything a Terminal printed so far; `until` waits for `needle` past what earlier waits saw.
 struct Output<'a> {
-    events: &'a mut Receiver<EventData>,
+    stream: &'a mut OutputStream,
     printed: String,
     seen: usize,
 }
@@ -23,10 +22,10 @@ impl Output<'_> {
                     self.seen += at + needle.len();
                     return;
                 }
-                if let EventData::TerminalOutput(out) =
-                    self.events.recv().await.expect("events stay open")
+                if let terminal::Output::Bytes { bytes, .. } =
+                    self.stream.next().await.expect("the output stays open")
                 {
-                    self.printed.push_str(&decode(&out.data));
+                    self.printed.push_str(&String::from_utf8_lossy(&bytes));
                 }
             }
         })
@@ -86,7 +85,7 @@ async fn x15_zsh_bash_and_fish_get_the_integration_and_keep_the_users_startup_fi
             .await
             .unwrap();
         let mut out = Output {
-            events: &mut spawned.events,
+            stream: &mut spawned.output,
             printed: String::new(),
             seen: 0,
         };
@@ -97,7 +96,7 @@ async fn x15_zsh_bash_and_fish_get_the_integration_and_keep_the_users_startup_fi
         out.until("\x1b]133;C\x07").await;
         out.until("\x1b]133;D;0\x07").await;
         terminals.write(&spawned.id, b"exit\r").await.unwrap();
-        let (rest, _) = until_exit(&mut spawned.events).await;
+        let (rest, _) = until_exit(&mut spawned).await;
         drop(rest);
     }
 }
@@ -116,7 +115,7 @@ async fn x15_a_command_prints_the_four_marks_with_its_exit_code_and_the_director
             .await
             .unwrap();
         let mut out = Output {
-            events: &mut spawned.events,
+            stream: &mut spawned.output,
             printed: String::new(),
             seen: 0,
         };
@@ -135,7 +134,7 @@ async fn x15_a_command_prints_the_four_marks_with_its_exit_code_and_the_director
         out.until("\x1b]7;file://").await;
         out.until("/\x07").await;
         terminals.write(&spawned.id, b"exit\r").await.unwrap();
-        until_exit(&mut spawned.events).await;
+        until_exit(&mut spawned).await;
     }
 }
 
@@ -159,7 +158,7 @@ async fn x15_other_shells_and_spawned_programs_get_no_injection() {
         )
         .await
         .unwrap();
-    let (printed, _) = until_exit(&mut spawned.events).await;
+    let (printed, _) = until_exit(&mut spawned).await;
     assert!(printed.contains("z=none"), "{printed:?}");
     assert!(!printed.contains("133;"), "{printed:?}");
     assert!(!dir.path().join("shell-integration").exists());
@@ -172,7 +171,7 @@ async fn x15_other_shells_and_spawned_programs_get_no_injection() {
         "echo z=${ZDOTDIR:-none}".into(),
     ]);
     let mut spawned = terminals.spawn(params).await.unwrap();
-    let (printed, _) = until_exit(&mut spawned.events).await;
+    let (printed, _) = until_exit(&mut spawned).await;
     assert!(
         printed.contains("z=none") && !printed.contains("133;"),
         "{printed:?}"

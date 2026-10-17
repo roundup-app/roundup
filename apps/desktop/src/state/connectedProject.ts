@@ -10,8 +10,6 @@ import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
 import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
-import { createOutputFeed } from "./output";
-import type { OutputFeed } from "./output";
 import { createRailState } from "./rail";
 import { createTakeover } from "./takeover";
 import type { TakeoverState } from "./takeover";
@@ -24,8 +22,6 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
-  /** `terminal.output` from the first subscription on, so nothing is lost before the Pane mounts. */
-  output: OutputFeed;
   drawer: DrawerState;
   decisions: DecisionsState;
   /** U504: the Asks the user sent and where each part went. */
@@ -51,12 +47,11 @@ export const connectProject = async (
 ): Promise<ConnectedProject> => {
   const contractNotice = await checkContract(app);
   const events = await connectEvents(app);
-  const output = createOutputFeed(events);
   const rail = createRailState(app, events, storage);
 
   await rail.settled();
 
-  return { project, app, events, rail, output, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
+  return { project, app, events, rail, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();

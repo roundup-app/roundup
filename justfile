@@ -136,15 +136,9 @@ app-release project:
     cargo build --release -p desktop --features custom-protocol
     cargo run --release -p desktop --features custom-protocol -- "$path"
 
-# S12: renders crates/desktop/icons/icon.png, the Dock icon of an unbundled App, from its Icon Composer source; needs Xcode 26 on macOS.
+# S12: renders the App's 1024 px Dock icon from the approved artwork; needs macOS's sips.
 icon:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    out=$(mktemp -d)
-    trap 'rm -rf "$out"' EXIT
-    xcrun actool crates/desktop/icons/roundup.icon --compile "$out" --app-icon roundup --include-all-app-icons --standalone-icon-behavior all --platform macosx --target-device mac --minimum-deployment-target 26.0 --output-partial-info-plist "$out/partial.plist" >/dev/null
-    iconutil -c iconset "$out/roundup.icns" -o "$out/roundup.iconset"
-    cp "$out/roundup.iconset/icon_512x512@2x.png" crates/desktop/icons/icon.png
+    sips -z 1024 1024 crates/desktop/icons/artwork.png --out crates/desktop/icons/icon.png >/dev/null
 
 # Rule 7 as a command: measures a fresh Daemon (median of 11 runs), writes target/perf.json, fails on a miss against crates/perf/budgets.json.
 perf *args:

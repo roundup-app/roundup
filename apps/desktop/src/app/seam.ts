@@ -35,6 +35,12 @@ export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "imag
 /** An image read from the clipboard: its type and exactly its bytes. */
 export type PastedImage = { type: (typeof PASTED_IMAGE_TYPES)[number]; bytes: Uint8Array };
 
+/** One message of a Terminal's output stream: the next bytes exactly as the program wrote them, or the range `from..to` that was not delivered (the stream resumes at `to`). */
+export type OutputMessage = Uint8Array | { gap: { from: number; to: number } };
+
+/** `offset` is the position of the first byte the stream delivers. `release` ends only this subscription; after it the listener is never called. */
+export type OutputSubscription = { offset: number; release(): Promise<void> };
+
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
   /** The proof the App gave the Project's Daemon, which `decision.answer` needs (H4); keep it in memory only. Rejects when the Project is not open and after its Daemon exits. */
@@ -45,6 +51,8 @@ export type ProjectCalls = {
   ): Promise<RpcMethods[M]["result"]>;
   /** Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order. */
   subscribe(onEvent: (event: DaemonEvent) => void): Promise<void>;
+  /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */
+  selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
 
 /** The Tauri commands the App registers (`crates/desktop`), every one of them; `m5_every_app_action_has_a_tool_or_a_reason` reads this table and fails for a command without an MCP tool or a reason. */
@@ -55,6 +63,8 @@ export const SEAM_COMMANDS = [
   "rename_project",
   "rpc",
   "subscribe",
+  "terminal_output",
+  "terminal_output_stop",
   "daemon_proof",
   "open_target",
   "open_in_editor",

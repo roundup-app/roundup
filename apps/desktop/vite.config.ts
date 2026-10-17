@@ -74,6 +74,8 @@ export default defineConfig({
   server: { port: 5173, strictPort: true },
   test: {
     environment: "jsdom",
+    // A shard's real-Claude and Chromium files starve the first test of a file past vitest's 5 s (owner's choice, 2026-10-17); a test that sets its own longer limit keeps it.
+    testTimeout: 15_000,
     // Complete per-test evidence stays in check logs, alongside human failure diagnostics.
     reporters: ["default", ["json", { stdout: true }]],
     // Vitest returns empty CSS by default; the Drawer and tokens tests need the real rules.

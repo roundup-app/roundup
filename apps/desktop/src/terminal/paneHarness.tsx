@@ -1,18 +1,16 @@
 import { render } from "@solidjs/testing-library";
+import { expect, vi } from "vitest";
 import type { Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
-import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { createFakeApp } from "../testing/fakeApp";
-import { USER } from "../testing/nodes";
 import type { FakeApp } from "../testing/fakeApp";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
 import { Pane } from "./Pane";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
-import { toBase64 } from "./base64";
 import type { Printed } from "./links";
 import type { TurnFacts } from "./turns";
 
@@ -144,16 +142,9 @@ export const fakeEmulators = () => {
   return { factory, made };
 };
 
-let offsets = new Map<string, number>();
-
-export const output = (id: string, text: string, offset?: number): DaemonEvent => {
-  const bytes = new TextEncoder().encode(text);
-  const start = offset ?? offsets.get(id) ?? 0;
-
-  offsets.set(id, start + bytes.length);
-
-  return { actor: USER, name: "terminal.output", data: { id, offset: start, data: toBase64(bytes) } };
-};
+/** Resolves once the Terminal's output subscription is installed, so what it prints next reaches the pane. */
+export const subscribed = (app: FakeApp, id: string): Promise<void> =>
+  vi.waitFor(() => expect(app.outputSubscriptions.some((subscription) => subscription.id === id && !subscription.released)).toBe(true));
 
 type Mounted = {
   app: FakeApp;
@@ -169,7 +160,6 @@ export const connectFakeProject = async (
   now = 0,
   daemonExit: Accessor<DaemonExit | null> = () => null,
 ): Promise<{ app: FakeApp; connected: ConnectedProject }> => {
-  offsets = new Map();
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree;
