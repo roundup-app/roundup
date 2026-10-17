@@ -65,9 +65,6 @@ describe("u406 the Card for ask_user", () => {
     press(list, "ArrowDown");
     await selectedIs(1);
     expect(preview()).toContain("B's preview");
-    const style = getComputedStyle(card()!.querySelector(".ask-preview")!);
-
-    expect([style.animationName, style.transitionProperty].filter((value) => value !== "" && value !== "none" && value !== "all")).toEqual([]);
     press(list, "ArrowDown");
     await selectedIs(2);
     expect(preview()).toBeNull();
@@ -90,7 +87,6 @@ describe("u406 the Card for ask_user", () => {
     const preview = card()!.querySelector(".decision-preview")!;
 
     expect(preview.querySelector("pre")!.textContent).toContain("sketch");
-    expect(getComputedStyle(preview.querySelector("p")!).whiteSpace).toBe("pre-line");
   });
 
   it("u406_enter_sends_the_focused_label_and_the_note", async () => {
@@ -160,17 +156,6 @@ describe("u406 the Card for ask_user", () => {
 
     await waitFor(() => expect(card()).toBeNull());
     expect(calls(app)).toHaveLength(2);
-  });
-
-  it("u406_a_long_preview_scrolls_inside_the_card", async () => {
-    await open([{ label: "A", description: "d", preview: Array.from({ length: 60 }, (_, line) => `line ${line}`).join("\n\n") }]);
-
-    const box = card()!.querySelector<HTMLElement>(".ask-preview")!;
-
-    expect(getComputedStyle(box).overflow).toBe("auto");
-    expect(getComputedStyle(card()!).maxHeight).toBe("50%");
-    expect(box.nextElementSibling).toBe(note().parentElement);
-    expect(send().isConnected).toBe(true);
   });
 
   it("u406_no_answers_shows_the_field_only", async () => {

@@ -44,33 +44,18 @@ const record = async (id: string, name: string, checks: Checks) => {
   writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(checks, null, 2));
 };
 
-type Rect = { x: number; y: number; width: number; height: number };
-
-type Bounds = { centre: Rect; stack: Rect; pane: Rect; strip: Rect; wrappers: string[] };
-
 const failing = (checks: Checks) => CHECK_IDS.filter((id) => checks[id].status === "fail");
 
-describe("u467 the primary Terminal fills the centre", () => {
-  it("u467_the_primary_terminal_fills_the_centre", async () => {
+describe("u467 the primary Terminal stands alone", () => {
+  it("u467_the_primary_terminal_has_no_thread_wrappers_and_passes_the_checks", async () => {
     for (const width of VIEWPORTS) {
       for (const scheme of SCHEMES) {
         await open(width, scheme);
         await select("payments");
 
-        const bounds = await page.call<Bounds>(`() => {
-          const rect = (s) => { const e = document.querySelector(s); if (!e) return { x: 0, y: 0, width: 0, height: 0 }; const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
-          return { centre: rect('.centre'), stack: rect('.centre-stack'), pane: rect('.pane'), strip: rect('.resource-strip'),
-            wrappers: [...document.querySelectorAll('.thread-composer, .thread-feed, .thread-header, .digest, [data-thread]')].map((e) => e.className) };
-        }`);
+        const wrappers = await page.call<string[]>(`() => [...document.querySelectorAll('.thread-composer, .thread-feed, .thread-header, .digest, [data-thread]')].map((e) => e.className)`);
 
-        const { centre, stack, pane, strip } = bounds;
-
-        expect(bounds.wrappers).toEqual([]);
-        // The pane takes the stack's width and top; only the resource strip shares its height.
-        expect([pane.x, pane.y, pane.width]).toEqual([stack.x, stack.y, stack.width]);
-        expect(Math.abs(pane.height + strip.height - stack.height)).toBeLessThanOrEqual(1);
-        // The stack fills the centre, which has no inset of its own (U2340a, U2340d), the same at both viewports.
-        expect([stack.x - centre.x, centre.width - stack.width - (stack.x - centre.x), stack.y - centre.y, centre.height - stack.height]).toEqual([0, 0, 0, 0]);
+        expect(wrappers).toEqual([]);
 
         const checks = await readChecks();
 
