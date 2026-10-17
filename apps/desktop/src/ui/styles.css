@@ -141,11 +141,9 @@
   border-radius: var(--radius-row);
 }
 
+/* The drop line is the only drop marker; the slot keeps the row space the library opens. */
 [data-dnd-placeholder] {
   visibility: visible !important;
-  outline: 1px solid var(--hairline);
-  outline-offset: -1px;
-  border-radius: var(--radius-row);
 }
 
 [data-dnd-placeholder] > * {
