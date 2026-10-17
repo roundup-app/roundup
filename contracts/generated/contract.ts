@@ -16,7 +16,7 @@ export const CONTRACT = {
     "agent.run": "c39f7757662ce10c",
     "agent.setModel": "a39ada4af9d22490",
     "agent.setOrder": "3721fdf31956eac7",
-    "agent.signal": "bee6004170b53cab",
+    "agent.signal": "a38ecdad5e0ad001",
     "agent.skills": "2cc888937b3bd549",
     "agent.spawn": "e2da2683d27ba6c2",
     "agent.spawnPrompt": "bbfc3c016e4ec01c",

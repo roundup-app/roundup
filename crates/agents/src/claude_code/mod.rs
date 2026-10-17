@@ -291,9 +291,13 @@ pub const STATUS_LEAD: &str = "Status, nothing to follow: ";
 const DIGEST_HEAD: &str = "[from rupd, note] [digest]";
 
 /// The lead a Steer of `text` is typed with: `STATUS_LEAD` when every Message of the batch (the
-/// paragraphs B30 joins) is a pushed Digest, `LEAD_IN` otherwise.
+/// paragraphs B30 joins) is a pushed Digest, `LEAD_IN` otherwise. B39's id line closing the prompt is
+/// not a Message.
 fn lead_of(text: &str) -> &'static str {
-    if text.split("\n\n").all(|part| part.starts_with(DIGEST_HEAD)) {
+    let parts = text
+        .split("\n\n")
+        .filter(|part| !part.starts_with("[rup messages:"));
+    if parts.into_iter().all(|part| part.starts_with(DIGEST_HEAD)) {
         STATUS_LEAD
     } else {
         LEAD_IN
