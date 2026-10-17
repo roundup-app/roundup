@@ -63,7 +63,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code.startsWith("Arrow") ? code : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Slash" ? "/" : code === "Enter" ? code : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -124,7 +124,7 @@ describe("u54 keyboard help", () => {
     expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
       "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
       "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
-      "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
+      "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘↑  Previous Agent", "⌘↓  Next Agent", "⌘⌫  Remove",
       "⌘⏎  Take control", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
       "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
       "⌘/  Ask bar", "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
@@ -145,6 +145,10 @@ describe("u54 keyboard help", () => {
     const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
 
     expect(lines).toEqual(CHORDS.map((chord) => `${chord.keys} ${chord.what}`));
+
+    // U2230: a chord shown as a hint is one of these lines.
+    for (const chord of CHORDS.filter((row) => row.hint)) expect(lines).toContain(`${chord.keys} ${chord.what}`);
+
     expect(lines.slice(0, 2)).toEqual(["⌘J Jump to what needs you", "⌘N New Agent"]);
 
     await waitFor(() => expect(document.activeElement).toBe(panel));
@@ -196,7 +200,9 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(await boundPresses(document.querySelector(".terminal-new")!))].sort();
+    // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
+    const outsideTerminal = document.querySelector(".terminal-new")!;
+    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
 

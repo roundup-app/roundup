@@ -176,6 +176,9 @@ The small dot just after a Project tab's name: red if an Agent has Kind `error`,
 **Rail**:
 The tree of Workstreams and Agents.
 
+**Hint line**:
+The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
+
 **Shelf**:
 The full-height Todo and Pad panel at the window's trailing edge, with two tabs, `Todos` and `Pads`, that the user opens and closes. It reserves its width for the centre; below the minimum centre width, it overlays a scrim. An open Drawer reserves width instead. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
 
@@ -424,7 +427,7 @@ An answer or Terminal write applied to its captured Prompt identity. The check a
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
 
-**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::SetOrder`, `HeldCall::Close`, `HeldCall::Kill`, `HeldCall::Write`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
+**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::SetOrder`, `HeldCall::Resume`, `HeldCall::Answer`, `HeldCall::Close`, `HeldCall::Kill`, `HeldCall::Write`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
 A durably accepted Door action waiting for a child's Takeover to end, with its
 original Actor, target, method and parameters retained. Its outcome records
 waiting, in-progress, completion or a dropped reason; acceptance is not execution.

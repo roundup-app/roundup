@@ -69,8 +69,8 @@ describe("u467 the primary Terminal fills the centre", () => {
         // The pane takes the stack's width and top; only the resource strip shares its height.
         expect([pane.x, pane.y, pane.width]).toEqual([stack.x, stack.y, stack.width]);
         expect(Math.abs(pane.height + strip.height - stack.height)).toBeLessThanOrEqual(1);
-        // The stack sits inside the centre by the one fixed inset, the same at both viewports.
-        expect([stack.x - centre.x, centre.width - stack.width - (stack.x - centre.x), stack.y - centre.y, centre.height - stack.height]).toEqual([16, 16, 0, 0]);
+        // The stack sits inside the centre by the one fixed inset (U2340a: one --space-2), the same at both viewports.
+        expect([stack.x - centre.x, centre.width - stack.width - (stack.x - centre.x), stack.y - centre.y, centre.height - stack.height]).toEqual([8, 8, 0, 0]);
 
         const checks = await readChecks();
 

@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use contracts::agent::{HeldAction, HeldCall, NodeId, SetOrderParams};
+use contracts::decision::AnswerParams;
 use contracts::terminal::{ResizeAction, ResizeOutcome, ResizeParams, TerminalId};
 use contracts::{Actor, ActorKind};
 use rpc::{OpenError, RpcError};
@@ -41,12 +42,7 @@ impl HeldActions {
                 {
                     continue;
                 }
-                ResizeOutcome::Waiting { .. }
-                    if matches!(
-                        accepted.action.call,
-                        HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_)
-                    ) =>
-                {
+                ResizeOutcome::Waiting { .. } if attempt_bound(&accepted.action.call) => {
                     "original Attempt did not survive Daemon restart"
                 }
                 ResizeOutcome::Waiting { .. } => "original Terminal did not survive Daemon restart",
@@ -252,9 +248,41 @@ impl Daemon {
                     .map_err(|message| RpcError::new(rpc::code::INVALID_PARAMS, message))?;
                 HeldCall::SetOrder(order)
             }
+            "agent.resume" => HeldCall::Resume(rpc::params(params)?),
             "agent.stop" => HeldCall::Stop(rpc::params(params)?),
             "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
             "agent.prompt" => HeldCall::Prompt(rpc::params(params)?),
+            "decision.answer" => {
+                if conn.actor.kind == ActorKind::Agent && conn.actor.id == child {
+                    // An Agent's own answer is not a Door action on a child.
+                    return Ok(None);
+                }
+                let mut answer: AnswerParams = rpc::params(params)?;
+                // The original prompt is fixed now, so release never answers a later one.
+                let identity = match answer.identity.take() {
+                    Some(identity) => identity,
+                    None => serde_json::from_value(
+                        self.modules["decision"]
+                            .call(
+                                &self.ctx(conn.actor.clone()),
+                                "decision.capture",
+                                serde_json::json!({"id": answer.id}),
+                            )
+                            .await?,
+                    )
+                    .map_err(RpcError::internal)?,
+                };
+                if identity.agent != child || identity.decision != answer.id {
+                    return Err(RpcError::conflict(format!(
+                        "original prompt {} is not a prompt of {child}",
+                        answer.id
+                    )));
+                }
+                answer.identity = Some(identity);
+                // An Agent's answer never carries the App's proof; none is stored.
+                answer.proof = None;
+                HeldCall::Answer(answer)
+            }
             _ => return Err(RpcError::method_not_found(method)),
         };
         if terminal_call(&call) {
@@ -335,7 +363,7 @@ impl Daemon {
                     Some("child Attempt changed before action release")
                 }
                 Some(n)
-                    if !matches!(action.call, HeldCall::Rename(_))
+                    if !matches!(action.call, HeldCall::Rename(_) | HeldCall::Resume(_))
                         && n.status
                             .as_ref()
                             .is_some_and(|s| s.kind == contracts::Kind::Done) =>
@@ -403,9 +431,31 @@ impl Daemon {
                             .await?;
                     } else {
                         let namespace = method.split('.').next().unwrap_or_default();
-                        self.modules[namespace]
-                            .call(&ctx, method, params.clone())
-                            .await?;
+                        let mut settling = 0;
+                        loop {
+                            let outcome = self.modules[namespace]
+                                .call(&ctx, method, params.clone())
+                                .await;
+                            // An exit marks the child done before its run settles. A refused
+                            // Resume had no effect, so waiting for the settle repeats nothing.
+                            if let Err(e) = &outcome
+                                && matches!(action.call, HeldCall::Resume(_))
+                                && e.code == rpc::code::CONFLICT
+                                && settling < 100
+                                && self.rail().await?.iter().any(|n| {
+                                    n.id == child
+                                        && n.status
+                                            .as_ref()
+                                            .is_some_and(|s| s.kind == contracts::Kind::Done)
+                                })
+                            {
+                                settling += 1;
+                                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                                continue;
+                            }
+                            outcome?;
+                            break;
+                        }
                     }
                     self.after_action_effect(method).await?;
                     Ok::<(), RpcError>(())
@@ -496,10 +546,7 @@ impl Daemon {
             if !matches!(accepted.action.outcome, ResizeOutcome::Waiting { .. }) {
                 continue;
             }
-            if matches!(
-                accepted.action.call,
-                HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_)
-            ) {
+            if attempt_bound(&accepted.action.call) {
                 let child = &accepted.action.agent;
                 let _child = self.child_effects(child).write_owned().await;
                 if !self.held_actions.accepted(Some(child))?.iter().any(|a| {
@@ -607,9 +654,20 @@ impl Daemon {
     }
 }
 
-/// A rename or an Order belongs to the child node, so a replacement Attempt still takes it.
+/// A rename, an Order or a Resume belongs to the child node, so a replacement Attempt still takes it.
 fn node_bound(call: &HeldCall) -> bool {
-    matches!(call, HeldCall::Rename(_) | HeldCall::SetOrder(_))
+    matches!(
+        call,
+        HeldCall::Rename(_) | HeldCall::SetOrder(_) | HeldCall::Resume(_)
+    )
+}
+
+/// These die with their Attempt: a restart or a replacement Attempt drops them.
+fn attempt_bound(call: &HeldCall) -> bool {
+    matches!(
+        call,
+        HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_) | HeldCall::Answer(_)
+    )
 }
 
 fn terminal_call(call: &HeldCall) -> bool {
@@ -643,6 +701,8 @@ fn action_method(call: &HeldCall) -> &'static str {
         HeldCall::Write(_) => "terminal.write",
         HeldCall::Rename(_) => "rail.rename",
         HeldCall::SetOrder(_) => "agent.setOrder",
+        HeldCall::Resume(_) => "agent.resume",
+        HeldCall::Answer(_) => "decision.answer",
         HeldCall::Stop(_) => "agent.stop",
         HeldCall::Interrupt(_) => "agent.interrupt",
         HeldCall::Prompt(_) => "agent.prompt",
@@ -654,8 +714,11 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
         HeldCall::Resize(params) => serde_json::to_value(params),
         HeldCall::Rename(params) => serde_json::to_value(params),
         HeldCall::SetOrder(params) => serde_json::to_value(params),
+        HeldCall::Answer(params) => serde_json::to_value(params),
         HeldCall::Close(params) | HeldCall::Kill(params) => serde_json::to_value(params),
-        HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
+        HeldCall::Stop(params) | HeldCall::Interrupt(params) | HeldCall::Resume(params) => {
+            serde_json::to_value(params)
+        }
         HeldCall::Prompt(params) => serde_json::to_value(params),
         HeldCall::Write(params) => serde_json::to_value(params),
     }
@@ -669,6 +732,8 @@ fn original_terminal(call: &HeldCall) -> Option<&str> {
         HeldCall::Write(params) => Some(&params.id),
         HeldCall::Rename(_)
         | HeldCall::SetOrder(_)
+        | HeldCall::Resume(_)
+        | HeldCall::Answer(_)
         | HeldCall::Stop(_)
         | HeldCall::Interrupt(_)
         | HeldCall::Prompt(_) => None,
