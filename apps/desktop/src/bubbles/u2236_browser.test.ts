@@ -27,7 +27,7 @@ type Look = { name: string; cursor: string; paint: string[]; hit: string | null;
 const probe = `() => [...document.querySelectorAll('.bubble-zone:not([hidden])')].map((zone) => {
   const style = getComputedStyle(zone);
   const box = zone.getBoundingClientRect();
-  const bars = [...document.querySelectorAll('.bubble-body .xterm-viewport')].map((view) => { const r = view.getBoundingClientRect(); const clip = view.closest('.bubble-body').getBoundingClientRect(); const w = view.offsetWidth - view.clientWidth; return { getBoundingClientRect: () => ({ left: r.right - w, right: r.right, top: Math.max(r.top, clip.top), bottom: Math.min(r.bottom, clip.bottom) }), getAttribute: () => 'scrollbar', className: '' }; });
+  const bars = [...document.querySelectorAll('.bubble-body .xterm-viewport')].map((view) => { const r = view.getBoundingClientRect(); const clip = view.closest('.bubble-body').getBoundingClientRect(); const w = view.offsetWidth - view.clientWidth; return { getBoundingClientRect: () => ({ left: Math.min(Math.max(r.right - w, clip.left), clip.right), right: Math.min(r.right, clip.right), top: Math.max(r.top, clip.top), bottom: Math.min(r.bottom, clip.bottom) }), getAttribute: () => 'scrollbar', className: '' }; });
   const controls = [...document.querySelectorAll('.bubble-header button'), ...bars.filter((bar) => bar.getBoundingClientRect().right > bar.getBoundingClientRect().left)];
   const touch = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   return {
