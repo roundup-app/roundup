@@ -404,12 +404,16 @@ pub struct WakeParams {
     pub any: Option<bool>,
 }
 
-/// What `agent.wake` returns (B41): the request's number, and whether it already fired.
+/// What `agent.wake` returns (B41, B48): the request's number, whether it already fired, and,
+/// when it did not, why the request waits.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
 pub struct Woken {
     pub id: u32,
     pub fired: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub why: Option<String>,
 }
 
 /// What `agent.context` returns (E2).

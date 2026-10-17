@@ -91,12 +91,15 @@ impl Module for Agents {
                     ));
                 }
                 // B39: the Signal H11 waits for confirms the Messages its prompt carried, before
-                // the wait ends, so nothing can type them again in between.
+                // the wait ends, so nothing can type them again in between. A Steer's text is
+                // one paste, so a paste's envelope is taken off first.
                 let drop = match (
                     claude_code::submitted_prompt(&payload),
                     shared.events.prompt_observer.get(),
                 ) {
-                    (Some(prompt), Some(observer)) => observer(&id, prompt),
+                    (Some(prompt), Some(observer)) => {
+                        observer(&id, claude_code::pasted_text(prompt))
+                    }
                     _ => false,
                 };
                 // The hook blocks a dropped prompt, so no turn starts and nothing is folded.

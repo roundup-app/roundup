@@ -58,6 +58,9 @@ _Avoid_: shell integration (as a name; it is the means)
 **Turn** (user label: command):
 One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514).
 
+**Excerpt**:
+The text of a Terminal's selection that "Send to agent" carries to an Agent, cut to 6 000 bytes with its end kept (U515, U516). Sent as a Message `note` fenced with the Turn's facts when known.
+
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
@@ -74,6 +77,9 @@ _Avoid_: summon, fling
 
 **Run**:
 A Terminal an Agent started (`agent.run`), shown as a Bubble while that Agent is selected; it ends with its Agent's removal, never with its Status.
+
+**Show request** (`terminal.show`, event `terminal.shown`):
+A Door's ask that the App show a Terminal in its Reach: the Daemon emits `terminal.shown {id}` and the App selects the Terminal's owner. It reads, writes and starts nothing.
 
 **Snapshot**:
 A bounded copy of a Terminal's screen and output byte offset that restores its pane after a webview reload.
@@ -106,10 +112,10 @@ An Agent that another Agent, the Door or a Subagent, started. The Rail shows it 
 _Avoid_: child agent, sub-agent, meta-agent, parent agent
 
 **Digest**:
-A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind (an `idle` and `working` flip alone excepted, B35), Pads or open Todos change (B21), as plain text (B33), and never read from Terminal output (B19, B20). An `error` or `needs-you` child is the exception: its note goes to its parent at once, whoever the parent is (B43).
+A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, pads}`, asked for with `agent.digest`, or pushed to the Door as a Message when the child's Kind (an `idle` and `working` flip alone excepted, B35), Pads or open Todos change (B21), as plain text (B33), and never read from Terminal output (B19, B20). An `error` or `needs-you` child is the exception: its note goes to its parent at once, whoever the parent is (B43). The end note of a child carries its own summary, at most 600 bytes (B49).
 
 **Wake request** (`agent.wake`):
-An Agent's saved ask to be told, once, when all or any of named Agents finish (`idle`, `done`, `error` or `needs-you`): decided from `agent.status` Events and the Event log, never a clock, and gone after its one `[wake]` note (`scenarios/messages.md` B41 to B44).
+An Agent's saved ask to be told, once, when all or any of named Agents finish (`idle`, `done`, `error` or `needs-you`): decided from `agent.status` Events and the Event log, never a clock, and gone after its one `[wake]` note (`scenarios/messages.md` B41 to B44). A request that fires nothing answers `why`, `already working` (B48).
 
 **Mark**:
 The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
@@ -459,6 +465,9 @@ The highest Event number saved when an `events.subscribe` was accepted, 0 for an
 
 **Output log**:
 The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is new from an offset or search it (`scenarios/terminal.md` X13); it ends with its Terminal.
+
+**Read cursor** (`reader`):
+The offset in a Terminal's Output log where one reader's next `terminal.read` without `after` begins, set to the reply's `next`; each (Agent id, Terminal) pair has its own, it is Daemon state only, and it ends with its Terminal (`scenarios/terminal-stream.md` X16).
 
 **Reach** (`Agents::guard_reach`):
 The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).

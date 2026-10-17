@@ -44,7 +44,7 @@ describe("u426 a Rail row shows its icons", () => {
     fireEvent.keyDown(document, { key: "Tab" });
 
     for (const name of ["g", "a"]) {
-      for (const button of iconsOf(name).filter((button) => !button.closest(".rail-split-add"))) {
+      for (const button of iconsOf(name).filter((each) => !each.classList.contains("rail-add"))) {
         expect([button.tagName, button.dataset.button, button.querySelectorAll("svg.icon").length]).toEqual(["BUTTON", "icon", 1]);
         expect(button.getAttribute("aria-label")).toBeTruthy();
         button.focus();
@@ -94,7 +94,7 @@ describe("u426 a Rail row shows its icons", () => {
 
     fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Model…", "Remove"]);
+    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Remove"]);
   });
 
   it("u426_a_stopped_agent_offers_no_stop_icon", async () => {

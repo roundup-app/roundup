@@ -5,7 +5,10 @@ import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { u474Fixture } from "./u474Fixture";
 import packageJson from "../../package.json";
-import { AlertDialog, Dialog, Menu, Tooltip, IconButton } from "./index";
+import { AlertDialog, Dialog } from "./Dialog";
+import { Menu } from "./Menu";
+import { Tooltip } from "./Tooltip";
+import { IconButton } from "./IconButton";
 
 afterEach(cleanup);
 
@@ -53,7 +56,6 @@ const rawIconOwners = new Map([
   ["rail/RailRow.tsx:{props.doorFailure ? copy.retryDoor : copy.startDoor}", "#1607 start/retry Door (label hidden in compact rows)"],
   ["rail/RowIcons.tsx:{props.label}", "#1607 clear/stop/open folder/open editor via RowIcon"],
   ["rail/RowIcons.tsx:{copy.addAgentLabel}", "#1607 add Agent (label hidden in compact rows)"],
-  ["rail/RowIcons.tsx:{copy.chooseModelAndEffort}", "#1607 model and effort"],
   ["shelf/ScopeControl.tsx:{props.showAll ? copy.showOnlyThisWorkstream : copy.showAllWorkstreams}", "#2002 scope"],
   ["shelf/Shelf.tsx:{props.open ? copy.hideShelf : copy.showShelf}", "#2002 toggle Shelf"],
   ["pads/PadDrawer.tsx:{copy.makeYours}", "#1988 cancelled: make yours"],
@@ -68,7 +70,7 @@ it("u477_app_has_no_raw_icon_only_buttons", () => {
   const unowned: string[] = [];
 
   for (const file of readdirSync("src", { recursive: true }).map(String).filter(file => file.endsWith(".tsx") && !/test|Fixture/.test(file)).sort()) {
-    if (file === "ui/index.tsx") continue;
+    if (file === "ui/IconButton.tsx") continue;
 
     const source = readFileSync(`src/${file}`, "utf8");
 

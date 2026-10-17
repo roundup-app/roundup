@@ -11,21 +11,25 @@ use serde_json::{Value, json};
 use super::daemon::{Project, h21_ask, h21_bash, h21_poll, rail_tree, signal, start};
 use super::{actor, agent_in_as, client_as, start_door};
 
-const STOP: &str = "Stop";
-const WORK: &str = "UserPromptSubmit";
-const FAIL: &str = "StopFailure";
+pub(super) const STOP: &str = "Stop";
+pub(super) const WORK: &str = "UserPromptSubmit";
+pub(super) const FAIL: &str = "StopFailure";
 
-async fn drive(user: &rpc::Client, id: &str, event: &str) {
+pub(super) async fn drive(user: &rpc::Client, id: &str, event: &str) {
     signal(user, id, json!({ "hook_event_name": event })).await;
 }
 
-async fn ask(who: &rpc::Client, ids: &[&str], any: bool) -> Result<Value, rpc::RpcError> {
+pub(super) async fn ask(
+    who: &rpc::Client,
+    ids: &[&str],
+    any: bool,
+) -> Result<Value, rpc::RpcError> {
     who.request("agent.wake", json!({ "ids": ids, "any": any }))
         .await
 }
 
 /// Every Message to `to` whose body starts with `prefix`, as the user sees them.
-async fn messages(user: &rpc::Client, to: &str, prefix: &str) -> Vec<Value> {
+pub(super) async fn messages(user: &rpc::Client, to: &str, prefix: &str) -> Vec<Value> {
     let listed = user
         .request("message.list", json!({ "to": to }))
         .await
@@ -40,7 +44,7 @@ async fn messages(user: &rpc::Client, to: &str, prefix: &str) -> Vec<Value> {
 }
 
 /// The notes of `to` once at least `least` are there.
-async fn notes(user: &rpc::Client, to: &str, prefix: &str, least: usize) -> Vec<Value> {
+pub(super) async fn notes(user: &rpc::Client, to: &str, prefix: &str, least: usize) -> Vec<Value> {
     h21_poll("the notes", async || {
         let found = messages(user, to, prefix).await;
         (found.len() >= least).then_some(found)
@@ -49,7 +53,7 @@ async fn notes(user: &rpc::Client, to: &str, prefix: &str, least: usize) -> Vec<
 }
 
 /// Nothing more arrives: the count stays `count` after the Daemon has had every chance.
-async fn still(user: &rpc::Client, to: &str, prefix: &str, count: usize) {
+pub(super) async fn still(user: &rpc::Client, to: &str, prefix: &str, count: usize) {
     tokio::time::sleep(Duration::from_millis(600)).await;
     assert_eq!(messages(user, to, prefix).await.len(), count);
 }
@@ -63,7 +67,12 @@ async fn name_of(user: &rpc::Client, id: &str) -> String {
         .name
 }
 
-async fn named(project: &Project, user: &rpc::Client, name: &str, parent: Option<&str>) -> String {
+pub(super) async fn named(
+    project: &Project,
+    user: &rpc::Client,
+    name: &str,
+    parent: Option<&str>,
+) -> String {
     let node = user
         .request(
             "agent.spawn",
@@ -76,17 +85,17 @@ async fn named(project: &Project, user: &rpc::Client, name: &str, parent: Option
 
 /// A started Door `d` with two working children `a` and `b`, and Agent `w` (a plain Agent) as
 /// the waiter.
-struct Scene {
-    project: Project,
-    user: rpc::Client,
-    door: String,
-    a: String,
-    b: String,
-    w: String,
-    as_w: rpc::Client,
+pub(super) struct Scene {
+    pub(super) project: Project,
+    pub(super) user: rpc::Client,
+    pub(super) door: String,
+    pub(super) a: String,
+    pub(super) b: String,
+    pub(super) w: String,
+    pub(super) as_w: rpc::Client,
 }
 
-async fn scene(fake: &[(&str, &str)]) -> Scene {
+pub(super) async fn scene(fake: &[(&str, &str)]) -> Scene {
     let project = start(fake);
     let user = project.client().await;
     let door = start_door(&user).await;
@@ -399,7 +408,7 @@ async fn b43_the_note_is_outside_b22s_caps() {
 }
 
 /// The lines of the fake `claude`'s prompt log that took up an inbox entry (B50), once `least` are there.
-async fn typed(log: &std::path::Path, least: usize) -> Vec<Value> {
+pub(super) async fn typed(log: &std::path::Path, least: usize) -> Vec<Value> {
     h21_poll("the typed prompts", async || {
         let lines: Vec<Value> = std::fs::read_to_string(log)
             .unwrap_or_default()
@@ -412,7 +421,7 @@ async fn typed(log: &std::path::Path, least: usize) -> Vec<Value> {
     .await
 }
 
-async fn status_of(user: &rpc::Client, id: u64) -> String {
+pub(super) async fn status_of(user: &rpc::Client, id: u64) -> String {
     let message = user
         .request("message.get", json!({ "id": id }))
         .await
@@ -447,12 +456,12 @@ async fn b42_the_note_goes_through_the_inbox_at_the_next_idle() {
     .await;
 }
 
-fn project_db(project: &Project) -> rusqlite::Connection {
+pub(super) fn project_db(project: &Project) -> rusqlite::Connection {
     rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap()
 }
 
 /// An `agent.status` Event as the log saves it: `id` became `kind`.
-fn finished_event(id: &str, kind: contracts::Kind) -> String {
+pub(super) fn finished_event(id: &str, kind: contracts::Kind) -> String {
     serde_json::to_string(&contracts::Event {
         seq: None,
         actor: contracts::Actor::daemon(),
@@ -471,7 +480,7 @@ fn finished_event(id: &str, kind: contracts::Kind) -> String {
 }
 
 /// Waiter `w` has an open request on `ids`, saved as the Daemon saves it, decided up to `seen`.
-fn save_request(project: &Project, waiter: &str, ids: &[&str], seen: u64) {
+pub(super) fn save_request(project: &Project, waiter: &str, ids: &[&str], seen: u64) {
     project_db(project)
         .execute(
             "INSERT INTO wakes (waiter, any_of, ids, finished, seen) VALUES (?1, 0, ?2, '[]', ?3)",
@@ -480,7 +489,7 @@ fn save_request(project: &Project, waiter: &str, ids: &[&str], seen: u64) {
         .unwrap();
 }
 
-fn head(project: &Project) -> u64 {
+pub(super) fn head(project: &Project) -> u64 {
     let top: i64 = project_db(project)
         .query_row("SELECT MAX(id) FROM events", [], |row| row.get(0))
         .unwrap();
@@ -488,7 +497,7 @@ fn head(project: &Project) -> u64 {
 }
 
 /// The Door comes back after a restart, as the user starts it.
-async fn start_again(user: &rpc::Client, door: &str) {
+pub(super) async fn start_again(user: &rpc::Client, door: &str) {
     user.request("rail.startDoor", json!({ "id": door }))
         .await
         .unwrap();

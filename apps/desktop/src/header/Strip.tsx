@@ -1,4 +1,5 @@
-import { Tabs, IconButton } from "../ui";
+import { Tabs } from "../ui/Tabs";
+import { IconButton } from "../ui/IconButton";
 import { registerKeys } from "../keys/registry";
 import { chordsFor } from "../keys/chords";
 import { copy } from "../copy";
@@ -42,8 +43,6 @@ export const Strip = (props: {
   onRename: (path: string, name: string) => void;
   onClose: (path: string) => void;
   onChoose: () => void;
-  /** U377: `Models` in a tab's menu opens that Project's `Models` sheet. */
-  onModels: (path: string) => void;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
   // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
@@ -266,7 +265,6 @@ export const Strip = (props: {
                   onMark={() => props.onMark(path)}
                   onRename={(name) => props.onRename(path, name)}
                   onClose={() => requestClose(tab())}
-                  onModels={() => props.onModels(path)}
                 />
               );
             }}
@@ -274,7 +272,7 @@ export const Strip = (props: {
         </Tabs.List>
         {edge(copy.right, right())}
       </div>
-      <IconButton class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
+      <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 
