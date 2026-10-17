@@ -47,6 +47,7 @@ async fn observe(completion: bool) {
     assert_eq!(tree[0]["id"], before[0]["id"]);
     assert_eq!(tree[0]["iteration"], before[0]["iteration"]);
     fixture::terminal_events(&mut client, &ws, completion).await;
+    fixture.clear_requests(completion).await;
     if !completion {
         let after = client.request("rail.tree", Value::Null).await.unwrap();
         assert_eq!(after[0]["iteration"], before[0]["iteration"]);
