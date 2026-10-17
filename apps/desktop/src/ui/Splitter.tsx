@@ -2,7 +2,7 @@ import { copy } from "../copy";
 import { useSplitter } from "@ark-ui/solid/splitter";
 import { createEffect, createSignal, createUniqueId, on, onCleanup, onMount, type JSX } from "solid-js";
 import type { Side } from "../resize/widths";
-import "./styles.css";
+import "./Splitter.css";
 
 /** Binds U507's host from an edge, leaving grid and absolute panel styles with Layout. */
 export function Splitter(props: { side: Side; class?: string; disabled?: boolean; hidden?: boolean; onDragging?: (dragging: boolean) => void }) {
