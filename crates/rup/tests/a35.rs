@@ -573,8 +573,12 @@ fn attempts(tree: &[RailNode]) -> Vec<(String, Option<String>)> {
         .collect()
 }
 
+/// A child spawned after the Mark, as the Rail holds it once the real turn of its default order has
+/// ended (A9 has named it), so that turn's model requests are in aimock's journal before anything
+/// rewinds or removes it.
 async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
-    serde_json::from_value(
+    let mut events = fx.project.subscribed().await;
+    let later: RailNode = serde_json::from_value(
         as_actor(&fx.project, ActorKind::Agent, parent)
             .await
             .request(
@@ -584,7 +588,22 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
             .await
             .unwrap(),
     )
-    .unwrap()
+    .unwrap();
+    let mut working = false;
+    loop {
+        let kind = daemon::next(&mut events, |event| match event {
+            contracts::EventData::AgentStatus(status) if status.id == later.id => {
+                Some(status.status.kind)
+            }
+            _ => None,
+        })
+        .await;
+        match kind {
+            Kind::Working => working = true,
+            Kind::Idle if working => return node(&fx.user, &later.id).await.unwrap(),
+            _ => {}
+        }
+    }
 }
 
 #[tokio::test]
