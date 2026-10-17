@@ -572,9 +572,9 @@ An App button of the icon kind, named for its action for assistive technology.
 A shared navigable hierarchy preserving caller-rendered rows.
 
 **Sortable**:
-A shared reorderable region with named drag handles and caller-owned committed order. With its `tree` contract it reports a drop as a **Placement**.
+A shared reorderable region with named drag handles and caller-owned committed order. With its `tree` contract it reports a drop as a **Sortable drop**.
 
-**Placement**:
+**Sortable drop**:
 Where a dropped Sortable row lands: `{id, parent, index}`, with `index` counting the parent's other children; the Rail's `rail.move` takes the same three (U535).
 
 ### Keyboard registration
