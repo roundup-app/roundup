@@ -26,14 +26,14 @@ it.each([
 ] as const)("u471_previous_copy_assertions_are_preserved_bubble_status_uses_sentence_case_%s_%s", async (running, exit_code, label) => {
   await mountBubbles("a", [info("1", { owner: "a", running, exit_code })]);
 
-  expect(await screen.findByText(label)).toBeTruthy();
+  expect((await screen.findAllByRole("img", { name: label })).length).toBeGreaterThan(0);
 });
 
 it("u471_previous_copy_assertions_are_preserved_bubble_signal_exit_uses_sentence_case", async () => {
   const mounted = await mountBubbles("a", [info("1", { owner: "a" })]);
 
   mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: null } }));
-  await waitFor(() => expect(screen.getByText("Exit signal")).toBeTruthy());
+  await waitFor(() => expect(screen.getAllByRole("img", { name: "Exit signal" }).length).toBeGreaterThan(0));
 });
 
 it("u471_previous_copy_assertions_are_preserved_bubble_program_titles_stay_as_written", async () => {

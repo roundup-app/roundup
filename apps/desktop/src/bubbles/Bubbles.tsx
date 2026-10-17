@@ -1,4 +1,4 @@
-import { Editable, IconButton, Menu } from "../ui";
+import { Editable, IconButton, Menu, Panel } from "../ui";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -70,6 +70,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [wanted, setWanted] = createSignal<string | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
+  const [origin, setOrigin] = createSignal({ left: 0, top: 0 });
   const [selectionMessage, setSelectionMessage] = createSignal(false);
   const [editing, setEditing] = createSignal<string | null>(null);
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
@@ -189,6 +190,9 @@ export const Bubbles = (props: { screens: Screens }) => {
     const sync = (): void => {
       const stack = host.parentElement?.getBoundingClientRect();
       const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
+      const corner = host.getBoundingClientRect();
+
+      setOrigin((held) => (held.left === corner.left && held.top === corner.top ? held : { left: corner.left, top: corner.top }));
 
       host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
     };
@@ -206,6 +210,8 @@ export const Bubbles = (props: { screens: Screens }) => {
     });
 
     watched.observe(host);
+    window.addEventListener("resize", sync);
+    onCleanup(() => window.removeEventListener("resize", sync));
 
     if (host.parentElement) watched.observe(host.parentElement);
 
@@ -731,39 +737,58 @@ export const Bubbles = (props: { screens: Screens }) => {
       },
     }]);
 
+    let panel: HTMLElement | undefined;
+
+    // The browser top layer orders by the last `showPopover`, so a restored bubble is the topmost layer and no z-index ranks it (U2307b).
+    createEffect(() => {
+      const open = !place().min;
+
+      if (!panel?.showPopover) return;
+
+      if (open && !panel.matches(":popover-open")) panel.showPopover();
+      else if (!open && panel.matches(":popover-open")) panel.hidePopover();
+    });
+
+    /** U2307a: a primary press outside the bubble minimises it; its own tab or chip toggles it, and the press still reaches its target. */
+    const dismissed = (event: { detail: { originalEvent: Event } }): void => {
+      const press = event.detail.originalEvent;
+      const target = press.target;
+
+      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair"))) return;
+
+      if (!place().min) setPlace(id, { ...place(), min: true });
+    };
+
     return (
-      <>
-      <section
-        class="bubble"
-        data-bubble={id}
-        role="group"
-        aria-label={nameFor(terminal()!)}
-        hidden={place().min}
-        style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}
-      >
-        <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
-            // SAFETY: a pointer event on the header always targets an Element.
-            if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
-          }} onDblClick={(event) => {
-            // SAFETY: a mouse event on the header always targets an Element.
-            if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
-          }}>
-          <span class="bubble-name">{nameFor(terminal()!)}</span>
-          <span class="bubble-state">{stateText(terminal()!)}</span>
-          <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
-            <Icon name="down" />
-          </IconButton>
-          <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}>
-            <Icon name="x" />
-          </IconButton>
-        </header>
-        <div class="bubble-body" ref={mount} />
-      </section>
-      <For each={ZONES}>{(zone) => (
-        <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}
-          style={{ cursor: zone.cursor, ...zoneBox(place(), zone) }} onPointerDown={(event) => resize(event, zone)} />
-      )}</For>
-      </>
+      <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
+        <Portal>
+          <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" popover="manual"
+            style={{ left: `${origin().left}px`, top: `${origin().top}px` }}>
+            <section class="bubble" data-bubble={id} role="group" aria-label={nameFor(terminal()!)} hidden={place().min}
+              style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
+              <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
+                  // SAFETY: a pointer event on the header always targets an Element.
+                  if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
+                }} onDblClick={(event) => {
+                  // SAFETY: a mouse event on the header always targets an Element.
+                  if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
+                }}>
+                <span class="bubble-controls">
+                  <button type="button" data-button="icon" data-feedback="ink" data-dot="close" aria-label={copy.close} onClick={() => void close(id)} />
+                  <button type="button" data-button="icon" data-feedback="ink" data-dot="minimise" aria-label={copy.minimise} onClick={() => toggleMinimised(id)} />
+                </span>
+                <span class="bubble-name">{nameFor(terminal()!)}</span>
+                <span class="bubble-state" role="img" aria-label={stateText(terminal()!)} data-running={running(terminal()!)} />
+              </header>
+              <div class="bubble-body" ref={mount} />
+            </section>
+            <For each={ZONES}>{(zone) => (
+              <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}
+                style={{ cursor: zone.cursor, ...zoneBox(place(), zone) }} onPointerDown={(event) => resize(event, zone)} />
+            )}</For>
+          </Panel.Content>
+        </Portal>
+      </Panel.Root>
     );
   };
 
