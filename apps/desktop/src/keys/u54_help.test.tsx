@@ -78,10 +78,12 @@ const MODS = [
 const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash", "Slash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
-const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): string[] =>
-  modSets.flatMap((mods) =>
-    codes.flatMap((code) => {
-      if (Object.keys(mods).length === 0) return [];
+const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): Promise<string[]> => {
+  const bound: string[] = [];
+
+  for (const mods of modSets) {
+    for (const code of codes) {
+      if (Object.keys(mods).length === 0) continue;
 
       const key = keyOf(code);
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
@@ -90,9 +92,26 @@ const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MOD
       // `⌘K` opens the modal switcher, which would swallow every later probe.
       document.querySelector(".switcher input, .ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-      return press.defaultPrevented ? [pressOf(press)] : [];
-    }),
-  );
+      // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
+      document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+      // `⌘,` opens the modal Models dialog, which the library closes after the press.
+      const models = document.querySelector(".models-sheet");
+
+      if (models) {
+        // The library attaches its dismissal after the dialog mounts, so the press repeats until it takes.
+        await waitFor(() => {
+          (document.activeElement && models.contains(document.activeElement) ? document.activeElement : models).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          expect(document.querySelector(".models-sheet")).toBeNull();
+        });
+      }
+
+      if (press.defaultPrevented) bound.push(pressOf(press));
+    }
+  }
+
+  return bound;
+};
 
 describe("u54 keyboard help", () => {
   it("u471_previous_copy_assertions_are_preserved_help_labels", async () => {
@@ -166,7 +185,7 @@ describe("u54 keyboard help", () => {
     question(rowOf("a"));
     await waitFor(() => expect(help()).not.toBeNull());
 
-    expect(boundPresses(document.activeElement!)).toEqual([]);
+    expect(await boundPresses(document.activeElement!)).toEqual([]);
     expect(app.calls.length).toBe(calls);
     expect(help()).not.toBeNull();
   });
@@ -177,7 +196,7 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
     const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(boundPresses(document.querySelector(".terminal-new")!))].sort();
+    const bound = [...new Set(await boundPresses(document.querySelector(".terminal-new")!))].sort();
 
     expect(bound).toEqual(listed);
 
@@ -186,14 +205,15 @@ describe("u54 keyboard help", () => {
 
     // The tree types ahead on ⌥ and a letter, which a Mac makes into another character and Help lists as no chord (U520); ⌥1 to ⌥9 bind from the Terminal's probe above.
     // ⌘A is the tree's select-all, which one selected row makes no chord either.
-    const railPresses = boundPresses(row, MODS.filter((mods) => !("altKey" in mods)), CODES.filter((code) => code !== "KeyA"));
+    const railPresses = await boundPresses(row, MODS.filter((mods) => !("altKey" in mods)), CODES.filter((code) => code !== "KeyA"));
 
     // A Rail chord binds while focus is in the Rail, and ⌘2 above moved it to the pane.
-    const railOnly = ["Enter", "Backspace"].flatMap((code) => {
-      row.focus();
+    const railOnly: string[] = [];
 
-      return boundPresses(row, [{ metaKey: true }], [code]);
-    });
+    for (const code of ["Enter", "Backspace"]) {
+      row.focus();
+      railOnly.push(...(await boundPresses(row, [{ metaKey: true }], [code])));
+    }
 
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
     const field = document.activeElement;
@@ -201,7 +221,7 @@ describe("u54 keyboard help", () => {
     fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
     await waitFor(() => expect(document.querySelector(".switcher input")).not.toBeNull());
 
-    const switcherBound = boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
+    const switcherBound = await boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
 
     expect(switcherBound).toEqual(["shift+Enter"]);
     expect(field).not.toBeNull();
