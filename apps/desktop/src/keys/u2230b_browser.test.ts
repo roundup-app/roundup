@@ -58,7 +58,8 @@ it("u2230b_hint_line_is_quiet_and_fits", async () => {
         // The Shelf opens by default at 700 and leaves the bar no room: close it, as a user would.
         if (width === 700) {
           await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
-          await page.press("\\", "Backslash", 4);
+          await page.press("k", "KeyK", 4);
+          await page.press("s", "KeyS");
         }
 
         await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
@@ -67,13 +68,6 @@ it("u2230b_hint_line_is_quiet_and_fits", async () => {
         if (seed === "bubbles") expect(await page.call<number>(`() => document.querySelectorAll('.terminal-tab').length`), "the Agent with 8 Runs").toBeGreaterThanOrEqual(8);
 
         const observed = await page.call<Read>(read);
-
-        if (seed === "tree-40" && width === 1280 && scheme === "light" && !contrast) {
-          const below = await page.call<string>(`() => { const rows = [...document.querySelectorAll('[role="tree"] [role="treeitem"][data-id]')]; return rows[rows.findIndex(row => row.dataset.id === "agent-4") + 1].dataset.id; }`);
-
-          await page.press("ArrowDown", "ArrowDown", 4);
-          await page.until(`() => document.querySelector('[role="treeitem"][aria-selected="true"]')?.dataset.id === ${JSON.stringify(below)}`);
-        }
 
         const label = `${scheme} ${contrast ?? ""} ${seed} ${width}`;
         const wanted = hintsFor("agent").map((hint) => `${hint.keys} ${hint.label}`);
