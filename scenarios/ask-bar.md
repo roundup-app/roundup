@@ -42,7 +42,7 @@ Tests: `a40_send_returns_at_once_and_the_parts_follow`, `a40_naming_a_workstream
 - **At most once.** The part is recorded `typed` in a conditional write made only while it is still `queued`, and then typed (B8's rule). A killed Daemon never types a part twice.
 - **Gone.** A part whose Workstream is removed before it is typed becomes `failed`, `the Workstream was removed`.
 
-Tests: `a41_the_door_gets_the_users_words_byte_for_byte` (the fake Terminal sees one bracketed paste of exactly the part's text, then `\r`), `a41_a_leading_slash_runs_the_skill` (pinned real Claude against aimock, with a test skill in its isolated config folder: the part `/<skill> x` makes a model request holding the skill's marker text), `a41_a_busy_door_gets_the_part_at_its_next_idle`, `a41_two_parts_for_one_door_go_in_order`, `a41_a_stopped_door_is_started_first`, `a41_a_killed_daemon_never_types_a_part_twice`.
+Tests: `a41_the_door_gets_the_users_words_byte_for_byte` (the fake Terminal sees one bracketed paste of exactly the part's text, then `\r`), `a41_a_leading_slash_runs_the_skill` (pinned real Claude against aimock, with a test skill in the Project's `.claude/skills`, since a Door reads no user skills (LC2): the part `/<skill> x` makes a model request holding the skill's marker text), `a41_a_busy_door_gets_the_part_at_its_next_idle`, `a41_two_parts_for_one_door_go_in_order`, `a41_a_stopped_door_is_started_first`, `a41_a_killed_daemon_never_types_a_part_twice`.
 
 **A42 new and unclear parts.** Given an Ask part, then:
 
