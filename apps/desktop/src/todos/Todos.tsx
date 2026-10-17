@@ -43,6 +43,8 @@ export type SortedRow = {
   fail: (show: (message: string | null) => void) => void;
   /** The Move up and Move down controls of a row: one step. */
   step: (by: -1 | 1) => void;
+  /** False at the list's edge, where a step calls nothing. */
+  canStep: (by: -1 | 1) => boolean;
   /** `⌥↑` and `⌥↓`. */
   key: (event: KeyboardEvent) => void;
 };
@@ -153,8 +155,8 @@ export const OpenRow = (props: {
     >
       <Show when={!props.nested && props.sorted && near?.near()}>
         <div class="shelf-move">
-          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoUp(props.todo.id)} onClick={() => props.sorted!.step(-1)}>{copy.moveUp}</button>
-          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoDown(props.todo.id)} onClick={() => props.sorted!.step(1)}>{copy.moveDown}</button>
+          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoUp(props.todo.id)} aria-disabled={!props.sorted!.canStep(-1)} onClick={() => props.sorted!.step(-1)}>{copy.moveUp}</button>
+          <button data-button="row-action" type="button" class="word" aria-label={copy.moveTodoDown(props.todo.id)} aria-disabled={!props.sorted!.canStep(1)} onClick={() => props.sorted!.step(1)}>{copy.moveDown}</button>
         </div>
       </Show>
       <Show when={props.nested}>{head}</Show>

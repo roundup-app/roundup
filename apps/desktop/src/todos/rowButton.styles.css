@@ -195,13 +195,15 @@
   white-space: nowrap;
 }
 
-/* U490a: Up and Down appear in the row's right gutter on hover and focus, after the tick box in reading order; the title always leaves the gutter, so no row moves or rewraps (U112). */
+/* U490a: Up and Down appear in the row's right gutter on hover and focus, after the tick box in reading order. They overlay the end of the title's first line, which fades out beneath them, so the title keeps the row's full width and no row moves or rewraps (U112). */
 .shelf-row.todo-inset {
   position: relative;
 }
 
-.shelf-row.todo-inset .todo-row-button {
-  max-width: calc(100% - 7em - var(--space-2));
+.shelf-row.todo-inset:has(> .shelf-move) .todo-row-button {
+  mask:
+    linear-gradient(to right, var(--text) calc(100% - 7em - var(--space-2)), transparent calc(100% - 6em)) top / 100% var(--space-6) no-repeat,
+    linear-gradient(var(--text), var(--text)) bottom / 100% calc(100% - var(--space-6)) no-repeat;
 }
 
 .shelf-row.todo-inset .shelf-move {
@@ -210,4 +212,9 @@
   right: var(--space-2);
   display: flex;
   gap: var(--space-1);
+}
+
+.shelf-row.todo-inset .shelf-move [aria-disabled="true"] {
+  color: var(--grey);
+  cursor: default;
 }

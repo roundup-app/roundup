@@ -310,4 +310,29 @@ run("u490a the Shelf's move controls", () => {
     expect(twice.ids).toEqual(before.ids);
     expect(twice.active).toContain(`#${before.ids[1]} `);
   }, 60_000);
+
+  it("u490a_move_controls_keep_the_title_and_mark_the_edges", async () => {
+    await page.scheme("light");
+    await shelf.setup();
+
+    const width = () => page.call<number>(`rows => document.querySelectorAll(rows)[0].getBoundingClientRect().width`, shelf.rows);
+    const disabled = (label: string) => page.call<string | null>(`label => document.querySelector(\`[aria-label^="\${label}"]\`)?.getAttribute('aria-disabled') ?? null`, label);
+
+    await page.call(`() => document.activeElement?.blur()`);
+
+    const atRest = await width();
+
+    await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, shelf.rows);
+
+    const first = (await state(shelf.rows)).ids[0];
+
+    // The controls overlay the row: its title keeps the width it has at rest, and the edge control says it does nothing.
+    expect(await width()).toBe(atRest);
+    expect(await disabled(`Move up #${first}`)).toBe("true");
+    expect(await disabled(`Move down #${first}`)).toBe("false");
+
+    await page.call(`label => document.querySelector(\`[aria-label^="\${label}"]\`).click()`, `Move up #${first}`);
+    await settled();
+    expect((await state(shelf.rows)).reorders).toEqual([]);
+  }, 60_000);
 });

@@ -82,10 +82,17 @@ export const createSortedList = (source: {
     }
   };
 
-  const step = (id: number, by: -1 | 1) => {
+  const canStep = (id: number, by: -1 | 1) => {
     const to = source.ids().indexOf(id) + by;
 
-    if (to < 0 || to >= source.ids().length) return;
+    return to >= 0 && to < source.ids().length;
+  };
+
+  const step = (id: number, by: -1 | 1) => {
+    if (!canStep(id, by)) return;
+
+    const to = source.ids().indexOf(id) + by;
+
     measure();
     refocus = id;
     void move(id, to);
@@ -142,6 +149,7 @@ export const createSortedList = (source: {
       },
       fail: (show) => fails.set(id, show),
       step: (by) => step(id, by),
+      canStep: (by) => canStep(id, by),
       key: (event) => {
         if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
 
