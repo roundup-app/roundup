@@ -1,6 +1,6 @@
 //! S2297a (`scenarios/app.md`): the webview renders at the display's rate.
 
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 mod webkit {
     use desktop::webkit_rate::{Missing, is_on, new_preferences, turn_off, webkit_features};
     use objc2::runtime::NSObject;
