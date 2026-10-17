@@ -1,4 +1,4 @@
-import { Tabs, IconButton, FlatAdd, FlatBar } from "../ui";
+import { Tabs, IconButton, FlatBar } from "../ui";
 import { registerKeys } from "../keys/registry";
 import { chordsFor } from "../keys/chords";
 import { copy } from "../copy";
@@ -274,7 +274,7 @@ export const Strip = (props: {
         </Tabs.List>
         {edge(copy.right, right())}
       </div>
-      <FlatAdd data-button="icon" class="word strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</FlatAdd>
+      <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
       <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 

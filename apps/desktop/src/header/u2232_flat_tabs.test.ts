@@ -126,9 +126,8 @@ it("u2233_keyboard_focus_draws_a_ring_and_a_click_does_not", async () => {
   await page.click(at.x, at.y);
   expect((await page.call<string[]>(ring))[0]).toBe("none");
 
-  await page.call(`() => document.querySelector('.project-tab .tab-name-button').focus()`);
-  await page.press("Tab", "Tab");
   await page.press("Tab", "Tab", 8);
+  expect(await page.call<boolean>(`() => document.activeElement.matches('[data-flat-tab] button')`)).toBe(true);
 
   const keyboard = await page.call<{ style: string; width: number }>(`() => { const s = getComputedStyle(document.activeElement); return { style: s.outlineStyle, width: parseFloat(s.outlineWidth) }; }`);
 
