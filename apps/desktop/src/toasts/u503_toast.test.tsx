@@ -21,7 +21,7 @@ it("u503_shared_toast_preserves_lifecycle", async () => {
   app.emit(status("a", "needs-you"));
   await settle();
 
-  const card = screen.getByRole("button", { name: "scout Needs you" });
+  const card = screen.getByRole("button", { name: "scout: Needs you" });
 
   // Hover then focus keep it past five seconds; once both end, it restarts its full time.
   fireEvent.pointerEnter(card);
@@ -41,7 +41,7 @@ it("u503_shared_toast_preserves_lifecycle", async () => {
   // Activation navigates once and dismisses; a missing target shows the visible failure.
   app.emit(status("b", "error"));
   await settle();
-  fireEvent.click(screen.getByRole("button", { name: "mason Failed" }));
+  fireEvent.click(screen.getByRole("button", { name: "mason: Failed" }));
   await settle();
   expect(connected.rail.selected()).toBe("b");
   expect(shown).toEqual(["/p"]);
@@ -50,14 +50,14 @@ it("u503_shared_toast_preserves_lifecycle", async () => {
 
   app.emit(by(AGENT, { name: "todo.updated", data: todo(7, USER) }));
   await settle();
-  fireEvent.click(screen.getByRole("button", { name: 'scout Changed Todo "ship it"' }));
+  fireEvent.click(screen.getByRole("button", { name: 'scout: Changed Todo "ship it"' }));
   await settle();
   expect(screen.getByRole("alert").textContent).toContain("gone");
 
   // Escape dismisses without activating; one chime served each distinct burst.
   app.emit(status("a", "error"));
   await settle();
-  fireEvent.keyDown(screen.getByRole("button", { name: "scout Failed" }), { key: "Escape" });
+  fireEvent.keyDown(screen.getByRole("button", { name: "scout: Failed" }), { key: "Escape" });
   await vi.advanceTimersByTimeAsync(200);
   expect(toasts()).toHaveLength(0);
   expect(connected.rail.selected()).toBe("b");

@@ -91,8 +91,8 @@ describe("u411 what a Toast shows and how it leaves", () => {
 
     expect(toast.tagName).toBe("BUTTON");
     expect(toast.querySelector(".glyph")?.getAttribute("aria-hidden")).toBe("true");
-    expect(screen.getByRole("button", { name: "scout Needs you" })).toBe(toast);
-    expect(view.container.querySelector("[role=region]")?.getAttribute("aria-live")).toBe("polite");
+    expect(screen.getByRole("button", { name: "scout: Needs you" })).toBe(toast);
+    expect(view.container.querySelector("[role=status]")?.getAttribute("aria-live")).toBe("polite");
   });
 
   it("u411_it_hides_after_five_seconds", async () => {

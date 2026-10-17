@@ -37,7 +37,7 @@ export type ToastQueue = {
 };
 
 /** U410 to U414. Event policy lives here: held Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
-export const createToastQueue = (inFront: () => boolean, chime: Chime, _reducedMotion: Accessor<boolean>, now: () => number = Date.now): ToastQueue => {
+export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {
   const [entries, setEntries] = createSignal<readonly Entry[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const held = new Map<string, Candidate>();
@@ -92,7 +92,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, _reducedM
       if (displayed.has(entry.id)) continue;
 
       displayed.add(entry.id);
-      toast.show({ id: entry.id, glyph: <KindGlyph kind={entry.kind} decorative />, name: entry.name, content: entry.line });
+      toast.show({ id: entry.id, label: copy.toastLine(entry.name, entry.line), glyph: <KindGlyph kind={entry.kind} decorative />, name: entry.name, content: entry.line });
     }
   }
 
