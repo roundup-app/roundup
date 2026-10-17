@@ -180,20 +180,21 @@
   flex: none;
 }
 
-/* U514: a Turn's band spans the row width over the cell grid, so the columns are the same with or without it. */
-.turn-band {
-  width: 100% !important;
+/* U514: the strips sit in the pane's left padding, beside the cell grid, so no glyph is covered and `cols` is unchanged. */
+.turn-strips {
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--space-2));
+  width: 4px;
+  height: 100%;
   pointer-events: none;
 }
 
-.turn-band:has(.turn-gutter:hover) {
-  background: var(--hover);
-}
-
 .turn-gutter {
+  position: absolute;
+  left: 0;
   display: block;
   width: 4px;
-  height: 100%;
   padding: 0;
   border: 0;
   background: var(--hairline);
@@ -201,6 +202,7 @@
   cursor: pointer;
 }
 
-.turn-gutter:hover {
+/* The selector outranks the global `button:hover` rule, which would otherwise dim the strip. */
+.turn-strips button.turn-gutter[type]:hover:not([aria-disabled="true"]) {
   background: var(--accent);
 }

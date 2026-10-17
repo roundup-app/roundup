@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import type { IDecoration, IDisposable, IMarker, Terminal } from "@xterm/xterm";
+import type { IDisposable, IMarker, Terminal } from "@xterm/xterm";
 
 /** U514: one command of a shell Terminal, as buffer rows from its prompt to its last line of output. */
 export type TurnRows = { first: number; last: number; exit: number | null; cwd: string | null };
@@ -11,8 +11,7 @@ type Turn = {
   endColumn: number;
   exit: number | null;
   cwd: string | null;
-  gutter: IDecoration | null;
-  gutterRows: number;
+  gutter: HTMLButtonElement | null;
 };
 
 /** The directory an `OSC 7` names (`file://host/path`), or null when it is not one. */
@@ -58,35 +57,63 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
     if (anchor === turn) anchor = null;
 
-    turn.gutter?.dispose();
+    turn.gutter?.remove();
     turn.end?.dispose();
   };
 
-  /** The gutter: a strip over the Turn's rows, drawn over the cell grid so `cols` stays what it is without it. */
-  const drawGutter = (turn: Turn) => {
-    const height = lastRow(turn) - turn.start.line + 1;
+  let strips: HTMLElement | null = null;
 
-    if (turn.gutter !== null && turn.gutterRows === height) return;
+  /**
+   * The gutter: one strip per Turn, on each visible slice of its rows and left of the cell grid, so it covers no glyph,
+   * `cols` stays what it is without it, and a Turn taller than the screen keeps a strip on every visible row.
+   */
+  const drawGutters = () => {
+    const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
 
-    turn.gutter?.dispose();
-    turn.gutterRows = height;
-    turn.gutter = terminal.registerDecoration({ marker: turn.start, x: 0, width: 1, height, layer: "bottom" }) ?? null;
-    turn.gutter?.onRender((band) => {
-      band.classList.add("turn-band");
+    if (!screen || terminal.rows === 0) return;
 
-      if (band.firstElementChild) return;
+    if (!strips || strips.parentElement !== screen) {
+      strips = document.createElement("div");
+      strips.className = "turn-strips";
+      strips.setAttribute("data-turn-strips", "");
+      screen.append(strips);
+    }
 
-      const strip = document.createElement("button");
+    const buffer = terminal.buffer.active;
+    const top = buffer.viewportY;
+    const bottom = top + terminal.rows - 1;
+    const rowHeight = screen.clientHeight / terminal.rows;
 
-      strip.type = "button";
-      strip.className = "turn-gutter";
-      strip.setAttribute("aria-label", copy.selectCommand);
-      strip.tabIndex = -1;
-      // The click must not move the keyboard out of the Terminal.
-      strip.addEventListener("mousedown", (press) => press.preventDefault());
-      strip.addEventListener("click", (click) => choose(turn, click.shiftKey));
-      band.append(strip);
-    });
+    for (const turn of turns) {
+      const first = Math.max(turn.start.line, top);
+      const last = Math.min(lastRow(turn), bottom);
+
+      if (first > last) {
+        turn.gutter?.remove();
+        continue;
+      }
+
+      let strip = turn.gutter;
+
+      if (!strip) {
+        strip = document.createElement("button");
+        strip.type = "button";
+        strip.className = "turn-gutter";
+        strip.tabIndex = -1;
+        // The click must not move the keyboard out of the Terminal.
+        strip.addEventListener("mousedown", (press) => press.preventDefault());
+        strip.addEventListener("click", (click) => choose(turn, click.shiftKey));
+        turn.gutter = strip;
+      }
+
+      const command = buffer.getLine(turn.start.line)?.translateToString(true).trim();
+
+      strip.setAttribute("aria-label", command ? `${copy.selectCommand}: ${command}` : copy.selectCommand);
+      strip.style.top = `${(first - top) * rowHeight}px`;
+      strip.style.height = `${(last - first + 1) * rowHeight}px`;
+
+      if (strip.parentElement !== strips) strips.append(strip);
+    }
   };
 
   const choose = (turn: Turn, extend: boolean) => {
@@ -118,11 +145,11 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
         previous.endColumn = terminal.buffer.active.cursorX;
       }
 
-      const turn: Turn = { start: line, end: null, endColumn: 0, exit: null, cwd: null, gutter: null, gutterRows: 0 };
+      const turn: Turn = { start: line, end: null, endColumn: 0, exit: null, cwd: null, gutter: null };
 
       line.onDispose(() => drop(turn));
       turns.push(turn);
-      drawGutter(turn);
+      drawGutters();
     } else if (kind === "C") {
       const turn = open();
 
@@ -136,7 +163,7 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
         turn.end = line;
         turn.endColumn = terminal.buffer.active.cursorX;
         turn.exit = value === undefined || value === "" ? null : Number(value);
-        drawGutter(turn);
+        drawGutters();
       } else line.dispose();
     } else line.dispose();
 
@@ -151,11 +178,10 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
       return true;
     }),
     // A running Turn grows with its output.
-    terminal.onWriteParsed(() => {
-      const turn = open();
-
-      if (turn) drawGutter(turn);
-    }),
+    terminal.onWriteParsed(drawGutters),
+    terminal.onScroll(drawGutters),
+    terminal.onResize(drawGutters),
+    terminal.onRender(drawGutters),
   );
 
   return {
@@ -169,6 +195,7 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
     dispose: () => {
       listeners.forEach((listener) => listener.dispose());
       [...turns].forEach(drop);
+      strips?.remove();
     },
   };
 };
