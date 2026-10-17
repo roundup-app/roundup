@@ -61,7 +61,7 @@ const question = (target: Element): boolean => {
 };
 
 const keyOf = (code: string): string =>
-  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code.slice(3).toLowerCase();
+  code.startsWith("Digit") ? code.slice(5) : code.startsWith("Bracket") ? "]" : code === "Period" ? "." : code === "Comma" ? "," : code === "Backspace" ? code : code === "Backslash" ? "\\" : code === "Enter" ? code : code.slice(3).toLowerCase();
 
 const MODS = [
   {},
@@ -76,15 +76,17 @@ const MODS = [
 const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
-const boundPresses = (from: Element): string[] =>
-  MODS.flatMap((mods) =>
-    CODES.flatMap((code) => {
+const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): string[] =>
+  modSets.flatMap((mods) =>
+    codes.flatMap((code) => {
       if (Object.keys(mods).length === 0) return [];
 
       const key = keyOf(code);
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
 
       from.dispatchEvent(press);
+      // `⌘K` opens the modal switcher, which would swallow every later probe.
+      document.querySelector(".switcher input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
       return press.defaultPrevented ? [pressOf(press)] : [];
     }),
@@ -101,8 +103,8 @@ describe("u54 keyboard help", () => {
     expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
       "⌘J  Jump to what needs you", "⌘N  New Agent", "⇧⌘N  New Agent with a prompt",
       "⌘T  New Terminal", "⌘B  Next Bubble", "⌘.  Minimise or restore the Bubble",
-      "⇧⌘⌫  Close the Bubble", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
-      "⌃O  Expand or fold the Thread", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
+      "⇧⌘⌫  Close the Bubble", "⌘K  Switch to a row by name", "⇧⏎  Take control, in the switcher", "⌘1  Focus the Rail", "⌘2  Focus the pane", "⌘⌫  Remove",
+      "⌘⏎  Take control", "⌥1–⌥9  Take control of the n-th Agent", "⌥0  Give control back",
       "⇧⌘J  Jump to what needs you in another Project", "⌘\\  Show or hide the work items",
       "⌘,  Models", "⇧⌘]  Next Project", "⇧⌘[  Previous Project",
     ]);
@@ -150,7 +152,6 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
 
     expect(question(document.querySelector(".pane-screen textarea")!)).toBe(false);
-    expect(question(document.querySelector("[data-thread-input]")!)).toBe(false);
     expect(question(document.body)).toBe(false);
     expect(help()).toBeNull();
   });
@@ -171,15 +172,26 @@ describe("u54 keyboard help", () => {
   it("u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview", async () => {
     await open();
     fireEvent.click(rowOf("a"));
-    await waitFor(() => expect(document.querySelector("[data-thread-input]")).not.toBeNull());
+    await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inRail).flatMap((chord) => chord.presses).sort();
-    const bound = [...new Set(boundPresses(document.querySelector("[data-thread-input]")!))].sort();
+    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
+    const bound = [...new Set(boundPresses(document.querySelector(".terminal-new")!))].sort();
 
     expect(bound).toEqual(listed);
 
-    const railBound = [...new Set(boundPresses(rowOf("a")))].sort();
-    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.flatMap((chord) => chord.presses).sort());
+    // `⌘⏎` binds from a Rail row, not from a text field (U531); a Rail row prevents any modified `⏎`, so only ⌘⏎ is probed.
+    const row = rowOf("a");
+    const railBound = [...new Set([...boundPresses(row), ...boundPresses(row, [{ metaKey: true }], ["Enter"])])].sort();
+    const field = document.activeElement;
+
+    fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
+    await waitFor(() => expect(document.querySelector(".switcher input")).not.toBeNull());
+
+    const switcherBound = boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
+
+    expect(switcherBound).toEqual(["shift+Enter"]);
+    expect(field).not.toBeNull();
+    expect([...new Set([...bound, ...railBound, ...switcherBound])].sort()).toEqual(CHORDS.flatMap((chord) => chord.presses).sort());
   });
 
 });

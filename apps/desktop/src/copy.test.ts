@@ -1,8 +1,8 @@
 import { mountRail, rowOf } from "./rail/railFixture";
-import { message, mountThread } from "./thread/threadFixture";
+import { mountCentre } from "./testing/centreFixture";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { door, workstream, USER, agent } from "./testing/nodes";
+import { door, workstream, agent } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
 
 afterEach(cleanup);
@@ -143,7 +143,7 @@ it("u471_source_observer_covers_jsx_attributes_and_helper_prose", () => {
   expect(candidates('button.setAttribute("data-kind", "working"); button.setAttribute("aria-pressed", "true");')).toEqual([]);
 });
 
-const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagents", "Usage", "Iteration", "Project", "App", "Editor", "Skill"]);
+const TERMS = new Set(["Workstream", "Workstreams", "Agent", "Agents", "Pad", "Pads", "Rail", "Daemon", "Todo", "Todos", "Drawer", "Terminal", "Terminals", "Bubble", "Thread", "Model", "Models", "Effort", "Message", "Messages", "Quote", "Skills", "Subagent", "Subagents", "Usage", "Iteration", "Project", "App", "Editor", "Skill"]);
 
 const ACRONYMS = new Set(["B", "KB", "MB", "GB", "TB", "CPU", "RSS", "MCP"]);
 
@@ -187,8 +187,6 @@ const FORMAT_SAMPLES = {
   exit: (count: number) => copy.exit(count),
   noteForOrYourOwnAnswer: (count: number) => copy.noteForOrYourOwnAnswer(count),
   decisionFor: (count: number) => copy.decisionFor(count),
-  digestOf: (count: number) => copy.digestOf(count),
-  openTodoCount: (count: number) => copy.openTodoCount(count),
   lastTouch: (count: number) => copy.lastTouch(count, count, count, count),
   padTouch: (count: number) => copy.padTouch(count, count, count),
   andMore: (count: number) => copy.andMore(count),
@@ -218,16 +216,6 @@ const FORMAT_SAMPLES = {
   failed: (count: number) => copy.failed(count, count),
   doesNotExist: (count: number) => copy.doesNotExist(count),
   theDoorWritesAHandoffKeepsWhatYou: (count: number) => copy.theDoorWritesAHandoffKeepsWhatYou(count),
-  removeAttachment: (count: number) => copy.removeAttachment(count),
-  iteration: (count: number) => copy.iteration(count, count),
-  tellSends: (count: number) => copy.tellSends(count),
-  message: (count: number) => copy.message(count),
-  isNotAnImage: (count: number) => copy.isNotAnImage(count),
-  questionFrom: (count: number) => copy.questionFrom(count),
-  removeQuoteFrom: (count: number) => copy.removeQuoteFrom(count),
-  kilobytes: (count: number) => copy.kilobytes(count),
-  megabytes: (count: number) => copy.megabytes(count),
-  notDeliveredReason: (count: number) => copy.notDeliveredReason(count),
   toastLine: (count: number) => copy.toastLine(count, count),
   toastOverflow: (count: number) => copy.toastOverflow(count),
   changedTodo: (count: number) => copy.changedTodo(count),
@@ -252,16 +240,13 @@ const FORMAT_SAMPLES = {
   padCount: (count: number) => copy.padCount(count),
   todoCount: (count: number) => copy.todoCount(count),
   padsAndTodos: (count: number) => copy.padsAndTodos(count),
-  cleared: (count: number) => copy.cleared(count),
   makePadYours: (count: number) => copy.makePadYours(count),
   needYou: (count: number) => copy.needYou(count),
   exitedCode: (count: number) => copy.exitedCode(count),
   runningAgents: (count: number) => copy.runningAgents(count, "1", "1", "1"),
   percent: (count: number) => copy.percent(count),
   counted: (count: number) => copy.counted(count, "1"),
-  time: () => copy.time("1", "1"),
   orderWithLimits: () => copy.orderWithLimits("1", "1"),
-  foldedText: () => copy.foldedText("1"),
   daemonExit: () => copy.daemonExit("exited"),
   fieldDefault: () => copy.fieldDefault("Model", "Unset"),
   unsetDefault: (count: number) => copy.unsetDefault(count),
@@ -283,7 +268,7 @@ it("u471_catalogue_uses_sentence_case_and_user_labels", () => {
       appearHereOnePerRow: copy.agentsAndTerminals + " ", nestedByIndent: copy.agentsAndTerminals + " " + copy.appearHereOnePerRow + " ",
       planSoCanYou: copy.agentsAddThemAsThey + " ", asks: "Agent", andMore: "3 Agents run: A, b, c", exitedBySignal: "Supervisor stopped, ",
       exited: "Supervisor stopped, ", exitedCode: "Supervisor stopped, ", noLimits: "Order · ",
-      doneCount: "1", selected: "1", readOnly: "Watching Agent", openTodoNoun: "1 ", doneTodos: "1 ",
+      takeControlKeys: "Take control ", doneCount: "1", selected: "1", readOnly: "Watching Agent", openTodoNoun: "1 ", doneTodos: "1 ",
       agentsMayStillBeWritingDeletingDoesNot: "Owned by Agent", cleared: "Iteration 1", left: "To the ", right: "To the ",
     }));
 
@@ -333,21 +318,15 @@ it("u471_previous_copy_assertions_are_preserved_parameterised_output", () => {
 
   expect(copy.orderOf(authored)).toBe(`Order of ${authored}`);
   expect(copy.noteForOrYourOwnAnswer(authored)).toBe(`Note for ${authored}, or your own answer`);
-  expect(copy.removeQuoteFrom(authored)).toBe(`Remove Quote from ${authored}`);
 });
 
 
 it("u471_catalogue_preserves_rendered_content", async () => {
   const authored = 'Door Shelf Takeover Handoff 🧭 keep MY case';
-  const body = 'keep MY message 🧭\n  exactly';
 
-  const { container } = await mountThread([door("w", "idle", "idle", { name: authored, work: { kind: "clarification", question: "keep MY question?" } })], {
-    messages: [message(1, { from: USER, to: "w", body })],
-  });
+  await mountCentre([door("w", "idle", "idle"), agent("a", "working", "x", { parent: "w", name: authored, work: { kind: "clarification", question: "keep MY question?" } })], { select: "a" });
 
-  expect(screen.getByRole("button", { name: `Order of ${authored}` }).textContent).toBe("keep MY question?");
-  await waitFor(() => expect(container.querySelector("[data-message-body]")?.textContent).toBe(body));
-  expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: `Order of ${authored}` }).textContent).toBe("Clarifying: keep MY question?");
 });
 
 

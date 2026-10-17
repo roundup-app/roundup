@@ -1,9 +1,9 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
 import { LIST } from "../models/modelsFixture";
-import { clearingOf } from "../thread/clear";
+import { clearingOf } from "../rail/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
 // jsdom has no layout observer; U427's Chromium tests assert prompt placement and resizing.
@@ -45,7 +45,7 @@ describe("u427 a Workstream row's icons", () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Prompt");
+    const field = await screen.findByLabelText("Task");
 
     fireEvent.click(icon("g", "Add Agent"));
 
@@ -70,7 +70,7 @@ describe("u427 a Workstream row's icons", () => {
     fireEvent.click(icon("c1", "Clear"));
 
     expect(clearingOf(mounted.app, mounted.connected.events, "c1").phase()).toBe("asking");
-    expect(await screen.findByRole("textbox", { name: /Why clear c1/ })).toBeTruthy();
+    expect(within(await screen.findByRole("dialog", { name: "Clear c1" })).getByRole("textbox", { name: "Why clear?" })).toBeTruthy();
     expect(mounted.rail.selected()).toBeNull();
     expect(mounted.app.calls.filter((call) => call.method === "workstream.clear")).toEqual([]);
   });
