@@ -68,11 +68,12 @@ const open = async () => {
 
 const line = (): string[] => [...document.querySelectorAll(".hint-line .hint:not([hidden])")].map((hint) => hint.textContent!.replace(/\s+/g, " ").trim());
 
-const label = (place: HintPlace): string[] => hintsFor(place).map((hint) => `${hint.keys} ${hint.label}`);
+const label = (place: HintPlace, watching = true): string[] => hintsFor(place, watching).map((hint) => `${hint.keys} ${hint.label}`);
 
-const toRail = async () => {
+const toRail = async (watching = true) => {
+  fireEvent.click(rowOf("b"));
   rowOf("b").focus();
-  await waitFor(() => expect(line()).toEqual(label("rail")));
+  await waitFor(() => expect(line()).toEqual(label("rail", watching)));
 };
 
 const toPane = async () => {
@@ -137,6 +138,7 @@ describe("u2230 shortcut hints", () => {
     await open();
     await toRail();
     await toPane();
+    await toRail();
     await toBubble();
     await toRail();
 
@@ -167,8 +169,9 @@ describe("u2230 shortcut hints", () => {
       }
     }
 
-    expect(label("agent")).toEqual(["⌘⏎ Take control", "⌘1 Rail", "⌘↑ Prev", "⌘↓ Next"]);
+    expect(label("agent")).toEqual(["⌘⏎ Take control", "⌘1 Rail", "⌘↑ Previous", "⌘↓ Next"]);
     expect(label("bubble")).toEqual(["⌘. Minimise", "⇧⌘⌫ Close", "⌘B Next"]);
     expect(label("rail")).toEqual(["⌘⏎ Take control", "⌘⌫ Remove"]);
+    expect(label("rail", false)).toEqual(["⌘⌫ Remove"]);
   });
 });

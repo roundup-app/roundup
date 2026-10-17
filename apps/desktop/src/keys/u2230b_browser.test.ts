@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { hintsFor } from "./chords";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
@@ -31,7 +32,7 @@ const read = `() => {
   const bar = box(document.querySelector('.resource-strip'));
   const others = ['.terminal-tabs-host', '.resource-agent'].map(selector => document.querySelector(selector)).filter(Boolean).map(box);
   return {
-    shown: shown.map(child => child.textContent),
+    shown: shown.map(child => child.textContent.replace(/\\s+/g, ' ').trim()),
     fits: shown.every(child => box(child).right <= lineBox.right && box(child).left >= lineBox.left && box(child).bottom <= lineBox.bottom),
     inBar: lineBox.left >= bar.left && lineBox.right <= bar.right && lineBox.top >= bar.top && lineBox.bottom <= bar.bottom,
     clearOfBar: others.every(other => lineBox.bottom <= other.top || other.width === 0),
@@ -45,28 +46,47 @@ it("u2230b_hint_line_is_quiet_and_fits", async () => {
   for (const [scheme, contrast] of [["light", undefined], ["dark", undefined], ["light", "more"]] as const) {
     await page.scheme(scheme, contrast);
 
-    for (const width of [1280]) {
-      await page.load("/harness.html?seed=tree-40", width, 800);
-      await page.call(`() => localStorage.clear()`);
-      await page.load("/harness.html?seed=tree-40", width, 800);
-      await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => document.querySelector('[data-id="agent-4"]').click()`);
-      await page.until(`() => document.querySelector('.pane-watch')`);
-      await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
-      await page.until(`() => document.querySelector('.hint-line .hint')`);
+    for (const [seed, agent] of [["tree-40", "agent-4"], ["bubbles", "dense"]] as const) {
+      for (const width of [1280, 700]) {
+        await page.load(`/harness.html?seed=${seed}`, width, 800);
+        await page.call(`() => localStorage.clear()`);
+        await page.load(`/harness.html?seed=${seed}`, width, 800);
+        await page.until(`() => Boolean(window.__fake)`);
+        await page.call(`() => document.querySelector('[data-id="${agent}"]').click()`);
+        await page.until(`() => document.querySelector('.pane-watch')`);
 
-      const observed = await page.call<Read>(read);
+        // The Shelf opens by default at 700 and leaves the bar no room: close it, as a user would.
+        if (width === 700) {
+          await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
+          await page.press("\\", "Backslash", 4);
+        }
 
-      const label = `${scheme} ${contrast ?? ""} ${width}`;
+        await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
+        await page.until(`() => document.querySelector('.hint-line .hint:not([hidden])')`);
 
-      expect(observed.shown.length, label).toBeGreaterThan(0);
-      expect(observed.shown[0], label).toBe("⌘⏎ Take control");
-      expect({ fits: observed.fits, inBar: observed.inBar, clearOfBar: observed.clearOfBar, quiet: observed.quiet, secondary: observed.secondary }, label)
-        .toEqual({ fits: true, inBar: true, clearOfBar: true, quiet: true, secondary: true });
+        if (seed === "bubbles") expect(await page.call<number>(`() => document.querySelectorAll('.terminal-tab').length`), "the Agent with 8 Runs").toBeGreaterThanOrEqual(8);
 
-      for (const [id, check] of Object.entries(observed.checks)) {
-        if (["D2", "D5", "D6"].includes(id)) expect(check.status, `${label} ${id}`).toBe("pass");
+        const observed = await page.call<Read>(read);
+
+        if (seed === "tree-40" && width === 1280 && scheme === "light" && !contrast) {
+          const below = await page.call<string>(`() => { const rows = [...document.querySelectorAll('[role="tree"] [role="treeitem"][data-id]')]; return rows[rows.findIndex(row => row.dataset.id === "agent-4") + 1].dataset.id; }`);
+
+          await page.press("ArrowDown", "ArrowDown", 4);
+          await page.until(`() => document.querySelector('[role="treeitem"][aria-selected="true"]')?.dataset.id === ${JSON.stringify(below)}`);
+        }
+
+        const label = `${scheme} ${contrast ?? ""} ${seed} ${width}`;
+        const wanted = hintsFor("agent").map((hint) => `${hint.keys} ${hint.label}`);
+
+        expect(observed.shown.length, label).toBeGreaterThan(0);
+        expect(observed.shown, `${label}: fewer hints drop from the end`).toEqual(wanted.slice(0, observed.shown.length));
+        expect({ fits: observed.fits, inBar: observed.inBar, clearOfBar: observed.clearOfBar, quiet: observed.quiet, secondary: observed.secondary }, label)
+          .toEqual({ fits: true, inBar: true, clearOfBar: true, quiet: true, secondary: true });
+
+        for (const [id, check] of Object.entries(observed.checks)) {
+          if (["D2", "D5", "D6"].includes(id)) expect(check.status, `${label} ${id}`).toBe("pass");
+        }
       }
     }
   }
-}, 180_000);
+}, 300_000);

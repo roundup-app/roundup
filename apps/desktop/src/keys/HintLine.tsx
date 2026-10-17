@@ -20,18 +20,20 @@ export const HintLine = () => {
   const [focus, setFocus] = createSignal<Element | null>(null);
   const [watched, setWatched] = createSignal(0);
 
-  const place = createMemo(() => {
+  const selectedIsAgent = () => {
     watched();
 
-    const selected = rail.nodes.find((node) => node.id === rail.selected());
+    return rail.nodes.find((node) => node.id === rail.selected())?.kind === "agent";
+  };
 
-    return placeAt(focus(), selected?.kind === "agent");
-  });
+  const place = createMemo(() => placeAt(focus(), selectedIsAgent()));
+
+  const watching = () => selectedIsAgent() && document.querySelector(".pane > .pane-watch") != null;
 
   const hints = () => {
     const at = place();
 
-    return at === null ? [] : hintsFor(at);
+    return at === null ? [] : hintsFor(at, watching());
   };
 
   let line: HTMLParagraphElement | undefined;
