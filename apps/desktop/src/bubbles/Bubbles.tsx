@@ -595,15 +595,13 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (id !== undefined) lastFocused = id;
   };
 
-  // A chord that moves focus out of a bubble to a control outside it (⌘K's Switcher, ⌘/'s Ask bar) minimises the bubble, so the focused control is never under the top layer.
+  // Focus landing on a control outside the bubbles (⌘K's Switcher, ⌘/'s Ask bar) minimises every open bubble, so the focused control is never under the top layer, whether or not focus began inside a bubble.
   const onFocusLeave = (event: FocusEvent): void => {
-    const { target, relatedTarget } = event;
+    const { target } = event;
 
-    if (!(target instanceof Element) || !(relatedTarget instanceof Element) || target.closest("[data-bubble], .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
 
-    const id = relatedTarget.closest<HTMLElement>("[data-bubble]")?.dataset.bubble;
-
-    if (id !== undefined && !placeOf(id).min) setPlace(id, { ...placeOf(id), min: true });
+    for (const { id } of shown()) if (!placeOf(id).min) setPlace(id, { ...placeOf(id), min: true });
   };
 
   // U529: the Switcher chose a Terminal; its owner is selected by now, so the bubble is listed.
