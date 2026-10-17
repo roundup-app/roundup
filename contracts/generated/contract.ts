@@ -83,7 +83,7 @@ export const CONTRACT = {
     "terminal.search": "5983af6be499aca1",
     "terminal.snapshot": "d9b4852e01e7b244",
     "terminal.spawn": "cf9df73e787b6b72",
-    "terminal.write": "90c430ee23f85879",
+    "terminal.write": "be943ea4c51922aa",
     "todo.complete": "6b83648efdf86529",
     "todo.create": "90511d5b40bf117d",
     "todo.delete": "1ae6fee311eb5ed5",
