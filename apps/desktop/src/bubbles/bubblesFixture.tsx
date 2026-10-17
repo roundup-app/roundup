@@ -75,6 +75,10 @@ export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: E
   return press;
 };
 
-export const bubbleNames = (): string[] => [...document.querySelectorAll(".bubble-name")].map((name) => name.textContent ?? "");
+/** In Terminal order: each bubble is its own layer in the body, so the DOM order is the order they were first shown in. */
+export const bubbleNames = (): string[] =>
+  [...document.querySelectorAll<HTMLElement>(".bubble")]
+    .sort((a, b) => Number(a.dataset.bubble) - Number(b.dataset.bubble))
+    .map((bubble) => bubble.querySelector(".bubble-name")?.textContent ?? "");
 
 export const bubbleCalls = (app: ReturnType<typeof createFakeApp>, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
