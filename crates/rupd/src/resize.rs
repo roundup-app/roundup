@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-use contracts::agent::{HeldAction, HeldCall, NodeId};
+use contracts::agent::{HeldAction, HeldCall, NodeId, SetOrderParams};
 use contracts::terminal::{ResizeAction, ResizeOutcome, ResizeParams, TerminalId};
 use contracts::{Actor, ActorKind};
 use rpc::{OpenError, RpcError};
@@ -232,11 +232,26 @@ impl Daemon {
             self.release_actions(child).await?;
             return Ok(None);
         }
+        if method == "agent.setOrder"
+            && conn.actor.kind == ActorKind::Agent
+            && conn.actor.id == child
+        {
+            // An Agent's own Order is not a Door action on a child.
+            return Ok(None);
+        }
         let call = match method {
             "terminal.close" => HeldCall::Close(rpc::params(params)?),
             "terminal.kill" => HeldCall::Kill(rpc::params(params)?),
             "terminal.write" => HeldCall::Write(rpc::params(params)?),
             "rail.rename" => HeldCall::Rename(rpc::params(params)?),
+            "agent.setOrder" => {
+                let order: SetOrderParams = rpc::params(params)?;
+                order
+                    .order
+                    .validate_explicit()
+                    .map_err(|message| RpcError::new(rpc::code::INVALID_PARAMS, message))?;
+                HeldCall::SetOrder(order)
+            }
             "agent.stop" => HeldCall::Stop(rpc::params(params)?),
             "agent.interrupt" => HeldCall::Interrupt(rpc::params(params)?),
             "agent.prompt" => HeldCall::Prompt(rpc::params(params)?),
@@ -312,7 +327,7 @@ impl Daemon {
                 _ if child_exited => Some("child exited before action release"),
                 None => Some("child was removed"),
                 Some(n)
-                    if !matches!(action.call, HeldCall::Rename(_))
+                    if !node_bound(&action.call)
                         && (n.attempt != accepted.attempt
                             || terminal_call(&action.call)
                                 && n.terminal_id != accepted.child_terminal) =>
@@ -520,7 +535,7 @@ impl Daemon {
                 }
                 continue;
             }
-            if matches!(accepted.action.call, HeldCall::Rename(_)) {
+            if node_bound(&accepted.action.call) {
                 if !self
                     .sender
                     .get()
@@ -592,6 +607,11 @@ impl Daemon {
     }
 }
 
+/// A rename or an Order belongs to the child node, so a replacement Attempt still takes it.
+fn node_bound(call: &HeldCall) -> bool {
+    matches!(call, HeldCall::Rename(_) | HeldCall::SetOrder(_))
+}
+
 fn terminal_call(call: &HeldCall) -> bool {
     matches!(
         call,
@@ -622,6 +642,7 @@ fn action_method(call: &HeldCall) -> &'static str {
         HeldCall::Kill(_) => "terminal.kill",
         HeldCall::Write(_) => "terminal.write",
         HeldCall::Rename(_) => "rail.rename",
+        HeldCall::SetOrder(_) => "agent.setOrder",
         HeldCall::Stop(_) => "agent.stop",
         HeldCall::Interrupt(_) => "agent.interrupt",
         HeldCall::Prompt(_) => "agent.prompt",
@@ -632,6 +653,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
     match call {
         HeldCall::Resize(params) => serde_json::to_value(params),
         HeldCall::Rename(params) => serde_json::to_value(params),
+        HeldCall::SetOrder(params) => serde_json::to_value(params),
         HeldCall::Close(params) | HeldCall::Kill(params) => serde_json::to_value(params),
         HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
         HeldCall::Prompt(params) => serde_json::to_value(params),
@@ -645,8 +667,10 @@ fn original_terminal(call: &HeldCall) -> Option<&str> {
         HeldCall::Resize(params) => Some(&params.id),
         HeldCall::Close(params) | HeldCall::Kill(params) => Some(&params.id),
         HeldCall::Write(params) => Some(&params.id),
-        HeldCall::Rename(_) | HeldCall::Stop(_) | HeldCall::Interrupt(_) | HeldCall::Prompt(_) => {
-            None
-        }
+        HeldCall::Rename(_)
+        | HeldCall::SetOrder(_)
+        | HeldCall::Stop(_)
+        | HeldCall::Interrupt(_)
+        | HeldCall::Prompt(_) => None,
     }
 }
