@@ -1,5 +1,6 @@
 .app-dialog,
 .app-menu,
+.app-popover,
 .app-tooltip {
   color: var(--text);
   background-color: var(--sunken);

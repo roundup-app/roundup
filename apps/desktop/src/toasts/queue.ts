@@ -32,6 +32,8 @@ export type ToastQueue = {
   /** U80's one failure line: no timer; the next Toast click or push clears it. */
   failure: Accessor<string | null>;
   push(candidate: Candidate): void;
+  /** U516: a Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
+  notify(candidate: Candidate): void;
   /** Hover or focus (`true`) stops the Toast's timer; the end of both restarts the full time. */
   hold(id: number, held: boolean): void;
   dismiss(id: number): void;
@@ -146,6 +148,10 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, reducedMo
       }
 
       sound();
+    },
+    notify: (candidate) => {
+      setFailure(null);
+      show(candidate);
     },
     hold: (id, isHeld) => {
       const entry = entries().find((each) => each.id === id);

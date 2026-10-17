@@ -2,6 +2,7 @@ import { TreeView as ArkTreeView } from "@ark-ui/solid/tree-view";
 import { Dialog as ArkDialog } from "@ark-ui/solid/dialog";
 import { Editable as ArkEditable } from "@ark-ui/solid/editable";
 import { Menu as ArkMenu } from "@ark-ui/solid/menu";
+import { Popover as ArkPopover } from "@ark-ui/solid/popover";
 import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/solid/tabs";
 import { Tooltip as ArkTooltip } from "@ark-ui/solid/tooltip";
 import { mergeProps, splitProps, type JSX } from "solid-js";
@@ -23,6 +24,13 @@ export const Menu = {
   ...ArkMenu,
   Root: (props: ArkMenu.RootProps) => <ArkMenu.Root lazyMount unmountOnExit {...props} />,
   Content: (props: ArkMenu.ContentProps) => <ArkMenu.Content {...props} class={`app-menu ${props.class ?? ""}`} />,
+};
+
+/** A popover that never takes the keyboard on opening and closes only when its owner says so (U515's control by a selection). */
+export const Popover = {
+  ...ArkPopover,
+  Root: (props: ArkPopover.RootProps) => <ArkPopover.Root lazyMount unmountOnExit autoFocus={false} modal={false} closeOnInteractOutside={false} closeOnEscape={false} {...props} />,
+  Content: (props: ArkPopover.ContentProps) => <ArkPopover.Content {...props} class={`app-popover ${props.class ?? ""}`} />,
 };
 
 export const Editable = {
