@@ -4203,10 +4203,24 @@ impl Fresh {
             )
             .await
             .unwrap();
-        until_async("the Door is asked for the Handoff", || async {
-            (requests_holding(self.model(), "Write the Handoff") > 0).then_some(())
+        tokio::time::timeout(Duration::from_secs(25), async {
+            while requests_holding(self.model(), "Write the Handoff") == 0 {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
         })
-        .await;
+        .await
+        .unwrap_or_else(|_| {
+            let seen: Vec<String> = self
+                .model()
+                .journal()
+                .iter()
+                .map(|e| {
+                    let last = user_texts(e).last().cloned().unwrap_or_default();
+                    format!("{} {:.160}", e["response"]["status"], last)
+                })
+                .collect();
+            panic!("DIAG never asked: {seen:#?} rows {:#?}", self.launches())
+        });
         self.settled().await;
         let actor = self.project.client().await;
         actor
