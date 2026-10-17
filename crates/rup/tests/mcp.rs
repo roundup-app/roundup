@@ -224,7 +224,8 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 62] = [
+const TOOL_METHODS: [&str; 63] = [
+    "agent.wake",
     "todo.create",
     "todo.get",
     "todo.list",
@@ -298,7 +299,15 @@ const TOOL_METHODS: [&str; 62] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
+const DOOR_METHODS: [&str; 6] = [
+    "agent.digest",
+    // B53
+    "terminal.show",
+    "checkpoint.write",
+    "workstream.handoff",
+    "workstream.rewindPlan",
+    "workstream.rewind",
+];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
 const NO_TOOL: [&str; 46] = [
@@ -471,6 +480,20 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     names.sort();
     expected.sort();
     assert_eq!(names, expected);
+}
+
+#[tokio::test]
+async fn b45_agent_wake_is_offered_to_every_agent() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    let tool = tools.iter().find(|t| t.name == "agent_wake").unwrap();
+    assert_eq!(
+        Value::Object((*tool.input_schema).clone()),
+        serde_json::to_value(schemars::schema_for!(contracts::agent::WakeParams)).unwrap()
+    );
 }
 
 #[tokio::test]
@@ -1312,11 +1335,11 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 json!({"name":"New name"}),
                 "requested renaming Project to New name",
             ),
+            "terminal.show" => (json!({"id":"t1"}), "showing Terminal t1"),
             "decision.answer" => (
                 json!({"id":"d1","answer":"allow"}),
                 "answered Decision d1: allow",
             ),
-            "terminal.write" => (json!({"id":"t1","data":"aGk="}), "wrote to Terminal t1"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream a1",
@@ -1330,6 +1353,24 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             expected,
             "{name}"
         );
+    }
+    // A refusal, a chosen option and a note alone each name what was submitted.
+    for (args, expected) in [
+        (
+            json!({"id":"d1","answer":"deny"}),
+            "answered Decision d1: deny",
+        ),
+        (
+            json!({"id":"d1","answer":"Yes","note":""}),
+            "answered Decision d1: Yes",
+        ),
+        (
+            json!({"id":"d1","answer":null,"note":"Use the other option"}),
+            "answered Decision d1: Use the other option",
+        ),
+    ] {
+        let result = shim.call("decision_answer", args).await;
+        assert_eq!(result.content[0].as_text().unwrap().text, expected);
     }
     server.abort();
 }
@@ -1420,6 +1461,16 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
         ),
         ("terminal_kill", json!({"id":"t1"}), Value::Null),
         (
+            "terminal_write",
+            json!({"id":"t1","data":"aGk="}),
+            json!({"id":"8","agent":"child","method":"terminal.write","params":{"id":"t1","data":"aGk="},"outcome":{"status":"waiting","reason":"takeover"}}),
+        ),
+        (
+            "terminal_write",
+            json!({"id":"t1","data":"aGk="}),
+            Value::Null,
+        ),
+        (
             "rail_rename",
             json!({"id":"child","name":"waiting rename"}),
             json!({"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"waiting","reason":"takeover"}}),
@@ -1454,4 +1505,233 @@ async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed
         assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
         server.abort();
     }
+}
+
+/// A Workstream `m` with its Door started, and a child `c` under it with a Terminal.
+struct B53 {
+    served: Served,
+    user: rpc::Client,
+    door: String,
+    child: String,
+    terminal: String,
+}
+
+async fn b53_fixture() -> B53 {
+    let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;
+    let user = rpc::Client::connect(&served.socket()).await.unwrap();
+    let cwd = served.dir.path().to_string_lossy().into_owned();
+    let door = user
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "m", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    user.request("rail.startDoor", json!({"id": door}))
+        .await
+        .unwrap();
+    let child = user
+        .request(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": null, "parent": door}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let tree = user.request("rail.tree", Value::Null).await.unwrap();
+    let terminal = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == child.as_str())
+        .and_then(|node| node["terminal_id"].as_str())
+        .expect("the child has a Terminal")
+        .to_owned();
+    B53 {
+        served,
+        user,
+        door,
+        child,
+        terminal,
+    }
+}
+
+fn error_text(result: &CallToolResult) -> String {
+    assert_eq!(result.is_error, Some(true), "{result:?}");
+    result.content[0].as_text().unwrap().text.clone()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn b53_a_send_without_a_kind_names_the_field_and_its_values() {
+    let fx = b53_fixture().await;
+    let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
+    let before = fx.user.request("message.list", json!({})).await.unwrap();
+
+    let sent = shim
+        .call("message_send", json!({"to": fx.child, "body": "hello"}))
+        .await;
+
+    let text = error_text(&sent);
+    assert!(
+        text.contains(&format!("{}", rpc::code::INVALID_PARAMS)),
+        "{text}"
+    );
+    for word in ["kind", "note", "question"] {
+        assert!(text.contains(word), "{text}");
+    }
+    let after = fx.user.request("message.list", json!({})).await.unwrap();
+    assert_eq!(before, after);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn b53_the_send_schema_requires_kind() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let tools = shim.client.list_all_tools().await.unwrap();
+
+    let send = tools.iter().find(|t| t.name == "message_send").unwrap();
+    let schema = Value::Object((*send.input_schema).clone());
+    assert!(
+        schema["required"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("kind")),
+        "{schema}"
+    );
+    let values = serde_json::to_string(&schema).unwrap();
+    assert!(
+        values.contains("note") && values.contains("question"),
+        "{values}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn b53_a_show_request_opens_the_terminal_and_reads_nothing() {
+    let fx = b53_fixture().await;
+    let mut events = rpc::Client::connect(&fx.served.socket()).await.unwrap();
+    events
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let shim = spawn_shim(&fx.served.socket(), &fx.door).await;
+    let before = fx.user.request("message.list", json!({})).await.unwrap();
+
+    let shown = shim.call("terminal_show", json!({"id": fx.terminal})).await;
+
+    assert_eq!(shown.is_error, Some(false), "{shown:?}");
+    let seen = tokio::time::timeout(BOUND, async {
+        while let Some(event) = events.next_event().await {
+            if let contracts::EventData::TerminalShown(shown) = event.data {
+                return shown.id;
+            }
+        }
+        panic!("the connection closed before terminal.shown");
+    })
+    .await
+    .expect("terminal.shown arrived");
+    assert_eq!(seen, fx.terminal);
+    // Nothing else came of it: no Message, and no byte written to the Terminal.
+    assert_eq!(
+        before,
+        fx.user.request("message.list", json!({})).await.unwrap()
+    );
+    let screen = fx
+        .user
+        .request("terminal.screen", json!({"id": fx.terminal}))
+        .await
+        .unwrap();
+    assert_eq!(screen["offset"], 0, "{screen}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
+    let fx = b53_fixture().await;
+    let cwd = fx.served.dir.path().to_string_lossy().into_owned();
+    let other = fx
+        .user
+        .request(
+            "rail.createWorkstream",
+            json!({"name": "other", "parent": null}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    fx.user
+        .request("rail.startDoor", json!({"id": other}))
+        .await
+        .unwrap();
+    let stranger = fx
+        .user
+        .request(
+            "agent.spawn",
+            json!({"cwd": cwd, "prompt": null, "parent": other}),
+        )
+        .await
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let tree = fx.user.request("rail.tree", Value::Null).await.unwrap();
+    let foreign = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == stranger.as_str())
+        .and_then(|node| node["terminal_id"].as_str())
+        .unwrap()
+        .to_owned();
+    let mut events = rpc::Client::connect(&fx.served.socket()).await.unwrap();
+    events
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let door = spawn_shim(&fx.served.socket(), &fx.door).await;
+
+    let outside = door.call("terminal_show", json!({"id": foreign})).await;
+    let unknown = door.call("terminal_show", json!({"id": "99999"})).await;
+    let agent = spawn_shim(&fx.served.socket(), &fx.child).await;
+    let offered = agent.client.list_all_tools().await.unwrap();
+    let call = agent
+        .client
+        .call_tool(
+            CallToolRequestParams::new("terminal_show")
+                .with_arguments(json!({"id": fx.terminal}).as_object().unwrap().clone()),
+        )
+        .await;
+
+    assert_eq!(
+        serde_json::from_str::<Value>(&error_text(&outside)).unwrap()["code"],
+        rpc::code::FORBIDDEN
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&error_text(&unknown)).unwrap()["code"],
+        rpc::code::NOT_FOUND
+    );
+    assert!(offered.iter().all(|t| t.name != "terminal_show"));
+    assert!(
+        call.is_err() || call.unwrap().is_error == Some(true),
+        "an Agent's terminal_show must fail"
+    );
+    // A Daemon-side event for any of the three would have been emitted by now.
+    let late = tokio::time::timeout(Duration::from_millis(500), async {
+        while let Some(event) = events.next_event().await {
+            if matches!(event.data, contracts::EventData::TerminalShown(_)) {
+                return true;
+            }
+        }
+        false
+    })
+    .await;
+    assert!(
+        late.is_err() || late == Ok(false),
+        "terminal.shown was emitted"
+    );
 }

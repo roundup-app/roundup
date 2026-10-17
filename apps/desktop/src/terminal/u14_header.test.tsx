@@ -1,6 +1,5 @@
 import { cleanup, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import pane from "./styles.css?inline";
 import { mountPane } from "./paneHarness";
 import { RpcError } from "../app/seam";
 import { info, node } from "../testing/nodes";
@@ -29,35 +28,13 @@ describe("pane empty states and error sizing", () => {
     expect(screen.getByText("Select an Agent or a Terminal")).toBeTruthy();
   });
 
-  it("u13_an_error_line_never_changes_the_height_of_the_slot_that_holds_it", async () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-
-    sheet.textContent = pane;
-
-    const { app, connected, container } = await mountPane([node("a")], [info("t-a")]);
-
-    const box = () => {
-      const slot = container.querySelector(".pane-failure");
-
-      if (!slot) throw new Error("the pane has no failure slot");
-
-      const style = getComputedStyle(slot);
-
-      return [style.minHeight, style.flexShrink];
-    };
+  it("u13_an_error_line_shows_with_a_dismiss_icon", async () => {
+    const { app, connected } = await mountPane([node("a")], [info("t-a")]);
 
     app.outputFailure = new RpcError(-32603, "channel refused");
     connected.rail.select("a");
-
-    const before = box();
-
     const failure = await screen.findByRole("alert", { name: /^terminal\.output:/ });
 
-    const after = box();
-
-    sheet.remove();
-
-    expect([before, after]).toEqual([["24px", "0"], ["24px", "0"]]);
     expect(failure.querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 });

@@ -56,10 +56,15 @@ async fn o12_the_door_spawns_with_order_and_the_users_words() {
         .flatten()
         .filter(|message| message["role"] == "user")
         .filter_map(|message| message["content"].as_str())
-        .find(|text| text.ends_with(TYPED))
+        .find(|text| text.contains(TYPED))
         .expect("the model received the user's words")
         .strip_prefix("Follow this instruction: ")
         .expect("Claude wraps the delivered prompt as an instruction");
+    // B39: the prompt ends with the line the hook reads.
+    let (typed, ids) = typed
+        .rsplit_once("\n\n")
+        .expect("the prompt ends with its id line");
+    assert!(ids.starts_with("[rup messages: "), "{ids}");
     let stored = client
         .request("agent.spawnPrompt", json!({"id": spawned.id}))
         .await

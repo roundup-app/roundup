@@ -28,6 +28,8 @@ use vt100::Callbacks;
 pub(crate) const LOG_BYTES: usize = 1_048_576;
 /// The most text any reply holds.
 pub(crate) const REPLY_BYTES: usize = 16_384;
+/// X16: the most lines a read holds.
+pub(crate) const REPLY_LINES: usize = 200;
 const MATCH_CHARS: usize = 400;
 const MATCHES: usize = 50;
 /// What a match costs in the reply beyond its text: its offset and the JSON around it.
@@ -457,12 +459,18 @@ impl<'a> Rows<'a> {
     }
 }
 
-/// `terminal.read`: whole lines while they fit `cap`; a first line longer than `cap` is cut on a character boundary.
+/// `terminal.read`: whole lines while they fit `cap` and [`REPLY_LINES`]; a first line longer than `cap` is cut on a character boundary.
 pub(crate) fn read(window: &Window, cap: usize) -> Read {
     let mut text = String::new();
     let mut next = window.from;
     let mut truncated = false;
+    let mut count = 0;
     window.each_line(&mut |line| {
+        if count == REPLY_LINES {
+            truncated = true;
+            return ControlFlow::Break(());
+        }
+        count += 1;
         let mut piece = line.text();
         if line.newline {
             piece.push('\n');

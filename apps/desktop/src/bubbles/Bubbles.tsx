@@ -1,15 +1,20 @@
-import { Editable, IconButton, Menu } from "../ui";
+import { Editable } from "../ui/Editable";
+import { IconButton } from "../ui/IconButton";
+import { Menu } from "../ui/Menu";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
-import { resolvedWorkstream } from "../rail/layout";
+import { createCut, Tip } from "../ink/Tip";
+import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { chordsFor } from "../keys/chords";
+import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, resizedAbout, shownFor, shownName, STEP, toggledFill, ZONES,
+  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, ZONES,
 } from "./places";
 import type { Place, Extent, Zone } from "./places";
 import "./styles.css";
@@ -44,6 +49,10 @@ const focusPane = (): void => {
   if (document.activeElement !== target) document.querySelector<HTMLElement>(".terminal-new")?.focus();
 };
 
+const ESCAPE = "Escape".split(" ");
+
+const SHIFT = "Shift+".split(" ")[0]!;
+
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
@@ -75,7 +84,22 @@ export const Bubbles = (props: { screens: Screens }) => {
     return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
   };
 
-  const shown = createMemo(() => shownFor(rail.terminals(), rail.nodes, rail.selected()));
+  // U524: the Terminal opened from the Project root stays shown while the selection stays there.
+  const [fromRoot, setFromRoot] = createSignal<string | null>(null);
+
+  const shown = createMemo(() => rail.selected() === null && fromRoot() !== null
+    ? rail.terminals().filter((terminal) => terminal.id === fromRoot())
+    : shownFor(rail.terminals(), rail.nodes, rail.selected()));
+
+  // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
+  createEffect(() => {
+    const stack = layer()?.parentElement;
+
+    if (!stack) return;
+
+    stack.toggleAttribute("data-root-terminal", fromRoot() !== null && shown().length > 0);
+    onCleanup(() => stack.removeAttribute("data-root-terminal"));
+  });
 
   const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
 
@@ -107,7 +131,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     persistPlaces(next);
   });
 
-  createEffect(() => { if (resolvedWorkstream(rail.nodes, rail.selected()) !== null) setSelectionMessage(false); });
+  createEffect(on(() => [rail.selected(), rail.nodes.some(isWorkstream)] as const, () => setSelectionMessage(false), { defer: true }));
 
   const setPlace = (id: string, place: Place): void => {
     const next = { ...places(), [id]: place };
@@ -298,13 +322,15 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
   const openTerminal = async (): Promise<string | null> => {
-    const workstream = resolvedWorkstream(rail.nodes, rail.selected());
+    // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
+    const workstream = resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
     if (opening() || readOnly()) return null;
 
     if (workstream === null) {
       setSelectionMessage(true);
       setFailure(null);
+      document.querySelector<HTMLElement>(".rail-actions [data-button='add']")?.focus();
 
       return null;
     }
@@ -314,6 +340,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     try {
       const opened = await app.rpc("terminal.open", { workstream });
 
+      setFromRoot(rail.selected() === null ? opened.terminal_id : null);
       setWanted(opened.terminal_id);
       setFailure(null);
       await rail.refresh({ terminals: true });
@@ -488,15 +515,6 @@ export const Bubbles = (props: { screens: Screens }) => {
       event.stopPropagation();
     };
 
-    const escape = (event: KeyboardEvent): void => {
-      if (!active || event.key !== "Escape") return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      swallowMenu = true;
-      end();
-    };
-
     const listen = <K extends keyof WindowEventMap>(name: K, listener: (event: WindowEventMap[K]) => void): void => {
       window.addEventListener(name, listener, true);
       onCleanup(() => window.removeEventListener(name, listener, true));
@@ -510,7 +528,14 @@ export const Bubbles = (props: { screens: Screens }) => {
     listen("mousedown", hold);
     listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
-    listen("keydown", escape);
+    registerKeys({ kind: "app" }, [{
+      chords: ESCAPE,
+      when: () => active,
+      run: () => {
+        swallowMenu = true;
+        end();
+      },
+    }]);
   };
 
   pulling();
@@ -530,35 +555,23 @@ export const Bubbles = (props: { screens: Screens }) => {
     });
   });
 
-  const onKey = (press: KeyboardEvent): void => {
-    // U511: the name's editor owns its keys.
-    if (press.target instanceof Element && press.target.closest(".terminal-tab-editor")) return;
+  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a held key repeats nothing.
+  const outsideEditor = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.closest(".terminal-tab-editor"));
 
-    // Help is modal: while it is open no chord acts (U54).
-    if (!press.metaKey || press.ctrlKey || press.altKey || document.querySelector(".help") !== null) return;
+  const once = (act: (press: KeyboardEvent) => void) => (press: KeyboardEvent) => {
+    if (!press.repeat) act(press);
+  };
 
-    const key = press.key.toLowerCase();
-    const backspace = press.shiftKey && (press.key === "Backspace" || press.code === "Backspace");
-    const period = !press.shiftKey && (press.key === "." || press.code === "Period");
-    const opens = !press.shiftKey && key === "t";
-    const cycles = key === "b";
-
-    if (!opens && !cycles && !period && !backspace) return;
-
-    // Window capture runs before any Terminal sees the key: a chord is never a key of the program inside.
-    press.preventDefault();
-    press.stopPropagation();
-
-    if (press.repeat) return;
-
-    if (opens) void open();
-    else if (cycles) cycle(press.shiftKey ? -1 : 1);
-    else if (period) {
+  registerKeys({ kind: "app" }, [
+    { chords: chordsFor("⌘T"), when: outsideEditor, run: once(() => void open()) },
+    { chords: chordsFor("⌘B"), when: outsideEditor, run: once((press) => cycle(press.shiftKey ? -1 : 1)) },
+    { chords: chordsFor("⌘."), when: outsideEditor, run: once(() => {
       const id = focusedId();
 
       if (id !== null) toggleMinimised(id);
-    } else closeFocused();
-  };
+    }) },
+    { chords: chordsFor("⇧⌘⌫"), when: outsideEditor, run: once(() => closeFocused()) },
+  ]);
 
   const onFocusIn = (event: FocusEvent): void => {
     if (!(event.target instanceof Element) || event.target.closest("[data-bubble]")) return;
@@ -574,12 +587,22 @@ export const Bubbles = (props: { screens: Screens }) => {
     if (id !== undefined) lastFocused = id;
   };
 
-  window.addEventListener("keydown", onKey, true);
+  // U529: the Switcher chose a Terminal; its owner is selected by now, so the bubble is listed.
+  const onReveal = (event: Event): void => {
+    const id = event instanceof CustomEvent ? String(event.detail) : null;
+
+    if (id === null || !shown().some((terminal) => terminal.id === id)) return;
+
+    show(id);
+    queueMicrotask(() => focusItem(id));
+  };
+
+  window.addEventListener(REVEAL_BUBBLE, onReveal);
+  onCleanup(() => window.removeEventListener(REVEAL_BUBBLE, onReveal));
   document.addEventListener("focusin", onFocusIn);
   document.addEventListener("focusin", onBubbleFocus);
   onCleanup(() => {
     document.removeEventListener("focusin", onBubbleFocus);
-    window.removeEventListener("keydown", onKey, true);
     document.removeEventListener("focusin", onFocusIn);
   });
 
@@ -643,6 +666,11 @@ export const Bubbles = (props: { screens: Screens }) => {
       window.addEventListener("pointerup", stop);
     };
 
+    // The restore of the zone resize in flight, if any; Escape runs it through the registry.
+    let restoreResize: (() => void) | undefined;
+
+    registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
+
     /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
     const resize = (start: PointerEvent, zone: Zone) => {
       if (start.button !== 0) return;
@@ -668,7 +696,7 @@ export const Bubbles = (props: { screens: Screens }) => {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", cancel);
-        window.removeEventListener("keydown", key, true);
+        restoreResize = undefined;
 
         if (pending !== null) cancelAnimationFrame(pending);
 
@@ -681,14 +709,6 @@ export const Bubbles = (props: { screens: Screens }) => {
       const up = () => finish(false);
       const cancel = () => finish(true);
 
-      const key = (event: KeyboardEvent) => {
-        if (event.key !== "Escape") return;
-
-        event.preventDefault();
-        event.stopPropagation();
-        finish(true);
-      };
-
       try {
         if (start.target instanceof Element) start.target.setPointerCapture?.(start.pointerId);
       } catch {
@@ -698,20 +718,22 @@ export const Bubbles = (props: { screens: Screens }) => {
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", cancel);
-      window.addEventListener("keydown", key, true);
+      restoreResize = cancel;
     };
 
-    const onHeaderKey = (press: KeyboardEvent) => {
-      const arrow = ARROWS.get(press.key);
+    let header: HTMLElement | undefined;
 
-      if (!arrow || press.metaKey || press.ctrlKey || press.altKey || press.target !== press.currentTarget) return;
+    // Arrows on the focused header move the bubble, Shift arrows resize it; the registry matches the exact modifiers.
+    registerKeys({ kind: "region", element: () => header }, [{
+      chords: [...ARROWS.keys(), ...[...ARROWS.keys()].map((key) => `${SHIFT}${key}`)],
+      when: (press) => press.target === header,
+      run: (press) => {
+        const arrow = ARROWS.get(press.key)!;
+        const from = place();
 
-      press.preventDefault();
-
-      const from = place();
-
-      setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, extent()));
-    };
+        setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, extent()));
+      },
+    }]);
 
     return (
       <>
@@ -723,13 +745,13 @@ export const Bubbles = (props: { screens: Screens }) => {
         hidden={place().min}
         style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}
       >
-        <header class="bubble-header" tabindex="0" onPointerDown={(event) => {
+        <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
             // SAFETY: a pointer event on the header always targets an Element.
             if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
           }} onDblClick={(event) => {
             // SAFETY: a mouse event on the header always targets an Element.
             if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
-          }} onKeyDown={onHeaderKey}>
+          }}>
           <span class="bubble-name">{nameFor(terminal()!)}</span>
           <span class="bubble-state">{stateText(terminal()!)}</span>
           <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}>
@@ -760,6 +782,7 @@ export const Bubbles = (props: { screens: Screens }) => {
             const terminal = () => shown().find((candidate) => candidate.id === id)!;
 
             const name = () => nameFor(terminal());
+            const [nameRef, nameCut] = createCut();
             let renameChosen = false;
 
             const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
@@ -774,13 +797,17 @@ export const Bubbles = (props: { screens: Screens }) => {
               }}>
               <Menu.ContextTrigger asChild={(trigger) => <span {...trigger({ class: "terminal-tab-pair" })} data-bubble={id}>
                 <Show when={editing() === id} fallback={
-                  <button type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-                    aria-label={name()} aria-describedby={`terminal-state-${id}`} title={name()} aria-pressed={!placeOf(id).min}
-                    onClick={() => toggleMinimised(id)}
-                    onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
-                    <span class="terminal-tab-name">{name()}</span>
-                    <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
-                  </button>
+                  <Tip content={name()} cut={nameCut}>
+                    {(trigger) => (
+                      <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
+                        aria-label={name()} aria-describedby={`terminal-state-${id}`} aria-pressed={!placeOf(id).min}
+                        onClick={() => toggleMinimised(id)}
+                        onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
+                        <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
+                        <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
+                      </button>
+                    )}
+                  </Tip>
                 }>
                   <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
                     <Editable.Root defaultValue={name()} activationMode="none" submitMode="both" finalFocusEl={tab}
@@ -809,7 +836,7 @@ export const Bubbles = (props: { screens: Screens }) => {
           <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
       </Portal>}</Show>
-      <Show when={selectionMessage()}><div class="bubble-failure" role="status">{copy.selectAWorkstreamFirst}</div></Show>
+      <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );

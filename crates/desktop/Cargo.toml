@@ -25,6 +25,10 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tokio = { workspace = true, features = ["process", "io-util"] }
 
+[[test]]
+name = "s2297a"
+harness = false
+
 [build-dependencies]
 tauri-build = "2"
 
@@ -34,5 +38,14 @@ tauri = { version = "2", features = ["test"] }
 tempfile.workspace = true
 tokio.workspace = true
 
-[lints]
-workspace = true
+[target.'cfg(target_vendor = "apple")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+
+# The workspace forbids unsafe code; `src/webkit_rate.rs` alone calls WebKit's private selectors, which `msg_send!` makes unsafe.
+[lints.rust]
+unsafe_code = "deny"
+unused = { level = "deny", priority = -1 }
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }

@@ -1,6 +1,6 @@
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
-import { CONTRACT } from "@contracts/contract";
+import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
 import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
@@ -16,13 +16,14 @@ export type Handlers = {
 
 /** Reads the regions make once a Project is open answer empty; any other method fails with METHOD_NOT_FOUND until a test installs a handler. */
 const emptyReads: Handlers = {
-  "daemon.ping": () => ({ pong: true, pid: 1, project: "/project", contract: { fingerprint: CONTRACT.fingerprint, methods: [...CONTRACT.methods] } }),
+  "daemon.ping": () => ({ pong: true, pid: 1, project: "/project", contract: OWN_CONTRACT }),
   "rail.tree": () => [],
   "terminal.list": () => [],
   "todo.list": () => [],
   "message.list": () => [],
   "pad.list": () => [],
   "decision.list": () => [],
+  "ask.list": () => [],
   "provenance.history": () => [],
 };
 

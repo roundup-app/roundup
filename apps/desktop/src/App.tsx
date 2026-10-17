@@ -1,12 +1,10 @@
-import { registerKeys } from "./keys/registry";
-import { chordsFor } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
-import { Tabs } from "./ui";
+import { Tabs } from "./ui/Tabs";
 import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
@@ -24,7 +22,6 @@ import { railStorage } from "./rail/persist/storage";
 import { Jump } from "./rail/Jump";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
-import { ModelsSheet } from "./models/ModelsSheet";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -41,6 +38,8 @@ import type { ToastQueue } from "./toasts/queue";
 import { Toasts } from "./toasts/Toasts";
 import { watchProject } from "./toasts/watch";
 import { Bubbles } from "./bubbles/Bubbles";
+import { AskBar } from "./ask/AskBar";
+import { Switcher } from "./switcher/Switcher";
 import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
@@ -154,7 +153,7 @@ export const App = (props: {
   const now = createNow(props.clock);
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
-  const toasts = createToastQueue(inFront, props.chime ?? webChime(), props.reducedMotion);
+  const toasts = createToastQueue(inFront, props.chime ?? webChime());
   const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
@@ -234,18 +233,6 @@ export const App = (props: {
     stopDrag?.();
   });
 
-  /** U377: the `Models` sheet of the open Project, opened by `⌘,` and by `models` in its tab's menu. */
-  const [modelsOpen, setModelsOpen] = createSignal(false);
-
-  createEffect(on(projects.active, () => setModelsOpen(false), { defer: true }));
-
-  registerKeys({ kind: "app" }, [{ chords: chordsFor("⌘,"),
-    when: (press) => press.code === "Comma" && !(press.target instanceof Element && press.target.matches(".tab-rename")),
-    run: (press) => {
-      if (!press.repeat && projects.tabs().length > 0 && projects.active() !== null) setModelsOpen(true);
-    },
-  }]);
-
   const activeTab = createMemo(() => projects.tabs().find((tab) => tab.project.path === projects.active()));
 
   const activeConnection = createMemo(() => {
@@ -305,10 +292,6 @@ export const App = (props: {
               onRename={(path, name) => void renameProject(path, name)}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
-              onModels={(path) => {
-                projects.select(path);
-                setModelsOpen(true);
-              }}
             />
           </WindowBar>
         }
@@ -349,7 +332,9 @@ export const App = (props: {
                 return (
                   <div class="centre-stack">
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
+                    <AskBar />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle(); }} />
                     <ResourceStrip />
                   </div>
                 );
@@ -382,9 +367,6 @@ export const App = (props: {
                 <>
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
                   <Help />
-                  <Show when={modelsOpen()}>
-                    <ModelsSheet onClose={() => setModelsOpen(false)} />
-                  </Show>
                 </>
               )}
             </InProject>

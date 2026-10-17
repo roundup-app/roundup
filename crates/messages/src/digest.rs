@@ -16,6 +16,9 @@ const LAST_BYTES: usize = 120;
 const PAD_NAME_BYTES: usize = 32;
 const PADS: usize = 4;
 const ENTRY_BYTES: usize = 512;
+const END_LAST_BYTES: usize = 600;
+const END_ENTRY_BYTES: usize = 1024;
+const NO_FINDING: &str = "ended with no finding";
 const CHILDREN: usize = 20;
 const CUT: &str = "[cut]";
 
@@ -44,6 +47,9 @@ struct Book {
     /// envelope already named, so the next envelope names only Pads written after it (B19).
     named: HashMap<(String, String), i64>,
     told: HashMap<(String, String), Told>,
+    /// For each (parent, child), the Kind of the last note of `done`, `error` or `needs-you` made
+    /// about it (B47(c)); a push of any other Kind (B21, B35) or a `[wake]` note is none of these.
+    noted: HashMap<(String, String), Kind>,
     /// `named` written through, so a restart keeps it (B23); `None` for a `Seen` kept in memory.
     db: Option<rusqlite::Connection>,
 }
@@ -106,8 +112,18 @@ impl Seen {
         Ok(Self(Mutex::new(Book {
             named,
             told: HashMap::new(),
+            noted: HashMap::new(),
             db: Some(db),
         })))
+    }
+
+    /// B47(c): whether the note of `kind` about `child` to `parent` repeats the last one of its
+    /// run; when it does not, it is recorded as that last one.
+    pub fn repeats_last_note(&self, parent: &str, child: &str, kind: Kind) -> bool {
+        self.book()
+            .noted
+            .insert((parent.to_owned(), child.to_owned()), kind)
+            == Some(kind)
     }
 
     fn book(&self) -> std::sync::MutexGuard<'_, Book> {
@@ -143,7 +159,7 @@ impl Seen {
         for child in children.iter().take(CHILDREN) {
             let key = (id.to_owned(), child.id.clone());
             let after = book.named.get(&key).copied();
-            let (entry, newest) = entry(child, id, from, after);
+            let (entry, newest) = entry(child, id, from, after, false);
             if caller.kind == ActorKind::Agent {
                 if let Some(newest) = newest {
                     book.name(&key, newest);
@@ -159,6 +175,28 @@ impl Seen {
         Ok(Digest { children: items })
     }
 
+    /// B41, B43: `child`'s entry as its parent is told it, `None` when it has no Status. `tell`
+    /// records it as told and its Pads as named, as a digest read by the parent would, so no push
+    /// repeats it.
+    pub fn entry_of(&self, child: &str, from: &Sources, tell: bool) -> Option<DigestEntry> {
+        let node = from
+            .nodes
+            .iter()
+            .find(|node| node.id == child && is_agent(node) && node.status.is_some())?;
+        let parent = node.parent.clone().unwrap_or_default();
+        let mut book = self.book();
+        let key = (parent.clone(), child.to_owned());
+        let after = book.named.get(&key).copied();
+        let (entry, newest) = entry(node, &parent, from, after, tell);
+        if tell && node.parent.is_some() {
+            if let Some(newest) = newest {
+                book.name(&key, newest);
+            }
+            book.told.insert(key, told(&entry, node, from));
+        }
+        Some(entry)
+    }
+
     /// B21: what the Daemon records as told without sending it, so that only a change after now
     /// is pushed. Children that already have an entry keep it.
     pub fn baseline(&self, from: &Sources) {
@@ -167,7 +205,7 @@ impl Seen {
             let key = (meta.id.clone(), child.id.clone());
             if !book.told.contains_key(&key) {
                 let after = book.named.get(&key).copied();
-                let (entry, _) = entry(child, &meta.id, from, after);
+                let (entry, _) = entry(child, &meta.id, from, after, false);
                 let seen = told(&entry, child, from);
                 book.told.insert(key, seen);
             }
@@ -184,23 +222,42 @@ impl Seen {
         for (meta, child) in pairs(from) {
             let key = (meta.id.clone(), child.id.clone());
             let after = book.named.get(&key).copied();
-            let (entry, newest) = entry(child, &meta.id, from, after);
+            let (entry, newest) = entry(child, &meta.id, from, after, false);
             let now = told(&entry, child, from);
+            // B43: the change into `error` or `needs-you` is the parent's note, not a push.
+            let attention = matches!(now.kind, Kind::Error | Kind::NeedsYou);
             let moved = book.told.get(&key).is_none_or(|was| {
-                (was.kind != now.kind && !is_flip(was, &now))
+                (was.kind != now.kind && !is_flip(was, &now) && !attention)
                     || was.todos != now.todos
                     || (!entry.pads.is_empty() && now.pads > was.pads)
             });
+            if !moved && attention && book.told.get(&key).is_some_and(|was| was.kind != now.kind) {
+                book.told.insert(key.clone(), now.clone());
+            }
             if moved {
+                // B47(c): the end note of a Kind the last note already told is not made again.
+                let repeated = now.kind == Kind::Done
+                    && book.told.get(&key).is_none_or(|was| was.kind != Kind::Done)
+                    && book.noted.insert(key.clone(), Kind::Done) == Some(Kind::Done);
+                // B49: the change into an end carries the child's own summary.
+                let ends = book.told.get(&key).is_none_or(|was| was.kind != now.kind);
+                let pushed = if ends {
+                    self::entry(child, &meta.id, from, after, true).0
+                } else {
+                    entry
+                };
                 let before = (after, book.told.get(&key).cloned());
                 if let Some(newest) = newest {
                     book.name(&key, newest);
                 }
                 book.told.insert(key.clone(), now.clone());
+                if repeated {
+                    continue;
+                }
                 pushes.push(Push {
                     key,
                     meta: meta.id.clone(),
-                    entry,
+                    entry: pushed,
                     told: now,
                     before,
                     gone: false,
@@ -252,7 +309,7 @@ pub fn entry_text(entry: &DigestEntry) -> String {
     text
 }
 
-fn kind_word(kind: Kind) -> String {
+pub(crate) fn kind_word(kind: Kind) -> String {
     serde_json::to_value(kind)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))
@@ -400,6 +457,7 @@ fn entry(
     meta: &str,
     from: &Sources,
     after: Option<i64>,
+    end: bool,
 ) -> (DigestEntry, Option<i64>) {
     let Some(status) = child.status.as_ref() else {
         unreachable!("the caller keeps only children that have a Status");
@@ -413,9 +471,14 @@ fn entry(
                 && message.to == meta
         })
         .max_by_key(|message| message.id);
-    let last = told.map_or(status.label.as_str(), |message| {
-        message.body.lines().next().unwrap_or_default()
-    });
+    // B49: an end note carries the child's own summary, whole, or says there was none.
+    let end = end && is_end(child);
+    let last = match (told, end) {
+        (Some(message), true) => message.body.as_str(),
+        (None, true) => NO_FINDING,
+        (Some(message), false) => message.body.lines().next().unwrap_or_default(),
+        (None, false) => status.label.as_str(),
+    };
     let todos = from
         .todos
         .iter()
@@ -445,11 +508,14 @@ fn entry(
     let entry = DigestEntry {
         name: child.name.clone(),
         kind: status.kind,
-        last: cut(last, LAST_BYTES),
+        last: cut(last, if end { END_LAST_BYTES } else { LAST_BYTES }),
         todos: u32::try_from(todos).unwrap_or(u32::MAX),
         pads,
     };
-    (fit(entry), newest)
+    (
+        fit(entry, if end { END_ENTRY_BYTES } else { ENTRY_BYTES }),
+        newest,
+    )
 }
 
 /// `text` as is when it fits `max` bytes, else a prefix ending in `[cut]`, whole at most `max`.
@@ -464,27 +530,41 @@ pub(crate) fn cut(text: &str, max: usize) -> String {
     format!("{}{CUT}", &text[..end])
 }
 
+/// B49: whether `node` has ended: Kind `done`, or an Attempt that exited with no Terminal.
+fn is_end(node: &RailNode) -> bool {
+    node.status.as_ref().is_some_and(|status| {
+        status.kind == Kind::Done || (status.kind == Kind::Error && node.terminal_id.is_none())
+    })
+}
+
+/// B49: `entry` as a Rollup or a merge holds it: B19's 120-byte `last` and 512-byte bound.
+pub(crate) fn rolled(entry: &DigestEntry) -> DigestEntry {
+    let mut entry = entry.clone();
+    entry.last = cut(entry.last.lines().next().unwrap_or_default(), LAST_BYTES);
+    fit(entry, ENTRY_BYTES)
+}
+
 fn size(entry: &DigestEntry) -> usize {
     let json = serde_json::to_string(entry).map_or(usize::MAX, |json| json.len());
     json.max(entry_text(entry).len())
 }
 
-/// B19: the whole entry is at most 512 bytes. Past that, `last` gives way first, then the Pad
+/// B19: the whole entry is at most `max` bytes, 512 but for an end note (B49). Past that, `last` gives way first, then the Pad
 /// names, then the name; every cut is marked.
-fn fit(mut entry: DigestEntry) -> DigestEntry {
-    while size(&entry) > ENTRY_BYTES && entry.last.len() > CUT.len() {
-        let over = size(&entry) - ENTRY_BYTES;
+pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
+    while size(&entry) > max && entry.last.len() > CUT.len() {
+        let over = size(&entry) - max;
         let max = entry.last.len().saturating_sub(over).max(CUT.len());
         entry.last = cut(&entry.last, max);
     }
-    while size(&entry) > ENTRY_BYTES && entry.pads.len() > 1 {
+    while size(&entry) > max && entry.pads.len() > 1 {
         entry.pads.pop();
         if let Some(end) = entry.pads.last_mut() {
             *end = CUT.to_owned();
         }
     }
-    while size(&entry) > ENTRY_BYTES && entry.name.len() > CUT.len() {
-        let over = size(&entry) - ENTRY_BYTES;
+    while size(&entry) > max && entry.name.len() > CUT.len() {
+        let over = size(&entry) - max;
         let max = entry.name.len().saturating_sub(over).max(CUT.len());
         entry.name = cut(&entry.name, max);
     }
@@ -917,13 +997,28 @@ mod tests {
     }
 
     #[test]
-    fn b35_entering_each_of_error_needs_you_blocked_and_done_is_pushed() {
-        for kind in [Kind::Error, Kind::NeedsYou, Kind::Blocked, Kind::Done] {
+    fn b35_entering_each_of_blocked_and_done_is_pushed() {
+        for kind in [Kind::Blocked, Kind::Done] {
             let seen = Seen::default();
             let mut nodes = rail();
             let none: Vec<Todo> = vec![];
             seen.baseline(&sources(&nodes, &none, &[], &[]));
             nodes[1].status = Some(status(kind, "reading"));
+            assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
+        }
+    }
+
+    #[test]
+    fn b43_other_kind_changes_are_pushed_as_b21_says() {
+        for kind in [Kind::Error, Kind::NeedsYou] {
+            let seen = Seen::default();
+            let mut nodes = rail();
+            let none: Vec<Todo> = vec![];
+            seen.baseline(&sources(&nodes, &none, &[], &[]));
+            nodes[1].status = Some(status(kind, "reading"));
+            assert!(seen.changed(&sources(&nodes, &none, &[], &[])).is_empty());
+            // The change is told, so the way out of it is a change again.
+            nodes[1].status = Some(status(Kind::Done, "reading"));
             assert_eq!(seen.changed(&sources(&nodes, &none, &[], &[])).len(), 1);
         }
     }

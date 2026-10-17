@@ -129,6 +129,15 @@ class Permissions(unittest.TestCase):
         self.assertIn("if: steps.resolve.outputs.resolved != 'true'", engine)
         self.assertLess(source.index('      - id: resolve'), source.index('      - id: engine'))
 
+    def test_l120_the_engine_waits_for_the_merge_loss_restore(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        restore = source.split('      - id: restore\n', 1)[1].split('\n      - ', 1)[0]
+        engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("needs.task.outputs.merge_loss == 'true'", restore)
+        self.assertIn('builder.py" restore-merge-loss', restore)
+        self.assertIn("steps.restore.outputs.restored != 'true'", engine)
+        self.assertLess(source.index('      - id: restore'), source.index('      - id: engine'))
+
     def test_l24_the_review_run_keeps_the_read_only_workflow_token(self):
         inputs = action_inputs('review')
         self.assertIn('github_token: ${{ github.token }}', inputs)

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
@@ -23,8 +23,8 @@ it("u444_the_strip_is_the_centres_last_line_under_the_terminal", async () => {
   for (const scheme of ["light", "dark"] as const) {
     await page.scheme(scheme);
 
-    for (const width of [1280, 1440]) {
-      await page.load("/harness.html?seed=door-report", width, 800);
+    for (const width of [FULLSCREEN.width]) {
+      await page.load("/harness.html?seed=door-report", width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
       await page.call(`() => { const node = window.__fake.app.handlers['rail.tree']().find(n => n.status && n.status.kind !== 'done'); document.querySelector('[data-id="' + node.id + '"]').click(); }`);
       await page.until(`() => Boolean(document.querySelector('.resource-agent .resource-num'))`);
@@ -34,12 +34,14 @@ it("u444_the_strip_is_the_centres_last_line_under_the_terminal", async () => {
         const strip = document.querySelector('.resource-strip');
         const pane = document.querySelector('.pane');
         const line = strip.getBoundingClientRect();
+        const hint = strip.querySelector('.hint-line');
+        const below = line.top + (hint ? hint.getBoundingClientRect().height : 0);
         const box = pane.getBoundingClientRect();
                 const values = [...strip.querySelectorAll('.resource-value, .resource-stale')];
         return { last: strip.parentElement.lastElementChild === strip,
           inside: line.left >= box.left - 1 && line.right <= box.right + 1,
           gap: line.top - box.bottom,
-          centres: [...strip.querySelectorAll('.resource-agent, .resource-stale, .terminal-tabs-host, .terminal-new')].map(value => { const r=value.getBoundingClientRect(); return r.top+r.height/2-(line.top+line.height/2); }),
+          centres: [...strip.querySelectorAll('.resource-agent, .resource-stale, .terminal-tabs-host, .terminal-new')].map(value => { const r=value.getBoundingClientRect(); return r.top+r.height/2-(below+line.bottom)/2; }),
           iconGaps: values.filter(value => value.matches('.resource-value')).map(value => value.querySelector('.resource-num').getBoundingClientRect().left-value.querySelector('svg').getBoundingClientRect().right),
           expectedIconGap: parseFloat(getComputedStyle(strip).getPropertyValue('--space-1')),
           clipped: values.filter(value => { const r = value.getBoundingClientRect(); return !value.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) || r.width === 0 || r.height === 0 || r.left < line.left || r.right > line.right || r.top < line.top || r.bottom > Math.min(line.bottom, innerHeight); }).map(value => value.textContent) };

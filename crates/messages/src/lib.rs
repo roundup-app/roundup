@@ -13,6 +13,7 @@ mod retirement;
 pub mod schema;
 mod step;
 mod store;
+pub mod wake;
 
 use std::future::Future;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -135,6 +136,36 @@ struct Inner {
     pushes: tokio::sync::Mutex<pushes::Ledger>,
     // A reservation waits for any accepted prompt to finish before its caller stops Agents.
     delivery: tokio::sync::RwLock<()>,
+    /// B39: the Messages being typed by this Daemon run, so no second `idle` types them again
+    /// while their prompt waits for its Signal, and those whose prompt's Signal did not confirm
+    /// them, which this run never types again. A Message in flight at a kill is not in it.
+    typing: Mutex<std::collections::HashSet<u32>>,
+    /// Tests: a typed prompt stands for its Signal, as the Agent's would, unless a test turns
+    /// this off to play the Signal itself.
+    #[cfg(test)]
+    auto_confirm: std::sync::atomic::AtomicBool,
+}
+
+/// Removes its Messages from `Inner::typing` when the prompt that carries them is done.
+struct Typing<'a> {
+    set: &'a Mutex<std::collections::HashSet<u32>>,
+    ids: Vec<u32>,
+}
+
+impl Typing<'_> {
+    /// B39: `ids` stay in `Inner::typing` for the rest of this Daemon run.
+    fn keep(&mut self, ids: &[u32]) {
+        self.ids.retain(|id| !ids.contains(id));
+    }
+}
+
+impl Drop for Typing<'_> {
+    fn drop(&mut self) {
+        let mut set = lock(self.set);
+        for id in &self.ids {
+            set.remove(id);
+        }
+    }
 }
 
 pub struct Messages {
@@ -185,11 +216,23 @@ impl Messages {
             completed: tokio::sync::broadcast::channel(32).0,
             pushes: tokio::sync::Mutex::default(),
             delivery: tokio::sync::RwLock::default(),
+            typing: Mutex::default(),
+            #[cfg(test)]
+            auto_confirm: true.into(),
         });
         if tokio::runtime::Handle::try_current().is_ok() {
             start_listener(&inner);
         }
         Ok(Self { inner })
+    }
+
+    /// B39: Agent `agent` submitted `prompt` (its `UserPromptSubmit` Signal). Every Message the
+    /// prompt's id line names that was typed and not yet confirmed is recorded `delivered` in one
+    /// write, and `message.delivered` goes out once per Message in id order. `true` when the line
+    /// names Messages and every one was delivered before: the hook drops that prompt. Any other
+    /// prompt, or a store that cannot answer, is `false`.
+    pub fn confirm_prompt(&self, agent: &str, prompt: &str) -> bool {
+        confirm(&self.inner, agent, prompt)
     }
 
     /// B21, B22: accepts one change of the Subagent's entry. `subagent` is its stable Rail id,
@@ -232,6 +275,17 @@ impl Messages {
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
+    ) -> Result<Message, RpcError> {
+        self.send_message_with(ctx, p, merge, None).await
+    }
+
+    /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42).
+    async fn send_message_with(
+        &self,
+        ctx: &Ctx,
+        p: SendParams,
+        merge: bool,
+        wake: Option<u32>,
     ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
             return Err(RpcError::new(
@@ -283,7 +337,10 @@ impl Messages {
                         format!("replyTo names no Message: {reply_to}"),
                     ));
                 }
-                if !digest && store.count_open(&p.to)? >= OPEN_BOUND {
+                if let Some(wake) = wake {
+                    self.fire_inside(store, wake)?;
+                }
+                if !digest && wake.is_none() && store.count_open(&p.to)? >= OPEN_BOUND {
                     return Err(RpcError::conflict(format!(
                         "{} already has {OPEN_BOUND} pending or held Messages",
                         p.to
@@ -340,6 +397,9 @@ impl Messages {
                     receiver_status.as_ref().map_or((0, 0), binding),
                     None,
                 )?;
+                if wake.is_some() {
+                    (self.inner.fault)("wake").map_err(RpcError::internal)?;
+                }
                 self.answer(ctx, store, &message)?;
                 if let Some(rest) = &chain_rest {
                     store.start_chain(&ctx.actor, &message.body, rest, message.id)?;
@@ -667,6 +727,7 @@ impl Messages {
                         at,
                         owner.ended,
                         owner.status_revision.is_none(),
+                        false,
                         &mut events,
                     )?;
                     match store.require_generation(&owner.id, at) {
@@ -801,6 +862,20 @@ fn now_ms() -> i64 {
     .unwrap_or(i64::MAX)
 }
 
+/// B53: a send names its `kind`; a missing or unknown one says which values are allowed.
+fn send_params(value: Value) -> Result<SendParams, RpcError> {
+    if !matches!(
+        value.get("kind").and_then(Value::as_str),
+        Some("note" | "question")
+    ) {
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
+            "kind is required and must be `note` or `question`",
+        ));
+    }
+    params(value)
+}
+
 #[async_trait]
 impl Module for Messages {
     fn namespaces(&self) -> &'static [&'static str] {
@@ -827,7 +902,7 @@ impl Messages {
     async fn dispatch(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         trip(&self.inner, method).map_err(RpcError::internal)?;
         match method {
-            "message.send" => self.send(ctx, params(value)?).await,
+            "message.send" => self.send(ctx, send_params(value)?).await,
             "message.pass" => self.pass(ctx, params(value)?).await,
             "message.get" => self.get(ctx, params(value)?),
             "message.list" => self.list(ctx, params(value)?),
@@ -1049,7 +1124,7 @@ async fn on_status(inner: &Arc<Inner>, agent: &str, attempt: &str, revision: &st
         if let Err(cause) = (inner.fault)("on_status") {
             panic!("{cause}");
         }
-        reconcile(inner, &mut store, agent, at, closed, false).expect("message store");
+        reconcile(inner, &mut store, agent, at, closed, false, false).expect("message store");
     }
     if !closed && ready {
         on_idle(inner, agent, at, Pick::Next).await;
@@ -1082,9 +1157,19 @@ async fn resync(inner: &Arc<Inner>) -> bool {
         {
             // Restart reservations end at removal; retirement protection is permanent.
             store.end_restart(&id).expect("message store");
+            // B8: a removed Agent cannot be resumed, so nothing in flight waits for it.
+            store.clear_flights_to(&id).expect("message store");
             let attempt = generation.map_or(0, |state| state.attempt);
-            reconcile(inner, &mut store, &id, (attempt, i64::MAX), true, true)
-                .expect("message store");
+            reconcile(
+                inner,
+                &mut store,
+                &id,
+                (attempt, i64::MAX),
+                true,
+                true,
+                false,
+            )
+            .expect("message store");
         }
     }
     for node in nodes {
@@ -1095,6 +1180,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
             binding(&node),
             ended(&node),
             permanently_ended(&node),
+            true,
         )
         .expect("message store");
     }
@@ -1155,7 +1241,14 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
             }
             // A just-sent Message is bound to the current revision, which the queue excludes.
             let upto = (at.0, at.1.saturating_add(i64::from(pick == Pick::Fresh)));
-            let pending = store.pending_queue(agent, upto).expect("message store");
+            let typing = lock(&inner.typing);
+            let pending = store
+                .pending_queue(agent, upto)
+                .expect("message store")
+                .into_iter()
+                .filter(|m| !typing.contains(&m.id))
+                .collect::<Vec<_>>();
+            drop(typing);
             let ids = idle_batch(&pending);
             pending
                 .into_iter()
@@ -1202,14 +1295,39 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
                 }
             }
             let ids: Vec<u32> = batch.iter().map(|m| m.id).collect();
-            store.mark_delivered_all(&ids).expect("message store")
+            {
+                let mut typing = lock(&inner.typing);
+                if ids.iter().any(|id| typing.contains(id)) {
+                    return;
+                }
+                typing.extend(ids.iter().copied());
+            }
+            let in_flight = Typing {
+                set: &inner.typing,
+                ids: ids.clone(),
+            };
+            store
+                .record_flight_all(&ids)
+                .expect("message store")
+                .map(|messages| (messages, in_flight))
         };
-        let Some(messages) = recorded else {
+        let Some((messages, mut typed)) = recorded else {
             return;
         };
-        let refusal = (inner.deliver)(agent.to_owned(), lines.join("\n\n"))
-            .await
-            .err();
+        // B39: the prompt ends with the line the hook reads.
+        let ids: Vec<String> = batch.iter().map(|m| m.id.to_string()).collect();
+        let text = format!(
+            "{}\n\n[rup messages: {}]",
+            lines.join("\n\n"),
+            ids.join(" ")
+        );
+        #[cfg(test)]
+        let sent = text.clone();
+        let refusal = (inner.deliver)(agent.to_owned(), text).await.err();
+        #[cfg(test)]
+        if refusal.is_none() && inner.auto_confirm.load(std::sync::atomic::Ordering::SeqCst) {
+            confirm(inner, agent, &sent);
+        }
         // B2: `NotAccepted` and `NotFound` will never take the Messages, so they are `dropped` and
         // nothing is sent again.
         if let Some(reason @ (Refusal::NotAccepted | Refusal::NotFound)) = refusal {
@@ -1220,7 +1338,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
             };
             for message in &messages {
                 let dropped = lock(&inner.store)
-                    .drop_delivered(message.id, reason)
+                    .drop_in_flight(message.id, reason)
                     .expect("message store");
                 if let Some(dropped) = dropped {
                     inner
@@ -1231,18 +1349,14 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
             return;
         }
         if refusal.is_some() {
-            // `Busy`: nothing was typed, so the record is undone, back to `pending`, or `held` for `takeover` if one began meanwhile (B6).
+            // `Busy`: nothing was typed, so the records are cleared; the Messages stay `pending`,
+            // or `held` for `takeover` if one began meanwhile (B6).
             for message in &messages {
-                let reverted = lock(&inner.store)
-                    .unmark_delivered(message.id)
+                lock(&inner.store)
+                    .clear_flight(message.id)
                     .expect("message store");
-                if let Some(held) = reverted.filter(|m| m.status == MessageStatus::Held) {
-                    inner
-                        .bus
-                        .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
-                }
             }
-            // The next idle may already have run while this batch was marked delivered.
+            // The next idle may already have run while this batch was in flight.
             // Only a newer ready revision can authorize another try: Busy at the same
             // revision must wait, and a new Attempt cannot inherit this delivery.
             let Ok(nodes) = rail_nodes(inner).await else {
@@ -1264,16 +1378,66 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
             pick = Pick::Next;
             continue;
         }
-        // B30(a): `message.delivered` goes out in id order, whatever order B7 typed the batch in.
-        let mut messages = messages;
-        messages.sort_by_key(|m| m.id);
-        for message in messages {
-            inner
-                .bus
-                .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
+        // B39: typed, not delivered; the prompt's `UserPromptSubmit` Signal records `delivered`.
+        // H11 returned on that Signal, which confirms before the wait ends, so a Message still in
+        // flight is one its prompt's Signal did not confirm. Typed at every later `idle`, it would
+        // repeat without end, so this run never types it again, and says so.
+        let unconfirmed: Vec<u32> = {
+            let store = lock(&inner.store);
+            messages
+                .iter()
+                .map(|m| m.id)
+                .filter(|&id| store.in_flight(id).expect("message store"))
+                .collect()
+        };
+        if !unconfirmed.is_empty() {
+            typed.keep(&unconfirmed);
+            let ids: Vec<String> = unconfirmed.iter().map(u32::to_string).collect();
+            log_failure(
+                "confirm_prompt",
+                &format!(
+                    "agent {agent} submitted a prompt that did not confirm Messages {}; they stay pending and are not typed again until the Daemon restarts",
+                    ids.join(" ")
+                ),
+            );
         }
         return;
     }
+}
+
+fn confirm(inner: &Inner, agent: &str, prompt: &str) -> bool {
+    let Some(ids) = flight_ids(prompt) else {
+        return false;
+    };
+    let confirmed = lock(&inner.store).confirm_flight(agent, &ids);
+    match confirmed {
+        Ok((mut messages, repeated)) => {
+            messages.sort_by_key(|m| m.id);
+            for message in messages {
+                inner
+                    .bus
+                    .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
+            }
+            repeated
+        }
+        Err(err) => {
+            log_failure("confirm_prompt", &err.to_string());
+            false
+        }
+    }
+}
+
+/// B39: the ids of a prompt's last line, `[rup messages: <id> <id>]`; `None` when it has none or
+/// the line cannot be read.
+fn flight_ids(prompt: &str) -> Option<Vec<u32>> {
+    let line = prompt.trim_end().lines().last()?;
+    let ids = line
+        .strip_prefix("[rup messages:")?
+        .strip_suffix(']')?
+        .split_whitespace()
+        .map(|word| word.parse().ok())
+        .collect::<Option<Vec<u32>>>()?;
+    (!ids.is_empty()).then_some(ids)
 }
 
 /// Which pending Messages an `idle` may type.
@@ -1335,6 +1499,7 @@ fn accept_receiver(inner: &Inner, store: &mut Store, node: &RailNode) -> Result<
         binding(node),
         ended(node),
         permanently_ended(node),
+        false,
     )?;
     store.require_generation(&node.id, binding(node))
 }
@@ -1350,6 +1515,7 @@ fn accept_reservation(inner: &Inner, store: &mut Store, node: &RailNode) -> Resu
         at,
         ended(node),
         permanently_ended(node),
+        false,
     )?;
     if ended(node) {
         if store
@@ -1371,9 +1537,10 @@ fn reconcile(
     at: store::Binding,
     closed: bool,
     permanent: bool,
+    restart: bool,
 ) -> Result<(), RpcError> {
     let mut events = Vec::new();
-    let result = reconcile_into(store, agent, at, closed, permanent, &mut events);
+    let result = reconcile_into(store, agent, at, closed, permanent, restart, &mut events);
     for event in events {
         inner.bus.emit(Actor::daemon(), event);
     }
@@ -1386,6 +1553,7 @@ fn reconcile_into(
     at: store::Binding,
     closed: bool,
     permanent: bool,
+    restart: bool,
     events: &mut Vec<EventData>,
 ) -> Result<(), RpcError> {
     let previous = store.generation(agent)?;
@@ -1419,7 +1587,17 @@ fn reconcile_into(
         if previous.is_none_or(|state| state.attempt <= through.0) {
             store.forget_input(agent);
         }
-        for message in store.drop_all_pending(agent, Reason::ReceiverGone, through, gone_drops)? {
+        // B8: a Message typed and not confirmed waits for the Agent to be resumed.
+        let rebind = (through.0 < at.0).then_some((at.0, 0));
+        let keep = Some(rebind);
+        for message in store.drop_all_pending(
+            agent,
+            Reason::ReceiverGone,
+            through,
+            gone_drops,
+            keep,
+            restart,
+        )? {
             events.push(EventData::MessageDropped(message.into()));
         }
     }
@@ -3323,13 +3501,21 @@ mod tests {
     }
 
     /// A `Deliver` that records every prompt typed, as `(agent, text)`.
+    /// The prompt as B2 and B30 write it, without B39's id line.
+    pub(super) fn shown(text: String) -> String {
+        match text.rfind("\n\n[rup messages:") {
+            Some(end) => text[..end].to_owned(),
+            None => text,
+        }
+    }
+
     type Typed = Arc<StdMutex<Vec<(String, String)>>>;
 
     fn recording_deliver() -> (Deliver, Typed) {
         let typed = Arc::new(StdMutex::new(Vec::new()));
         let log = Arc::clone(&typed);
         let deliver: Deliver = Arc::new(move |agent, text| {
-            log.lock().unwrap().push((agent, text));
+            log.lock().unwrap().push((agent, shown(text)));
             Box::pin(async { Ok(()) })
         });
         (deliver, typed)

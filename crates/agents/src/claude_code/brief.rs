@@ -1,7 +1,7 @@
 //! E1: the Brief, the text file Claude Code appends to its system prompt. It holds only what is the same
 //! for every Agent of a role (E9): that roundup supervises it, the tools `rup mcp` offers and,
 //! for a Door, B24's role guidance. A name, Terminal id, parent, peer or Todo changes, so none is
-//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest`, `workstream_handoff` and `checkpoint_write` only to a Door.
+//! written here. A tool is described only once `crates/rup` offers it, and `agent_digest`, `workstream_handoff`, `checkpoint_write`, `workstream_rewindPlan` and `workstream_rewind` only to a Door.
 
 /// What an Agent is to roundup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +68,10 @@ const TOOLS: &[(&str, &str)] = &[
     (
         "agent_context",
         "ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved",
+    ),
+    (
+        "agent_wake",
+        "ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking",
     ),
     (
         "agent_set_order",
@@ -237,7 +241,7 @@ const TOOLS: &[(&str, &str)] = &[
 const BUBBLE_RULE: &str = "; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools";
 
 /// The tools beyond `TOOLS` that only a Door is offered: B20's digest, A32's handoff and M10's `checkpoint_write`.
-const DOOR_TOOLS_EXTRA: [(&str, &str); 3] = [
+const DOOR_TOOLS_EXTRA: [(&str, &str); 6] = [
     (
         "agent_digest",
         "ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told",
@@ -249,6 +253,18 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 3] = [
     (
         "checkpoint_write",
         "mark a point in the work with a short card of facts for the user, when an Agent's work finishes or merges, the direction changes or a decision is made",
+    ),
+    (
+        "terminal_show",
+        "show a Terminal in your Reach to the user, who sees its owner selected; it reads nothing",
+    ),
+    (
+        "workstream_rewindPlan",
+        "read what rewinding your children to one of your Checkpoints would do, changing nothing",
+    ),
+    (
+        "workstream_rewind",
+        "take one child or every child back to one of your Checkpoints, choosing whether the files go back too",
     ),
 ];
 
@@ -263,6 +279,7 @@ Start a child with `agent_spawn` and talk to it with `message_send`. \
 A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
 Open another Project with `project_open`. \
+When the user asks to see a child's output, call `terminal_show` with the id of the child's Terminal and read nothing: no `terminal_screen`, `terminal_read`, `terminal_search` or `message_send`. \
 Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
 Give each child a `name` after its task. \
@@ -431,6 +448,10 @@ fn with_tools(role: Role, mcp: bool) -> String {
         &[]
     };
     for &(name, when) in TOOLS.iter().chain(door) {
+        // M16: a Door is offered no tool that starts a Terminal.
+        if role == Role::Door && matches!(name, "agent_run" | "terminal_spawn" | "terminal_open") {
+            continue;
+        }
         let when = if role == Role::Door && name == "message_send" {
             "send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal"
         } else {

@@ -1,6 +1,7 @@
 import { copy } from "../copy";
 import { Show } from "solid-js";
-import { AlertDialog } from "../ui";
+import { registerKeys } from "../keys/registry";
+import { AlertDialog } from "../ui/Dialog";
 import type { StripTab } from "./tab";
 
 /** `<k> Agents run: <name>, <name>, <name>.` with at most three names, then `and <j> more` (U184). */
@@ -14,12 +15,14 @@ const runningText = (names: readonly string[]): string => {
 /** The one question before a tab with running Agents closes (U184): focus starts on `Cancel`, and `esc` or a click outside cancels. */
 export const CloseDialog = (props: { tab: StripTab | undefined; opener: HTMLElement | undefined; onCancel: () => void; onStop: () => void }) => {
   let cancel: HTMLButtonElement | undefined;
+  let panel: HTMLElement | undefined;
+  registerKeys({ kind: "layer", element: () => panel, active: () => !!props.tab, modal: true }, []);
 
   return (
     <AlertDialog.Root open={!!props.tab} initialFocusEl={() => cancel ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
       onOpenChange={(details) => { if (!details.open) props.onCancel(); }}>
       <AlertDialog.Positioner>
-        <AlertDialog.Content class="close-dialog" onKeyDown={(press) => press.stopPropagation()}>
+        <AlertDialog.Content class="close-dialog" ref={(element) => (panel = element)}>
           <Show when={props.tab}>{(tab) => <>
             <AlertDialog.Title>{copy.closeQuestion(tab().name)}</AlertDialog.Title>
             <AlertDialog.Description>

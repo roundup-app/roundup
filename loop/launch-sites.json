@@ -421,6 +421,11 @@
     "kind": "in-process",
     "sha256": "a457b620ef75c65a71b6cff4bda12b86e6c7d1e5df2dbed3612127f08beb8b04"
   },
+  "crates/rup/tests/cli.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rup/tests/common/d9_fixture.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Writes a wrapper that execs built rupd with the caller env; d9.rs launches it through rupd_harness with ROUNDUP_DATA_DIR in the fixture TempDir.",
@@ -448,6 +453,16 @@
     "issue": 1571,
     "kind": "indirect",
     "sha256": "d2cc08610cc9b30f4b01ef5eabcc73cd56f41691d14ca7041aeedf411435c526"
+  },
+  "crates/rup/tests/e2e/notes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rup/tests/e2e/wake.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
   },
   "crates/rup/tests/i9.rs": {
     "cleanup": "The test aborts the serving task on stop and drops it; the temp directory is removed with the test.",
@@ -498,6 +513,11 @@
     "data": "Daemon::open_project receives an explicit temporary data path; no fallback data resolver.",
     "kind": "in-process"
   },
+  "crates/rup/tests/signal.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Names the Daemon only in an expected log line; launches delegate to common/served.",
+    "kind": "reference"
+  },
   "crates/rupd/src/builtin.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -536,6 +556,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/src/wake.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rupd/src/workstream_door.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -546,7 +571,7 @@
     "data": "Absolute caller-owned TempDir override; no later environment override in launch.",
     "issue": 1672,
     "kind": "indirect",
-    "sha256": "45a232439a3d2806ce599df3b2245b03d02ef1419e0ebf5a112d732f98a1dd98"
+    "sha256": "f16c6b7dad34a515d865256f2fc4981be8f0084304a60e987c8e64b52ebfb18a"
   },
   "crates/rupd/tests/b28_messages_failure.rs": {
     "cleanup": "No separate built-Daemon launch site.",

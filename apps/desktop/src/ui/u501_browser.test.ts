@@ -4,6 +4,7 @@ import { beforeAll, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { browser, read, url, wait } from "./tabsBrowser";
+import { FULLSCREEN } from "../testing/chromePage";
 
 // Overlay only this observer on main; its controls, styles and application remain main's own files.
 beforeAll(() => {
@@ -13,7 +14,7 @@ beforeAll(() => {
   const fixture = readFileSync(join(process.cwd(), "src/ui/u501Fixture.tsx"), "utf8");
 
   const html = readFileSync(join(process.cwd(), "src/ui/u501.html"), "utf8")
-    .replace('import { Listbox } from "./index.tsx";\n', "")
+    .replace('import { Listbox } from "./Listbox.tsx";\n', "")
     .replace('u501Fixture({ listbox: Listbox })', 'u501Fixture()');
 
   writeFileSync(join(base, "src/ui/u501Fixture.tsx"), fixture);
@@ -98,7 +99,7 @@ const capture = async (side: string, name: string) => {
   return checks;
 };
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (const contrast of [process.env.PROVIDERS_CONTRAST === "more"]) {
+for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) for (const contrast of [process.env.PROVIDERS_CONTRAST === "more"]) {
   it(`u501_rendered_checks ${scheme}-${width}-${contrast}`, async () => {
     if (art) expect(process.env.U500_BASE_ROOT).toBeTruthy();
     await browser("set", "media", scheme);
@@ -141,7 +142,7 @@ for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (c
       await wait(`document.activeElement?.textContent === 'Cancel'`);
       await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
       await wait(`document.querySelector('[role=alert]')?.textContent.includes('Could not close project')`);
-      expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('Could not close project') && el.getAttribute('title') === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
+      expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(el => el.textContent.includes('Could not close project') && (el.getAttribute('title') ?? el.getAttribute('aria-label')) === 'Could not close project\\nTry again after saving the draft' && el.checkVisibility())`)).toBe(true);
       const checks = await capture(side, `${scheme}-${width}-${contrast}-tree-40-failure`);
 
       if (side === "base") baseline.failure = checks;

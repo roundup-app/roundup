@@ -24,17 +24,12 @@ p {
   outline-offset: 1px;
 }
 
-/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-.rail-row:active {
-  transition-duration: 0s;
-}
-
 /* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
-:is(.rail-row, .shelf-row):has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
+.shelf-row:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: none;
 }
 
-:is(.rail-row, .shelf-row)[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
+.shelf-row[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
 }
 
@@ -103,6 +98,18 @@ p {
   padding-right: var(--space-4);
   padding-left: var(--space-4);
   overflow: auto;
+}
+
+/* U2340a: the centre has no inner lane; the Terminal and the bar sit one --space-2 from its edges. */
+.centre {
+  padding-right: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+/* U2340a: while the floating Show work items button shows, the order line ends --space-6 from the edge, one --space-2 past the button. */
+.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line,
+.window[data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line {
+  padding-right: var(--space-6);
 }
 
 /* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The failure line takes the Rail's side padding; the list and footer reach both edges. */
@@ -264,11 +271,6 @@ p {
   isolation: isolate;
 }
 
-/* U449: Show work items has its own trailing lane, outside centre cards and pinned bars. U371: an overlay Shelf keeps the lane while open, so toggling it never resizes the pane. */
-.window:is([data-shelf="closed"], [data-shelf-mode="overlay"]):not(:has(.drawer[data-open="true"], .drawer > :not(.close))) .centre-stack {
-  width: calc(100% - var(--space-5) - var(--space-4));
-}
-
 .light:not(button) {
   color: var(--grey);
 }
@@ -417,11 +419,6 @@ p {
 }
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
-.rail-row[data-drop] {
-  position: relative;
-}
-
-.rail-row[data-drop]::after,
 .project-tab[data-drop]::after,
 .pane-body[data-drop]::after {
   content: "";
@@ -431,16 +428,14 @@ p {
   pointer-events: none;
 }
 
-.rail-row[data-drop="hover"],
 .project-tab[data-drop="hover"] {
   background: var(--hover);
 }
 
-/* U430: each resource group must fit the narrowed centre or flex-end clips its start. */
+/* U430: each resource group must fit the centre or flex-end clips its start. */
 .centre .resource-strip > span {
   min-width: 0;
   max-width: 100%;
-  white-space: normal;
 }
 
 /* U476: technical text opts into the mono Token wherever it is shown. */

@@ -1,0 +1,14 @@
+.app-menu {
+  color: var(--text);
+  background-color: var(--sunken);
+  border-radius: var(--radius-drawer);
+  padding: var(--space-4);
+}
+
+.app-menu [data-part="item"] {
+  padding: var(--space-2);
+}
+
+.app-menu [data-highlighted] {
+  background-color: var(--hover);
+}

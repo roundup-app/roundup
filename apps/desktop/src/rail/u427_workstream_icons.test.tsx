@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, door, workstream } from "../testing/nodes";
-import { LIST } from "../models/modelsFixture";
 import { clearingOf } from "../rail/clear";
 import { mountRail, railCallsTo, rowOf } from "./railFixture";
 
@@ -38,14 +37,16 @@ describe("u427 a Workstream row's icons", () => {
     fireEvent.click(icon("g", "Add Agent"));
 
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
-    expect(icon("g", "Add Agent").title).toBe("Add Agent ⌘N");
+    fireEvent.keyDown(document, { key: "Tab" });
+    icon("g", "Add Agent").focus();
+    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("Add Agent ⌘N"));
   });
 
   it("u427_the_plus_icon_focuses_an_open_composing_field", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");
     fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Prompt");
+    const field = await screen.findByLabelText("Task");
 
     fireEvent.click(icon("g", "Add Agent"));
 
@@ -53,21 +54,11 @@ describe("u427 a Workstream row's icons", () => {
     expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
-  it("u427_the_plus_icon_keeps_the_model_pick", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["models.list"] = () => LIST;
-
-    fireEvent.click(icon("g", "Choose Model and Effort"));
-
-    expect(await screen.findByRole("combobox", { name: "Model" })).toBeTruthy();
-    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-  });
-
   it("u427_the_clear_icon_opens_the_reason_prompt", async () => {
     const mounted = await mountRail([door("c1", "idle", "i")]);
 
-    expect(icon("c1", "Clear").title).toBe("Clear Workstream…");
-    fireEvent.click(icon("c1", "Clear"));
+    expect(icon("c1", "Clear Workstream…").getAttribute("aria-label")).toBe("Clear Workstream…");
+    fireEvent.click(icon("c1", "Clear Workstream…"));
 
     expect(clearingOf(mounted.app, mounted.connected.events, "c1").phase()).toBe("asking");
     expect(within(await screen.findByRole("dialog", { name: "Clear c1" })).getByRole("textbox", { name: "Why clear?" })).toBeTruthy();
@@ -78,9 +69,9 @@ describe("u427 a Workstream row's icons", () => {
   it("u427_no_clear_icon_while_a_clear_is_pending", async () => {
     await mountRail([workstream("c2")]);
 
-    fireEvent.click(icon("c2", "Clear"));
+    fireEvent.click(icon("c2", "Clear Workstream…"));
 
-    await waitFor(() => expect([...rowOf("c2").querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label"))).not.toContain("Clear"));
+    await waitFor(() => expect([...rowOf("c2").querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label"))).not.toContain("Clear Workstream…"));
   });
 
   it("u427_open_folder_opens_the_doors_directory", async () => {
@@ -126,5 +117,4 @@ it("u427_a_disabled_plus_calls_nothing", async () => {
   fireEvent.click(icon("g", "Add Agent"));
   fireEvent.click(icon("g", "Add Agent"), {altKey:true});
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
-  expect(railCallsTo(mounted.app, "models.list")).toEqual([]);
 });

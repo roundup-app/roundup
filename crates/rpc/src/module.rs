@@ -97,6 +97,36 @@ impl Bus {
         let _ = self.shared.sender.send(event);
     }
 
+    /// Every saved Event numbered above `after`, oldest first, and the highest saved number (B44):
+    /// for a reader that decides from the log once and then follows the live Events. `EVENTS_EXPIRED`
+    /// when the log no longer keeps `after + 1`; no log is an empty answer.
+    pub fn saved_after(&self, after: u64) -> Result<(Vec<Event>, u64), RpcError> {
+        let _order = self.shared.order.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(log) = &self.shared.log else {
+            return Ok((Vec::new(), 0));
+        };
+        let (oldest, highest) = log.bounds()?;
+        if after + 1 < oldest {
+            return Err(RpcError::new(
+                crate::error::code::EVENTS_EXPIRED,
+                format!(
+                    "after {after} is older than the log keeps; the oldest kept Event number is {oldest}"
+                ),
+            ));
+        }
+        let mut events = Vec::new();
+        let mut last = after;
+        while last < highest {
+            let chunk = log.read(last, CHUNK)?;
+            let Some(newest) = chunk.last().and_then(|event| event.seq) else {
+                break;
+            };
+            last = newest;
+            events.extend(chunk);
+        }
+        Ok((events, highest))
+    }
+
     /// Subscribe from an Event number: every saved Event above `after` from the log, then every
     /// later one live, each once (D11). Without `after`, only Events saved from now on.
     pub fn subscribe_after(&self, after: Option<u64>) -> Result<Subscription, RpcError> {

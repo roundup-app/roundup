@@ -239,10 +239,14 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
             .iter()
             .map(|(name, _)| tool_key(name))
             .collect();
+        // M16: a Door's `rup mcp` omits the three tools that start a Terminal; the command stays.
         let cli: BTreeSet<String> = commands
             .iter()
             .filter(|(_, door_only)| door || !door_only)
             .map(|(usage, _)| command_key(usage))
+            .filter(|key| {
+                !door || !["agentrun", "terminalspawn", "terminalopen"].contains(&key.as_str())
+            })
             .collect();
         assert_eq!(cli, tools, "door: {door}");
     }
@@ -581,7 +585,7 @@ async fn i6_terminal_write_types_the_text_and_presses_enter() {
     let params = request_of(&mut seen, "terminal.write").await;
     assert_eq!(params["id"], "3");
     assert_eq!(decode(&params), "héllo\r".as_bytes());
-    assert_eq!(out(&output), "wrote to Terminal 3\n");
+    assert_eq!(out(&output), "null\n");
 }
 
 fn decode(params: &Value) -> Vec<u8> {
@@ -724,7 +728,7 @@ async fn i7_read_prints_text_on_stdout_and_next_on_stderr() {
     assert_eq!(err(&output), "next: 5\ntruncated\n");
     assert_eq!(
         request_of(&mut seen, "terminal.read").await,
-        json!({"id": "3", "after": 120})
+        json!({"id": "3", "after": 120, "reader": "a1"})
     );
 }
 
@@ -936,4 +940,48 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn b48_the_cli_prints_why() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let _requests = stand_in(
+        &socket,
+        false,
+        vec![(
+            "agent.wake",
+            json!({"id": 7, "fired": false, "why": "already working"}),
+        )],
+        &[],
+    );
+    let plain = on(&socket).rup(&["agent", "wake", "3"]).await;
+    assert_eq!(code(&plain), 0, "{}", err(&plain));
+    assert_eq!(out(&plain), "woken: 7\nwhy: already working\n");
+}
+
+#[tokio::test]
+async fn b45_the_cli_command_is_the_tool_and_exits_by_the_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let mut requests = stand_in(
+        &socket,
+        false,
+        vec![("agent.wake", json!({"id": 7, "fired": false}))],
+        &[],
+    );
+    let run = on(&socket);
+    let plain = run.rup(&["agent", "wake", "3", "4", "--any"]).await;
+    assert_eq!(code(&plain), 0, "{}", err(&plain));
+    assert_eq!(out(&plain).trim(), "woken: 7");
+    assert_eq!(
+        request_of(&mut requests, "agent.wake").await,
+        json!({"ids": ["3", "4"], "any": true})
+    );
+    let json_out = run.rup(&["agent", "wake", "3", "--json"]).await;
+    let parsed: Value = serde_json::from_str(&out(&json_out)).unwrap();
+    assert_eq!(parsed, json!({"id": 7, "fired": false}));
+    assert_eq!(code(&run.rup(&["agent", "wake"]).await), 2);
+    let gone = dir.path().join("absent.sock");
+    assert_eq!(code(&on(&gone).rup(&["agent", "wake", "3"]).await), 1);
 }

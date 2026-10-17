@@ -3,7 +3,10 @@ import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
+import { Tooltip } from "../ui/Tooltip";
+import { Portal } from "solid-js/web";
 import { copy } from "../copy";
+import { middleCut } from "./middleCut";
 
 /** U449–U451: the Project strip and selected Workstream share the native window bar. */
 export const WindowBar = (props: {
@@ -56,6 +59,20 @@ export const WindowBar = (props: {
 
   createEffect(() => { title(); void write(); });
 
+  // U2228b: the visible title is cut in the middle to the box; the accessible name and `title` stay whole.
+  let box: HTMLDivElement | undefined;
+  const fit = () => { if (box) middleCut(box, title()); };
+
+  createEffect(() => { title(); fit(); });
+
+  createEffect(() => {
+    if (!box?.parentElement || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(fit);
+    observer.observe(box.parentElement);
+    onCleanup(() => observer.disconnect());
+  });
+
   const empty = (target: EventTarget | null) => target instanceof Element && !target.closest('button, input, [role="tab"], [role="tablist"], [role="dialog"], [role="alertdialog"], [role="menu"], .tab-tip, .traffic-lights');
 
   const action = async (kind: "drag" | "zoom") => {
@@ -74,7 +91,10 @@ export const WindowBar = (props: {
     }}>
       <div class="traffic-lights" aria-hidden="true" />
       {props.children}
-      <div class="window-title" role="heading" aria-level="1" title={title()} aria-label={title()}>{title()}</div>
+      <Tooltip.Root closeOnEscape={false} positioning={{ strategy: "fixed" }}>
+        <Tooltip.Trigger asChild={(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />} />
+        <Portal><Tooltip.Positioner><Tooltip.Content>{title()}</Tooltip.Content></Tooltip.Positioner></Portal>
+      </Tooltip.Root>
     </div>
   );
 };

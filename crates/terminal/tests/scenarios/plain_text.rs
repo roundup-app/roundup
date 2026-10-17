@@ -5,7 +5,8 @@ use crate::common::{open, sh, until_exit};
 fn read(id: &str, after: u64, max: Option<u32>) -> ReadParams {
     ReadParams {
         id: id.into(),
-        after,
+        after: Some(after),
+        reader: None,
         max,
     }
 }
@@ -72,16 +73,13 @@ printf 'f\377g\n'",
     until_exit(&mut spawned).await;
     let id = spawned.id;
     let cut = terminals.read(&read(&id, 0, None)).unwrap();
-    assert_eq!(
-        (cut.from, cut.truncated, cut.text.len()),
-        (16, true, 16_384)
-    );
+    assert_eq!((cut.from, cut.truncated, cut.text.len()), (16, true, 402));
     assert!(
         cut.text.starts_with("\u{e9}!\nz\nz\n"),
         "{:?}",
         &cut.text[..12]
     );
-    assert_eq!(cut.next, 20 + 3 * 8190);
+    assert_eq!(cut.next, 20 + 3 * 199);
     // A first line over the cap is cut between characters; the rest begins at its own line feed.
     let first = terminals.read(&read(&id, 0, Some(3))).unwrap();
     assert_eq!((first.text.as_str(), first.next), ("\u{e9}!", 18));

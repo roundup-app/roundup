@@ -1,12 +1,12 @@
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RpcMethods } from "@contracts/methods";
-import { CONTRACT } from "@contracts/contract";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectProject } from "../state/connectedProject";
 import { createTauriApp } from "./tauri";
+import { contractFingerprint, OWN_CONTRACT } from "./contractMatch";
 
-const ours = [...CONTRACT.methods];
+const ours = OWN_CONTRACT.methods;
 
 const connectTo = async (contract: { fingerprint: string; methods: string[] } | undefined) => {
   const app = createFakeApp();
@@ -25,9 +25,14 @@ afterEach(clearMocks);
 
 describe("s11 the App says when the Daemon is not the one it was built with", () => {
   it("s11_equal_contracts_show_no_notice", async () => {
-    const { connected } = await connectTo({ fingerprint: CONTRACT.fingerprint, methods: ours });
+    const { connected } = await connectTo({ fingerprint: OWN_CONTRACT.fingerprint, methods: ours });
 
     expect(connected.contractNotice).toBeNull();
+  });
+
+  it("a38_the_app_derives_the_fingerprint_rust_computes", () => {
+    // The literal `a38_fingerprint_is_pinned_for_the_app_to_derive` pins in `crates/contracts`, whatever the order given.
+    expect(contractFingerprint({ "b.two": "0123456789abcdef", "a.one": "fedcba9876543210" })).toBe("0595958c4791a090");
   });
 
   it("s11_an_older_daemon_is_named_before_any_call", async () => {

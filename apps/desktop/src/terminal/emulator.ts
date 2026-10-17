@@ -3,6 +3,8 @@ import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
 import { DARK_SCHEME, terminalThemeFor } from "./theme";
+import { attachTurns } from "./turns";
+import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -25,6 +27,10 @@ export type Emulator = {
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   selection(): string;
+  /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
+  turns(): TurnRows[];
+  /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
+  selectTurn(index: number, extend: boolean): void;
   paste(text: string): void;
   /** Moves the emulator into `host` (opening it the first time), returns its fitted size, and focuses it unless restoring the Rail. */
   show(host: HTMLElement, focus?: boolean): Size;
@@ -75,6 +81,23 @@ const NEWLINE = "\x1b\r";
 /** U399: a bare `⇧⏎` outside IME composition; every other chord keeps xterm's own encoding. */
 const isShiftEnter = (event: KeyboardEvent): boolean =>
   event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing;
+
+/** U2242: the bytes Ghostty's macOS defaults send for a bare `⌘` or `⌥` with ⌫, ← or →; other chords keep xterm's encoding. */
+const MAC_EDITING_KEYS = new Map(
+  Object.entries({
+    Backspace: { cmd: "\x15", alt: "\x1b\x7f" },
+    ArrowLeft: { cmd: "\x01", alt: "\x1bb" },
+    ArrowRight: { cmd: "\x05", alt: "\x1bf" },
+  }),
+);
+
+const macEditingBytes = (event: KeyboardEvent): string | null => {
+  if (event.isComposing || event.ctrlKey || event.shiftKey || event.metaKey === event.altKey) return null;
+
+  const bytes = MAC_EDITING_KEYS.get(event.key);
+
+  return bytes ? (event.metaKey ? bytes.cmd : bytes.alt) : null;
+};
 
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
 export const SCROLLBACK_LINES = 10_000;
@@ -137,11 +160,13 @@ export const createXtermEmulators = (
     terminal.onRender(() => probe?.rendered());
     // xterm also asks about the keypress that follows a keydown it did not handle, so both are refused.
     terminal.attachCustomKeyEventHandler((event) => {
-      if (!isShiftEnter(event)) return true;
+      const bytes = isShiftEnter(event) ? NEWLINE : macEditingBytes(event);
+
+      if (bytes === null) return true;
 
       if (event.type === "keydown") {
         event.preventDefault();
-        terminal.input(NEWLINE, true);
+        terminal.input(bytes, true);
       }
 
       return false;
@@ -165,6 +190,7 @@ export const createXtermEmulators = (
     element.addEventListener("mousemove", trackCmd);
     terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
 
+    const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
     const scheme = schemeQuery();
 
     const followScheme = () => {
@@ -251,6 +277,8 @@ export const createXtermEmulators = (
         linkListener = listener;
       },
       selection: () => terminal.getSelection(),
+      turns: shellTurns.turns,
+      selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
       show: (host, focus = true) => {
         host.replaceChildren(element);
@@ -290,6 +318,7 @@ export const createXtermEmulators = (
         window.removeEventListener("keyup", trackCmd);
         window.removeEventListener("blur", dropCmd);
         disposers.forEach((dispose) => dispose());
+        shellTurns.dispose();
         fontViewport?.dispose();
         terminal.dispose();
       },

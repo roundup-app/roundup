@@ -20,11 +20,11 @@ export const TERMINALS: TerminalInfo[] = [
 ];
 
 /** The Pane and its bubbles in one open Project whose Daemon lists `terminals`, with a fake `terminal.open` and `terminal.close`. */
-export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS) => {
+export const mountBubbles = async (selected: string | null = "a", terminals: TerminalInfo[] = TERMINALS, tree: RailNode[] = TREE) => {
   const app = createFakeApp();
   let listed = [...terminals];
 
-  app.handlers["rail.tree"] = () => TREE;
+  app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
@@ -67,7 +67,8 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 };
 
 export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window): KeyboardEvent => {
-  const press = new KeyboardEvent("keydown", { key, metaKey: true, bubbles: true, cancelable: true, ...init });
+  const code = key === "." ? "Period" : key.length === 1 ? `Key${key.toUpperCase()}` : key;
+  const press = new KeyboardEvent("keydown", { key, code, metaKey: true, bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(press);
 

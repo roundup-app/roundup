@@ -46,6 +46,9 @@ const READ = `() => {
   const style = getComputedStyle(window.__row);
   const colors = style.backgroundImage.match(/rgba?\\([^)]*\\)/g) ?? [];
   const layers = [];
+  // The Tree paints an unselected row's hover and press as a background colour: one wash, read as one layer.
+  const fill = style.backgroundColor.match(/[\\d.]+/g).map(Number);
+  if (!colors.length && (fill.length < 4 || fill[3] > 0)) layers.push({ color: style.backgroundColor, alpha: fill.length > 3 ? fill[3] : 1 });
   for (let at = 0; at < colors.length; at += 2) {
     const numbers = colors[at].match(/[\\d.]+/g).map(Number);
     layers.push({ color: colors[at], alpha: numbers.length > 3 ? numbers[3] : 1 });
@@ -116,7 +119,7 @@ run("u381 a selected row answers the pointer with a darker step", () => {
         expect(press).toBe(wash(plain.press, false));
 
         if (kind === ".rail-row") {
-          for (const read of [plain.rest, plain.hover, plain.press, chosen.rest, chosen.hover, chosen.press]) {
+          for (const read of [chosen.rest, chosen.hover, chosen.press]) {
             expect(read.backgroundColor).toBe("rgba(0, 0, 0, 0)");
           }
         }

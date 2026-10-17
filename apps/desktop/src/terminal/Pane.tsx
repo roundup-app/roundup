@@ -9,6 +9,8 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
+import { registerKeys } from "../keys/registry";
+import { TAKE_CONTROL, WRITING_KEYS } from "../keys/chords";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -150,7 +152,16 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     return screens.isAtBottom(id) ? null : id;
   });
 
+  /** U532: a key landed on the watched pane, so the band says why nothing was sent. */
+  const [refused, setRefused] = createSignal(false);
+
+  const typed = (press: KeyboardEvent): boolean =>
+    !press.metaKey && !press.ctrlKey && !press.altKey
+    && (press.key.length === 1 || WRITING_KEYS.includes(press.key));
+
   const onKeyDown = (press: KeyboardEvent): void => {
+    if (inWatch() && typed(press) && press.target instanceof Element && press.target.closest(".pane-screen")) setRefused(true);
+
     if (!press.metaKey || press.ctrlKey || press.altKey) return;
 
     const target = press.target;
@@ -200,6 +211,10 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   onCleanup(() => pane?.removeEventListener("keydown", onKeyDown, true));
 
+  const leftThePane = (leave: FocusEvent): void => {
+    if (!(leave.relatedTarget instanceof Element) || !leave.relatedTarget.closest(".pane-screen")) setRefused(false);
+  };
+
   const taken = (): boolean => {
     const id = selected()?.id ?? null;
 
@@ -207,6 +222,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   createEffect(on(() => rail.selected(), () => setTakeFailure(null), { defer: true }));
+  createEffect(() => { if (!inWatch()) setRefused(false); });
 
   const takeOver = async (): Promise<void> => {
     const id = selected()?.id;
@@ -262,6 +278,27 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     if (current !== null) screens.emulatorFor(current).focus();
   };
+
+  /** U531: `⌘⏎` takes control of the selected Agent in Watch, from anywhere but a text field, a Shelf row button or a Terminal that is taken. */
+  registerKeys({ kind: "app" }, [{
+    chords: TAKE_CONTROL,
+    when: (press) => {
+      const target = press.target;
+
+      if (!(target instanceof Element)) return true;
+
+      if (target.closest(".shelf-row") && target.closest("button")) return false;
+
+      return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && inWatch());
+    },
+    run: (press) => {
+      const id = terminalId();
+
+      if (press.repeat || !inWatch() || id === null || screens.exited(id) || connected.daemonExit() !== null || selected()?.kind !== "agent") return;
+
+      void takeOver();
+    },
+  }]);
 
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   const [dropOver, setDropOver] = createSignal(false);
@@ -338,6 +375,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     <div class="pane" data-takeover={taken() ? "" : undefined} ref={(element) => {
       pane = element;
       element.addEventListener("keydown", onKeyDown, true);
+      element.addEventListener("focusout", leftThePane);
     }}>
       <Show when={connected.decisions.listFailure()}>
         {(message) => (
@@ -372,8 +410,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       </Show>
       <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
         <div class="pane-watch" role="status">
-          <span>{copy.watching}{selected()?.name}{copy.readOnly}</span>
-          <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={takeControl} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}</button>
+          <span>{refused() ? copy.readOnlyTakeControlWith : `${copy.watching}${selected()?.name}${copy.readOnly}`}</span>
+          <button data-button="quiet" type="button" class="word" aria-label={copy.takeOver} aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={takeControl} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}<span class="light" aria-hidden="true">{" "}{copy.takeControlKeys}</span></button>
         </div>
       </Show>
       <div

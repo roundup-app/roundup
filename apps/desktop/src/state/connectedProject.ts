@@ -8,6 +8,8 @@ import { createDecisions } from "../decisions/decisions";
 import type { DecisionsState } from "../decisions/decisions";
 import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
+import { createAsks } from "./asks";
+import type { AsksState } from "./asks";
 import { createRailState } from "./rail";
 import { createTakeover } from "./takeover";
 import type { TakeoverState } from "./takeover";
@@ -22,6 +24,8 @@ export type ConnectedProject = {
   rail: RailState;
   drawer: DrawerState;
   decisions: DecisionsState;
+  /** U504: the Asks the user sent and where each part went. */
+  asks: AsksState;
   /** U187: the Takeover the user holds. */
   takeover: TakeoverState;
   reducedMotion: Accessor<boolean>;
@@ -47,7 +51,7 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, app, events, rail, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
+  return { project, app, events, rail, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();

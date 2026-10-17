@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { asking, card, mountApp, select } from "../decisions/decisionsFixture";
 import { Markdown } from "./Markdown";
 import { renderMarkdown } from "./renderMarkdown";
+import { FULLSCREEN } from "../testing/chromePage";
 
 const BODY = [
   '1. **Driftech:** fill in "What they do" and the gap in the follow-up, ...',
@@ -75,7 +76,7 @@ describe("Q10 the App renders the Markdown an Agent writes", () => {
   it("q10_wide_content_stays_in_the_column", () => {
     const wide = "x".repeat(300);
 
-    for (const width of [1280]) {
+    for (const width of [FULLSCREEN.width]) {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
 
       const { container, unmount } = render(() => <Markdown body={`${wide}\n\n| a | b |\n|---|---|\n| ${wide} | 2 |\n\n\`\`\`\n${wide}\n\`\`\``} />);

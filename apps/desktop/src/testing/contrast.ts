@@ -3,6 +3,9 @@
 import tokenStyles from "../tokens.css?raw";
 import appStyles from "../styles.css?inline";
 import railStyles from "../rail/styles.css?inline";
+
+const uiStyles = Object.values(import.meta.glob<string>("../ui/*.css", { query: "?inline", import: "default", eager: true })).join("\n");
+
 import buttonStyles from "../buttons.css?inline";
 
 type Rgb = { r: number; g: number; b: number };
@@ -154,9 +157,9 @@ export const loadTokens = () => {
   const ground = resolveToken("var(--ground)", tokens);
   const sunken = resolveToken("var(--sunken)", tokens);
 
-  const band = /\.rail-row\[data-selected="true"\][^{]*\{[^}]*?linear-gradient\(var\(--accent\), var\(--accent\)\),\s*linear-gradient\(var\(--([\w-]+)\)/.exec(railStyles);
+  const band = /\.app-tree \[data-part="item"\]\[data-selected\]\s*\{[^}]*?linear-gradient\(var\(--accent\), var\(--accent\)\),\s*linear-gradient\(var\(--([\w-]+)\)/.exec(uiStyles);
 
-  if (!band) throw new Error("no selected-row band rule in rail/styles.css");
+  if (!band) throw new Error("no selected-row band rule in ui/Tree.css");
 
   const selectedValue = resolveToken(`var(--${band[1]!})`, tokens);
   const alpha = /^rgba\(\s*0,\s*0,\s*0,\s*([\d.]+)\s*\)$/.exec(selectedValue)?.[1];
@@ -178,7 +181,7 @@ export const withStylesheets = async <T,>(run: () => T | Promise<T>): Promise<T>
   tokens.dataset.viteDevId = "/src/tokens.css";
   tokens.textContent = tokenStyles;
   const sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = `${appStyles}\n${railStyles}\n${buttonStyles}`;
+  sheet.textContent = `${appStyles}\n${uiStyles}\n${railStyles}\n${buttonStyles}`;
 
   try {
     return await run();

@@ -865,7 +865,14 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
 #[test]
 fn f8_each_brief_terminal_description_states_the_bubble_rule() {
     let s = setup();
-    for role in [Role::Agent, Role::Door] {
+    let door = brief(&s, "7", Role::Door);
+    for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
+        assert!(
+            !door.contains(&format!("- `{tool}`:")),
+            "M16: the Door has {tool}"
+        );
+    }
+    for role in [Role::Agent] {
         let text = brief(&s, "7", role);
         for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
             let prefix = format!("- `{tool}`:");
@@ -1862,4 +1869,89 @@ fn m2219_on_brief_is_unchanged() {
     };
     assert_eq!(brief(&s, "7", Role::Agent), golden("agent"));
     assert_eq!(brief(&s, "7", Role::Door), golden("door"));
+}
+
+#[test]
+fn b53_the_door_brief_says_to_show_not_read() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    assert!(
+        text.contains("- `terminal_show`:"),
+        "the Door is offered terminal_show"
+    );
+    let rule = text
+        .lines()
+        .flat_map(|line| line.split(". "))
+        .find(|sentence| sentence.contains("asks to see a child's output"))
+        .expect("the Door brief says what to do when asked to see output");
+    for word in ["`terminal_show`", "read nothing"] {
+        assert!(rule.contains(word), "{rule}");
+    }
+    // E9: a role's bytes do not depend on the id.
+    assert_eq!(text, brief(&s, "8", Role::Door));
+    assert!(!brief(&s, "7", Role::Agent).contains("terminal_show"));
+    assert!(off_brief(&s, "7", Role::Door).contains("`rup terminal show`"));
+}
+
+#[test]
+fn b45_the_brief_says_to_wake_not_poll() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        for (text, ask) in [
+            (brief(&s, "7", role), "`agent_wake`"),
+            (off_brief(&s, "7", role), "`rup agent wake`"),
+        ] {
+            let line = text
+                .lines()
+                .find(|line| line.starts_with(&format!("- {ask}")))
+                .unwrap_or_else(|| panic!("{role:?} brief names no {ask}"));
+            assert!(
+                line.contains("end your turn instead of polling `terminal_read` or `rail_tree`")
+                    || line.contains(
+                        "end your turn instead of polling `rup terminal read` or `rup rail tree`"
+                    ),
+                "{line}"
+            );
+            assert!(line.contains("tells you without asking"), "{line}");
+        }
+    }
+}
+
+/// `rup help`, from the `rup` that `cargo build -p rup` left beside the test binaries.
+fn rup_help() -> String {
+    let rup = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .and_then(Path::parent)
+        .unwrap()
+        .join("rup");
+    assert!(rup.is_file(), "cargo build -p rup first");
+    let out = std::process::Command::new(rup)
+        .arg("help")
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    String::from_utf8(out.stdout).unwrap()
+}
+
+#[test]
+fn b45_every_command_the_brief_names_is_in_rup_help() {
+    let s = setup();
+    let help = rup_help();
+    for role in [Role::Agent, Role::Door] {
+        let text = off_brief(&s, "7", role);
+        let named: Vec<&str> = text
+            .lines()
+            .filter(|line| line.starts_with("- `rup "))
+            .filter_map(|line| line.strip_prefix("- `")?.split('`').next())
+            .collect();
+        assert!(named.contains(&"rup agent wake"), "{named:?}");
+        for command in named {
+            assert!(
+                help.contains(&format!("    {command} "))
+                    || help.contains(&format!("    {command}\n")),
+                "{command} is in no line of `rup help`"
+            );
+        }
+    }
 }

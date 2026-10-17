@@ -10,8 +10,18 @@ use crate::common::{PATIENCE, ctx, open, sh, until_exit, until_printed};
 fn read(id: &str, after: u64, max: Option<u32>) -> ReadParams {
     ReadParams {
         id: id.into(),
-        after,
+        after: Some(after),
+        reader: None,
         max,
+    }
+}
+
+fn read_as(id: &str, reader: &str) -> ReadParams {
+    ReadParams {
+        id: id.into(),
+        after: None,
+        reader: Some(reader.into()),
+        max: None,
     }
 }
 
@@ -382,4 +392,165 @@ async fn x13_searching_a_full_log_does_not_block_output_or_kill() {
         .await
         .expect("the search ends within PATIENCE")
         .unwrap();
+}
+
+/// A finished Terminal that printed `script`'s output, so every read sees all of it.
+async fn finished(dir: &tempfile::TempDir, terminals: &Terminals, script: &str) -> String {
+    let mut spawned = terminals.spawn(sh(dir.path(), script)).await.unwrap();
+    until_exit(&mut spawned).await;
+    spawned.id
+}
+
+#[tokio::test]
+async fn x16_the_second_read_is_only_the_delta() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let mut spawned = terminals
+        .spawn(sh(
+            dir.path(),
+            "printf 'one\\r\\n'; read a; printf 'two\\r\\n'; read b",
+        ))
+        .await
+        .unwrap();
+    read_to_a_line_end(&terminals, &mut spawned.output, &spawned.id, 0).await;
+    let first = terminals.read(&read_as(&spawned.id, "a1")).unwrap();
+    assert_eq!((first.from, first.text.as_str()), (0, "one\n"));
+    terminals.write(&spawned.id, b"x\n").await.unwrap();
+    while !terminals
+        .read(&read(&spawned.id, first.next, None))
+        .unwrap()
+        .text
+        .ends_with("two\n")
+    {
+        until_printed(&mut spawned.output, "\n").await;
+    }
+    let second = terminals.read(&read_as(&spawned.id, "a1")).unwrap();
+    assert_eq!(second.from, first.next);
+    assert!(second.text.ends_with("two\n") && !second.text.contains("one"));
+    assert_eq!(
+        terminals.read(&read_as(&spawned.id, "a1")).unwrap().text,
+        ""
+    );
+    terminals.kill(&spawned.id).await.unwrap();
+}
+
+#[tokio::test]
+async fn x16_readers_have_separate_cursors() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let id = finished(&dir, &terminals, "printf 'one\\r\\ntwo\\r\\n'").await;
+    let first = terminals.read(&read_as(&id, "a1")).unwrap();
+    assert_eq!(first.text, "one\ntwo\n");
+    assert_eq!(
+        terminals.read(&read_as(&id, "a2")).unwrap().text,
+        "one\ntwo\n"
+    );
+    let other = finished(&dir, &terminals, "printf 'zzz\\r\\n'").await;
+    assert_eq!(
+        terminals.read(&read_as(&other, "a1")).unwrap().text,
+        "zzz\n"
+    );
+}
+
+#[tokio::test]
+async fn x16_a_read_with_after_leaves_the_cursor() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let id = finished(&dir, &terminals, "printf 'one\\r\\ntwo\\r\\n'").await;
+    let mut both = read_as(&id, "a1");
+    both.after = Some(0);
+    assert_eq!(terminals.read(&both).unwrap().text, "one\ntwo\n");
+    assert_eq!(
+        terminals.read(&read_as(&id, "a1")).unwrap().text,
+        "one\ntwo\n"
+    );
+    let from_two = terminals
+        .read(&ReadParams {
+            max: Some(4),
+            ..both.clone()
+        })
+        .unwrap();
+    both.after = Some(from_two.next);
+    assert_eq!(terminals.read(&both).unwrap().text, "two\n");
+    assert_eq!(terminals.read(&read_as(&id, "a1")).unwrap().text, "");
+}
+
+#[tokio::test]
+async fn x16_a_read_with_no_reader_and_no_after_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let id = finished(&dir, &terminals, "printf 'one\\r\\n'").await;
+    let mut neither = read_as(&id, "a1");
+    neither.reader = None;
+    assert_eq!(
+        terminals.read(&neither).unwrap_err().code,
+        code::INVALID_PARAMS
+    );
+}
+
+#[tokio::test]
+async fn x16_a_read_holds_no_escape_byte() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let id = finished(
+        &dir,
+        &terminals,
+        "printf '\\033[31mred\\033[0m\\r\\n\\033[38;5;196mblaze\\033[0m\\r\\n'",
+    )
+    .await;
+    let got = terminals.read(&read_as(&id, "a1")).unwrap();
+    assert_eq!(got.text, "red\nblaze\n");
+    assert!(!got.text.contains('\u{1b}') && !got.text.contains("[31m"));
+}
+
+#[tokio::test]
+async fn x16_a_read_returns_at_most_200_lines_and_the_next_read_continues() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let id = finished(&dir, &terminals, "seq 1 450").await;
+    let first = terminals.read(&read_as(&id, "a1")).unwrap();
+    assert_eq!(first.text.lines().count(), 200);
+    assert!(first.truncated);
+    let second = terminals.read(&read_as(&id, "a1")).unwrap();
+    assert_eq!(second.from, first.next);
+    assert_eq!(second.text.lines().next(), Some("201"));
+    assert_eq!(second.text.lines().count(), 200);
+    let third = terminals.read(&read_as(&id, "a1")).unwrap();
+    assert_eq!(third.text.lines().count(), 50);
+    assert!(!third.truncated);
+}
+
+#[tokio::test]
+async fn x16_the_line_cap_loses_and_repeats_no_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, _) = open(&dir);
+    let id = finished(&dir, &terminals, "seq 1 650").await;
+    let mut seen = Vec::new();
+    loop {
+        let got = terminals.read(&read_as(&id, "a1")).unwrap();
+        seen.extend(got.text.lines().map(str::to_owned));
+        if !got.truncated {
+            break;
+        }
+    }
+    let want: Vec<String> = (1..=650).map(|n| n.to_string()).collect();
+    assert_eq!(seen, want);
+}
+
+#[tokio::test]
+async fn x16_a_read_emits_no_event_and_the_digest_holds_no_terminal_text() {
+    let dir = tempfile::tempdir().unwrap();
+    let (terminals, bus) = open(&dir);
+    let mut bus_events = bus.subscribe();
+    let mut spawned = terminals
+        .spawn(sh(dir.path(), "printf 'ZEBRA\\r\\n'; read a"))
+        .await
+        .unwrap();
+    until_printed(&mut spawned.output, "ZEBRA").await;
+    while bus_events.try_recv().is_ok() {}
+    let mut quiet = terminals.subscribe(&spawned.id).unwrap();
+    terminals.read(&read_as(&spawned.id, "door")).unwrap();
+    assert!(bus_events.try_recv().is_err(), "a read reached the Bus");
+    assert!(quiet.try_recv().is_err(), "a read emitted a Terminal event");
+    terminals.kill(&spawned.id).await.unwrap();
 }

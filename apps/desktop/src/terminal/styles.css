@@ -8,7 +8,7 @@
 
 .pane-failure {
   flex: none;
-  min-height: 1.5em;
+  padding-inline: var(--space-2);
   max-height: 6em;
   overflow-y: auto;
 }
@@ -29,6 +29,8 @@
 
 .pane-screen {
   height: 100%;
+  /* U514: the left inset the Turn strips live in, inside the clip box. */
+  padding-left: var(--space-2);
   /* U371, U430: keep the old Terminal columns clipped through a reserved slide.
      A transient horizontal scrollbar would cost one row and send a second resize. */
   overflow: clip;
@@ -53,6 +55,11 @@
   white-space: nowrap;
   transform: translate(-50%, -50%);
   text-align: center;
+}
+
+/* U524: a Terminal opened from the Project root replaces the placeholder. */
+[data-root-terminal] .pane .pane-empty:not(.pane-door) {
+  display: none;
 }
 
 /* The earlier-run line wraps in a narrow pane instead of leaving it. */
@@ -162,6 +169,29 @@
 .pane-watch > button,
 .pane-takeover > button {
   flex: none;
+}
+
+/* U514: the strips sit in the pane-screen's left padding, beside the cell grid, so no glyph is covered and `cols` is unchanged. */
+.turn-strips {
+  position: absolute;
+  top: 0;
+  left: calc(-1 * var(--space-2));
+  width: 4px;
+  height: 100%;
+  pointer-events: none;
+}
+
+.turn-gutter {
+  position: absolute;
+  left: 0;
+  display: block;
+  width: 4px;
+  padding: 0;
+  border: 0;
+  background: var(--hairline);
+  --button-hover: var(--accent);
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .centre-stack {

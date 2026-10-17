@@ -29,9 +29,12 @@ type Reply = { id?: number; result?: unknown; error?: { message: string }; metho
 
 type Eval<T> = { result: { value: T }; exceptionDetails?: { text: string; exception?: { description: string } } };
 
+/** The one supported window: a fullscreen App on a 14-inch MacBook Pro (1512×982 pt less the 32 pt camera safe area). */
+export const FULLSCREEN = { width: 1512, height: 950 } as const;
+
 export type ChromePage = {
-  /** Loads the harness at `path` (or at an absolute URL) with the window at `width` by `height`. */
-  load(path: string, width: number, height: number): Promise<void>;
+  /** Loads the harness at `path` (or at an absolute URL) with the window at `width` by `height`, FULLSCREEN when omitted. */
+  load(path: string, width?: number, height?: number): Promise<void>;
   /** Resizes the window without reloading the page. */
   resize(width: number, height: number): Promise<void>;
   /** Sets the page's `prefers-color-scheme` and, with `more`, `prefers-contrast`; optional reduced motion or transparency; all hold across loads. */
@@ -68,6 +71,8 @@ export const openPage = async (
   const startup = performance.now();
   let stage = "executable-reading";
   let ready = false;
+  // A move while the button is held carries `buttons: 1`, as a real drag does.
+  let held = false;
 
   const completed = (name: string) => {
     stage = name;
@@ -377,7 +382,9 @@ export const openPage = async (
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
     },
     pointer: async (type, x, y) => {
-      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
+      if (type !== "move") held = type === "down";
+
+      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" || (type === "move" && held) ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
     },
     click: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
@@ -394,9 +401,11 @@ export const openPage = async (
     },
     down: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
-      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1 }, session);
+      held = true;
     },
     release: async (x, y) => {
+      held = false;
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
     },
     press: async (key, code, modifiers = 0) => {
@@ -415,7 +424,7 @@ export const openPage = async (
       else await send("Input.dispatchKeyEvent", { type: eventType, key, code }, session);
     },
     shot: async () => (await send<{ data: string }>("Page.captureScreenshot", { format: "png" }, session)).data,
-    load: async (path, width, height) => {
+    load: async (path, width = FULLSCREEN.width, height = FULLSCREEN.height) => {
       // Each observation owns a new tab; an old document's awaited Runtime
       // calls and font readiness cannot follow it into the next seed.
       await send("Target.closeTarget", { targetId });

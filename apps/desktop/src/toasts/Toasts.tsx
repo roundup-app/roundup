@@ -1,29 +1,18 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import { ErrorLine } from "../ink/ErrorLine";
-import { KindGlyph } from "../ink/KindGlyph";
-import type { ToastQueue, ToastView } from "./queue";
+import { ToastProvider } from "../ui/Toast";
+import type { ToastQueue } from "./queue";
 import "./styles.css";
 
-/** U411, U414: the layer of Toasts at the window's bottom-right. It holds an empty polite live region and nothing else while no Toast shows. */
+/** U411, U414: the layer of Toasts at the window's bottom-right. The shared Toast renders and times each card; the polite live region stays mounted and empty while none shows, so a new card changes text inside it. */
 export const Toasts = (props: { queue: ToastQueue }) => {
   const [layer, setLayer] = createSignal<HTMLElement>();
-  // Hover and focus each keep a Toast; it restarts its full time when both have ended.
-  const keeping = new Map<number, Set<"hover" | "focus">>();
-
-  const keep = (id: number, reason: "hover" | "focus", on: boolean) => {
-    const reasons = keeping.get(id) ?? new Set<"hover" | "focus">();
-
-    if (on) reasons.add(reason);
-    else reasons.delete(reason);
-
-    keeping.set(id, reasons);
-    props.queue.hold(id, reasons.size > 0);
-  };
 
   // U414: the stack rests above the resource strip, so it never covers the Terminal's last line; measured when the Toasts change, never on a loop.
   createEffect(() => {
-    props.queue.views();
+    props.queue.shown();
+    props.queue.failure();
 
     const element = layer();
     const strip = document.querySelector(".resource-strip");
@@ -35,35 +24,14 @@ export const Toasts = (props: { queue: ToastQueue }) => {
     const room = top === undefined ? 0 : overlay.getBoundingClientRect().bottom - top;
 
     element.style.setProperty("--toast-lift", room > 0 ? `${Math.ceil(room)}px` : "0px");
+    // The failure line rests above whatever cards still show.
+    element.style.setProperty("--toast-stack", `${Math.ceil(overlay.querySelector(".app-toasts")?.getBoundingClientRect().height ?? 0)}px`);
   });
 
-  const toast = (view: Extract<ToastView, { more: false }>) => (
-    <button
-      type="button"
-      class="toast"
-      data-leaving={view.leaving}
-      aria-label={copy.toastLine(view.name, view.line)}
-      onClick={() => void props.queue.activate(view.id)}
-      onPointerEnter={() => keep(view.id, "hover", true)}
-      onPointerLeave={() => keep(view.id, "hover", false)}
-      onFocusIn={() => keep(view.id, "focus", true)}
-      onFocusOut={() => keep(view.id, "focus", false)}
-      onKeyDown={(key) => {
-        if (key.key === "Escape") props.queue.dismiss(view.id);
-      }}
-    >
-      <KindGlyph kind={view.kind} decorative />
-      <span class="toast-name">{view.name}</span>
-      <span class="toast-line">{view.line}</span>
-    </button>
-  );
-
   return (
-    <div class="toasts" ref={setLayer} role="status" aria-live="polite">
+    <div class="toasts" role="status" aria-live="polite" ref={setLayer}>
       <Show when={props.queue.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <For each={props.queue.views()}>
-        {(view) => (view.more ? <p class="toast toast-more">{copy.toastOverflow(view.count)}</p> : toast(view))}
-      </For>
+      <ToastProvider toast={props.queue.toast} label={copy.toastsRegion} />
     </div>
   );
 };

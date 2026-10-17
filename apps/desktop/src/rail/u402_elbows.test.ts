@@ -47,22 +47,24 @@ const MEASURE = `() => {
   const trunk = (el) => { const style = getComputedStyle(el); return { box: box(el), image: style.backgroundImage, borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth], size: style.backgroundSize }; };
   const items = [...document.querySelectorAll('[role="treeitem"][data-id]')];
   const all = [...document.querySelectorAll('[role="treeitem"][data-id], .rail-fold [role="treeitem"]')];
+  const rowOf = (item) => item.matches('[data-part="branch"]') ? item.querySelector(':scope > [data-part="branch-control"]') : item;
   const stack = [];
   const lastOf = (row) => { const depth = Number(row.getAttribute("aria-level")) - 1; const later = all.slice(all.indexOf(row) + 1).map((el) => Number(el.getAttribute("aria-level")) - 1).find((d) => d <= depth); return later === undefined || later < depth; };
-  const rows = items.map((row) => {
-    const depth = Number(row.getAttribute("aria-level")) - 1;
+  const rows = items.map((item) => {
+    const row = rowOf(item);
+    const depth = Number(item.getAttribute("aria-level")) - 1;
     stack.length = depth;
     const parentRow = depth > 0 ? stack[depth - 1] : null;
     stack[depth] = row;
     const r = row.getBoundingClientRect();
     return {
       id: row.getAttribute("data-id"), depth, mark: box(markOf(row)), name: box(row.querySelector(".name")),
-      last: lastOf(row), selected: row.getAttribute("aria-selected") === "true", bar: getComputedStyle(row).backgroundSize, rowBox: box(row), mid: (r.top + r.bottom) / 2,
+      last: lastOf(item), selected: item.getAttribute("aria-selected") === "true", bar: getComputedStyle(row).backgroundSize, rowBox: box(row), mid: (r.top + r.bottom) / 2,
       branches: [...row.querySelectorAll(":scope > .rail-branch")].map(trunk),
       passes: [...row.querySelectorAll(":scope > .rail-pass")].map(trunk),
       stems: [...row.querySelectorAll(":scope > .rail-stem")].map(trunk),
       parent: parentRow ? { mark: box(markOf(parentRow)) } : null,
-      ancestorsRunning: stack.slice(1, depth).map((ancestor) => !lastOf(ancestor)),
+      ancestorsRunning: stack.slice(1, depth).map((ancestor) => !lastOf(items.find((each) => rowOf(each) === ancestor))),
     };
   });
   const tree = document.querySelector(".rail-tree");
@@ -98,8 +100,8 @@ const measure = (seed: string, config: Config) => {
         await page.until(`() => document.querySelectorAll('[role="treeitem"][data-id]').length > 8`, 60_000);
 
         if (seed === "tree-40") {
-          await page.call(`() => document.querySelector('[data-id="backend"]').click()`);
-          await page.until(`() => document.querySelector('[data-id="backend"]')?.getAttribute("aria-selected") === "true"`);
+          await page.call(`() => document.querySelector('.rail-row[data-id="backend"]').click()`);
+          await page.until(`() => document.querySelector('.rail-row[data-id="backend"]')?.getAttribute("data-selected") === "true"`);
         }
 
         const read = await page.call<Measured>(MEASURE);

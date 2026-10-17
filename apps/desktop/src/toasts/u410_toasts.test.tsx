@@ -7,7 +7,10 @@ const tree = () => [agent("a", "working", "x", { name: "scout" }), agent("b", "w
 
 const settle = async () => {
   await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersToNextFrame();
 };
+
+const names = (cards: HTMLElement[]) => cards.map((card) => card.textContent?.trim());
 
 beforeEach(() => vi.useFakeTimers());
 
@@ -24,7 +27,7 @@ describe("u410 which events make a Toast", () => {
     await settle();
 
     expect(toasts()).toHaveLength(1);
-    expect(toasts()[0]?.getAttribute("aria-label")).toBe("scout: Needs you");
+    expect(names(toasts())).toEqual(["scout Needs you"]);
     expect(sounds).toHaveLength(1);
   });
 
@@ -34,7 +37,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(status("b", "error"));
     await settle();
 
-    expect(toasts()[0]?.getAttribute("aria-label")).toBe("mason: Failed");
+    expect(names(toasts())).toEqual(["mason Failed"]);
     expect(sounds).toHaveLength(1);
   });
 
@@ -46,7 +49,7 @@ describe("u410 which events make a Toast", () => {
     app.emit(by({ ...AGENT, id: "b" }, { name: "pad.changed", data: { name: "plan" } }));
     await settle();
 
-    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(['mason: Changed Pad plan', 'scout: Changed Todo "ship it"']);
+    expect(names(toasts())).toEqual(['mason Changed Pad plan', 'scout Changed Todo "ship it"']);
     expect(sounds).toHaveLength(1);
   });
 
@@ -88,8 +91,7 @@ describe("u411 what a Toast shows and how it leaves", () => {
 
     expect(toast.tagName).toBe("BUTTON");
     expect(toast.querySelector(".glyph")?.getAttribute("aria-hidden")).toBe("true");
-    expect(toast.querySelector(".toast-name")?.textContent).toBe("scout");
-    expect(toast.querySelector(".toast-line")?.textContent).toBe("Needs you");
+    expect(screen.getByRole("button", { name: "scout: Needs you" })).toBe(toast);
     expect(view.container.querySelector("[role=status]")?.getAttribute("aria-live")).toBe("polite");
   });
 
@@ -103,6 +105,7 @@ describe("u411 what a Toast shows and how it leaves", () => {
     expect(toasts()).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(100 + 150);
+    await settle();
 
     expect(toasts()).toHaveLength(0);
   });
@@ -113,35 +116,40 @@ describe("u411 what a Toast shows and how it leaves", () => {
     app.emit(status("a", "needs-you"));
     await settle();
     fireEvent.pointerEnter(toasts()[0]!);
+    await vi.advanceTimersToNextFrame();
     await vi.advanceTimersByTimeAsync(20_000);
 
     expect(toasts()).toHaveLength(1);
 
     fireEvent.focusIn(toasts()[0]!);
     fireEvent.pointerLeave(toasts()[0]!);
+    await vi.advanceTimersToNextFrame();
     await vi.advanceTimersByTimeAsync(20_000);
 
     expect(toasts()).toHaveLength(1);
 
     fireEvent.focusOut(toasts()[0]!);
+    await vi.advanceTimersToNextFrame();
     await vi.advanceTimersByTimeAsync(4900);
 
     expect(toasts()).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(400);
+    await settle();
 
     expect(toasts()).toHaveLength(0);
   });
 
   it("u411_nothing_of_it_stays", async () => {
-    const { app, view } = await mountToasts(tree());
+    const { app, view, toasts } = await mountToasts(tree());
 
     app.emit(status("a", "needs-you"));
     await settle();
-    fireEvent.keyDown(view.container.querySelector(".toast")!, { key: "Escape" });
+    fireEvent.keyDown(toasts()[0]!, { key: "Escape" });
     await vi.advanceTimersByTimeAsync(200);
+    await settle();
 
-    expect(view.container.querySelector(".toasts")?.children).toHaveLength(0);
+    expect(toasts()).toHaveLength(0);
     expect(view.container.textContent).not.toContain("scout");
   });
 
@@ -169,6 +177,7 @@ describe("u412 clicking a Toast opens what it names", () => {
     expect(connected.rail.selected()).toBe("b");
     expect(shown).toEqual(["/p"]);
     await vi.advanceTimersByTimeAsync(200);
+    await settle();
     expect(toasts()).toHaveLength(0);
   });
 
@@ -229,11 +238,13 @@ describe("u413 when roundup is not in front, and for the selected Agent", () => 
     await settle();
     await vi.advanceTimersByTimeAsync(10_000);
     comeBack();
+    await settle();
 
-    expect(toasts().map((each) => each.getAttribute("aria-label"))).toEqual(["mason: Failed", "scout: Needs you"]);
+    expect(names(toasts())).toEqual(["mason Failed", "scout Needs you"]);
     expect(sounds).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(6000);
+    await settle();
     expect(toasts()).toHaveLength(0);
   });
 
@@ -262,7 +273,7 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     for (let index = 0; index < 10; index += 1) app.emit(status(`n${index}`, "needs-you"));
     await settle();
 
-    expect(toasts().map((each) => each.textContent)).toEqual(["agent 9Needs you", "agent 8Needs you", "And 8 more"]);
+    expect(names(toasts())).toEqual(["agent 9 Needs you", "agent 8 Needs you", "And 8 more"]);
   });
 
   it("u414_repeats_replace_and_one_sound_per_second", async () => {
@@ -283,25 +294,14 @@ describe("u414 few Toasts, never in the way, quiet when idle", () => {
     expect(sounds).toHaveLength(2);
   });
 
-  it("u414_motion_and_reduced_motion", async () => {
+  it("u414_escape_dismisses_and_the_card_leaves", async () => {
     const { app, toasts } = await mountToasts(tree());
 
     app.emit(status("a", "needs-you"));
     await settle();
     fireEvent.keyDown(toasts()[0]!, { key: "Escape" });
-
-    expect(toasts()[0]?.getAttribute("data-leaving")).toBe("true");
     await vi.advanceTimersByTimeAsync(150);
-    expect(toasts()).toHaveLength(0);
-  });
-
-  it("u414_motion_and_reduced_motion_is_instant", async () => {
-    const { app, toasts } = await mountToasts(tree(), { reducedMotion: true });
-
-    app.emit(status("a", "needs-you"));
     await settle();
-    fireEvent.keyDown(toasts()[0]!, { key: "Escape" });
-
     expect(toasts()).toHaveLength(0);
   });
 

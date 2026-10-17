@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { bubbleCalls, mountBubbles } from "./bubblesFixture";
+import { agent } from "../testing/nodes";
+import { bubbleCalls, mountBubbles, TREE } from "./bubblesFixture";
 
 beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
 
@@ -68,23 +69,71 @@ it("u469_close_returns_focus_to_a_remaining_control", async () => {
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]);
 });
 
-it.each(["plus", "chord"])("u469_plus_and_cmd_t_without_a_workstream_show_the_selection_message_%s", async (activation) => {
+it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_%s", async (activation) => {
   const mounted = await mountBubbles(null);
-  const plus = document.querySelector<HTMLButtonElement>('[aria-label="New Terminal"]')!;
-  plus.focus();
 
-  if (activation === "plus") fireEvent.click(plus);
-  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
-  expect(document.querySelector('.bubble-failure[role="status"]')?.textContent).toBe("Select a Workstream first");
+  if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
+  await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);
+  expect(mounted.connected.rail.selected()).toBeNull();
+});
+
+it.each(["plus", "chord"])("u524_an_empty_project_shows_the_message_in_the_bar_and_focuses_the_rail_%s", async (activation) => {
+  const mounted = await mountBubbles(null, [], []);
+  const add = document.createElement("div");
+  add.className = "rail-actions";
+  add.innerHTML = '<button data-button="add"></button>';
+  document.body.append(add);
+
+  if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
+  const note = document.querySelector('.terminal-note');
+  expect(note?.getAttribute("role")).toBe("status");
+  expect(note?.textContent).toBe("Select a Workstream first");
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
-  expect(document.activeElement).toBe(plus);
+  expect(document.activeElement).toBe(add.firstElementChild);
+  add.remove();
+});
+
+it("u524_the_message_clears_on_open_selection_or_creation", async () => {
+  const note = () => document.querySelector('.terminal-note');
+  const plus = () => fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
+  const mounted = await mountBubbles(null, [], [agent("solo", "working", "busy")]);
+
+  plus();
+  expect(note()?.textContent).toBe("Select a Workstream first");
+  mounted.connected.rail.select("solo");
+  await waitFor(() => expect(note()).toBeNull());
+
+  mounted.connected.rail.select(null);
+  plus();
+  expect(note()?.textContent).toBe("Select a Workstream first");
+  mounted.app.handlers["rail.tree"] = () => TREE;
+  await mounted.connected.rail.refresh();
+  await waitFor(() => expect(note()).toBeNull());
+
+  mounted.connected.rail.select(null);
+  plus();
+  await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).not.toBeNull());
+  await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
+  expect(note()).toBeNull();
+
+  cleanup();
+  const failing = await mountBubbles(null);
+
+  failing.app.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
+
+  plus();
+  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot open"));
+  expect(note()).toBeNull();
 });
 
 it.each(["plus", "chord"])("u469_plus_and_cmd_t_share_one_opening_path_and_show_the_new_bubble_%s", async (activation) => {
   const mounted = await mountBubbles();
 
   if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", metaKey: true, bubbles: true }));
+  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')?.getAttribute("aria-pressed")).toBe("true"));
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{workstream: "w"}]);

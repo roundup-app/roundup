@@ -14,9 +14,11 @@ mod output;
 mod removal;
 mod resize;
 mod resources;
+mod rewind;
 mod storage;
 mod terminal_question;
 mod waits;
+mod wake;
 
 pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
 
@@ -57,9 +59,16 @@ pub struct Daemon {
     sender: Arc<std::sync::OnceLock<Arc<messages::Messages>>>,
     /// A32: the clears under way, and what they act through.
     clears: clear::Clears,
+    /// A35: the Marks a rewind reads, and the rewinds under way.
+    checkpoints: Arc<checkpoints::Checkpoints>,
+    rewinding: rewind::Rewinding,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// B41: subscribed at `open`, taken once with `pushes`.
+    wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// B41: serialises the decisions on Wake requests.
+    wake_gate: Arc<tokio::sync::Mutex<wake::Gate>>,
     /// H21: subscribed at `open`, taken once with `pushes`.
     notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
@@ -178,6 +187,7 @@ impl Daemon {
             }),
         );
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
+        let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
         let pads = Arc::new(pads::Pads::open(dir, bus.clone())?);
         let mut daemon = Self {
             modules: HashMap::new(),
@@ -195,7 +205,11 @@ impl Daemon {
             agents: Arc::clone(&agents),
             terminals: Arc::clone(&terminals),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
+            wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
+            wake_gate: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
+            checkpoints: Arc::clone(&checkpoints),
+            rewinding: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
@@ -207,9 +221,7 @@ impl Daemon {
         };
         daemon.register(todos);
         daemon.register(pads);
-        daemon.register(Arc::new(
-            checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()),
-        ));
+        daemon.register(checkpoints);
         // B2: the one function that types a Message is `Agents::prompt` (H11).
         let typist = Arc::clone(&agents);
         let deliver: messages::Deliver = Arc::new(move |id, text| {
@@ -232,6 +244,13 @@ impl Daemon {
             deliver,
             messages_env(Arc::clone(&daemon.touches)),
         )?);
+        // B39: the Agent's `UserPromptSubmit` Signal confirms the Messages its prompt carried.
+        let confirming = Arc::downgrade(&opened);
+        agents.observe_prompts(Arc::new(move |id, prompt| {
+            confirming
+                .upgrade()
+                .is_some_and(|messages| messages.confirm_prompt(id, prompt))
+        }));
         let _ = messages.set(Arc::clone(&opened));
         daemon.register(opened);
         let placement = Arc::new(agents.placement_call());
@@ -289,6 +308,14 @@ impl Daemon {
                 events,
             ));
         }
+        let wake_events = self
+            .wake_events
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
+        if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
+            tokio::spawn(waker.run(events));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             tokio::spawn(digest::push_changes(
                 self.reader(),
@@ -297,6 +324,16 @@ impl Daemon {
                 events,
             ));
         }
+    }
+
+    fn waker(&self) -> Option<wake::Waker> {
+        Some(wake::Waker {
+            reader: self.reader(),
+            messages: Arc::clone(self.sender.get()?),
+            digests: Arc::clone(&self.digests),
+            bus: self.bus.clone(),
+            gate: Arc::clone(&self.wake_gate),
+        })
     }
 
     fn reader(&self) -> digest::Reader {
@@ -334,7 +371,11 @@ impl Daemon {
                 | "agent.stop"
                 | "agent.interrupt"
                 | "agent.prompt"
+                | "agent.setOrder"
+                | "agent.resume"
                 | "agent.actionHistory"
+                | "workstream.rewind"
+                | "workstream.rewindPlan"
         ) {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
@@ -384,10 +425,22 @@ impl Daemon {
         let children = self
             .door_effect_children(&conn.actor, method, &params)
             .await?;
+        if matches!(method, "workstream.rewind" | "workstream.rewindPlan") {
+            // The wire reader selects only for an Agent; the Door's authority is decided here for every caller.
+            let children = self.rewind_children(&conn.actor, method, &params).await?;
+            return self
+                .rewind_call(&conn.actor, method, params, children)
+                .await;
+        }
         let child = children.first();
         let _ordered_effect = if matches!(
             method,
-            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+            "terminal.resize"
+                | "terminal.close"
+                | "terminal.kill"
+                | "terminal.write"
+                | "rail.rename"
+                | "agent.stop"
         ) {
             if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
@@ -411,26 +464,51 @@ impl Daemon {
         let mut door_effects = Vec::new();
         if !matches!(
             method,
-            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+            "terminal.resize"
+                | "terminal.close"
+                | "terminal.kill"
+                | "terminal.write"
+                | "rail.rename"
+                | "agent.stop"
         ) {
             // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
             for child in &children {
-                let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
-                    && self.held_actions.waiting(child)?
-                {
-                    let guard = self.child_effects(child).write_owned().await;
-                    // A newer begin may have won while this call waited for exclusion.
-                    if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                        self.release_actions(child).await?;
+                let guard = loop {
+                    // A Door's read of a taken-over child waits for the Takeover's end,
+                    // behind the actions released then.
+                    if is_child_read(method) {
+                        self.wait_takeover_end(child).await;
                     }
-                    guard.downgrade()
-                } else {
-                    // With no older queue, Interrupt must still reach an in-flight Steer.
-                    self.child_effects(child).read_owned().await
+                    let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
+                        && self.held_actions.waiting(child)?
+                    {
+                        let guard = self.child_effects(child).write_owned().await;
+                        // A newer begin may have won while this call waited for exclusion.
+                        if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+                            self.release_actions(child).await?;
+                        }
+                        guard.downgrade()
+                    } else {
+                        // With no older queue, Interrupt must still reach an in-flight Steer.
+                        self.child_effects(child).read_owned().await
+                    };
+                    // Begin needs the write lock, so a begin since the wait shows here.
+                    if is_child_read(method)
+                        && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                    {
+                        continue;
+                    }
+                    break guard;
                 };
                 // Begin needs the write lock, so this check under the read guard is final.
-                let guard = if matches!(method, "agent.interrupt" | "agent.prompt")
-                    && self.sender.get().is_some_and(|m| m.takeover_active(child))
+                let guard = if matches!(
+                    method,
+                    "agent.interrupt"
+                        | "agent.prompt"
+                        | "agent.setOrder"
+                        | "agent.resume"
+                        | "decision.answer"
+                ) && self.sender.get().is_some_and(|m| m.takeover_active(child))
                 {
                     drop(guard);
                     let write = self.child_effects(child).write_owned().await;
@@ -512,6 +590,12 @@ impl Daemon {
         if method == "agent.digest" {
             return self.digest(conn, params).await;
         }
+        if method == "agent.wake" {
+            let waker = self
+                .waker()
+                .ok_or_else(|| RpcError::internal("messages are not open"))?;
+            return rpc::reply(&waker.ask(&conn.actor, params).await?);
+        }
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
         }
@@ -543,6 +627,9 @@ impl Daemon {
                 | "terminal.close"
         ) {
             self.guard_terminal_read(&conn.actor, &params).await?;
+        }
+        if method == "terminal.show" {
+            self.guard_terminal(&conn.actor, &params, true).await?;
         }
         if method == "terminal.open" {
             self.guard_terminal_open(&conn.actor, &params)?;
@@ -659,6 +746,17 @@ impl Daemon {
         }
     }
 
+    /// Return once no Takeover holds `child`: subscribe first, so an end cannot slip past.
+    async fn wait_takeover_end(&self, child: &str) {
+        let (mut events, _) = self.subscribe();
+        while self.sender.get().is_some_and(|m| m.takeover_active(child)) {
+            match events.recv().await {
+                Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+            }
+        }
+    }
+
     /// Aggregate reads must respect each child's prior calls, not only the Door's own id.
     async fn door_effect_children(
         &self,
@@ -685,6 +783,9 @@ impl Daemon {
                     .filter(|n| n.parent.as_deref() == Some(&id) && n.status.is_some())
                     .map(|n| n.id)
                     .collect()
+            }
+            "workstream.rewind" | "workstream.rewindPlan" => {
+                self.rewind_children(actor, method, params).await?
             }
             "decision.list" => {
                 // Use the Agent's Reach filtering; never wait on an unrelated Workstream.
@@ -850,6 +951,16 @@ impl Daemon {
         actor: &Actor,
         params: &Value,
     ) -> Result<Option<String>, RpcError> {
+        self.guard_terminal(actor, params, false).await
+    }
+
+    /// `guard_terminal_read`, or with `show` B53's wider rule for a Show request.
+    async fn guard_terminal(
+        &self,
+        actor: &Actor,
+        params: &Value,
+        show: bool,
+    ) -> Result<Option<String>, RpcError> {
         if actor.kind != ActorKind::Agent {
             return Ok(None);
         }
@@ -866,6 +977,10 @@ impl Daemon {
         let infos: Vec<TerminalInfo> =
             serde_json::from_value(listed).map_err(RpcError::internal)?;
         match infos.iter().find(|info| info.id == id) {
+            Some(info) if show => self
+                .agents
+                .guard_terminal_show(actor, id, info.owner.as_deref())
+                .map(|()| info.owner.clone()),
             Some(info) => self
                 .agents
                 .guard_terminal_read(actor, id, info.owner.as_deref())
@@ -1356,7 +1471,11 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                     | "agent.stop"
                     | "agent.interrupt"
                     | "agent.prompt"
+                    | "agent.setOrder"
+                    | "agent.resume"
                     | "agent.actionHistory"
+                    | "workstream.rewind"
+                    | "workstream.rewindPlan"
             )
         ) {
             daemon.action_actor(&conn)
@@ -1383,10 +1502,12 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                                 "terminal.resize"
                                     | "terminal.close"
                                     | "terminal.kill"
+                                    | "terminal.write"
                                     | "rail.rename"
                                     | "agent.stop"
                                     | "agent.interrupt"
                                     | "agent.prompt"
+                                    | "workstream.rewind"
                             )
                         ),
                     )
@@ -1628,16 +1749,26 @@ mod tests {
         ))
         .unwrap();
         let contract = &reply["result"]["contract"];
-        let fingerprint = contract["fingerprint"].as_str().unwrap();
-        assert!(generated.contains(&format!("fingerprint: \"{fingerprint}\"")));
-        let listed: String = contract["methods"]
+        let listed: Vec<(&str, &str)> = generated
+            .lines()
+            .filter_map(|line| line.trim().strip_suffix("\","))
+            .filter_map(|line| line.strip_prefix('"')?.split_once("\": \""))
+            .collect();
+        let names: Vec<&str> = contract["methods"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|n| format!("    \"{}\",\n", n.as_str().unwrap()))
+            .map(|n| n.as_str().unwrap())
             .collect();
-        assert!(!listed.is_empty());
-        assert!(generated.contains(&listed));
+        assert!(!names.is_empty());
+        assert_eq!(
+            listed.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            names
+        );
+        assert_eq!(
+            contract["fingerprint"].as_str().unwrap(),
+            contracts::methods::fingerprint_of_hashes(&listed)
+        );
     }
 
     #[tokio::test]
@@ -2069,4 +2200,12 @@ fn test_daemon_with_agents(
 ) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
     Daemon::open_stores(dir, dir, None, configure)
+}
+
+/// A Door's read of a child's Terminal, which waits out the child's Takeover.
+fn is_child_read(method: &str) -> bool {
+    matches!(
+        method,
+        "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
+    )
 }

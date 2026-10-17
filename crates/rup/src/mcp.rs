@@ -36,6 +36,8 @@ pub(crate) struct Offered {
     takes_params: bool,
     /// E4: the params are `{id}` with the shim's own Agent id, and the tool takes no input.
     own_id: bool,
+    /// X16: the params carry `reader`, the shim's own Agent id, and the tool's schema lacks it.
+    own_reader: bool,
     /// H14: the call waits for the user, so no `CALL_TIMEOUT` applies and its result is the answer's text.
     pub(crate) waits_for_user: bool,
     /// B20, A32, M10: only a Door is offered it.
@@ -47,6 +49,13 @@ pub(crate) struct Offered {
 impl Offered {
     /// The params of a call by Agent `agent` with the tool's `arguments`.
     pub(crate) fn params(&self, agent: &str, arguments: Option<JsonObject>) -> Value {
+        let arguments = match arguments {
+            Some(mut arguments) if self.own_reader => {
+                arguments.insert("reader".into(), agent.into());
+                Some(arguments)
+            }
+            other => other,
+        };
         match (self.takes_params, self.own_id, arguments) {
             (false, true, _) => serde_json::json!({ "id": agent }),
             (true, true, arguments) => {
@@ -104,6 +113,7 @@ fn ask_user() -> Offered {
         ),
         takes_params: true,
         own_id: false,
+        own_reader: false,
         waits_for_user: true,
         door_only: false,
         stream: false,
@@ -126,6 +136,7 @@ fn offer(
         tool: Tool::new(method.replace('.', "_"), description, schema),
         takes_params,
         own_id: false,
+        own_reader: false,
         waits_for_user: false,
         door_only: false,
         stream: false,
@@ -190,6 +201,14 @@ fn decision_answer() -> Offered {
     }
 }
 
+/// B41: ask to be woken when named Agents finish. The caller is the Agent itself, so `id` is not a parameter.
+fn agent_wake() -> Offered {
+    offered::<agent::WakeParams>(
+        "agent.wake",
+        "Ask to be woken when all, or with `any` the first, of the named Agents finish (idle, done, error or needs-you). Returns at once with `{id, fired}`, and `why` when it did not fire; then end your turn instead of polling. You get one note with each Agent's Kind and last words, and the request is gone.",
+    )
+}
+
 /// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
 /// `order`.
 fn agent_set_order() -> Offered {
@@ -209,13 +228,91 @@ fn workstream_handoff() -> Offered {
     )
 }
 
+/// A35: a Door's rewind of its children, in two steps: read the plan, then rewind. The shim fills
+/// `id` with the Door's own id. Both wait for the user when a selected child is in Takeover.
+fn workstream_rewind_plan() -> Offered {
+    Offered {
+        waits_for_user: true,
+        ..with_own_id::<workstream::RewindPlanParams>(
+            "workstream.rewindPlan",
+            "workstream_rewindPlan",
+            "Read what rewinding your Workstream to one of your Checkpoints would do, changing nothing: for each child (one named by `agent`, or all), whether it started after the Checkpoint and so would leave the Rail, and the files changed since. A child the user holds in Takeover makes the read wait until the user gives it back.",
+        )
+    }
+}
+
+/// A35: the Door's rewind. `files` is required, and nothing but the conversations changes on `keep`.
+fn workstream_rewind() -> Offered {
+    Offered {
+        waits_for_user: true,
+        ..with_own_id::<workstream::RewindParams>(
+            "workstream.rewind",
+            "workstream_rewind",
+            "Rewind one child (`agent`) or every child of your Workstream to a Checkpoint you wrote. The turns after it leave each rewound Agent's context. `files` is `keep` to leave every file as it is, or `restore` to return each Worktree to its state at the Checkpoint; commits, pushes and Issues are never undone. A child that started after the Checkpoint leaves the Rail and keeps its Worktree. A child the user holds in Takeover waits, and its entry says so; read agent_actionHistory for its outcome.",
+        )
+    }
+}
+
+/// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.
+macro_rules! bubble_rule {
+    () => {
+        " Use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools."
+    };
+}
+
+/// M16: the tools a Door is not offered, since each starts a Terminal.
+pub(crate) const DOOR_WITHOUT: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];
+
+/// M16: what `rup mcp` offers a Door: the Door-only tools, and no tool that starts a Terminal.
+/// Leaving a name out of the list is also its enforcement: a call to it is an unknown tool, and reaches no Daemon.
+pub(crate) fn door_tools() -> Vec<Offered> {
+    let mut list = tools(true);
+    list.retain(|offer| !DOOR_WITHOUT.contains(&&*offer.tool.name));
+    list
+}
+
+/// B53: a Door asks the App to show a Terminal in its Reach; nothing is read and nothing starts.
+fn terminal_show() -> Offered {
+    Offered {
+        door_only: true,
+        ..offered::<terminal::TerminalId>(
+            "terminal.show",
+            "Show a Terminal in your Reach to the user, who sees its owner selected. Use it when the user asks to see a child's output; it reads nothing and returns nothing.",
+        )
+    }
+}
+
 /// X11: `agent.run` takes `{id, command, cwd?}`; the shim fills `id`, so a Run is always the caller's own.
 fn agent_run() -> Offered {
     with_own_id::<agent::RunParams>(
         "agent.run",
         "agent_run",
-        "Run a command in a Terminal of your own that the user can watch, in your Worktree or in `cwd`. Returns the Terminal's id.",
+        concat!(
+            "Run a command in a Terminal of your own that the user can watch, in your Worktree or in `cwd`. Returns the Terminal's id.",
+            bubble_rule!()
+        ),
     )
+}
+
+/// X16: `terminal.read` returns what is new since the caller's last read; the shim fills `reader`.
+fn terminal_read() -> Offered {
+    let Ok(Value::Object(mut schema)) =
+        serde_json::to_value(schemars::schema_for!(terminal::ReadParams))
+    else {
+        unreachable!("a params struct's schema is an object");
+    };
+    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
+        properties.remove("reader");
+    }
+    Offered {
+        own_reader: true,
+        tool: Tool::new(
+            "terminal_read",
+            "Read a Terminal's output you have not read yet, as plain text; `next` is the offset after it. At most 200 lines and 16 384 bytes a call, `truncated` says more remains. With `after`, read from that offset instead and keep your place.",
+            schema,
+        ),
+        ..offer("terminal.read", "", JsonObject::new(), true)
+    }
 }
 
 /// A tool for `method` whose params carry the caller's own `id`, which the shim fills: the tool's schema lacks it.
@@ -235,7 +332,10 @@ fn with_own_id<P: JsonSchema>(
     }
     Offered {
         own_id: true,
-        door_only: method == "workstream.handoff",
+        door_only: matches!(
+            method,
+            "workstream.handoff" | "workstream.rewindPlan" | "workstream.rewind"
+        ),
         tool: Tool::new(name, description, schema),
         ..offer(method, "", JsonObject::new(), true)
     }
@@ -264,7 +364,13 @@ pub(crate) fn tools(door: bool) -> Vec<Offered> {
 /// I1, I9: every entry of the one list, the streams included.
 pub(crate) fn commands(door: bool) -> Vec<Offered> {
     let mut list = offered_tools();
-    list.extend([agent_digest(), workstream_handoff(), checkpoint_write()]);
+    list.extend([
+        agent_digest(),
+        workstream_handoff(),
+        checkpoint_write(),
+        workstream_rewind_plan(),
+        workstream_rewind(),
+    ]);
     list.push(events_stream());
     list.retain(|offer| door || !offer.door_only);
     list
@@ -410,25 +516,29 @@ fn offered_tools() -> Vec<Offered> {
             "terminal.screen",
             "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
         ),
-        offered::<terminal::ReadParams>(
-            "terminal.read",
-            "Read a Terminal's output from the offset `after` on, as plain text; `next` is the offset for the next read. At most 16 384 bytes a call.",
-        ),
+        terminal_read(),
         offered::<terminal::SearchParams>(
             "terminal.search",
             "Search a Terminal's output for a regular expression and get the matching lines with their offsets. At most 50 matches a call.",
         ),
+        terminal_show(),
         offered::<message::SetRouteParams>(
             "route.set",
             "Set where one Agent's Messages to another go: `auto`, `ask-first` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
         ),
         offered::<terminal::SpawnParams>(
             "terminal.spawn",
-            "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
+            concat!(
+                "Start a program in a Terminal owned by you; the answer holds its `id`. At most 8 per owner.",
+                bubble_rule!()
+            ),
         ),
         offered::<terminal::OpenParams>(
             "terminal.open",
-            "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+            concat!(
+                "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+                bubble_rule!()
+            ),
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
@@ -436,7 +546,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own.",
+            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, or to answer its Decision, use `agent_prompt`, `agent_interrupt`, `agent_stop` or `decision_answer`; type keystrokes only when no direct tool does. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
@@ -455,6 +565,7 @@ fn offered_tools() -> Vec<Offered> {
             "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
         ),
         agent_context(),
+        agent_wake(),
         agent_set_order(),
         agent_run(),
         ask_user(),
@@ -474,7 +585,9 @@ fn agent_spawn() -> Offered {
 pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
         .iter()
-        .any(|m| m.name == method && m.result == "null");
+        .any(|m| m.name == method && m.result == "null")
+        // A held answer is a receipt; an answer that ran has nothing to return.
+        || method == "decision.answer" && result.is_null();
     if !unit {
         return result.to_string();
     }
@@ -522,7 +635,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
         ),
         "project.open" => format!("requested opening Project {}", field("path")),
         "project.rename" => format!("requested renaming Project to {}", field("name")),
-        "terminal.write" => format!("wrote to Terminal {id}"),
+        "terminal.show" => format!("showing Terminal {id}"),
         "workstream.handoff" => format!("handed off Workstream {id}"),
         _ => format!("accepted {}", method.replace('.', " ")),
     }
@@ -857,7 +970,7 @@ async fn serve(actor: Actor) -> Result<(), String> {
     // Both wait on the same Daemon, so a mute one costs one `CALL_TIMEOUT`, not two.
     let (meta, ()) = tokio::join!(shim.is_door(&start), shim.report_channel(&start));
     if meta {
-        shim.tools = tools(true);
+        shim.tools = door_tools();
     }
     drop(start);
     let running = shim
