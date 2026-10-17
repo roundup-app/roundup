@@ -3261,7 +3261,6 @@ async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() 
         ("ask_user", "label"),
         ("permission", "word"),
         ("permission", "proof"),
-        ("permission", "takeover"),
         ("permission", "identity"),
     ] {
         let (decision, waiting) = run.open(kind).await;
@@ -3273,13 +3272,6 @@ async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() 
                 rpc::code::INVALID_PARAMS
             }
             "proof" => rpc::code::FORBIDDEN,
-            "takeover" => {
-                run.user
-                    .request("takeover.begin", json!({"agent":run.child}))
-                    .await
-                    .unwrap();
-                rpc::code::CONFLICT
-            }
             "identity" => {
                 let mut identity = run.capture(&decision).await;
                 identity["attempt"] = json!("an earlier Attempt");
@@ -3317,7 +3309,7 @@ async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() 
         }
         assert_eq!(reply["error"]["code"], expected, "{refusal}: {reply}");
         let mut listed = run.user.request("decision.list", ()).await.unwrap();
-        if matches!(refusal, "label" | "word" | "takeover") {
+        if matches!(refusal, "label" | "word") {
             let failure = listed[0]
                 .as_object_mut()
                 .unwrap()
@@ -3333,10 +3325,6 @@ async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() 
                         decision["id"].as_str().unwrap()
                     ),
                     "word" => "answer is allow or deny, with no note".to_owned(),
-                    "takeover" => format!(
-                        "{} is under a Takeover; the user decides at its Terminal",
-                        run.child
-                    ),
                     _ => unreachable!(),
                 }
             );
@@ -3359,12 +3347,6 @@ async fn u468_backend_refused_answers_are_readable_on_the_actionable_original() 
                 .any(|record| record["decision"]["id"] == decision["id"]),
             "{refusal}: {records}"
         );
-        if refusal == "takeover" {
-            run.user
-                .request("takeover.end", json!({"agent":run.child}))
-                .await
-                .unwrap();
-        }
         // An ordinary successful retry proves the same request is still actionable.
         run.user_answer(&decision, kind).await;
         waiting.await.unwrap().unwrap();
@@ -6124,6 +6106,169 @@ async fn b6_a_held_order_is_dropped_when_the_child_exits() {
         .await
         .unwrap();
     let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
+
+async fn child_attempt(run: &Run) -> Value {
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    tree.as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == run.child)
+        .map(|node| node["attempt"].clone())
+        .unwrap()
+}
+
+async fn idle_child_with_held_resume() -> (Run, Arc<Client>, Value) {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request("agent.resume", json!({"id":run.child}))
+        .await
+        .unwrap();
+    (run, caller, receipt)
+}
+
+#[tokio::test]
+async fn b6_a_door_resume_waits_for_takeover_release() {
+    let (run, caller, receipt) = idle_child_with_held_resume().await;
+    assert_eq!(receipt["method"], "agent.resume");
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    assert_eq!(child_attempt(&run).await, run.attempt);
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let attempt = child_attempt(&run).await.clone();
+    let original = run.attempt.clone();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    // The child never exited, so there is nothing to resume: why is recorded.
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+    assert_eq!(attempt, original);
+}
+
+#[tokio::test]
+async fn b6_a_held_resume_runs_once_when_the_child_exits_during_takeover() {
+    let (run, caller, receipt) = idle_child_with_held_resume().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = tokio::time::timeout(BOUND, async {
+        loop {
+            let history = caller
+                .request("agent.actionHistory", json!({"id":run.child}))
+                .await
+                .unwrap();
+            if history[0]["outcome"]["status"] != "in-progress" {
+                break history;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the held Resume never finished");
+    let attempt = child_attempt(&run).await.clone();
+    let original = run.attempt.clone();
+    run.finish().await;
+    assert_eq!(history.as_array().unwrap().len(), 1, "{history}");
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert_ne!(attempt, original, "the held Resume started no new Attempt");
+}
+
+async fn held_door_answer(
+    run: &Run,
+    kind: &str,
+) -> (
+    Value,
+    tokio::task::JoinHandle<Result<Value, RpcError>>,
+    Value,
+) {
+    let (_, terminal) = start_answer_door(run).await;
+    let (decision, waiting) = run.open(kind).await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let reply = door_peer_request(
+        run,
+        &terminal,
+        json!({"jsonrpc":"2.0","id":1,"method":"decision.answer",
+            "params":{"id":decision["id"],"answer":if kind == "permission" {"allow"} else {"Yes"}}}),
+    )
+    .await;
+    (decision, waiting, reply["result"].clone())
+}
+
+#[tokio::test]
+async fn b6_a_door_answer_waits_for_takeover_release() {
+    for kind in ["permission", "ask_user"] {
+        let (run, _) = order_child().await;
+        let (decision, waiting, receipt) = held_door_answer(&run, kind).await;
+        assert_eq!(receipt["method"], "decision.answer", "{receipt}");
+        assert_eq!(
+            receipt["outcome"],
+            json!({"status":"waiting","reason":"takeover"})
+        );
+        let open = run.user.request("decision.list", ()).await.unwrap();
+        assert_eq!(
+            open.as_array().unwrap().len(),
+            1,
+            "answered during Takeover"
+        );
+        assert!(!waiting.is_finished());
+        run.user
+            .request("takeover.end", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        let output = waiting.await.unwrap().unwrap();
+        let history = run
+            .user
+            .request("agent.actionHistory", json!({"id":run.child}))
+            .await
+            .unwrap();
+        run.finish().await;
+        assert!(
+            output
+                .to_string()
+                .contains(if kind == "permission" { "allow" } else { "Yes" })
+        );
+        assert_eq!(history[0]["id"], receipt["id"]);
+        assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+        assert_eq!(decision["agent"], history[0]["agent"]);
+    }
+}
+
+#[tokio::test]
+async fn b6_a_held_answer_is_dropped_when_the_user_answered_first() {
+    let (run, _) = order_child().await;
+    let (decision, waiting, receipt) = held_door_answer(&run, "permission").await;
+    run.user_answer(&decision, "permission").await;
+    waiting.await.unwrap().unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = run
+        .user
         .request("agent.actionHistory", json!({"id":run.child}))
         .await
         .unwrap();
