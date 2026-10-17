@@ -78,6 +78,20 @@ describe("u491a Shelf questions and navigation", () => {
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("Waits on first");
   }, 120_000);
 
+  it("u492a_failed_reorder_dismisses_the_title_tooltip", async () => {
+    const initial = await rows(lane);
+    const one = initial[0]!;
+
+    await lane.browser("hover", `.shelf [data-id="${one}"] .shelf-title`);
+    await lane.until("!!document.querySelector('[role=tooltip]')");
+    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot move this Todo'); return true; })()");
+    await lane.browser("focus", `.shelf [data-id="${one}"] .todo-row-button`);
+    await lane.browser("press", "Alt+ArrowDown");
+    await lane.until("document.querySelector('.shelf [role=alert]')?.textContent.includes('cannot move this Todo')");
+    expect(await lane.evaluate<number>("document.querySelectorAll('[role=tooltip]').length")).toBe(0);
+    expect(await rows(lane)).toEqual(initial);
+  }, 120_000);
+
   it("u491a_bulk_question_focus", async () => {
     await ask();
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=\"alertdialog\"] li')].map(item => item.textContent)")).toHaveLength(2);
