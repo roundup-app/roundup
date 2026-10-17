@@ -2,8 +2,8 @@
 //! and the Todos, which only it holds together; `agents` owns the vendor's words for the text.
 
 use contracts::agent::{
-    Brief, Context, ContextAsk, ContextModels, ContextParent, ContextPeer, ContextSelf,
-    ContextTodo, NodeKind, ParentNode, RailNode,
+    Brief, Context, ContextAsk, ContextParent, ContextPeer, ContextSelf, ContextTodo, NodeKind,
+    ParentNode, RailNode,
 };
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, Kind};
@@ -18,12 +18,7 @@ fn is_agent(node: &RailNode) -> bool {
 }
 
 /// E2: the Context of Agent `id`. `nodes` is `rail.tree`, in Rail order.
-pub(crate) fn compose(
-    nodes: &[RailNode],
-    todos: &[Todo],
-    allowed: Vec<contracts::project::Choice>,
-    id: &str,
-) -> Result<Context, RpcError> {
+pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Context, RpcError> {
     let node = nodes
         .iter()
         .find(|node| node.id == id && is_agent(node))
@@ -82,7 +77,6 @@ pub(crate) fn compose(
         ask: ContextAsk { to: ask },
         peers,
         todos,
-        models: ContextModels { allowed },
     })
 }
 
@@ -230,7 +224,7 @@ mod tests {
 
     #[test]
     fn a26_parent_node_names_no_meta_agent() {
-        let context = compose(&rail(), &[], Vec::new(), "2").unwrap();
+        let context = compose(&rail(), &[], "2").unwrap();
 
         assert_eq!(
             serde_json::to_value(&context).unwrap(),
@@ -240,14 +234,13 @@ mod tests {
                 "ask": {"to": "1"},
                 "peers": [{"id": "3", "name": "b", "status": {"kind": "idle", "label": "x", "since": 1}}],
                 "todos": [],
-                "models": {"allowed": []},
             })
         );
     }
 
     #[test]
     fn e2_an_agent_in_a_plain_group_asks_the_user_and_has_no_peers() {
-        let context = compose(&rail(), &[], Vec::new(), "6").unwrap();
+        let context = compose(&rail(), &[], "6").unwrap();
 
         assert_eq!(context.ask.to, "you");
         assert!(context.peers.is_empty());
@@ -260,7 +253,7 @@ mod tests {
         let mut nodes = rail();
         nodes.push(node("8", NodeKind::Agent, "r", None, false));
 
-        let context = compose(&nodes, &[], Vec::new(), "8").unwrap();
+        let context = compose(&nodes, &[], "8").unwrap();
 
         assert_eq!(context.parent, None);
         assert_eq!(context.ask.to, "you");
@@ -278,7 +271,7 @@ mod tests {
             todo(4, "2", false, vec![1], true),
         ];
 
-        let context = compose(&rail(), &todos, Vec::new(), "2").unwrap();
+        let context = compose(&rail(), &todos, "2").unwrap();
 
         let seen: Vec<_> = context
             .todos
@@ -292,7 +285,7 @@ mod tests {
     fn e3_a_subagent_is_told_to_ask_its_parent_not_a_door() {
         let mut nodes = rail();
         nodes.push(node("8", NodeKind::Agent, "s", Some("2"), false));
-        let context = compose(&nodes, &[], Vec::new(), "8").unwrap();
+        let context = compose(&nodes, &[], "8").unwrap();
 
         let text = words(&context, false);
 
@@ -308,7 +301,7 @@ mod tests {
     #[test]
     fn e2_a_terminal_a_plain_group_and_a_missing_id_are_not_found() {
         for id in ["4", "5", "99"] {
-            let err = compose(&rail(), &[], Vec::new(), id).unwrap_err();
+            let err = compose(&rail(), &[], id).unwrap_err();
             assert_eq!(err.code, rpc::code::NOT_FOUND, "{id}");
         }
     }
@@ -319,7 +312,7 @@ mod tests {
             todo(1, "2", false, vec![], false),
             todo(4, "2", false, vec![1], true),
         ];
-        let context = compose(&rail(), &todos, Vec::new(), "2").unwrap();
+        let context = compose(&rail(), &todos, "2").unwrap();
 
         let stdout = brief(&rail(), &context).stdout;
 
@@ -341,14 +334,14 @@ mod tests {
 
     #[test]
     fn e9_the_context_text_starts_with_the_id_line() {
-        let context = compose(&rail(), &[], Vec::new(), "6").unwrap();
+        let context = compose(&rail(), &[], "6").unwrap();
 
         assert!(words(&context, false).starts_with("Your Agent id is 6. It never changes.\n"));
     }
 
     #[test]
     fn e3_the_brief_of_a_lone_agent_says_so_in_words() {
-        let context = compose(&rail(), &[], Vec::new(), "6").unwrap();
+        let context = compose(&rail(), &[], "6").unwrap();
 
         let text = words(&context, false);
 

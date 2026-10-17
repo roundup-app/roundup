@@ -168,7 +168,7 @@ impl Daemon {
                     let todos: Vec<contracts::todo::Todo> =
                         serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
                             .map_err(RpcError::internal)?;
-                    let context = context::compose(&nodes, &todos, Vec::new(), &id)?;
+                    let context = context::compose(&nodes, &todos, &id)?;
                     Ok(context::text(&nodes, &context))
                 }
             })
@@ -617,10 +617,12 @@ impl Daemon {
                 | "terminal.kill"
                 | "terminal.close"
         ) {
-            self.guard_terminal_read(&conn.actor, &params).await?;
+            self.guard_terminal_read(&conn.actor, method, &params)
+                .await?;
         }
         if method == "terminal.show" {
-            self.guard_terminal(&conn.actor, &params, true).await?;
+            self.guard_terminal(&conn.actor, method, &params, true)
+                .await?;
         }
         if method == "terminal.open" {
             self.guard_terminal_open(&conn.actor, &params)?;
@@ -811,7 +813,7 @@ impl Daemon {
         match method {
             "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
             | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                self.guard_terminal_read(actor, params).await
+                self.guard_terminal_read(actor, method, params).await
             }
             "decision.answers" => {
                 let answers: contracts::decision::AnswersParams = rpc::params(params.clone())?;
@@ -940,15 +942,17 @@ impl Daemon {
     async fn guard_terminal_read(
         &self,
         actor: &Actor,
+        method: &str,
         params: &Value,
     ) -> Result<Option<String>, RpcError> {
-        self.guard_terminal(actor, params, false).await
+        self.guard_terminal(actor, method, params, false).await
     }
 
     /// `guard_terminal_read`, or with `show` B53's wider rule for a Show request.
     async fn guard_terminal(
         &self,
         actor: &Actor,
+        method: &str,
         params: &Value,
         show: bool,
     ) -> Result<Option<String>, RpcError> {
@@ -974,7 +978,7 @@ impl Daemon {
                 .map(|()| info.owner.clone()),
             Some(info) => self
                 .agents
-                .guard_terminal_read(actor, id, info.owner.as_deref())
+                .guard_terminal_read(actor, id, info.owner.as_deref(), is_child_read(method))
                 .map(|()| info.owner.clone()),
             None if id.parse::<u64>().is_ok_and(|n| n.to_string() == id) => {
                 Err(RpcError::not_found(format!("terminal {id}")))
@@ -988,7 +992,7 @@ impl Daemon {
         match params["workstream"].as_str() {
             Some(workstream) if actor.kind == ActorKind::Agent => {
                 self.agents
-                    .guard_terminal_read(actor, workstream, Some(workstream))
+                    .guard_terminal_read(actor, workstream, Some(workstream), false)
             }
             _ => Ok(()),
         }
@@ -1168,11 +1172,7 @@ impl Daemon {
             serde_json::from_value(read("rail", "rail.tree").await?).map_err(RpcError::internal)?;
         let todos: Vec<contracts::todo::Todo> =
             serde_json::from_value(read("todo", "todo.list").await?).map_err(RpcError::internal)?;
-        let settings: contracts::project::ProjectSettings =
-            serde_json::from_value(read("project", "project.get").await?)
-                .map_err(RpcError::internal)?;
-        let allowed = agents::model_choices(&settings.models.allowed);
-        let context = context::compose(&nodes, &todos, allowed, &id)?;
+        let context = context::compose(&nodes, &todos, &id)?;
         let allowed = match conn.actor.kind {
             ActorKind::User => true,
             ActorKind::Agent => conn.actor.id == id,
