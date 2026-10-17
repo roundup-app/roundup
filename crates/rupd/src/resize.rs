@@ -38,7 +38,10 @@ impl HeldActions {
         {
             let reason = match accepted.action.outcome {
                 ResizeOutcome::Waiting { .. }
-                    if matches!(accepted.action.call, HeldCall::Rename(_)) =>
+                    if matches!(
+                        accepted.action.call,
+                        HeldCall::Rename(_) | HeldCall::Rewind(_)
+                    ) =>
                 {
                     continue;
                 }
@@ -91,6 +94,16 @@ impl HeldActions {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .retain(|_, prior| !*prior.borrow() && prior.has_changed().is_ok());
+    }
+
+    /// A35: every recorded rewind of Workstream `id` with its latest outcome.
+    pub(crate) fn rewinds(&self, id: &str) -> Result<Vec<(String, ResizeOutcome)>, RpcError> {
+        Ok(self
+            .accepted(None)?
+            .into_iter()
+            .filter(|a| matches!(&a.action.call, HeldCall::Rewind(r) if r.id == id))
+            .map(|a| (a.action.id, a.action.outcome))
+            .collect())
     }
 
     pub(crate) fn waiting(&self, child: &str) -> Result<bool, RpcError> {
@@ -147,6 +160,21 @@ impl HeldActions {
         node: &contracts::agent::RailNode,
         call: HeldCall,
     ) -> Result<HeldAction, RpcError> {
+        let outcome = ResizeOutcome::Waiting {
+            reason: "takeover".into(),
+        };
+        self.accept_as(actor, node, call, outcome)
+    }
+
+    /// Record an action with its first outcome: A35's rewind also records the children it
+    /// rewinds at once, so every selected child's outcome is readable later.
+    pub(crate) fn accept_as(
+        &self,
+        actor: &Actor,
+        node: &contracts::agent::RailNode,
+        call: HeldCall,
+        outcome: ResizeOutcome,
+    ) -> Result<HeldAction, RpcError> {
         let method = action_method(&call);
         let params = action_params(&call)?;
         let mut db = self.db.lock().unwrap_or_else(|e| e.into_inner());
@@ -154,9 +182,6 @@ impl HeldActions {
         tx.execute("INSERT INTO door_actions(actor,agent,attempt,child_terminal,method,params) VALUES(?,?,?,?,?,?)",
             params![serde_json::to_string(actor).map_err(RpcError::internal)?,node.id,node.attempt,node.terminal_id,method,params.to_string()]).map_err(RpcError::internal)?;
         let id = tx.last_insert_rowid().to_string();
-        let outcome = ResizeOutcome::Waiting {
-            reason: "takeover".into(),
-        };
         tx.execute(
             "INSERT INTO door_action_outcomes(action,outcome) VALUES(?,?)",
             params![
@@ -174,7 +199,7 @@ impl HeldActions {
         })
     }
 
-    fn outcome(&self, id: &str, outcome: ResizeOutcome) -> Result<(), RpcError> {
+    pub(crate) fn outcome(&self, id: &str, outcome: ResizeOutcome) -> Result<(), RpcError> {
         self.db
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -363,10 +388,13 @@ impl Daemon {
                     Some("child Attempt changed before action release")
                 }
                 Some(n)
-                    if !matches!(action.call, HeldCall::Rename(_) | HeldCall::Resume(_))
-                        && n.status
-                            .as_ref()
-                            .is_some_and(|s| s.kind == contracts::Kind::Done) =>
+                    if !matches!(
+                        action.call,
+                        HeldCall::Rename(_) | HeldCall::Resume(_) | HeldCall::Rewind(_)
+                    ) && n
+                        .status
+                        .as_ref()
+                        .is_some_and(|s| s.kind == contracts::Kind::Done) =>
                 {
                     Some("child exited before action release")
                 }
@@ -415,6 +443,8 @@ impl Daemon {
                             }
                             _ => self.agents.interrupt_attempt(&ctx, child, attempt).await?,
                         }
+                    } else if let HeldCall::Rewind(rewind) = &action.call {
+                        self.release_rewind(&ctx.actor, rewind).await?;
                     } else if let HeldCall::Write(write) = &action.call {
                         use base64::Engine;
                         let bytes = base64::engine::general_purpose::STANDARD
@@ -467,6 +497,9 @@ impl Daemon {
                 }
             };
             self.held_actions.outcome(&action.id, outcome)?;
+            if let HeldCall::Rewind(rewind) = &action.call {
+                self.rewind_settled(&rewind.id, rewind.checkpoint).await;
+            }
         }
         Ok(())
     }
@@ -658,7 +691,7 @@ impl Daemon {
 fn node_bound(call: &HeldCall) -> bool {
     matches!(
         call,
-        HeldCall::Rename(_) | HeldCall::SetOrder(_) | HeldCall::Resume(_)
+        HeldCall::Rename(_) | HeldCall::SetOrder(_) | HeldCall::Resume(_) | HeldCall::Rewind(_)
     )
 }
 
@@ -706,6 +739,7 @@ fn action_method(call: &HeldCall) -> &'static str {
         HeldCall::Stop(_) => "agent.stop",
         HeldCall::Interrupt(_) => "agent.interrupt",
         HeldCall::Prompt(_) => "agent.prompt",
+        HeldCall::Rewind(_) => "workstream.rewind",
     }
 }
 
@@ -721,6 +755,7 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
         }
         HeldCall::Prompt(params) => serde_json::to_value(params),
         HeldCall::Write(params) => serde_json::to_value(params),
+        HeldCall::Rewind(params) => serde_json::to_value(params),
     }
     .map_err(RpcError::internal)
 }
@@ -736,6 +771,7 @@ fn original_terminal(call: &HeldCall) -> Option<&str> {
         | HeldCall::Answer(_)
         | HeldCall::Stop(_)
         | HeldCall::Interrupt(_)
-        | HeldCall::Prompt(_) => None,
+        | HeldCall::Prompt(_)
+        | HeldCall::Rewind(_) => None,
     }
 }

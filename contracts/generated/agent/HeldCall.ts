@@ -3,9 +3,10 @@ import type { AnswerParams } from "../decision/AnswerParams";
 import type { ResizeParams } from "../terminal/ResizeParams";
 import type { TerminalId } from "../terminal/TerminalId";
 import type { WriteParams } from "../terminal/WriteParams";
+import type { RewindParams } from "../workstream/RewindParams";
 import type { NodeId } from "./NodeId";
 import type { PromptParams } from "./PromptParams";
 import type { RenameParams } from "./RenameParams";
 import type { SetOrderParams } from "./SetOrderParams";
 
-export type HeldCall = { "method": "terminal.resize", "params": ResizeParams } | { "method": "terminal.close", "params": TerminalId } | { "method": "terminal.kill", "params": TerminalId } | { "method": "terminal.write", "params": WriteParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.setOrder", "params": SetOrderParams } | { "method": "decision.answer", "params": AnswerParams } | { "method": "agent.resume", "params": NodeId } | { "method": "agent.stop", "params": NodeId } | { "method": "agent.interrupt", "params": NodeId } | { "method": "agent.prompt", "params": PromptParams };
+export type HeldCall = { "method": "terminal.resize", "params": ResizeParams } | { "method": "terminal.close", "params": TerminalId } | { "method": "terminal.kill", "params": TerminalId } | { "method": "terminal.write", "params": WriteParams } | { "method": "rail.rename", "params": RenameParams } | { "method": "agent.setOrder", "params": SetOrderParams } | { "method": "decision.answer", "params": AnswerParams } | { "method": "agent.resume", "params": NodeId } | { "method": "agent.stop", "params": NodeId } | { "method": "agent.interrupt", "params": NodeId } | { "method": "agent.prompt", "params": PromptParams } | { "method": "workstream.rewind", "params": RewindParams };

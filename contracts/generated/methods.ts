@@ -97,6 +97,10 @@ import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
+import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
+import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
+import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
+import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 
 export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
@@ -195,6 +199,8 @@ export type RpcMethods = {
   "agent.resume": { params: agent_NodeId; result: agent_RailNode | agent_HeldAction };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
+  "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
+  "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
   "workstream.handoff": { params: workstream_HandoffParams; result: null };
 };
 
