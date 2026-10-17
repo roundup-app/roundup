@@ -88,7 +88,7 @@ const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: s
   return (
     <li class="ask-row" data-state={props.part.state}>
       <Show when={node()} fallback={<div class="ask-line">{line()}</div>}>
-        {(target) => <button type="button" class="ask-line" onClick={() => props.open(target().id)}>{line()}</button>}
+        {(target) => <button type="button" class="ask-line" data-feedback="ink" onClick={() => props.open(target().id)}>{line()}</button>}
       </Show>
       <Show when={asking()}>
         <div class="ask-back">
