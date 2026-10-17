@@ -452,7 +452,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           <Menu.ContextTrigger asChild={(trigger) => <div {...trigger({ class: "pane-screen", ref: setScreen, onMouseDown: () => sending.pointer(true) })} />} />
           <Show when={contextOpen()}><Portal>
             <Menu.Positioner>
-              <Menu.Content aria-label={copy.sendToAgent}>
+              <Menu.Content aria-label={copy.terminalMenu}>
                 <Show when={sending.selected()}><Menu.Item value="copy">{copy.copy}</Menu.Item></Show>
                 <Menu.Item value="paste">{copy.paste}</Menu.Item>
                 <Show when={sending.selected()}><Menu.Item value="send">{copy.sendToAgent}</Menu.Item></Show>

@@ -220,6 +220,10 @@
   color: var(--text);
   background-color: var(--ground);
   border: 0;
-  border-radius: var(--radius-drawer);
+  border-radius: var(--radius-control);
   padding: var(--space-2);
+}
+
+.send-to-agent-note:hover {
+  background-color: var(--hover);
 }
