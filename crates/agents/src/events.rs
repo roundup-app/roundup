@@ -34,6 +34,18 @@ impl InboxState {
         facts.insert(agent.to_owned(), state);
     }
 
+    /// B50(c): read the transcript again from its start, for an entry that Claude Code took up
+    /// before the Message it carries was in flight.
+    pub(super) fn rescan(&self, agent: &str) {
+        {
+            let mut files = self.transcripts.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((_, offset)) = files.get_mut(agent) {
+                *offset = 0;
+            }
+        }
+        self.scan(agent, &serde_json::Value::Null);
+    }
+
     /// B50(c): on an Agent's Signal, tell the observer the ids its transcript newly records.
     pub(super) fn scan(&self, agent: &str, payload: &serde_json::Value) {
         let Some(observer) = self.observer.get() else {
