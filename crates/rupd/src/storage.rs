@@ -409,8 +409,7 @@ mod tests {
         let sql: Vec<String> = names
             .iter()
             .map(|n| {
-                std::fs::read_to_string(root.join("crate/migrations/project").join(n))
-                    .unwrap()
+                std::fs::read_to_string(root.join("crate/migrations/project").join(n)).unwrap()
             })
             .collect();
         let mut db = Connection::open_in_memory().unwrap();
