@@ -378,7 +378,12 @@ impl Daemon {
         let child = children.first();
         let _ordered_effect = if matches!(
             method,
-            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+            "terminal.resize"
+                | "terminal.close"
+                | "terminal.kill"
+                | "terminal.write"
+                | "rail.rename"
+                | "agent.stop"
         ) {
             if let Some(child) = child {
                 let guard = self.child_effects(child).write_owned().await;
@@ -402,7 +407,12 @@ impl Daemon {
         let mut door_effects = Vec::new();
         if !matches!(
             method,
-            "terminal.resize" | "terminal.close" | "terminal.kill" | "rail.rename" | "agent.stop"
+            "terminal.resize"
+                | "terminal.close"
+                | "terminal.kill"
+                | "terminal.write"
+                | "rail.rename"
+                | "agent.stop"
         ) {
             // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
             for child in &children {
@@ -1345,6 +1355,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                                 "terminal.resize"
                                     | "terminal.close"
                                     | "terminal.kill"
+                                    | "terminal.write"
                                     | "rail.rename"
                                     | "agent.stop"
                                     | "agent.interrupt"

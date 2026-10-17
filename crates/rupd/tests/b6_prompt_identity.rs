@@ -6151,3 +6151,82 @@ async fn b6_a_held_terminal_kill_is_dropped_when_the_child_exits() {
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
 }
+
+#[tokio::test]
+async fn b6_a_door_terminal_write_waits_for_takeover_release() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"door")}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(receipt["method"], "terminal.write");
+    assert_eq!(
+        receipt["outcome"],
+        json!({"status":"waiting","reason":"takeover"})
+    );
+    // The user's own keystrokes still reach the child; the Door's bytes come after the end.
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"user")}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let bytes = tokio::time::timeout(BOUND, async {
+        loop {
+            let bytes = recorded_bytes(&run).await;
+            if bytes.len() >= 8 {
+                return bytes;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
+    assert_eq!(bytes, b"userdoor");
+}
+
+#[tokio::test]
+async fn b6_a_held_terminal_write_is_dropped_when_the_child_exits() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let receipt = caller
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"door")}),
+        )
+        .await
+        .unwrap();
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let history = caller
+        .request("agent.actionHistory", json!({"id":run.child}))
+        .await
+        .unwrap();
+    run.finish().await;
+    assert_eq!(history[0]["id"], receipt["id"]);
+    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
+}
