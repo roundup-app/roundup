@@ -59,7 +59,7 @@
   min-height: var(--space-6);
 }
 
-/* U426, U3704: transparent actions stay tabbable but sit out of flow at rest, so a name has the row's whole free room; near the row they take their place in flow, a state --space-3 from the first. */
+/* U426, U3704: transparent actions stay tabbable but sit out of flow at rest, so a name has the row's whole free room; near the row they show over the free space right of the last state, never in flow, so a name and its states keep their room. */
 .rail-row .row-icons {
   position: absolute;
   top: 50%;
@@ -70,15 +70,11 @@
   gap: 0;
   opacity: 0;
   pointer-events: none;
-  /* U3704: with the row's gap, a state is --space-3 from the first action. */
-  margin-inline-start: var(--space-1);
 }
 
 .rail-row[data-near="true"] .row-icons,
 .rail-row:hover .row-icons,
 .rail-row:focus-within .row-icons {
-  position: static;
-  transform: none;
   opacity: 1;
   pointer-events: auto;
 }
@@ -439,9 +435,9 @@
   display: none;
 }
 
-/* U3704: a state stays beside the name and never moves; the owned count yields its place in the slot to the actions. */
+/* U3704: a state stays beside the name and never moves; the owned count keeps its room while the actions overlay it. */
 .rail-row[data-near="true"] .row-tail > .rail-pads-control {
-  display: none;
+  visibility: hidden;
 }
 
 /* U397's 163 px stress surface gives the row its whole width; U466's supported resize widths retain the row inset. */

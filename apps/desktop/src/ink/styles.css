@@ -13,8 +13,11 @@
   vertical-align: middle;
 }
 
-/* U3704: a state never reads as a control, so it takes no pointer cursor from the row or button it sits in (Ark's own parts carry `data-scope`). */
-[data-state]:not([data-scope]) {
+/* U3704: a state never reads as a control, so it takes no pointer cursor from the row or button it sits in. */
+.glyph[data-state],
+.ink-count[data-state],
+.folded-agents[data-state],
+.bubble-state[data-state] {
   cursor: default;
 }
 
