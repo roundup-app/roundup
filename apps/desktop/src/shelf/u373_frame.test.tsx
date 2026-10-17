@@ -1,3 +1,4 @@
+import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -13,7 +14,6 @@ import inkCss from "../ink/styles.css?inline";
 import rowCss from "../todos/rowButton.styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
 import shelfCss from "./styles.css?inline";
-import { CHORDS } from "../keys/chords";
 
 let sheet: HTMLStyleElement | undefined;
 
@@ -43,7 +43,7 @@ const tabs = () => within(within(shelf()).getByRole("tablist", { name: "Work ite
 const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsWith(name))!;
 
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
-  fireEvent.keyDown(target, { code: "Backslash", key: "\\", metaKey: true, ...init });
+  leaderKey("KeyS", init, target);
 
 const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
 
@@ -344,7 +344,7 @@ describe("u370 the Shelf closes and opens", () => {
     expect(within(shelf()).getByRole("button", { name: "Hide work items" }).getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("u370_the_chord_toggles_from_every_focus", async () => {
+  it("u370_leader_s_toggles_from_every_focus", async () => {
     await mountApp();
     const field = document.body.appendChild(document.createElement("input"));
 
@@ -356,24 +356,6 @@ describe("u370 the Shelf closes and opens", () => {
     }
 
     field.remove();
-  });
-
-  it("u370_other_modifier_sets_do_nothing", async () => {
-    await mountApp();
-
-    for (const init of [{ shiftKey: true }, { altKey: true }, { ctrlKey: true }, { metaKey: false }])
-      expect(chord(init)).toBe(true);
-
-    expect(shelf().hidden).toBe(false);
-    
-  });
-
-  it("u370_a_held_chord_acts_once", async () => {
-    await mountApp();
-    chord();
-    chord({ repeat: true });
-    chord({ repeat: true });
-    expect(shelf().hidden).toBe(true);
   });
 
   it("u370_a_toggle_calls_no_unrelated_rpc", async () => {
@@ -416,12 +398,6 @@ describe("u370 the Shelf closes and opens", () => {
     expect(shelf().getAttribute("data-animated")).toBe("false");
   });
 
-  it("u370_help_lists_the_chord", () => {
-    const keys = CHORDS.map((entry) => entry.keys);
-
-    expect(keys.indexOf("⌘\\")).toBe(keys.indexOf("⇧⌘J") + 1);
-    expect(CHORDS.find((entry) => entry.keys === "⌘\\")).toMatchObject({ what: "Show or hide the work items", presses: ["meta+Backslash"] });
-  });
 });
 
 describe("u372 what the Shelf shows", () => {

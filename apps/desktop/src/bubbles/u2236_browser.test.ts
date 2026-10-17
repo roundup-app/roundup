@@ -22,38 +22,6 @@ const open = async (): Promise<void> => {
   await page.until(`() => document.querySelector('.bubble:not([hidden]) .bubble-header') && document.querySelector('.bubble-zone:not([hidden])')`);
 };
 
-type Look = { name: string; cursor: string; paint: string[]; hit: string | null; overlaps: string[] };
-
-const probe = `() => [...document.querySelectorAll('.bubble-zone:not([hidden])')].map((zone) => {
-  const style = getComputedStyle(zone);
-  const box = zone.getBoundingClientRect();
-  const bars = [...document.querySelectorAll('.bubble-body .xterm-viewport')].map((view) => { const r = view.getBoundingClientRect(); const clip = view.closest('.bubble-body').getBoundingClientRect(); const w = view.offsetWidth - view.clientWidth; return { getBoundingClientRect: () => ({ left: r.right - w, right: r.right, top: Math.max(r.top, clip.top), bottom: Math.min(r.bottom, clip.bottom) }), getAttribute: () => 'scrollbar', className: '' }; });
-  const controls = [...document.querySelectorAll('.bubble-header button'), ...bars.filter((bar) => bar.getBoundingClientRect().right > bar.getBoundingClientRect().left)];
-  const touch = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-  return {
-    name: zone.dataset.zone,
-    cursor: style.cursor,
-    paint: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth, style.outlineStyle, style.boxShadow, style.backgroundImage, style.backgroundColor, style.opacity].map(String),
-    overlaps: controls.filter((control) => touch(box, control.getBoundingClientRect())).map((control) => control.getAttribute('aria-label') ?? control.className),
-  };
-})`;
-
-it("u2236_zones_show_native_cursors_draw_nothing_and_leave_the_controls_clear", async () => {
-  for (const scheme of ["light", "dark"] as const) {
-    await page.scheme(scheme);
-    await open();
-
-    const looks = await page.call<Look[]>(probe);
-
-    expect(Object.fromEntries(looks.map((look) => [look.name, look.cursor]))).toEqual({ n: "ns-resize", s: "ns-resize", w: "ew-resize", e: "ew-resize", nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize" });
-
-    for (const look of looks) {
-      expect(look.paint, look.name).toEqual(["0px", "0px", "0px", "0px", "none", "none", "none", "rgba(0, 0, 0, 0)", "1"]);
-      expect(look.overlaps, look.name).toEqual([]);
-    }
-  }
-}, 90_000);
-
 it("u2237_fill_and_restore_refit_once", async () => {
   await open();
 

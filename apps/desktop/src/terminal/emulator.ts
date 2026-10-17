@@ -117,7 +117,10 @@ export const xtermOptions: ITerminalOptions = {
   fontFamily: /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
   scrollback: SCROLLBACK_LINES,
-  theme: terminalThemeFor(schemeQuery()?.matches ?? false),
+  // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
+  get theme() {
+    return terminalThemeFor(schemeQuery()?.matches ?? false);
+  },
 };
 
 /** What the keystroke run (`scenarios/perf.md` K1 to K3) watches: each chunk the emulator has parsed, each render, and which renderer drew. A build without the run passes none. */

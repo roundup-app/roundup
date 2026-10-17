@@ -11,7 +11,7 @@ const watchedPane = async () => {
   const mounted = await mountSwitcher("ann");
 
   await waitFor(() => expect(document.querySelector(".pane-watch")).not.toBeNull());
-  press("2", { metaKey: true }, document.body);
+  document.querySelector<HTMLElement>(".pane-screen [tabindex]")!.focus();
   await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
 
   return mounted;
@@ -52,8 +52,6 @@ describe("u532 typing into a watched input says why nothing was sent", () => {
   it("u532_chords_and_copy_still_act_in_watch", async () => {
     const { connected } = await watchedPane();
 
-    press("1", { metaKey: true });
-    expect(document.activeElement?.closest('[role="tree"]')).not.toBeNull();
     document.querySelector<HTMLElement>(".pane-screen [tabindex]")!.focus();
     fireEvent.keyDown(document.activeElement!, { key: "c", metaKey: true });
     expect(band()).toBe("Watching Ann: Read-only");

@@ -1,3 +1,5 @@
+<img src="crates/desktop/icons/icon.png" width="128" alt="">
+
 # roundup
 
 A lean, extensible, open-source Claude Code workbench: terminals, agents, todos and scratchpads. macOS only for now. No accounts, sync or telemetry.
