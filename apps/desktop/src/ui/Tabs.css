@@ -1,0 +1,17 @@
+.app-tabs-list {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.app-tabs-trigger {
+  --button-inline: var(--space-2);
+}
+
+.app-tabs-trigger[data-selected] {
+  --button-surface: var(--selected);
+  --button-hover: var(--selected-hover);
+}
+
+.app-tabs-content {
+  padding: var(--space-2);
+}

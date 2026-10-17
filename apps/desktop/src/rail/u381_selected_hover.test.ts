@@ -19,7 +19,7 @@ const rail = read(
 );
 
 const ui = read(
-  import.meta.glob<string>("../ui/styles.css", {
+  import.meta.glob<string>("../ui/Tree.css", {
     query: "?raw",
     import: "default",
     eager: true,

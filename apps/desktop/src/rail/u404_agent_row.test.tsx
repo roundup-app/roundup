@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import railCss from "./styles.css?inline";
-import uiCss from "../ui/styles.css?inline";
+import uiCss from "../ui/Tree.css?inline";
 import { mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);

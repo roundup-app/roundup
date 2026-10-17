@@ -261,6 +261,28 @@ pub fn submitted_prompt(payload: &Value) -> Option<&str> {
         .then(|| payload["prompt"].as_str().unwrap_or_default())
 }
 
+/// B39: a paste that Claude Code shows as a Paste placeholder reaches `UserPromptSubmit` inside an
+/// envelope (seen with 2.1.302): `<pasted_content id="…">`, a newline, the pasted text, a newline,
+/// `</pasted_content id="…">`. The pasted text of the envelope that ends `prompt`, or `prompt` when
+/// none ends it.
+pub(crate) fn pasted_text(prompt: &str) -> &str {
+    const CLOSE: &str = "\n</pasted_content id=\"";
+    let trimmed = prompt.trim_end();
+    let Some(close_at) = trimmed.rfind(CLOSE) else {
+        return prompt;
+    };
+    let Some(id) = trimmed[close_at + CLOSE.len()..]
+        .strip_suffix("\">")
+        .filter(|id| !id.contains(['"', '\n']))
+    else {
+        return prompt;
+    };
+    let open = format!("<pasted_content id=\"{id}\">\n");
+    trimmed[..close_at]
+        .rfind(&open)
+        .map_or(prompt, |open_at| &trimmed[open_at + open.len()..close_at])
+}
+
 /// Whether `payload` is the `SessionStart` Signal, which readies a fresh Agent for its first
 /// prompt (H12).
 pub fn is_session_start(payload: &Value) -> bool {

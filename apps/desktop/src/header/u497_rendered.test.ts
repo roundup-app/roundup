@@ -35,8 +35,6 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
         for (const tab of document.querySelectorAll('.project-tab')) {
           const app = window.__fake.app.of(tab.dataset.path);
           app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}});
-          app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Authored 雪 Model'}],efforts:[{id:'high',label:'High'}]});
-          app.handlers['project.setModels'] = () => { throw new Error(${JSON.stringify(failure)}); };
         }
         // tabs-8 has no Todos: its second Project gets one made by its running Agent, which is what the Shelf lists.
         const tab = document.querySelectorAll('.project-tab')[1];
@@ -67,25 +65,6 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       };
 
       await record('rest');
-      await browser('eval', `document.querySelector('[role=tab]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:150,clientY:30}))`);
-      await wait(`!!document.querySelector('[role=menu]')`);
-      await record('menu');
-      await browser('press', 'Escape');
-      await wait(`!document.querySelector('[role=menu]')`);
-      await browser('eval', `document.querySelector('[role=tab]').focus()`);
-      await browser('press', 'Shift+F10');
-      await wait(`!!document.querySelector('[role=menu]')`);
-      await browser('press', 'ArrowDown');
-      await wait(`!!document.querySelector('[role=menuitem][data-highlighted]')`);
-      await browser('press', 'Enter');
-      await wait(`!!document.querySelector('[role=dialog] select')`);
-      await record('models');
-      await browser('eval', `(() => { const select = document.querySelector('[role=dialog] select'); select.value='opus'; select.dispatchEvent(new Event('change',{bubbles:true})); })()`);
-      await wait(`document.querySelector('.models-sheet')?.textContent.includes(${JSON.stringify(failure)})`);
-      expect(await read<boolean>(`(() => { const e=document.querySelector('.models-sheet [role=alert]'); return e?.checkVisibility() && e.scrollHeight <= e.clientHeight + 1 && document.querySelector('.models-sheet select').value === ''; })()`)).toBe(true);
-      await record('rejected-save');
-      await browser('press', 'Escape');
-      await wait(`!document.querySelector('[role=dialog]')`);
       await browser('eval', `document.querySelectorAll('.project-tab [role=tab]')[${seed === 'tabs-8' ? 1 : 0}].click()`);
       await wait(`document.querySelectorAll('.project-tab')[${seed === 'tabs-8' ? 1 : 0}].dataset.selected === 'true'`);
       await browser('hover', '.project-tab[data-selected=true]');

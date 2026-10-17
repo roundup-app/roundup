@@ -19,6 +19,8 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], inRail: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"] },
+  { keys: "⇧⌘]", what: copy.nextProject, presses: ["meta+shift+BracketRight"] },
+  { keys: "⇧⌘[", what: copy.previousProject, presses: ["meta+shift+BracketLeft"] },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
