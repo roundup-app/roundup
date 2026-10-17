@@ -6429,3 +6429,32 @@ async fn b6_a_held_terminal_write_is_dropped_when_the_child_exits() {
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
 }
+
+#[tokio::test]
+async fn b6_a_door_read_of_a_taken_over_child_waits_for_the_takeover_end() {
+    let (run, caller) = door_terminal().await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let terminal = run.terminal.clone();
+    let read = tokio::spawn(async move {
+        caller
+            .request("terminal.snapshot", json!({"id":terminal}))
+            .await
+    });
+    // The user's own read is never held.
+    run.user
+        .request("terminal.snapshot", json!({"id":run.terminal}))
+        .await
+        .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(!read.is_finished(), "a Door read ran during Takeover");
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let snapshot = tokio::time::timeout(BOUND, read).await.unwrap().unwrap();
+    run.finish().await;
+    assert!(snapshot.unwrap()["cols"].is_number());
+}
