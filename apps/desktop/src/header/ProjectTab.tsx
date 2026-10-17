@@ -81,7 +81,7 @@ export const ProjectTab = (props: {
           <Menu.ContextTrigger asChild={(context) =>
             <Tooltip.Trigger asChild={(tooltip) =>
               <Tabs.Trigger {...context(tooltip({}))} value={props.tab.path} class="tab-name-button"
-                data-selected={props.selected} aria-busy={props.tab.busy} ref={(element) => (button = element)}
+                data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
                 onClick={(click) => {
                   if (click.target instanceof Element && click.target.closest('.tab-mark')) {
                     click.preventDefault();

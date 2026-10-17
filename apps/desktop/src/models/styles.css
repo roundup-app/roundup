@@ -65,13 +65,8 @@
 
 .models-check input {
   font: inherit;
-  min-width: var(--space-5);
-  min-height: var(--space-5);
+  align-self: center;
   margin: 0;
   cursor: pointer;
 }
 
-.choice-select:hover,
-.models-check input:hover {
-  background-color: var(--hover);
-}
