@@ -80,7 +80,7 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     await Promise.resolve();
 
     expect(spawnCalls(mounted)).toEqual([]);
-    expect(screen.queryByLabelText("Prompt")).toBeNull();
+    expect(screen.queryByLabelText("Task")).toBeNull();
   });
 
   it("u32_with_caps_lock_on_the_chord_still_spawns", async () => {
