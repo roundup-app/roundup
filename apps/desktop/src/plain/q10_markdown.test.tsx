@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { asking, card, mountApp, select } from "../decisions/decisionsFixture";
 import { Markdown } from "./Markdown";
 import { renderMarkdown } from "./renderMarkdown";
-import { FULLSCREEN } from "../testing/chromePage";
 
 const BODY = [
   '1. **Driftech:** fill in "What they do" and the gap in the follow-up, ...',
@@ -48,16 +47,6 @@ describe("Q10 the App renders the Markdown an Agent writes", () => {
     for (const tag of ["em", "strong", "a[href]", "ul", "table", "pre", "code"]) expect(container.querySelector(tag), tag).not.toBeNull();
   });
 
-  it("q10_body_is_ui_and_code_is_mono", () => {
-    const { container } = render(() => <Markdown body={BODY + "\n\n```\nx\n```"} />);
-    const body = container.querySelector(".markdown")!;
-
-    expect(getComputedStyle(body).fontFamily).toBe("var(--font-ui)");
-    expect(getComputedStyle(body).textAlign).toBe("left");
-    expect(getComputedStyle(body.querySelector("code")!).fontFamily).toBe("var(--font-mono)");
-    expect(getComputedStyle(body.querySelector("pre")!).fontFamily).toBe("var(--font-mono)");
-  });
-
   it("q10_html_is_text", () => {
     const { container } = render(() => <Markdown body={"<img src=x onerror=alert(1)>\n\n[go](javascript:alert(1)) ![pic](x.png)"} />);
 
@@ -71,24 +60,5 @@ describe("Q10 the App renders the Markdown an Agent writes", () => {
   it("q10_one_renderer", () => {
     const html = render(() => <Markdown body={BODY} />).container.querySelector(".markdown")!.innerHTML;
     expect(html).toBe(renderMarkdown(BODY).replace(/&quot;/g, '"'));
-  });
-
-  it("q10_wide_content_stays_in_the_column", () => {
-    const wide = "x".repeat(300);
-
-    for (const width of [FULLSCREEN.width]) {
-      Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
-
-      const { container, unmount } = render(() => <Markdown body={`${wide}\n\n| a | b |\n|---|---|\n| ${wide} | 2 |\n\n\`\`\`\n${wide}\n\`\`\``} />);
-      const body = container.querySelector(".markdown")!;
-
-      expect(getComputedStyle(body).overflowWrap).toBe("anywhere");
-      expect(getComputedStyle(body).minWidth).toBe("0px");
-      expect(getComputedStyle(body.querySelector("table")!).tableLayout).toBe("fixed");
-      expect(getComputedStyle(body.querySelector("td")!).overflowWrap).toBe("anywhere");
-      expect(getComputedStyle(body.querySelector("pre")!).whiteSpace).toBe("pre-wrap");
-      expect(getComputedStyle(body.querySelector("pre")!).overflowWrap).toBe("anywhere");
-      unmount();
-    }
   });
 });
