@@ -82,6 +82,7 @@ impl Placement for Call {
             super::Pair {
                 model: Some("haiku".into()),
                 effort: Some("low".into()),
+                ..Default::default()
             }
             .env(),
         );

@@ -201,6 +201,11 @@ impl Module for Agents {
                 shared.rail().set_worktrees(&Worktrees { on, check })?;
                 reply(&())
             }
+            "project.setMcp" => {
+                let mcp: Mcp = params(value)?;
+                shared.rail().set_mcp(&mcp)?;
+                reply(&())
+            }
             "project.setModels" => {
                 let settings: ProjectModels = params(value)?;
                 models::check_settings(&settings)?;
@@ -215,7 +220,12 @@ impl Module for Agents {
             "project.get" => {
                 let worktrees = shared.rail().get_worktrees()?;
                 let models = self.project_models()?;
-                reply(&ProjectSettings { worktrees, models })
+                let mcp = shared.rail().get_mcp()?;
+                reply(&ProjectSettings {
+                    worktrees,
+                    models,
+                    mcp,
+                })
             }
             "project.open" => {
                 let contracts::project::OpenParams { path } = params(value)?;

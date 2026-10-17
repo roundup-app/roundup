@@ -555,6 +555,10 @@ pub struct HeldAction {
 pub enum HeldCall {
     #[serde(rename = "terminal.resize")]
     Resize(crate::terminal::ResizeParams),
+    #[serde(rename = "terminal.close")]
+    Close(crate::terminal::TerminalId),
+    #[serde(rename = "terminal.kill")]
+    Kill(crate::terminal::TerminalId),
     #[serde(rename = "rail.rename")]
     Rename(RenameParams),
     #[serde(rename = "agent.stop")]
