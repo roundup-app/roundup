@@ -552,6 +552,7 @@ mod tests {
             model: None,
             effort: None,
             iteration: None,
+            inbox: None,
         }
     }
 

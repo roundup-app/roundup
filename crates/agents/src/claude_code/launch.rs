@@ -59,7 +59,7 @@ static TRUSTING: Mutex<()> = Mutex::new(());
 
 #[derive(Clone)]
 pub struct Launcher {
-    bin: String,
+    pub(super) bin: String,
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
@@ -71,6 +71,8 @@ pub struct Launcher {
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
     plugins: Arc<OnceCell<Delivery>>,
+    /// The installed Claude Code's version, once `claude --version` has answered (B51).
+    pub(super) version: Arc<OnceCell<String>>,
 }
 
 const QUESTION_FILES: [(&str, &str); 3] = [
@@ -178,6 +180,7 @@ impl Launcher {
             home,
             user_tool_search: false,
             plugins: Arc::new(OnceCell::new()),
+            version: Arc::new(OnceCell::new()),
         }
     }
 

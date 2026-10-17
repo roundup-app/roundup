@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"a prompt the user typed"}}
+{"type":"teammate_message","id":"rup-7","from":"rupd","text":"[wake] w finished"}
+{"type":"assistant","message":{"role":"assistant","content":"ok"}}
