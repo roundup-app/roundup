@@ -88,8 +88,8 @@
   width: calc(var(--space-2) + var(--space-1) / 2);
   height: calc(var(--space-2) + var(--space-1) / 2);
   border-radius: var(--radius-drawer);
+  /* 28 px bar = --space-5 + --space-1; the dot is 10 px. The disc follows the button's ink (hover moves it, press dims it). */
   background: currentColor;
-  color: var(--text);
   font-size: var(--text-caption);
   line-height: 1;
 }
@@ -98,6 +98,7 @@
 .bubble-header:hover .bubble-dot::after,
 .bubble-header:focus-within .bubble-dot::after {
   content: attr(data-glyph);
+  color: var(--ground);
 }
 
 .bubble-name {
