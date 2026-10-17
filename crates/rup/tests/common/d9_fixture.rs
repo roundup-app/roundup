@@ -115,6 +115,24 @@ impl Fixture {
         .expect("the Door never went idle");
     }
 
+    /// After Clear ends, aimock's own log holds every expected request and none unmatched. A
+    /// completed Clear shows the Handoff round trip and the new session's prompt, all 200; a
+    /// failed one shows the Clear prompt, whose delayed response may be cut off.
+    pub async fn clear_requests(&self, completion: bool) {
+        self.seen("the Clear prompt", |entry| {
+            Self::user_text(entry, "clearing Workstream")
+        })
+        .await;
+        if completion {
+            self.model.tool_result("toolu_d9_handoff").await;
+            self.seen("the new session's Handoff prompt", |entry| {
+                entry["response"]["status"] == 200 && Self::user_text(entry, "D9 handoff")
+            })
+            .await;
+            self.model.assert_matched();
+        }
+    }
+
     /// Real Claude recorded the Clear prompt in its transcript. aimock journals a delayed
     /// response only once it is sent, so the request log cannot show the prompt arriving.
     pub async fn received(&self) {
