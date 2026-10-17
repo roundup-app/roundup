@@ -5,14 +5,31 @@ import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
-import { resolvedWorkstream } from "../rail/layout";
+import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, MIN_HEIGHT, MIN_WIDTH, placesStorage, REVEAL_BUBBLE, shownFor, shownName, STEP,
+  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, ZONES,
 } from "./places";
-import type { Place, Extent } from "./places";
+import type { Place, Extent, Zone } from "./places";
 import "./styles.css";
+
+/** U2236 call 2: `--space-2` strips centred on the edges, `--space-4` squares over the corners. */
+const EDGE = 8;
+
+const CORNER = 16;
+
+const zoneBox = (place: Place, zone: Zone) => {
+  const thick = zone.sx !== 0 && zone.sy !== 0 ? CORNER : EDGE;
+
+  const along = (low: number, size: number, sign: number, span: number): [number, number] =>
+    sign < 0 ? [low - span / 2, span] : sign > 0 ? [low + size - span / 2, span] : [low + CORNER / 2, size - CORNER];
+
+  const [left, width] = along(place.x, place.w, zone.sx, thick);
+  const [top, height] = along(place.y, place.h, zone.sy, thick);
+
+  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` };
+};
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
 const PULL_DISTANCE = 8;
@@ -58,7 +75,22 @@ export const Bubbles = (props: { screens: Screens }) => {
     return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
   };
 
-  const shown = createMemo(() => shownFor(rail.terminals(), rail.nodes, rail.selected()));
+  // U524: the Terminal opened from the Project root stays shown while the selection stays there.
+  const [fromRoot, setFromRoot] = createSignal<string | null>(null);
+
+  const shown = createMemo(() => rail.selected() === null && fromRoot() !== null
+    ? rail.terminals().filter((terminal) => terminal.id === fromRoot())
+    : shownFor(rail.terminals(), rail.nodes, rail.selected()));
+
+  // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
+  createEffect(() => {
+    const stack = layer()?.parentElement;
+
+    if (!stack) return;
+
+    stack.toggleAttribute("data-root-terminal", fromRoot() !== null && shown().length > 0);
+    onCleanup(() => stack.removeAttribute("data-root-terminal"));
+  });
 
   const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
 
@@ -90,7 +122,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     persistPlaces(next);
   });
 
-  createEffect(() => { if (resolvedWorkstream(rail.nodes, rail.selected()) !== null) setSelectionMessage(false); });
+  createEffect(on(() => [rail.selected(), rail.nodes.some(isWorkstream)] as const, () => setSelectionMessage(false), { defer: true }));
 
   const setPlace = (id: string, place: Place): void => {
     const next = { ...places(), [id]: place };
@@ -281,13 +313,15 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
   const openTerminal = async (): Promise<string | null> => {
-    const workstream = resolvedWorkstream(rail.nodes, rail.selected());
+    // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
+    const workstream = resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
     if (opening() || readOnly()) return null;
 
     if (workstream === null) {
       setSelectionMessage(true);
       setFailure(null);
+      document.querySelector<HTMLElement>(".rail-actions [data-button='add']")?.focus();
 
       return null;
     }
@@ -297,6 +331,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     try {
       const opened = await app.rpc("terminal.open", { workstream });
 
+      setFromRoot(rail.selected() === null ? opened.terminal_id : null);
       setWanted(opened.terminal_id);
       setFailure(null);
       await rail.refresh({ terminals: true });
@@ -636,6 +671,64 @@ export const Bubbles = (props: { screens: Screens }) => {
       window.addEventListener("pointerup", stop);
     };
 
+    /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
+    const resize = (start: PointerEvent, zone: Zone) => {
+      if (start.button !== 0) return;
+
+      start.preventDefault();
+      start.stopPropagation();
+
+      const from = place();
+      let pointer = { x: start.clientX, y: start.clientY };
+      let pending: number | null = null;
+
+      const apply = () => {
+        pending = null;
+        setPlace(id, resizedAbout(from, zone, pointer.x - start.clientX, pointer.y - start.clientY, extent()));
+      };
+
+      const move = (event: PointerEvent) => {
+        pointer = { x: event.clientX, y: event.clientY };
+        pending ??= requestAnimationFrame(apply);
+      };
+
+      const finish = (restore: boolean) => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("keydown", key, true);
+
+        if (pending !== null) cancelAnimationFrame(pending);
+
+        if (restore) setPlace(id, from);
+        else if (pending !== null) apply();
+
+        pending = null;
+      };
+
+      const up = () => finish(false);
+      const cancel = () => finish(true);
+
+      const key = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        finish(true);
+      };
+
+      try {
+        if (start.target instanceof Element) start.target.setPointerCapture?.(start.pointerId);
+      } catch {
+        // The window listeners still follow the pointer.
+      }
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", cancel);
+      window.addEventListener("keydown", key, true);
+    };
+
     const onHeaderKey = (press: KeyboardEvent) => {
       const arrow = ARROWS.get(press.key);
 
@@ -649,6 +742,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     };
 
     return (
+      <>
       <section
         class="bubble"
         data-bubble={id}
@@ -660,6 +754,9 @@ export const Bubbles = (props: { screens: Screens }) => {
         <header class="bubble-header" tabindex="0" onPointerDown={(event) => {
             // SAFETY: a pointer event on the header always targets an Element.
             if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
+          }} onDblClick={(event) => {
+            // SAFETY: a mouse event on the header always targets an Element.
+            if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
           }} onKeyDown={onHeaderKey}>
           <span class="bubble-name">{nameFor(terminal()!)}</span>
           <span class="bubble-state">{stateText(terminal()!)}</span>
@@ -671,8 +768,12 @@ export const Bubbles = (props: { screens: Screens }) => {
           </IconButton>
         </header>
         <div class="bubble-body" ref={mount} />
-        <span class="bubble-corner" aria-hidden="true" onPointerDown={(event) => drag(event, (from, dx, dy) => ({ ...from, w: Math.max(MIN_WIDTH, from.w + dx), h: Math.max(MIN_HEIGHT, from.h + dy) }))} />
       </section>
+      <For each={ZONES}>{(zone) => (
+        <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}
+          style={{ cursor: zone.cursor, ...zoneBox(place(), zone) }} onPointerDown={(event) => resize(event, zone)} />
+      )}</For>
+      </>
     );
   };
 
@@ -736,7 +837,7 @@ export const Bubbles = (props: { screens: Screens }) => {
           <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
       </Portal>}</Show>
-      <Show when={selectionMessage()}><div class="bubble-failure" role="status">{copy.selectAWorkstreamFirst}</div></Show>
+      <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );

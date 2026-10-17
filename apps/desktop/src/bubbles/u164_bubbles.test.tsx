@@ -66,10 +66,11 @@ describe("u164 a bubble floats over the centre pane", () => {
     fireEvent(window, new MouseEvent("pointerup"));
     expect(parseFloat(bubble("1").style.left) + parseFloat(bubble("1").style.width)).toBeLessThanOrEqual(800);
 
-    const corner = bubble("1").querySelector(".bubble-corner")!;
+    const corner = document.querySelector('.bubble-zone[data-zone="se"][data-zone-of="1"]')!;
 
     fireEvent.pointerDown(corner, { button: 0, clientX: 0, clientY: 0 });
     fireEvent(window, new MouseEvent("pointermove", { clientX: -100000, clientY: -100000 }));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     fireEvent(window, new MouseEvent("pointerup"));
     expect(parseFloat(bubble("1").style.width)).toBe(MIN_WIDTH);
     expect(parseFloat(bubble("1").style.height)).toBe(MIN_HEIGHT);
