@@ -78,10 +78,12 @@ const MODS = [
 const CODES = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((letter) => `Key${letter}`).concat([..."0123456789"].map((digit) => `Digit${digit}`), ["BracketLeft", "BracketRight", "Period", "Comma", "Backspace", "Backslash", "Slash"]);
 
 /** Every modified press that something in the webview binds, by `preventDefault`, from a Rail row outside any Terminal. */
-const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): string[] =>
-  modSets.flatMap((mods) =>
-    codes.flatMap((code) => {
-      if (Object.keys(mods).length === 0) return [];
+const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[] = MODS, codes: string[] = CODES): Promise<string[]> => {
+  const bound: string[] = [];
+
+  for (const mods of modSets) {
+    for (const code of codes) {
+      if (Object.keys(mods).length === 0) continue;
 
       const key = keyOf(code);
       const press = new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true, ...mods });
@@ -90,9 +92,26 @@ const boundPresses = (from: Element, modSets: readonly KeyboardEventInit[] = MOD
       // `⌘K` opens the modal switcher, which would swallow every later probe.
       document.querySelector(".switcher input, .ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-      return press.defaultPrevented ? [pressOf(press)] : [];
-    }),
-  );
+      // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
+      document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+      // `⌘,` opens the modal Models dialog, which the library closes after the press.
+      const models = document.querySelector(".models-sheet");
+
+      if (models) {
+        // The library attaches its dismissal after the dialog mounts, so the press repeats until it takes.
+        await waitFor(() => {
+          (document.activeElement && models.contains(document.activeElement) ? document.activeElement : models).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          expect(document.querySelector(".models-sheet")).toBeNull();
+        });
+      }
+
+      if (press.defaultPrevented) bound.push(pressOf(press));
+    }
+  }
+
+  return bound;
+};
 
 describe("u54 keyboard help", () => {
   it("u471_previous_copy_assertions_are_preserved_help_labels", async () => {
@@ -170,7 +189,7 @@ describe("u54 keyboard help", () => {
     question(rowOf("a"));
     await waitFor(() => expect(help()).not.toBeNull());
 
-    expect(boundPresses(document.activeElement!)).toEqual([]);
+    expect(await boundPresses(document.activeElement!)).toEqual([]);
     expect(app.calls.length).toBe(calls);
     expect(help()).not.toBeNull();
   });
@@ -183,19 +202,19 @@ describe("u54 keyboard help", () => {
     const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inSwitcher).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector(".terminal-new")!;
-    const bound = [...new Set([...boundPresses(outsideTerminal), ...boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"])])].sort();
+    const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
 
     // `⌘⏎` binds from a Rail row, not from a text field (U531); a Rail row prevents any modified `⏎`, so only ⌘⏎ is probed.
     const row = rowOf("a");
-    const railBound = [...new Set([...boundPresses(row), ...boundPresses(row, [{ metaKey: true }], ["Enter"])])].sort();
+    const railBound = [...new Set([...(await boundPresses(row)), ...(await boundPresses(row, [{ metaKey: true }], ["Enter"]))])].sort();
     const field = document.activeElement;
 
     fireEvent.keyDown(document.body, { key: "k", code: "KeyK", metaKey: true });
     await waitFor(() => expect(document.querySelector(".switcher input")).not.toBeNull());
 
-    const switcherBound = boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
+    const switcherBound = await boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
 
     expect(switcherBound).toEqual(["shift+Enter"]);
     expect(field).not.toBeNull();
