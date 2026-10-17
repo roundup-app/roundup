@@ -454,6 +454,11 @@
     "kind": "indirect",
     "sha256": "d2cc08610cc9b30f4b01ef5eabcc73cd56f41691d14ca7041aeedf411435c526"
   },
+  "crates/rup/tests/e2e/notes.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rup/tests/e2e/wake.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
