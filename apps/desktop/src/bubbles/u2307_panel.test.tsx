@@ -146,3 +146,12 @@ it("u2307a_focus_moving_to_a_control_outside_minimises_the_bubble", async () => 
   outside.focus();
   await waitFor(() => expect(bubble()).toBeNull());
 });
+
+it("u2307a_focus_landing_outside_an_open_bubble_minimises_it_without_prior_focus_inside", async () => {
+  await shown();
+
+  const outside = document.body.appendChild(document.createElement("input"));
+
+  outside.focus();
+  await waitFor(() => expect(bubble()).toBeNull());
+});
