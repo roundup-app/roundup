@@ -30,6 +30,7 @@ import type { WriteParams as checkpoint_WriteParams } from "./checkpoint/WritePa
 import type { HistoryParams as common_HistoryParams } from "./HistoryParams";
 import type { IdentifyParams as common_IdentifyParams } from "./IdentifyParams";
 import type { SubscribeParams as common_SubscribeParams } from "./SubscribeParams";
+import type { SubscribeResult as common_SubscribeResult } from "./SubscribeResult";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
 import type { AnswerParams as decision_AnswerParams } from "./decision/AnswerParams";
@@ -101,7 +102,7 @@ export type RpcMethods = {
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
   "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } } };
   "daemon.identify": { params: common_IdentifyParams; result: null };
-  "events.subscribe": { params: common_SubscribeParams | null; result: null };
+  "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };
   "provenance.touched": { params: common_TouchedParams; result: common_Touch[] };
   "terminal.spawn": { params: terminal_SpawnParams; result: terminal_TerminalId };
