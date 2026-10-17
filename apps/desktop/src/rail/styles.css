@@ -408,7 +408,7 @@
 }
 
 .rail-row .runs {
-  color: var(--grey);
+  color: var(--ink-rest-selected);
 }
 
 /* Resting counts align with the 16 px marks inside the edge-aligned 24 px targets. */
