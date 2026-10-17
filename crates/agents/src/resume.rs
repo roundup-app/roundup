@@ -18,6 +18,45 @@ impl Agents {
         self.resume_saved(ctx, id, RESUME_ACK_BOUND).await
     }
 
+    /// LC8: give child `id` more extras. A name that does not exist fails the call and the child
+    /// keeps running; otherwise a live child is stopped and resumed with its conversation, its
+    /// Brief re-read (`--system-prompt-snapshot off`).
+    pub(super) async fn add_extras(
+        &self,
+        ctx: &Ctx,
+        ExtrasAddParams { id, extras }: ExtrasAddParams,
+    ) -> Result<RailNode, RpcError> {
+        self.shared.guard_reach(&ctx.actor, &id, false)?;
+        self.shared.rail().node(&id)?;
+        let Some(mut lean) = Launcher::load_lean(&self.dir, &id) else {
+            return Err(RpcError::conflict(format!(
+                "{id} keeps the user's full setup: it was not started by an Agent"
+            )));
+        };
+        claude_code::extras::resolve(&self.launcher.extras_sources(self.project_dir()), &extras)?;
+        let live = match self.shared.runs().get(&id) {
+            Some(Slot::Running(run)) => !run.ended,
+            Some(_) => return Err(RpcError::conflict(format!("{id} is starting or stopping"))),
+            None => false,
+        };
+        if live && !self.shared.rail().has_conversation(&id)? {
+            return Err(RpcError::conflict(format!(
+                "{id} has no saved conversation yet to resume with the extras"
+            )));
+        }
+        lean.extras = claude_code::extras::merged(&lean.extras, &extras);
+        lean.fresh_brief = true;
+        if live {
+            self.shared.stop(ctx.actor.clone(), &id).await?;
+        }
+        Launcher::save_lean(&self.dir, &id, &lean)?;
+        if live {
+            self.resume_saved(ctx, &id, RESUME_ACK_BOUND).await?;
+        }
+        ctx.emit(EventData::RailChanged);
+        self.shared.node(&id)
+    }
+
     /// A22's launch, acknowledgement, rollback and serialization for an Agent (`agent.resume`) or
     /// a Door (A23's `rail.startDoor`) whose kind the caller has checked. A failure completes
     /// only after Terminal cleanup settles. Unconfirmed cleanup returns UNKNOWN_OUTCOME with

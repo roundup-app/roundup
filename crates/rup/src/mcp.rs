@@ -370,6 +370,8 @@ pub(crate) fn commands(door: bool) -> Vec<Offered> {
         checkpoint_write(),
         workstream_rewind_plan(),
         workstream_rewind(),
+        agent_extras(),
+        agent_extras_add(),
     ]);
     list.push(events_stream());
     list.retain(|offer| door || !offer.door_only);
@@ -579,6 +581,28 @@ fn agent_spawn() -> Offered {
         "agent.spawn",
         "Start a child Agent in a folder of this Project. Put a `title` of at most six words, the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name the child after its task. The child's Home is you.",
     )
+}
+
+/// LC7: the names a Door may give a child, by kind.
+fn agent_extras() -> Offered {
+    Offered {
+        door_only: true,
+        ..offered_without_params(
+            "agent.extras",
+            "List the skills, plugins and MCP servers of the user's setup that `agent_spawn`'s `extras` and `agent_extras_add` accept.",
+        )
+    }
+}
+
+/// LC8: add extras to a running child.
+fn agent_extras_add() -> Offered {
+    Offered {
+        door_only: true,
+        ..offered::<agent::ExtrasAddParams>(
+            "agent.extras_add",
+            "Give a running child of yours skills, plugins or MCP servers by name. The child is stopped and relaunched with its conversation; an unknown name fails and the child keeps running.",
+        )
+    }
 }
 
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.

@@ -109,6 +109,12 @@ pub const METHODS: &[Method] = &[
     m("pad.export", "pad_ExportParams", "null"),
     m("pad.setStorage", "pad_SetStorageParams", "null"),
     m("agent.spawn", "agent_SpawnParams", "agent_RailNode"),
+    m("agent.extras", "null", "agent_Extras"),
+    m(
+        "agent.extras_add",
+        "agent_ExtrasAddParams",
+        "agent_RailNode",
+    ),
     m("agent.actionHistory", "agent_NodeId", "agent_HeldAction[]"),
     m("agent.stop", "agent_NodeId", "null | agent_HeldAction"),
     m(

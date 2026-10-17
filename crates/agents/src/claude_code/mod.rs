@@ -4,6 +4,7 @@
 
 mod brief;
 mod conversation;
+pub mod extras;
 mod launch;
 mod models;
 mod placement;
@@ -19,7 +20,8 @@ use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
 pub use launch::{
-    DOOR_TOOLS, DOOR_TOOLS_NO_MCP, Folders, Launcher, Pair, STATE_EVENTS, settings_marker,
+    DOOR_TOOLS, DOOR_TOOLS_NO_MCP, Folders, Launcher, Lean, PROFILES, Pair, Profile, SCOUT_TOOLS,
+    SCOUT_TOOLS_NO_MCP, STATE_EVENTS, profile, settings_marker,
 };
 pub use models::{efforts, models};
 pub use skills::{BANNED, skills};

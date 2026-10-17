@@ -7,7 +7,7 @@ import { configure } from "@testing-library/dom";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
 import { realDaemon } from "./realDaemonPlugin";
-import { claudeBin, configureClaude, startModel, takeSlot } from "./realModel";
+import { configureClaude, routedClaude, startModel, takeSlot } from "./realModel";
 import type { Model } from "./realModel";
 
 const REPO = resolve(process.cwd(), "../..");
@@ -128,8 +128,8 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
       release = await takeSlot();
       model = await startModel(fixture);
       await mkdir(join(dir, "home"));
-      await configureClaude(join(dir, "claude-config"), dir, model.url);
-      launch = { ROUNDUP_CLAUDE_BIN: claudeBin(), HOME: join(dir, "home"), CLAUDE_CODE_OAUTH_TOKEN: "" };
+      await configureClaude(join(dir, "claude-config"), dir);
+      launch = { ROUNDUP_CLAUDE_BIN: await routedClaude(dir, model.url), HOME: join(dir, "home"), CLAUDE_CODE_OAUTH_TOKEN: "" };
     }
 
     await start();
