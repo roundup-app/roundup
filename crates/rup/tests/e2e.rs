@@ -4251,3 +4251,132 @@ async fn u516_message_list_holds_the_sent_excerpt() {
     assert_eq!(sent["from"]["kind"], "user");
     assert_eq!(sent["kind"], "note");
 }
+
+/// The lines of a JSON-lines `log` the fake `claude` writes for a prompt that carries Messages (a
+/// B39 id line), once at least `least` are there.
+async fn b39_log(log: &std::path::Path, least: usize) -> Vec<Value> {
+    h21_poll("the fake claude's log", async || {
+        let lines: Vec<Value> = std::fs::read_to_string(log)
+            .unwrap_or_default()
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|line| line["prompt"].as_str().unwrap().contains("[rup messages: "))
+            .collect();
+        (lines.len() >= least).then_some(lines)
+    })
+    .await
+}
+
+async fn b39_status(client: &rpc::Client, id: u64) -> String {
+    let message = client
+        .request("message.get", json!({ "id": id }))
+        .await
+        .unwrap();
+    message["status"].as_str().unwrap().to_owned()
+}
+
+async fn b39_delivered(client: &rpc::Client, id: u64) {
+    h21_poll("the Message to be delivered", async || {
+        (b39_status(client, id).await == "delivered").then_some(())
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
+    let logs = tempfile::tempdir().unwrap();
+    let prompts = logs.path().join("prompts.jsonl");
+    let blocked = logs.path().join("blocked.jsonl");
+    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
+    let project = start(&[
+        ("FAKE_CLAUDE_ON_PROMPT", &on_prompt.to_string()),
+        ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
+        ("FAKE_CLAUDE_BLOCKED_LOG", blocked.to_str().unwrap()),
+    ]);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "hello"}),
+        )
+        .await
+        .unwrap();
+
+    b39_delivered(&client, 1).await;
+    let first = b39_log(&prompts, 1).await;
+    let prompt = first[0]["prompt"].as_str().unwrap().to_owned();
+    assert!(prompt.ends_with("\n\n[rup messages: 1]"), "{prompt}");
+
+    // The same Message typed to a second turn: the hook exits 2 and the fake runs no turn for it.
+    let again = format!("[from you, note] {prompt}");
+    let typed_again = h21_poll("the repeated prompt to be typed", async || {
+        // A refusal means the Door is still in its turn (Busy); typed, the call waits for a
+        // Signal that the hook never lets through, so it outlasts this bound.
+        let asked = client.request("agent.prompt", json!({ "id": door, "text": again }));
+        tokio::time::timeout(Duration::from_secs(2), asked)
+            .await
+            .is_err()
+            .then_some(())
+    })
+    .await;
+    let () = typed_again;
+    let dropped = b39_log(&blocked, 1).await;
+    assert_eq!(dropped[0]["prompt"], prompt);
+    assert_eq!(b39_status(&client, 1).await, "delivered");
+    let todos = client.request("todo.list", Value::Null).await.unwrap();
+    let turns = todos
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|todo| todo["title"].as_str().unwrap().contains("hello"))
+        .count();
+    assert_eq!(turns, 1, "a second turn ran");
+}
+
+#[tokio::test]
+async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delivered_once() {
+    let logs = tempfile::tempdir().unwrap();
+    let hold = logs.path().join("signal");
+    let prompts = logs.path().join("prompts.jsonl");
+    let on_prompt = json!({"name": "todo_create", "arguments": {"title": "$prompt"}});
+    let env = [
+        ("FAKE_CLAUDE_ON_PROMPT", on_prompt.to_string()),
+        (
+            "FAKE_CLAUDE_PROMPT_LOG",
+            prompts.to_str().unwrap().to_owned(),
+        ),
+    ];
+    let held = [
+        (env[0].0, env[0].1.as_str()),
+        (env[1].0, env[1].1.as_str()),
+        ("FAKE_CLAUDE_HOLD_PROMPT", hold.to_str().unwrap()),
+    ];
+    let mut project = start(&held);
+    let client = project.client().await;
+    let door = start_door(&client).await;
+    client
+        .request(
+            "message.send",
+            json!({"to": door, "kind": "note", "body": "hello"}),
+        )
+        .await
+        .unwrap();
+    let typed = b39_log(&prompts, 1).await;
+    assert_eq!(b39_status(&client, 1).await, "pending");
+
+    // Killed after the typing and before the Signal: nothing was lost, nothing is delivered.
+    project.restart(&[(env[0].0, env[0].1.as_str()), (env[1].0, env[1].1.as_str())]);
+    let client = project.client().await;
+    assert_eq!(b39_status(&client, 1).await, "pending");
+    client
+        .request("rail.startDoor", json!({ "id": door }))
+        .await
+        .unwrap();
+
+    b39_delivered(&client, 1).await;
+    let log = b39_log(&prompts, 2).await;
+    assert_eq!(log[1]["prompt"], typed[0]["prompt"]);
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(b39_log(&prompts, 2).await.len(), 2, "typed a third time");
+}
