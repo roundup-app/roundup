@@ -109,15 +109,19 @@ pub struct ExitedEvent {
     pub code: Option<i32>,
 }
 
-/// X13: `terminal.read`. Output from byte offset `after` on, as plain text.
+/// X13, X16: `terminal.read`. New output as plain text: from `after`, or from `reader`'s cursor.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct ReadParams {
     pub id: String,
-    /// The `next` of the last read, or the `offset` of a screen. Never re-read from 0.
-    #[ts(type = "number")]
-    pub after: u64,
-    /// Lowers the 16 384-byte cap of the reply.
+    /// Read from this offset (a `next`, or the `offset` of a screen); the cursor stays as it was.
+    /// Absent: read from `reader`'s cursor and move it to `next`.
+    #[ts(type = "number | null")]
+    pub after: Option<u64>,
+    /// The Agent id whose cursor a read without `after` uses; `rup` fills it. With neither
+    /// `after` nor `reader` the call is `INVALID_PARAMS`.
+    pub reader: Option<String>,
+    /// Lowers the 16 384-byte cap of the reply, which also holds at most 200 lines.
     pub max: Option<u32>,
 }
 
