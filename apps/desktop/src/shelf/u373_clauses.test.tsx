@@ -32,6 +32,7 @@ const mountApp = async (seed: SeedName = "tree-40") => {
   const controls = seedApp(seed, Date.now());
 
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  await waitFor(() => expect(shelf()).not.toBeNull());
   await within(shelf()).findByRole("tablist", { name: "Work items" });
 
   return controls;
