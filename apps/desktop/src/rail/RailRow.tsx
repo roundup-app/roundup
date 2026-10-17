@@ -84,9 +84,7 @@ export const RailRowView = (props: {
   /** U164: how many of this Agent's Runs are running; shown as `· n` after the name, and hidden at zero. */
   runs?: number;
   lifted: boolean;
-  /** `1` or `-1` while a drag moves the row into the room it opened, `0` otherwise. */
-  shift: number;
-  onPointerDown: (press: PointerEvent) => void;
+  sortRef: (element: HTMLElement | undefined) => void;
   onOpenMenu: (press: MouseEvent) => void;
   /** U426: the icons of a Workstream or Agent row. */
   actions: RowActions;
@@ -157,11 +155,7 @@ export const RailRowView = (props: {
     "data-near": near(),
     "data-kind": kind() ?? undefined,
     "data-lifted": props.lifted,
-    "data-shift": props.shift,
     style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
-    onPointerDown: (press: PointerEvent) => {
-      if (!(press.target instanceof Element) || !press.target.closest("button, input")) props.onPointerDown(press);
-    },
     onContextMenu: (press: MouseEvent) => {
       press.preventDefault();
       props.onOpenMenu(press);
@@ -174,7 +168,7 @@ export const RailRowView = (props: {
     <Tooltip.Trigger
       asChild={(trigger) => (
         // SAFETY: the Tooltip types its trigger for a button; the row is a div, and the props are the same event and ARIA attributes.
-        <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => (rowBox = el)}>
+        <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => { rowBox = el; props.sortRef(el); }}>
           <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
           <p class="line">
             <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
