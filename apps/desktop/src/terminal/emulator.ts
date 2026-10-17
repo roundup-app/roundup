@@ -83,16 +83,16 @@ const isShiftEnter = (event: KeyboardEvent): boolean =>
   event.key === "Enter" && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing;
 
 /** U2238: the bytes Ghostty's macOS defaults send for a bare `⌘` or `⌥` with ⌫, ← or →; other chords keep xterm's encoding. */
-const MAC_EDITING_KEYS = new Map([
-  ["Backspace", { cmd: "\x15", alt: "\x1b\x7f" }],
-  ["ArrowLeft", { cmd: "\x01", alt: "\x1bb" }],
-  ["ArrowRight", { cmd: "\x05", alt: "\x1bf" }],
-]);
+const MAC_EDITING_KEYS: Record<string, { cmd: string; alt: string }> = {
+  Backspace: { cmd: "\x15", alt: "\x1b\x7f" },
+  ArrowLeft: { cmd: "\x01", alt: "\x1bb" },
+  ArrowRight: { cmd: "\x05", alt: "\x1bf" },
+};
 
 const macEditingBytes = (event: KeyboardEvent): string | null => {
   if (event.isComposing || event.ctrlKey || event.shiftKey || event.metaKey === event.altKey) return null;
 
-  const bytes = MAC_EDITING_KEYS.get(event.key);
+  const bytes = Object.hasOwn(MAC_EDITING_KEYS, event.key) ? MAC_EDITING_KEYS[event.key] : undefined;
 
   return bytes ? (event.metaKey ? bytes.cmd : bytes.alt) : null;
 };
