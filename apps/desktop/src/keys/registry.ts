@@ -1,9 +1,10 @@
 import { onCleanup } from "solid-js";
+import { TEXT_FIELDS } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
 /** Regions follow focus; active layers precede regions. Nested layers precede their ancestors; among independent layers, the one containing focus owns shortcuts.
  * A portalled child may name its parent scope; independent surfaces need no fabricated ancestry.
- * A modal also suppresses unbound shortcuts; Escape and Tab remain the Dialog's responsibility. */
+ * A modal also suppresses unbound shortcuts; Escape and Tab remain the Dialog's responsibility, and plain typing in its own text field stays the field's. */
 export type KeyScope =
   | { kind: "app" }
   | { kind: "region"; element: () => HTMLElement | undefined }
@@ -40,6 +41,14 @@ const containsScope = (outer: KeyScope, inner: KeyScope): boolean => {
 };
 
 const rank = (scope: KeyScope) => scope.kind === "layer" ? 2 : scope.kind === "region" ? 1 : 0;
+
+/** A press with no ctrl, meta or alt inside a text field of a modal layer is the layer's own typing (a switcher's filter); it passes to the field. */
+const typesInto = (event: KeyboardEvent, eligible: readonly Registration[]): boolean => {
+  const target = event.target;
+
+  return !event.ctrlKey && !event.metaKey && !event.altKey && target instanceof Element && target.matches(TEXT_FIELDS)
+    && eligible.some(({ scope }) => scope.kind === "layer" && scope.modal && scope.element()?.contains(target) === true);
+};
 
 const dispatch = (event: KeyboardEvent): void => {
   if (!(event instanceof KeyboardEvent)) return;
@@ -90,7 +99,7 @@ const dispatch = (event: KeyboardEvent): void => {
     }
   }
 
-  if (modal && event.key !== "Escape" && event.key !== "Tab") event.stopImmediatePropagation();
+  if (modal && event.key !== "Escape" && event.key !== "Tab" && !typesInto(event, eligible)) event.stopImmediatePropagation();
 };
 
 /** Register within a Solid owner. Matching is tinykeys' job; guards and repeats belong to each caller.
