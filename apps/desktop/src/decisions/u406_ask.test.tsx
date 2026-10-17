@@ -29,6 +29,8 @@ const send = () => within(card()!).getByRole("button", { name: "Send" });
 
 const selected = () => rows().findIndex((row) => row.getAttribute("aria-selected") === "true");
 
+const selectedIs = (at: number) => waitFor(() => expect(selected()).toBe(at));
+
 const press = (target: Element, key: string) => fireEvent.keyDown(target, { key });
 
 const calls = (app: Awaited<ReturnType<typeof open>>["app"]) => rpcCalls(app, "decision.answer");
@@ -45,44 +47,41 @@ describe("u406 the Card for ask_user", () => {
     expect(title.getAttribute("data-tone")).toBe("amber");
     expect(within(card()!).getByRole("listbox")).not.toBeNull();
     expect(rows()).toHaveLength(3);
-    expect(rows()[0]!.querySelector(".ask-label")!.textContent).toBe("A · Brief");
+    expect(within(card()!).getByRole("option", { name: "A · Brief" })).toBe(rows()[0]);
     expect(rows()[0]!.querySelector(".ask-recommended")!.textContent).toBe("Recommended");
     expect(rows()[1]!.querySelector(".ask-recommended")).toBeNull();
-
-    const description = rows()[0]!.querySelector(".ask-description")!;
-
-    expect(description.textContent).toBe("what waits on you leads");
-    expect(description.parentElement).toBe(rows()[0]);
+    expect(rows()[0]!.getAttribute("aria-describedby")).not.toBeNull();
+    expect(rows()[0]!.querySelector(`[id="${rows()[0]!.getAttribute("aria-describedby")}"]`)!.textContent).toBe("what waits on you leads");
     expect(selected()).toBe(0);
   });
 
   it("u406_arrows_move_focus_and_swap_the_preview", async () => {
     await open();
 
-    const list = within(card()!).getByRole("listbox");
+    const list = within(card()!).getByRole("listbox", { name: "Answers" });
     const preview = () => card()!.querySelector(".ask-preview")?.textContent ?? null;
 
     expect(preview()).toContain("A's preview");
     press(list, "ArrowDown");
-    expect(selected()).toBe(1);
+    await selectedIs(1);
     expect(preview()).toContain("B's preview");
     const style = getComputedStyle(card()!.querySelector(".ask-preview")!);
 
     expect([style.animationName, style.transitionProperty].filter((value) => value !== "" && value !== "none" && value !== "all")).toEqual([]);
     press(list, "ArrowDown");
-    expect(selected()).toBe(2);
+    await selectedIs(2);
     expect(preview()).toBeNull();
     press(list, "ArrowDown");
-    expect(selected()).toBe(-1);
+    await selectedIs(-1);
     expect(note().placeholder).toBe("Your own answer");
     press(note(), "ArrowDown");
-    expect(selected()).toBe(0);
+    await selectedIs(0);
     press(note(), "ArrowUp");
-    expect(selected()).toBe(-1);
+    await selectedIs(-1);
     press(note(), "ArrowUp");
-    expect(selected()).toBe(2);
+    await selectedIs(2);
     fireEvent.click(rows()[1]!);
-    expect(selected()).toBe(1);
+    await selectedIs(1);
   });
 
   it("q2_decision_preview", async () => {
@@ -100,9 +99,9 @@ describe("u406 the Card for ask_user", () => {
     app.proof.value = "proof-1";
     fireEvent.click(rows()[1]!);
     expect(calls(app)).toEqual([]);
-    expect(note().placeholder).toBe("Note for B · Conversation, or your own answer");
+    await waitFor(() => expect(note().placeholder).toBe("Note for B · Conversation, or your own answer"));
     fireEvent.input(note(), { target: { value: "ship it" } });
-    press(note(), "Enter");
+    fireEvent.submit(note().form!);
 
     await waitFor(() => expect(calls(app)).toEqual([{ id: "d1", answer: "B · Conversation", note: "ship it", proof: "proof-1" }]));
   });
@@ -112,9 +111,10 @@ describe("u406 the Card for ask_user", () => {
     const list = within(card()!).getByRole("listbox");
 
     press(list, "ArrowUp");
+    await waitFor(() => expect(note().placeholder).toBe("Your own answer"));
     expect(send().getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(send());
-    press(note(), "Enter");
+    fireEvent.submit(note().form!);
     expect(calls(app)).toEqual([]);
 
     fireEvent.input(note(), { target: { value: "neither" } });
@@ -142,7 +142,7 @@ describe("u406 the Card for ask_user", () => {
     fireEvent.click(send());
     await waitFor(() => expect(calls(app)).toHaveLength(1));
     fireEvent.click(send());
-    press(note(), "Enter");
+    fireEvent.submit(note().form!);
     fireEvent.click(rows()[2]!);
 
     expect(calls(app)).toHaveLength(1);
