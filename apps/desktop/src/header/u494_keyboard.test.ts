@@ -1,7 +1,10 @@
 import { expect, it } from "vitest";
 import { browser, read, wait, url } from "../ui/tabsBrowser";
 
-const prepareModels = () => browser("eval", `(() => { for (const tab of document.querySelectorAll('.project-tab')) { const app = window.__fake.app.of(tab.dataset.path); app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}}); app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Opus'}],efforts:[{id:'high',label:'High'}]}); } })()`);
+/** The Drawer, Models and Project menu mounted together, in either order: `u496Fixture.tsx` through `u496.html`. */
+const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
+
+const prepareModels = () => browser("eval", `(() => { for (const tab of document.querySelectorAll('.project-tab')) { const app = window.__fake.app.of(tab.dataset.path); app.handlers['project.get'] = () => ({worktrees:{on:false,check:null},mcp:{on:true},models:{roles:[{role:'door',model:null,effort:null}],allowed:[]}}); app.handlers['models.list'] = () => ({models:[{id:'opus',label:'Opus'}],efforts:[{id:'high',label:'High'}]}); } })()`);
 
 for (const surface of ["models", "confirmation"]) it(`u494_dialog_keyboard_wrap_escape_and_return_${surface}`, async () => {
   await browser("open", url("/harness.html?seed=tree-40"));
@@ -58,7 +61,7 @@ it("u495_menu_pointer_keyboard_and_return", async () => {
 }, 60_000);
 
 for (const reverse of [false, true]) for (const surface of ["models", "menu"]) it(`u496_top_layer_escape_is_order_independent_${surface}_${reverse}`, async () => {
-  await browser("open", url(`/src/header/u496.html${reverse ? '?reverse' : ''}`));
+  await browser("open", fixture(reverse ? "?reverse" : ""));
   await wait(`!!document.querySelector('#origin')`);
   await browser("click", "#origin");
   await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
@@ -80,7 +83,7 @@ for (const reverse of [false, true]) for (const surface of ["models", "menu"]) i
 }, 90_000);
 
 for (const target of ["input", "textarea", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
-  await browser("open", url('/src/header/u496.html'));
+  await browser("open", fixture());
   await wait(`!!document.querySelector('#origin')`);
   await browser("click", "#origin");
   await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
@@ -90,7 +93,7 @@ for (const target of ["input", "textarea", "[contenteditable]", ".xterm"]) it(`u
 }, 60_000);
 
 it("u495_tabs_preserve_project_actions", async () => {
-  await browser("open", url('/src/header/u496.html'));
+  await browser("open", fixture());
   await wait(`document.querySelectorAll('[role=tab]').length === 8`);
   await browser("click", '[role=tab]');
   await browser("press", 'ArrowRight');
@@ -114,7 +117,7 @@ it("u495_tabs_preserve_project_actions", async () => {
 }, 90_000);
 
 for (const away of [false, true]) it(`u496_drawer_escape_and_return_${away}`, async () => {
-  await browser("open", url('/src/header/u496.html'));
+  await browser("open", fixture());
   await wait(`!!document.querySelector('#origin')`);
   await browser("click", '#origin');
   await wait(`document.activeElement === document.querySelector('.drawer .close')`);
@@ -126,7 +129,7 @@ for (const away of [false, true]) it(`u496_drawer_escape_and_return_${away}`, as
 }, 60_000);
 
 it("u494_removed_origin_is_safe", async () => {
-  await browser("open", url('/src/header/u496.html'));
+  await browser("open", fixture());
   await wait(`document.querySelectorAll('[role=tab]').length === 8`);
   await browser("eval", `document.querySelector('[role=tab]').focus()`);
   await browser("press", 'Shift+F10');
@@ -142,7 +145,7 @@ it("u494_removed_origin_is_safe", async () => {
 }, 60_000);
 
 it("u497_control_names_and_tooltips", async () => {
-  await browser("open", url('/src/header/u496.html'));
+  await browser("open", fixture());
   await wait(`document.querySelectorAll('[role=tab]').length === 8`);
   await browser("click", '#origin');
   await wait(`document.querySelector('.drawer').dataset.open === 'true'`);
@@ -174,6 +177,8 @@ it("u497_control_names_and_tooltips", async () => {
     await wait(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return document.getElementById(el.getAttribute('aria-describedby'))?.textContent === ${JSON.stringify(name)}; })()`);
   }
 
+  await browser("eval", `document.querySelectorAll('.project-tab')[0].querySelector('[role=tab]').click()`);
+
   for (const selector of ['.strip-add', '.strip-edge-left', '.strip-edge-right']) {
     await browser("eval", `(() => { const list = document.querySelector('.tablist'); list.scrollLeft = ${selector.endsWith('left') ? 'list.scrollWidth' : '0'}; })()`);
     await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
@@ -181,6 +186,7 @@ it("u497_control_names_and_tooltips", async () => {
     await wait(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return document.getElementById(el.getAttribute('aria-describedby'))?.textContent === el.getAttribute('aria-label'); })()`);
     await browser("mouse", "move", "10", "750");
     await wait(`document.querySelector(${JSON.stringify(selector)}).dataset.state === 'closed'`);
+    await browser("eval", `document.querySelector('[role=tab][aria-selected=true]').focus({preventScroll:true})`);
     await browser("eval", `(() => { const target=document.querySelector(${JSON.stringify(selector)}); const stops=[...document.querySelectorAll('button,input,textarea,[tabindex="0"]')].filter(e=>e.tabIndex>=0 && e.checkVisibility({visibilityProperty:true})); stops[stops.indexOf(target)-1].focus(); })()`);
     await browser("press", 'Tab');
     await wait(`document.activeElement === document.querySelector(${JSON.stringify(selector)}) && document.querySelector(${JSON.stringify(selector)}).dataset.state === 'open'`);
@@ -209,7 +215,8 @@ for (const dismissal of ['Escape', 'outside', 'Models']) it(`u495_pointer_menu_d
   await prepareModels();
   const path = await read<string>(`document.querySelector('.project-tab[data-selected=true]').dataset.path`);
   const calls = await read<number>(`window.__fake.app.of(${JSON.stringify(path)}).calls.filter(c=>c.method==='project.get').length`);
-  await browser('hover', '.project-tab[data-selected=true] [role=tab]');
+  const [x, y] = await read<number[]>(`(() => { const box = document.querySelector('.project-tab[data-selected=true] [role=tab]').getBoundingClientRect(); return [Math.round(box.x + box.width / 2), Math.round(box.y + box.height / 2)]; })()`);
+  await browser('mouse', 'move', String(x), String(y));
   await browser('mouse', 'down', 'right');
   await browser('mouse', 'up', 'right');
   await wait(`!!document.querySelector('[role=menu]')`);
