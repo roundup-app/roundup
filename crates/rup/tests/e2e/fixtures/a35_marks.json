@@ -148,6 +148,23 @@
     },
     {
       "match": {
+        "userMessage": "<session>\nFollow this instruction: What should this Agent do?"
+      },
+      "response": {
+        "content": "{\"title\":\"Later work\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Follow this instruction: What should this Agent do?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Ready for your instructions."
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_a35_child",
         "toolResultContains": "\"parent\":\"1\""
       },

@@ -84,6 +84,11 @@ impl Run {
         };
         run.idle(&run.child).await;
         run.start_door().await;
+        // SessionStart saves the Door's conversation (A21) before Claude Code writes it, so every
+        // later start resumes it (A23) only once its first prompt is on disk; stopped earlier, the
+        // Door keeps a conversation `claude --resume` cannot find.
+        run.idle(&run.door).await;
+        wait(|| written(&run.dir.path().join("config"), DOOR_PROMPT)).await;
         run.stop_door().await;
         run
     }
@@ -289,6 +294,31 @@ fn latest_snapshot(project: &Path) -> Option<Value> {
         .lines()
         .rev()
         .find_map(|line| serde_json::from_str(line).ok())
+}
+
+/// The Door's first prompt, as `tests/fixtures/b21_stopped_door.json` matches it.
+const DOOR_PROMPT: &str = "Follow this instruction: What is this Workstream for?";
+
+/// Whether Claude Code, configured in `config`, has written a conversation whose user message
+/// holds `prompt`.
+fn written(config: &Path, prompt: &str) -> bool {
+    std::fs::read_dir(config.join("projects"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .flat_map(|project| {
+            std::fs::read_dir(project.path())
+                .into_iter()
+                .flatten()
+                .flatten()
+        })
+        .filter(|file| file.path().extension().is_some_and(|ext| ext == "jsonl"))
+        .filter_map(|file| std::fs::read_to_string(file.path()).ok())
+        .any(|conversation| {
+            conversation
+                .lines()
+                .any(|line| line.contains(r#""type":"user""#) && line.contains(prompt))
+        })
 }
 
 async fn wait(ready: impl Fn() -> bool) {

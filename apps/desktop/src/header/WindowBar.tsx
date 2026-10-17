@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
-import { Tooltip } from "../ui";
+import { Tooltip } from "../ui/Tooltip";
 import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { middleCut } from "./middleCut";
