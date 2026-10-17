@@ -49,8 +49,8 @@ describe("u491a Shelf questions and navigation", () => {
 
     await lane.browser("hover", `.shelf [data-id="${one}"] .shelf-title`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'first')");
-    expect(await lane.evaluate<string>("document.querySelector('[role=tooltip]').textContent")).toBe("first");
-    await lane.browser("hover", `.shelf [data-id="${three}"] [data-todo-waits]`);
+    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("first");
+    await lane.browser("hover", `.shelf [data-id="${three}"] .todo-blocker`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'Waits on first')");
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("Waits on first");
   }, 120_000);

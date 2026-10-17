@@ -101,6 +101,7 @@ export const OpenRow = (props: {
         <RowButton
           hang={false}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
+          tooltip={props.todo.title}
           pressed={props.pressed}
           selectionActive={props.selectionActive}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo)}
@@ -115,9 +116,7 @@ export const OpenRow = (props: {
             props.sorted?.button(row);
           }}
         >
-          <Tooltip.Root><Tooltip.Trigger asChild={(trigger) => <span {...trigger()} class="shelf-title">{props.todo.title}</span>} />
-            <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{props.todo.title}</Tooltip.Content></Tooltip.Positioner></Portal>
-          </Tooltip.Root>
+          <span class="shelf-title">{props.todo.title}</span>
         </RowButton>
         <Show when={!props.nested && (props.sorted || props.onSelect)}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
@@ -435,15 +434,14 @@ export const Todos = () => {
                     <RowButton
                       hang={false}
                       label={copy.todoRow(KIND_LABEL[kindOf(todo)], todo.id, todo.title)}
+                      tooltip={todo.title}
                       pressed={selection.selected().includes(todo.id)}
                       selectionActive={selection.selected().length > 0}
                       ref={(row) => selection.register(todo.id, row)}
                       onKeyDown={(event) => selectionKey(todo, event)}
                       onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo))}
                     >
-                      <Tooltip.Root><Tooltip.Trigger asChild={(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>} />
-                        <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{todo.title}</Tooltip.Content></Tooltip.Positioner></Portal>
-                      </Tooltip.Root>
+                      <span class="shelf-title">{todo.title}</span>
                     </RowButton>
                   }
                 />
