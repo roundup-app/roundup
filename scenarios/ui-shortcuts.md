@@ -38,6 +38,8 @@ Policy: all shortcut clauses in `scenarios/ui-keyboard.md` remain passing, inclu
 
 Implementation records command results on its Issue, one row per failing command with its actual exit code and repair; a failed observer is never reported as a pass. Required commands: `just check origin/main`, the named browser observers and the owned-listener search. The specification PR runs `loop/rules.sh vocab`, `loop/rules.sh scenario-ids` and `just check origin/main`; named new tests above are implementation obligations, not asserted to exist on main.
 
+**The Ask bar shortcut.** `⌘/` opens the Ask bar over whatever the Rail selects and closes it again (`scenarios/ask-bar.md`); it clashes with no chord in `apps/desktop/src/keys/chords.ts`, and Help lists it as `Ask bar`. Test: `u504_the_shortcut_opens_it_over_a_door_and_escape_returns`.
+
 ## The ⌘K leader (U2238 to U2241)
 
 Direction: Issue #2335. roundup takes only ⌘N, ⇧⌘N, ⌘T and ⌘K at App scope; every other key reaches the focused Terminal. Bar: Ghostty's default keybinds, Claude Code's keybinding list and Apple's standard Mac shortcuts; ⌘N and ⌘T are the new window and new tab of Mac terminals, so they take nothing from a Terminal. Terms: Agent, Terminal, Bubble, Shelf, Project, Rail (`GLOSSARY.md`). The leader serves the Intervene stage of `.agents/data/journey.md`: the user moves between Agents without roundup taking keys from the Agent's own Terminal. This specification defines implementation acceptance; it claims no shipped leader. The implementation Issue is blocked by this one.

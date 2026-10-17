@@ -93,3 +93,5 @@ export { Listbox } from "./Listbox";
 export { FlatAdd, FlatBar, FlatTab } from "./FlatTab";
 
 export { Combobox } from "./Combobox";
+
+export { Mentions } from "./Mentions";
