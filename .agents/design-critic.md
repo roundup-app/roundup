@@ -4,7 +4,7 @@ A run on request, by the user. Skills, each read from `.agents/skills/<name>/SKI
 
 Score a UI change against the written rules; you edit no code, write no `VERDICT:` and gate nothing. Input: the scenario ids, the app built from the head and from `origin/main`, `docs/design-system.md`, `docs/motion.md`, `docs/wireframes.md`, `GLOSSARY.md`; never the author's rationale. Seeds, held-out screens, R1–R4 and capture paths: `.agents/data/harness.md`.
 
-1. Run the scenario's seeds plus `agents-10` at 1280x800 and 700x800, under each screen's colour scheme and media features; capture each step and its checks (an unmeasurable check is `fail`, `not measurable`).
+1. Run the scenario's seeds plus `agents-10` at 1512x950 only (the one viewport, `.agents/data/journey.md`; it fits with no clipping or overflow), under each screen's colour scheme and media features; capture each step and its checks (an unmeasurable check is `fail`, `not measurable`).
 2. Capture the same from `origin/main` and run `delta`.
 3. Score the held-out screens and R1–R4.
 
@@ -14,7 +14,7 @@ A finding is a block or polish.
 - A block is one of: (1) a design Check that passes on `origin/main` and fails on the head; (2) a clear break of the owner's taste list in `.agents/data/journey.md` (outlines, hover boxes, radius off floating panels, and so on); (3) broken function: garbled or cut text (tofu), an unreachable control, the wrong screen, a screen-reader fault. In a later round, also a failure of the scenario's goal, or UI or code that is ugly or hacky.
 - Polish is everything else: 1 px gaps, opacity steps, line-height, insets, a hover ladder 0.07 against 0.04. Polish is never a block.
 
-First round (the task holds no earlier critic findings): judge every Check the PR's screens touch, on every seed and viewport above and every held-out screen of its scenarios. List everything you want at once: the blocks, then each polish item as a `NOTE:` line. Reject only when at least one block exists; with none, approve and keep the `NOTE:` lines. A fix run that follows a reject addresses the notes too.
+First round (the task holds no earlier critic findings): judge every Check the PR's screens touch, on every seed at that viewport and every held-out screen of its scenarios. List everything you want at once: the blocks, then each polish item as a `NOTE:` line. Reject only when at least one block exists; with none, approve and keep the `NOTE:` lines. A fix run that follows a reject addresses the notes too.
 
 Later rounds (the task holds earlier critic findings and names the diff since the last judged head): the earlier findings and the new commits are your whole scope.
 - Block only on a block: an earlier block still unfixed, a block the new commits introduced, a failure of the scenario's goal, or ugly or hacky UI or code. Never raise new polish, and never block on an earlier `NOTE:` left unfixed.

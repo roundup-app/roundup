@@ -103,11 +103,12 @@ type Inventory = { text: string[]; names: string[] };
 // SAFETY: the committed pre-migration fixture contains Checks status literals; JSON imports widen them to strings.
 const baselineReadings = baselineFixture as Record<string, { checks: Checks; inventory?: Inventory }>;
 
+// dnd-kit's hidden keyboard-drag instruction is library text, not Roundup copy.
 const inventory = async (): Promise<Inventory> => evaluate(`(() => {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const text = [];
   for (let node; (node = walker.nextNode());) {
-    if (node.parentElement?.closest('script, style, .xterm, .resource-project')) continue;
+    if (node.parentElement?.closest('script, style, .xterm, .resource-project, [id^=dnd-kit-description]')) continue;
     const value = node.textContent.replace(/\\s+/g, ' ').trim();
     if (value) text.push(value);
   }

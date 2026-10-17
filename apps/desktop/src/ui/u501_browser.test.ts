@@ -4,6 +4,7 @@ import { beforeAll, expect, it } from "vitest";
 import { captureDir } from "../testing/captures";
 import { CHECK_IDS, type Checks } from "../testing/checks";
 import { browser, read, url, wait } from "./tabsBrowser";
+import { FULLSCREEN } from "../testing/chromePage";
 
 // Overlay only this observer on main; its controls, styles and application remain main's own files.
 beforeAll(() => {
@@ -98,7 +99,7 @@ const capture = async (side: string, name: string) => {
   return checks;
 };
 
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) for (const contrast of [process.env.PROVIDERS_CONTRAST === "more"]) {
+for (const scheme of ["light", "dark"]) for (const width of [FULLSCREEN.width]) for (const contrast of [process.env.PROVIDERS_CONTRAST === "more"]) {
   it(`u501_rendered_checks ${scheme}-${width}-${contrast}`, async () => {
     if (art) expect(process.env.U500_BASE_ROOT).toBeTruthy();
     await browser("set", "media", scheme);
