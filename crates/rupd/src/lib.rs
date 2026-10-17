@@ -1601,7 +1601,10 @@ mod tests {
             .map(|n| n.as_str().unwrap())
             .collect();
         assert!(!names.is_empty());
-        assert_eq!(listed.iter().map(|(name, _)| *name).collect::<Vec<_>>(), names);
+        assert_eq!(
+            listed.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+            names
+        );
         assert_eq!(
             contract["fingerprint"].as_str().unwrap(),
             contracts::methods::fingerprint_of_hashes(&listed)
