@@ -67,7 +67,7 @@
   transform: translateY(-50%);
   display: flex;
   flex: none;
-  gap: var(--space-1);
+  gap: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -492,6 +492,11 @@
   .rail-row .line {
     --rail-gap: var(--space-1);
   }
+}
+
+/* U378: a Workstream's actions keep one even gap; an Agent's group keeps U426's room for the name. */
+[data-part="branch-control"].rail-row .row-icons {
+  gap: var(--space-1);
 }
 
 /* U378: the add keeps its label and marks; folder actions yield room and return on keyboard focus. */
