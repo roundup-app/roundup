@@ -173,7 +173,8 @@ for (const [seed, scheme] of [...seeds.map((seed) => [seed, "light"] as const), 
     // U501 moves the native resource titles to the shared Tooltip; the same words stay in the text inventory above.
     const tooltipped = new Set(["Resident memory", "CPU of one core", "Worktree on disk"]);
 
-    expect(after.names, `${name} accessible names`).toEqual(before.names.filter((value) => !tooltipped.has(value)).map(mapped));
+    // U490a adds the Shelf Todos' Move up and Move down controls, which the pre-migration page lacks.
+    expect(after.names.filter((value) => value !== "Move up" && value !== "Move down"), `${name} accessible names`).toEqual(before.names.filter((value) => !tooltipped.has(value)).map(mapped));
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(head[id].status, `${name} ${id}`).toBe("pass");
 

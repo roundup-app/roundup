@@ -197,6 +197,6 @@ button[aria-disabled="true"] {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
-.todo-project-root[data-todo-drop]:not([aria-pressed="true"]) {
+.todo-project-root[data-drop]:not([aria-pressed="true"]) {
   background: var(--hover);
 }

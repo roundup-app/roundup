@@ -136,10 +136,10 @@ run('u362 rendered Todo drag', () => {
       const to = await point('.rail-row[aria-expanded]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
-      expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
+      expect(await page.call<string>(`() => document.querySelector('[data-drop]')?.dataset.id`)).toBe(home);
 
       const paint = await page.call<{image: string; wash: string; colour: string}>(`() => {
-        const css = getComputedStyle(document.querySelector('[data-todo-drop]'));
+        const css = getComputedStyle(document.querySelector('[data-drop]'));
         return {image: css.backgroundImage, wash: css.getPropertyValue('--hover').trim(), colour: css.backgroundColor};
       }`);
 
@@ -210,7 +210,7 @@ run('u363 Todo rows in the worst case', () => {
       const to = await point('.rail-row[aria-expanded]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
-      expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
+      expect(await page.call(`() => Boolean(document.querySelector('[data-drop]'))`)).toBe(true);
       await capture('U363', `${scheme}-${shelfWidth}-drag`, {rows, base, checks: await page.call(`() => window.__checks()`)});
       await page.pointer('up', to.x, to.y);
       await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.move')`);
@@ -245,7 +245,7 @@ run('u362 rendered move failure', () => {
       const to = await point('.rail-row[aria-expanded]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
-      expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
+      expect(await page.call(`() => Boolean(document.querySelector('[data-drop]'))`)).toBe(true);
       await page.call(`() => window.__fake.failNext(-32000, 'Cannot move this Todo')`);
       await page.pointer('up', to.x, to.y);
       await page.until(`() => document.querySelector('.shelf [role="alert"]')?.textContent.includes('Cannot move this Todo')`);

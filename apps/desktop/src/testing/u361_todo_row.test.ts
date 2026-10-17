@@ -286,6 +286,9 @@ run("u361 the rendered Todo row", () => {
         await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
         // The real keyboard generates the native change event; Tab visits row then box.
         await page.call(`() => document.querySelector('.shelf [data-todo-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
+        // Tab visits row, Move up, Move down, then box.
+        await page.press("Tab", "Tab");
+        await page.press("Tab", "Tab");
         await page.press("Tab", "Tab");
         expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
         await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
