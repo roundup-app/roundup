@@ -147,17 +147,46 @@ async fn fixture() -> Fix {
     }
     project.model.as_ref().unwrap().assert_matched();
     let user = project.client().await;
-    Fix {
+    let fx = Fix {
         project,
         user,
         ws,
         a,
         b,
+    };
+    // Claude Code writes a turn's records to its conversation file after the turn's Stop Signal.
+    // A Mark recorded before then holds no message, and a rewind's resume of it finds no
+    // conversation.
+    for node in rail_tree(&fx.user).await {
+        let cwd = node.worktree.map_or_else(
+            || fx.project.dir.path().to_owned(),
+            |tree| PathBuf::from(tree.path),
+        );
+        daemon::h21_poll(
+            "each turn's reply in its conversation file",
+            async || match conversations(&fx, &cwd).as_slice() {
+                [file] => replied(file).then_some(()),
+                _ => None,
+            },
+        )
+        .await;
     }
+    fx
 }
 
 /// The conversation file real Claude saved for `agent`, found by the words of its first ask.
 fn transcript(fx: &Fix, cwd: &Path) -> PathBuf {
+    let files = conversations(fx, cwd);
+    assert_eq!(
+        files.len(),
+        1,
+        "one saved conversation for {cwd:?}: {files:?}"
+    );
+    files.into_iter().next().unwrap()
+}
+
+/// The conversation files real Claude has saved for an Agent working in `cwd`.
+fn conversations(fx: &Fix, cwd: &Path) -> Vec<PathBuf> {
     let project: String = cwd
         .canonicalize()
         .unwrap()
@@ -171,17 +200,21 @@ fn transcript(fx: &Fix, cwd: &Path) -> PathBuf {
         .path()
         .join("claude-config/projects")
         .join(project);
-    let files: Vec<PathBuf> = std::fs::read_dir(&dir)
-        .unwrap_or_else(|e| panic!("{dir:?}: {e}"))
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
         .map(|e| e.unwrap().path())
         .filter(|p| p.extension().is_some_and(|x| x == "jsonl"))
-        .collect();
-    assert_eq!(
-        files.len(),
-        1,
-        "one saved conversation in {dir:?}: {files:?}"
-    );
-    files.into_iter().next().unwrap()
+        .collect()
+}
+
+/// Whether the conversation file holds a complete reply record.
+fn replied(file: &Path) -> bool {
+    std::fs::read_to_string(file).is_ok_and(|text| {
+        text.lines().any(|line| {
+            serde_json::from_str::<Value>(line).is_ok_and(|record| record["type"] == "assistant")
+        })
+    })
 }
 
 async fn write(fx: &Fix) -> Value {
