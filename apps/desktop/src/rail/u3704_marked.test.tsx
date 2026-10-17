@@ -24,4 +24,9 @@ it("u3704_marked_kind_glyphs_and_counts", async () => {
   fireEvent.click(rowOf("shut ws").querySelector('button[aria-label="Collapse"]')!);
   expect(rowOf("shut ws").querySelector(".folded-agents")?.hasAttribute("data-state")).toBe(true);
   expect(rowOf("ask-1").querySelector(".glyph")?.hasAttribute("data-state")).toBe(true);
+
+  for (const state of document.querySelectorAll(".glyph[data-state], .ink-count[data-state], .folded-agents[data-state]")) {
+    expect(state.matches("button, a, input, [role=button]")).toBe(false);
+    expect(state.getAttribute("tabindex") ?? "-1").toBe("-1");
+  }
 });
