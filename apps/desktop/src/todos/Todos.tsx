@@ -103,7 +103,7 @@ export const OpenRow = (props: {
         <RowButton
           hang={false}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
-          tooltip={props.todo.title}
+          tooltip={failure() === null ? props.todo.title : undefined}
           pressed={props.pressed}
           selectionActive={props.selectionActive}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo)}
