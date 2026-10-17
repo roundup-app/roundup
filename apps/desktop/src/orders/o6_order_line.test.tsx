@@ -38,7 +38,7 @@ describe("O6: the order on one line above the Terminal", () => {
     );
   });
 
-  it("o6_a_clarification_order_agent_and_a_door_show_their_question", async () => {
+  it("o6_a_clarification_order_agent_shows_its_question_and_a_door_shows_none", async () => {
     await mount();
 
     select("beta");
@@ -47,14 +47,8 @@ describe("O6: the order on one line above the Terminal", () => {
     );
 
     select("harbor");
-    // U422: a Workstream's order is the Thread's goal line, not the line above the Terminal.
-    await waitFor(() =>
-      expect(
-        document.querySelector(
-          "[data-thread-header] [aria-label='Order of harbor']",
-        )?.textContent,
-      ).toBe("what is this Workstream for?"),
-    );
+    // U467: a Workstream's Door shows only its Terminal, so no order line sits above it.
+    await waitFor(() => expect(line()).toBeNull());
     expect(line()).toBeNull();
   });
 

@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../../app/seam";
 import type { AppSeam } from "../../app/seam";
-import { clearingOf } from "../../thread/clear";
+import { clearingOf } from "../clear";
 import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
 import { createChoices } from "../../models/choices";
@@ -131,22 +131,28 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (current) void resume(current.node.id);
   };
 
-  /** U350: the same word as the Thread header's, only for a Workstream and not while its clear is pending. */
+  /** U350: the same word as the former Thread header's, only for a Workstream and not while its clear is pending. */
   const isClearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
 
   const canClear = (current: MenuState) => isClearable(current.node);
+
+  /** U350: the Workstream whose reason prompt the Rail shows, opened from its row menu or its clear icon. */
+  const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
 
   const chooseClear = () => {
     const current = state();
 
     close();
 
-    if (current) clearingOf(app, events, current.node.id).open();
+    if (current) requestClear(current.node);
   };
 
   /** U427: the Rail's clear icon opens U350's reason prompt for the Workstream. */
   const requestClear = (node: RailNode) => {
-    if (isClearable(node)) clearingOf(app, events, node.id).open();
+    if (!isClearable(node)) return;
+
+    setClearTarget(node);
+    clearingOf(app, events, node.id).open();
   };
 
   const chooseRemove = () => {
@@ -236,6 +242,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseRemove,
     chooseClear,
     canClear,
+    clearTarget,
     requestRemove,
     requestStop,
     requestClear,
