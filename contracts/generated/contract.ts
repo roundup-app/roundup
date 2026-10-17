@@ -1,6 +1,6 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 export const CONTRACT = {
-  fingerprint: "f5b20492f8627dce",
+  fingerprint: "74eeaa9078dcfff7",
   methods: [
     "agent.actionHistory",
     "agent.ask",
