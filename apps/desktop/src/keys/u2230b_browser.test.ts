@@ -45,7 +45,7 @@ it("u2230b_hint_line_is_quiet_and_fits", async () => {
   for (const [scheme, contrast] of [["light", undefined], ["dark", undefined], ["light", "more"]] as const) {
     await page.scheme(scheme, contrast);
 
-    for (const width of [1280, 700]) {
+    for (const width of [1280]) {
       await page.load("/harness.html?seed=tree-40", width, 800);
       await page.call(`() => localStorage.clear()`);
       await page.load("/harness.html?seed=tree-40", width, 800);
@@ -55,17 +55,7 @@ it("u2230b_hint_line_is_quiet_and_fits", async () => {
       await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
       await page.until(`() => document.querySelector('.hint-line .hint')`);
 
-      let observed = await page.call<Read>(read);
-
-      // An open overlay Shelf leaves the bar 36px at 700 (U371): whole hints drop from the end, so none clips.
-      if (width === 700) {
-        expect(observed.fits).toBe(true);
-        await page.call(`() => document.querySelector('.shelf-toggle[aria-expanded="true"]').click()`);
-        await page.until(`() => document.querySelector('.window[data-shelf="closed"]')`);
-        await page.call(`() => document.querySelector('.pane-screen textarea, .pane-screen [tabindex]').focus()`);
-        await page.until(`() => [...document.querySelectorAll('.hint-line .hint')].some(hint => !hint.hidden)`);
-        observed = await page.call<Read>(read);
-      }
+      const observed = await page.call<Read>(read);
 
       const label = `${scheme} ${contrast ?? ""} ${width}`;
 

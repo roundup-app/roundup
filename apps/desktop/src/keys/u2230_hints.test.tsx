@@ -24,6 +24,8 @@ const focusableEmulator = (): EmulatorFactory => () => {
     onLink: () => {},
     paste: () => {},
     onInput: () => {},
+    turns: () => [],
+    selectTurn: () => {},
     show: (host) => {
       host.replaceChildren(field);
 
