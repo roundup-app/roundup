@@ -240,7 +240,7 @@ export const copy = {
   takeControlKeys: "⌘⏎",
   readOnlyTakeControlWith: "Read-only. ⌘⏎ takes control",
   switcherLabel: "Switch to",
-  switcherPlaceholder: "Agent or Terminal",
+  switcherPlaceholder: "Name",
   noMatch: "No match",
   selectAnAgentOrATerminal: "Select an Agent or a Terminal",
   creatingWorkstream: "Creating Workstream…",
