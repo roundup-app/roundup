@@ -772,3 +772,7 @@
 .rail-row[data-drop="hover"] {
   background: var(--hover);
 }
+
+.rail-tree [data-dnd-dragging] {
+  border-radius: var(--tree-row-radius);
+}

@@ -180,19 +180,7 @@ export const Rail = () => {
   };
 
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
-  const railStep = (): number => {
-    const tree = container();
-
-    if (!tree) return 1;
-
-    const probe = tree.appendChild(document.createElement("span"));
-    probe.style.display = "inline-block";
-    probe.style.width = "var(--rail-step)";
-    const width = probe.getBoundingClientRect().width;
-    probe.remove();
-
-    return width > 0 ? width : 1;
-  };
+  const [railStep, setRailStep] = createSignal(1);
 
   const [drop, setDrop] = createSignal<{ depth: number; top: number } | null>(null);
 
@@ -210,6 +198,19 @@ export const Rail = () => {
   };
 
   onMount(() => {
+    const tree = container();
+
+    if (tree) {
+      // --rail-step is a calc(), so a probe resolves it to pixels once.
+      const probe = tree.appendChild(document.createElement("span"));
+      probe.style.display = "inline-block";
+      probe.style.width = "var(--rail-step)";
+      const width = probe.getBoundingClientRect().width;
+      probe.remove();
+
+      if (width > 0) setRailStep(width);
+    }
+
     const press = (event: PointerEvent) => {
       pointerPressed = true;
       pointerAt = { x: event.clientX, y: event.clientY };
@@ -235,11 +236,11 @@ export const Rail = () => {
 
     window.addEventListener("pointerdown", press, { capture: true });
     window.addEventListener("pointermove", follow, { capture: true });
-    window.addEventListener("keydown", lift, { capture: true });
+    container()?.addEventListener("keydown", lift, { capture: true });
     onCleanup(() => {
       window.removeEventListener("pointerdown", press, { capture: true });
       window.removeEventListener("pointermove", follow, { capture: true });
-      window.removeEventListener("keydown", lift, { capture: true });
+      container()?.removeEventListener("keydown", lift, { capture: true });
     });
   });
 
@@ -482,8 +483,6 @@ export const Rail = () => {
         const open = new Set(details.expandedValue);
 
         for (const id of collection().getBranchValues()) if (open.has(id) === collapsed().has(id)) rail.toggleCollapsed(id);
-      }}
-      style={{
       }}
     >
       <SectionHead icon="messages" label={copy.workstreamsHead} />
