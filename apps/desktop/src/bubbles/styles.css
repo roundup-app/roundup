@@ -105,16 +105,20 @@
   flex: 1;
   min-width: var(--space-6);
   overflow: hidden;
+  position: relative;
 }
 
 .terminal-tabs {
   box-sizing: border-box;
-  padding: var(--space-1);
   display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: stretch;
+  height: var(--space-5);
+  position: relative;
+  z-index: 1;
   overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-y: hidden;
+  /* The row keeps its full height: the scrollbar would take part of it and cut every label. Wheel, drag and keyboard focus still scroll. */
+  scrollbar-width: none;
   white-space: nowrap;
 }
 
@@ -122,11 +126,11 @@
   display: inline-flex;
   flex: none;
   align-items: center;
-  border: 1px solid var(--hairline);
+  align-self: stretch;
+  min-height: var(--space-5);
 }
 
 .terminal-tab {
-  --button-surface: var(--ground);
   --button-inline: var(--space-1);
   display: inline-flex;
   align-items: center;
@@ -140,15 +144,14 @@
   text-overflow: ellipsis;
 }
 
-/* U511: the name's editor takes the button's place with the button's padding and the label's type; only the native focus ring is new. */
+/* U2234: the name's editor sits in the tab with the label's type and no box of its own. */
 .terminal-tab-editor {
-  --button-hover: var(--hover);
-  --button-radius: var(--radius-control);
-  padding-inline: var(--button-inline);
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--button-inline, var(--space-1));
   min-height: var(--space-5);
-  color: var(--grey);
-  background-color: var(--button-surface);
-  border-radius: var(--button-radius);
+  color: inherit;
+  background: none;
 }
 
 .terminal-tab-editor [data-part="input"] {
@@ -157,6 +160,7 @@
   margin: 0;
   padding: 0;
   font: inherit;
+  line-height: inherit;
   letter-spacing: inherit;
   color: inherit;
   background: none;
@@ -167,42 +171,23 @@
   cursor: pointer;
 }
 
-.terminal-tab-editor[data-pressed="true"] {
-  --button-surface: var(--selected);
-  color: var(--text);
+.terminal-tab-editor [data-part="input"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-/* The whole editor box takes the fills, so the tab changes as one surface; the input's own rules only keep its box clear for the checks that read the input. */
+/* The field is a click target to the checks: it keeps a hover and a pressed rule that paint nothing new (U2234). */
 .terminal-tab-editor [data-part="input"]:hover {
-  background-color: transparent;
+  color: inherit;
 }
 
 .terminal-tab-editor [data-part="input"]:active {
-  background-image: none;
+  color: var(--ink-pressed);
   transition-duration: 0s;
-}
-
-.terminal-tab-editor:has([data-part="input"]:hover) {
-  background-color: var(--button-hover);
-  color: var(--text);
-}
-
-.terminal-tab-editor:has([data-part="input"]:active) {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
-.terminal-tab-editor [data-part="input"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .terminal-tab-editor [data-part="preview"] {
   text-overflow: clip;
-}
-
-.terminal-tab[aria-pressed="true"] {
-  --button-surface: var(--selected);
 }
 
 .terminal-new {

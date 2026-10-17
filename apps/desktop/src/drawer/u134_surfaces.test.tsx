@@ -77,7 +77,7 @@ describe("u134 surfaces and depth", () => {
 
       for (const side of ["top", "right", "bottom", "left"]) {
         if (style.getPropertyValue(`border-${side}-style`) in { none: 1, "": 1 }) continue;
-        expect(resolveToken(style.getPropertyValue(`border-${side}-width`), tokens), el.className).toMatch(/^(0|1px)$/);
+        expect(resolveToken(style.getPropertyValue(`border-${side}-width`), tokens), el.className).toMatch(/^(0|0px|1px)$/);
         expect(style.getPropertyValue(`border-${side}-color`), el.className).toBe("var(--hairline)");
       }
     }

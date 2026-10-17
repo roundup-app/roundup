@@ -86,7 +86,7 @@ export const WindowBar = (props: {
   };
 
   return (
-    <div class="window-bar" onMouseDown={(event) => {
+    <div class="window-bar" data-flat-bar="" onMouseDown={(event) => {
       if (event.button === 0 && empty(event.target)) void action(event.detail === 2 ? "zoom" : "drag");
     }}>
       <div class="traffic-lights" aria-hidden="true" />
