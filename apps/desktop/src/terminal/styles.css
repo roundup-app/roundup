@@ -198,11 +198,8 @@
   padding: 0;
   border: 0;
   background: var(--hairline);
+  --button-hover: var(--accent);
   pointer-events: auto;
   cursor: pointer;
 }
 
-/* The selector outranks the global `button:hover` rule, which would otherwise dim the strip. */
-.turn-strips button.turn-gutter[type]:hover:not([aria-disabled="true"]) {
-  background: var(--accent);
-}
