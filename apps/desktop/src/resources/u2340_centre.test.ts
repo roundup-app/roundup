@@ -59,11 +59,13 @@ it("u2340a_the_show_button_floats_at_the_terminals_corner", async () => {
 it("u2340a_overlay_and_closed_shelf_keep_the_same_alignment", async () => {
   for (const [width, shelf] of [[1512, "closed"], [900, "overlay"]] as const) {
     await open(width);
+
     if (shelf === "overlay") {
       await page.call(`() => document.querySelector('[aria-label="Show work items"]').click()`);
       await page.until(`() => document.querySelector(".window").dataset.shelf === "open"`);
       expect(await page.call<string>(`() => document.querySelector(".window").dataset.shelfMode`)).toBe("overlay");
     }
+
     const { centre, pane, bar, space2 } = await page.call<Boxes>(BOXES);
 
     for (const box of [pane, bar]) {
@@ -123,6 +125,7 @@ it("u2340a_checks_hold_on_the_densest_seed", async () => {
   await page.until(`() => document.querySelectorAll('.terminal-tab').length === 16 && document.querySelector('.resource-stale') && document.querySelector('.pane-failure [role="alert"]')`);
 
   const { pane, bar, space5 } = await page.call<Boxes>(BOXES);
+
   const read = await page.call<{ clipped: string[] }>(`() => {
     const bar = document.querySelector('.resource-strip').getBoundingClientRect();
     return {clipped: [...document.querySelectorAll('.resource-value,.resource-stale')].filter(e => { const r = e.getBoundingClientRect(); return r.width === 0 || r.right > bar.right || r.left < bar.left || r.top < bar.top - 1 || r.bottom > bar.bottom + 1; }).map(e => e.textContent)};
