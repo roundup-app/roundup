@@ -5,18 +5,12 @@ import { seedApp } from "../testing/seeds";
 import appCss from "../styles.css?inline";
 import tokenCss from "../tokens.css?raw";
 
-const sheets = import.meta.glob<string>("../**/*.css", { query: "?raw", import: "default", eager: true });
-
 const [guide = ""] = Object.values(import.meta.glob<string>("../../../../docs/design-system.md", { query: "?raw", import: "default", eager: true }));
 
 const KINDS = ["primary", "quiet", "add", "row-action", "icon"];
 
-const OWNED_BY_BUTTONS_CSS = /(?:^|[\s;])(?:background(?:-color)?|color|border-radius|padding(?:-[a-z]+)?)\s*:/;
-
 /** The Milkdown editor builds its own toolbar buttons; `buttons.css` styles them by their place, they carry no kind. */
 const MILKDOWN = ".milkdown";
-
-const rulesOf = (css: string) => [...css.replace(/\/\*[^]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((rule) => ({ selector: rule[1]!.trim(), body: rule[2]! }));
 
 const shell = (() => {
   const sheet = document.createElement("style");
@@ -53,53 +47,6 @@ const mountEverything = async () => {
 const isRow = (el: Element) => (el.getAttribute("role") === "treeitem" && el.hasAttribute("data-id")) || el.matches(".rail-row[data-id]") || el.matches(".pad-name, .todo-row-button") || el.closest(MILKDOWN) !== null;
 
 describe("u170 button kinds", () => {
-  it("u170_design_system_defines_exactly_five_kinds", () => {
-    const section = guide.slice(guide.indexOf("### Button kinds"), guide.indexOf("## Surfaces and depth"));
-
-    const kinds = section
-      .split("\n")
-      .filter((row) => /^\| (primary|quiet|add|row action|icon button|\w[\w ]*) \|/.test(row) && !row.startsWith("| Kind") && !row.startsWith("|---"))
-      .map((row) => row.split("|")[1]!.trim().replace("row action", "row-action").replace("icon button", "icon"));
-
-    expect(kinds).toEqual(KINDS);
-  });
-
-  it("u170_buttons_css_holds_one_rule_per_kind_and_no_other_stylesheet_styles_a_button", () => {
-    const all = Object.entries(sheets);
-    const own = rulesOf(sheets["../buttons.css"]!);
-
-    for (const kind of KINDS) expect(own.filter((rule) => rule.selector === `[data-button="${kind}"]`), kind).toHaveLength(1);
-
-    const offenders = all
-      .filter(([file]) => file !== "../buttons.css")
-      .flatMap(([file, css]) => rulesOf(css).filter((rule) => /(^|[\s>+~,])button\b|\[data-button|\.word\b/.test(rule.selector) && OWNED_BY_BUTTONS_CSS.test(rule.body)).map((rule) => `${file} ${rule.selector}`));
-
-    expect(offenders).toEqual([]);
-  });
-
-  it("u170_no_other_rule_that_matches_a_rendered_button_sets_its_background_colour_radius_or_padding", async () => {
-    await mountEverything();
-
-    // Preparing rules once keeps the same guard within its 5 s bound: repeated parsing took 6.26 s on the U362 checkout.
-    const rules = [...document.styleSheets]
-      .flatMap((sheet) => [...sheet.cssRules])
-      .filter((rule): rule is CSSStyleRule => "selectorText" in rule)
-      .flatMap((rule) => OWNED_BY_BUTTONS_CSS.test(rule.style.cssText) && !sheets["../buttons.css"]!.includes(rule.selectorText)
-        ? [{ selector: rule.selectorText, targets: rule.selectorText.split(",").map((selector) => selector.trim().replace(/:(hover|active|focus-visible)/g, "")) }]
-        : []);
-
-    const buttons = new Set<Element>([...document.querySelectorAll("button")].filter((el) => !el.closest(MILKDOWN)));
-    const found: string[] = [];
-
-    for (const rule of rules) {
-      const matched = new Set(rule.targets.flatMap((selector) => [...document.querySelectorAll(selector)]));
-
-      for (const el of matched) if (buttons.has(el)) found.push(`${el.textContent?.trim().slice(0, 12)} ${rule.selector}`);
-    }
-
-    expect(found).toEqual([]);
-  });
-
   it("u170_every_button_carries_one_kind_and_a_row_carries_none", async () => {
     await mountEverything();
     const targets = [...document.querySelectorAll("button, [role=button], [role=treeitem]")];

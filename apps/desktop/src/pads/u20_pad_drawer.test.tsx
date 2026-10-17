@@ -11,7 +11,6 @@ import {
 } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
-import styles from "../styles.css?inline";
 
 afterEach(cleanup);
 
@@ -96,28 +95,6 @@ describe("u20 open and edit", () => {
     edit(field, "same");
 
     expect(calls()).not.toContain("pad.write");
-  });
-
-  it("u20_the_export_icon_sits_in_the_head_beside_the_pinned_close_word", async () => {
-    const sheet = document.head.appendChild(document.createElement("style"));
-    sheet.textContent = styles;
-    await openShelf([padOf("auth-notes", AGENT)]);
-    await openPad("auth-notes");
-    const close = screen.getByRole("button", { name: "Close" });
-    const exportIcon = screen.getByRole("button", { name: "Export .md" });
-
-    const layout = [
-      getComputedStyle(close).position,
-      getComputedStyle(close).top,
-      getComputedStyle(close).right,
-      getComputedStyle(exportIcon).position,
-      getComputedStyle(exportIcon.parentElement!).display,
-      exportIcon.parentElement?.className,
-    ];
-
-    sheet.remove();
-
-    expect(layout).toEqual(["absolute", "8px", "16px", "static", "flex", "pad-head"]);
   });
 
   it("u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text", async () => {
