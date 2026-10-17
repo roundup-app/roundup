@@ -75,7 +75,7 @@ Under rule 10 the implementation deletes these clauses and their tests; it migra
 | `⌘B`, `⇧⌘B` next and previous Bubble | U165; `scenarios/ui-terminal-tabs.md` Keys and Pull; `scenarios/ui-read-output.md`, `scenarios/ui-bubble-pull.md` where they name the keys | the keys; chips stay clickable |
 | `⌘1`, `⌘2` focus the Rail and the pane | U41 | the keys |
 | `⇧⌘]`, `⇧⌘[` change Project | U186; `scenarios/project-tabs.md` Keys | the keys; the tabs stay clickable |
-| `⌘,` Models | U377, U480's Models test | the key; the Models button stays |
+| `⌘,` Models | U377, U480's Models test | the key and the Models button; U377 retires the sheet |
 | `⌘J`, `⇧⌘J` | U30, U45, U186 | replaced by leader `J`, `⇧J` (U2239) |
 | `⌘.`, `⇧⌘⌫` | U165 | replaced by leader `M`, `W` (U2239) |
 | `⌘\` | U370 | replaced by leader `S` (U2239) |
