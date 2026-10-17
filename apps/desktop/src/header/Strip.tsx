@@ -1,4 +1,5 @@
-import { Tabs, IconButton } from "../ui";
+import { Tabs } from "../ui/Tabs";
+import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { chordsFor, leaderChord } from "../keys/chords";

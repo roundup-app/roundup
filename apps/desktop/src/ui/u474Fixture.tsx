@@ -1,5 +1,8 @@
 import { createSignal } from "solid-js";
-import { AlertDialog, Dialog, IconButton, Menu, Tooltip } from "./index";
+import { AlertDialog, Dialog } from "./Dialog";
+import { IconButton } from "./IconButton";
+import { Menu } from "./Menu";
+import { Tooltip } from "./Tooltip";
 import "../tokens.css";
 import "../styles.css";
 import "../buttons.css";

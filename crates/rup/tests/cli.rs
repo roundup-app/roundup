@@ -728,7 +728,7 @@ async fn i7_read_prints_text_on_stdout_and_next_on_stderr() {
     assert_eq!(err(&output), "next: 5\ntruncated\n");
     assert_eq!(
         request_of(&mut seen, "terminal.read").await,
-        json!({"id": "3", "after": 120})
+        json!({"id": "3", "after": 120, "reader": "a1"})
     );
 }
 
@@ -940,6 +940,24 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
             );
         }
     }
+}
+
+#[tokio::test]
+async fn b48_the_cli_prints_why() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("rupd.sock");
+    let _requests = stand_in(
+        &socket,
+        false,
+        vec![(
+            "agent.wake",
+            json!({"id": 7, "fired": false, "why": "already working"}),
+        )],
+        &[],
+    );
+    let plain = on(&socket).rup(&["agent", "wake", "3"]).await;
+    assert_eq!(code(&plain), 0, "{}", err(&plain));
+    assert_eq!(out(&plain), "woken: 7\nwhy: already working\n");
 }
 
 #[tokio::test]
