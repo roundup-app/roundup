@@ -59,7 +59,7 @@ for (const scheme of ["light", "dark"] as const) {
 
     const row = await page.call<{ labels: string[]; gaps: number[]; token: number; borders: string[] }>(`() => {
       const icons = document.activeElement.querySelector('.row-icons');
-      const buttons = [...icons.querySelectorAll('button')].filter(b => b.getBoundingClientRect().width > 0);
+      const buttons = [...icons.querySelectorAll('button')].filter(b => b.getBoundingClientRect().width > 0 && getComputedStyle(b).position !== 'absolute');
       const boxes = buttons.map(b => b.getBoundingClientRect());
       return {
         labels: buttons.map(b => b.getAttribute('aria-label')),
