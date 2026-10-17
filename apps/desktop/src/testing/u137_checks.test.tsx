@@ -3,7 +3,7 @@ import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest
 import { App } from "../App";
 import { CHECK_IDS, runChecks } from "./checks";
 import { withStylesheets } from "./contrast";
-import { chromePath, openPage } from "./chromePage";
+import { chromePath, openPage, FULLSCREEN } from "./chromePage";
 import type { Checks } from "./checks";
 import { seedApp } from "./seeds";
 
@@ -304,7 +304,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     }, 60_000);
   }
 
-  for (const scheme of ["light", "dark"] as const) for (const width of [1280, 1440]) {
+  for (const scheme of ["light", "dark"] as const) for (const width of [FULLSCREEN.width]) {
     it(`u161_checks_${scheme}_d5_on_painted_layout_at_${width}_by_800`, async () => {
       await page.scheme(scheme);
       await load("door-stopped", width);

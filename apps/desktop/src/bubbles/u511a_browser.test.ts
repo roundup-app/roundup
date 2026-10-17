@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { chromePath, openPage } from "../testing/chromePage";
+import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
 
 let page: ChromePage;
@@ -32,7 +32,7 @@ const probe = `(selector) => {
 }`;
 
 const open = async (width: number): Promise<void> => {
-  await page.load('/harness.html?seed=bubbles', width, 800);
+  await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
   await page.until(`() => Boolean(window.__fake)`);
   await page.call(`() => document.querySelector('[data-id="runner"]').click()`);
   await page.until(`() => document.querySelector('.terminal-tab-name')`);
@@ -69,7 +69,7 @@ it("u511a_editor_matches_label_type_and_baseline", async () => {
 }, 90_000);
 
 it("u511a_entry_keeps_the_surrounding_rectangles", async () => {
-  for (const width of [1280, 1440]) {
+  for (const width of [FULLSCREEN.width]) {
     await open(width);
 
     const before = await page.call<Look>(probe, '.terminal-tab-name');
@@ -151,7 +151,7 @@ type Readings = Record<string, { status: "pass" | "fail" }>;
 
 const readings = () => page.call<Readings>(`() => import('/src/testing/checks.ts').then(module => module.runChecks())`);
 
-for (const scheme of ["light", "dark"] as const) for (const width of [1280, 1440]) for (const reduced of [undefined, "motion"] as const) {
+for (const scheme of ["light", "dark"] as const) for (const width of [FULLSCREEN.width]) for (const reduced of [undefined, "motion"] as const) {
   it(`u511a_rendered_checks ${scheme}-${width}-${reduced ?? "normal"}`, async () => {
     await page.scheme(scheme, undefined, reduced);
     await open(width);

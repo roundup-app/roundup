@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { captureDir } from "../testing/captures";
 import { promisify } from "node:util";
 import { createServer } from "vite";
-import { chromePath } from "../testing/chromePage";
+import { chromePath, FULLSCREEN } from "../testing/chromePage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import styles from "../styles.css?inline";
 
@@ -184,7 +184,7 @@ it("u507_layout_host_measures_owned_panels_without_changing_grid_or_shelf_placem
 
     await browser("eval", "(async () => { await document.fonts.ready; (await import('/u507-host.js')).mount(); })()");
 
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       await browser("set", "viewport", String(width), "800");
 
       for (const open of [true, false]) {
@@ -308,7 +308,7 @@ it("u507_layout_checks", async () => {
   for (const side of main ? ["base", "head"] : ["head"]) {
     const origin = (side === "base" ? main! : server).resolvedUrls!.local[0];
 
-    for (const width of [1280, 1440]) {
+    for (const width of [FULLSCREEN.width]) {
       await browser("set", "viewport", String(width), "800");
       const url = `${origin}harness.html?seed=tree-40${side === "head" && !captureDir("U495") ? "&bound=1" : ""}`;
       await browser("open", url);
