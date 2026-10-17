@@ -5,7 +5,7 @@ import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
-import { resolvedWorkstream } from "../rail/layout";
+import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
@@ -75,7 +75,22 @@ export const Bubbles = (props: { screens: Screens }) => {
     return box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : FALLBACK_EXTENT;
   };
 
-  const shown = createMemo(() => shownFor(rail.terminals(), rail.nodes, rail.selected()));
+  // U524: the Terminal opened from the Project root stays shown while the selection stays there.
+  const [fromRoot, setFromRoot] = createSignal<string | null>(null);
+
+  const shown = createMemo(() => rail.selected() === null && fromRoot() !== null
+    ? rail.terminals().filter((terminal) => terminal.id === fromRoot())
+    : shownFor(rail.terminals(), rail.nodes, rail.selected()));
+
+  // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
+  createEffect(() => {
+    const stack = layer()?.parentElement;
+
+    if (!stack) return;
+
+    stack.toggleAttribute("data-root-terminal", fromRoot() !== null && shown().length > 0);
+    onCleanup(() => stack.removeAttribute("data-root-terminal"));
+  });
 
   const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
 
@@ -107,7 +122,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     persistPlaces(next);
   });
 
-  createEffect(() => { if (resolvedWorkstream(rail.nodes, rail.selected()) !== null) setSelectionMessage(false); });
+  createEffect(on(() => [rail.selected(), rail.nodes.some(isWorkstream)] as const, () => setSelectionMessage(false), { defer: true }));
 
   const setPlace = (id: string, place: Place): void => {
     const next = { ...places(), [id]: place };
@@ -298,13 +313,15 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
   const openTerminal = async (): Promise<string | null> => {
-    const workstream = resolvedWorkstream(rail.nodes, rail.selected());
+    // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
+    const workstream = resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
 
     if (opening() || readOnly()) return null;
 
     if (workstream === null) {
       setSelectionMessage(true);
       setFailure(null);
+      document.querySelector<HTMLElement>(".rail-actions [data-button='add']")?.focus();
 
       return null;
     }
@@ -314,6 +331,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     try {
       const opened = await app.rpc("terminal.open", { workstream });
 
+      setFromRoot(rail.selected() === null ? opened.terminal_id : null);
       setWanted(opened.terminal_id);
       setFailure(null);
       await rail.refresh({ terminals: true });
@@ -807,7 +825,7 @@ export const Bubbles = (props: { screens: Screens }) => {
           <button type="button" data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</button>
         </div>
       </Portal>}</Show>
-      <Show when={selectionMessage()}><div class="bubble-failure" role="status">{copy.selectAWorkstreamFirst}</div></Show>
+      <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );

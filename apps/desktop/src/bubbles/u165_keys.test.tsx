@@ -26,8 +26,7 @@ describe("u165 the keys for bubbles", () => {
     const nothing = await mountBubbles(null);
 
     bubbleChord("t");
-    expect(bubbleCalls(nothing.app, "terminal.open")).toEqual([]);
-    expect(document.querySelector('.bubble-failure[role="status"]')?.textContent).toBe("Select a Workstream first");
+    await waitFor(() => expect(bubbleCalls(nothing.app, "terminal.open")).toEqual([{ workstream: "w" }]));
     expect(bubbleChord("t", { shiftKey: true }).defaultPrevented).toBe(false);
     expect(bubbleChord("t", { ctrlKey: true }).defaultPrevented).toBe(false);
   });
