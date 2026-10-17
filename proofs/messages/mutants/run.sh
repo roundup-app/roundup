@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # V5: each law needs a clean baseline and a proof rejection from its intentional mutation.
+# B39 (the in-flight step) shares inv with M1/M5/M6; its mutant keeps a confirmed batch in flight.
 # M1/M5/M6 share inv. M8's trailing A35 refinements use helpers from every section,
 # so M8 checks the complete proof; the other laws keep lib and their own section.
 # M1/M5/M6 reject in the shared uniqueness/partition invariant. M3 checks Takeover
@@ -12,7 +13,7 @@ dir=$(dirname "$here")
 BEND=${BEND:-$dir/../.tools/bend/bin/bend}
 export BEND_NO_TELEMETRY=1
 laws=("$@")
-[ ${#laws[@]} -ne 0 ] || laws=(m1 m2 m3 m4 m5 m6 m7 m8 m9 m10)
+[ ${#laws[@]} -ne 0 ] || laws=(m1 m2 m3 m4 m5 m6 m7 m8 m9 m10 b39)
 work=$(mktemp -d) || exit 1
 trap 'rm -rf "$work"' EXIT
 status=0
@@ -23,7 +24,7 @@ section() {
   else
     awk -v want="$(echo "$1" | tr '[:lower:]' '[:upper:]')" '
       /^# ---- / { tag = toupper($3) }
-      tag == "" || tag == "LIB" || tag == want || (tag == "INV" && want ~ /^M(1|5|6)$/) { print }' "$dir/PROOF.bend"
+      tag == "" || tag == "LIB" || tag == want || (tag == "INV" && want ~ /^(M(1|5|6)|B39)$/) { print }' "$dir/PROOF.bend"
   fi
 }
 
@@ -39,6 +40,7 @@ for id in "${laws[@]}"; do
     m8) location='cA|Laws\.m8_escalation_terminates' ;;
     m9) location='restart_replay|Laws\.m9_restart_is_a_replay' ;;
     m10) location='fgo_alive10|Laws\.m10_pending_to_idle_is_eventually_typed' ;;
+    b39) location='fconfirm_inv|Laws\.b39_delivered_at_most_once' ;;
     *) echo "FAIL $id: unknown law"; status=1; continue ;;
   esac
   w=$work/$id

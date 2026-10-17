@@ -856,7 +856,13 @@ async fn b36_a_message_to_an_agent_resumed_in_the_same_daemon_run_is_accepted() 
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(delivered, (node.id, "[from you, note] ship b".into()));
+    assert_eq!(
+        delivered,
+        (
+            node.id,
+            "[from you, note] ship b\n\n[rup messages: 1]".into()
+        )
+    );
 }
 
 type Reads = tokio::sync::mpsc::UnboundedReceiver<Value>;
@@ -920,7 +926,13 @@ async fn message_during_resume(door: bool) {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(delivered, (node.id, "[from you, note] before ack".into()));
+    assert_eq!(
+        delivered,
+        (
+            node.id,
+            "[from you, note] before ack\n\n[rup messages: 1]".into()
+        )
+    );
 }
 
 #[tokio::test]
@@ -1035,7 +1047,13 @@ async fn b36_the_ended_attempts_late_status_cannot_close_the_resumed_attempt() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(delivered, (node.id, "[from you, note] new work".into()));
+    assert_eq!(
+        delivered,
+        (
+            node.id,
+            "[from you, note] new work\n\n[rup messages: 1]".into()
+        )
+    );
 }
 
 #[tokio::test]
