@@ -1,6 +1,6 @@
 import { Portal } from "solid-js/web";
 import type { JSX } from "solid-js";
-import { Tooltip } from "../ui";
+import { Tooltip } from "../ui/Tooltip";
 
 /** The props a control spreads: its own, and the Tooltip trigger's. */
 export type TriggerProps = JSX.ButtonHTMLAttributes<HTMLButtonElement>;

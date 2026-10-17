@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 import { createEffect, createSignal, Show } from "solid-js";
 import { ErrorLine } from "../ink/ErrorLine";
-import { ToastProvider } from "../ui";
+import { ToastProvider } from "../ui/Toast";
 import type { ToastQueue } from "./queue";
 import "./styles.css";
 

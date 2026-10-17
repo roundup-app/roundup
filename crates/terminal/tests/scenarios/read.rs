@@ -443,7 +443,7 @@ async fn x16_the_second_read_is_only_the_delta() {
         .text
         .ends_with("two\n")
     {
-        until_printed(&mut spawned.events, "two").await;
+        until_printed(&mut spawned.events, "\n").await;
     }
     let second = terminals.read(&read_as(&spawned.id, "a1")).unwrap();
     assert_eq!(second.from, first.next);

@@ -118,6 +118,7 @@ export type RpcMethods = {
   "terminal.resize": { params: terminal_ResizeParams; result: terminal_ResizeAction | null };
   "terminal.resizeHistory": { params: terminal_TerminalId; result: terminal_ResizeAction[] };
   "terminal.kill": { params: terminal_TerminalId; result: null | agent_HeldAction };
+  "terminal.show": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
   "terminal.screen": { params: terminal_TerminalId; result: terminal_Screen };

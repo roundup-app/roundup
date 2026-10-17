@@ -121,12 +121,12 @@ beforeAll(async () => {
       // No App, Layout or Project-content replacement is involved.
       transform: { order: "pre", handler(source, id) {
         if (id.endsWith("/header/Strip.tsx") && !source.includes("<Tabs.List")) return source
-          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst TabList = (props: Parameters<typeof Tabs.List>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
+          .replace('import { copy }', 'import { Tabs } from "../ui/Tabs";\nconst TabList = (props: Parameters<typeof Tabs.List>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.List {...props} /> : <div {...props} />;\nimport { copy }')
           .replace('<div class="tablist"', '<TabList class="tablist"')
           .replace('        </div>\n        {edge(copy.right', '        </TabList>\n        {edge(copy.right');
 
         if (id.endsWith("/header/ProjectTab.tsx") && !source.includes("<Tabs.Trigger")) return source
-          .replace('import { copy }', 'import { Tabs } from "../ui";\nconst ProjectTrigger = (props: Parameters<typeof Tabs.Trigger>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
+          .replace('import { copy }', 'import { Tabs } from "../ui/Tabs";\nconst ProjectTrigger = (props: Parameters<typeof Tabs.Trigger>[0]) => new URL(location.href).searchParams.has("tabs") ? <Tabs.Trigger {...props} /> : <button {...props} />;\nimport { copy }')
           .replace('<button data-button="quiet"\n          type="button"\n          role="tab"', '<ProjectTrigger value={props.tab.path} data-button="quiet"\n          type="button"\n          role="tab"')
           .replace('        </button>\n        <button data-button="icon"', '        </ProjectTrigger>\n        <button data-button="icon"');
       } },
