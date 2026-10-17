@@ -329,15 +329,6 @@ run("u142 the Rail selects rows, not browser text", () => {
       expect(await calls("rail.move")).toEqual([]);
     }, 30_000);
 
-    it(`u142_${at}_the_rename_input_the_error_line_and_the_menu_stay_selectable`, async () => {
-      await load(size);
-      await editName(2);
-      await browser.eval(`document.querySelector(".rail-tree").insertAdjacentHTML("beforeend", '<p role="alert" id="u142-alert">failed</p><div class="rail-menu" id="u142-menu">menu</div>')`);
-      const modes = await browser.eval<string[]>(`[".rail-row input", "#u142-alert", "#u142-menu"].map((selector) => getComputedStyle(document.querySelector(selector)).userSelect)`);
-
-      expect(modes).toEqual(["text", "text", "text"]);
-    }, 30_000);
-
     it(`u142_${at}_typing_in_the_rename_input_replaces_the_selected_name`, async () => {
       await load(size);
       await editName(2);

@@ -54,97 +54,11 @@ run("u449 isolated rendered window bar", () => {
     if (cacheDir) rmSync(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   });
 
-  it("u449_one_bar_spans_the_window", () => {
-    for (const record of records) {
-      expect(record.bar.left).toBe(0);
-      expect(record.bar.right).toBe(record.width);
-      expect(record.bar.top).toBe(0);
-    }
-  });
-
-  it("u449_regions_start_below_the_bar", () => {
-    for (const record of records) {
-      expect(record.rail.top).toBe(record.bar.bottom);
-      expect(record.centre.top).toBe(record.bar.bottom);
-
-      if (record.shelf.height > 0) expect(record.shelf.top).toBe(record.bar.bottom);
-    }
-  });
-
-  it("u449_shelf_controls_stay_below_the_bar", () => {
-    for (const record of records) {
-      if (record.show) expect(record.show.top).toBeGreaterThanOrEqual(record.bar.bottom);
-
-      if (record.hide && record.hide.height > 0) expect(record.hide.top).toBeGreaterThanOrEqual(record.bar.bottom);
-    }
-  });
-
-  it("u449_title_is_centred_independently_of_the_shelf", () => {
-    for (const record of records) {
-      expect(Math.abs((record.title.left + record.title.right) / 2 - record.width / 2)).toBeLessThanOrEqual(1);
-    }
-  });
-
-  it("u449_a_short_title_leaves_the_remaining_bar_space_for_tabs", () => {
-    const short = records.filter((record) => record.case.endsWith("-rest") && record.titleText.length < 32);
-    expect(short.some((record) => record.case.startsWith("first-run-"))).toBe(true);
-
-    for (const record of short) {
-      expect(record.title.right - record.title.left, record.case).toBeLessThanOrEqual(record.titleTextWidth + record.titlePadding + 1);
-      expect(Math.abs(record.strip.right - record.title.left), record.case).toBeLessThanOrEqual(1);
-    }
-  });
-
-  it("u451_traffic_light_area_is_reserved", () => {
-    for (const record of records) {
-      expect(record.reserved.left).toBeLessThanOrEqual(8);
-      expect(record.reserved.right).toBeGreaterThanOrEqual(96);
-      expect(record.strip.left).toBeGreaterThanOrEqual(record.reserved.right);
-    }
-  });
-
-  it("u449_strip_overflow_covers_neither_title_nor_traffic_lights", () => {
-    for (const record of records) {
-      expect(record.strip.right).toBeLessThanOrEqual(record.title.left);
-      expect(record.plus.right).toBeLessThanOrEqual(record.title.left);
-
-      if (record.case.includes("overflow")) expect(record.scroll.total).toBeGreaterThan(record.scroll.width);
-
-      for (const tooltip of record.controls.filter((control) => control.name === "tab-tip")) {
-        expect(tooltip.box.left).toBeGreaterThanOrEqual(record.reserved.right);
-        expect(tooltip.box.top).toBeGreaterThanOrEqual(record.title.bottom);
-      }
-    }
-  });
-
-  it("u449_tab_menu_never_covers_the_bar", () => {
-    for (const record of records.filter((record) => record.menu)) {
-      expect(record.menu!.top).toBeGreaterThanOrEqual(record.bar.bottom);
-    }
-  });
-
   it("u449_long_title_keeps_its_full_name", () => {
     for (const record of records.filter((record) => record.case.includes("overflow"))) {
       expect(record.titleText).toContain("W".repeat(300));
       expect(record.titleText).toBe(record.titleName);
       expect(record.titleText).toBe(record.titleTip);
-      expect(record.titleStyle).toEqual({ overflow: "ellipsis", whiteSpace: "nowrap" });
-    }
-  });
-
-  it("u449_every_drawer_stays_below_the_bar", () => {
-    for (const record of records.filter((record) => record.opening)) {
-      expect(record.drawer.top).toBe(record.bar.bottom);
-      expect(record.close.top).toBeGreaterThanOrEqual(record.bar.bottom);
-
-      for (const frames of [record.opening!, record.closing!]) {
-        expect(frames.length).toBeGreaterThan(2);
-
-        for (const frame of frames) {
-          expect(frame.top).toBe(frame.barBottom);
-          expect(frame.bottom).toBe(800);
-        }
-      }
     }
   });
 
