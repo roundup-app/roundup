@@ -45,11 +45,18 @@ describe("u157 a Todo created by an Agent", () => {
     expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("In Project root");
     fireEvent.mouseEnter(nested);
     fireEvent.click(within(nested).getByRole("button", { name: "Move #1" }));
-    fireEvent.click(within(nested).getByRole("button", { name: "alpha" }));
+
+    // The chooser's offers are in-row buttons or portalled menu items, by placement.
+    const offer = await waitFor(
+      () => within(nested).queryByRole("button", { name: "alpha" }) ?? within(document.body).queryByRole("menuitem", { name: "alpha" }) ?? Promise.reject(new Error("no alpha offer")),
+    );
+
+    fireEvent.click(offer);
 
     await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("In alpha"));
     expect(document.querySelector('[data-todo="1"]')).not.toBeNull();
     expect(document.querySelector('[data-shelf-row][data-id="1"]')).toBeNull();
+    expect(app.calls.filter((c) => c.method === "todo.move").map((c) => c.params)).toEqual([{ id: 1, home: "r1" }]);
     expect(store.todos[0]?.creator).toEqual(creator);
   });
 });
