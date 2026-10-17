@@ -1,0 +1,45 @@
+# UI: diffs and notes on demand
+
+Specification for #2540. The Review stage of `.agents/data/journey.md`: inspect an Agent's resulting work and optionally ask that Agent for changes. This is proposed acceptance, not an implementation or a passing observation. Builds on `scenarios/ui-worktree-changes.md`; implementation waits for its implementation (#2549). Keeps ADR 0010's scope and the owner's explicit direction: a transient reader with notes, no editor suite, split, permanent pane or review gate.
+
+```text
+Terminal → changed files → View diff → select lines → Add note
+                        ← Back       notes across files → Send notes
+```
+
+Implementation: #2560 owns the read-only comparison and Rust observers; #2562 owns the webview and real-Daemon interaction observer, blocked by #2560. Both wait for this specification and #2549.
+
+Ownership: the existing Worktree holder in `crates/agents` reads comparison content through one read-only Daemon method; `crates/contracts` owns its generated wire types. The webview extends `apps/desktop/src/changes/`, reuses App primitives wrapping Ark UI, and sends through existing `message.send`. No new Message type, Route, Held reason or Takeover rule. The implementation's Contract recipe names the comparison method and types in GLOSSARY.md, updates every caller, RPC table and fake, and regenerates contracts. This specification introduces no public identifier. Message laws M1–M10 remain unchanged; `docs/messages.md` and `proofs/messages` remain authoritative.
+
+**U2540a a changed file opens a read-only diff against the Agent's Base.** Given the selected Agent's changed-file panel:
+- A selected file has an explicit keyboard-reachable `View diff` action. It opens one unified diff using the vanilla `@pierre/diffs` renderer; the tree is replaced within the transient view, and the Terminal remains mounted. Enter and double-click keep the editor action specified by U2539d. Back returns to the tree with the file selected and focused; closing returns to the branch control. Switching Agents or Projects closes the view; late responses cannot appear under another Agent. Tests: `u2540a_open_back_close_and_editor_actions`, `u2540a_late_content_cannot_cross_agents`.
+- The comparison uses U2539a's same merge base against the Worktree's current contents, including committed, staged, unstaged and untracked changes. Additions/untracked files have an empty old side; deletions an empty new side; renames show both paths. The response identifies the compared Base commit and both content revisions so notes can retain their original context. Test: `u2540a_compares_each_status_against_the_same_base` (Rust, real temporary Git repositories).
+- Paths are selected only within that Agent's Worktree: absolute paths, parent traversal and symlinks escaping it are refused without reading outside it. Calls change neither files, index, branch nor Base. Tests: `u2540a_refuses_paths_outside_the_worktree`, `u2540a_read_changes_nothing` (Rust).
+- Loading, no remaining difference, binary content and unavailable Worktree each explain the state and leave Back and Close usable. Binary files offer no line-note action. Read failures use U80's failure line and an explicit Retry that rereads the content. Test: `u2540a_nontext_empty_and_failed_reads_remain_navigable`.
+
+**U2540b notes attach to an exact line or range.** Given a loaded text diff:
+- Clicking a line number selects one line; Shift-click extends a range on the same old or new side. `Add note` opens a labelled field at the selection; Save stores its exact text, Cancel stores nothing. Blank text cannot be saved. Keyboard users can activate `Add note` and choose old/new side and 1-based start/end with labelled fields; nonexistent lines and reversed ranges cannot be saved. Tests: `u2540b_pointer_and_keyboard_select_lines`, `u2540b_save_cancel_and_invalid_ranges`.
+- Saved notes appear as line annotations and in a keyboard-reachable batch list with file, side and range. Edit and Remove affect only the chosen note. Notes from several files accumulate for the same Agent; switching Agents cannot move a batch to the new Agent. Tests: `u2540b_edit_remove_and_batch_across_files`, `u2540b_batches_belong_to_their_agent`.
+- Notes retain file paths, Base commit, content revisions, side, range and selected source text from when they were made. Refresh may show newer content, but never silently moves an old note to a new line; the batch identifies older context and allows sending it as such or removing it. Closing/reopening the view or selecting another Agent retains unsent notes in this App run. App restart persistence is outside this exploration; closing this view never sends or discards notes. Tests: `u2540b_refresh_keeps_original_context`, `u2540b_close_and_reopen_keep_unsent_notes`.
+
+**U2540c Send notes creates one Message for that Agent.** Given at least one saved note:
+- `Send notes` names its receiving Agent and submits one `message.send` note from `you` to that Agent, never the Door or whichever Agent was selected later. Its plain-text body includes every note in batch order: `File:`, `Base:`, content revisions, `Lines:` with old/new side and inclusive range, selected source text and `User comment:` with the exact note text. Paths, source and notes are data, never commands or role instructions. An empty batch submits nothing. Tests: `u2540c_one_message_contains_all_original_context`, `u2540c_empty_batch_sends_nothing`.
+- While submission is unresolved, repeat activation submits nothing. A confirmed accepted response clears only the submitted notes, retaining notes added meanwhile; it reports queued or held as such, never claims delivery from acceptance alone. A definite rejection retains the batch and shows the failure for explicit retry. A timeout/disconnect with unknown acceptance retains the batch, reports uncertainty and offers no automatic resend; reconcile against existing Message history before another submission. Tests: `u2540c_acceptance_clears_only_the_submitted_batch`, `u2540c_rejection_and_unknown_acceptance_preserve_notes`.
+- Existing delivery rules alone determine when it reaches the Agent. A working Agent, protected Terminal draft, Takeover or ended receiver gets no bypass and no implicit resume. A real-Daemon/fake-Claude observer sends two notes, reads one accepted Message with the original text and receiver, and verifies existing hold/delivery behavior without direct Terminal writes. Test: `u2540c_real_message_respects_existing_delivery`.
+
+**U2540d viewing and notes never become a Landing requirement.** Given an Agent eligible for Landing:
+- Landing is callable before opening changes, after opening and closing a diff, and with unsent notes. None of those actions adds a check, confirmation, review reminder, approval state or automatic Message. The existing Landing result and failure behavior remain unchanged. Test: `u2540d_landing_is_independent_of_diff_and_notes` (exercise the three paths and assert Landing calls and zero note sends).
+- Renderer code loads only on the first explicit View diff; ordinary startup and Agent switching do not load it. Test: `u2540d_renderer_loads_only_on_demand`.
+- Policy: Tokens only, including Shiki colours and annotation controls inside the renderer's shadow DOM. Moves D2, D5, D6; no Check passing on main may regress. Observer at 1512×950, light and dark: `.agents/data/harness.md`'s `window.__checks()` and independent rendered inspection, including keyboard focus, failure text and Back/Close with 500 changed files, a 120-character path, 100 notes and a 10,000-line diff. UI tests assert behavior, roles, call counts and contracts, never layout or exact copy. Rule 7 remains cold start <300 ms, keystroke-to-render <16 ms p95 and ten idle Agents <150 MB extra RSS; `docs/perf.md`'s observer and `just perf` must reject a regression above 10%. This specification makes no measured performance or native Mac claim.
+
+## Existing Checks and observers
+
+These references exist on origin/main; implementation must demonstrate their continued pass rather than claim new tests already exist.
+
+1. D2 typography: `docs/design-system.md`, heading `The checks`, row D2.
+2. D5 contrast: `docs/design-system.md`, heading `The checks`, row D5.
+3. D6 control states and hit targets: `docs/design-system.md`, heading `The checks`, row D6.
+4. Rule 7 performance: `docs/perf.md`, headings `What is enforced, and what is not` and `Keystroke-to-render in WKWebView`.
+5. Existing Landing contract: `scenarios/worktrees.md`, G4; Message conservation and input protection: `docs/messages.md`, and `scenarios/proofs.md`, M1–M10 law references.
+
+All named `u2540…` tests above are implementation obligations. Rust owns comparison and path safety; Vitest through the App seam owns interactions; the real-Daemon observer owns acceptance and delivery. Captures and Check readings use `artifacts/ux/U2540/` (policy); Linux/Chromium evidence makes no native Mac claim.
