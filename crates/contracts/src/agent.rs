@@ -595,4 +595,6 @@ pub enum HeldCall {
     Interrupt(NodeId),
     #[serde(rename = "agent.prompt")]
     Prompt(PromptParams),
+    #[serde(rename = "workstream.rewind")]
+    Rewind(crate::workstream::RewindParams),
 }

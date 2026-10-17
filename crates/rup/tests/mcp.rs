@@ -299,7 +299,13 @@ const TOOL_METHODS: [&str; 63] = [
 ];
 
 /// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 3] = ["agent.digest", "checkpoint.write", "workstream.handoff"];
+const DOOR_METHODS: [&str; 5] = [
+    "agent.digest",
+    "checkpoint.write",
+    "workstream.handoff",
+    "workstream.rewindPlan",
+    "workstream.rewind",
+];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
 const NO_TOOL: [&str; 42] = [
