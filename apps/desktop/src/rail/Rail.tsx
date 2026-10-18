@@ -1,3 +1,4 @@
+import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -35,6 +36,8 @@ export const Rail = () => {
   const connected = useConnectedProject();
   const { app, project, rail, now, daemonExit } = connected;
 
+  const attention = createMemo(() => attentionCount(rail.nodes));
+  const [scrolled, setScrolled] = createSignal(false);
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -419,15 +422,25 @@ export const Rail = () => {
 
   return (
     <>
-    <div class="rail-scroll">
     <button
       type="button"
       data-button="quiet"
       data-todo-root
       aria-pressed={rail.selected() === null}
+      aria-label={copy.overviewLabel(attention())}
+      data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={() => rail.select(null)}
-    ><span>{copy.projectRoot}</span></button>
+    >
+      <span class="overview-tile"><Icon name="layout-dashboard" /></span>
+      <span>{copy.overview}</span>
+      <Show when={attention() > 0}>
+        <span class="ink-count" data-state="" data-tone="amber" aria-hidden="true">
+          <KindGlyph kind="needs-you" decorative /> {attention()}
+        </span>
+      </Show>
+    </button>
+    <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
       ref={setContainer}
