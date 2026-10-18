@@ -151,7 +151,7 @@ const PadBody = (props: {
       due = null;
 
       if (text === null) {
-        const message = "Pad could not be saved: edited blocks could not be matched to the original source.";
+        const message = copy.padSourceMappingFailed;
 
         if (closed) props.onLateFailure(message);
         else actionFailure.show(message);
