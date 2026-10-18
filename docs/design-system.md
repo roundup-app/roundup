@@ -58,7 +58,7 @@ The App inherits `--font-ui`; code, paths, diffs, ids, token counts and Terminal
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
 
-Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. Above its scrolling tree, the Rail has a pinned 40 px Overview band (U2716a), with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
+Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. U2716a specifies a future pinned 40 px Overview band above the scrolling Rail tree, with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
 
 Mono is for the Terminal, paths, ids and code. Every other word is `--font-ui`.
 
@@ -79,7 +79,7 @@ Three hues exist in the whole App: `--red`, `--amber`, `--accent`. Surfaces are 
 
 ## Click targets
 
-**Ghost, icon and disclosure buttons (U510)**: quiet, add, row-action and icon buttons draw no fill, border, radius or inline padding on hover or press. Hover moves the ink from `--grey` to `--text`; press dims it to `--ink-pressed`; a label and its chevron sit `--space-1` apart. Keyboard focus keeps the shared `--accent` ring (U133). A toggled icon keeps its persistent selected surface with no hover or press fill. A control resting on a selected wash (the Rail's selected-row Add Agent, a selected tab's ×) rests at `--ink-rest-selected`, a step below hover's `--text`. The Project root is U2716a's pinned Overview band: its hover wash, selected ground and icon tile follow that scenario, with U362's Todo drop highlight preserved. Tabs and a row's pads count (`display: none` while the pointer is near its row) keep their existing behaviour; `apps/desktop/src/app/u510_ink_feedback.test.ts` inventories every other caller on `tree-40`, `thread-report`, `tabs-8` and `door-stopped`.
+**Ghost, icon and disclosure buttons (U510)**: quiet, add, row-action and icon buttons draw no fill, border, radius or inline padding on hover or press. Hover moves the ink from `--grey` to `--text`; press dims it to `--ink-pressed`; a label and its chevron sit `--space-1` apart. Keyboard focus keeps the shared `--accent` ring (U133). A toggled icon keeps its persistent selected surface with no hover or press fill. A control resting on a selected wash (the Rail's selected-row Add Agent, a selected tab's ×) rests at `--ink-rest-selected`, a step below hover's `--text`. U2716a specifies the Project root as a future pinned Overview band: its hover wash, selected ground and icon tile follow that scenario, with U362's Todo drop highlight preserved. Tabs and a row's pads count (`display: none` while the pointer is near its row) keep their existing behaviour; `apps/desktop/src/app/u510_ink_feedback.test.ts` inventories every other caller on `tree-40`, `thread-report`, `tabs-8` and `door-stopped`.
 
 A click target is any element with a click, press or key handler, a `button`, `a` or `[role=button|row|tab]`, or `cursor: pointer`. Each has these states, and each state differs from the one before it in a computed colour, background or outline:
 
