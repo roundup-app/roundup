@@ -2,6 +2,6 @@
 
 /**
  * B51: the outcome of checking an Agent's Claude inbox: `ok`, `missing` (absent or not writable)
- * or `mismatch` (present, in a format the adapter holds no fixture for).
+ * or `mismatch` (present, listing a messaging protocol the adapter does not speak).
  */
 export type Inbox = "ok" | "missing" | "mismatch";
