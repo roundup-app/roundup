@@ -48,7 +48,7 @@ One supervised identity, with a Status, on the Rail under its Workstream; each l
 _Avoid_: session, bot, worker
 
 **Terminal**:
-A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble.
+A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
 _Avoid_: process, console
 
 **Shell mark**:
@@ -154,6 +154,9 @@ How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, a
 **Changed file**:
 A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).
 
+**File comparison** (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`):
+A read-only comparison of one relative Worktree file at the same merge-base commit as Changed files against its current disk bytes. It carries both original paths, status and SHA-256 content revisions; absent sides carry `absent`. Text is UTF-8 without NUL; other bytes are binary. Each side is limited to 4 MiB, Git to three seconds and 16 MiB output. Absolute paths, traversal, administrative paths, symlinks and special files are refused. No Message laws change.
+
 **Base**:
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
 
@@ -227,7 +230,7 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
 **Pad**:
-A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.appendSection` can require (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
+A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.write` and `pad.appendSection` can require atomically (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
 
 **Editor**:
@@ -499,7 +502,7 @@ The random secret the App gives its attached Daemon on stdin and the webview rea
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
 
 **open_in_editor**:
-The App seam command that opens an absolute directory in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, else Cursor; with none installed it fails `NOT_FOUND` with a message saying so (U429).
+The App seam command that opens an absolute directory, or a file at an optional `line`, in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, Cursor, then Zed; with none installed it fails `NOT_FOUND` with a message saying so (U429, U2539c).
 
 **Extension**:
 A directory with a manifest and one module.
@@ -510,7 +513,7 @@ One `($, e, next)` function an Extension registers.
 ### Design system
 
 **Token**:
-One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow or duration); no other file holds such a literal.
+One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow, duration or easing curve); no other file holds such a literal.
 
 **Section head**:
 The icon, capital label and trailing rule that name a section of the Rail or Shelf.

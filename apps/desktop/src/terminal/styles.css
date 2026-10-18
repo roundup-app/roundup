@@ -58,7 +58,7 @@
 }
 
 /* U524: a Terminal opened from the Project root replaces the placeholder. */
-[data-root-terminal] .pane .pane-empty:not(.pane-door) {
+[data-root-terminal] .pane .pane-empty {
   display: none;
 }
 
@@ -87,6 +87,11 @@
   background: var(--ground);
 }
 
+/* The top takes the side inset's Token. It sits on the emulator's own element because FitAddon subtracts that element's padding, and not its parent's, from the rows it fits. */
+.pane .xterm {
+  padding-top: var(--space-2);
+}
+
 /* U59: xterm.css paints `.xterm-viewport` black; the pane shows the app's ground instead. */
 .pane .xterm .xterm-viewport,
 .pane .xterm .xterm-scrollable-element {
@@ -107,16 +112,17 @@
   display: none;
 }
 
-/* U375, U187: the one state of the Terminal, Managed or You control, and the way to the other, float over its top-left corner; the top-right is the work-items control's and the bottom is the Agent's input. */
+/* U375, U187: the one state of the Terminal, Managed or You control, and the way to the other, float over its top-right corner, left of the work-items control, where lines end blank; the bottom is the Agent's input. */
 .pane-control {
   position: absolute;
   top: var(--space-2);
-  left: var(--space-3);
+  right: calc(var(--space-6) + var(--space-2));
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-4);
+  padding: 0 var(--space-2);
+  font-size: var(--text-caption);
   color: var(--text);
   background-color: var(--sunken);
   border-radius: var(--radius-drawer);
@@ -225,4 +231,21 @@
 .send-to-agent-action {
   align-self: flex-start;
   color: var(--text);
+}
+
+.pane-empty-keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--grey);
+}
+
+.pane-empty-keys li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
 }

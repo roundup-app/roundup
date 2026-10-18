@@ -1,5 +1,7 @@
+import { useConnectedProject } from "../state/connectedProject";
+import "../keys/styles.css";
 import { copy } from "../copy";
-import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, untrack, type JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { IconButton } from "../ui/IconButton";
 import { Tooltip } from "../ui/Tooltip";
@@ -30,7 +32,7 @@ const FOLDED_GLYPHS = 5;
 const NameField = (props: { node: RailNode; onCommit: (name: string) => void; onCancel: () => void }) => (
   <input
     aria-label={copy.name}
-    value={props.node.name}
+    value={untrack(() => props.node.name)}
     ref={(field) =>
       queueMicrotask(() => {
         field.focus();
@@ -91,6 +93,16 @@ export const RailRowView = (props: {
   /** U426: the icons of a Workstream or Agent row. */
   actions: RowActions;
 }) => {
+  const { worktrees } = useConnectedProject();
+
+  const worktreeFailure = () => worktrees.read(props.row.node.id)?.failure;
+
+  const ahead = () => {
+    const read = worktrees.read(props.row.node.id);
+
+    return read?.failure === null ? read.state.ahead : 0;
+  };
+
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
   const pads = createAgentPads(() => props.row.node);
@@ -165,6 +177,36 @@ export const RailRowView = (props: {
     ...handlers,
   });
 
+  const name = () => (
+    <Show
+      when={editing()}
+      fallback={
+        <span
+          id={nameId()}
+          class="name"
+          ref={nameBox}
+          classList={{ ink: inkTone() !== undefined }}
+          data-tone={inkTone()}
+          onDblClick={() => setEditing(true)}
+        >
+          {props.row.node.name}
+          <Show when={(props.runs ?? 0) > 0}>
+            <span class="runs">{copy.separator}{props.runs}</span>
+          </Show>
+        </span>
+      }
+    >
+      <NameField
+        node={props.row.node}
+        onCommit={(name) => {
+          props.onRename(name);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
+    </Show>
+  );
+
   /** The row's own element: Ark's item or branch control, which the Tooltip's trigger props join. */
   const row = (mine: (extra: RowProps) => RowProps) => (
     <Tooltip.Trigger
@@ -186,33 +228,17 @@ export const RailRowView = (props: {
                 <Icon name={props.row.collapsed ? "right" : "down"} />
               </IconButton>
             </Show>
-            <Show
-              when={editing()}
-              fallback={
-                <span
-                  id={nameId()}
-                  class="name"
-                  ref={nameBox}
-                  classList={{ ink: inkTone() !== undefined }}
-                  data-tone={inkTone()}
-                  onDblClick={() => setEditing(true)}
-                >
-                  {props.row.node.name}
-                  <Show when={(props.runs ?? 0) > 0}>
-                    <span class="runs">{copy.separator}{props.runs}</span>
-                  </Show>
-                </span>
-              }
-            >
-              <NameField
-                node={props.row.node}
-                onCommit={(name) => {
-                  props.onRename(name);
-                  setEditing(false);
-                }}
-                onCancel={() => setEditing(false)}
-              />
-            </Show>
+            <Show when={workstream() || !props.row.node.worktree} fallback={
+              <span class="row-name-state">
+                {name()}
+                <Show when={ahead() > 0}>
+                  <span class="worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(ahead())}>{copy.worktreeAhead(ahead())}</span>
+                </Show>
+                <Show when={worktreeFailure()}>
+                  <span class="worktree-ahead" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
+                </Show>
+              </span>
+            }>{name()}</Show>
             <span class="row-tail">
               <Show when={workstream() ? kind() : null}>{(current) => <KindGlyph kind={current()} />}</Show>
               <RowIcons actions={props.actions}>

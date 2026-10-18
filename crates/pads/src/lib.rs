@@ -129,19 +129,28 @@ impl Pads {
 
     fn write(&self, ctx: &Ctx, p: WriteParams) -> Result<Value, RpcError> {
         let store = self.store()?;
-        let pad = get(&store, &p.name)?;
-        if pad.owner != ctx.actor {
-            return Err(RpcError::forbidden(format!(
-                "only {} may rewrite pad {}",
-                pad.owner.id, pad.name
-            )));
-        }
-        store.atomically(|| {
+        let pad = store.atomically(|| {
+            let pad = get(&store, &p.name)?;
+            if pad.owner != ctx.actor {
+                return Err(RpcError::forbidden(format!(
+                    "only {} may rewrite pad {}",
+                    pad.owner.id, pad.name
+                )));
+            }
+            if let Some(expected) = p.expected_revision
+                && expected != pad.revision
+            {
+                return Err(RpcError::conflict(format!(
+                    "pad {} is at revision {}, not {expected}",
+                    pad.name, pad.revision
+                )));
+            }
             found(store.set_text(&pad.name, &p.text, now_ms()), &pad.name)?;
-            self.mirror(&store, &pad.name, &p.text)
+            self.mirror(&store, &pad.name, &p.text)?;
+            get(&store, &pad.name)
         })?;
         wrote(ctx, &pad.name)?;
-        reply(&get(&store, &pad.name)?)
+        reply(&pad)
     }
 
     fn append(&self, ctx: &Ctx, p: AppendParams) -> Result<Value, RpcError> {

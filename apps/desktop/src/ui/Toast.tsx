@@ -1,3 +1,5 @@
+import { activationSource } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
 import { createToaster, Toaster, Toast, type ToastStatusChangeDetails } from "@ark-ui/solid/toast";
 import { onCleanup, type JSX } from "solid-js";
 import "./Toast.css";
@@ -8,7 +10,7 @@ type Card = { id: string; label?: string; name: JSX.Element; content: JSX.Elemen
 export function createToast(policy: {
   limit: number;
   newestFirst: boolean;
-  onActivate?: (id: string) => void;
+  onActivate?: (id: string, source: ActivationSource) => void;
   onDismiss?: (id: string) => void;
 }) {
   // Admission happens before create: no hidden Ark overflow can replay old cards.
@@ -43,11 +45,11 @@ export function createToast(policy: {
 
       if (card) store.update(id, { duration: keeping ? Infinity : card.meta?.duration ?? 5000 });
     },
-    activate(id: string) {
+    activate(id: string, source: ActivationSource = "pointer") {
       if (!store.isVisible(id) || closing.has(id)) return;
       closing.add(id);
       store.dismiss(id);
-      policy.onActivate?.(id);
+      policy.onActivate?.(id, source);
     },
   };
 }
@@ -69,7 +71,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.toast.dismiss(card().id!); }
       }}>
         <button type="button" data-button="quiet" class="app-toast-action" aria-label={card().meta?.label}
-          onClick={() => props.toast.activate(card().id!)}
+          onClick={(event) => props.toast.activate(card().id!, activationSource(event))}
           onPointerEnter={() => { hovered = true; pause(); }}
           onPointerLeave={() => { hovered = false; restart(); }}
           onFocusIn={() => { focused = true; pause(); }}

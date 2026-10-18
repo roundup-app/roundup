@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
+import { createServedApp, spawnPrompted } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -62,6 +62,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
 
       workstreams.push(workstream);
+      await waitFor(() => expect(row(workstream)).toBeTruthy(), { timeout: 30_000 });
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
         const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
@@ -73,12 +74,8 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       }, { timeout: 30_000, interval: 1000 });
 
       for (const [at, kind] of kinds.entries()) {
-        // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
-        await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
-
-          expect(await agentsOf(workstream)).toHaveLength(at + 1);
-        }, { timeout: 30_000, interval: 1000 });
+        await spawnPrompted(app, real.dir, workstream);
+        await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 

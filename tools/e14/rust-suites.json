@@ -1,0 +1,13 @@
+{
+  "real_suites": [
+    "rup::real_claude",
+    "rup::a32",
+    "rup::a35",
+    "rup::d9",
+    "rup::e2e",
+    "rup::o12",
+    "rupd::b21_stopped_door",
+    "desktop::d9_app"
+  ],
+  "required_test_prefix": "rupd::b21_stopped_door::b21_"
+}

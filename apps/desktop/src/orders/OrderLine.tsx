@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Show } from "solid-js";
@@ -14,19 +15,19 @@ export const OrderLine = (props: { node: RailNode }) => {
   const { drawer } = useConnectedProject();
 
   return (
-    <Show when={props.node.work === null ? null : orderLine(props.node.work)}>
-      {(line) => (
+    <Show when={props.node.work}>
+      {(order) => (
         <button
           data-button="quiet"
           type="button"
           class="word order-line"
           aria-label={copy.orderOf(props.node.name)}
-          onClick={() => {
+          onClick={(event) => {
             const id = props.node.id;
-            drawer.open(() => <OrderDrawer id={id} />);
+            drawer.open(() => <OrderDrawer id={id} />, activationSource(event));
           }}
         >
-          {line()}
+          {orderLine(order())}
         </button>
       )}
     </Show>

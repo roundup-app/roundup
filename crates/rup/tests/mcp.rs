@@ -313,7 +313,10 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 49] = [
+const NO_TOOL: [&str; 51] = [
+    // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
+    "agent.changedFiles",
+    "agent.compareFile",
     // A40, P9: each carries a Steer from the user.
     "ask.send",
     "ask.list",
@@ -1740,5 +1743,32 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
     assert!(
         late.is_err() || late == Ok(false),
         "terminal.shown was emitted"
+    );
+}
+
+#[tokio::test]
+async fn p2544d_mcp_write_preserves_conflict_code() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    shim.call("pad_create", json!({"name": "notes", "text": "original"}))
+        .await;
+    shim.call(
+        "pad_write",
+        json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+    )
+    .await;
+    let stale = shim
+        .call(
+            "pad_write",
+            json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+        )
+        .await;
+    assert_eq!(stale.is_error, Some(true));
+    assert_eq!(text(&stale)["code"], rpc::code::CONFLICT);
+    assert!(
+        text(&stale)["message"]
+            .as_str()
+            .unwrap()
+            .contains("revision 2")
     );
 }

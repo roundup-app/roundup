@@ -1,7 +1,10 @@
+import { activationSource } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
+import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
-import { createEffect, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
@@ -9,6 +12,8 @@ import { ItemDrawer } from "../drawer/ItemDrawer";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
+import { RpcError } from "../app/seam";
+import { usePadList } from "../rail/pads/padList";
 import { USER } from "./owner";
 import { cutName, markedLine, wholeWord } from "./nameLine";
 
@@ -23,12 +28,22 @@ const PadBody = (props: {
   onLateFailure: (message: string) => void;
 }) => {
   const connected = useConnectedProject();
+  const list = usePadList();
   const name = props.initial.name;
+  let sourceRevision = props.initial.revision;
+  let conflictVersion = 0;
   const [pad, setPad] = createSignal(props.initial);
   const [shown, setShown] = createSignal(props.initial.text);
   const [origin, setOrigin] = createSignal(props.initial.text);
   const [editing, setEditing] = createSignal(false);
-  const [conflictActor, setConflictActor] = createSignal<Actor | null>(null);
+  const [conflictActor, setConflictActor] = createSignal<Actor | "unknown" | null>(null);
+
+  const conflictLabel = createMemo(() => {
+    const actor = conflictActor();
+
+    return actor === null ? "" : actor === "unknown" ? copy.padChanged : copy.changedBy + connected.rail.nameOf(actor);
+  });
+
   const actionFailure = createFailure();
   const [deleted, setDeleted] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
@@ -38,29 +53,41 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let sent: string | null = null;
+  let due: "autosave" | "keep-mine" | null = null;
+  let finalDraft: string | null | undefined;
+  const [saved, setSaved] = createSignal(false);
+  const saveAfterPause = debounce(() => flush(), 500);
 
   /** Moves the source and its dirty/clean baseline together so a resolved change cannot remain a conflict. */
   const settle = (next: Pad) => {
+    saveAfterPause.clear();
+    due = null;
+    setSaved(false);
+    setEditing(false);
+    sourceRevision = next.revision;
     setOrigin(next.text);
     setShown(next.text);
     editor?.setText(next.text);
     setConflictActor(null);
+    actionFailure.clear();
   };
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
   const adopt = (next: Pad) => {
     setPad(next);
+    sourceRevision = next.revision;
     setOrigin(next.text);
 
-    if (!editing()) settle(next);
+    if (!closed && (!editing() || currentDraft() === next.text)) settle(next);
   };
 
   const sameContent = (left: Pad, right: Pad) =>
+    left.revision === right.revision &&
     left.text === right.text &&
     left.owner.kind === right.owner.kind &&
     left.owner.id === right.owner.id;
 
-  const currentDraft = () => editor?.getText() ?? shown();
+  const currentDraft = () => editor ? editor.getText() : shown();
 
   onCleanup(
     connected.events.subscribe((event) => {
@@ -80,6 +107,9 @@ const PadBody = (props: {
         pendingActor = null;
 
         if (!current) {
+          saveAfterPause.clear();
+          due = null;
+          setSaved(false);
           setConflictActor(null);
 
           return;
@@ -89,27 +119,32 @@ const PadBody = (props: {
 
         setPad(current);
 
+        // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
+        if (sent !== null && actor?.kind === "user" && current.text === sent) return;
+
         if (currentDraft() === origin()) {
           settle(current);
 
           return;
         }
 
-        if (actor && actor.kind !== "user") setConflictActor(actor);
+        if (actor && actor.kind !== "user") {
+          saveAfterPause.clear();
+          due = null;
+          setSaved(false);
+          conflictVersion += 1;
+          setConflictActor(actor);
+        }
       },
       { defer: true },
     ),
   );
 
   onCleanup(() => {
+    // Snapshot before the lazy editor is destroyed; any queued write keeps this Pad's name and RPC connection.
+    finalDraft = currentDraft();
     closed = true;
-
-    // Closing the Drawer leaves the document like a blur does; a draft already sent stays one write.
-    if (pad().owner.kind === "user" && !conflictActor() && editor && editing()) {
-      const draft = editor.getText();
-
-      if (draft !== origin() && draft !== sent) void write(draft);
-    }
+    flush();
   });
 
   /** A call that fails after the Drawer closed has no ✕ line to land on, so it goes to the Shelf's. */
@@ -126,19 +161,75 @@ const PadBody = (props: {
 
   const ownedByUser = () => pad().owner.kind === "user";
 
-  const write = (text: string) =>
+  const write = () =>
     act(async () => {
-      if (text !== origin()) {
-        sent = text;
+      if (sent !== null || due === null || deleted() || !ownedByUser() || (conflictActor() && due !== "keep-mine")) return;
 
-        try {
-          adopt(await connected.app.rpc("pad.write", { name, text }));
-        } catch (thrown) {
-          sent = null;
-          throw thrown;
-        }
+      const resolveConflict = due === "keep-mine";
+      const version = conflictVersion;
+      const expectedRevision = resolveConflict ? pad().revision : sourceRevision;
+      const text = finalDraft === undefined ? currentDraft() : finalDraft;
+      due = null;
+
+      if (text === null) {
+        const message = copy.padSourceMappingFailed;
+
+        if (closed) props.onLateFailure(message);
+        else actionFailure.show(message);
+
+        return;
       }
+
+      if (text === origin() && !resolveConflict) return;
+
+      sent = text;
+      setSaved(false);
+
+      try {
+        const next = await connected.app.rpc("pad.write", { name, text, expectedRevision });
+
+        // A newer explicit choice owns its baseline; an older reply cannot undo it.
+        if (version === conflictVersion || conflictActor()) {
+          // An unresolved external change still needs an explicit choice.
+          if (conflictActor() && (!resolveConflict || version !== conflictVersion)) {
+            sourceRevision = next.revision;
+            setOrigin(next.text);
+          } else adopt(next);
+        }
+
+        if (resolveConflict && version === conflictVersion) setConflictActor(null);
+
+        setSaved(!closed && !conflictActor() && currentDraft() === next.text);
+      } catch (thrown) {
+        // A refusal keeps the draft; only another edit or blur retries it.
+        due = null;
+
+        if (thrown instanceof RpcError && thrown.code === -32003) {
+          saveAfterPause.clear();
+          conflictVersion += 1;
+          setConflictActor("unknown");
+          await list.reload();
+
+          const failure = list.failure();
+
+          if (failure) throw new Error(failure);
+
+          return;
+        }
+
+        throw thrown;
+      } finally {
+        sent = null;
+      }
+
+      if (due) void write();
     });
+
+  const flush = () => {
+    saveAfterPause.clear();
+    due ??= "autosave";
+    void write();
+  };
 
   /** The Agent that owns the Pad, while it is on the Rail (U432). */
   const owner = () => (pad().owner.kind === "agent" ? connected.rail.nodes.find((node) => node.id === pad().owner.id) : undefined);
@@ -171,41 +262,39 @@ const PadBody = (props: {
       if (path !== null) await connected.app.rpc("pad.export", { name, path });
     });
 
-  const remove = () =>
+  const remove = (source: ActivationSource) =>
     act(async () => {
+      saveAfterPause.clear();
+      due = null;
       await connected.app.rpc("pad.delete", { name });
+      setDeleted(true);
       setRemovedByMe(true);
-      connected.drawer.close();
+      connected.drawer.close(source);
     });
 
-  const leaveField = async (typed: string) => {
-    if (!editing() && typed === origin()) return;
-
-    if (conflictActor() || typed === sent) return;
-
-    setEditing(false);
-    await write(typed);
-  };
-
   const onChange = () => {
-    sent = null;
+    setSaved(false);
     setEditing(true);
 
-    if (editor?.unchanged()) settle(pad());
+    if (due !== "keep-mine") due = null;
+
+    if (sent === null && editor?.unchanged()) {
+      settle(pad());
+
+      return;
+    }
+
+    if (ownedByUser() && (!conflictActor() || sent !== null) && !deleted()) saveAfterPause();
   };
 
   const onText = (text: string) => {
     setShown(text);
-
-    if (text === origin()) settle(pad());
   };
 
   const onEditorBlur = (next: EventTarget | null) => {
-    if (next instanceof Node && next.parentElement?.closest(".pad-rich-editor")) return;
+    if (next instanceof Element && next.closest(".pad-rich-editor")) return;
 
-    if (!ownedByUser()) return;
-
-    void leaveField(currentDraft());
+    if (ownedByUser()) flush();
   };
 
   /** U58: a Pad opened from under its Agent is taken here, by the owner mark, as U18's click does in the Shelf. */
@@ -214,12 +303,11 @@ const PadBody = (props: {
       adopt(await connected.app.rpc("pad.setOwner", { name, owner: USER }));
     });
 
-  const keepMine = () =>
-    act(async () => {
-      adopt(await connected.app.rpc("pad.write", { name, text: currentDraft() }));
-      // adopt alone won't clear this while a quick refocus keeps the field dirty.
-      setConflictActor(null);
-    });
+  const keepMine = () => {
+    saveAfterPause.clear();
+    due = "keep-mine";
+    void write();
+  };
 
   const useTheirs = () => settle(pad());
 
@@ -236,8 +324,13 @@ const PadBody = (props: {
         >
           <span style={wholeWord}><OwnerMark owner={pad().owner} decorative /></span>
         </Show>
-        <span class="pad-head-name" title={name} style={cutName}>
-          {name}
+        <span class="pad-head-title">
+          <span class="pad-head-name" title={name} style={cutName}>
+            {name}
+          </span>
+          <Show when={saved() && !deleted() && !conflictActor()}>
+            <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
+          </Show>
         </span>
         <Show when={owner()}>
           <button
@@ -278,7 +371,7 @@ const PadBody = (props: {
           {copy.deletePad(name)}
           <Show when={pad().owner.kind !== "user"}>{copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner))}</Show>
           <Show when={currentDraft() !== origin()}>{copy.unsavedChangesAreLost}</Show>
-          <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>{copy.delete}</button>{" "}
+          <button data-button="quiet" type="button" class="word light" onClick={(event) => void remove(activationSource(event))}>{copy.delete}</button>{" "}
           <button data-button="quiet"
             type="button"
             class="word light"
@@ -312,24 +405,21 @@ const PadBody = (props: {
         />
       </Suspense>
       <Show when={conflictActor()}>
-        {(actor) => (
-          <p style={markedLine}>
-            <span class="light" style={wholeWord}>{copy.changedBy}{connected.rail.nameOf(actor())}
-            </span>
-            <button data-button="quiet"
-              type="button"
-              class="word"
-              style={wholeWord}
-              onClick={() => void keepMine()}
-            >{copy.keepMine}</button>
-            <button data-button="quiet"
-              type="button"
-              class="word"
-              style={wholeWord}
-              onClick={useTheirs}
-            >{copy.useTheirs}</button>
-          </p>
-        )}
+        <p style={{ ...markedLine, "align-items": "baseline" }}>
+          <span class="light" style={wholeWord}>{conflictLabel()}</span>
+          <button data-button="quiet"
+            type="button"
+            class="word"
+            style={wholeWord}
+            onClick={() => void keepMine()}
+          >{copy.keepMine}</button>
+          <button data-button="quiet"
+            type="button"
+            class="word"
+            style={wholeWord}
+            onClick={useTheirs}
+          >{copy.useTheirs}</button>
+        </p>
       </Show>
     </div>
   );

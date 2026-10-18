@@ -97,7 +97,7 @@ describe("u148 a Mermaid block renders in the Pad", () => {
     fireEvent.focusOut(field);
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "```mermaid\ngraph LR\nA-->C\n```\n" });
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "```mermaid\ngraph LR\nA-->C\n```\n", expectedRevision: 1 });
   });
 
   it("u148_a_pad_changed_with_a_new_block_renders_it", async () => {

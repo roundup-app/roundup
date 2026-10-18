@@ -1,5 +1,6 @@
 import { createSignal, onCleanup } from "solid-js";
-import { TEXT_FIELDS } from "./chords";
+import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
+import type { Chord, LeaderKey } from "./chords";
 import { matchKeybindingPress, parseKeybinding } from "tinykeys";
 
 /** Regions follow focus; active layers precede regions. Nested layers precede their ancestors; among independent layers, the one containing focus owns shortcuts.
@@ -11,9 +12,16 @@ export type KeyScope =
   | { kind: "region"; element: () => HTMLElement | undefined }
   | { kind: "layer"; element: () => HTMLElement | undefined; active: () => boolean; modal: boolean; parent?: KeyScope };
 
+export type ActivationSource = "key" | "pointer";
+
+/** Native keyboard button activation has no pointer click count. */
+export const activationSource = (event: Pick<MouseEvent, "detail">): ActivationSource => event.detail === 0 ? "key" : "pointer";
+
 type Binding = { chords: readonly string[]; when?: (event: KeyboardEvent) => boolean; run: (event: KeyboardEvent) => void };
 
-type Registration = { scope: KeyScope; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
+type ActionBinding = { action: Chord | LeaderKey; match?: "key"; when?: Binding["when"]; capture: (focus: Element | null) => { available: () => boolean; invoke: () => void } };
+
+type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
 
 const registrations = new Set<Registration>();
 
@@ -157,8 +165,27 @@ const dispatch = (event: KeyboardEvent): void => {
 
 /** Register within a Solid owner. Matching is tinykeys' job; guards and repeats belong to each caller.
  * The first owner installs one listener; disposing the last removes it, including across App remounts. */
-export const registerKeys = (scope: KeyScope, bindings: readonly Binding[]): void => {
-  const registration: Registration = { scope, bindings: bindings.map(({ chords, when, run }) => ({
+export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | ActionBinding)[]): void => {
+  const actions = bindings.filter((binding): binding is ActionBinding => "action" in binding);
+
+  const keys = bindings.map((binding): Binding => {
+    if (!("action" in binding)) return binding;
+
+    const key: Binding = {
+      chords: "presses" in binding.action ? chordsFor(binding.action.keys, binding.match) : leaderChord(binding.action.keys),
+      run: (event) => {
+        const captured = binding.capture(event.target instanceof Element ? event.target : document.activeElement);
+
+        if (!event.repeat && captured.available()) captured.invoke();
+      },
+    };
+
+    if (binding.when) key.when = binding.when;
+
+    return key;
+  });
+
+  const registration: Registration = { scope, actions, bindings: keys.map(({ chords, when, run }) => ({
     matches: chords.map((chord) => parseKeybinding(chord)[0]!), when, run,
   })) };
 
@@ -169,4 +196,27 @@ export const registerKeys = (scope: KeyScope, bindings: readonly Binding[]): voi
 
     if (registrations.size === 0) window.removeEventListener("keydown", dispatch, true);
   });
+};
+
+/** U2572: capture the registered owners before a modal moves focus. Each invocation rechecks that same owner and target; no DOM key event is manufactured or dispatched. */
+export const captureActions = (focus: Element | null): { value: string; label: string; keys: string; available: () => boolean; run: () => void }[] => {
+  if (modalOpen()) return [];
+
+  const rows = [...CHORDS, ...LEADER];
+
+  return [...registrations].flatMap((registration) => registration.actions.map((binding) => {
+    const captured = binding.capture(focus);
+    const leader = "press" in binding.action;
+
+    const available = () => registrations.has(registration) && captured.available();
+
+    return {
+      value: `action:${leader ? "leader" : "chord"}:${binding.action.keys}`,
+      label: binding.action.what,
+      keys: leader ? `${CHORDS.find((row) => row.keys === "⌘K")!.keys} ${binding.action.keys}` : binding.action.keys,
+      available,
+      run: () => { if (available()) captured.invoke(); },
+      at: rows.indexOf(binding.action),
+    };
+  })).sort((a, b) => a.at - b.at);
 };

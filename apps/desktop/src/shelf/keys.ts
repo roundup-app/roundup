@@ -1,12 +1,13 @@
 import { createRoot, onCleanup } from "solid-js";
 import { registerKeys } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
 
 /** U370: leader `S` toggles, `esc` from inside; focus goes to the open tab on opening and back to where it was on closing. */
 export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement | null }) => {
   let returnTo: HTMLElement | null = null;
 
-  const toggle = () => {
+  const toggle = (source: ActivationSource = "pointer") => {
     const opening = !props.frame.open();
     const held = document.activeElement;
 
@@ -19,7 +20,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       returnTo = null;
     }
 
-    props.frame.toggle();
+    props.frame.toggle(source);
 
     if (opening) queueMicrotask(() => props.shelf()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true }));
   };
@@ -41,7 +42,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   };
 
   const stop = createRoot((dispose) => {
-    registerKeys({ kind: "app" }, [{ chords: ["Escape"], when: canEscape, run: toggle }]);
+    registerKeys({ kind: "app" }, [{ chords: ["Escape"], when: canEscape, run: () => toggle("key") }]);
 
     return dispose;
   });

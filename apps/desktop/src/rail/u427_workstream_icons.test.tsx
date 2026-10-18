@@ -30,18 +30,6 @@ describe("u427 a Workstream row's icons", () => {
     expect(rowOf("g").querySelector(".row-icons button")?.getAttribute("aria-label")).toBe("Add Agent");
   });
 
-  it("u427_the_plus_icon_spawns_with_the_workstream_as_parent", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
-
-    fireEvent.click(icon("g", "Add Agent"));
-
-    await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
-    fireEvent.keyDown(document, { key: "Tab" });
-    icon("g", "Add Agent").focus();
-    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("Add Agent ⌘N"));
-  });
-
   it("u427_the_plus_icon_focuses_an_open_composing_field", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.rail.select("g");

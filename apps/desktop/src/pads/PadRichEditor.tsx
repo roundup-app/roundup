@@ -1,14 +1,19 @@
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
-import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
+import { blockEdit } from "@milkdown/crepe/feature/block-edit";
+import type { BlockEditFeatureConfig } from "@milkdown/crepe/feature/block-edit";
 import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
 import { toolbar } from "@milkdown/crepe/feature/toolbar";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
-import { editorViewCtx } from "@milkdown/kit/core";
+import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
+import { trailingConfig } from "@milkdown/kit/plugin/trailing";
+import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
 import { Plugin } from "@milkdown/kit/prose/state";
 import { replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
@@ -18,7 +23,8 @@ import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/classic.css";
 
 export type PadEditorHandle = {
-  getText(): string;
+  /** null pauses saving because the edited blocks cannot be mapped to authored source. */
+  getText(): string | null;
   setText(text: string): void;
   focus(): void;
   /** The document equals the one last loaded, whatever Markdown it would serialize to. */
@@ -48,9 +54,13 @@ export default function PadRichEditor(props: {
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
 }) {
+  const menuId = createUniqueId();
+  let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
+  let menuHost: HTMLDivElement | undefined;
   let crepe: CrepeBuilder | undefined;
   let created: ReturnType<CrepeBuilder["create"]> | undefined;
+  const caretNodes = new WeakSet<DocumentNode>();
   let original = props.text;
   let applying = false;
   let closed = false;
@@ -59,13 +69,20 @@ export default function PadRichEditor(props: {
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
-    if (!host) throw new Error(copy.padEditorHostIsMissing);
+    if (!host || !menuHost) throw new Error(copy.padEditorHostIsMissing);
+
+    // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
+    const blockConfig = {
+      blockHandle: { getOffset: () => 0 },
+      slashMenu: { root: menuHost },
+    } as BlockEditFeatureConfig;
 
     crepe = new CrepeBuilder({
       root: host,
       defaultValue: props.text,
     })
       .setReadonly(props.readonly)
+      .addFeature(blockEdit, blockConfig)
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(placeholder)
@@ -91,6 +108,19 @@ export default function PadRichEditor(props: {
           { label: copy.headingThree, level: 3 },
         ],
       });
+
+    crepe.editor.config((ctx) => {
+      ctx.update(remarkStringifyOptionsCtx, (options) => ({ ...options, bullet: "-" as const }));
+      ctx.update(trailingConfig.key, (options) => ({
+        ...options,
+        getNode: (state) => {
+          const node = options.getNode(state);
+          caretNodes.add(node);
+
+          return node;
+        },
+      }));
+    });
 
     crepe.editor.use(
       $prose(
@@ -147,9 +177,54 @@ export default function PadRichEditor(props: {
       field.setAttribute("aria-label", copy.padBody);
       field.setAttribute("aria-multiline", "true");
 
+      // Crepe owns navigation; mirror its rendered selection without intercepting keys.
+      const updateMenu = () => {
+        const menu = menuHost?.querySelector(".milkdown-slash-menu");
+        const list = menu?.querySelector(".menu-groups");
+        const shown = menu?.getAttribute("data-show") === "true";
+        const items = list?.querySelectorAll<HTMLElement>("li[data-index]");
+        let active: string | undefined;
+
+        if (list) {
+          list.id = menuId;
+          list.setAttribute("role", "listbox");
+          list.setAttribute("aria-label", copy.blocks);
+          list.querySelectorAll("ul").forEach((group) => group.setAttribute("role", "presentation"));
+        }
+
+        items?.forEach((item) => {
+          item.id = `${menuId}-${item.dataset.index}`;
+          item.setAttribute("role", "option");
+          const selected = item.classList.contains("hover");
+
+          item.setAttribute("aria-selected", String(selected));
+
+          if (selected) active = item.id;
+        });
+
+        if (shown && active) {
+          field.setAttribute("aria-controls", menuId);
+          field.setAttribute("aria-activedescendant", active);
+        } else {
+          field.removeAttribute("aria-controls");
+          field.removeAttribute("aria-activedescendant");
+        }
+
+        host?.querySelectorAll(".milkdown-block-handle .operation-item")
+          .forEach((item) => item.setAttribute("aria-hidden", "true"));
+      };
+
+      menuObserver = new MutationObserver(updateMenu);
+      menuObserver.observe(menuHost!, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ["class", "data-show"],
+      });
+      menuObserver.observe(host, { subtree: true, childList: true });
+      updateMenu();
+
       const document = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).state.doc);
       let originalDocument = document();
-      const getText = () => sourceForDocument(original, originalDocument, document(), () => crepe!.getMarkdown());
+
+      const getText = () => crepe!.editor.action((ctx) => sourceForDocument(original, originalDocument, document(), ctx, caretNodes));
 
       ready = true;
       crepe.setReadonly(props.readonly);
@@ -192,6 +267,7 @@ export default function PadRichEditor(props: {
 
   onCleanup(() => {
     closed = true;
+    menuObserver?.disconnect();
 
     // Destroying during create schedules a retry that can outlive the host's DOM environment.
     if (crepe) void created?.then(
@@ -202,14 +278,21 @@ export default function PadRichEditor(props: {
   });
 
   return (
-    <div
-      class="pad-editor pad-rich-editor"
-      classList={{ "pad-readonly": props.readonly }}
-      onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-      <Show when={failure()}>
-        {(message) => <p role="alert" class="pad-editor-failure"><KindGlyph kind="error" decorative /> {message()}</p>}
-      </Show>
-      <div ref={(element) => (host = element)} />
-    </div>
+    <>
+      <Portal>
+        <div class="pad-rich-editor pad-block-menu">
+          <div class="milkdown" ref={(element) => (menuHost = element)} />
+        </div>
+      </Portal>
+      <div
+        class="pad-editor pad-rich-editor"
+        classList={{ "pad-readonly": props.readonly }}
+        onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
+        <Show when={failure()}>
+          {(message) => <p role="alert" class="pad-editor-failure"><KindGlyph kind="error" decorative /> {message()}</p>}
+        </Show>
+        <div ref={(element) => (host = element)} />
+      </div>
+    </>
   );
 }

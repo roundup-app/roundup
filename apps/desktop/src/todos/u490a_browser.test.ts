@@ -73,16 +73,29 @@ const drag = async (from: Point, to: Point, release = true) => {
   if (release) await page.pointer("up", to.x, to.y);
 };
 
-const settled = () => new Promise((resolve) => setTimeout(resolve, 400));
+const settled = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  await page.call(`() => Promise.all(
+    [...document.querySelectorAll('.todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished.catch(() => {}))
+  ).then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))`);
+};
 
 const ALT = 1;
 
-/** Every row's on-screen top, once per animation frame, from now until `stop`. */
+/** U156: quarter-speed playback gives the frame observer enough samples of a fast curve.
+ * Times remain animation milliseconds, so duration and per-step limits stay unchanged.
+ */
 const sample = (rows: string) => page.call<void>(`rows => {
   window.__frames = [];
   window.__sampling = true;
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function(...args) {
+    const animation = animate.apply(this, args);
+    if (this.matches('.todo-row')) animation.playbackRate = 0.25;
+    return animation;
+  };
   const read = () => {
-    window.__frames.push({t: performance.now(), tops: Object.fromEntries([...document.querySelectorAll(rows)].map(b => [/#(\\d+)/.exec(b.getAttribute('aria-label'))[1], b.closest('.todo-row').getBoundingClientRect().top]))});
+    window.__frames.push({t: performance.now() * 0.25, tops: Object.fromEntries([...document.querySelectorAll(rows)].map(b => [/#(\\d+)/.exec(b.getAttribute('aria-label'))[1], b.closest('.todo-row').getBoundingClientRect().top]))});
     if (window.__sampling) requestAnimationFrame(read);
   };
   read();
