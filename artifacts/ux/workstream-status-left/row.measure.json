@@ -1,5 +1,4 @@
 {
- "light-padsFound": 2,
  "light-backend": {
   "rest": {
    "sel": ".rail-row[data-id=\"backend\"]",
@@ -13,21 +12,21 @@
    },
    "name": {
     "l": 72,
-    "r": 109.171875,
+    "r": 129.609375,
     "t": 105.953125,
     "b": 122.046875
    },
    "nameCentreY": 114,
    "dotCentreY": 114,
    "state": {
-    "l": 117.171875,
-    "r": 144.171875,
+    "l": 137.609375,
+    "r": 164.609375,
     "t": 106,
     "b": 122
    },
-   "stateLeft": 117.171875,
+   "stateLeft": 137.609375,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 102,
     "b": 126
@@ -37,7 +36,8 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameCut": true
+   "nameText": "backend",
+   "nameCut": false
   },
   "hover": {
    "sel": ".rail-row[data-id=\"backend\"]",
@@ -51,21 +51,21 @@
    },
    "name": {
     "l": 72,
-    "r": 109.171875,
+    "r": 129.609375,
     "t": 105.953125,
     "b": 122.046875
    },
    "nameCentreY": 114,
    "dotCentreY": 114,
    "state": {
-    "l": 117.171875,
-    "r": 144.171875,
+    "l": 137.609375,
+    "r": 164.609375,
     "t": 106,
     "b": 122
    },
-   "stateLeft": 117.171875,
+   "stateLeft": 137.609375,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 102,
     "b": 126
@@ -75,7 +75,8 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameCut": true
+   "nameText": "backend",
+   "nameCut": false
   }
  },
  "light-auth": {
@@ -91,7 +92,7 @@
    },
    "name": {
     "l": 100,
-    "r": 148.171875,
+    "r": 175,
     "t": 149.953125,
     "b": 166.046875
    },
@@ -100,7 +101,7 @@
    "state": null,
    "stateLeft": null,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 146,
     "b": 170
@@ -110,6 +111,7 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
+   "nameText": "authentication-and-session-management-rework",
    "nameCut": true
   },
   "hover": {
@@ -124,7 +126,7 @@
    },
    "name": {
     "l": 100,
-    "r": 148.171875,
+    "r": 175,
     "t": 149.953125,
     "b": 166.046875
    },
@@ -133,7 +135,7 @@
    "state": null,
    "stateLeft": null,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 146,
     "b": 170
@@ -143,6 +145,7 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
+   "nameText": "authentication-and-session-management-rework",
    "nameCut": true
   }
  },
@@ -168,6 +171,7 @@
    "lineHeight": "normal",
    "nameClientH": 17,
    "nameScrollH": 17,
+   "nameText": "notes",
    "nameCut": false
   },
   "hover": {
@@ -191,10 +195,10 @@
    "lineHeight": "normal",
    "nameClientH": 17,
    "nameScrollH": 17,
+   "nameText": "notes",
    "nameCut": false
   }
  },
- "dark-padsFound": 2,
  "dark-backend": {
   "rest": {
    "sel": ".rail-row[data-id=\"backend\"]",
@@ -208,21 +212,21 @@
    },
    "name": {
     "l": 72,
-    "r": 109.171875,
+    "r": 129.609375,
     "t": 105.953125,
     "b": 122.046875
    },
    "nameCentreY": 114,
    "dotCentreY": 114,
    "state": {
-    "l": 117.171875,
-    "r": 144.171875,
+    "l": 137.609375,
+    "r": 164.609375,
     "t": 106,
     "b": 122
    },
-   "stateLeft": 117.171875,
+   "stateLeft": 137.609375,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 102,
     "b": 126
@@ -232,7 +236,8 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameCut": true
+   "nameText": "backend",
+   "nameCut": false
   },
   "hover": {
    "sel": ".rail-row[data-id=\"backend\"]",
@@ -246,21 +251,21 @@
    },
    "name": {
     "l": 72,
-    "r": 109.171875,
+    "r": 129.609375,
     "t": 105.953125,
     "b": 122.046875
    },
    "nameCentreY": 114,
    "dotCentreY": 114,
    "state": {
-    "l": 117.171875,
-    "r": 144.171875,
+    "l": 137.609375,
+    "r": 164.609375,
     "t": 106,
     "b": 122
    },
-   "stateLeft": 117.171875,
+   "stateLeft": 137.609375,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 102,
     "b": 126
@@ -270,7 +275,8 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameCut": true
+   "nameText": "backend",
+   "nameCut": false
   }
  },
  "dark-auth": {
@@ -286,7 +292,7 @@
    },
    "name": {
     "l": 100,
-    "r": 148.171875,
+    "r": 175,
     "t": 149.953125,
     "b": 166.046875
    },
@@ -295,7 +301,7 @@
    "state": null,
    "stateLeft": null,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 146,
     "b": 170
@@ -305,6 +311,7 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
+   "nameText": "authentication-and-session-management-rework",
    "nameCut": true
   },
   "hover": {
@@ -319,7 +326,7 @@
    },
    "name": {
     "l": 100,
-    "r": 148.171875,
+    "r": 175,
     "t": 149.953125,
     "b": 166.046875
    },
@@ -328,7 +335,7 @@
    "state": null,
    "stateLeft": null,
    "icons": {
-    "l": 164.171875,
+    "l": 191,
     "r": 271,
     "t": 146,
     "b": 170
@@ -338,6 +345,7 @@
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
+   "nameText": "authentication-and-session-management-rework",
    "nameCut": true
   }
  },
@@ -363,6 +371,7 @@
    "lineHeight": "normal",
    "nameClientH": 17,
    "nameScrollH": 17,
+   "nameText": "notes",
    "nameCut": false
   },
   "hover": {
@@ -386,6 +395,7 @@
    "lineHeight": "normal",
    "nameClientH": 17,
    "nameScrollH": 17,
+   "nameText": "notes",
    "nameCut": false
   }
  }

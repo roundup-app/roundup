@@ -34,8 +34,8 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
   <span class="row-icons" role="group" aria-label={copy.rowActions}>
     <Show when={props.actions.kind === "workstream" ? props.actions.add : undefined}>
       {(add) => (
-        <Tip text={copy.newAgent} chord={CHORDS[0]}>
-            {(trigger) => <button {...trigger({ ...ownKeys, "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(); } })} type="button" class="rail-add" data-button="quiet"><Icon name="plus" /><span class="rail-add-label">{copy.agent}</span></button>}
+        <Tip text={copy.addAgentLabel} chord={CHORDS[0]}>
+            {(trigger) => <button {...trigger({ ...ownKeys, "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(); } })} type="button" class="rail-add" data-button="icon"><Icon name="plus" /></button>}
           </Tip>
       )}
     </Show>
