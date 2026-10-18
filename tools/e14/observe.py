@@ -16,6 +16,9 @@ from pathlib import Path
 
 RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text())
 
+# JUnit start times and durations are each rounded to 1 ms, so a gap under 1 ms cannot be told from touching.
+JUNIT_RESOLUTION_MS = 1
+
 LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 8)]
 
 
@@ -25,8 +28,8 @@ def overlap(rows):
         start, end = row["start"], row["end"]
         if not all(isinstance(n, (int, float)) and math.isfinite(n) for n in (start, end)) or end < start:
             raise ValueError(f"invalid lifecycle: {row['id']}")
-        if row["real"] and end > start:
-            events.extend([(start, 1), (end, -1)])
+        if row["real"] and end - start > JUNIT_RESOLUTION_MS:
+            events.extend([(start, 1), (end - JUNIT_RESOLUTION_MS, -1)])
     active = peak = 0
     for _, delta in sorted(events):  # Half-open intervals: an end precedes a simultaneous start.
         active += delta
