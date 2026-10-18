@@ -147,12 +147,14 @@ async fn u2539a_line_is_the_first_changed_line() {
     write(f.dir.path(), "a.txt", "1\n2\n3\n4\n5\n");
     write(f.dir.path(), "gone.txt", "bye\n");
     write(f.dir.path(), "bin.dat", "x\0y");
+    write(f.dir.path(), "pure.bin", "unique\0binary");
     commit_all(f.dir.path(), "seed");
     let (id, path) = on(&f).await;
 
     write(&path, "a.txt", "1\n2\n3\nfour\n5\n");
     std::fs::remove_file(path.join("gone.txt")).unwrap();
     write(&path, "bin.dat", "z\0w");
+    git(&path, &["mv", "pure.bin", "renamed\tbinary\n.dat"]);
     write(&path, "new.txt", "x\ny\n");
     write(&path, "new.bin", "x\0y");
 
@@ -170,6 +172,7 @@ async fn u2539a_line_is_the_first_changed_line() {
     assert_eq!(line("a.txt"), json!(4));
     assert_eq!(line("gone.txt"), Value::Null);
     assert_eq!(line("bin.dat"), Value::Null);
+    assert_eq!(line("renamed\tbinary\n.dat"), Value::Null);
     assert_eq!(line("new.txt"), json!(1));
     assert_eq!(line("new.bin"), Value::Null);
 }
