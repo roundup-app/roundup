@@ -9,7 +9,7 @@
   --trees-border-color-override: var(--hairline);
   --trees-indent-guide-bg-override: var(--hairline);
   --trees-border-radius-override: 0;
-  --trees-font-family-override: var(--font-mono);
+  --trees-font-family-override: var(--font-ui);
   --trees-font-size-override: var(--text-small);
   --trees-focus-ring-color-override: var(--accent);
   --trees-focus-ring-width-override: 2px;
@@ -42,16 +42,16 @@
   --trees-status-deleted-override: currentColor;
 }
 [data-type="item"]:hover { color: var(--text); }
-[data-type="item"]:active { color: var(--disabled); }
+[data-type="item"]:active { color: var(--ink-pressed); transition-duration: 0s; }
 [data-type="item"] { color: var(--grey); }
 [data-item-section="decoration"]:empty { display: none; }
 [data-item-section="content"] {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   white-space: nowrap;
 }
 [data-item-section="decoration"] {
   flex: 0 0 auto;
-  margin-left: auto;
+  margin-left: 0;
   overflow: visible;
 }
 [data-item-flattened-subitems] {
@@ -69,3 +69,31 @@
 :host [data-truncate-marker-cell] { display: none; }
 
 [data-item-type="folder"] [data-item-section="git"] { visibility: hidden; }
+
+/* Keep the keyboard ring inside the clipped viewport; pointer selection uses the wash. */
+[data-type="item"]::before { display: none; }
+[data-type="item"]:focus-visible::before {
+  display: block;
+  outline-offset: calc(-1 * var(--space-1));
+}
+:host {
+  --trees-padding-inline-override: 0;
+  --trees-item-padding-x-override: 0;
+  --trees-item-margin-x-override: 0;
+  --trees-item-row-gap-override: var(--space-1);
+  --trees-level-gap-override: var(--space-2);
+}
+[data-file-tree-virtualized-scroll] { padding-inline: 0; }
+[data-item-section="git"] { font-family: var(--font-mono); }
+[data-item-section="spacing"] { padding-left: 0; }
+[data-item-section="spacing-item"] {
+  border: none;
+  width: var(--space-3);
+  margin: 0;
+  transition: none;
+  transform: none;
+  background: linear-gradient(var(--hairline), var(--hairline)) left / 1px 100% no-repeat;
+}
+[data-item-section="spacing-item"] + [data-item-section="spacing-item"] { margin-left: var(--space-1); }
+[data-truncate-container], [data-truncate-grid] { margin-block: 0; }
+[data-item-flattened-subitems] { gap: var(--space-1); }
