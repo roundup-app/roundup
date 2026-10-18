@@ -97,9 +97,14 @@ button {
   color: var(--text);
 }
 
-/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
-button:is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
+button:hover:not([aria-disabled="true"]) {
+  color: var(--text);
+}
+
+/* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
+button:active:not([aria-disabled="true"]),
+button[data-pressed="true"]:not([aria-disabled="true"]) {
   color: var(--ink-pressed);
   transition-duration: 0s;
 }
