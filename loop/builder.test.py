@@ -295,36 +295,22 @@ class Engine(unittest.TestCase):
         seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None
         return output.read_text(), seen('seen-claude'), seen('seen')
 
-    def test_l23_an_odd_item_starts_on_claude_code_and_falls_back_to_codex_when_it_did_no_work(self):
-        with tempfile.TemporaryDirectory() as path:
-            output, claude, codex = self.run_engine(path, 7)
-        self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
-        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh',
-                                             GIT_AUTHOR_NAME='claude[bot]'))
-        self.assertIsNone(codex)
-        self.assertIn('{"ask": "from claude"}', output)
-        self.assertEqual(output.count('execution_file='), 1)
-        with tempfile.TemporaryDirectory() as path:
-            output, claude, codex = self.run_engine(path, 7, claude_mode='limit')
-        self.assertEqual(codex['args'][:4], ['exec', '--json', '--model', 'gpt-6.1-sol'])
-        self.assertEqual(codex['prompt'], 'Build U1.')
-        self.assertEqual(output.count('execution_file='), 2)
-        self.assertIn('{"ask":""}', output)
-        self.assertNotIn('from claude', output)
-
-    def test_l23_an_even_item_starts_on_codex_and_falls_back_to_claude_code_when_it_did_no_work(self):
-        with tempfile.TemporaryDirectory() as path:
-            output, claude, codex = self.run_engine(path, 8)
-        self.assertEqual(codex['args'][:4], ['exec', '--json', '--model', 'gpt-6.1-sol'])
-        self.assertIsNone(claude)
-        self.assertIn('{"ask":""}', output)
-        self.assertEqual(output.count('execution_file='), 1)
-        with tempfile.TemporaryDirectory() as path:
-            output, claude, codex = self.run_engine(path, 8, codex_mode='limit')
-        self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
-        self.assertIsNone(claude['env']['CODEX_AUTH'])
-        self.assertEqual(output.count('execution_file='), 2)
-        self.assertIn('{"ask": "from claude"}', output)
+    def test_l23_every_item_starts_on_codex_and_falls_back_to_claude_code_when_it_did_no_work(self):
+        for issue in (7, 8):
+            with self.subTest(issue=issue):
+                with tempfile.TemporaryDirectory() as path:
+                    output, claude, codex = self.run_engine(path, issue)
+                self.assertEqual(codex['args'][:4], ['exec', '--json', '--model', 'gpt-6.1-sol'])
+                self.assertIsNone(claude)
+                self.assertIn('{"ask":""}', output)
+                self.assertEqual(output.count('execution_file='), 1)
+                with tempfile.TemporaryDirectory() as path:
+                    output, claude, codex = self.run_engine(path, issue, codex_mode='limit')
+                self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
+                self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh',
+                                                     GIT_AUTHOR_NAME='claude[bot]'))
+                self.assertEqual(output.count('execution_file='), 2)
+                self.assertIn('{"ask": "from claude"}', output)
 
     def test_l23_a_broken_codex_login_is_a_setup_failure_that_falls_back_to_claude_code_and_is_annotated(self):
         with tempfile.TemporaryDirectory() as path:

@@ -33,8 +33,8 @@ AUDIENCE = 'claude-code-github-action'
 RIGHTS = {'contents': 'write', 'pull_requests': 'write', 'issues': 'write', 'workflows': 'write'}
 # L23: a build or fix run's token holds `keep`'s rights and reads CI evidence.
 RUN_RIGHTS = {**RIGHTS, 'actions': 'read', 'checks': 'read'}
-# L23: build and fix runs start on Codex with the user's ChatGPT login for an even work item and on Claude Code with the Max
-# token for an odd one, each falling back to the other when it did no work. Neither App lends a workflow a token, so a run's commits name its engine's account and push with a Claude App
+# L23: build and fix runs start on Codex with the user's ChatGPT login and fall back to Claude Code with the Max token when
+# it did no work. Neither App lends a workflow a token, so a run's commits name its engine's account and push with a Claude App
 # token.
 CLAUDE_MODEL = 'claude-sonnet-5-5'
 CODEX_MODEL = 'gpt-6.1-sol'
@@ -338,9 +338,8 @@ def codex(login, prompt, model, schema, output):
 
 
 def engine(prompt, schema, output):
-    """L23: run `prompt` on the engine its work item's number picks (an even `ISSUE` starts on Codex, an odd
-    one on Claude Code, so a PR's fix runs start where its build did) and, when that model used no tool (a usage limit
-    or a setup failure such as a broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on the other. The ChatGPT login leaves the
+    """L23: run `prompt` on Codex and, when that model used no tool (a usage limit or a setup failure such as a
+    broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. The ChatGPT login leaves the
     environment first, so a Claude Code run's shell never holds it. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
     temp = Path(os.environ['RUNNER_TEMP'])
@@ -354,13 +353,12 @@ def engine(prompt, schema, output):
 
     engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), temp / 'claude' / 'events.jsonl'),
                'Codex': (codex_or_none, temp / 'codex' / 'events.jsonl')}
-    first, second = ('Codex', 'Claude Code') if int(os.environ['ISSUE']) % 2 == 0 else ('Claude Code', 'Codex')
-    run, events = engines[first]
+    run, events = engines['Codex']
     code = run()
     if worked(events):
         return code
-    print(f'engine: {first} did no work; falling back to {second}', file=sys.stderr)
-    return engines[second][0]()
+    print('engine: Codex did no work; falling back to Claude Code', file=sys.stderr)
+    return engines['Claude Code'][0]()
 
 
 def keep(branch, issue, run_url):
