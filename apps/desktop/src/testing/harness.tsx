@@ -2,6 +2,8 @@ import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
 import { App } from "../App";
+import { createXtermEmulators } from "../terminal/emulator";
+import type { Emulator } from "../terminal/emulator";
 import { railStorage } from "../rail/persist/storage";
 import { createReducedMotion } from "../app/reducedMotion";
 import { runAxe } from "./axe";
@@ -19,6 +21,7 @@ import "./todoWorstCase.styles.css";
 declare global {
   interface Window {
     __fake: Controls;
+    __terminals: Map<string, Emulator>;
     /** U463: cancel only the next isolated choice; no caller-supplied path. */
     __firstRun?: { cancelNextChoice: () => void };
     __checks: () => Checks;
@@ -35,7 +38,17 @@ const query = new URLSearchParams(location.search);
 const mount = (app: AppSeam) => {
   const reducedMotion = createRoot(() => createReducedMotion((media) => window.matchMedia(media)));
 
-  render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} />, root);
+  const createEmulator = query.get("renderer") === "dom"
+    ? createXtermEmulators(undefined, () => { throw new Error("DOM renderer requested by observer"); })
+    : createXtermEmulators();
+
+  window.__terminals = new Map();
+  render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={(id) => {
+    const emulator = createEmulator(id);
+    window.__terminals.set(id, emulator);
+
+    return emulator;
+  }} />, root);
 };
 
 window.__checks = () => runChecks();
