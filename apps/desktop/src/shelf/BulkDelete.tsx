@@ -184,15 +184,15 @@ export const createBulkDelete = <Id,>(props: {
   const dialog = () => (
     <AlertDialog.Root open={question() !== null} initialFocusEl={() => keep ?? null} finalFocusEl={focusAfter}
       onOpenChange={(details) => { if (!details.open) cancel(); }}>
-      <Portal mount={host?.mount()}>
-        <AlertDialog.Positioner>
+      <Portal>
+        <AlertDialog.Positioner asChild={(positioner) => <aside {...positioner({})} />}>
           <AlertDialog.Content class="shelf-question" ref={(element) => { panel = element; }} onKeyDown={(press) => press.stopPropagation()}>
             <Show when={question()}>{(held) => <>
               <AlertDialog.Title>{copy.deleteWord}{held().targets.length}{held().done ? copy.doneCount : ""} {props.noun}{copy.questionMark}</AlertDialog.Title>
               <AlertDialog.Description>
-                <ul class="shelf-question-targets">
-                  <For each={held().targets}>{(target) => <li><Show when={props.noun === "Todos"}><span class="mono">#{String(target.id)}</span>{" "}</Show>{target.label}</li>}</For>
-                </ul>
+                <div class="shelf-question-targets">
+                  <For each={held().targets}>{(target) => <p><Show when={props.noun === "Todos"}><span class="mono" data-mono>#{String(target.id)}</span>{" "}</Show>{target.label}</p>}</For>
+                </div>
                 <Show when={owners().length > 0}>
                   <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
                 </Show>
