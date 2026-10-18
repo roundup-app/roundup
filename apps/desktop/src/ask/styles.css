@@ -214,6 +214,13 @@
   white-space: nowrap;
 }
 
+/* The Rail row's status icon size (`.rail .glyph svg`): one icon size for a Status everywhere. */
+.overview-state .glyph,
+.overview-state .glyph svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
 .overview-state.ink {
   color: var(--text);
 }
