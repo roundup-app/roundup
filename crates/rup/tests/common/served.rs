@@ -17,7 +17,11 @@ async fn serve_for_the_parent() {
         return;
     };
     let dir = Path::new(&dir);
-    let daemon = rupd::Daemon::open(&dir.join(".roundup")).unwrap();
+    let daemon = rupd::Daemon::open_with_proof(
+        &dir.join(".roundup"),
+        std::env::var("ROUNDUP_TEST_PROOF").ok(),
+    )
+    .unwrap();
     let listener = tokio::net::UnixListener::bind(dir.join("rupd.sock")).unwrap();
     rupd::serve(listener, std::sync::Arc::new(daemon))
         .await
@@ -49,6 +53,7 @@ impl Served {
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "common::serve_for_the_parent", "--nocapture"])
             .env(SERVE_ENV, dir.path())
+            .env("RUPD_SOCKET", dir.path().join("rupd.sock"))
             .env("ROUNDUP_CLAUDE_BIN", &fake)
             .env("ROUNDUP_RUP_BIN", env!("CARGO_BIN_EXE_rup"))
             .env("CLAUDE_CONFIG_DIR", dir.path())
@@ -91,5 +96,202 @@ impl Drop for Served {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+/// Populated real-Daemon fixture for the Rail-name result scenarios.
+#[allow(dead_code)] // Each integration target exercises a different surface.
+pub struct NamedRail {
+    pub served: Served,
+    pub user: rpc::Client,
+    pub door: String,
+    pub child: String,
+    pub peer: String,
+}
+
+#[allow(dead_code)]
+impl NamedRail {
+    pub async fn start() -> Self {
+        use serde_json::json;
+        let fake = format!(
+            "#!/bin/sh\nexec python3 '{}/tests/e2e/fake_claude.py' \"$@\"\n",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let served = Served::start(
+            &fake,
+            &[
+                ("FAKE_CLAUDE_PROMPT_LOG", "/dev/null"),
+                ("ROUNDUP_TEST_PROOF", "test-proof"),
+            ],
+        )
+        .await;
+        for args in [
+            vec!["init", "-b", "main"],
+            vec![
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "initial",
+            ],
+        ] {
+            let output = Command::new("git")
+                .args(args)
+                .current_dir(served.dir.path())
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "{:?}", output);
+        }
+        let user = rpc::Client::connect(&served.socket()).await.unwrap();
+        user.request("project.setWorktrees", json!({"on":true,"check":null}))
+            .await
+            .unwrap();
+        let door = user
+            .request("rail.createWorkstream", json!({"name":"Research"}))
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let mut events = rpc::Client::connect(&served.socket()).await.unwrap();
+        events.request("events.subscribe", ()).await.unwrap();
+        user.request("rail.startDoor", json!({"id":door}))
+            .await
+            .unwrap();
+        Self::idle(&mut events, &door).await;
+        let mut fx = Self {
+            served,
+            user,
+            door,
+            child: String::new(),
+            peer: String::new(),
+        };
+        fx.child = fx.spawn("Writer").await;
+        fx.peer = fx.spawn("Reviewer").await;
+        fx
+    }
+
+    pub async fn idle(events: &mut rpc::Client, id: &str) {
+        tokio::time::timeout(Duration::from_secs(20), async {
+            while let Some(event) = events.next_event().await {
+                if let contracts::EventData::AgentStatus(status) = event.data
+                    && status.id == id
+                    && status.status.kind == contracts::Kind::Idle
+                {
+                    return;
+                }
+            }
+            panic!("event connection closed");
+        })
+        .await
+        .expect("Agent became idle");
+    }
+
+    pub async fn spawn(&self, name: &str) -> String {
+        use serde_json::json;
+        let mut events = rpc::Client::connect(&self.served.socket()).await.unwrap();
+        events.request("events.subscribe", ()).await.unwrap();
+        let id = self
+            .user
+            .request(
+                "agent.spawn",
+                json!({"cwd":self.served.dir.path(),"parent":self.door,"name":name}),
+            )
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        Self::idle(&mut events, &id).await;
+        id
+    }
+
+    pub async fn begin_clear(&self) -> rpc::Client {
+        let events = rpc::Client::connect(&self.served.socket()).await.unwrap();
+        events.request("events.subscribe", ()).await.unwrap();
+        self.user
+            .request(
+                "workstream.clear",
+                serde_json::json!({"id":self.door,"reason":"Continue"}),
+            )
+            .await
+            .unwrap();
+        events
+    }
+
+    pub async fn cleared(&self, events: &mut rpc::Client) -> u32 {
+        tokio::time::timeout(Duration::from_secs(20), async {
+            while let Some(event) = events.next_event().await {
+                match event.data {
+                    contracts::EventData::WorkstreamCleared(cleared) if cleared.id == self.door => {
+                        return cleared.iteration;
+                    }
+                    contracts::EventData::WorkstreamClearFailed(failed)
+                        if failed.id == self.door =>
+                    {
+                        panic!("{failed:?}")
+                    }
+                    _ => {}
+                }
+            }
+            panic!("clear event connection closed");
+        })
+        .await
+        .expect("the Handoff was applied")
+    }
+
+    pub async fn rename(&self) {
+        for (id, name) in [
+            (&self.door, "Planning"),
+            (&self.child, "Author"),
+            (&self.peer, "Editor"),
+        ] {
+            self.user
+                .request("rail.rename", serde_json::json!({"id":id,"name":name}))
+                .await
+                .unwrap();
+        }
+    }
+
+    pub async fn decision(
+        &self,
+    ) -> (
+        String,
+        tokio::task::JoinHandle<Result<serde_json::Value, rpc::RpcError>>,
+    ) {
+        use serde_json::json;
+        let mut events = rpc::Client::connect(&self.served.socket()).await.unwrap();
+        events.request("events.subscribe", ()).await.unwrap();
+        let caller = rpc::Client::connect(&self.served.socket()).await.unwrap();
+        caller
+            .request(
+                "daemon.identify",
+                contracts::IdentifyParams {
+                    actor: contracts::Actor {
+                        kind: contracts::ActorKind::Agent,
+                        id: self.child.clone(),
+                        parent: None,
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        let call = tokio::spawn(async move {
+            caller.request("agent.ask", json!({"question":"Choose","answers":[{"label":"Yes","description":"Continue"},{"label":"No","description":"Stop"}]})).await
+        });
+        let id = tokio::time::timeout(Duration::from_secs(20), async {
+            while let Some(event) = events.next_event().await {
+                if let contracts::EventData::DecisionOpened(decision) = event.data {
+                    return decision.id;
+                }
+            }
+            panic!("event connection closed");
+        })
+        .await
+        .unwrap();
+        (id, call)
     }
 }

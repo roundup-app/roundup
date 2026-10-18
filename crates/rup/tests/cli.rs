@@ -572,7 +572,7 @@ async fn i5_a_door_gets_the_door_only_commands() {
         ])
         .await;
     assert_eq!(code(&handoff), 0, "{}", err(&handoff));
-    assert_eq!(out(&handoff), "handed off Workstream a1\n");
+    assert_eq!(out(&handoff), "handed off Workstream Door\n");
 }
 
 #[tokio::test]
@@ -1062,5 +1062,265 @@ async fn a2693a_cli_and_mcp_forward_the_resume_mode() {
         assert_ne!(result.is_error, Some(true));
         let request = request_of(&mut requests, "agent.resume").await;
         assert_eq!(request, json!({"id":"child","mode":mode}));
+    }
+}
+
+#[tokio::test]
+async fn i2706a_help_explains_rail_names_and_machine_ids() {
+    let dir = tempfile::tempdir().unwrap();
+    for args in [
+        vec!["help"],
+        vec!["help", "agent"],
+        vec!["help", "rail"],
+        vec!["help", "workstream"],
+        vec!["help", "decision"],
+    ] {
+        let result = on(&dir.path().join("absent.sock")).rup(&args).await;
+        assert_eq!(code(&result), 0);
+        assert!(
+            out(&result).contains("Rail name")
+                && out(&result).contains("IDs remain command arguments"),
+            "{}",
+            out(&result)
+        );
+        assert!(out(&result).contains("ROUNDUP_AGENT"));
+    }
+}
+
+#[tokio::test]
+async fn i2706a_plain_output_uses_current_rail_names() {
+    let fx = common::NamedRail::start().await;
+    let run = on(&fx.served.socket()).acting_as(Some(&fx.door));
+    let spare = fx.spawn("Spare").await;
+    let discarded = run.rup(&["agent", "discard", &spare]).await;
+    assert_eq!(code(&discarded), 0, "{}", err(&discarded));
+    assert_eq!(out(&discarded), "discarded Worktree of Agent Spare\n");
+    let (_decision, pending) = fx.decision().await;
+    for renamed in [false, true] {
+        if renamed {
+            fx.rename().await;
+        }
+        let (door, child) = if renamed {
+            ("Planning", "Author")
+        } else {
+            ("Research", "Writer")
+        };
+        let moved = run
+            .rup(&["rail", "move", &fx.child, "--parent", &fx.door, "0"])
+            .await;
+        assert_eq!(code(&moved), 0, "{}", err(&moved));
+        assert_eq!(out(&moved), format!("moved {child} to {door}\n"));
+        for args in [
+            vec!["rail", "tree"],
+            vec!["agent", "context"],
+            vec!["agent", "digest"],
+            vec!["decision", "list"],
+        ] {
+            let caller = if args == ["agent", "context"] {
+                &fx.child
+            } else {
+                &fx.door
+            };
+            let shown = on(&fx.served.socket())
+                .acting_as(Some(caller))
+                .rup(&args)
+                .await;
+            assert_eq!(code(&shown), 0, "{}", err(&shown));
+            assert!(out(&shown).ends_with('\n'));
+            let items: Vec<Value> = out(&shown)
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            match args.as_slice() {
+                ["rail", "tree"] => {
+                    let node = items.iter().find(|node| node["id"] == fx.child).unwrap();
+                    assert_eq!(node["name"], child);
+                    assert_eq!(node["parent_name"], door);
+                }
+                ["agent", "context"] => {
+                    assert_eq!(items[0]["self"]["id"], fx.child);
+                    assert_eq!(items[0]["self"]["name"], child);
+                    assert_eq!(items[0]["parent"]["name"], door);
+                    assert_eq!(items[0]["ask"]["name"], door);
+                }
+                ["agent", "digest"] => assert!(
+                    items[0]["children"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|entry| entry["name"] == child)
+                ),
+                _ => {
+                    assert_eq!(items[0]["agent"], fx.child);
+                    assert_eq!(items[0]["agent_name"], child);
+                }
+            }
+        }
+    }
+    pending.abort();
+    let tree = fx.user.request("rail.tree", ()).await.unwrap();
+    let path = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == fx.child)
+        .unwrap()["worktree"]["path"]
+        .as_str()
+        .unwrap();
+    let discarded = run.rup(&["agent", "discard", &fx.child]).await;
+    assert_eq!(code(&discarded), 0, "{}", err(&discarded));
+    assert_eq!(out(&discarded), "discarded Worktree of Agent Author\n");
+    assert!(!Path::new(path).exists());
+    let todo = fx
+        .user
+        .request("todo.create", json!({"title":"Keep notes","home":fx.door}))
+        .await
+        .unwrap()["id"]
+        .to_string();
+    fx.user
+        .request("pad.create", json!({"name":"notes","home":fx.door}))
+        .await
+        .unwrap();
+    fx.user
+        .request(
+            "todo.move",
+            json!({"id":todo.parse::<u32>().unwrap(),"home":fx.door}),
+        )
+        .await
+        .unwrap();
+    fx.user
+        .request("pad.move", json!({"name":"notes","home":fx.door}))
+        .await
+        .unwrap();
+    for (index, name) in ["Research", "Planning"].iter().enumerate() {
+        fx.user
+            .request("rail.rename", json!({"id":fx.door,"name":name}))
+            .await
+            .unwrap();
+        let mut events = fx.begin_clear().await;
+        let handoff = run
+            .rup(&[
+                "workstream",
+                "handoff",
+                "Reviewed the work",
+                "--keep-todos",
+                &todo,
+                "--keep-pads",
+                "notes",
+            ])
+            .await;
+        assert_eq!(code(&handoff), 0, "{}", err(&handoff));
+        assert_eq!(out(&handoff), format!("handed off Workstream {name}\n"));
+        assert_eq!(
+            fx.cleared(&mut events).await,
+            u32::try_from(index).unwrap() + 2
+        );
+    }
+}
+
+#[tokio::test]
+async fn i2706a_json_keeps_machine_results() {
+    let fx = common::NamedRail::start().await;
+    let run = on(&fx.served.socket()).acting_as(Some(&fx.door));
+    let (_decision, pending) = fx.decision().await;
+    for renamed in [false, true] {
+        if renamed {
+            fx.rename().await;
+        }
+        for (args, method, params) in [
+            (vec!["rail", "tree", "--json"], "rail.tree", Value::Null),
+            (
+                vec!["agent", "context", "--json"],
+                "agent.context",
+                json!({"id":fx.door}),
+            ),
+            (
+                vec!["agent", "digest", "--json"],
+                "agent.digest",
+                json!({"id":fx.door}),
+            ),
+            (
+                vec!["decision", "list", "--json"],
+                "decision.list",
+                Value::Null,
+            ),
+        ] {
+            let actual = run.rup(&args).await;
+            assert_eq!(code(&actual), 0, "{}", err(&actual));
+            let mut expected = fx.user.request(method, params).await.unwrap();
+            let mut actual = serde_json::from_str::<Value>(&out(&actual)).unwrap();
+            // These are separate live reads: hooks may publish Status between them.
+            strip_status(&mut expected);
+            strip_status(&mut actual);
+            assert_eq!(actual, expected);
+        }
+        let moved = run
+            .rup(&[
+                "rail", "move", &fx.child, "--parent", &fx.door, "0", "--json",
+            ])
+            .await;
+        assert_eq!(code(&moved), 0, "{}", err(&moved));
+        assert_eq!(out(&moved), "null\n");
+    }
+    pending.abort();
+    let discarded = run.rup(&["agent", "discard", &fx.child, "--json"]).await;
+    assert_eq!(code(&discarded), 0, "{}", err(&discarded));
+    assert_eq!(out(&discarded), "null\n");
+    let todo = fx
+        .user
+        .request("todo.create", json!({"title":"Keep notes","home":fx.door}))
+        .await
+        .unwrap()["id"]
+        .to_string();
+    fx.user
+        .request("pad.create", json!({"name":"notes","home":fx.door}))
+        .await
+        .unwrap();
+    fx.user
+        .request(
+            "todo.move",
+            json!({"id":todo.parse::<u32>().unwrap(),"home":fx.door}),
+        )
+        .await
+        .unwrap();
+    fx.user
+        .request("pad.move", json!({"name":"notes","home":fx.door}))
+        .await
+        .unwrap();
+    for name in ["Research", "Planning"] {
+        fx.user
+            .request("rail.rename", json!({"id":fx.door,"name":name}))
+            .await
+            .unwrap();
+        let mut events = fx.begin_clear().await;
+        let handoff = run
+            .rup(&[
+                "workstream",
+                "handoff",
+                "Reviewed the work",
+                "--keep-todos",
+                &todo,
+                "--keep-pads",
+                "notes",
+                "--json",
+            ])
+            .await;
+        assert_eq!(code(&handoff), 0, "{}", err(&handoff));
+        assert_eq!(out(&handoff), "null\n");
+        fx.cleared(&mut events).await;
+    }
+}
+
+fn strip_status(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            object.remove("status");
+            object.remove("status_revision");
+            for value in object.values_mut() {
+                strip_status(value);
+            }
+        }
+        Value::Array(items) => items.iter_mut().for_each(strip_status),
+        _ => {}
     }
 }
