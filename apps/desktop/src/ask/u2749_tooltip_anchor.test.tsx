@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
+import { IconButton } from "../ui/IconButton";
 import { door } from "../testing/nodes";
 import { mountAskBar } from "./askFixture";
 
@@ -15,4 +16,11 @@ it("u2749a_project_root_kind_owns_its_tooltip", async () => {
   fireEvent.pointerMove(glyph.querySelector("path")!, { pointerType: "mouse", clientX: 108, clientY: 108 });
   expect((await screen.findByRole("tooltip")).textContent).toBe("Working");
   expect(anchor).toHaveBeenCalled();
+
+  render(() => <IconButton aria-label="Another control">+</IconButton>);
+  const other = screen.getByRole("button", { name: "Another control" });
+  vi.spyOn(other, "getBoundingClientRect").mockReturnValue(new DOMRect(200, 100, 24, 24));
+  fireEvent.pointerLeave(owner, { pointerType: "mouse" });
+  fireEvent.pointerMove(other, { pointerType: "mouse", clientX: 212, clientY: 112 });
+  await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe("Another control"));
 });

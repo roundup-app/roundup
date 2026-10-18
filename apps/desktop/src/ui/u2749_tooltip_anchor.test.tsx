@@ -26,7 +26,8 @@ it.each([
     <Tooltip.Trigger>Owner</Tooltip.Trigger><Tooltip.Positioner><Tooltip.Content>Explain</Tooltip.Content></Tooltip.Positioner>
   </Tooltip.Root></>);
   vi.spyOn(anchor!, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 100, 16, 16));
-  vi.spyOn(screen.getByRole("button"), "getBoundingClientRect").mockReturnValue(new DOMRect(100, 100, 16, 16));
+  // The explicit case puts the pointer inside the trigger but outside its named anchor.
+  vi.spyOn(screen.getByRole("button"), "getBoundingClientRect").mockReturnValue(new DOMRect(env.explicit ? 290 : 100, env.explicit ? 290 : 100, 16, 16));
   fireEvent.pointerMove(screen.getByRole("button"), { pointerType: "mouse", clientX: 300, clientY: 300 });
   await Promise.resolve();
   expect(() => { vi.runAllTimers(); vi.runAllTicks(); }).toThrow("Tooltip anchor excludes its opening pointer");
