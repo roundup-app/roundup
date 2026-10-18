@@ -1,7 +1,7 @@
 /* Pierre renders inside a shadow root; keep its Token palette and row layout here. */
 :host {
   --trees-accent-override: var(--accent);
-  --trees-fg-override: var(--text);
+  --trees-fg-override: var(--grey);
   --trees-fg-muted-override: var(--grey);
   --trees-bg-override: var(--sunken);
   --trees-bg-muted-override: var(--sunken);
@@ -12,6 +12,8 @@
   --trees-font-family-override: var(--font-mono);
   --trees-font-size-override: var(--text-small);
   --trees-focus-ring-color-override: var(--accent);
+  --trees-focus-ring-width-override: 2px;
+  --trees-focus-ring-offset-override: 1px;
   --trees-search-fg-override: var(--text);
   --trees-search-bg-override: var(--sunken);
   --trees-scrollbar-thumb-override: var(--grey);
@@ -32,15 +34,17 @@
   --trees-icon-purple: var(--grey);
   --trees-icon-pink: var(--grey);
   --trees-icon-mauve: var(--grey);
-  --trees-status-added-override: var(--text);
+  --trees-status-added-override: currentColor;
   --trees-status-ignored-override: var(--grey);
-  --trees-status-modified-override: var(--text);
-  --trees-status-renamed-override: var(--text);
-  --trees-status-untracked-override: var(--text);
-  --trees-status-deleted-override: var(--text);
+  --trees-status-modified-override: currentColor;
+  --trees-status-renamed-override: currentColor;
+  --trees-status-untracked-override: currentColor;
+  --trees-status-deleted-override: currentColor;
 }
 [data-type="item"]:hover { color: var(--text); }
-[data-type="item"]:active { color: var(--ink-pressed); }
+[data-type="item"]:active { color: var(--disabled); }
+[data-type="item"] { color: var(--grey); }
+[data-item-section="decoration"]:empty { display: none; }
 [data-item-section="content"] {
   flex: 0 1 auto;
   white-space: nowrap;
@@ -63,3 +67,5 @@
 [data-truncate-content="visible"] > span { unicode-bidi: normal; }
 [data-truncate-content="overflow"], [data-truncate-marker],
 :host [data-truncate-marker-cell] { display: none; }
+
+[data-item-type="folder"] [data-item-section="git"] { visibility: hidden; }

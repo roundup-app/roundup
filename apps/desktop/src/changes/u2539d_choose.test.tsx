@@ -22,19 +22,24 @@ describe("U2539d", () => {
   it("u2539d_enter_opens_the_file_at_its_line", async () => {
     const { app } = await open();
 
-    row("src/a.ts")!.focus();
-    fireEvent.click(row("src/a.ts")!);
-    fireEvent.keyDown(row("src/a.ts")!, { key: "Enter", bubbles: true, composed: true });
+    const root = document.querySelector("file-tree-container")!.shadowRoot!;
 
-    await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/src/a.ts`, line: 12 }]));
+    expect(root.activeElement?.getAttribute("data-item-path")).toBe("src/");
+    fireEvent.keyDown(root.activeElement!, { key: "ArrowDown", bubbles: true, composed: true });
+    await waitFor(() => expect(root.activeElement?.getAttribute("data-item-path")).toBe("src/deep/"));
+    fireEvent.keyDown(root.activeElement!, { key: "ArrowDown", bubbles: true, composed: true });
+    await waitFor(() => expect(root.activeElement).toBe(row("src/deep/b.ts")));
+    fireEvent.keyDown(root.activeElement!, { key: "Enter", bubbles: true, composed: true });
+
+    await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/src/deep/b.ts`, line: 1 }]));
   });
 
   it("u2539d_a_double_click_opens_the_file_at_its_line", async () => {
     const { app } = await open();
 
-    fireEvent.dblClick(row("src/deep/b.ts")!, { composed: true });
+    fireEvent.dblClick(row("src/a.ts")!, { composed: true });
 
-    await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/src/deep/b.ts`, line: 1 }]));
+    await waitFor(() => expect(app.editorCalls).toEqual([{ path: `${WORKTREE.path}/src/a.ts`, line: 12 }]));
   });
 
   it("u2539d_a_deleted_file_opens_nothing", async () => {
