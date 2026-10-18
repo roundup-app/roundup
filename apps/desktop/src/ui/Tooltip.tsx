@@ -28,7 +28,7 @@ const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => 
   return <Ownership.Provider value={ownership}><ArkTooltip.Root lazyMount unmountOnExit {...props}
     positioning={{ strategy: "fixed", ...props.positioning, getAnchorRect: rect }}
     onOpenChange={(details) => {
-      if (details.open && pointer && (import.meta.env.DEV || import.meta.env.MODE === "test")) {
+      if (details.open && pointer && (import.meta.env.DEV || import.meta.env.VITEST === "true")) {
         const box = rect();
 
         if (!box || pointer.x < box.left || pointer.x > box.right || pointer.y < box.top || pointer.y > box.bottom) {
