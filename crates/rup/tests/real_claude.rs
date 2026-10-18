@@ -537,7 +537,7 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
         .request(
             "agent.spawn",
             json!({
-                "cwd": project.dir.path(), "prompt": "E3"
+                "cwd": project.dir.path(), "name":"context-reader", "prompt": "E3"
             }),
         )
         .await
@@ -1859,7 +1859,7 @@ sys.exit(result.returncode)
             Duration::from_secs(30),
             client.request(
                 "agent.spawn",
-                json!({"cwd": project.dir.path(), "prompt": "H15 exercise one hundred tools"}),
+                json!({"cwd": project.dir.path(), "name":"hook-reader", "prompt": "H15 exercise one hundred tools"}),
             ),
         )
         .await
@@ -4377,7 +4377,7 @@ async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_an
             client
                 .request(
                     "agent.spawn",
-                    json!({"cwd": project.dir.path(), "prompt": "What should this Agent do?", "parent": parent}),
+                    json!({"cwd": project.dir.path(), "name":"permission-reader", "prompt": "What should this Agent do?", "parent": parent}),
                 )
                 .await
                 .unwrap(),
@@ -4862,7 +4862,7 @@ async fn x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch() {
             client
                 .request(
                     "agent.spawn",
-                    json!({"cwd": project.dir.path(), "prompt": "fix the refresh race"}),
+                    json!({"cwd": project.dir.path(), "name":"scheme-reader", "prompt": "fix the refresh race"}),
                 )
                 .await
                 .unwrap(),

@@ -344,7 +344,7 @@ impl Served {
         let agent = client
             .request(
                 "agent.spawn",
-                json!({"cwd": cwd, "prompt": null, "parent": null}),
+                json!({"cwd": cwd, "name":"signal-reader", "prompt": null, "parent": null}),
             )
             .await
             .unwrap();
