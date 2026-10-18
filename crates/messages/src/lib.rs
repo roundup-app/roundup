@@ -287,7 +287,7 @@ impl Messages {
         }
         let message = self.send_message(ctx, p, false).await?;
         if note {
-            inbox::refuse_unusable(&self.inner, &message).await?;
+            inbox::refuse_mismatch(&self.inner, &message).await?;
         }
         reply(&message)
     }
@@ -295,7 +295,8 @@ impl Messages {
     /// B51(g): Claude Code drops a note whose text and sender equal those of the one it took up
     /// last, so such a send is refused and no Message is made.
     async fn refuse_repeat(&self, ctx: &Ctx, p: &SendParams) -> Result<(), RpcError> {
-        let Some(receiver) = self.resolve_receiver(&p.to).await? else {
+        // A receiver that cannot be found is the send's own error to give.
+        let Ok(Some(receiver)) = self.resolve_receiver(&p.to).await else {
             return Ok(());
         };
         let last = self.store()?.last_note(&p.to, binding(&receiver).0)?;
@@ -2274,11 +2275,11 @@ mod tests {
     async fn b1_a_receiver_at_the_bound_of_32_is_conflict() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(dir.path(), vec![agent_node("b", Kind::Working)]);
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2324,11 +2325,11 @@ mod tests {
         )
         .await
         .unwrap();
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2353,11 +2354,11 @@ mod tests {
             dir.path(),
             vec![agent_node("b", Kind::Idle), agent_node("c", Kind::Idle)],
         );
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2379,11 +2380,11 @@ mod tests {
     async fn b1_a_rejected_call_at_the_bound_changes_nothing() {
         let dir = tempfile::tempdir().unwrap();
         let mut h = Harness::new(dir.path(), vec![agent_node("b", Kind::Working)]);
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -3019,12 +3020,12 @@ mod tests {
                 bus: bus.clone(),
                 touches: Arc::clone(&touches),
             };
-            for _ in 0..31 {
+            for n in 0..31 {
                 messages
                     .call(
                         &make_ctx(agent("a")),
                         "message.send",
-                        json!({"to": "b", "kind": "note", "body": "hi"}),
+                        json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
                     )
                     .await
                     .unwrap();

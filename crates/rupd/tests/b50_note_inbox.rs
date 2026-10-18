@@ -453,7 +453,7 @@ async fn b50_a_long_note_shows_as_one_line() {
 async fn b51_a_session_not_listening_holds_the_note_with_zero_terminal_writes() {
     let mut run = Run::start().await;
     run.unlist_session().await;
-    let (_, id) = run.refused_note("hello").await;
+    let id = run.note("hello").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
     })
@@ -489,8 +489,8 @@ async fn b51_an_unprobed_peer_protocol_is_a_mismatch() {
 async fn b51_a_held_inbox_note_is_released_when_the_session_listens_again() {
     let mut run = Run::start().await;
     let listed = run.unlist_session().await;
-    let (_, first) = run.refused_note("one").await;
-    let (_, second) = run.refused_note("two").await;
+    let first = run.note("one").await;
+    let second = run.note("two").await;
     until("held", async || {
         (run.status(second).await.0 == "held" && run.status(first).await.0 == "held").then_some(())
     })
@@ -511,7 +511,7 @@ async fn b51_a_held_inbox_note_is_released_when_the_session_listens_again() {
 async fn b51_deliver_by_hand_sends_nothing_and_errors() {
     let run = Run::start().await;
     run.unlist_session().await;
-    let (_, id) = run.refused_note("hello").await;
+    let id = run.note("hello").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
     })
@@ -565,7 +565,7 @@ async fn b52_thirty_idle_edges_send_a_note_once_and_type_nothing() {
 async fn b52_thirty_idle_edges_with_a_session_not_listening_hold_once_and_type_nothing() {
     let mut run = Run::start().await;
     run.unlist_session().await;
-    let (_, id) = run.refused_note("once").await;
+    let id = run.note("once").await;
     for _ in 0..30 {
         run.idle_edge().await;
     }
@@ -643,20 +643,6 @@ impl Run {
         self.attempt = node["attempt"].clone();
         self.ready().await;
     }
-}
-
-#[tokio::test]
-async fn b51_the_sender_of_a_note_to_a_session_not_listening_hears_it_and_the_note_is_held() {
-    let mut run = Run::start().await;
-    run.unlist_session().await;
-    let (err, id) = run.refused_note("hello").await;
-    assert_eq!(err.code, rpc::code::INBOX_UNAVAILABLE);
-    assert_eq!(
-        err.message,
-        "notes held: the Agent's Claude Code session is not listening"
-    );
-    assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
-    assert_eq!(run.seen().await.1, Vec::<u32>::new());
 }
 
 #[tokio::test]
