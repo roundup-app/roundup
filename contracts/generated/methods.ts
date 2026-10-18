@@ -1,11 +1,13 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 import type { Brief as agent_Brief } from "./agent/Brief";
 import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
+import type { CompareFileParams as agent_CompareFileParams } from "./agent/CompareFileParams";
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
 import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
+import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
 import type { HeldAction as agent_HeldAction } from "./agent/HeldAction";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
@@ -163,6 +165,7 @@ export type RpcMethods = {
   "agent.interrupt": { params: agent_NodeId; result: null | agent_HeldAction };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
   "agent.changedFiles": { params: agent_NodeId; result: agent_ChangedFiles };
+  "agent.compareFile": { params: agent_CompareFileParams; result: agent_FileComparison };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.context": { params: agent_NodeId; result: agent_Context };
