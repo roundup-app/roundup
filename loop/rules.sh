@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
+# Machine checks for AGENTS.md. Usage: loop/rules.sh vocab | tokens | laws | delta <base-dir> <head-dir> | base|ci-trailers|frozen|scenario-closes|empty-diff <pr> | architect-words | clean-merge <commit> [main-ref] | merge-loss [main-ref] | scenario-ids
 # Scans: `vocab` reads public Rust items and fields, TS exports, and non-comment text under contracts/.
 # It does not read imports, enum variants or UI strings.
 set -euo pipefail
@@ -549,6 +549,15 @@ def scenario_closes_gate(pr, base, head):
     require(not (paths and all(path.startswith('scenarios/') for path in paths) and found),
             f'scenario-closes: a scenario-only PR holds "{found and found.group(0)}"; use Refs: #N')
 
+# L46: a PR whose head has no net change against its base merges nothing; only one that closes its Issue (work other PRs
+# already landed, `.agents/data/pr.md`) may be empty.
+def empty_diff_gate(pr, base, head):
+    changed = subprocess.run(['git', 'diff', '--quiet', base+'...'+head], timeout=limit).returncode
+    require(changed in (0, 1), f'git diff failed with {changed}')
+    require(changed == 1 or CLOSES.search('\n'.join([pr.get('body') or '', git('log', '--format=%B', base+'..'+head)])),
+            f'empty-diff: {head} changes nothing against {base}. Restore the work, or name the Issue it already met with '
+            '"Closes #N"; a PR that only undid its own change never merges.')
+
 try:
     pr = one(pull)
     base_gate(pr)
@@ -560,6 +569,8 @@ try:
             trailer_gate(history(base, head), base)
         elif command == 'scenario-closes':
             scenario_closes_gate(pr, base, head)
+        elif command == 'empty-diff':
+            empty_diff_gate(pr, base, head)
         else:
             frozen_gate(pr, base, head)
 except (Refused, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as error:
@@ -569,7 +580,7 @@ PY
 }
 
 case "${1:-}" in
-  base | ci-trailers | frozen | scenario-closes)
+  base | ci-trailers | frozen | scenario-closes | empty-diff)
     [[ ${2:-} =~ ^[0-9]+$ ]] || { echo "usage: loop/rules.sh $1 <pr>" >&2; exit 2; }
     pr_rule "$1" "$2" ;;
   vocab) vocab ;;
