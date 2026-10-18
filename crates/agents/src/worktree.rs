@@ -70,6 +70,35 @@ impl Git {
         }
     }
 
+    pub(super) fn collection_permitted(&self, project: &Path) -> Result<bool, RpcError> {
+        // wt's merge-tree probes can execute merge.<name>.driver. Refuse optional
+        // enrichment rather than run a repository-configured executable.
+        let output = self
+            .output(
+                project,
+                &["config", "--get-regexp", r"^merge\..*\.driver$"],
+                None,
+            )
+            .map_err(failed)?;
+        match output.status.code() {
+            Some(0) => Ok(false),
+            Some(1) => Ok(true),
+            _ => Err(failed("could not inspect configured merge drivers")),
+        }
+    }
+
+    pub(super) fn read_until(&self, deadline: Instant) -> Self {
+        Self {
+            deadline: Some(deadline),
+            ..self.reader()
+        }
+    }
+
+    // Optional collection must never queue local git reads behind its own IO.
+    pub(super) fn reader(&self) -> Self {
+        Self::with_path(self.path.clone())
+    }
+
     /// One budget covers lock acquisition and every command in an App-facing operation.
     pub(crate) fn bounded(&self) -> Self {
         Self {
@@ -137,6 +166,9 @@ impl Git {
                 Ok(None) => {}
                 Err(err) => break Err(err.to_string()),
             }
+            if let Err(err) = check_output_size(&stdout, &stderr) {
+                break Err(err);
+            }
             if let Err(err) = self.check_deadline() {
                 break Err(err);
             }
@@ -153,6 +185,7 @@ impl Git {
             let _ = child.wait();
         }
         let status = status?;
+        check_output_size(&stdout, &stderr)?;
         std::io::Seek::rewind(&mut stdout).map_err(|err| err.to_string())?;
         std::io::Seek::rewind(&mut stderr).map_err(|err| err.to_string())?;
         let mut output = Output {
@@ -424,9 +457,7 @@ impl Git {
             ));
         }
         let dir = &worktree.path;
-        let base = self
-            .run(dir, &["merge-base", &worktree.base, "HEAD"])
-            .map_err(failed)?;
+        let base = self.comparison_base(worktree)?;
         let diff = [
             "--no-optional-locks",
             "diff",
@@ -450,29 +481,15 @@ impl Git {
         let mut sections = patch.split("\ndiff --git ").map(first_changed_line);
         let mut fields = names.split('\0').filter(|field| !field.is_empty());
         let mut files = Vec::new();
-        while let Some(letter) = fields.next() {
-            let renamed = letter.starts_with('R') || letter.starts_with('C');
-            let from = if renamed { fields.next() } else { None };
-            let Some(path) = fields.next() else { break };
+        while let Some(mut file) = changed_name(&mut fields) {
             let line = sections.next().flatten();
-            let status = match letter.as_bytes()[0] {
-                b'A' => ChangedStatus::Added,
-                b'D' => ChangedStatus::Deleted,
-                b'R' | b'C' => ChangedStatus::Renamed,
-                _ => ChangedStatus::Modified,
-            };
             let is_binary = binary.next().unwrap_or(false);
-            let line = if status == ChangedStatus::Deleted || is_binary {
+            file.line = if file.status == ChangedStatus::Deleted || is_binary {
                 None
             } else {
                 line
             };
-            files.push(ChangedFile {
-                path: path.to_owned(),
-                status,
-                line,
-                from: from.map(str::to_owned),
-            });
+            files.push(file);
         }
         let untracked = self
             .run(
@@ -497,6 +514,108 @@ impl Git {
         files.retain(|file| !file.path.starts_with(".roundup/"));
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(ChangedFiles { files })
+    }
+
+    fn comparison_base(&self, worktree: &Worktree) -> Result<String, RpcError> {
+        self.run(&worktree.path, &["merge-base", &worktree.base, "HEAD"])
+            .map_err(failed)
+    }
+
+    /// U2540a: the same merge base as changed_files, paired with exact current bytes.
+    pub fn compare_file(
+        &self,
+        worktree: &Worktree,
+        path: &str,
+    ) -> Result<contracts::agent::FileComparison, RpcError> {
+        use contracts::agent::FileComparison;
+        // Validate and open before Git: no untracked-content sniffing may follow an escaping link.
+        let current = read_worktree_file(&worktree.path, path)?;
+        let base = self.comparison_base(worktree)?;
+        let names = self
+            .run(
+                &worktree.path,
+                &[
+                    "--no-optional-locks",
+                    "diff",
+                    "--no-ext-diff",
+                    "--no-textconv",
+                    "-M",
+                    "--name-status",
+                    "-z",
+                    &base,
+                ],
+            )
+            .map_err(failed)?;
+        let mut fields = names.split('\0').filter(|s| !s.is_empty());
+        let mut status = None;
+        let mut old_path = path.to_owned();
+        while let Some(file) = changed_name(&mut fields) {
+            if file.path == path {
+                status = Some(file.status);
+                old_path = file.from.unwrap_or_else(|| path.to_owned());
+            }
+        }
+        // Literal pathspec prevents a filename containing Git magic from selecting other blobs.
+        validate_comparison_path(&old_path)?;
+        let entry = self
+            .run(
+                &worktree.path,
+                &[
+                    "--literal-pathspecs",
+                    "ls-tree",
+                    "-z",
+                    &base,
+                    "--",
+                    &old_path,
+                ],
+            )
+            .map_err(failed)?;
+        let old = if entry.is_empty() {
+            None
+        } else {
+            let metadata = entry
+                .split('\t')
+                .next()
+                .ok_or_else(|| failed("invalid tree entry"))?;
+            let mut words = metadata.split_whitespace();
+            let mode = words.next();
+            let kind = words.next();
+            let oid = words
+                .next()
+                .ok_or_else(|| failed("missing blob revision"))?;
+            if kind != Some("blob") || mode == Some("120000") {
+                return Err(invalid("unsafe_path", "not a regular Base file"));
+            }
+            let size: u64 = self
+                .run(&worktree.path, &["cat-file", "-s", oid])
+                .map_err(failed)?
+                .parse()
+                .map_err(failed)?;
+            if size > CONTENT_LIMIT {
+                return Err(failed("comparison content exceeds 4 MiB"));
+            }
+            let output = self
+                .output(&worktree.path, &["cat-file", "blob", oid], None)
+                .map_err(failed)?;
+            if !output.status.success() {
+                return Err(failed("cannot read Base blob"));
+            }
+            Some(output.stdout)
+        };
+        if status.is_none() && old.is_none() && current.is_some() {
+            status = Some(ChangedStatus::Untracked);
+        }
+        if old.is_none() && current.is_none() {
+            return Err(RpcError::new(code::NOT_FOUND, "file_missing"));
+        }
+        Ok(FileComparison {
+            base,
+            old_path,
+            new_path: path.to_owned(),
+            status,
+            old: file_content(old),
+            new: file_content(current),
+        })
     }
 
     /// Whether the Worktree has a staged, unstaged or untracked change outside `.roundup/`.
@@ -714,7 +833,7 @@ impl Git {
         Ok(())
     }
 
-    fn registered_worktrees(
+    pub(super) fn registered_worktrees(
         &self,
         project: &Path,
     ) -> Result<Vec<(PathBuf, Option<String>)>, RpcError> {
@@ -1148,4 +1267,114 @@ fn untracked_line(path: &Path) -> Option<u32> {
         .read_to_end(&mut head)
         .ok()?;
     (!head.contains(&0)).then_some(1)
+}
+
+const CONTENT_LIMIT: u64 = 4 * 1024 * 1024;
+
+fn validate_comparison_path(path: &str) -> Result<(), RpcError> {
+    if path.is_empty()
+        || path.split('/').any(|part| {
+            part.is_empty() || part == "." || part == ".." || part == ".git" || part == ".roundup"
+        })
+        || Path::new(path).is_absolute()
+        || path.contains('\0')
+    {
+        return Err(invalid("unsafe_path", "expected a relative Worktree file"));
+    }
+    Ok(())
+}
+
+fn read_worktree_file(root: &Path, path: &str) -> Result<Option<Vec<u8>>, RpcError> {
+    use rustix::fs::{Mode, OFlags, open, openat};
+    validate_comparison_path(path)?;
+    let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK;
+    let mut directory = open(root, flags | OFlags::DIRECTORY, Mode::empty())
+        .map_err(|err| RpcError::new(code::NOT_FOUND, format!("worktree_missing: {err}")))?;
+    let mut parts = path.split('/').peekable();
+    while let Some(part) = parts.next() {
+        let last = parts.peek().is_none();
+        let opened = openat(
+            &directory,
+            part,
+            if last {
+                flags
+            } else {
+                flags | OFlags::DIRECTORY
+            },
+            Mode::empty(),
+        );
+        let fd = match opened {
+            Ok(fd) => fd,
+            Err(rustix::io::Errno::NOENT) => return Ok(None),
+            Err(err) => return Err(invalid("unsafe_path", err)),
+        };
+        if !last {
+            directory = fd;
+            continue;
+        }
+        let file = std::fs::File::from(fd);
+        if !file.metadata().map_err(failed)?.is_file() {
+            return Err(invalid("unsafe_path", "not a regular file"));
+        }
+        let mut bytes = Vec::new();
+        file.take(CONTENT_LIMIT + 1)
+            .read_to_end(&mut bytes)
+            .map_err(failed)?;
+        if u64::try_from(bytes.len()).map_err(failed)? > CONTENT_LIMIT {
+            return Err(failed("comparison content exceeds 4 MiB"));
+        }
+        return Ok(Some(bytes));
+    }
+    Err(invalid("unsafe_path", "missing file"))
+}
+
+fn file_content(bytes: Option<Vec<u8>>) -> contracts::agent::FileContent {
+    use contracts::agent::FileContent;
+    use sha2::{Digest, Sha256};
+    let Some(bytes) = bytes else {
+        return FileContent::Absent {
+            revision: "absent".into(),
+        };
+    };
+    let revision = format!("sha256:{:x}", Sha256::digest(&bytes));
+    if bytes.contains(&0) {
+        return FileContent::Binary { revision };
+    }
+    match String::from_utf8(bytes) {
+        Ok(text) => FileContent::Text { revision, text },
+        Err(_) => FileContent::Binary { revision },
+    }
+}
+
+fn check_output_size(stdout: &std::fs::File, stderr: &std::fs::File) -> Result<(), String> {
+    if stdout.metadata().map_err(|err| err.to_string())?.len() > 16 * 1024 * 1024
+        || stderr.metadata().map_err(|err| err.to_string())?.len() > 1024 * 1024
+    {
+        Err("Git output exceeds comparison budget".into())
+    } else {
+        Ok(())
+    }
+}
+
+/// Both readers consume Git's same NUL-delimited name-status records.
+fn changed_name<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<ChangedFile> {
+    let letter = fields.next()?;
+    let from = if letter.starts_with('R') || letter.starts_with('C') {
+        Some(fields.next()?.to_owned())
+    } else {
+        None
+    };
+    let path = fields.next()?.to_owned();
+    let status = match letter.as_bytes()[0] {
+        b'A' => ChangedStatus::Added,
+        b'D' => ChangedStatus::Deleted,
+        b'R' | b'C' => ChangedStatus::Renamed,
+        _ => ChangedStatus::Modified,
+    };
+    Some(ChangedFile {
+        path,
+        status,
+        line: None,
+        from,
+    })
 }

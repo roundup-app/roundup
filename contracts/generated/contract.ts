@@ -6,6 +6,7 @@ export const CONTRACT = {
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",
+    "agent.compareFile": "0fa0a30f9a7d6897",
     "agent.context": "5afea722eb616445",
     "agent.digest": "03bc0665308ea78d",
     "agent.discard": "56f6155cde8d424e",
