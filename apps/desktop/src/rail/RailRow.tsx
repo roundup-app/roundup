@@ -253,14 +253,14 @@ export const RailRowView = (props: {
                 when={props.row.collapsed}
                 fallback={
                   <Show when={props.needsYou > 0}>
-                    <span class="ink-count" data-tone="amber">
+                    <span class="ink-count" data-state="" data-tone="amber">
                       <KindGlyph kind="needs-you" decorative /> {props.needsYou}
                     </span>
                   </Show>
                 }
               >
                 {(collapsed) => (
-                  <span class="folded-agents">
+                  <span class="folded-agents" data-state="">
                     <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
                     <span class="light">{collapsed().agents.length}</span>
                   </span>

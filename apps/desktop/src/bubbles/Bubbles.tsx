@@ -8,8 +8,10 @@ import { Panel } from "../ui/Panel";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
+import type { Kind } from "@contracts/Kind";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { ErrorLine } from "../ink/ErrorLine";
+import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { createCut, Tip } from "../ink/Tip";
 import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
@@ -232,6 +234,13 @@ export const Bubbles = (props: { screens: Screens }) => {
   const readOnly = () => connected.daemonExit() !== null;
 
   const running = (terminal: TerminalInfo): boolean => terminal.running && rail.terminalExit(terminal.id) === null;
+
+  const stateKind = (terminal: TerminalInfo): Kind => {
+    const exit = rail.terminalExit(terminal.id);
+    const code = exit?.kind === "code" ? exit.code : exit ? null : terminal.exit_code;
+
+    return running(terminal) ? "working" : code === 0 ? "done" : "error";
+  };
 
   const stateText = (terminal: TerminalInfo): string => {
     const exit = rail.terminalExit(terminal.id);
@@ -782,7 +791,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                   <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
                 </span>
                 <span class="bubble-name">{nameFor(terminal()!)}</span>
-                <span class="bubble-state" role="img" aria-label={stateText(terminal()!)} data-running={running(terminal()!)} />
+                <KindGlyph class="bubble-state" kind={stateKind(terminal()!)} label={stateText(terminal()!)} />
               </header>
               <div class="bubble-body" ref={mount} />
             </section>
@@ -829,7 +838,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                         onClick={() => toggleMinimised(id)}
                         onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
                         <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
-                        <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
+                        <span id={`terminal-state-${id}`} data-state="" role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
                       </button>
                     )}
                   </Tip>
@@ -848,7 +857,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                         onMount(() => requestAnimationFrame(() => { input.focus({ preventScroll: true }); input.select(); }));
                       }} /></Editable.Area>
                     </Editable.Root>
-                    <span id={`terminal-state-${id}`} role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
+                    <span id={`terminal-state-${id}`} data-state="" role="img" aria-label={stateText(terminal())}>{running(terminal()) ? copy.runningMark : copy.exitedMark}</span>
                   </div>
                 </Show>
                 <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
