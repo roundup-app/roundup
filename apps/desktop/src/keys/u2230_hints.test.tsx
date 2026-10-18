@@ -7,6 +7,8 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
+import { RowIcons } from "../rail/RowIcons";
+import { copy } from "../copy";
 import { endLeader } from "./registry";
 import { CHORDS, HELP_ROWS, LEADER, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
@@ -150,6 +152,10 @@ describe("u2230 shortcut hints", () => {
     const keysIn = (selector: string) => [...document.querySelectorAll(selector)].map((row) =>
       [...row.querySelectorAll("kbd")].map((key) => key.textContent).join(""),
     );
+
+    render(() => <RowIcons actions={{ kind: "workstream", add: { disabled: false, run: () => {} }, folder: () => {}, editor: () => {} }} />);
+    fireEvent.pointerMove(screen.getAllByRole("button", { name: copy.addAgentLabel }).at(-1)!, { pointerType: "mouse" });
+    await waitFor(() => expect(keysIn('[role="tooltip"] .key-chips')).toEqual([CHORDS[0]!.keys]));
 
     expect(keysIn(".hint-line .hint")).toEqual(hintsFor("rail").map((hint) => hint.keys));
     fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
