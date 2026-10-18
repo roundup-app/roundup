@@ -146,7 +146,7 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
 
   const point = await evaluate(`(() => {
     const rect = document.querySelector('.visual-drawing canvas.interactive').getBoundingClientRect();
-    return {x: rect.x + 100, y: rect.y + 120};
+    return {x: Math.round(rect.x + rect.width * 0.65), y: Math.round(rect.y + rect.height * 0.6)};
   })()`);
 
   await browser("mouse", "move", String(point.x), String(point.y));

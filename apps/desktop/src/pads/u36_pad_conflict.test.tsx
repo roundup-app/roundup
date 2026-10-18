@@ -113,7 +113,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
-  it("p2544d_pending_keep_mine_cannot_clear_a_newer_conflict", async () => {
+  it.each([false, true])("p2544d_pending_keep_mine_cannot_clear_a_newer_conflict_use_theirs_%s", async (useTheirsEarly) => {
     const { app, state, field } = await openConflict();
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
@@ -123,12 +123,25 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     state.pads = [{ ...padOf("release-checklist", USER, "newer external text"), revision: 3 }];
     app.emit({ actor: AGENT, name: "pad.changed", data: { name: "release-checklist" } });
     await waitForReload(app, 2);
+
+    if (useTheirsEarly) fireEvent.click(screen.getByText("Use theirs"));
+
     reply.resolve({ ...padOf("release-checklist", USER, "mine, edited"), revision: 2 });
     await reply.promise;
     await writeAdopted();
-    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
-    fireEvent.click(screen.getByText("Use theirs"));
+
+    if (!useTheirsEarly) {
+      expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
+      fireEvent.click(screen.getByText("Use theirs"));
+    }
+
     expect(field.value).toBe("newer external text");
+    app.handlers["pad.write"] = ({ text }) => ({ ...padOf("release-checklist", USER, text), revision: 4 });
+    fireEvent.input(field, { target: { value: "edited after choice" } });
+    fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
+      name: "release-checklist", text: "edited after choice", expectedRevision: 3,
+    }));
   });
 
   it("p2544d_conflict_choices_preserve_latest_draft", async () => {
