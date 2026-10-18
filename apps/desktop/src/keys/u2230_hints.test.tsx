@@ -111,6 +111,18 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
+  it("u2541_one_component_draws_every_key", async () => {
+    await open();
+    await toRail();
+    expect(document.querySelectorAll(".hint-line kbd").length).toBeGreaterThan(0);
+    fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
+    await waitFor(() => expect(document.querySelector(".help kbd")).not.toBeNull());
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await waitFor(() => expect(document.querySelector(".help")).toBeNull());
+    fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
+    await waitFor(() => expect(document.querySelector(".leader kbd")).not.toBeNull());
+  });
+
   it("u2230_every_hint_names_a_bound_chord", async () => {
     for (const [place, go] of [["rail", toRail], ["agent", toPane]] as const) {
       for (const hint of hintsFor(place)) {
