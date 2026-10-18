@@ -9,7 +9,7 @@ const screenTarget = (): HTMLElement => document.querySelector<HTMLElement>(".pa
 const mountFocused = async () => {
   const mounted = await mountSwitcher("ann");
 
-  await waitFor(() => expect(document.querySelector(".pane-watch")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull());
   screenTarget().focus();
 
   return mounted;

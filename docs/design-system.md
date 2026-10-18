@@ -94,11 +94,11 @@ A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because 
 
 A disabled button stays focusable and keeps `aria-disabled="true"`, never the `disabled` attribute, so its reason can be read as its `title`; its handler does nothing while it is set.
 
-A word such as `stop`, `close` or `promote` is a button, not text: it has the hover surface and a 24 px hit height even though it rests as plain `--grey`.
+A word such as `stop`, `close` or `promote` is a button, not text: it has ink feedback and a 24 px hit height even though it rests as plain `--grey`.
 
 ### Button kinds
 
-Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-hover`, `--button-inline`, `--button-lead` and `--button-radius`). `data-feedback="ink"` swaps hover and press surfaces for ink only (U523). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
+Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-inline`, `--button-lead` and `--button-radius`). `data-feedback="ink"` swaps hover and press surfaces for ink only (U523). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.
 
 | Kind | Rest | Use |
 |---|---|---|

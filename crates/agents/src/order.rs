@@ -2,6 +2,16 @@
 
 use contracts::agent::Order;
 
+/// What a Clarification order's Steer tells the Agent after the question.
+const CLARIFY: &str = "Find the intent and elicit what is missing, asking whom \
+    `agent_context` names under `ask`. Then record a Work order with `agent_set_order`.";
+
+/// Whether `prompt` is the Steer of a Clarification order, which names no Agent: a question that
+/// is no one's ask must not become the Agent's name (A44).
+pub(crate) fn is_clarification_steer(prompt: &str) -> bool {
+    prompt.contains(CLARIFY)
+}
+
 /// For a Work order, the ask, then `Done when:` and the done condition (left out when absent),
 /// then `Limits:` and one line per limit (left out when there are none), then the Spawn prompt
 /// under `Details:` (left out when there is none, O9). For a Clarification order, the question
@@ -24,10 +34,7 @@ pub(crate) fn steer(order: &Order, prompt: Option<&str>) -> String {
             }
             text
         }
-        Order::Clarification { question } => format!(
-            "{question}\n\nFind the intent and elicit what is missing, asking whom \
-             `agent_context` names under `ask`. Then record a Work order with `agent_set_order`."
-        ),
+        Order::Clarification { question } => format!("{question}\n\n{CLARIFY}"),
     }
 }
 
