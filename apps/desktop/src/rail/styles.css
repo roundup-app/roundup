@@ -748,11 +748,22 @@
 }
 .worktree-chips {
   display: flex;
+  flex: none;
   max-width: 100%;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
   white-space: nowrap;
+}
+/* On deeply nested rows, stale stays below its own CI mark, never under the name. */
+@container (width < 8rem) {
+  .worktree-chips {
+    gap: var(--space-1);
+  }
+  .worktree-chip[data-stale="true"] {
+    max-width: min-content;
+    white-space: normal;
+  }
 }
 /* Keep ahead and CI beside the name; the full PR remains in the Worktree view. */
 @container (width < 12rem) {
