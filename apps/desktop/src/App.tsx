@@ -46,7 +46,7 @@ import { Pane } from "./terminal/Pane";
 import type { Screens } from "./terminal/screens";
 import { ResourceStrip } from "./resources/ResourceStrip";
 import { createShelfFrame } from "./shelf/frame";
-import { Shelf, ShelfToggle } from "./shelf/Shelf";
+import { Shelf, createShelfTabs, ShelfTabs, ProjectShelfTabs } from "./shelf/Shelf";
 import { shelfKeys } from "./shelf/keys";
 import { createWidths } from "./resize/widths";
 
@@ -269,6 +269,7 @@ export const App = (props: {
   const shelfElement = () => document.querySelector<HTMLElement>(".shelf");
   const frame = createShelfFrame(projects.active, props.reducedMotion, () => void shelfElement()?.offsetWidth);
   const widths = createWidths(projects.active);
+  const shelfTabs = createShelfTabs(frame);
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
@@ -302,6 +303,15 @@ export const App = (props: {
         header={
           <WindowBar
             app={props.app}
+            shelf={
+              <Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
+                <Show when={projects.tabs().length > 0} fallback={<ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
+                  <InProject open={activeConnection()}>
+                    {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
+                  </InProject>
+                </Show>
+              </Tabs.RootProvider>
+            }
             onFailure={setWindowFailure}
             project={renamingProjects().get(projects.active() ?? "")?.name ?? activeTab()?.project.name}
             rail={railOf(projects.active() ?? "")}
@@ -317,7 +327,6 @@ export const App = (props: {
             />
           </WindowBar>
         }
-        contentActions={<Show when={!frame.open()}><ShelfToggle open={false} onToggle={shelfFocus.toggle} /></Show>}
         rail={
           <>
             <Show when={windowFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -364,22 +373,13 @@ export const App = (props: {
           </Show>
         }
         shelf={
-          <Show
-            when={projects.tabs().length > 0}
-            fallback={
-              <>
-                <div class="shelf-bar">
-                  <span />
-                  <ShelfToggle open onToggle={shelfFocus.toggle} />
-                </div>
-                <EmptyShelf />
-              </>
-            }
-          >
-            <InProject open={activeConnection()}>
-              {() => <Shelf open={frame.open} tab={frame.tab} onTab={frame.setTab} onHide={shelfFocus.toggle} />}
-            </InProject>
-          </Show>
+          <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
+            <Show when={projects.tabs().length > 0} fallback={<Tabs.Content value={frame.tab()} class="shelf-panel"><EmptyShelf /></Tabs.Content>}>
+              <InProject open={activeConnection()}>
+                {() => <Shelf open={frame.open} />}
+              </InProject>
+            </Show>
+          </Tabs.RootProvider>
         }
         overlay={
           <>

@@ -40,7 +40,7 @@ read = r"""(() => {
   return {width:innerWidth,bar:box('.header'),reserved:box('.traffic-lights'),title:box('.window-title'),titleText:title?.textContent ?? "",titleName:title?.getAttribute('aria-label') ?? "",titleTip:title?.title ?? "",
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
     titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
-    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),hide:box('[aria-label="Hide work items"]'),show:box('[aria-label="Show work items"]'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
+    strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
     centreSurfaces:[...document.querySelectorAll('.centre .decision-card,.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
     checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist').clientWidth,total:document.querySelector('.tablist').scrollWidth}};
 })()"""
@@ -107,7 +107,7 @@ if len(sys.argv) > 5 and sys.argv[5] == "overview":
                     u2716a_scrolled_tree_keeps_overview_reachable()
                     browser("hover", ".centre")
                     capture(prefix + "-selected-scrolled")
-                evaluate("[...document.querySelectorAll('.shelf [role=tab]')].find(t=>t.textContent.startsWith('Todos')).click()")
+                evaluate("document.querySelector('#shelf-tab-todos[aria-expanded=false]')?.click()")
                 evaluate("(async()=>{const fake=window.__fake,app=fake.app;const nodes=await app.rpc('rail.tree',{});const home=nodes.find(n=>n.kind==='workstream')??await app.rpc('rail.createWorkstream',{name:'Todo source',parent:null});const creator=nodes.find(n=>n.kind==='agent'&&n.terminal_id);fake.actAs({kind:'agent',id:creator.id,parent:creator.parent});const todo=await app.rpc('todo.create',{title:'Overview drag observer',body:null,blockers:null});await app.rpc('todo.move',{id:todo.id,home:home.id});fake.actAs({kind:'user',id:'you',parent:null});window.__overviewTodo=todo.id})()")
                 browser("wait", "--fn", "Boolean(document.querySelector('.shelf [data-todo=\"'+window.__overviewTodo+'\"] .todo-row-button'))")
                 source = evaluate("(()=>{const e=document.querySelector('.shelf [data-todo=\"'+window.__overviewTodo+'\"] .todo-row-button');e.scrollIntoView({block:'nearest'});const b=e.getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()")
@@ -286,8 +286,8 @@ try:
                 capture(prefix + "-rest")
                 if seed == "decisions":
                     browser("wait", ".decision-card")
-                    evaluate("document.querySelector('[aria-label=\"Hide work items\"]').click()")
-                    browser("wait", '[aria-label="Show work items"]')
+                    evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
+                    browser("wait", '.shelf-tab[data-selected][aria-expanded="false"]')
                     capture(prefix + "-closed")
                 if seed == "tree-40":
                     # Every Drawer keeps its top throughout opening and closing, with either Shelf state.
@@ -295,11 +295,11 @@ try:
                         for kind in ("Todo", "Pad", "Work-order"):
                             evaluate("document.querySelector('.rail [data-todo-root]').click()")
                             if kind == "Pad":
-                                evaluate("[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.startsWith('Pads')).click()")
+                                evaluate("[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.startsWith('Pads') && e.getAttribute('aria-expanded') !== 'true')?.click()")
                                 browser("wait", ".shelf .pad-name")
                                 selector = ".shelf .pad-name"
                             elif kind == "Todo":
-                                evaluate("[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.startsWith('Todos')).click()")
+                                evaluate("[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.startsWith('Todos') && e.getAttribute('aria-expanded') !== 'true')?.click()")
                                 browser("wait", ".shelf .todo-row-button")
                                 selector = ".shelf .todo-row-button"
                             else:
@@ -307,8 +307,8 @@ try:
                                 browser("wait", ".thread-header button")
                                 selector = ".thread-header button"
                             if not shelf_open:
-                                evaluate("document.querySelector('[aria-label=\"Hide work items\"]').click()")
-                                browser("wait", '[aria-label="Show work items"]')
+                                evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
+                                browser("wait", '.shelf-tab[data-selected][aria-expanded="false"]')
                             frames = evaluate(f"({slide})({json.dumps(selector)})")
                             if kind == "Pad":
                                 browser("wait", ".pad-body .ProseMirror")
@@ -319,14 +319,14 @@ try:
                                 directory = Path(output) / variant
                                 (directory / (opened["case"] + ".geometry.json")).write_text(json.dumps(opened, separators=(",", ":")) + "\n")
                             if not shelf_open:
-                                evaluate("document.querySelector('[aria-label=\"Show work items\"]').click()")
-                                browser("wait", '[aria-label="Hide work items"]')
+                                evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
+                                browser("wait", '.shelf-tab[data-selected][aria-expanded="true"]')
                     # Selection identifies the Workstream in the bar, independent of Shelf width.
                     evaluate("document.querySelector('[role=treeitem]').click()")
                     capture(prefix + "-selected")
                     evaluate("document.querySelector('.window').style.setProperty('--shelf-span','400px')")
                     capture(prefix + "-resized")
-                    evaluate("document.querySelector('[aria-label=\"Hide work items\"]').click()")
+                    evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
                     capture(prefix + "-closed")
                     browser("wait", '.rail [data-id="tokens"]')
                     evaluate("document.querySelector('.rail [data-id=\"tokens\"]').click()")

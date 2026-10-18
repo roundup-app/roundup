@@ -299,8 +299,6 @@ export const copy = {
   showOnlyThisWorkstream: "Show only this Workstream",
   showAllWorkstreams: "Show all Workstreams",
 
-  hideShelf: "Hide work items",
-  showShelf: "Show work items",
   shelfLabel: "Work items",
   theDoorDidNotStartInTimeRetry: "The supervisor did not start in time; retry supervisor",
   managed: "Managed",
