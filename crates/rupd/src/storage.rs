@@ -82,6 +82,153 @@ mod tests {
         include!("../tests/support/store_migrations.rs");
     }
 
+    #[test]
+    fn n2705a_a_fresh_project_stores_a_sender_name() {
+        let dir = tempfile::tempdir().unwrap();
+        open(dir.path()).unwrap();
+        let db = Connection::open(dir.path().join("project.db")).unwrap();
+        let count: i64 = db
+            .query_row("SELECT count(*) FROM message_sender_names", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0);
+        db.execute(
+            "INSERT INTO message_sender_names(agent, name) VALUES (?1, ?2)",
+            params!["7013", "sad"],
+        )
+        .unwrap();
+        let name: String = db
+            .query_row(
+                "SELECT name FROM message_sender_names WHERE agent = ?1",
+                ["7013"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(name, "sad");
+    }
+
+    #[test]
+    fn n2705a_sender_names_reject_nulls_and_duplicate_identities() {
+        let dir = tempfile::tempdir().unwrap();
+        open(dir.path()).unwrap();
+        let db = Connection::open(dir.path().join("project.db")).unwrap();
+        db.execute(
+            "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad')",
+            [],
+        )
+        .unwrap();
+        for (agent, name) in [
+            (None, Some("sad")),
+            (Some("7014"), None),
+            (Some("7013"), Some("glad")),
+        ] {
+            let error = db
+                .execute(
+                    "INSERT INTO message_sender_names(agent, name) VALUES (?1, ?2)",
+                    params![agent, name],
+                )
+                .unwrap_err();
+            assert_eq!(
+                error.sqlite_error_code(),
+                Some(rusqlite::ErrorCode::ConstraintViolation)
+            );
+        }
+    }
+
+    #[test]
+    fn n2705a_updated_names_survive_project_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        open(dir.path()).unwrap();
+        let path = dir.path().join("project.db");
+        let db = Connection::open(&path).unwrap();
+        db.execute_batch(
+            "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad');
+             UPDATE message_sender_names SET name = 'glad' WHERE agent = '7013';
+             INSERT INTO message_sender_names(agent, name) VALUES ('7014', 'glad');",
+        )
+        .unwrap();
+        drop(db);
+        open(dir.path()).unwrap();
+        let db = Connection::open(path).unwrap();
+        let rows: Vec<(String, String)> = db
+            .prepare("SELECT agent, name FROM message_sender_names ORDER BY agent")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            [
+                ("7013".to_owned(), "glad".to_owned()),
+                ("7014".to_owned(), "glad".to_owned())
+            ]
+        );
+    }
+
+    #[test]
+    fn n2705a_an_added_migration_preserves_messages_and_routes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("project.db");
+        let mut db = Connection::open(&path).unwrap();
+        let mut preceding = migrations();
+        preceding.truncate(preceding.len() - 1);
+        apply(&mut db, preceding).unwrap();
+        db.execute_batch(
+            r#"INSERT INTO messages
+                (id, from_actor, to_id, kind, body, reply_to, status, reason, at,
+                 rank, receiver_attempt, receiver_revision, passed_from)
+               VALUES (31, '{"kind":"agent","id":"7013","parent":null}', '7014',
+                       'note', 'preserved Message', 29, 'queued', 'preserved reason',
+                       12345, 2, 3, 4, 28);
+               INSERT INTO routes(from_id, to_id, delivery, set_by)
+               VALUES ('7013', '7014', 'ask-first', '7013');"#,
+        )
+        .unwrap();
+        let rows = |db: &Connection, table: &str| -> Vec<Vec<rusqlite::types::Value>> {
+            db.prepare(&format!("SELECT * FROM {table}"))
+                .unwrap()
+                .query_map([], |r| {
+                    (0..r.as_ref().column_count()).map(|i| r.get(i)).collect()
+                })
+                .unwrap()
+                .collect::<Result<_, _>>()
+                .unwrap()
+        };
+        let message = rows(&db, "messages");
+        let route = rows(&db, "routes");
+        drop(db);
+        open(dir.path()).unwrap();
+        let db = Connection::open(&path).unwrap();
+        let count: i64 = db
+            .query_row("SELECT count(*) FROM message_sender_names", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0);
+        assert_eq!(rows(&db, "messages"), message);
+        assert_eq!(rows(&db, "routes"), route);
+        db.execute(
+            "INSERT INTO message_sender_names(agent, name) VALUES ('7013', 'sad')",
+            [],
+        )
+        .unwrap();
+        drop(db);
+        open(dir.path()).unwrap();
+        let db = Connection::open(path).unwrap();
+        let names: Vec<(String, String)> = db
+            .prepare("SELECT agent, name FROM message_sender_names")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(names, [("7013".to_owned(), "sad".to_owned())]);
+        assert_eq!(rows(&db, "messages"), message);
+        assert_eq!(rows(&db, "routes"), route);
+    }
+
     #[tokio::test]
     async fn n16_all_stores_share_one_project_database() {
         use crate::{Conn, Daemon};
@@ -152,6 +299,11 @@ mod tests {
         expected.extend(standalone::schema(&resize_schema));
         resize_schema.execute_batch(EVENTS).unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        expected.insert(
+            "message_sender_names".to_owned(),
+            "CREATETABLEmessage_sender_names(agentTEXTPRIMARYKEYNOTNULL,nameTEXTNOTNULL)"
+                .to_owned(),
+        );
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
