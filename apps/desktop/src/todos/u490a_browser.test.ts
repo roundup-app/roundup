@@ -48,7 +48,7 @@ const shelf: List = {
       document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
     }`);
     await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
-    await page.call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
+    await page.call(`() => document.querySelector('[data-todo-root]').click()`);
     await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);
   },
 };

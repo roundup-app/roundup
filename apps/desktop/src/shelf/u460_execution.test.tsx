@@ -4,7 +4,6 @@ import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 import { deferred } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
-import { useShelfScope } from "../todos/shelfScope";
 import { stubDialogLayout, askToDelete, confirmDeletion, questionClosed, questionDialog } from "./bulkQuestionHarness";
 
 afterEach(cleanup);
@@ -88,7 +87,7 @@ it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
   app.emit({ actor: USER, name: "todo.created", data: todo(3) });
   await screen.findByRole("button", { name: /#3 / });
   expect(screen.getByText("Delete 2 Todos?")).toBeTruthy();
-  useShelfScope(connected).setShowAll(false);
+  connected.rail.select("scope-row");
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });

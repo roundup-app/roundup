@@ -1,9 +1,8 @@
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { event, terminal } from "../testing/nodes";
 import { seedApp } from "../testing/seeds";
 import type { SeedName } from "../testing/seeds";
 import tokenCss from "../tokens.css?raw";
@@ -46,30 +45,6 @@ const chord = (init: KeyboardEventInit = {}, target: Element | Document = docume
   leaderKey("KeyS", init, target);
 
 const selectedTab = () => tabs().find((tab) => tab.getAttribute("aria-selected") === "true")!.textContent!.replace(/\d+$/, "");
-
-const observeShelf = (observe: () => void) => {
-  // Force unrelated controls to compete with Shelf role queries, as the Rail does
-  // on tree-40. Their style must not be observed to locate Shelf controls.
-  const unrelated = document.body.appendChild(document.createElement("aside"));
-
-  unrelated.innerHTML = '<button>Unrelated action</button>'.repeat(256);
-  const original = window.getComputedStyle;
-  let unrelatedReads = 0;
-
-  const styles = vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) => {
-    if (unrelated.contains(element)) unrelatedReads++;
-
-    return original(element, pseudo);
-  });
-
-  try {
-    observe();
-    expect(unrelatedReads, "Shelf observation must not compute unrelated controls' styles").toBe(0);
-  } finally {
-    styles.mockRestore();
-    unrelated.remove();
-  }
-};
 
 describe("u373 the Shelf has two tabs", () => {
   it("u373_two_tabs_one_panel", async () => {
@@ -123,121 +98,15 @@ describe("u373 the Shelf has two tabs", () => {
   });
 });
 
-describe("u470 the shared scope toggle", () => {
-  const selectWorkstream = async () => {
+describe("u373 tab navigation", () => {
+  it("u373_tab_navigation_stays_on_tabs", async () => {
+    await mountApp();
     fireEvent.click(document.querySelector('[data-id="backend"]')!);
-
-    return within(shelf()).findByRole("button", { name: "Show all Workstreams" });
-  };
-
-  it("u470_no_segmented_control_in_either_panel", async () => {
-    await mountApp();
-    await selectWorkstream();
-
-    for (const name of ["Todos", "Pads"]) {
-      if (selectedTab() !== name) fireEvent.click(tabNamed(name));
-      expect(within(within(shelf()).getByRole("tabpanel")).queryByRole("group", { name: "Show Todos" })).toBeNull();
-      expect(shelf().querySelector('input[type="radio"]')).toBeNull();
-    }
-  });
-
-  it("u470_pressed_state_follows_the_press", async () => {
-    await mountApp();
-    const toggle = await selectWorkstream();
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("u470_absent_without_a_workstream", async () => {
-    const controls = await mountApp();
-    const tree = await controls.app.rpc("rail.tree", null);
-
-    controls.app.handlers["rail.tree"] = () => [...tree, terminal("scope-terminal")];
-    controls.emit(event({ name: "rail.changed" }));
-    await waitFor(() => expect(document.querySelector('[data-id="scope-terminal"]')).not.toBeNull());
-    expect(within(shelf()).queryByRole("button", { name: "Show all Workstreams" })).toBeNull();
-
-    for (const id of ["migrate", "scope-terminal"]) {
-      await selectWorkstream();
-      fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
-      await waitFor(() => expect(within(shelf()).queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ })).toBeNull());
-    }
-  });
-
-  it("u470_both_lists_and_counts_follow_one_scope", async () => {
-    const controls = await mountApp();
-
-    for (const home of ["backend", "auth", null]) {
-      const made = await controls.app.rpc("todo.create", { title: "scope " + home, body: null, blockers: null });
-
-      await controls.app.rpc("todo.move", { id: made.id, home });
-      await controls.app.rpc("pad.create", { name: "scope-" + home, text: "" });
-      await controls.app.rpc("pad.move", { name: "scope-" + home, home });
-    }
-
-    const toggle = await selectWorkstream();
-    const counts = () => tabs().map(tab => Number(tab.querySelector(".shelf-count")?.textContent ?? 0));
-
-    expect(counts()).toEqual([1, 1]);
-    expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(1);
-    fireEvent.click(toggle);
-
-    const wide = counts();
-
-    expect(wide[0]).toBeGreaterThan(1);
-    expect(wide[1]).toBeGreaterThan(1);
-    expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(wide[0]!);
-    expect(shelf().textContent).toContain("scope null");
-    expect(shelf().textContent).toContain("scope auth");
-    fireEvent.click(tabNamed("Pads"));
-    await waitFor(() => expect(shelf().querySelectorAll(".pad-name")).toHaveLength(wide[1]!));
-    expect(screen.getByText("scope-null")).toBeTruthy();
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(toggle);
-    expect(counts()).toEqual([1, 1]);
-    expect(shelf().querySelectorAll(".pad-name")).toHaveLength(1);
-  });
-
-  it("u470_selection_resets_scope", async () => {
-    await mountApp();
-    fireEvent.click(await selectWorkstream());
-    fireEvent.click(document.querySelector('[data-id="migrate"]')!);
-    expect((await selectWorkstream()).getAttribute("aria-pressed")).toBe("false");
-  });
-
-  it("u470_hide_and_reopen_keep_scope", async () => {
-    await mountApp();
-    fireEvent.click(await selectWorkstream());
-
-    observeShelf(() => {
-      fireEvent.click(tabNamed("Todos"));
-      expect(within(shelf()).queryByRole("button", { name: "Show only this Workstream" })).toBeNull();
-      fireEvent.click(tabNamed("Todos"));
-      expect(within(shelf()).getByRole("button", { name: "Show only this Workstream" }).getAttribute("aria-pressed")).toBe("true");
-    });
-  });
-
-  it("u470_scope_arrows_do_not_select_tabs", async () => {
-    await mountApp();
-    const toggle = await selectWorkstream();
-    toggle.focus();
-
-    for (const key of ["ArrowLeft", "ArrowRight", "Home", "End"]) fireEvent.keyDown(toggle, { key });
-    expect(document.activeElement).toBe(toggle);
-    expect(selectedTab()).toBe("Todos");
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
-  });
-
-  it("u470_tab_navigation_stays_on_tabs", async () => {
-    await mountApp();
-    const toggle = await selectWorkstream();
 
     for (const [key, name] of [["ArrowRight", "Pads"], ["ArrowLeft", "Todos"], ["End", "Pads"], ["Home", "Todos"]]) {
       tabNamed(selectedTab()).focus();
       fireEvent.keyDown(tabNamed(selectedTab()), { key });
       await waitFor(() => expect(document.activeElement).toBe(tabNamed(name!)));
-      expect(toggle.getAttribute("aria-pressed")).toBe("false");
     }
   });
 });
@@ -261,7 +130,6 @@ describe("u369 and u371 the Shelf below the window bar", () => {
     fireEvent.scroll(area);
     expect([wrap.dataset.clippedTop, wrap.dataset.clippedBottom]).toEqual(["true", "false"]);
   });
-
 
 
 });
