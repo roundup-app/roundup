@@ -1,3 +1,5 @@
+import { activationSource } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
@@ -222,14 +224,14 @@ const PadBody = (props: {
       if (path !== null) await connected.app.rpc("pad.export", { name, path });
     });
 
-  const remove = () =>
+  const remove = (source: ActivationSource) =>
     act(async () => {
       saveAfterPause.clear();
       due = null;
       await connected.app.rpc("pad.delete", { name });
       setDeleted(true);
       setRemovedByMe(true);
-      connected.drawer.close();
+      connected.drawer.close(source);
     });
 
   const onChange = () => {
@@ -331,7 +333,7 @@ const PadBody = (props: {
           {copy.deletePad(name)}
           <Show when={pad().owner.kind !== "user"}>{copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner))}</Show>
           <Show when={currentDraft() !== origin()}>{copy.unsavedChangesAreLost}</Show>
-          <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>{copy.delete}</button>{" "}
+          <button data-button="quiet" type="button" class="word light" onClick={(event) => void remove(activationSource(event))}>{copy.delete}</button>{" "}
           <button data-button="quiet"
             type="button"
             class="word light"
