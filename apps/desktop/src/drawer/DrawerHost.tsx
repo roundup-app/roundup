@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
@@ -16,15 +17,11 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   const [mounted, setMounted] = createSignal<DrawerContent | null>(null);
   const [panel, setPanel] = createSignal<HTMLElement>();
   const isOpen = () => props.drawer.content() !== null;
+  const instant = () => props.reducedMotion() || props.drawer.source() === "key";
+  const [settling, setSettling] = createSignal(false);
+  let settleFrame: number | undefined;
+  let revision = 0;
   let heldFocus: HTMLElement | null = null;
-
-  // Content stays mounted until the slide-out ends; with no transition no `transitionend` fires, so it goes at once.
-  createEffect(() => {
-    const content = props.drawer.content();
-
-    if (content !== null) setMounted(() => content);
-    else if (props.reducedMotion()) setMounted(null);
-  });
 
   // U40: opening takes the keyboard; closing gives it back to whatever held it, unless focus left the Drawer on its own.
   createEffect(
@@ -54,21 +51,45 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   };
 
   createEffect(
-    on(isOpen, () => {
-      if (props.reducedMotion()) return;
+    on(() => [props.drawer.content(), props.drawer.source(), props.reducedMotion()] as const, (_action, previous) => {
+      const current = ++revision;
+      cancelAnimationFrame(settleFrame ?? 0);
+      setSettling(previous !== undefined && instant());
+      const content = props.drawer.content();
+
+      if (content !== null) setMounted(() => content);
+      else if (instant()) setMounted(null);
+
+      if (previous === undefined) return;
+
+      if (instant()) {
+        endSlide();
+        // Flush the settled layout before restoring the Shelf's own transition policy.
+        queueMicrotask(() => {
+          if (current !== revision || !panel()?.isConnected) return;
+          void panel()!.offsetWidth;
+          settleFrame = requestAnimationFrame(() => setSettling(false));
+        });
+
+        return;
+      }
 
       setDrawerSliding(true);
       clearTimeout(slideTimer);
-      slideTimer = setTimeout(endSlide, 600);
-    }, { defer: true }),
+      slideTimer = setTimeout(() => {
+        endSlide();
+
+        if (!isOpen()) setMounted(null);
+      }, 600);
+    }),
   );
 
-  onCleanup(endSlide);
+  onCleanup(() => { revision++; endSlide(); cancelAnimationFrame(settleFrame ?? 0); });
 
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
     when: (press) => !(press.target instanceof Element && press.target.closest('input, textarea, [contenteditable], .xterm, .pane-screen')),
-    run: () => props.drawer.close(),
+    run: () => props.drawer.close("key"),
   }]);
 
   return (
@@ -77,7 +98,8 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       aria-label={copy.drawer}
       inert={!isOpen()}
       data-open={isOpen()}
-      data-motion={props.reducedMotion() ? "none" : "slide"}
+      data-motion={instant() ? "none" : "slide"}
+      data-settling={settling()}
       ref={setPanel}
       style={{
         position: "absolute",
@@ -85,15 +107,16 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         right: "0",
         bottom: "0",
         transform: isOpen() ? "translateX(0)" : "translateX(100%)",
-        transition: props.reducedMotion() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
+        transition: instant() ? "none" : `transform var(--duration-drawer) ${DRAWER_EASING}`,
       }}
       onTransitionEnd={(event) => {
-        if (event.target === event.currentTarget) endSlide();
+        if (event.target !== event.currentTarget || (event.propertyName && event.propertyName !== "transform")) return;
+        endSlide();
 
         if (!isOpen()) setMounted(null);
       }}
     >
-      <IconButton class="close" aria-label={copy.close} onClick={() => props.drawer.close()}>
+      <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
         <Icon name="x" />
       </IconButton>
       <Show when={mounted()} keyed>

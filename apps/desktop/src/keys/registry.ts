@@ -11,6 +11,11 @@ export type KeyScope =
   | { kind: "region"; element: () => HTMLElement | undefined }
   | { kind: "layer"; element: () => HTMLElement | undefined; active: () => boolean; modal: boolean; parent?: KeyScope };
 
+export type ActivationSource = "key" | "pointer";
+
+/** Native keyboard button activation has no pointer click count. */
+export const activationSource = (event: Pick<MouseEvent, "detail">): ActivationSource => event.detail === 0 ? "key" : "pointer";
+
 type Binding = { chords: readonly string[]; when?: (event: KeyboardEvent) => boolean; run: (event: KeyboardEvent) => void };
 
 type Registration = { scope: KeyScope; bindings: { matches: ReturnType<typeof parseKeybinding>[number][]; when: Binding["when"]; run: Binding["run"] }[] };
