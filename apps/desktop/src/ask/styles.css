@@ -140,3 +140,61 @@
   color: var(--text);
   background: none;
 }
+
+.project-overview,
+.overview-list,
+.overview-attention {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.overview-heading {
+  margin: 0;
+  padding: var(--space-2);
+  font: inherit;
+  color: var(--grey);
+}
+
+.overview-list,
+.overview-attention {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-attention {
+  padding-left: var(--space-4);
+}
+
+.overview-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  text-align: start;
+  --button-radius: 0;
+}
+
+.overview-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-state {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--grey);
+  white-space: nowrap;
+}
+
+.overview-state.ink {
+  color: var(--text);
+}
