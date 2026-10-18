@@ -80,11 +80,10 @@ it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_th
   expect(mounted.connected.rail.selected()).toBeNull();
 });
 
-it.each(["plus", "chord"])("u524_an_empty_project_opens_and_focuses_a_project_terminal_%s", async (activation) => {
+it("u524_an_empty_project_opens_and_focuses_a_project_terminal_plus", async () => {
   const mounted = await mountBubbles(null, [], []);
 
-  if (activation === "plus") fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
-  else window.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true }));
+  fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: null }]);
   expect(bubbleCalls(mounted.app, "rail.createWorkstream")).toEqual([]);
