@@ -3846,7 +3846,10 @@ async fn a32_a_failed_restart_keeps_the_workstream() {
 #[tokio::test]
 async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
     let gate = Gate::new();
-    let (project, mut client, door) = gated_clear_fixture("a32_plugins", &gate).await;
+    let wrapper = gate.wrapper();
+    // This observer expects a successful restart, so use the loaded-host bound.
+    let (project, mut client, door) =
+        clear_fixture("a32_plugins", &[("ROUNDUP_CLAUDE_BIN", &wrapper)]).await;
     let a = child_of(&client, &door).await;
     until("initial Door and children launched", || {
         (gate.rows().len() == 3).then_some(())
