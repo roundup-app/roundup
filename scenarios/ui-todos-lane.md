@@ -60,11 +60,7 @@ Given Todos and Pads tabs, when pointer activation or Left/Right and Home/End
 navigation switches tabs, then exactly one tab is selected, each tab is linked
 to its named tabpanel and Tab enters the selected panel; switching back keeps
 the existing content and scope behavior (`u491a_shelf_tabs`). Compose shared
-Ark Tabs; no local tab keyboard state machine (policy). The current single
-scope icon stays a single toggle, rather than reviving the superseded pair
-from U347 (`scenarios/ui-shelf.md`, heading “U347 a Workstream's Shelf shows its
-own Todos and Pads until the user asks for all”); its label and scope behavior
-remain those of U470 (`u491a_scope_toggle`).
+Ark Tabs; no local tab keyboard state machine (policy). U2744a replaces the scope toggle with Rail-derived scope (policy).
 
 Every owned modal/confirm composes `ui/Dialog` or `ui/AlertDialog`, every menu
 `ui/Menu`, every tooltip `ui/Tooltip`, and every icon-only button `ui/IconButton`
