@@ -68,20 +68,20 @@ pub(crate) fn is_note_send(ctx: &Ctx, p: &SendParams) -> bool {
 }
 
 /// B51(f): after a note is stored, the sender hears `INBOX_UNAVAILABLE` when its receiver's inbox
-/// is not `ok`; the note is `held` for `inbox` as the receiver's next check would make it.
-pub(crate) async fn refuse_unusable(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
+/// is a `mismatch`: the note is `held` for `inbox` and stays so until Claude Code or the Daemon
+/// changes. A `missing` inbox is not told: the session is starting or gone, and the note goes at
+/// the Agent's next passing check.
+pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
     let Some(inbox) = inner.inbox.get() else {
         return Ok(());
     };
-    let why = match inbox.check(&note.to).await {
-        Inbox::Ok => return Ok(()),
-        Inbox::Mismatch => "Claude Code changed its message format",
-        Inbox::Missing => "the Agent's Claude Code session is not listening",
-    };
+    if inbox.check(&note.to).await != Inbox::Mismatch {
+        return Ok(());
+    }
     hold(inner, std::slice::from_ref(note));
     Err(RpcError::new(
         code::INBOX_UNAVAILABLE,
-        format!("notes held: {why}"),
+        "notes held: Claude Code changed its message format",
     ))
 }
 

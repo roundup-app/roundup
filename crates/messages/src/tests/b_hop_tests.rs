@@ -357,8 +357,8 @@ async fn b16_a_receiver_that_is_gone_or_a_drop_route_never_delays_the_escalated_
 async fn b16_a_hop_to_a_full_receiver_is_never_made() {
     let dir = tempfile::tempdir().unwrap();
     let h = Hops::new(dir.path());
-    for _ in 0..OPEN_BOUND {
-        let p = json!({"to": "mid", "kind": "note", "body": "x"});
+    for n in 0..OPEN_BOUND {
+        let p = json!({"to": "mid", "kind": "note", "body": format!("x{n}")});
         h.call_as(agent("d"), "message.send", p).await.unwrap();
     }
     h.ask("c", "sub").await;

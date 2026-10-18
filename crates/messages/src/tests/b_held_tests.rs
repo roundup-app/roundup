@@ -520,8 +520,9 @@ async fn b30_a_batch_of_one_is_the_b2_prompt() {
 async fn b30_the_batch_stops_at_32768_bytes_and_the_rest_waits_for_the_next_idle() {
     let (_dir, h) = project();
     let big = "x".repeat(8192);
-    for _ in 0..5 {
-        h.send_as(agent("a"), "b", &big).await;
+    for n in 0..5 {
+        h.send_as(agent("a"), "b", &format!("{n}{}", &big[1..]))
+            .await;
     }
 
     h.becomes("b", Kind::Idle);
