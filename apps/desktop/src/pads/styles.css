@@ -305,3 +305,20 @@
 .pad-block-menu .milkdown-slash-menu {
   pointer-events: auto;
 }
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li {
+  font-size: var(--text-body);
+  line-height: 1.4;
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li.selected,
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li:hover,
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.hover,
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.active {
+  background: none;
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group + .menu-group::before {
+  margin: 0 var(--space-2);
+  background: var(--hairline);
+}
