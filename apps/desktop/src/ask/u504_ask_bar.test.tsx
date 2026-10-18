@@ -71,8 +71,11 @@ describe("u504 the Ask bar", () => {
     expect(document.querySelector(".app-mentions")).toBeNull();
   });
 
-  it("u504_escape_closes_mentions_and_keeps_the_draft", async () => {
-    await mountAskBar();
+  it.each(["home", "over"])("u504_escape_closes_mentions_and_keeps_the_draft_in_%s", async (mode) => {
+    await mountAskBar([], mode === "over" ? "lead" : null);
+
+    if (mode === "over") press("/", { metaKey: true }, document.querySelector<HTMLElement>(".outside")!);
+
     input()!.focus();
     type("@");
     press("Escape", {}, input()!);

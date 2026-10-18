@@ -28,6 +28,7 @@
 }
 
 .ask-input {
+  display: block;
   box-sizing: border-box;
   width: 100%;
   min-height: 32px;
@@ -37,7 +38,7 @@
   padding: var(--space-2);
   font: inherit;
   color: inherit;
-  background: var(--sunken);
+  background: var(--ground);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-control);
 }
@@ -110,7 +111,12 @@
 }
 
 .app-mentions-panel {
-  padding: 0;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(320px, var(--available-width));
+  padding: var(--space-1);
+  background-color: var(--ground);
+  box-shadow: var(--shadow-drawer);
 }
 
 .app-mentions {
