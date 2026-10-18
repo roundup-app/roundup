@@ -28,6 +28,8 @@ A fix run answers every finding or failure in the task with commits on the PR's 
 
 A missing prerequisite is an engineering repair: file the missing implementation as a scoped `loop:work` Issue, then block this Issue on it: `gh api -X POST repos/{owner}/{repo}/issues/<this>/dependencies/blocked_by -F issue_id=$(gh api repos/{owner}/{repo}/issues/<prerequisite> --jq .id)`. An isolated contract test does not complete a multi-scenario implementation Issue. Keep implementation within its Scope; an Architect or the user authorizes an ownership expansion. Contract approval requirements still apply. Never add an Issue closed as not planned as a blocker; a dependent that needs cancelled work says so on its Issue and takes `flag:needs-user`.
 
+An Issue that orders a change a scenario on `main` contradicts is specified first: open a PR that changes only `scenarios/`, naming the Issue with `Refs #<issue>` and never `Closes`, leave the Issue open, and stop. The next build implements against the merged scenario, because review sees `main`'s scenarios and never the Issue (rule 5), so a PR that edits a scenario and its code together is rejected.
+
 Stop only on an unresolved product decision that changes the requested outcome and that no scenario, Item or `GLOSSARY.md` entry settles. Engineering uncertainty calls for investigation, a tested repair or a scoped prerequisite Issue under the existing direction. For that unresolved question, leave a draft with `Stopped: <the question>`, its user-visible consequence and one recommended choice; the end of your run screens it like an `ask` (L79, L81). With no PR to leave, put the same three in your answer's `ask`.
 
 ## Review run
