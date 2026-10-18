@@ -11,6 +11,7 @@ import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
 import { showShelfTab } from "../testing/shelfTabs";
+import { stubDialogLayout } from "./bulkQuestionHarness";
 
 let real: StartedDaemon;
 
@@ -89,6 +90,8 @@ beforeAll(async () => {
 afterAll(async () => { await real?.stop(); });
 
 afterEach(cleanup);
+
+stubDialogLayout();
 
 it("u460_bulk_todo_delete_preserves_t6_across_homes", async () => {
   const app = createServedApp(real.base);
