@@ -125,15 +125,15 @@
   font-weight: 600;
 }
 
-/* U132, U404: Ink (`needs-you`, `error`) is bold in its tone, the only bold told by tone. */
-.rail-row .name.ink {
-  font-weight: 700;
-}
-
 /* U403: the chevron leads the row; its hit box is 16 px wide and 24 px tall, so the mark sits in the Glyph column and the trunk drops from its centre. */
 .rail-row .line > .rail-chevron {
   width: var(--space-4);
   min-width: var(--space-4);
+}
+
+/* U3704: a Workstream's Status sits after its chevron in the column its Agents' Status takes, one --rail-step in from the chevron. */
+.rail-row .line > .rail-chevron + .glyph {
+  margin-left: calc(var(--rail-step) - var(--space-4) - var(--rail-gap));
 }
 
 /* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
@@ -435,8 +435,10 @@
 }
 
 .rail-row[data-near="true"] .name {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: var(--space-4);
+  font-size: var(--text-row);
+  line-height: 1;
 }
 
 /* The group supplies its own target spacing; another gap would truncate nested names. */
@@ -444,12 +446,17 @@
   gap: var(--space-1);
 }
 
-.rail-row[data-near="true"] .line > :first-child {
+.rail-row[data-near="true"] .line > :is(:first-child, .rail-chevron + .glyph) {
   margin-right: calc(var(--rail-gap) - var(--space-1));
 }
 
-/* Secondary counts yield to controls without changing the gap before the name. */
-.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .rail-pads-control) {
+/* The near gap is --space-1 (the actions' own spacing), so a state keeps its rest distance from the name. */
+.rail-row[data-near="true"] .line > :is(.ink-count, .folded-agents) {
+  margin-left: calc(var(--rail-gap) - var(--space-1));
+}
+
+/* U3704: a state stays beside the name; only the Pads control, an action, yields to the row's actions. */
+.rail-row[data-near="true"] .line > .rail-pads-control {
   display: none;
 }
 
@@ -617,10 +624,6 @@
   --button-inline: var(--space-4);
 }
 
-/* The trailing Status column yields room to actions without moving the leading mark or name. */
-.rail-row .row-tail > .glyph {
-  width: var(--space-3);
-}
 /* U397: below the supported resize range the label yields, while both targets and marks retain their size. */
 @container rail (width < 220px) {
   .rail-add .rail-add-label {
