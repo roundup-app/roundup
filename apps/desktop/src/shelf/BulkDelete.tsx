@@ -74,7 +74,8 @@ export const createBulkDelete = <Id,>(props: {
 
     if (deleteButton?.isConnected) return deleteButton;
 
-    return document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
+    return document.querySelector<HTMLElement>('.shelf button:not([disabled]), .shelf [tabindex="0"], .shelf input:not([disabled])')
+      ?? document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
   };
 
   const cancel = () => {
