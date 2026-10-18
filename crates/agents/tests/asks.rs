@@ -916,3 +916,17 @@ async fn a42_picking_new_uses_the_first_six_words_as_its_title() {
     assert_eq!(f.h.count.load(Ordering::SeqCst), 1);
     f.stop().await;
 }
+
+#[tokio::test]
+async fn a41_the_part_reads_typed_before_the_wait_ends() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    f.start(&id).await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask = f.h.send("@Work hello").await;
+    assert_eq!(f.read().await, paste("hello"));
+    f.changed(&mut events, &ask["id"], "typed").await;
+    f.signal(&id, "UserPromptSubmit").await;
+    f.stop().await;
+}
