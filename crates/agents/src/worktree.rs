@@ -1096,7 +1096,9 @@ fn first_changed_line(section: &str) -> Option<u32> {
     {
         return None;
     }
-    let hunk = section.lines().find(|line| line.starts_with("@@ "))?;
+    let Some(hunk) = section.lines().find(|line| line.starts_with("@@ ")) else {
+        return Some(1);
+    };
     let new_side = hunk.split_whitespace().find(|part| part.starts_with('+'))?;
     let start = new_side.trim_start_matches('+').split(',').next()?;
     Some(start.parse::<u32>().ok()?.max(1))

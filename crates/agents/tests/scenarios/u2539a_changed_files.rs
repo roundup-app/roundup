@@ -134,6 +134,7 @@ async fn u2539a_reports_each_status() {
     };
     assert_eq!(file("new.txt")["status"], "renamed");
     assert_eq!(file("new.txt")["from"], "old.txt");
+    assert_eq!(file("new.txt")["line"], json!(1));
     assert_eq!(file("gone.txt")["status"], "deleted");
     assert_eq!(file("edit.txt")["status"], "modified");
     assert_eq!(file("added.txt")["status"], "added");
