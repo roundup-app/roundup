@@ -5,6 +5,13 @@
   gap: var(--space-1);
   vertical-align: top;
 }
+.key-sequence-gap {
+  flex: none;
+  width: var(--space-2);
+}
+.help-line, .help-shelf > p {
+  padding-bottom: var(--space-1);
+}
 .help .key-chips {
   width: calc(var(--space-6) * 4);
 }

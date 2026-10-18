@@ -156,7 +156,7 @@ describe("u2230 shortcut hints", () => {
     await waitFor(() => expect(keysIn(".help-line")).toEqual(HELP_ROWS.map((row) => row.keys.replace(/\s/g, ""))));
     expect([...document.querySelectorAll(".help-shelf p")].map((row) =>
       [...row.querySelectorAll("kbd")].map((key) => key.textContent),
-    )).toEqual([["↑", "↓"], ["⌘", "Enter"], ["⇧", "↑", "⇧", "↓"], ["⌫", "Esc"]]);
+    )).toEqual([["↑", "↓"], ["⌘", "⏎"], ["⇧", "↑", "⇧", "↓"], ["⌫", "Esc"]]);
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     await waitFor(() => expect(document.querySelector(".help")).toBeNull());
     fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
