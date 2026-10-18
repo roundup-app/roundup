@@ -291,6 +291,11 @@ export const realDaemon = (daemon: RealDaemon): Plugin => ({
   name: "roundup-real-daemon",
   apply: "serve",
   configureServer(server) {
+    // Node closes an idle keep-alive socket after 5 s. A POST the client writes onto that socket in the same moment gets
+    // ECONNRESET, and fetch does not retry a POST. A test worker whose loop stalls for seconds hits that moment, so the
+    // relay never reaps an idle connection; the client still closes its own.
+    if (server.httpServer && "keepAliveTimeout" in server.httpServer) server.httpServer.keepAliveTimeout = 0;
+
     server.middlewares.use(ROUTE, (request, response) => serve(daemon, request, response, (request.url ?? "/").slice(1).split("?")[0] ?? ""));
   },
 });
