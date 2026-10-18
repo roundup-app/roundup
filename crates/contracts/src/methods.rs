@@ -72,6 +72,7 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "null | agent_HeldAction",
     ),
+    m("terminal.scheme", "terminal_SchemeParams", "null"),
     m("terminal.show", "terminal_TerminalId", "null"),
     m("terminal.list", "null", "terminal_TerminalInfo[]"),
     m(
