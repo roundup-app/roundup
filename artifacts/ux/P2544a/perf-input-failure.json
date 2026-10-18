@@ -1,0 +1,14 @@
+{
+  "command": "python3 artifacts/ux/P2544a/perf.py a46839b7f 4dcfb43e0523c80af64f61212c968390ec17349d",
+  "viewport": [
+    1512,
+    950
+  ],
+  "mode": "Vite development",
+  "observer": "trusted keydown to next requestAnimationFrame; 1000 prose keys",
+  "native_claim": false,
+  "runs": {},
+  "failures": [
+    "('wait', '--fn', 'window.__padSamples.length === 1000'): \u2717 Wait timed out after 30000ms\n"
+  ]
+}

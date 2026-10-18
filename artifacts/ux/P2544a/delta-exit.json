@@ -1,0 +1,7 @@
+{
+  "exit_code": 1,
+  "regressions": [
+    "dark-slash D8 regressed",
+    "light-slash D8 regressed"
+  ]
+}
