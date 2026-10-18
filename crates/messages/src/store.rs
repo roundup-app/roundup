@@ -1106,6 +1106,23 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
+    /// B51(g): the latest `note` to `to`, at its Attempt `attempt`, that Claude Code has taken up
+    /// or will: `pending` or `delivered`, from anyone but the user.
+    pub(crate) fn last_note(&self, to: &str, attempt: i64) -> Result<Option<Message>, RpcError> {
+        self.db
+            .query_row(
+                "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
+                 FROM messages
+                 WHERE to_id = ?1 AND kind = 'note' AND status IN ('pending', 'delivered')
+                   AND receiver_attempt = ?2 AND from_actor != ?3
+                 ORDER BY id DESC LIMIT 1",
+                params![to, attempt, actor_json(&Actor::user())],
+                row_to_message,
+            )
+            .optional()
+            .map_err(RpcError::internal)
+    }
+
     /// B22: the pushed digests to `to` that are `pending` or `held`, oldest first.
     pub(crate) fn open_digests(&self, to: &str) -> Result<Vec<Message>, RpcError> {
         self.db

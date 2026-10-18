@@ -280,7 +280,29 @@ impl Messages {
     }
 
     async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Value, RpcError> {
-        reply(&self.send_message(ctx, p, false).await?)
+        // B51(f), B51(g): the sender of a note to an Agent hears at once when it will not arrive.
+        let note = inbox::is_note_send(ctx, &p);
+        if note {
+            self.refuse_repeat(ctx, &p).await?;
+        }
+        let message = self.send_message(ctx, p, false).await?;
+        if note {
+            inbox::refuse_unusable(&self.inner, &message).await?;
+        }
+        reply(&message)
+    }
+
+    /// B51(g): Claude Code drops a note whose text and sender equal those of the one it took up
+    /// last, so such a send is refused and no Message is made.
+    async fn refuse_repeat(&self, ctx: &Ctx, p: &SendParams) -> Result<(), RpcError> {
+        let Some(receiver) = self.resolve_receiver(&p.to).await? else {
+            return Ok(());
+        };
+        let last = self.store()?.last_note(&p.to, binding(&receiver).0)?;
+        if last.is_some_and(|last| last.from == ctx.actor && last.body == p.body) {
+            return Err(RpcError::conflict(inbox::REPEAT));
+        }
+        Ok(())
     }
 
     /// `message.send`. `merge` makes the Message the merge of the two oldest pushed digests to
