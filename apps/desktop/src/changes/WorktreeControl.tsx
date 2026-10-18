@@ -72,7 +72,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
       )} />
       <Popover.Positioner>
         <Popover.Content class="worktree-panel" data-diff={diff() || undefined} aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
-          <div class="diff-actions"><Show when={diff()}><button type="button" data-button="quiet" onClick={() => { setEditing(undefined); setDiff(false); }}>Back</button></Show><button type="button" data-button="quiet" onClick={close}>Close</button></div>
+          <div class="diff-actions"><Show when={diff()}><button type="button" data-button="quiet" onClick={() => { setEditing(undefined); setDiff(false); }}>{copy.back}</button></Show><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div>
           <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} />}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
@@ -97,7 +97,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
               if (value.changed.files.length === 0) return <p class="worktree-none">{copy.noChanges}</p>;
 
-              return <><ChangedTree root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" disabled={!path()} onClick={() => setDiff(true)}>View diff</button></>;
+              return <><ChangedTree root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
             }}
           </Show>
         <NoteBatch id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
