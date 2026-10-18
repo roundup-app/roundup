@@ -6933,3 +6933,97 @@ mod lean_specialists {
         assert_eq!(run.tree().await.len(), 2);
     }
 }
+
+#[tokio::test]
+async fn a2693a_resume_mode_survives_a_held_call() {
+    for mode in ["normal", "yolo"] {
+        let (run, caller) = order_child().await;
+        idle(&run).await;
+        run.user
+            .request("takeover.begin", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        let receipt = caller
+            .request("agent.resume", json!({"id":run.child,"mode":mode}))
+            .await
+            .unwrap();
+        assert_eq!(receipt["params"]["mode"], mode);
+        assert_eq!(child_attempt(&run).await, run.attempt);
+        run.user
+            .request("takeover.end", json!({"agent":run.child}))
+            .await
+            .unwrap();
+        let history = tokio::time::timeout(BOUND, async {
+            loop {
+                let history = caller
+                    .request("agent.actionHistory", json!({"id":run.child}))
+                    .await
+                    .unwrap();
+                if history[0]["outcome"]["status"] == "completed" {
+                    break history;
+                }
+                assert_ne!(history[0]["outcome"]["status"], "dropped", "{history}");
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(history[0]["params"]["mode"], mode);
+        let tree = run.user.request("rail.tree", Value::Null).await.unwrap();
+        let node = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == run.child)
+            .unwrap();
+        assert_eq!(node["yolo"], mode == "yolo");
+        run.finish().await;
+    }
+}
+
+#[tokio::test]
+async fn a2693a_an_unauthorized_mode_change_stops_nothing() {
+    let (run, _) = order_child().await;
+    idle(&run).await;
+    let victim = run
+        .user
+        .request("agent.spawn", json!({"cwd":run.dir.path()}))
+        .await
+        .unwrap();
+    let stranger = Client::connect(&run.daemon.socket).await.unwrap();
+    stranger
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    let err = stranger
+        .request("agent.resume", json!({"id":victim["id"],"mode":"yolo"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::FORBIDDEN);
+    assert_eq!(child_attempt(&run).await, run.attempt);
+    let tree = run.user.request("rail.tree", Value::Null).await.unwrap();
+    let after = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == victim["id"])
+        .unwrap();
+    assert_eq!(after["attempt"], victim["attempt"]);
+    assert_eq!(after["terminal_id"], victim["terminal_id"]);
+    let terminals = run
+        .user
+        .request("terminal.list", Value::Null)
+        .await
+        .unwrap();
+    assert!(
+        terminals
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == victim["terminal_id"] && t["running"] == true)
+    );
+    run.finish().await;
+}

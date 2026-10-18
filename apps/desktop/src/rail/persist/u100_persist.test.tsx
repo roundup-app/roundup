@@ -193,7 +193,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(scroll).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(field);
   expect(app.calls.map((call) => call.method).sort()).toEqual([
-    "ask.list", "daemon.ping", "decision.list", "pad.list", "project.resources", "rail.tree", "terminal.list", "terminal.resize", "terminal.snapshot", "todo.list",
+    "ask.list", "daemon.ping", "decision.list", "pad.list", "project.resources", "rail.tree", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list",
   ]);
   field.remove();
 });

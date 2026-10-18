@@ -72,6 +72,7 @@ pub const METHODS: &[Method] = &[
         "terminal_TerminalId",
         "null | agent_HeldAction",
     ),
+    m("terminal.scheme", "terminal_SchemeParams", "null"),
     m("terminal.show", "terminal_TerminalId", "null"),
     m("terminal.list", "null", "terminal_TerminalInfo[]"),
     m(
@@ -234,7 +235,7 @@ pub const METHODS: &[Method] = &[
     m("rail.remove", "agent_NodeId", "agent_Removal | null"),
     m(
         "agent.resume",
-        "agent_NodeId",
+        "agent_ResumeParams",
         "agent_RailNode | agent_HeldAction",
     ),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),

@@ -19,7 +19,8 @@ impl Shared {
         if !matches!(runs.get(id), Some(Slot::Starting { attempt: active, .. }) if active == attempt)
         {
             return Err(RpcError::conflict(format!(
-                "agent {id}: stale start completion"
+                "{}: stale start completion",
+                rail.name(id)?
             )));
         }
         let Some(Slot::Starting { named, held, .. }) = runs.remove(id) else {
@@ -79,6 +80,7 @@ impl Shared {
         payload: Value,
     ) -> Result<Applied, RpcError> {
         let Some(Slot::Resuming {
+            mode,
             attempt,
             since,
             old,
@@ -98,6 +100,7 @@ impl Shared {
             runs.insert(
                 id.to_owned(),
                 Slot::Resuming {
+                    mode,
                     attempt,
                     since,
                     old,
@@ -120,6 +123,7 @@ impl Shared {
             id,
             attempt,
             old,
+            mode,
             cwd,
             prompt,
             starred,
@@ -150,6 +154,7 @@ impl Shared {
         };
         let Some(position) = found else { return };
         let Some(Slot::Resuming {
+            mode,
             attempt,
             old,
             cwd,
@@ -173,6 +178,7 @@ impl Shared {
             id,
             attempt.clone(),
             old,
+            mode,
             cwd,
             prompt,
             starred,
@@ -206,6 +212,7 @@ impl Shared {
         id: &str,
         attempt: String,
         old: Option<Box<Run>>,
+        mode: contracts::agent::ResumeMode,
         cwd: String,
         prompt: Option<String>,
         starred: bool,
@@ -229,6 +236,7 @@ impl Shared {
         }
         let clock = Arc::clone(&self.clock);
         let mut run = Run {
+            yolo: mode == contracts::agent::ResumeMode::Yolo,
             startup_context: true,
             attempt: attempt.clone(),
             status_revision: 1,
@@ -334,4 +342,24 @@ pub(super) fn save_signal_conversation(
 pub(super) fn is_resume_ack(payload: &Value, conversation_id: &str) -> bool {
     claude_code::session_source(payload) == Some("resume")
         && claude_code::conversation_id(payload).as_deref() == Some(conversation_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tests::Watched;
+
+    #[tokio::test]
+    async fn a2703a_errors_use_rail_names() {
+        let watched = Watched::named();
+        for (id, name) in [("7013", "sad"), ("8013", "an Agent that is gone")] {
+            let error = watched
+                .shared
+                .finish_starting(id, "stale", |_| unreachable!())
+                .unwrap_err();
+            assert!(
+                error.message.contains(name) && !error.message.contains(id),
+                "{error}"
+            );
+        }
+    }
 }

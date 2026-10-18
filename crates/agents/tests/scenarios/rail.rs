@@ -372,3 +372,72 @@ async fn r16_empty_workstreams_keep_every_presentation_field() {
         && n.status_revision.is_none()
         && n.iteration == Some(1)));
 }
+
+#[tokio::test]
+async fn a2703a_rejected_calls_use_rail_names() {
+    let f = Fixture::new();
+    rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap()
+        .execute_batch("DELETE FROM sqlite_sequence WHERE name = 'nodes'; INSERT INTO sqlite_sequence(name,seq) VALUES('nodes',7012)").unwrap();
+    let first = f.spawn(None, None).await.unwrap();
+    let second = f.spawn(None, None).await.unwrap();
+    for (id, name) in [(&first.id, "sad"), (&second.id, "ancestor")] {
+        f.call("rail.rename", json!({"id":id,"name":name}))
+            .await
+            .unwrap();
+    }
+    let error = f.mv(&first.id, Some(&second.id), 0).await.unwrap_err();
+    assert_eq!(error.code, code::CONFLICT);
+    assert!(
+        !error.message.contains("7013")
+            && !error.message.contains("7014")
+            && error.message.contains("sad")
+            && error.message.contains("ancestor"),
+        "{error}"
+    );
+    let actor = contracts::Actor {
+        kind: contracts::ActorKind::Agent,
+        id: second.id.clone(),
+        parent: None,
+    };
+    let ctx = rpc::Ctx { actor, ..f.ctx() };
+    let error = rpc::Module::call(
+        &f.agents,
+        &ctx,
+        "agent.setOrder",
+        json!({"id":first.id,"order":{"kind":"work","title":"x","ask":"x","limits":[]}}),
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        !error.message.contains("7013")
+            && !error.message.contains("7014")
+            && error.message.contains("sad")
+            && error.message.contains("ancestor"),
+        "{error}"
+    );
+    for method in ["agent.prompt", "agent.interrupt"] {
+        let ctx = rpc::Ctx {
+            actor: contracts::Actor {
+                kind: contracts::ActorKind::Ext,
+                id: "extension".into(),
+                parent: None,
+            },
+            ..f.ctx()
+        };
+        for (id, name) in [(&first.id[..], "sad"), ("8013", "an Agent that is gone")] {
+            let error = rpc::Module::call(&f.agents, &ctx, method, json!({"id":id,"text":"hello"}))
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, code::FORBIDDEN);
+            assert!(
+                error.message.contains(name) && !error.message.contains(id),
+                "{method}: {error}"
+            );
+        }
+    }
+    let missing = f.mv("8013", None, 0).await.unwrap_err();
+    assert!(
+        missing.message.contains("an Agent that is gone") && !missing.message.contains("8013"),
+        "{missing}"
+    );
+}

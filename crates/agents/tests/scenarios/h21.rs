@@ -202,12 +202,19 @@ async fn h21_a_door_answers_a_childs_ask_user_with_a_label_and_a_note() {
 #[tokio::test]
 async fn h21_an_agent_cannot_answer_its_own_decision() {
     let w = World::new().await;
+    w.f.call("rail.rename", json!({"id":w.child,"name":"sad"}))
+        .await
+        .unwrap();
     let (_hook, id) = w.asks(&w.child).await;
 
     let err = w.answer(agent(&w.child), &id, "allow").await.unwrap_err();
 
     assert_eq!(err.code, code::FORBIDDEN);
-    assert!(err.message.contains(&w.child), "{}", err.message);
+    assert!(
+        err.message.contains("sad") && !err.message.contains(&w.child),
+        "{}",
+        err.message
+    );
     assert_eq!(w.listed(Actor::user()).await.len(), 1);
 }
 

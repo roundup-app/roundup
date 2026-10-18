@@ -199,15 +199,24 @@ async fn reads_ok(client: &Client, agent: &str, id: &str) {
 }
 
 async fn refused(client: &Client, caller: &str, id: &str) {
+    let tree = client.request("rail.tree", Value::Null).await.unwrap();
+    let caller_name = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == caller)
+        .unwrap()["name"]
+        .as_str()
+        .unwrap();
     for (method, params) in reads(id) {
         let err = client.request(method, params).await.expect_err(method);
         let text = err.to_string();
         assert!(
-            text.contains(id) && text.contains(caller),
+            text.contains(id) && text.contains(caller_name),
             "{method}: {text}"
         );
         assert!(
-            text.contains(&format!("not started by {caller} or in its Reach")),
+            text.contains(&format!("not started by {caller_name} or in its Reach")),
             "{method}: {text}"
         );
         assert!(!text.contains("WORD"), "{method}: {text}");

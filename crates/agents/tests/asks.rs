@@ -391,6 +391,9 @@ struct DoorHarness {
 }
 impl DoorHarness {
     fn open(dir: &std::path::Path) -> Self {
+        Self::open_with_bound(dir, ASK_BOUND)
+    }
+    fn open_with_bound(dir: &std::path::Path, bound: Duration) -> Self {
         use std::os::unix::fs::PermissionsExt;
         let bin = dir.join("program");
         let rup = dir.join("rup");
@@ -430,7 +433,7 @@ impl DoorHarness {
             )
             .unwrap()
             .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
-            .with_steer_bound(ASK_BOUND)
+            .with_steer_bound(bound)
             .with_steer_effect(move |_| {
                 if gone.load(Ordering::SeqCst) {
                     Err(rpc::RpcError::not_found("Door ended before write"))
@@ -941,6 +944,31 @@ async fn a42_picking_new_uses_the_first_six_words_as_its_title() {
 }
 
 #[tokio::test]
+async fn a2703a_failed_ask_reason_uses_rail_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open_with_bound(dir.path(), Duration::from_millis(100));
+    rusqlite::Connection::open(dir.path().join("agents.db")).unwrap()
+        .execute_batch("DELETE FROM sqlite_sequence WHERE name = 'nodes'; INSERT INTO sqlite_sequence(name,seq) VALUES('nodes',7012)").unwrap();
+    let id = f.workstream().await;
+    f.start(&id).await;
+    for name in ["sad", "glad"] {
+        f.h.agents
+            .call(&f.h.ctx, "rail.rename", json!({"id":id,"name":name}))
+            .await
+            .unwrap();
+        let mut events = f.h.ctx.bus.subscribe();
+        let ask = f.h.send(&format!("@{name} hello")).await;
+        f.read().await;
+        let failed = f.changed(&mut events, &ask["id"], "failed").await;
+        assert_eq!(
+            failed["parts"][0]["reason"],
+            format!("{name} did not accept the prompt")
+        );
+    }
+    f.stop().await;
+}
+
+#[tokio::test]
 async fn a41_the_part_reads_typed_before_the_wait_ends() {
     let dir = tempfile::tempdir().unwrap();
     let mut f = DoorHarness::open(dir.path());
@@ -993,7 +1021,7 @@ async fn a41_a_real_non_acceptance_still_fails() {
     let failed = f.changed(&mut events, &ask["id"], "failed").await;
     assert_eq!(
         failed["parts"][0]["reason"],
-        format!("agent {id} did not accept the prompt")
+        "Work did not accept the prompt".to_owned()
     );
     assert!(f.bytes.try_recv().is_err());
     f.stop().await;
@@ -1029,7 +1057,7 @@ async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
         let reason = if ended {
             "the Door ended before this reached it".to_owned()
         } else {
-            format!("agent {id} did not accept the prompt")
+            "Work did not accept the prompt".to_owned()
         };
         assert_eq!(failed["reason"], reason);
         assert!(f.bytes.try_recv().is_err());
