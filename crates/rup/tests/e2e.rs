@@ -4396,3 +4396,37 @@ async fn m16_action_descriptions_prefer_direct_tools() {
         "{write}"
     );
 }
+
+#[tokio::test]
+async fn p2544d_write_revision_guard_over_rpc() {
+    let project = start(&[]);
+    let first = project.client().await;
+    let second = project.client().await;
+    first
+        .request("pad.create", json!({"name": "notes", "text": "original"}))
+        .await
+        .unwrap();
+    let (one, two) = tokio::join!(
+        first.request(
+            "pad.write",
+            json!({"name": "notes", "text": "one", "expectedRevision": 1})
+        ),
+        second.request(
+            "pad.write",
+            json!({"name": "notes", "text": "two", "expectedRevision": 1})
+        )
+    );
+    let results = [one, two];
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    let error = results
+        .iter()
+        .find_map(|result| result.as_ref().err())
+        .unwrap();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    assert!(error.message.contains("revision 2"));
+    let winner = results.into_iter().find_map(Result::ok).unwrap();
+    assert_eq!(
+        first.request("pad.list", json!(null)).await.unwrap()[0],
+        winner
+    );
+}
