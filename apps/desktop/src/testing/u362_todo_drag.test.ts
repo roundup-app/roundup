@@ -185,3 +185,67 @@ run('u362 rendered move failure', () => {
     }, 30_000);
   }
 });
+
+run('u2716a Project overview band', () => {
+  const overview = '.centre [aria-label="Project overview"]';
+  const band = '.rail [data-todo-root]';
+  const open = async () => {
+    await page.load('/harness.html?seed=tree-40');
+    await page.until(`() => Boolean(document.querySelector('${band}')) && Boolean(window.__fake)`);
+    await page.call(`() => document.querySelector('[role="treeitem"]').click()`);
+    await page.until(`() => document.querySelector('${band}').getAttribute('aria-pressed') === 'false'`);
+  };
+
+  it('u2716a_click_opens_the_project_overview', async () => {
+    await open();
+    const target = await point(band);
+    await page.click(target.x, target.y);
+    await page.until(`() => Boolean(document.querySelector('${overview}'))`);
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-pressed')`)).toBe('true');
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toMatch(/Overview.*Project root/);
+  });
+
+  it('u2716a_keyboard_opens_the_project_overview', async () => {
+    for (const [key, code] of [['Enter', 'Enter'], [' ', 'Space']]) {
+      await open();
+      // A real Tab from the preceding element must reach the native band button.
+      await page.call(`() => {
+        const before = document.createElement('button');
+        document.querySelector('${band}').before(before);
+        before.focus();
+      }`);
+      await page.press('Tab', 'Tab');
+      expect(await page.call(`() => document.activeElement.matches('${band}')`)).toBe(true);
+      await page.press(key!, code!);
+      await page.until(`() => Boolean(document.querySelector('${overview}'))`);
+      expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-pressed')`)).toBe('true');
+    }
+  });
+
+  it('u2716a_attention_name_follows_tree_and_status', async () => {
+    await open();
+    await page.call(`async () => {
+      const fake = window.__fake;
+      const nodes = await fake.app.rpc('rail.tree', {});
+      window.__overviewNodes = nodes;
+      fake.app.handlers['rail.tree'] = () => nodes.map(n => n.status ? {...n, status: {...n.status, kind: 'working'}} : n);
+      fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
+      document.querySelector('${band}').click();
+    }`);
+    await page.until(`() => document.querySelector('${overview} h2')?.textContent === 'Nothing needs you'`);
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root');
+    await page.call(`() => {
+      const nodes = window.__overviewNodes;
+      const door = nodes.find(n => n.kind === 'workstream' && n.status);
+      const agent = nodes.find(n => n.kind === 'agent');
+      window.__attentionAgent = agent.id;
+      window.__fake.app.handlers['rail.tree'] = () => nodes.map(n => n.status ? {...n, status: {...n.status, kind: n.id === door.id ? 'error' : n.id === agent.id ? 'needs-you' : 'working'}} : n);
+      window.__fake.emit({actor: {kind: 'user', id: 'you', parent: null}, name: 'rail.changed'});
+    }`);
+    await page.until(`() => document.querySelector('${overview} h2')?.textContent === '2 need you'`);
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root, 2 need you');
+    await page.call(`() => window.__fake.setStatus(window.__attentionAgent, 'working', 'busy')`);
+    await page.until(`() => document.querySelector('${overview} h2')?.textContent === '1 needs you'`);
+    expect(await page.call(`() => document.querySelector('${band}').getAttribute('aria-label')`)).toBe('Overview, Project root, 1 needs you');
+  });
+});
