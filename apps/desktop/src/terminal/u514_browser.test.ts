@@ -314,12 +314,14 @@ it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and
   }
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
+
   const from = await read<{ x: number; y: number }>(`(() => {
     const range = document.createRange();
     range.selectNodeContents(document.querySelector(${JSON.stringify(selector)}));
     const box = range.getClientRects()[0];
     return { x: Math.ceil(box.left + 1), y: Math.round(box.top + box.height / 2) };
   })()`);
+
   await drag(from, { x: from.x + 55, y: from.y });
   const text = await read<string>("getSelection().toString()");
 
