@@ -223,6 +223,8 @@ export const copy = {
   addAgent: "Add agent",
   retry: "Retry",
   projectRoot: "Project root",
+  overview: "Overview",
+  overviewLabel: (count: number) => count > 0 ? `Overview, Project root, ${count} ${count === 1 ? "needs" : "need"} you` : "Overview, Project root",
   workstreamsHead: "WORKSTREAMS",
   rail: "Rail",
   doneCount: " done",

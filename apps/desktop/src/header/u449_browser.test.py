@@ -66,6 +66,69 @@ def settle():
         browser("wait", "200")
 
 
+def u2716a_scrolled_tree_keeps_overview_reachable():
+    evaluate("document.querySelector('.rail-scroll').scrollTop=document.querySelector('.rail-scroll').scrollHeight")
+    browser("wait", "--fn", "document.querySelector('.rail-scroll').scrollTop > 0")
+    browser("click", ".rail [data-todo-root]")
+    browser("wait", ".centre [aria-label='Project overview']")
+    evaluate("document.querySelector('[role=treeitem]').click()")
+    browser("wait", "--fn", "document.querySelector('[data-todo-root]').getAttribute('aria-pressed') === 'false'")
+    evaluate("document.querySelector('.rail-scroll').scrollTop=document.querySelector('.rail-scroll').scrollHeight;const before=document.createElement('button');document.querySelector('[data-todo-root]').before(before);before.focus()")
+    browser("press", "Tab")
+    if not evaluate("document.activeElement.matches('[data-todo-root]')"):
+        raise AssertionError("Tab did not reach Overview after scrolling")
+    browser("press", "Enter")
+    browser("wait", ".centre [aria-label='Project overview']")
+    evaluate("document.querySelector('[data-todo-root]').previousElementSibling.remove()")
+
+
+# U2716a uses this existing isolated driver; visual captures belong to the critic.
+if len(sys.argv) > 5 and sys.argv[5] == "overview":
+    try:
+        browser("set", "viewport", "1512", "950")
+        for scheme in ("light", "dark"):
+            browser("set", "media", scheme)
+            for seed in ("tree-40", "agents-10"):
+                browser("open", origin + "harness.html?seed=" + seed)
+                browser("wait", ".rail [data-todo-root]")
+                evaluate("localStorage.clear();document.querySelector('[role=treeitem]').click()")
+                browser("wait", "--fn", "document.querySelector('[data-todo-root]').getAttribute('aria-pressed') === 'false'")
+                browser("hover", ".centre")
+                prefix = f"u2716a-{seed}-{scheme}"
+                capture(prefix + "-rest")
+                browser("hover", "[data-todo-root]")
+                capture(prefix + "-hover")
+                browser("click", "[data-todo-root]")
+                browser("wait", ".centre [aria-label='Project overview']")
+                capture(prefix + "-selected-hover")
+                browser("hover", ".centre")
+                capture(prefix + "-selected")
+                if seed == "tree-40":
+                    u2716a_scrolled_tree_keeps_overview_reachable()
+                    browser("hover", ".centre")
+                    capture(prefix + "-selected-scrolled")
+                evaluate("[...document.querySelectorAll('.shelf [role=tab]')].find(t=>t.textContent.startsWith('Todos')).click()")
+                evaluate("(async()=>{const fake=window.__fake,app=fake.app;const nodes=await app.rpc('rail.tree',{});const home=nodes.find(n=>n.kind==='workstream')??await app.rpc('rail.createWorkstream',{name:'Todo source',parent:null});const creator=nodes.find(n=>n.kind==='agent'&&n.terminal_id);fake.actAs({kind:'agent',id:creator.id,parent:creator.parent});const todo=await app.rpc('todo.create',{title:'Overview drag observer',body:null,blockers:null});await app.rpc('todo.move',{id:todo.id,home:home.id});fake.actAs({kind:'user',id:'you',parent:null});window.__overviewTodo=todo.id})()")
+                browser("wait", "--fn", "Boolean(document.querySelector('.shelf [data-todo=\"'+window.__overviewTodo+'\"] .todo-row-button'))")
+                source = evaluate("(()=>{const e=document.querySelector('.shelf [data-todo=\"'+window.__overviewTodo+'\"] .todo-row-button');e.scrollIntoView({block:'nearest'});const b=e.getBoundingClientRect();return {x:b.left+b.width/2,y:b.top+b.height/2}})()")
+                browser("mouse", "move", str(round(source["x"])), str(round(source["y"])))
+                target = evaluate("(()=>{const e=document.querySelector('[data-todo-root]');e.scrollIntoView({block:'nearest'});const b=e.getBoundingClientRect();return {x:b.right-2,y:b.top+b.height/2}})()")
+                browser("mouse", "down")
+                browser("mouse", "move", str(round(target["x"])), str(round(target["y"])))
+                browser("wait", "[data-todo-drop]")
+                capture(prefix + "-drag-over")
+                browser("press", "Escape")
+                browser("mouse", "up")
+                if seed == "tree-40":
+                    evaluate("window.__fake.failNext(-32000,'Cannot create this Workstream');document.querySelector('.rail-actions button').click()")
+                    browser("wait", ".rail [role=alert]")
+                    capture(prefix + "-failure")
+        print(json.dumps(records))
+    finally:
+        browser("close")
+    sys.exit(0)
+
+
 # U440: the overflow edges beside the tab list, at the widest and the narrowest windows.
 if len(sys.argv) > 5 and sys.argv[5] == "edges":
     try:
@@ -218,7 +281,7 @@ try:
                 browser("wait", ".strip")
                 browser("wait", "--fn", "document.querySelector('.shelf').getBoundingClientRect().left < innerWidth")
                 if seed != "first-run":
-                    browser("wait", ".todo-project-root")
+                    browser("wait", ".rail [data-todo-root]")
                 prefix = f"{seed}-{width}-{scheme}"
                 capture(prefix + "-rest")
                 if seed == "decisions":
@@ -230,7 +293,7 @@ try:
                     # Every Drawer keeps its top throughout opening and closing, with either Shelf state.
                     for shelf_open in (True, False):
                         for kind in ("Todo", "Pad", "Work-order"):
-                            evaluate("document.querySelector('.todo-project-root').click()")
+                            evaluate("document.querySelector('.rail [data-todo-root]').click()")
                             if kind == "Pad":
                                 evaluate("[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.startsWith('Pads')).click()")
                                 browser("wait", ".shelf .pad-name")
