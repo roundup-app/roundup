@@ -134,3 +134,34 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Closed Agents read as a document; their retained Terminal remains below it (U82). */
+.order-overview {
+  flex: none;
+  order: -1;
+  max-height: 75%;
+  overflow: auto;
+  padding: var(--space-5);
+  box-sizing: border-box;
+  font-family: var(--font-ui);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+.order-overview h2 { font-size: var(--text-title); margin: var(--space-1) 0; }
+.order-overview h3 { font-size: var(--text-small); color: var(--grey); font-weight: 400; margin: var(--space-3) 0 var(--space-1); }
+.overview-session > p { margin: 0 0 var(--space-2); }
+.overview-id { font-family: var(--font-mono); user-select: text; }
+.overview-context { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-small); color: var(--grey); }
+.overview-context meter { accent-color: var(--grey); min-width: 0; }
+.overview-card p { margin: 0; }
+.order-overview .order-head { margin-top: var(--space-4); }
+.order-overview .order-prompt-body { max-height: none; }
+
+.pane-body:has(.order-overview) { display: flex; flex-direction: column; }
+.pane-body:has(.order-overview) > .pane-screen { flex: 1; min-height: 0; }
+
+.overview-context meter::-webkit-meter-bar { background: var(--hairline); border: none; }
+.overview-context meter::-webkit-meter-optimum-value { background: var(--grey); }
+.overview-context meter::-moz-meter-bar { background: var(--grey); }
+.order-overview :where(p, ul) { margin: var(--space-2) 0; }
+.order-overview ul { padding-inline-start: var(--space-5); }

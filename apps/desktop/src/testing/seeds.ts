@@ -416,7 +416,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   const nodes = name === "first-run" || name === "empty-project"
     ? []
     : name === "earlier-run"
-      ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
+      ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", overview: { program: "Claude Code", id: "earlier-session", name: "Recipe notebook", used: 84000, limit: 200000, card: { intent: "Collect household recipes", facts: ["Recipes stay local"], outcome: "Notebook saved" } }, terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
       : name === "resources"
       ? [
         agent("worktree-agent", "working", "building", { name: "worktree agent", status: statusAt(now, "working", "building", 1), worktree: { path: "/p/.roundup/worktree-agent", branch: "roundup/worktree-agent", base: "main" } }),
