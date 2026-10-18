@@ -1,4 +1,6 @@
 :root {
+  -webkit-user-select: none;
+  user-select: none;
   font-family: var(--font-ui);
   font-size: var(--text-body);
   color: var(--text);
@@ -450,4 +452,16 @@ p {
 code,
 pre {
   font-family: var(--font-mono);
+}
+
+/* Content must remain copyable even when its editor is read-only. */
+input,
+textarea,
+[contenteditable="true"],
+.pad-editor,
+.ProseMirror[contenteditable="false"],
+pre,
+code {
+  -webkit-user-select: text;
+  user-select: text;
 }

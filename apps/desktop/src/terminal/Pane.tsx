@@ -5,6 +5,7 @@ import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { DecisionCard } from "../decisions/DecisionCard";
+import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
@@ -82,6 +83,13 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     const workstream = selected();
 
     return workstream?.kind === "workstream" ? doorStateOf(workstream, rail.exitOf(workstream), rail.doorPending(workstream.id), rail.doorFailure(workstream.id) !== null) : null;
+  });
+
+  const closedAgent = createMemo(() => {
+    const node = selected();
+
+    return node?.kind === "agent" && rail.exitOf(node) !== null
+      && (node.terminal_id !== null || node.status?.kind === "done" || node.status?.kind === "error");
   });
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
@@ -389,7 +397,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             />
         )}
       </Show>
-      <Show when={selected()?.kind !== "workstream" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
+      <Show when={selected()?.kind !== "workstream" && !closedAgent() ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <div
         class="pane-body"
         classList={{ "drop-over": dropOver() }}
@@ -441,8 +449,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             </div>
           </Show>
         </Show>
-        <Show when={selected()?.kind !== "workstream" && selected() !== null && terminalId() === null && notice() === null}>
+        <Show when={selected()?.kind === "agent" && !closedAgent() && terminalId() === null && notice() === null}>
           <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
+        </Show>
+        <Show when={closedAgent()}>
+          <OrderDrawer id={selected()!.id} inline />
         </Show>
         <Show when={doorState()}>
           {(state) => (
