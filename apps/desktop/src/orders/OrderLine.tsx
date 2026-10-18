@@ -21,9 +21,9 @@ export const OrderLine = (props: { node: RailNode }) => {
           type="button"
           class="word order-line"
           aria-label={copy.orderOf(props.node.name)}
-          onClick={() => {
+          onClick={(event) => {
             const id = props.node.id;
-            drawer.open(() => <OrderDrawer id={id} />);
+            drawer.open(() => <OrderDrawer id={id} />, event.detail === 0 ? "key" : "pointer");
           }}
         >
           {line()}

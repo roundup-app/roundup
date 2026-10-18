@@ -4,7 +4,7 @@ import type { ShelfFrame } from "./frame";
 export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement | null }) => {
   let returnTo: HTMLElement | null = null;
 
-  const toggle = () => {
+  const toggle = (source: "key" | "pointer" = "pointer") => {
     const opening = !props.frame.open();
     const held = document.activeElement;
 
@@ -17,7 +17,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
       returnTo = null;
     }
 
-    props.frame.toggle();
+    props.frame.toggle(source);
 
     if (opening) queueMicrotask(() => props.shelf()?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true }));
   };
@@ -37,7 +37,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
     press.preventDefault();
     press.stopPropagation();
-    toggle();
+    toggle("key");
   };
 
   document.addEventListener("keydown", onEscape);

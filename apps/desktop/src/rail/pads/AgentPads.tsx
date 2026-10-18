@@ -105,6 +105,12 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
 /** The Pad leaves, then the open Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
+
+  const openPad = (name: string, event: MouseEvent) => {
+    props.pads.setFailure(null);
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />, event.detail === 0 ? "key" : "pointer");
+  };
+
   const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
   const last = (at: number) => at === leaves() - 1 && !props.children;
 
@@ -126,12 +132,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                   {(trigger) => (
                     <button
                       {...trigger({
-                        onClick: () => {
-                          props.pads.setFailure(null);
-                          connected.drawer.open(() => (
-                            <PadDrawer name={pad.name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />
-                          ));
-                        },
+                        onClick: (event) => openPad(pad.name, event),
                       })}
                       type="button"
                       data-button="quiet"
@@ -157,7 +158,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                         nested
                         todo={todo}
                         known={props.pads.todos.byId()}
-                        onOpen={(opened) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />)}
+                        onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
                         sorted={sorted}
                         onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
                       />
