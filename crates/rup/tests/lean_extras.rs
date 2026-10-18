@@ -290,26 +290,12 @@ async fn lc8_a_missing_extra_relaunches_with_resume_and_snapshot_off() {
     assert_eq!(run.launches().len(), 2, "the child keeps running");
     run.idle(&user, &child.id).await;
 
-    // A child with no prompt reads Idle at its star title, which can come before SessionStart saves its
-    // conversation (A21); the Daemon refuses the relaunch with a conflict until it has.
-    let deadline = Instant::now() + BOUND;
-    loop {
-        let added = door
-            .request(
-                "agent.extras_add",
-                json!({ "id": child.id, "extras": { "plugins": ["zzplug"] } }),
-            )
-            .await;
-        match added {
-            Err(err) if err.code == code::CONFLICT && Instant::now() < deadline => {
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
-            other => {
-                other.unwrap();
-                break;
-            }
-        }
-    }
+    door.request(
+        "agent.extras_add",
+        json!({ "id": child.id, "extras": { "plugins": ["zzplug"] } }),
+    )
+    .await
+    .unwrap();
     let launches = run.launches_after(3).await;
     let args = argv(&launches[2]);
     assert!(after(&args, "--resume").is_some());
