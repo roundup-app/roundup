@@ -6,6 +6,7 @@
 
 mod integration;
 mod output;
+mod scheme;
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
@@ -20,8 +21,8 @@ use async_trait::async_trait;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{
-    ExitedEvent, ReadParams, ResizeParams, SearchParams, Snapshot, SpawnParams, TerminalId,
-    TerminalInfo, TitleEvent, WriteParams,
+    ExitedEvent, ReadParams, ResizeParams, SchemeParams, SearchParams, Snapshot, SpawnParams,
+    TerminalId, TerminalInfo, TitleEvent, WriteParams,
 };
 use contracts::{Actor, EventData};
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
@@ -163,16 +164,18 @@ struct ScreenState {
     scrollback_rows: usize,
     cols: u16,
     rows: u16,
+    /// X17: the program turned on mode 2031 and gets a notice when the scheme changes.
+    scheme_notices: bool,
 }
 
 enum ScreenParser {
     Pending,
-    Active(Box<vt100::Parser<Titles>>),
+    Active(Box<vt100::Parser<Seen>>),
     Failed,
 }
 
 impl ScreenState {
-    fn ensure_parser(&mut self) -> Option<&mut vt100::Parser<Titles>> {
+    fn ensure_parser(&mut self) -> Option<&mut vt100::Parser<Seen>> {
         if matches!(&self.parser, ScreenParser::Pending) {
             let (rows, cols, scrollback) = if self.snapshot_available {
                 (self.rows, self.cols, self.scrollback_rows)
@@ -183,7 +186,7 @@ impl ScreenState {
                 rows,
                 cols,
                 scrollback,
-                Titles::default(),
+                Seen::default(),
             )));
         }
         match &mut self.parser {
@@ -200,6 +203,8 @@ struct Shared {
     /// Env var names stripped from every spawned program's environment, however they reached the
     /// Daemon: its own environment or a caller's `params.env` (`open_with`'s caller owns the list).
     clean_env: Vec<String>,
+    /// X17: the App's scheme; `None` until it is told, and until then no program is answered.
+    scheme: Mutex<Option<scheme::Palette>>,
 }
 
 impl Shared {
@@ -222,6 +227,37 @@ impl Shared {
             entry.info.title = Some(title.clone());
         }
         self.publish(number, EventData::TerminalTitle(TitleEvent { id, title }));
+    }
+
+    /// X17: queue `bytes` for the program of Terminal `number`; a program that no longer reads is told on stderr.
+    fn type_into(&self, number: u64, bytes: Vec<u8>) {
+        let handle = self
+            .table()
+            .get(&number)
+            .and_then(|entry| entry.handle.clone());
+        if let Some(handle) = handle
+            && let Err(err) = handle.input.try_send(Input::Bytes(bytes))
+        {
+            eprintln!("terminal {number}: scheme reply dropped: {err}");
+        }
+    }
+
+    /// X17: one reply per query, in the order asked, from the scheme the App last set.
+    fn answer(&self, number: u64, requests: &[scheme::Request]) {
+        let Some(palette) = *self.scheme.lock().expect("terminal scheme lock") else {
+            return;
+        };
+        let replies: Vec<u8> = requests
+            .iter()
+            .filter_map(|request| match request {
+                scheme::Request::Ask(query) => Some(palette.answer(*query)),
+                scheme::Request::Notices(_) => None,
+            })
+            .flatten()
+            .collect();
+        if !replies.is_empty() {
+            self.type_into(number, replies);
+        }
     }
 
     fn finish(&self, number: u64, code: Option<i32>) {
@@ -265,6 +301,7 @@ impl Terminals {
                     .iter()
                     .map(|marker| (*marker).to_owned())
                     .collect(),
+                scheme: Mutex::new(None),
             }),
             integration_dir: dir.join("shell-integration"),
             next: AtomicU64::new(1),
@@ -480,6 +517,7 @@ impl Terminals {
             scrollback_rows: scrollback,
             cols: params.cols,
             rows: params.rows,
+            scheme_notices: false,
         }));
         let (arrival, child_arrives) = mpsc::channel();
         let (output, output_receiver) = broadcast::channel(OUTPUT_BACKLOG);
@@ -837,6 +875,34 @@ impl Terminals {
         })
     }
 
+    /// X17: set the scheme every program is answered in. A change from the one before (or from none)
+    /// sends one notice to each running program that turned on mode 2031.
+    pub async fn set_scheme(&self, params: SchemeParams) -> Result<(), RpcError> {
+        let palette = scheme::Palette::parse(&params)?;
+        let before = self
+            .shared
+            .scheme
+            .lock()
+            .expect("terminal scheme lock")
+            .replace(palette);
+        if before.is_some_and(|before| before.scheme == palette.scheme) {
+            return Ok(());
+        }
+        let running: Vec<(u64, Arc<Mutex<ScreenState>>)> = self
+            .shared
+            .table()
+            .iter()
+            .filter(|(_, entry)| entry.handle.is_some())
+            .map(|(number, entry)| (*number, Arc::clone(&entry.screen)))
+            .collect();
+        for (number, screen) in running {
+            if screen.lock().expect("terminal screen lock").scheme_notices {
+                self.shared.type_into(number, palette.notice());
+            }
+        }
+        Ok(())
+    }
+
     /// Every Terminal, running or exited, oldest first.
     pub fn list(&self) -> Vec<TerminalInfo> {
         self.shared
@@ -847,22 +913,40 @@ impl Terminals {
     }
 }
 
-/// Collects the window titles (OSC 0 and 2) the parser sees; vt100 stitches sequences split across reads.
+/// Collects what the parser sees that the Daemon acts on: window titles (OSC 0 and 2) and the colour
+/// requests of X17. vt100 stitches sequences split across reads.
 #[derive(Default)]
-struct Titles(Vec<String>);
+struct Seen {
+    titles: Vec<String>,
+    requests: Vec<scheme::Request>,
+}
 
-impl vt100::Callbacks for Titles {
+impl vt100::Callbacks for Seen {
     fn set_window_title(&mut self, _: &mut vt100::Screen, title: &[u8]) {
-        self.0.push(String::from_utf8_lossy(title).into_owned());
+        self.titles
+            .push(String::from_utf8_lossy(title).into_owned());
+    }
+
+    fn unhandled_csi(
+        &mut self,
+        _: &mut vt100::Screen,
+        first: Option<u8>,
+        second: Option<u8>,
+        params: &[&[u16]],
+        last: char,
+    ) {
+        self.requests
+            .extend(scheme::from_csi(first, second, params, last));
     }
 
     /// vt100 splits an OSC on every `;` and only reports a title that is a single piece, so a
     /// title containing `;` arrives here and would otherwise be dropped.
     fn unhandled_osc(&mut self, _: &mut vt100::Screen, params: &[&[u8]]) {
         if let [b"0" | b"2", pieces @ ..] = params {
-            self.0
+            self.titles
                 .push(String::from_utf8_lossy(&pieces.join(&b';')).into_owned());
         }
+        self.requests.extend(scheme::from_osc(params));
     }
 }
 
@@ -913,13 +997,13 @@ fn pump(
         if read == 0 {
             break;
         }
-        let titles = {
+        let seen = {
             let mut state = screen.lock().expect("terminal screen lock");
             let offset = state.after;
             let parsed = state.ensure_parser().map(|parser| {
                 catch_unwind(AssertUnwindSafe(|| {
                     parser.process(&chunk[..read]);
-                    std::mem::take(&mut parser.callbacks_mut().0)
+                    std::mem::take(parser.callbacks_mut())
                 }))
             });
             state.after += read as u64;
@@ -930,16 +1014,24 @@ fn pump(
                 bytes: Arc::from(&chunk[..read]),
             });
             match parsed {
-                Some(Ok(titles)) => titles,
+                Some(Ok(seen)) => {
+                    for request in &seen.requests {
+                        if let scheme::Request::Notices(on) = request {
+                            state.scheme_notices = *on;
+                        }
+                    }
+                    seen
+                }
                 Some(Err(_)) => {
                     eprintln!("terminal {number}: screen parser panicked; snapshots are off");
                     state.parser = ScreenParser::Failed;
-                    Vec::new()
+                    Seen::default()
                 }
-                None => Vec::new(),
+                None => Seen::default(),
             }
         };
-        titles
+        shared.answer(number, &seen.requests);
+        seen.titles
             .into_iter()
             .for_each(|title| shared.retitle(number, title));
     }
@@ -1105,6 +1197,7 @@ impl Module for Terminals {
                 let TerminalId { id } = params(value)?;
                 self.kill(&id).await.and(reply(&()))
             }
+            "terminal.scheme" => self.set_scheme(params(value)?).await.and(reply(&())),
             "terminal.show" => {
                 let TerminalId { id } = params(value)?;
                 self.screen(&id)?;
