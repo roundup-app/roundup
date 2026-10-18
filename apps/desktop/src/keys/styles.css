@@ -5,6 +5,9 @@
   gap: var(--space-1);
   vertical-align: top;
 }
+.help .key-chips {
+  width: calc(var(--space-6) * 4);
+}
 .key-chip {
   display: inline-flex;
   align-items: center;
