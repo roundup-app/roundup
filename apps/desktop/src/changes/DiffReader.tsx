@@ -87,7 +87,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
   });
 
   return <section class="diff-reader" aria-label="Diff">
-    <p class="diff-path">{props.path}</p>
+    <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
     <Show when={failure()}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>Retry</button></>}</Show>
     <Show when={read()} fallback={<Show when={!failure()}><p role="status">Loading diff…</p></Show>}>{value => <>
       <Show when={value().status !== null} fallback={<p role="status">No remaining difference</p>}>
