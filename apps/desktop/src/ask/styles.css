@@ -8,6 +8,11 @@
   background-color: var(--ground);
 }
 
+/* Empty supporting content must not leave a flex gap beside the field (U504). */
+.ask-bar > :empty {
+  display: none;
+}
+
 .ask-bar[data-mode="home"] {
   position: absolute;
   inset: 0;
