@@ -12,7 +12,7 @@ export const noTooltipBypassRule = defineRule({
       ImportDeclaration(node) {
         const file = context.filename.replaceAll("\\", "/");
 
-        if (file.includes("/apps/desktop/src/") && !file.includes("/apps/desktop/src/ui/") && node.source.value === "@ark-ui/solid/tooltip") {
+        if (file.includes("/apps/desktop/src/") && !file.includes("/apps/desktop/src/ui/") && (node.source.value === "@ark-ui/solid/tooltip" || /(?:^|\/)ui\/Tooltip(?:\.tsx?)?$/.test(node.source.value))) {
           context.report({ node, messageId: "bypass" });
         }
       },
