@@ -220,6 +220,16 @@ impl Module for Agents {
                 shared.rail().set_mcp(&mcp)?;
                 reply(&())
             }
+            "project.setPrepared" => {
+                self.set_prepared(params(value)?).await?;
+                reply(&())
+            }
+            "project.getPrepared" => reply(&shared.rail().get_prepared()?),
+            "project.prepareDirectory" => {
+                let PrepareParams { path } = params(value)?;
+                self.prepare_directory(&path).await?;
+                reply(&())
+            }
             "project.setModels" => {
                 let settings: ProjectModels = params(value)?;
                 models::check_settings(&settings)?;
