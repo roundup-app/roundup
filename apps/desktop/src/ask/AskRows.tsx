@@ -1,4 +1,5 @@
-import { createMemo, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { copy } from "../copy";
@@ -6,6 +7,8 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
+import { registerKeys, type KeyScope } from "../keys/registry";
+import { Tip } from "../rail/Tip";
 import { Select } from "../ui/Select";
 
 /** The Workstream a part went to, once it has one. */
@@ -26,7 +29,7 @@ const focusPane = (): void => {
 };
 
 /** U505, U506: one row for each part of each Ask, newest first. */
-export const AskRows = (props: { onOpened: () => void }) => {
+export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const { asks, rail } = useConnectedProject();
 
   const parts = createMemo(() => asks.entries().flatMap((entry) => entry.parts.map((part, index) => ({ entry, part, index }))));
@@ -52,16 +55,55 @@ export const AskRows = (props: { onOpened: () => void }) => {
   return (
     <ul class="ask-rows" aria-label={copy.askRows}>
       <For each={parts()}>
-        {({ entry, part, index }) => <AskRow entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
+        {({ entry, part, index }) => <AskRow keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
       </For>
     </ul>
   );
 };
 
-const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
   const { asks, rail } = useConnectedProject();
 
+  let button: HTMLButtonElement | undefined;
+  let text: HTMLSpanElement | undefined;
+  let name: HTMLSpanElement | undefined;
+  const [cut, setCut] = createSignal(false);
+  const measure = () => setCut([text, name].some((cell) => !!cell && cell.scrollWidth > cell.clientWidth));
+
+  createEffect(() => {
+    const content = props.part.text + props.where;
+
+    if (content) queueMicrotask(measure);
+  });
+  onMount(() => {
+    const observer = new ResizeObserver(measure);
+
+    for (const cell of [text, name]) if (cell) observer.observe(cell);
+
+    onCleanup(() => observer.disconnect());
+  });
+
+  const arrows = [{
+    chords: ["ArrowUp", "ArrowDown"],
+    when: (event: KeyboardEvent) => event.target === button,
+    run: (event: KeyboardEvent) => {
+      const rows = [...(button?.closest(".ask-rows")?.querySelectorAll<HTMLButtonElement>("button.ask-line") ?? [])];
+      const index = rows.findIndex((row) => row === button);
+      rows[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
+    },
+  }];
+
+  registerKeys({ kind: "region", element: () => button }, arrows);
+  registerKeys(props.keys, arrows);
+
   const node = () => (props.workstream === null ? undefined : rail.nodes.find((each) => each.id === props.workstream));
+
+  const open = (): void => {
+    const target = node();
+
+    if (target) props.open(target.id);
+  };
+
   /** U505: once typed, the Door's own live Status; never text a model wrote. */
   const status = () => (props.part.state === "typed" ? node()?.status ?? null : null);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
@@ -75,21 +117,24 @@ const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: s
 
   const line = () => (
     <>
-      <span class="ask-text">{props.part.text}</span>
-      <span class="ask-where">{props.where}</span>
-      <span class="ask-state" data-state={props.part.state}>
-        <Show when={status()} fallback={STATE_WORDS[props.part.state]}>
-          {(live) => <><span>{copy.askSent}</span><KindGlyph kind={live().kind} decorative /><span>{LABELS[live().kind]}</span></>}
-        </Show>
+      <span ref={text} class="ask-text">{props.part.text}</span>
+      <span class="ask-where">
+        <span class="ask-kind" title={status() ? LABELS[status()!.kind] : undefined}>
+          <Show when={status()}>{(live) => <KindGlyph kind={live().kind} />}</Show>
+        </span>
+        <span ref={name} class="ask-name">{props.where}</span>
       </span>
+      <span class="ask-state" data-state={props.part.state}>{STATE_WORDS[props.part.state]}</span>
     </>
   );
 
   return (
     <li class="ask-row" data-state={props.part.state}>
-      <Show when={node()} fallback={<div class="ask-line">{line()}</div>}>
-        {(target) => <button type="button" class="ask-line" data-feedback="ink" onClick={() => props.open(target().id)}>{line()}</button>}
-      </Show>
+      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>
+        {(trigger) => <Dynamic component={node() ? "button" : "div"} {...trigger({ onClick: open })}
+          ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
+          type={node() ? "button" : undefined} class="ask-line" data-feedback="ink" onPointerEnter={measure}>{line()}</Dynamic>}
+      </Tip>
       <Show when={asking()}>
         <div class="ask-back">
           <p class="ask-reason">{props.part.reason ?? (props.part.placement.kind === "unclear" ? props.part.placement.question : "")}</p>
