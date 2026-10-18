@@ -762,6 +762,21 @@ impl Terminals {
         .map_err(RpcError::internal)?
     }
 
+    /// Whether Terminal `id`'s program has ended, which can be before the Terminal is exited: a
+    /// descendant holding the PTY open delays `terminal.exited` on Linux. An unknown Terminal has
+    /// no program running either.
+    pub fn program_ended(&self, id: &str) -> bool {
+        match self.running(id) {
+            Ok(handle) => handle
+                .program
+                .lock()
+                .expect("terminal program lock")
+                .try_wait()
+                .map_or(true, |status| status.is_some()),
+            Err(_) => true,
+        }
+    }
+
     /// The pid of Terminal `id`'s program, only while it runs (H21).
     pub fn program_pid(&self, id: &str) -> Option<u32> {
         let number = parse_terminal_number(id).ok()?;

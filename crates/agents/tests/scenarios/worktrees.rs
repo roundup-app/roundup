@@ -927,7 +927,7 @@ async fn g5_removing_clean_workstream_removes_only_its_worktree() {
 #[tokio::test]
 async fn g5_a_write_during_stop_keeps_the_stopped_door_and_worktree() {
     let f = Fixture::in_git_project(
-        "trap 'echo keep > stopped-write; exit' HUP\necho ready > ready\nwhile :; do read line; done",
+        "trap 'echo keep > stopped-write; exit' HUP INT\necho ready > ready\nwhile :; do read line; done",
         Git::from_env(),
     );
     set_worktrees(&f, true, None).await;
