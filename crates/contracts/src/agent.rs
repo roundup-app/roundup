@@ -321,6 +321,9 @@ pub struct RailNode {
     /// A22: true only for an exited Agent or Door with saved conversation data (A21) and no
     /// start in flight. `false` for a Terminal.
     pub can_resume: bool,
+    /// Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
+    #[serde(default)]
+    pub yolo: bool,
     /// E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is
     /// no Door, a Terminal, and an Agent with no live Terminal.
     pub channel: Option<Channel>,
@@ -679,6 +682,26 @@ pub struct NodeId {
     pub id: String,
 }
 
+/// Permission prompt selection for the next Attempt.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "agent/")]
+pub enum ResumeMode {
+    #[default]
+    Normal,
+    Yolo,
+}
+
+/// Omission retains exited-Agent-only resume; an explicit mode also restarts a running target.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct ResumeParams {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub mode: Option<ResumeMode>,
+}
+
 /// A Steer: `text` sent to the running Agent `id` as its next prompt (H11).
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
@@ -779,7 +802,7 @@ pub enum HeldCall {
     #[serde(rename = "decision.answer")]
     Answer(crate::decision::AnswerParams),
     #[serde(rename = "agent.resume")]
-    Resume(NodeId),
+    Resume(ResumeParams),
     #[serde(rename = "agent.stop")]
     Stop(NodeId),
     #[serde(rename = "agent.interrupt")]

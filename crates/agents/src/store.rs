@@ -244,9 +244,14 @@ impl Agents {
         id: &str,
         notes: &[claude_code::inbox::Entry],
     ) -> Result<(), contracts::agent::Inbox> {
-        self.launcher.inbox_write(id, notes).inspect_err(|state| {
-            self.shared.events.inbox.set(id, *state);
-        })?;
+        let runs = self.shared.runs();
+        let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
+        self.launcher
+            .inbox_write(id, notes, yolo)
+            .inspect_err(|state| {
+                self.shared.events.inbox.set(id, *state);
+            })?;
+        drop(runs);
         // Claude Code may have taken the entries up before they were in flight.
         self.shared.events.inbox.rescan(id);
         Ok(())
@@ -320,6 +325,7 @@ pub(super) mod tests {
             let adapter_clock = Arc::clone(&clock);
             let (dir, bus, shared) = shared_over_temp_dir(clock);
             let run = Run {
+                yolo: false,
                 startup_context: true,
                 attempt: "1".into(),
                 status_revision: 1,
@@ -615,6 +621,7 @@ pub(super) mod tests {
         shared.runs().insert(
             id.clone(),
             Slot::Running(Run {
+                yolo: false,
                 startup_context: true,
                 attempt: "1".into(),
                 status_revision: 1,

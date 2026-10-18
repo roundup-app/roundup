@@ -79,6 +79,7 @@ impl Shared {
         payload: Value,
     ) -> Result<Applied, RpcError> {
         let Some(Slot::Resuming {
+            mode,
             attempt,
             since,
             old,
@@ -98,6 +99,7 @@ impl Shared {
             runs.insert(
                 id.to_owned(),
                 Slot::Resuming {
+                    mode,
                     attempt,
                     since,
                     old,
@@ -120,6 +122,7 @@ impl Shared {
             id,
             attempt,
             old,
+            mode,
             cwd,
             prompt,
             starred,
@@ -150,6 +153,7 @@ impl Shared {
         };
         let Some(position) = found else { return };
         let Some(Slot::Resuming {
+            mode,
             attempt,
             old,
             cwd,
@@ -173,6 +177,7 @@ impl Shared {
             id,
             attempt.clone(),
             old,
+            mode,
             cwd,
             prompt,
             starred,
@@ -206,6 +211,7 @@ impl Shared {
         id: &str,
         attempt: String,
         old: Option<Box<Run>>,
+        mode: contracts::agent::ResumeMode,
         cwd: String,
         prompt: Option<String>,
         starred: bool,
@@ -229,6 +235,7 @@ impl Shared {
         }
         let clock = Arc::clone(&self.clock);
         let mut run = Run {
+            yolo: mode == contracts::agent::ResumeMode::Yolo,
             startup_context: true,
             attempt: attempt.clone(),
             status_revision: 1,

@@ -277,7 +277,10 @@ impl Agents {
             || retained.unwrap_or_else(|| cwd.to_owned()),
             |(cwd, _)| cwd.clone(),
         );
-        let spawned = match self.start(id, attempt, &effective_cwd, None, true).await {
+        let spawned = match self
+            .start(id, attempt, &effective_cwd, None, true, false)
+            .await
+        {
             Ok(spawned) => spawned,
             Err(err) => {
                 report_undo(
@@ -294,6 +297,7 @@ impl Agents {
         let terminal_id = spawned.id.clone();
         let run_cwd = effective_cwd.to_string_lossy().into_owned();
         let prompts = self.shared.finish_starting(id, attempt, |named| Run {
+            yolo: false,
             startup_context,
             attempt: attempt.to_owned(),
             status_revision: 1,
@@ -344,6 +348,7 @@ impl Agents {
         cwd: &Path,
         resume: Option<&str>,
         attach: bool,
+        yolo: bool,
     ) -> Result<terminal::Spawned, RpcError> {
         let node = self.shared.rail().node(id)?;
         let role = match node.kind {
@@ -351,6 +356,7 @@ impl Agents {
             _ => Role::Agent,
         };
         let pair = Pair {
+            yolo,
             model: node.model,
             effort: node.effort,
             mcp_off: !models::mcp_on(

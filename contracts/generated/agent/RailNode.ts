@@ -39,6 +39,10 @@ worktree: Worktree | null,
  */
 can_resume: boolean, 
 /**
+ * Permission prompts are off for the last acknowledged Attempt; cleared on reopen.
+ */
+yolo: boolean, 
+/**
  * E6: whether the Agent's `rup mcp` has reported to the Daemon. `None` for a Workstream that is
  * no Door, a Terminal, and an Agent with no live Terminal.
  */
