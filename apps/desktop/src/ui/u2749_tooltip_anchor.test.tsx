@@ -13,13 +13,13 @@ it("u2749b_focus_opens_without_a_pointer", async () => {
 });
 
 it.each([
-  { DEV: true, MODE: "development", explicit: false },
-  { DEV: true, MODE: "development", explicit: true },
-  { DEV: false, MODE: "test", explicit: false },
-  { DEV: false, MODE: "test", explicit: true },
+  { DEV: true, VITEST: "", explicit: false },
+  { DEV: true, VITEST: "", explicit: true },
+  { DEV: false, VITEST: "true", explicit: false },
+  { DEV: false, VITEST: "true", explicit: true },
 ])("u2749b_pointer_outside_anchor_throws %j", async (env) => {
   vi.stubEnv("DEV", env.DEV);
-  vi.stubEnv("MODE", env.MODE);
+  vi.stubEnv("VITEST", env.VITEST);
   vi.useFakeTimers({ toFake: ["queueMicrotask", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"] });
   let anchor: HTMLSpanElement | undefined;
   render(() => <><span ref={anchor}>Explicit anchor</span><Tooltip.Root anchor={env.explicit ? () => anchor : undefined} openDelay={0}>
