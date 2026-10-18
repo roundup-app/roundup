@@ -686,3 +686,6 @@ impl Shared {
 
 #[cfg(test)]
 use store::tests;
+
+#[cfg(test)]
+mod worktrunk;
