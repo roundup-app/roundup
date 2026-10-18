@@ -86,6 +86,7 @@ import type { Read as terminal_Read } from "./terminal/Read";
 import type { ReadParams as terminal_ReadParams } from "./terminal/ReadParams";
 import type { ResizeAction as terminal_ResizeAction } from "./terminal/ResizeAction";
 import type { ResizeParams as terminal_ResizeParams } from "./terminal/ResizeParams";
+import type { SchemeParams as terminal_SchemeParams } from "./terminal/SchemeParams";
 import type { Screen as terminal_Screen } from "./terminal/Screen";
 import type { Search as terminal_Search } from "./terminal/Search";
 import type { SearchParams as terminal_SearchParams } from "./terminal/SearchParams";
@@ -127,6 +128,7 @@ export type RpcMethods = {
   "terminal.resize": { params: terminal_ResizeParams; result: terminal_ResizeAction | null };
   "terminal.resizeHistory": { params: terminal_TerminalId; result: terminal_ResizeAction[] };
   "terminal.kill": { params: terminal_TerminalId; result: null | agent_HeldAction };
+  "terminal.scheme": { params: terminal_SchemeParams; result: null };
   "terminal.show": { params: terminal_TerminalId; result: null };
   "terminal.list": { params: null; result: terminal_TerminalInfo[] };
   "terminal.snapshot": { params: terminal_TerminalId; result: terminal_Snapshot };
