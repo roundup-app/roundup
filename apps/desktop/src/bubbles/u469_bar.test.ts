@@ -82,7 +82,7 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
     for (const width of [FULLSCREEN.width]) {
       await page.load('/harness.html?seed=bubbles', width, FULLSCREEN.height);
       await page.until(`() => Boolean(window.__fake)`);
-      await page.call(`() => { document.querySelector('[aria-label="Hide work items"]')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
+      await page.call(`() => { document.querySelector('#shelf-tab-todos')?.click(); document.querySelector('[data-id="runner"]').click(); }`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
 
       const record = async (state: string): Promise<void> => {

@@ -299,7 +299,7 @@ pub(crate) async fn flush(inner: &Arc<Inner>) {
 
 async fn roll_up(inner: &Arc<Inner>, meta: &str, slot: &mut Slot, now: i64, plain: bool) {
     // Resolve lifecycle before the cap: removal must discard even a full window's queue.
-    let nodes = match crate::rail_nodes(inner).await {
+    let nodes = match crate::load_rail_nodes(inner).await {
         Ok(nodes) => nodes,
         Err(err) => {
             crate::log_failure("push", &format!("{meta}: {}", err.message));

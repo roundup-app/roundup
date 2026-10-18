@@ -11,6 +11,9 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
         M::up(include_str!("../migrations/001/up.sql")),
         M::up(include_str!("../migrations/002/up.sql")),
         M::up(include_str!("../migrations/003/up.sql")),
+        M::up(
+            "CREATE TABLE message_sender_names (agent TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL);",
+        ),
     ];
     let count = migrations.len();
     Migrations::new(migrations).to_latest(db).map_err(|error| {

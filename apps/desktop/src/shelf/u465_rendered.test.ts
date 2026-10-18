@@ -35,7 +35,7 @@ const open = async (seed: string, width: number, windowWidth: number) => {
 
   try { await wait("document.readyState === 'complete' && !!document.querySelector('.shelf-tabs')"); } catch (error) { console.error(await evaluate<string>("document.body.outerHTML")); throw error; }
 
-  await evaluate(`(() => { localStorage.clear(); document.querySelector('.window').style.setProperty('--shelf-span', '${width}px'); document.querySelector('#shelf-tab-todos').click(); return true; })()`);
+  await evaluate(`(() => { localStorage.clear(); document.querySelector('.window').style.setProperty('--shelf-span', '${width}px'); if (document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-todos').click(); return true; })()`);
   await settle();
 };
 

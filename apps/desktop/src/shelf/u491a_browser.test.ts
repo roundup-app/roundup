@@ -216,19 +216,19 @@ describe("u491a Shelf questions and navigation", () => {
 
   it("u491a_shelf_tabs", async () => {
     const state = () => lane.evaluate<{ selected: string[]; panel: string | null; panels: string[] }>(`({
-      selected: [...document.querySelectorAll('.shelf [role="tab"]')].filter(tab => tab.getAttribute('aria-selected') === 'true').map(tab => tab.id),
+      selected: [...document.querySelectorAll('.shelf-tabs [role="tab"]')].filter(tab => tab.getAttribute('aria-selected') === 'true').map(tab => tab.id),
       panel: document.querySelector('.shelf [role="tabpanel"]:not([hidden])')?.getAttribute('aria-labelledby') ?? null,
       panels: [...document.querySelectorAll('.shelf [role="tabpanel"]')].map(panel => panel.getAttribute('aria-labelledby')),
     })`);
 
     expect(await state()).toEqual({ selected: ["shelf-tab-todos"], panel: "shelf-tab-todos", panels: ["shelf-tab-todos"] });
-    await lane.browser("click", '.shelf [role="tab"][id="shelf-tab-pads"]');
-    await lane.until("document.querySelector('.shelf [role=\"tab\"][aria-selected=\"true\"]')?.id === 'shelf-tab-pads'");
+    await lane.browser("click", '.shelf-tabs [role="tab"][id="shelf-tab-pads"]');
+    await lane.until("document.querySelector('.shelf-tabs [role=\"tab\"][aria-selected=\"true\"]')?.id === 'shelf-tab-pads'");
     expect(await state()).toEqual({ selected: ["shelf-tab-pads"], panel: "shelf-tab-pads", panels: ["shelf-tab-pads"] });
 
     for (const [key, id] of [["ArrowLeft", "todos"], ["ArrowRight", "pads"], ["Home", "todos"], ["End", "pads"]] as const) {
       await lane.browser("press", key);
-      await lane.until(`document.querySelector('.shelf [role="tab"][aria-selected="true"]')?.id === 'shelf-tab-${id}'`);
+      await lane.until(`document.querySelector('.shelf-tabs [role="tab"][aria-selected="true"]')?.id === 'shelf-tab-${id}'`);
       expect((await state()).selected).toEqual([`shelf-tab-${id}`]);
     }
 
@@ -238,7 +238,7 @@ describe("u491a Shelf questions and navigation", () => {
     for (let press = 0; press < 4 && !(await lane.evaluate<boolean>(panelHolds)); press++) await lane.browser("press", "Tab");
 
     expect(await lane.evaluate<boolean>(panelHolds)).toBe(true);
-    await lane.browser("click", '.shelf [role="tab"][id="shelf-tab-todos"]');
+    await lane.browser("click", '.shelf-tabs [role="tab"][id="shelf-tab-todos"]');
     await lane.until("document.querySelectorAll('.shelf .todo-row').length === 3");
   }, 120_000);
 
