@@ -65,6 +65,7 @@ it("u501_full_content_is_available", async () => {
 
   // Close the Shelf before walking the Rail; an open bar tab leads into its panel.
   await browser("click", '#shelf-tab-todos[aria-expanded="true"]');
+
   for (let i = 0; i < 12 && !(await read<boolean>(`document.activeElement?.matches("[role=alert]") === true`)); i++) await browser("press", "Tab");
   await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(FAILURE)}`);
 
