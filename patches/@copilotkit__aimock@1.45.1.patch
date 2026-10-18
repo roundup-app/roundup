@@ -1,0 +1,12 @@
+diff --git a/dist/messages.js b/dist/messages.js
+index a91bfd15fce0aaba349bd67cc56d5927120247f5..e1168af80d92f2c051337f59f74b80d8ead22d4a 100644
+--- a/dist/messages.js
++++ b/dist/messages.js
+@@ -103,6 +103,7 @@ function claudeToCompletionRequest(req) {
+ 		stream: req.stream,
+ 		temperature: req.temperature,
+ 		max_tokens: req.max_tokens,
++		output_config: req.output_config,
+ 		tools,
+ 		_endpointType: "chat"
+ 	};

@@ -10,6 +10,50 @@ use serde_json::{Value, json};
 use std::time::Duration;
 
 #[test]
+fn e14_aimock_journals_explicit_effort_and_its_absence() {
+    let model = aimock::Model::start("e14_effort_journal");
+    for effort in [Some("low"), Some("high"), None] {
+        let mut body = json!({
+            "model": "claude-opus-4-6", "max_tokens": 32,
+            "messages": [{"role": "user", "content": "observe effort"}]
+        });
+        if let Some(effort) = effort {
+            body["output_config"] = json!({"effort": effort});
+        }
+        let response = std::process::Command::new("curl")
+            .args([
+                "--silent",
+                "--show-error",
+                "--fail",
+                "--max-time",
+                "10",
+                "--noproxy",
+                "*",
+            ])
+            .arg(format!("{}/v1/messages", model.url))
+            .args(["-H", "content-type: application/json", "-H"])
+            .arg(format!("x-api-key: {}", aimock::KEY))
+            .arg("-d")
+            .arg(body.to_string())
+            .output()
+            .unwrap();
+        assert!(response.status.success(), "{response:?}");
+    }
+    model.assert_matched();
+    let journal = model.journal();
+    assert_eq!(journal.len(), 3);
+    assert_eq!(
+        journal[0]["body"]["output_config"],
+        json!({"effort": "low"})
+    );
+    assert_eq!(
+        journal[1]["body"]["output_config"],
+        json!({"effort": "high"})
+    );
+    assert!(journal[2]["body"].get("output_config").is_none());
+}
+
+#[test]
 fn e11_an_unmatched_request_fails() {
     let model = aimock::Model::start("unmatched");
     let response = std::process::Command::new("curl")
