@@ -94,11 +94,11 @@
   display: flex;
   column-gap: var(--space-3);
   box-sizing: border-box;
-  height: calc(var(--space-4) + var(--space-1));
+  height: var(--space-4);
   inline-size: 0;
   min-inline-size: 100%;
-  margin: 0;
-  padding: 0 var(--space-1) var(--space-1);
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-1);
   overflow: hidden;
   color: var(--grey);
   line-height: var(--space-4);

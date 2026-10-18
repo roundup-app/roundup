@@ -1,6 +1,6 @@
 # U2541 critic fixes
 
-Head code: d53acf932, merged with origin/main 0efd006bf.
+Shortcut fixes on build/hint-key-chips-impl, merged with origin/main 0efd006bf.
 
 Fresh headless agent-browser profile, sessions builder-39096362385 and
 builder-39096362385-b; 1512×950. Light/dark captures cover agents-10 and tree-40
@@ -8,7 +8,7 @@ with hints, Help and the leader. tree-40 selects token-rotation and leaves
 the populated work-items panel open.
 
 Measured in all four Help screens: chord gap 4 px, sequence gap 16 px,
-row gap 4 px. The Hint row adds 4 px below its 16 px chips. Help and Hint
+row gap 4 px. The Hint line stays 16 px high with 4 px margin below its chips. Help and Hint
 both call ⌘K “Wait for one more key”; the shelf chord uses ⏎.
 
 delta.json compares the six tree-40 readings with the committed main baseline:
