@@ -62,6 +62,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
 
       workstreams.push(workstream);
+      await waitFor(() => expect(row(workstream)).toBeTruthy(), { timeout: 30_000 });
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
         const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
