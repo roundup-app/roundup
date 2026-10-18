@@ -52,6 +52,16 @@ describe("u428 an Agent row's icons", () => {
     expect(icon("a", "Open folder")).toBeTruthy();
   });
 
+  it("u428_resume_replaces_stop_on_a_resumable_stopped_agent", async () => {
+    const { app } = await mountRail([agent("a", "done", "done", { can_resume: true })], [exitedTerminal("a", 0)]);
+    app.handlers["agent.resume"] = () => null;
+
+    expect(icon("a", "Stop")).toBeUndefined();
+    fireEvent.click(icon("a", "Resume")!);
+
+    await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a" }]));
+  });
+
   it("u428_open_folder_prefers_the_worktree", async () => {
     const mounted = await mountRail([agent("a", "idle", "i", { worktree })]);
 
