@@ -499,7 +499,7 @@ const d7 = (page: Page): Measure => {
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
-// D8: floating menus use the Drawer shadow; their descendants retain all surface checks.
+// D8: floating menus and the Terminal's control overlay use the Drawer shadow; their descendants retain all surface checks.
 const d8 = (page: Page): Measure => {
   return offender(page, (el, style) => {
     const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));

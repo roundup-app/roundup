@@ -641,9 +641,10 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
             .unwrap(),
     )
     .unwrap();
-    // The node is stable once it has worked, gone Idle and its Channel is Up: a read before the
-    // Channel connects shows Pending, and a later read shows Up.
-    let (mut working, mut idle, mut up) = (false, false, false);
+    // O2: with neither prompt nor order the Agent is Steered nothing, so its SessionStart is its `idle`.
+    // The node is stable once it is Idle and its Channel is Up: a read before the Channel connects
+    // shows Pending, and a later read shows Up.
+    let (mut idle, mut up) = (false, false);
     while !(idle && up) {
         let seen = daemon::next(&mut events, |event| match event {
             contracts::EventData::AgentStatus(status) if status.id == later.id => {
@@ -658,8 +659,7 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
         })
         .await;
         match seen {
-            (Some(Kind::Working), _) => working = true,
-            (Some(Kind::Idle), _) if working => idle = true,
+            (Some(Kind::Idle), _) => idle = true,
             (None, true) => up = true,
             _ => {}
         }
