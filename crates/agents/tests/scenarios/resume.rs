@@ -1167,3 +1167,33 @@ async fn b32_r16_messages_use_the_authoritative_agents_dependency_for_agent_and_
         drop(terminals);
     }
 }
+
+#[tokio::test]
+async fn a2693a_missing_data_does_not_stop_the_target() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    let err = f.call("agent.resume", json!({"id": node.id, "mode": "yolo"})).await.unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    let terminal = f.terminals.list().into_iter().find(|t| Some(&t.id) == node.terminal_id.as_ref()).unwrap();
+    assert!(terminal.running);
+}
+
+#[tokio::test]
+async fn a2693a_yolo_argv_and_node_agree_after_ack() {
+    let f = Arc::new(Fixture::running("echo \"$@\" > argv.txt; sleep 30"));
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.call("agent.resume", json!({"id": id, "mode": "yolo"})).await })
+    };
+    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap()).await;
+    f.session_start(&node.id, CONVERSATION, "resume").await.unwrap();
+    let resumed = resuming.await.unwrap().unwrap();
+    assert_eq!(resumed["yolo"], true);
+    let argv = until_resumed(&f).await;
+    assert!(argv.contains(&format!("--resume {CONVERSATION}")));
+    assert!(argv.contains("--dangerously-skip-permissions"));
+    let tree = f.call("rail.tree", Value::Null).await.unwrap();
+    assert_eq!(tree.as_array().unwrap().iter().find(|n| n["id"] == node.id).unwrap()["yolo"], true);
+}
