@@ -119,3 +119,9 @@ lanes and absent/incomplete evidence. They are not benchmark measurements.
   parser is added. Neither nextest nor Vitest measures whole-runner physical
   memory or combines both runners' evidence, so the helper only orchestrates
   these existing tools and validates their results.
+
+Rust report identities live in `rust-suites.json`: `real_suites` classifies
+concurrency and `required_test_prefix` requires B21 evidence. These are report
+references, not launch sites. The observer runs test lanes through
+`loop/app-data.py`, which owns their app-data isolation and cleanup. The manifest
+is included in the observer revision hashes so comparisons cannot mix classifications.

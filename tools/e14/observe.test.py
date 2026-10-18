@@ -6,6 +6,7 @@ import tempfile
 import subprocess
 import os
 import time
+import sys
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("observe", Path(__file__).with_name("observe.py"))
@@ -75,9 +76,10 @@ class E14(unittest.TestCase):
             directory = Path(temporary)
             (directory / "src").mkdir()
             (directory / "tests").mkdir()
-            (directory / "Cargo.toml").write_text('[package]\nname="rupd"\nversion="0.0.0"\nedition="2021"\n')
+            package, binary, prefix = observer.RUST_SUITES["required_test_prefix"].split("::")
+            (directory / "Cargo.toml").write_text(f'[package]\nname="{package}"\nversion="0.0.0"\nedition="2021"\n')
             (directory / "src/lib.rs").write_text("")
-            (directory / "tests/b21_stopped_door.rs").write_text('#[test] fn b21_observer_fixture() { std::thread::sleep(std::time::Duration::from_millis(10)); }')
+            (directory / "tests" / f"{binary}.rs").write_text(f'#[test] fn {prefix}observer_fixture() {{ std::thread::sleep(std::time::Duration::from_millis(10)); }}')
             report = directory / "junit.xml"
             config = directory / "nextest.toml"
             config.write_text('[profile.ci1.junit]\npath=' + json.dumps(str(report)) + '\n')
@@ -85,14 +87,14 @@ class E14(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             rows = observer.rust_rows(report)
             self.assertEqual(len(rows), 1)
-            self.assertEqual(rows[0]["id"], "rupd::b21_stopped_door::b21_observer_fixture")
+            self.assertEqual(rows[0]["id"], observer.RUST_SUITES["required_test_prefix"] + "observer_fixture")
             self.assertTrue(rows[0]["real"])
             self.assertGreater(rows[0]["end"], rows[0]["start"])
 
     def test_e14_memory_collector_finishes_only_after_stop(self):
         with tempfile.TemporaryDirectory() as temporary:
             report = Path(temporary) / "memory.jsonl"
-            child = subprocess.Popen(["python3", str(Path(__file__).with_name("observe.py")), "memory", "--output", str(report)])
+            child = subprocess.Popen([sys.executable, str(Path(__file__).with_name("observe.py")), "memory", "--output", str(report)])
             try:
                 deadline = time.monotonic() + 5
                 while not (report.exists() and len(report.read_text().splitlines()) >= 2):
@@ -122,10 +124,10 @@ class E14(unittest.TestCase):
                                     observer={"fixture": "same"}, commit=("a" if side == "baseline" else "b") * 40, cache=dict(description="cold"),
                                     runner=dict(run=None, os="Linux", cpu_count=4, total_memory=100, image="ubuntu24", image_version="same"))
                     (output / "lane.json").write_text(json.dumps(metadata))
-                    name = "rupd::b21_stopped_door::b21_fixture" if lane == "rust1" else lane
+                    name = observer.RUST_SUITES["required_test_prefix"] + "fixture" if lane == "rust1" else lane
                     (output / "lifecycle.json").write_text(json.dumps([dict(id=name, start=1100, end=1900, real=lane in ("rust1", "web1"))]))
                     (output / "memory.jsonl").write_text("".join(json.dumps(dict(at=at, used=20, total=100)) + "\n" for at in (999, 1500, 2001)))
-            command = ["python3", str(Path(__file__).with_name("observe.py")), "compare", str(directory / "baseline"), str(directory / "head")]
+            command = [sys.executable, str(Path(__file__).with_name("observe.py")), "compare", str(directory / "baseline"), str(directory / "head")]
             passed = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(passed.returncode, 0, passed.stderr)
             self.assertIn("| head | " + "b" * 40 + " | web7 |", passed.stdout)

@@ -14,6 +14,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
+RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text())
+
 LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 8)]
 
 
@@ -45,7 +47,7 @@ def rust_rows(path):
         suite, name = case.attrib["classname"], case.attrib["name"]
         start = datetime.fromisoformat(case.attrib["timestamp"]).timestamp() * 1000
         # Conservatively include every test in the real-Claude binaries, including B21.
-        real = suite in {f"rup::{b}" for b in ("real_claude", "a32", "a35", "d9", "e2e", "o12")} or suite in {"rupd::b21_stopped_door", "desktop::d9_app"}
+        real = suite in RUST_SUITES["real_suites"]
         rows.append(dict(id=f"{suite}::{name}", start=start, end=start + float(case.attrib["time"]) * 1000, real=real))
     if len(rows) != int(report.attrib["tests"]):
         raise ValueError("incomplete Rust lifecycle report")
@@ -118,7 +120,7 @@ def run(args):
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if subprocess.check_output(["git", "status", "--porcelain"], text=True).strip():
         raise ValueError("measurement requires a clean checkout and output outside the repository")
-    observer = {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in ("observe.py", "reporter.mjs.in", "requirements.txt")}
+    observer = {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in ("observe.py", "reporter.mjs.in", "requirements.txt", "rust-suites.json")}
     cache = {"description": args.cache_state, "paths": {}}
     for name in ("target/debug", "node_modules/.pnpm", "node_modules/@anthropic-ai/claude-code"):
         path = root / name
@@ -232,7 +234,7 @@ def compare(args):
         if len(commits) != 1:
             raise ValueError(f"{label}: mixed commits")
         rust = [json.loads((directory / lane / "lifecycle.json").read_text()) for lane in LANES[:5]]
-        if not any("rupd::b21_stopped_door::b21_" in r["id"] for rows in rust for r in rows):
+        if not any(r["id"].startswith(RUST_SUITES["required_test_prefix"]) for rows in rust for r in rows):
             raise ValueError(f"{label}: missing B21 lifecycle evidence")
         if not any(r["real"] for lane in LANES[5:] for r in json.loads((directory / lane / "lifecycle.json").read_text())):
             raise ValueError(f"{label}: missing real-Claude web lifecycle evidence")
