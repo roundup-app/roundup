@@ -10,6 +10,64 @@ use serde_json::{Value, json};
 use std::time::Duration;
 
 #[tokio::test]
+async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
+    use base64::Engine;
+    let project = daemon::start_real("e12_fresh_configuration", &[]);
+    let client = project.client().await;
+    let agent = client
+        .request("agent.spawn", json!({"cwd": project.dir.path()}))
+        .await
+        .unwrap();
+    let id = agent["id"].as_str().unwrap();
+    let screen = || async {
+        let snapshot = client
+            .request("terminal.snapshot", json!({"id": id}))
+            .await
+            .unwrap();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(snapshot["data"].as_str().unwrap())
+            .unwrap();
+        String::from_utf8_lossy(&bytes).into_owned()
+    };
+    until_async(
+        "fresh Claude reaches prompt input without answering a dialog",
+        || async { screen().await.contains('❯').then_some(()) },
+    )
+    .await;
+    // Bracketed paste prevents the TUI treating the prompt as a burst of keyboard shortcuts.
+    let prompt = "E12 fresh profile first prompt";
+    client
+        .request(
+            "terminal.write",
+            json!({"id": id, "data": base64::engine::general_purpose::STANDARD
+                .encode(format!("\x1b[200~{prompt}\x1b[201~"))}),
+        )
+        .await
+        .unwrap();
+    until_async("Claude accepts the pasted first prompt", || async {
+        screen().await.contains(prompt).then_some(())
+    })
+    .await;
+    client
+        .request(
+            "terminal.write",
+            json!({"id": id, "data": base64::engine::general_purpose::STANDARD.encode("\r")}),
+        )
+        .await
+        .unwrap();
+    let model = project.model.as_ref().unwrap();
+    turn_done(model, &client, id, prompt).await;
+    assert!(
+        model.journal().iter().any(|entry| {
+            !entry["body"]["tools"].is_null()
+                && user_texts(entry).iter().any(|text| text.contains(prompt))
+        }),
+        "the first interactive prompt reached the real model route"
+    );
+    model.assert_matched();
+}
+
+#[tokio::test]
 async fn e14_roundup_launches_and_resumes_real_claude() {
     let project = daemon::start_real("e14_launch_resume", &[]);
     let client = project.client().await;
