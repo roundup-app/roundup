@@ -234,7 +234,6 @@ export const copy = {
   addWorkstreamWord: " Workstream",
   name: "Name",
   collapse: "Collapse",
-  separator: " · ",
   retryDoor: "Retry supervisor",
   startDoor: "Start supervisor",
   agents: (value1: CopyValue) => `${value1} agents`,
