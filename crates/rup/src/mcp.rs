@@ -608,6 +608,93 @@ fn agent_extras_add() -> Offered {
     }
 }
 
+// Resolve before actions: discard removes the node, so a lookup after success loses its name.
+// These parameters are for rendering; the request keeps the original machine ids.
+pub(crate) async fn display_params(
+    client: &rpc::Client,
+    method: &str,
+    params: &Value,
+) -> Result<Value, RpcError> {
+    if !matches!(method, "agent.discard" | "rail.move" | "workstream.handoff") {
+        return Ok(params.clone());
+    }
+    let nodes = rail_nodes(client).await?;
+    let mut display = params.clone();
+    display["id"] = rail_name(&nodes, &params["id"]).into();
+    if method == "rail.move" && !params["parent"].is_null() {
+        display["parent"] = rail_name(&nodes, &params["parent"]).into();
+    }
+    Ok(display)
+}
+
+async fn rail_nodes(client: &rpc::Client) -> Result<Vec<agent::RailNode>, RpcError> {
+    let result = tokio::time::timeout(CALL_TIMEOUT, client.request("rail.tree", ()))
+        .await
+        .map_err(|_| {
+            RpcError::internal("could not read Rail names: the Daemon did not answer")
+        })??;
+    serde_json::from_value(result).map_err(RpcError::internal)
+}
+
+fn rail_name(nodes: &[agent::RailNode], id: &Value) -> String {
+    nodes
+        .iter()
+        .find(|node| Some(node.id.as_str()) == id.as_str())
+        .map_or_else(|| "an Agent that is gone".into(), |node| node.name.clone())
+}
+
+pub(crate) async fn display_data(
+    client: &rpc::Client,
+    method: &str,
+    mut result: Value,
+) -> Result<Value, RpcError> {
+    match method {
+        "rail.tree" => {
+            let nodes: Vec<agent::RailNode> =
+                serde_json::from_value(result.clone()).map_err(RpcError::internal)?;
+            for node in result
+                .as_array_mut()
+                .ok_or_else(|| RpcError::internal("invalid Rail tree"))?
+            {
+                if !node["parent"].is_null() {
+                    node["parent_name"] = rail_name(&nodes, &node["parent"]).into();
+                }
+            }
+        }
+        "agent.context" => {
+            // A Door asks the user; only an Agent destination needs a Rail name.
+            if result["ask"]["to"].as_str().is_some_and(|to| to != "you") {
+                let nodes = rail_nodes(client).await?;
+                result["ask"]["name"] = rail_name(&nodes, &result["ask"]["to"]).into();
+            }
+        }
+        "decision.list" => {
+            let decisions = result
+                .as_array_mut()
+                .ok_or_else(|| RpcError::internal("invalid Decision list"))?;
+            if !decisions.is_empty() {
+                let nodes = rail_nodes(client).await?;
+                for decision in decisions {
+                    decision["agent_name"] = rail_name(&nodes, &decision["agent"]).into();
+                    if let Some(actor) = decision
+                        .get_mut("failure")
+                        .and_then(|failure| failure.get_mut("answered_by"))
+                    {
+                        if actor["kind"] == "agent" {
+                            actor["name"] = rail_name(&nodes, &actor["id"]).into();
+                        }
+                        if !actor["parent"].is_null() {
+                            actor["parent_name"] = rail_name(&nodes, &actor["parent"]).into();
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(result)
+}
+
 /// M17: only declared unit replies become acknowledgements; nullable data stays JSON.
 pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
@@ -885,10 +972,18 @@ impl Shim {
                 .await
                 .map(|result| result.to_string()));
         }
-        tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params))
+        let display = match display_params(&client, offer.method, &params).await {
+            Ok(display) => display,
+            Err(error) => return Ok(Err(error)),
+        };
+        let result = tokio::time::timeout(CALL_TIMEOUT, client.request(offer.method, &params))
             .await
-            .map(|reply| reply.map(|result| success_text(offer.method, &params, result)))
-            .map_err(|_| Gone::Silent)
+            .map_err(|_| Gone::Silent)?;
+        let result = match result {
+            Ok(result) => display_data(&client, offer.method, result).await,
+            Err(error) => Err(error),
+        };
+        Ok(result.map(|result| success_text(offer.method, &display, result)))
     }
 }
 
