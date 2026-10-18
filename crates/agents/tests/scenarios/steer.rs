@@ -130,7 +130,12 @@ async fn h11_text_cannot_close_the_paste_early() {
 #[tokio::test]
 async fn h11_a_lost_submit_is_not_accepted_and_nothing_is_sent_again() {
     let (f, id) = idle(BOUND).await;
-    let err = steer(&f, &id, "hello").await.unwrap().unwrap_err();
+    let call = steer(&f, &id, "hello");
+    until_typed(&f, paste("hello").len()).await;
+    signal(&f, &id, "SessionStart").await;
+    signal(&f, &id, "PreToolUse").await;
+    signal(&f, &id, "Stop").await;
+    let err = call.await.unwrap().unwrap_err();
 
     assert_eq!(err.code, code::NOT_ACCEPTED);
     assert!(err.message.contains(&id), "{}", err.message);
@@ -757,4 +762,67 @@ async fn o2_a_spawn_without_prompt_or_order_types_nothing_and_holds_no_order() {
     assert_eq!(read(&typed(&f)), "");
     let tree: Vec<contracts::agent::RailNode> = f.tree().await;
     assert_eq!(tree.iter().find(|node| node.id == id).unwrap().work, None);
+}
+
+#[tokio::test]
+async fn h11_a_user_slash_command_accepts_a_session_change_or_kind_transition() {
+    for (command, payload) in [
+        (
+            "/compact",
+            json!({"hook_event_name":"SessionStart", "session_id":"12345678-1234-4234-8234-123456789abc"}),
+        ),
+        (
+            "/model",
+            json!({"hook_event_name":"PreToolUse", "tool_name":"Read"}),
+        ),
+    ] {
+        let (f, id) = idle(BOUND).await;
+        let call = steer(&f, &id, command);
+        let bytes = format!("\x1b[200~{command}\x1b[201~\r");
+        assert_eq!(until_typed(&f, bytes.len()).await, bytes);
+        let attempt = f.attempt(&id).await;
+        f.call(
+            "agent.signal",
+            json!({"id":id,"attempt":attempt,"payload":payload}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(call.await.unwrap().unwrap(), Value::Null);
+        assert_eq!(read(&typed(&f)), bytes);
+    }
+}
+
+#[tokio::test]
+async fn h11_a_slash_command_ignores_acceptance_before_its_write_or_from_another_attempt() {
+    let (entered, mut entering) = tokio::sync::mpsc::unbounded_channel();
+    let (release, released) = std::sync::mpsc::channel();
+    let released = std::sync::Mutex::new(released);
+    let mut f = frozen(Fixture::running(RECORD), BOUND);
+    f.agents = f.agents.with_steer_effect(move |_| {
+        entered.send(()).unwrap();
+        released.lock().unwrap().recv().unwrap();
+        Ok(())
+    });
+    let f = Arc::new(f);
+    let node = f.spawn(None, None).await.unwrap();
+    until_file(&f.dir.path().join("ready")).await;
+    star(f.dir.path());
+    start(&f, &node.id).await;
+    let call = steer(&f, &node.id, "/clear");
+    entering.recv().await.unwrap();
+    // The write is reserved but still has not started.
+    signal(&f, &node.id, "UserPromptSubmit").await;
+    signal(&f, &node.id, "SessionStart").await;
+    assert!(read(&typed(&f)).is_empty());
+    release.send(()).unwrap();
+    let bytes = "\x1b[200~/clear\x1b[201~\r";
+    assert_eq!(until_typed(&f, bytes.len()).await, bytes);
+    // An idle-to-idle Stop is not a local-command acknowledgement.
+    signal(&f, &node.id, "Stop").await;
+    let attempt = f.attempt(&node.id).await.parse::<u64>().unwrap() + 1;
+    f.call("agent.signal", json!({"id":node.id,"attempt":attempt.to_string(),"payload":{"hook_event_name":"SessionStart"}})).await.unwrap();
+    let error = call.await.unwrap().unwrap_err();
+    assert_eq!(error.code, code::NOT_ACCEPTED);
+    assert!(error.message.contains(&node.id));
+    assert_eq!(read(&typed(&f)), bytes);
 }

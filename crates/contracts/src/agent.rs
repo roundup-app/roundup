@@ -346,6 +346,50 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox: Option<Inbox>,
+    /// A2681a: available conversation parts, only after the Agent's program exits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub overview: Option<ConversationOverview>,
+}
+
+/// A2681a: display data from a closed Agent's saved conversation, never authority.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ConversationOverview {
+    pub program: String,
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub name: Option<String>,
+    /// Input tokens occupying the last reply's context window; excludes generated output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub used: Option<u64>,
+    /// Model context capacity in tokens; absent for an unrecognized model id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub limit: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub card: Option<ConversationCard>,
+}
+
+/// A2681c: the available parts of the conversation's latest card.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ConversationCard {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub intent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub shape: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub facts: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub outcome: Option<String>,
 }
 
 /// B51: the outcome of checking an Agent's Claude inbox: `ok`, `missing` (absent or not writable)
@@ -767,4 +811,44 @@ pub enum HeldCall {
     Prompt(PromptParams),
     #[serde(rename = "workstream.rewind")]
     Rewind(crate::workstream::RewindParams),
+}
+
+#[cfg(test)]
+mod overview_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a2681a_contract_omits_unavailable_parts() {
+        let node: RailNode = serde_json::from_value(json!({
+            "id":"1", "kind":"agent", "name":"Rail name", "parent":null, "order":0,
+            "status":null, "attempt":null, "status_revision":null, "terminal_id":null,
+            "worktree":null, "can_resume":false, "channel":null, "work":null,
+            "stray":[], "model":null, "effort":null
+        }))
+        .unwrap();
+        assert!(
+            serde_json::to_value(&node)
+                .unwrap()
+                .get("overview")
+                .is_none()
+        );
+        let overview = ConversationOverview {
+            program: "Claude Code".into(),
+            id: "opaque".into(),
+            name: None,
+            used: None,
+            limit: None,
+            card: Some(ConversationCard {
+                intent: Some("Keep intent".into()),
+                ..Default::default()
+            }),
+        };
+        assert_eq!(
+            serde_json::to_value(overview).unwrap(),
+            json!({
+                "program":"Claude Code", "id":"opaque", "card":{"intent":"Keep intent"}
+            })
+        );
+    }
 }

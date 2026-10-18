@@ -607,6 +607,7 @@ mod tests {
             effort: None,
             iteration: None,
             inbox: None,
+            overview: None,
         }
     }
 
