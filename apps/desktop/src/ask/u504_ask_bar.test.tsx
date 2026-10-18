@@ -84,11 +84,15 @@ describe("u504 the Ask bar", () => {
   it("u504_click_picks_a_workstream", async () => {
     await mountAskBar();
     type("@");
+
     const option = await waitFor(() => {
       const item = document.querySelector<HTMLElement>(".app-mentions [role=option]");
+
       expect(item).not.toBeNull();
+
       return item!;
     });
+
     fireEvent.click(option);
     await waitFor(() => expect(input()!.value).toBe("@lead "));
     expect(document.activeElement).toBe(input());
@@ -97,6 +101,7 @@ describe("u504 the Ask bar", () => {
 
   it("u504_no_matching_workstream_closes_mentions", async () => {
     await mountAskBar();
+    type("@");
     type("@missing");
     expect(document.querySelector(".app-mentions")).toBeNull();
     expect(input()!.value).toBe("@missing");
