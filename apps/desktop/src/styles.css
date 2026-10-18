@@ -279,10 +279,6 @@ p {
   color: var(--grey);
 }
 
-.ink {
-  font-weight: 700;
-}
-
 .ink[data-tone="amber"]:not(button) {
   color: var(--amber);
 }
