@@ -422,6 +422,68 @@ async fn d2_status_follows_the_hooks_in_order() {
 }
 
 #[tokio::test]
+async fn e12_default_permissions_reach_the_permission_hook() {
+    let project = daemon::start_real("e12_default_permissions", &[]);
+    let mut client = project.subscribed().await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        client
+            .request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.dir.path(), "prompt": "E12 deny the file creation"
+                }),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    next(&mut client, |event| match event {
+        EventData::AgentStatus(status)
+            if status.id == agent.id && status.status.kind == Kind::NeedsYou =>
+        {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    let decisions: Vec<contracts::decision::Decision> =
+        serde_json::from_value(client.request("decision.list", Value::Null).await.unwrap())
+            .unwrap();
+    let decision = decisions
+        .iter()
+        .find(|decision| decision.agent == agent.id)
+        .unwrap();
+    assert_eq!(decision.tool, "Bash");
+    assert!(!project.dir.path().join("e12-denied").exists());
+    client
+        .request(
+            "decision.answer",
+            json!({
+                "id": decision.id, "answer": "deny", "proof": "0".repeat(64)
+            }),
+        )
+        .await
+        .unwrap();
+    next(&mut client, |event| match event {
+        EventData::AgentStatus(status)
+            if status.id == agent.id && status.status.kind == Kind::Idle =>
+        {
+            Some(())
+        }
+        _ => None,
+    })
+    .await;
+    let model = project.model.as_ref().unwrap();
+    let result = model.tool_result("toolu_e12_denied").await;
+    assert!(
+        result["content"].as_str().unwrap().contains("denied"),
+        "{result}"
+    );
+    assert!(!project.dir.path().join("e12-denied").exists());
+    model.assert_matched();
+}
+
+#[tokio::test]
 async fn m9_a_door_asked_for_a_workstream_makes_one() {
     let project = daemon::start_real("m9_create_workstream", &[]);
     let mut events = project.subscribed().await;
