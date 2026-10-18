@@ -16,7 +16,7 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 export const diffsLoaded = () => library !== undefined;
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; notes: Notes; editing?: Note | undefined; onEdited: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void }) => {
   const { app } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
@@ -59,7 +59,11 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     let current = true;
     let dispose: (() => void) | undefined;
     void failureOf(async () => {
-      const { VirtualizedFileDiff, Virtualizer, processFile } = await (library ??= import("@pierre/diffs"));
+      const { VirtualizedFileDiff, Virtualizer, processFile } = await (library ??= import("@pierre/diffs").then(module => {
+        module.registerCustomCSSVariableTheme("roundup", {});
+
+        return module;
+      }));
       const { createTwoFilesPatch, structuredPatch, formatPatch } = await import("diff");
 
       if (!current) return;
@@ -78,10 +82,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
           const range = selection();
           view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
         },
-        renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${metadata.side} ${metadata.start}–${metadata.end}: ${metadata.text}`;
+        renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start, metadata.end)}: ${metadata.text}`;
 
         return element; },
-        diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
+        theme: "roundup", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
       const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
       const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };
@@ -116,18 +120,28 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
   });
 
   return <section class="diff-reader" aria-label={copy.diff}>
-    <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
+    <header class="diff-header">
+      <div class="diff-identity">
+        <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
+        <p class="diff-selection" role="status">{copy.selectedLines(selection().side, selection().start, selection().end)}</p>
+      </div>
+      <div class="diff-actions">
+        <Show when={read()}>{value => <>
+          <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
+          <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
+        </>}</Show>
+        <button type="button" data-button="quiet" onClick={props.onBack}>{copy.back}</button>
+        <button type="button" data-button="quiet" onClick={props.onClose}>{copy.close}</button>
+      </div>
+    </header>
     <Show when={failure()}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></>}</Show>
     <Show when={read()} fallback={<Show when={!failure()}><p role="status">{copy.loadingDiff}</p></Show>}>{value => <>
       <Show when={value().status !== null} fallback={<p role="status">{copy.noDifference}</p>}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"} fallback={<p role="status">{copy.binaryDiff}</p>}>
           <Show when={coarse()}><p role="status">{copy.replacementDiff}</p></Show>
           <div class="diff-content" ref={setHost} />
-          <button type="button" data-button="quiet" onClick={() => { setForm({ comparison: value(), selection: selection() }); }}>{copy.addNote}</button>
-          <p role="status">{copy.selectedLines(selection().side, selection().start, selection().end)}</p>
         </Show>
       </Show>
-      <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
     </>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />

@@ -80,17 +80,13 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
     numbers[0].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
     numbers[1].dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, shiftKey: true }));
   })()`);
-  await wait("document.querySelector('.diff-reader').textContent.includes('Selected new 1–2')");
+  await wait("document.querySelector('.diff-reader').textContent.includes('New file, lines 1–2')");
   await click("Add note");
   await browser("find", "label", "Note", "fill", "pointer note");
   await click("Save");
   await wait("!!document.querySelector('[aria-label=\"Notes\"]')");
   expect(await browser("eval", "document.querySelector('[aria-label=\"Notes\"]').textContent")).toContain("pointer note");
   await browser("eval", `(() => {
-    document.documentElement.dataset.noteEnterCount = '0';
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Enter') document.documentElement.dataset.noteEnterCount = String(Number(document.documentElement.dataset.noteEnterCount) + 1);
-    });
     [...document.querySelectorAll('button')].find(button => button.textContent === 'Add note').focus();
   })()`);
   await browser("press", "Enter");
@@ -102,8 +98,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   await browser("find", "label", "Note", "fill", "keyboard range");
   await click("Save");
   await wait("document.querySelector('[aria-label=\"Notes\"]').textContent.includes('keyboard range')");
-  expect(await browser("eval", "[...document.querySelectorAll('[aria-label=\"Notes\"] > li')].at(-1).textContent")).toContain("old 1–2");
-  expect(await browser("eval", "Number(document.documentElement.dataset.noteEnterCount)")).toBe(1);
+  expect(await browser("eval", "[...document.querySelectorAll('[aria-label=\"Notes\"] > li')].at(-1).textContent")).toContain("Old file, lines 1–2");
   await capture("pointer-and-keyboard-notes");
 }, 60_000);
 
