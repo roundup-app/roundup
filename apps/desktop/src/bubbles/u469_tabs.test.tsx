@@ -109,6 +109,7 @@ it("u524_a_failed_empty_project_open_can_be_retried", async () => {
   fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot open"));
   expect(document.querySelector(".bubble")).toBeNull();
+  expect(document.activeElement).toBe(document.querySelector('[aria-label="New Terminal"]'));
   mounted.app.handlers["terminal.open"] = open;
 
   fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
