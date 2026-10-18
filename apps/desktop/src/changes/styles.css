@@ -55,6 +55,7 @@
 }
 
 .worktree-tree {
+  position: relative;
   height: calc(var(--space-6) * 8);
   min-height: 0;
   overflow: hidden;
@@ -62,3 +63,21 @@
   --trees-fg-override: var(--text);
   --trees-border-color-override: var(--hairline);
 }
+
+/* Match the Shelf's clipped-edge cue around Pierre's shadow-root scroller. */
+.worktree-tree::before,
+.worktree-tree::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: var(--space-2);
+  box-shadow: var(--shadow-scroll);
+  opacity: 0;
+  pointer-events: none;
+}
+.worktree-tree::before { top: 0; }
+.worktree-tree::after { bottom: 0; transform: scaleY(-1); }
+.worktree-tree[data-clipped-top]::before,
+.worktree-tree[data-clipped-bottom]::after { opacity: 1; }

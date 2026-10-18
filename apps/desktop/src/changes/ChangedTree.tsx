@@ -33,6 +33,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
   onMount(() => {
     let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
     let gone = false;
+    let stopScroll: (() => void) | undefined;
 
     void loadTrees().then(({ FileTree }) => {
       const mount = host();
@@ -55,7 +56,30 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
       });
       tree.render({ containerWrapper: mount });
       // Ark cannot discover tabbable rows inside Pierre’s shadow root; enter its roving row after render.
-      mount.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+      const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
+
+      shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+      const scroller = shadow?.querySelector<HTMLElement>("[data-file-tree-virtualized-scroll]");
+
+      if (scroller) {
+        const measure = () => {
+          mount.toggleAttribute("data-clipped-top", scroller.scrollTop > 0);
+          mount.toggleAttribute("data-clipped-bottom", scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1);
+        };
+
+        const observer = new ResizeObserver(measure);
+
+        observer.observe(scroller);
+
+        for (const child of scroller.children) observer.observe(child);
+
+        scroller.addEventListener("scroll", measure);
+        measure();
+        stopScroll = () => {
+          observer.disconnect();
+          scroller.removeEventListener("scroll", measure);
+        };
+      }
     });
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -76,6 +100,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
       gone = true;
       element?.removeEventListener("keydown", onKeyDown);
       element?.removeEventListener("dblclick", onDoubleClick);
+      stopScroll?.();
       tree?.cleanUp();
     });
   });
