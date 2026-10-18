@@ -41,6 +41,9 @@ impl Agents {
         if !self.shared.rail().get_worktrees()?.on {
             return Ok(None);
         }
+        if let Some(prepared) = self.prepared_mode()? {
+            return self.assign_prepared(id, cwd, prepared).await.map(Some);
+        }
         let project = self.project_dir().to_owned();
         let (real_project, real_cwd) = real_paths(&project, cwd)?;
         let attempt = self
