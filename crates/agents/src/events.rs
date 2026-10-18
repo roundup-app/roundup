@@ -452,16 +452,25 @@ pub(super) fn channel_in(
     })
 }
 
-/// E6: `ROUNDUP_CHANNEL_DEADLINE_MS` when it is a whole number of milliseconds, else
-/// `CHANNEL_DEADLINE`.
-pub(super) fn channel_deadline_from_env() -> Duration {
-    match std::env::var("ROUNDUP_CHANNEL_DEADLINE_MS") {
+/// `name` when it is a whole number of milliseconds, else `default`.
+fn bound_from_env(name: &str, default: Duration) -> Duration {
+    match std::env::var(name) {
         Ok(ms) => ms.parse().map(Duration::from_millis).unwrap_or_else(|_| {
-            eprintln!("agents: ROUNDUP_CHANNEL_DEADLINE_MS={ms:?} is not milliseconds; ignored");
-            CHANNEL_DEADLINE
+            eprintln!("agents: {name}={ms:?} is not milliseconds; ignored");
+            default
         }),
-        Err(_) => CHANNEL_DEADLINE,
+        Err(_) => default,
     }
+}
+
+/// E6: `ROUNDUP_CHANNEL_DEADLINE_MS`, else `CHANNEL_DEADLINE`.
+pub(super) fn channel_deadline_from_env() -> Duration {
+    bound_from_env("ROUNDUP_CHANNEL_DEADLINE_MS", CHANNEL_DEADLINE)
+}
+
+/// H13: `ROUNDUP_INTERRUPT_BOUND_MS`, else `INTERRUPT_BOUND`.
+pub(super) fn interrupt_bound_from_env() -> Duration {
+    bound_from_env("ROUNDUP_INTERRUPT_BOUND_MS", INTERRUPT_BOUND)
 }
 
 /// Feed one Terminal's titles and its exit to the Agent behind it, and a Tick at the time its
