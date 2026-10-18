@@ -141,15 +141,49 @@ describe("u164 a bubble floats over the centre pane", () => {
     expect(document.activeElement).toBe(focused);
   });
 
-  it("u164_an_exited_bubble_stays_readable_with_its_code_until_closed", async () => {
+  it("u164_an_exited_bubble_stays_readable_until_closed", async () => {
     const mounted = await mountBubbles("a");
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
-
-    expect(bubble("1").querySelector(".bubble-state[data-state]")!.getAttribute("aria-label")).toBe("Running");
     mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
-    await waitFor(() => expect(bubble("1").querySelector(".bubble-state[data-state]")!.getAttribute("aria-label")).toBe("Exit 3"));
+    await waitFor(() => expect(bubble("1")).not.toBeNull());
+
     expect(bubbleNames()).toContain("cargo test");
+  });
+
+  it("u3704_a_plain_terminal_shows_no_state_glyph_until_output_goes_unseen", async () => {
+    await mountBubbles("a");
+    await waitFor(() => bubble("1"));
+    fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
+
+    expect(bubble("1").querySelector('.bubble-header [role="img"]')).toBeNull();
+    expect(document.querySelectorAll('.terminal-tab [role="img"]')).toHaveLength(0);
+  });
+
+  it("u3704_output_while_the_bubble_is_folded_marks_the_tab_and_viewing_clears_it", async () => {
+    const mounted = await mountBubbles("a");
+    await waitFor(() => bubble("1"));
+
+    const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
+
+    mounted.app.emitOutput("1", "building");
+    await waitFor(() => expect(tab("1").querySelector("[data-state]")).not.toBeNull());
+    expect(tab("2").querySelector("[data-state]")).toBeNull();
+
+    fireEvent.click(tab("1"));
+    await waitFor(() => expect(tab("1").querySelector("[data-state]")).toBeNull());
+
+    mounted.app.emitOutput("1", "seen");
+    expect(tab("1").querySelector("[data-state]")).toBeNull();
+  });
+
+  it("u3704_output_of_a_terminal_whose_owner_is_not_selected_marks_its_tab_once_shown", async () => {
+    const mounted = await mountBubbles("other");
+
+    await waitFor(() => expect(mounted.app.outputSubscriptions.some((subscription) => subscription.id === "1")).toBe(true));
+    mounted.app.emitOutput("1", "building");
+    mounted.connected.rail.select("a");
+    await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="1"] [data-state]')).not.toBeNull());
   });
 
   it("u164_close_calls_terminal_close_once_and_a_failure_keeps_the_bubble", async () => {
