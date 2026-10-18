@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
 
 afterEach(cleanup);
@@ -53,6 +54,18 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
 
     await waitFor(() => expect(connected.rail.selected()).toBe("ops"));
     await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("7"));
+  });
+
+  it("u524_the_switcher_restores_a_project_terminal_at_the_project_root", async () => {
+    const { connected } = await mountSwitcher("dee", undefined, [info("8", { owner: "/p", title: "project shell" })]);
+
+    openSwitcher();
+    await waitFor(() => expect(field()).not.toBeNull());
+    type("project shell");
+    press("Enter", {}, field()!);
+
+    await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("8"));
+    expect(connected.rail.selected()).toBeNull();
   });
 
   it("u529_escape_returns_focus_and_calls_nothing", async () => {
