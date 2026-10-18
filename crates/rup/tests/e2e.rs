@@ -4439,3 +4439,79 @@ async fn p2544d_write_revision_guard_over_rpc() {
         winner
     );
 }
+
+#[tokio::test]
+async fn e2704a_context_digest_and_wake_errors_use_names() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    user.request("rail.rename", json!({"id":rail.a,"name":"reader"}))
+        .await
+        .unwrap();
+    user.request("rail.rename", json!({"id":rail.b,"name":"writer"}))
+        .await
+        .unwrap();
+    let caller = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    for (method, noun) in [
+        ("agent.context", "Context"),
+        ("agent.brief", "Context"),
+        ("agent.digest", "digest"),
+    ] {
+        let err = caller
+            .request(method, json!({"id":rail.b}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::FORBIDDEN);
+        assert_eq!(
+            err.message,
+            format!("reader may not read the {noun} of writer")
+        );
+    }
+    let repeated = caller
+        .request("agent.wake", json!({"ids":[rail.b, rail.b]}))
+        .await
+        .unwrap_err();
+    assert_eq!(repeated.code, rpc::code::INVALID_PARAMS);
+    assert_eq!(repeated.message, "writer is named twice");
+    let err = caller
+        .request("agent.wake", json!({"ids":["7013"]}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, rpc::code::NOT_FOUND);
+    assert_eq!(err.message, "not found: an Agent that is gone");
+}
+
+#[tokio::test]
+async fn e2704a_a_door_answers_with_its_context_name() {
+    let reports = tempfile::tempdir().unwrap();
+    let report = reports.path().join("name.json");
+    let project = start(&[
+        ("FAKE_CLAUDE_BRIEF_REPORT", report.to_str().unwrap()),
+        ("FAKE_CLAUDE_NAME_REPORT", "1"),
+    ]);
+    let user = project.client().await;
+    let workstream = user
+        .request("rail.createWorkstream", json!({"name":"sad","parent":null}))
+        .await
+        .unwrap();
+    user.request("rail.startDoor", json!({"id":workstream["id"]}))
+        .await
+        .unwrap();
+    seen_at(&report).await;
+    let seen: Value = serde_json::from_str(&std::fs::read_to_string(report).unwrap()).unwrap();
+    let additional = seen["startup"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find_map(|output| output["hookSpecificOutput"]["additionalContext"].as_str())
+        .expect("SessionStart's decoded Context");
+    assert!(additional.starts_with("Your Rail name is sad. Say it, never an id, when you speak of yourself or another Agent."), "{seen}");
+    assert_eq!(seen["context"]["self"]["name"], "sad");
+    assert_eq!(seen["reply"], "I am sad.");
+    assert!(
+        !seen["reply"]
+            .as_str()
+            .unwrap()
+            .contains(workstream["id"].as_str().unwrap())
+    );
+}
