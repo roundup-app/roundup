@@ -3235,27 +3235,21 @@ async fn a32_message_list_spans_iterations() {
             .await
             .unwrap();
         let model = project.model.as_ref().unwrap();
-        // The first turn is the Door's start-up: its Working → Idle is the only Status pair there. Every
-        // later input follows the model's journal, because an Idle can arrive while the next turn begins.
-        async fn stopped(client: &mut rpc::Client, door: &str, attempt: &str) {
-            let mut working = false;
-            loop {
-                let status = next(client, |event| match event {
-                    EventData::AgentStatus(status)
-                        if status.id == door && status.attempt == attempt =>
-                    {
-                        Some(status)
-                    }
-                    _ => None,
-                })
-                .await;
-                working |= status.status.kind == Kind::Working;
-                if working && status.status.kind == Kind::Idle {
-                    return;
-                }
-            }
-        }
-        stopped(&mut client, &door, "1").await;
+        // SessionStart also emits Idle (claude_code::hook_status), before the first prompt
+        // finishes. Observe that prompt at the model before accepting Idle as its completion.
+        until("the Door's startup turn reached the model", || {
+            model.journal().iter().any(|entry| {
+                entry["body"]["tools"]
+                    .as_array()
+                    .is_some_and(|tools| !tools.is_empty())
+                    && entry["body"]["messages"]
+                        .as_array()
+                        .is_some_and(|messages| messages.iter().any(|m| m["role"] == "user"
+                            && m["content"].as_str().is_some_and(|text|
+                                text.contains("Follow this instruction: What is this Workstream for?"))))
+            }).then_some(())
+        }).await;
+        idle(&client, &door).await;
         client
             .request(
                 "message.send",
