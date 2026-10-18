@@ -215,6 +215,8 @@ export const copy = {
   branch: "Branch",
   base: "Base",
   worktreeState: "State",
+  worktreeAhead: (ahead: number) => `${ahead} ahead`,
+  worktreeAheadState: (ahead: number) => `${ahead} ahead of Base`,
   worktreeStateText: (ahead: number, behind: number, dirty: boolean) => `${ahead} ahead, ${behind} behind${dirty ? ", dirty" : ""}`,
   noChanges: "No changes",
   statusAdded: "Added",

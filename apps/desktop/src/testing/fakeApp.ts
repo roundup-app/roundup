@@ -18,6 +18,7 @@ export type Handlers = {
 const emptyReads: Handlers = {
   "daemon.ping": () => ({ pong: true, pid: 1, project: "/project", contract: OWN_CONTRACT }),
   "rail.tree": () => [],
+  "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "terminal.list": () => [],
   "todo.list": () => [],
   "message.list": () => [],

@@ -717,3 +717,26 @@
 .rail-tree [data-dnd-dragging] {
   border-radius: var(--tree-row-radius);
 }
+
+/* U2556c: passive Worktree state stays beside the name, ahead of row actions. */
+.worktree-ahead {
+  padding-inline: var(--space-1);
+  flex: none;
+  cursor: default;
+}
+
+.rail-row .row-name-state {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-2);
+}
+.rail-row[data-near="true"] .row-name-state {
+  flex: 1 1 0;
+}
+.rail-row[data-near="true"] .row-name-state .name {
+  flex: 0 1 auto;
+}
+.rail-row .row-name-state:has(.worktree-ahead) + .row-tail {
+  margin-left: var(--space-3);
+}
