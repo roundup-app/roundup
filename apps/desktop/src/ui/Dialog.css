@@ -3,6 +3,7 @@
   background-color: var(--sunken);
   border-radius: var(--radius-drawer);
   padding: var(--space-4);
+  box-shadow: var(--shadow-drawer);
 }
 
 .app-dialog [data-part="title"] {

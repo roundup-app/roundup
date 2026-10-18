@@ -162,14 +162,15 @@
 .shelf-panel.app-tabs-content { padding: 0; }
 .shelf-question {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  bottom: var(--space-6);
+  right: var(--space-4);
   z-index: 100;
-  width: min(calc(100vw - var(--space-6)), 32rem);
+  width: calc(var(--shelf-width) - var(--space-6));
+  box-sizing: border-box;
   max-height: calc(100vh - var(--space-6));
   overflow: auto;
   overflow-wrap: anywhere;
 }
-.shelf-question-targets { margin: var(--space-2) 0; padding-inline-start: var(--space-4); }
+.shelf-question-targets { list-style: none; margin: var(--space-2) 0; padding: 0; }
+.shelf-bulk-line[hidden] { display: none; }
 .shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-3); }

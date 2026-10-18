@@ -15,12 +15,14 @@ describe("u491a Shelf questions and navigation", () => {
 
   afterAll(async () => { await lane?.close(); });
 
-  /** Selects the first two Todos with the Select controls and opens the question with the bar's Delete. */
+  /** Selects the first two Todos with Space on the rows and opens the question with the bar's Delete. */
   const ask = async () => {
     const [one, two] = await rows(lane);
 
-    await lane.browser("click", `.shelf [data-todo="${one}"] [aria-label="Select"]`);
-    await lane.browser("click", `.shelf [data-todo="${two}"] [aria-label="Select"]`);
+    await lane.browser("focus", `.shelf [data-todo="${one}"] .todo-row-button`);
+    await lane.browser("press", "Space");
+    await lane.browser("focus", `.shelf [data-todo="${two}"] .todo-row-button`);
+    await lane.browser("press", "Space");
     await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('2 selected')");
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until("!!document.querySelector('[role=\"alertdialog\"]')");

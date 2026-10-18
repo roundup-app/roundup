@@ -157,7 +157,6 @@
   white-space: nowrap;
 }
 
-.todo-row-actions { display: flex; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
 .todo-row .row-head { min-width: 0; display: flex; align-items: center; }
 .todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
 
@@ -165,12 +164,10 @@
 .todo-row .row-head > [data-button="row-action"] {
   position: relative;
   z-index: 1;
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 .todo-row[data-actions-open="true"] .row-head > [data-button="row-action"] {
-  opacity: 1;
-  pointer-events: auto;
+  display: inline-flex;
 }
 
 .todo-tooltip {
@@ -179,3 +176,7 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
+
+.todo-row-actions { display: none; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
+.todo-row:hover .todo-row-actions,
+.todo-row:focus-within .todo-row-actions { display: flex; }

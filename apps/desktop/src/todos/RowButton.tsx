@@ -27,6 +27,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
         "aria-description": props.reorderable ? copy.reorder : undefined,
         "aria-pressed": props.pressed,
         onClick: (event: MouseEvent) => props.onClick(event),
+        onKeyDown: (event: KeyboardEvent) => { if (event.key === " " && props.pressed !== undefined) { event.preventDefault(); props.onKeyDown?.(event); } },
         onPointerDown: (event: PointerEvent) => props.onPointerDown?.(event),
         style: props.hang === false ? { display: "block" } : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" },
       })}>{props.children}</button>} />

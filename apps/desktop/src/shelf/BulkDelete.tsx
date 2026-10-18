@@ -163,7 +163,7 @@ export const createBulkDelete = <Id,>(props: {
     <Show when={props.selected().length > 0 || failures().length > 0}>
       <div class="shelf-bulk" ref={(element) => { barElement = element; }} role="group" aria-label={copy.shelfDeletion}>
         <Show when={props.selected().length > 0}>
-          <div class="shelf-bulk-line">
+          <div class="shelf-bulk-line" hidden={question() !== null}>
             <span>{props.selected().length}{copy.selected}</span>
             <button data-button="quiet" type="button" ref={(button) => { deleteButton = button; }} onClick={() => ask()}>{copy.deleteWord}{props.selected().length}</button>
             <button data-button="quiet" type="button" onClick={() => { props.cancelSelection(); setFailures([]); }}>{copy.cancel}</button>
@@ -184,14 +184,14 @@ export const createBulkDelete = <Id,>(props: {
   const dialog = () => (
     <AlertDialog.Root open={question() !== null} initialFocusEl={() => keep ?? null} finalFocusEl={focusAfter}
       onOpenChange={(details) => { if (!details.open) cancel(); }}>
-      <Portal>
+      <Portal mount={host?.mount()}>
         <AlertDialog.Positioner>
           <AlertDialog.Content class="shelf-question" ref={(element) => { panel = element; }} onKeyDown={(press) => press.stopPropagation()}>
             <Show when={question()}>{(held) => <>
               <AlertDialog.Title>{copy.deleteWord}{held().targets.length}{held().done ? copy.doneCount : ""} {props.noun}{copy.questionMark}</AlertDialog.Title>
               <AlertDialog.Description>
                 <ul class="shelf-question-targets">
-                  <For each={held().targets}>{(target) => <li>{target.label}</li>}</For>
+                  <For each={held().targets}>{(target) => <li><Show when={props.noun === "Todos"}><span class="mono">#{String(target.id)}</span>{" "}</Show>{target.label}</li>}</For>
                 </ul>
                 <Show when={owners().length > 0}>
                   <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
