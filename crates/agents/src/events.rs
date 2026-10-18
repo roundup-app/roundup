@@ -139,7 +139,8 @@ impl Shared {
         self.rail().node(id)?;
         if actor.kind != ActorKind::Agent || actor.id != id {
             return Err(RpcError::forbidden(format!(
-                "only agent {id} may report its Channel"
+                "only {} may report its Channel",
+                self.rail().name(id)?
             )));
         }
         let attempt = self.runs().get(id).map(|slot| slot.attempt().to_owned());
@@ -197,6 +198,7 @@ impl Shared {
         attempt: &str,
         observation: Observation,
     ) -> Result<Option<i64>, RpcError> {
+        let name = self.rail().name(id)?;
         let first_prompt = match &observation {
             Observation::Signal(payload) => claude_code::submitted_prompt(payload)
                 .filter(|prompt| !order::is_clarification_steer(prompt))
@@ -221,12 +223,12 @@ impl Shared {
                 return Ok(None);
             }
             if runs.get(id).is_some_and(Slot::closing) {
-                return Err(RpcError::conflict(format!("agent {id} is stopping")));
+                return Err(RpcError::conflict(format!("{name} is stopping")));
             }
             match runs.get_mut(id) {
                 Some(Slot::Running(run)) => {
                     if run.ended {
-                        return Err(RpcError::not_found(format!("agent {id} has ended")));
+                        return Err(RpcError::not_found(format!("{name} has ended")));
                     }
                     // A21: a Signal naming a conversation of the current Attempt saves it
                     // before being applied; a failed save fails this call, settles the Status
@@ -271,7 +273,7 @@ impl Shared {
                 // (`watch` only starts once the Agent is `Running`).
                 Some(Slot::Starting { held, .. }) => {
                     let Observation::Signal(payload) = observation else {
-                        return Err(RpcError::not_found(format!("agent {id}")));
+                        return Err(RpcError::not_found(&name));
                     };
                     hold(id, held, actor, payload);
                     return Ok(None);
@@ -284,13 +286,13 @@ impl Shared {
                         return Ok(None);
                     }
                     let Observation::Signal(payload) = observation else {
-                        return Err(RpcError::not_found(format!("agent {id}")));
+                        return Err(RpcError::not_found(&name));
                     };
                     self.finish_resuming(rail.as_deref_mut(), &mut runs, id, actor, payload)?
                 }
-                None => return Err(RpcError::not_found(format!("agent {id}"))),
+                None => return Err(RpcError::not_found(&name)),
                 Some(Slot::Closing | Slot::ResumeCleanup { .. }) => {
-                    return Err(RpcError::conflict(format!("agent {id} is stopping")));
+                    return Err(RpcError::conflict(format!("{name} is stopping")));
                 }
             }
         };
@@ -536,6 +538,86 @@ mod tests {
     use crate::{Observation, Run, Slot};
 
     use crate::tests::*;
+    #[tokio::test]
+    async fn a2703a_errors_use_rail_names() {
+        for case in [
+            "channel", "ended", "closing", "starting", "resuming", "cleanup", "missing",
+        ] {
+            let watched = Watched::named();
+            let shared = &watched.shared;
+            match case {
+                "ended" => {
+                    if let Some(Slot::Running(run)) = shared.runs().get_mut("7013") {
+                        run.ended = true;
+                    }
+                }
+                "closing" => {
+                    shared.runs().insert("7013".into(), Slot::Closing);
+                }
+                "starting" => {
+                    shared.mark_starting("7013", "1".into());
+                }
+                "resuming" => {
+                    shared.runs().insert(
+                        "7013".into(),
+                        Slot::Resuming {
+                            attempt: "1".into(),
+                            since: 0,
+                            old: None,
+                            conversation_id: "conversation".into(),
+                            cwd: "/".into(),
+                            prompt: None,
+                            starred: false,
+                            terminal_id: None,
+                            held: VecDeque::new(),
+                            done: tokio::sync::oneshot::channel().0,
+                        },
+                    );
+                }
+                "cleanup" => {
+                    shared.runs().insert(
+                        "7013".into(),
+                        Slot::ResumeCleanup {
+                            attempt: "1".into(),
+                            terminal_id: "1".into(),
+                            pending: false,
+                            error: rpc::RpcError::internal("failed"),
+                        },
+                    );
+                }
+                "missing" => {
+                    shared.runs().remove("7013");
+                }
+                _ => {}
+            }
+            let error = if case == "channel" {
+                shared.channel_up(&Actor::user(), "7013").unwrap_err()
+            } else {
+                shared
+                    .observe(
+                        Actor::daemon(),
+                        "7013",
+                        if case == "closing" { "" } else { "1" },
+                        Observation::Tick,
+                    )
+                    .unwrap_err()
+            };
+            assert!(
+                error.message.contains("sad") && !error.message.contains("7013"),
+                "{case}: {error}"
+            );
+        }
+        let watched = Watched::named();
+        let error = watched
+            .shared
+            .observe(Actor::daemon(), "8013", "1", Observation::Tick)
+            .unwrap_err();
+        assert!(
+            error.message.contains("an Agent that is gone") && !error.message.contains("8013"),
+            "{error}"
+        );
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a2_a_held_star_reads_idle_when_star_hold_has_passed_and_not_before() {
         let mut w = Watched::start();

@@ -13,6 +13,8 @@ use contracts::project::{Mcp, Prepared, ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 
+const GONE_AGENT: &str = "an Agent that is gone";
+
 /// Structure only: a node's `status` is the Agents module's to fill in.
 pub struct Rail {
     owner_reads: OwnerReads,
@@ -326,6 +328,8 @@ impl Rail {
         parent: Option<&str>,
         index: u32,
     ) -> Result<(), RpcError> {
+        let name = self.name(id)?;
+        let parent_name = parent.map(|id| self.name(id)).transpose()?;
         let tx = self.db.transaction().map_err(sql)?;
         let nodes = load(&tx)?;
         let node = find(&nodes, id)?;
@@ -336,12 +340,14 @@ impl Rail {
             && under.kind == NodeKind::Agent
         {
             return Err(RpcError::conflict(format!(
-                "{id} cannot move under Agent {}: only a start nests it",
-                under.id
+                "{name} cannot move under Agent {}: only a start nests it",
+                parent_name.as_deref().unwrap_or(GONE_AGENT)
             )));
         }
         if parent.is_some_and(|parent| is_within(&nodes, parent, id)) {
-            return Err(RpcError::conflict(format!("{id} cannot move into itself")));
+            return Err(RpcError::conflict(format!(
+                "{name} cannot move into itself"
+            )));
         }
         let without = |parent: Option<&str>| {
             let mut ids = siblings(&nodes, parent);
@@ -391,7 +397,7 @@ impl Rail {
             )
             .map_err(sql)?;
         if changed == 0 {
-            return Err(RpcError::not_found(format!("node {id}")));
+            return Err(RpcError::not_found(GONE_AGENT));
         }
         Ok(())
     }
@@ -416,7 +422,7 @@ impl Rail {
             )
             .map_err(sql)?;
         if changed == 0 {
-            return Err(RpcError::not_found(format!("node {id}")));
+            return Err(RpcError::not_found(GONE_AGENT));
         }
         Ok(())
     }
@@ -511,6 +517,19 @@ impl Rail {
             })
             .map_err(sql)?;
         rows.collect::<Result<_, _>>().map_err(sql)
+    }
+
+    /// Current Rail name for prose; an absent node has no machine identity to display.
+    pub fn name(&self, id: &str) -> Result<String, RpcError> {
+        self.db
+            .query_row(
+                "SELECT name FROM nodes WHERE id = ?1 AND CAST(id AS TEXT) = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql)
+            .map(|name| name.unwrap_or_else(|| GONE_AGENT.into()))
     }
 
     pub fn node(&self, id: &str) -> Result<RailNode, RpcError> {
@@ -763,7 +782,7 @@ impl Rail {
             )
             .map_err(sql)?;
         if changed == 0 {
-            return Err(RpcError::not_found(format!("node {id}")));
+            return Err(RpcError::not_found(GONE_AGENT));
         }
         Ok(())
     }
@@ -864,7 +883,7 @@ impl Rail {
             )
             .map_err(sql)?;
         if changed == 0 {
-            return Err(RpcError::not_found(format!("node {id}")));
+            return Err(RpcError::not_found(GONE_AGENT));
         }
         Ok(())
     }
@@ -880,7 +899,7 @@ impl Rail {
             )
             .optional()
             .map_err(sql)?
-            .ok_or_else(|| RpcError::not_found(format!("node {id}")))?;
+            .ok_or_else(|| RpcError::not_found(GONE_AGENT))?;
         Ok(match found {
             (Some(conversation_id), Some(cwd)) => Some((conversation_id, cwd)),
             _ => None,
@@ -1001,7 +1020,7 @@ fn find<'a>(nodes: &'a [RailNode], id: &str) -> Result<&'a RailNode, RpcError> {
     nodes
         .iter()
         .find(|node| node.id == id)
-        .ok_or_else(|| RpcError::not_found(format!("node {id}")))
+        .ok_or_else(|| RpcError::not_found(GONE_AGENT))
 }
 
 /// Ids of the children of `parent`, by `order`.
@@ -1117,6 +1136,18 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let rail = Rail::open(&dir.path().join("agents.db")).unwrap();
         (dir, rail)
+    }
+
+    #[test]
+    fn a2703a_rail_resolves_current_names_and_gone_agents() {
+        let (_dir, mut rail) = rail();
+        let node = rail.insert(NodeKind::Agent, "sad", None, None).unwrap();
+        assert_eq!(rail.name(&node.id).unwrap(), "sad");
+        rail.rename(&node.id, "glad").unwrap();
+        assert_eq!(rail.name(&node.id).unwrap(), "glad");
+        assert_eq!(rail.name("7013").unwrap(), "an Agent that is gone");
+        rail.db.execute_batch("DROP TABLE nodes").unwrap();
+        assert_eq!(rail.name(&node.id).unwrap_err().code, code::INTERNAL);
     }
 
     #[test]
