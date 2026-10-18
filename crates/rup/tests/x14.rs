@@ -306,6 +306,8 @@ async fn x14_ten_busy_terminals_do_not_lag_rail_events() {
             EventData::RailChanged if event.actor.id == "first" || event.actor.id == "second" => {
                 markers.push(event.actor.id);
             }
+            EventData::RailRenamed { id, name }
+                if id == rail && (name == "first" || name == "second") => {}
             EventData::RailChanged | EventData::TerminalChanged => {}
             other => panic!("unexpected Bus event {other:?}"),
         }

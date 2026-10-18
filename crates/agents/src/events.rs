@@ -448,7 +448,18 @@ impl Shared {
                 .iter()
                 .filter(|node| node.id != id && node.parent == parent)
                 .map(|node| node.name.as_str());
-            rail.rename(id, &name::unique(&name, taken))?;
+            let before = rail.node(id)?.name;
+            let node = rail.rename(id, &name::unique(&name, taken))?;
+            // The Rail lock also orders publication against RPC renames.
+            if node.name != before {
+                self.bus.emit(
+                    actor.clone(),
+                    EventData::RailRenamed {
+                        id: node.id,
+                        name: node.name,
+                    },
+                );
+            }
             self.bus.emit(actor.clone(), EventData::RailChanged);
         }
         let prompt = run.prompt.take_if(|_| run.session_started && run.starred);

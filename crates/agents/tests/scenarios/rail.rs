@@ -441,3 +441,189 @@ async fn a2703a_rejected_calls_use_rail_names() {
         "{missing}"
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a2741a_delayed_consumer_keeps_each_committed_name() {
+    let f = std::sync::Arc::new(Fixture::running("exec sleep 30"));
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("rail.rename", json!({"id":node.id,"name":"sad"}))
+        .await
+        .unwrap();
+    let mut events = f.bus.subscribe();
+    for name in ["sad-2", "sad-3"] {
+        f.call("rail.rename", json!({"id":node.id,"name":name}))
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        crate::common::renames(&mut events),
+        [
+            (node.id.clone(), "sad-2".into()),
+            (node.id.clone(), "sad-3".into())
+        ]
+    );
+    assert_eq!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .name,
+        "sad-3"
+    );
+
+    let gate = std::sync::Arc::new(tokio::sync::Barrier::new(2));
+    let mut calls = Vec::new();
+    for name in ["concurrent-a", "concurrent-b"] {
+        let f = std::sync::Arc::clone(&f);
+        let gate = std::sync::Arc::clone(&gate);
+        let id = node.id.clone();
+        calls.push(tokio::spawn(async move {
+            gate.wait().await;
+            f.call("rail.rename", json!({"id":id,"name":name}))
+                .await
+                .unwrap();
+        }));
+    }
+    for call in calls {
+        call.await.unwrap();
+    }
+    let changes = crate::common::renames(&mut events);
+    assert_eq!(changes.len(), 2);
+    let mut names: Vec<_> = changes
+        .iter()
+        .map(|(id, name)| {
+            assert_eq!(id, &node.id);
+            name.as_str()
+        })
+        .collect();
+    names.sort_unstable();
+    assert_eq!(names, ["concurrent-a", "concurrent-b"]);
+    assert_eq!(
+        changes.last().unwrap().1,
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .name
+    );
+}
+
+#[tokio::test]
+async fn a2741a_only_committed_rpc_name_changes_are_exposed() {
+    use contracts::{Actor, ActorKind};
+    use rpc::Module;
+    let mut f = Fixture::running("exec sleep 30");
+    let owner = f.spawn(None, None).await.unwrap();
+    let target = f.spawn_as_agent(&owner.id).await;
+    let stranger = f.spawn(None, None).await.unwrap();
+    let workstream = f.workstream("work", None).await;
+    f.changed();
+    let mut events = f.bus.subscribe();
+    let mut agent = f.ctx();
+    agent.actor = Actor {
+        kind: ActorKind::Agent,
+        id: owner.id.clone(),
+        parent: None,
+    };
+    // Named cases share one observation window; the final unrelated rename bounds absence.
+    f.call("rail.rename", json!({"id":target,"name":"by-user"}))
+        .await
+        .unwrap();
+    f.agents
+        .call(
+            &agent,
+            "rail.rename",
+            json!({"id":target,"name":"by-agent"}),
+        )
+        .await
+        .unwrap();
+    f.call("rail.rename", json!({"id":target,"name":"by-agent"}))
+        .await
+        .unwrap(); // same name
+    let denied = f
+        .agents
+        .call(
+            &agent,
+            "rail.rename",
+            json!({"id":stranger.id,"name":"forbidden"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(denied.code, code::FORBIDDEN, "unauthorized Agent");
+    let missing = f
+        .call("rail.rename", json!({"id":"999999","name":"missing"}))
+        .await
+        .unwrap_err();
+    assert_eq!(missing.code, code::NOT_FOUND, "unknown target");
+    let created = f.workstream("created", None).await; // creation
+    f.mv(&created, None, 0).await.unwrap(); // reorder
+    f.mv(&stranger.id, Some(&workstream), 0).await.unwrap(); // move
+    f.call("agent.signal", json!({"id":stranger.id,"attempt":f.attempt(&stranger.id).await,"payload":{"hook_event_name":"Stop"}})).await.unwrap(); // Status
+    f.call("rail.rename", json!({"id":workstream,"name":"barrier"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        crate::common::renames(&mut events),
+        [
+            (target.clone(), "by-user".into()),
+            (target.clone(), "by-agent".into()),
+            (workstream.clone(), "barrier".into())
+        ]
+    );
+    assert_eq!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == stranger.id)
+            .unwrap()
+            .name,
+        stranger.name
+    );
+    // Three successful RPC calls (including same-name), create, reorder, move and barrier.
+    assert_eq!(f.changed(), 7);
+}
+
+#[tokio::test]
+async fn a2741a_workstream_changes_keep_the_door_destination_without_starting() {
+    for running in [true, false] {
+        let f = Fixture::running("echo launch >> \"$(dirname \"$0\")/launches\"; exec sleep 30");
+        let id = f.workstream("sad", None).await;
+        f.call("rail.startDoor", json!({"id":id})).await.unwrap();
+        let launches = crate::common::until_file(&f.dir.path().join("launches")).await;
+        if !running {
+            f.call("agent.stop", json!({"id":id})).await.unwrap();
+        }
+        let before = f.tree().await;
+        let terminals = serde_json::to_value(f.terminals.list()).unwrap();
+        let mut events = f.bus.subscribe();
+        for name in ["sad-2", "sad-3"] {
+            f.call("rail.rename", json!({"id":id,"name":name}))
+                .await
+                .unwrap();
+        }
+        assert_eq!(
+            crate::common::renames(&mut events),
+            [(id.clone(), "sad-2".into()), (id.clone(), "sad-3".into())],
+            "running={running}"
+        );
+        let after = f.tree().await;
+        assert_eq!(
+            after
+                .iter()
+                .map(|n| (&n.id, &n.attempt, &n.terminal_id))
+                .collect::<Vec<_>>(),
+            before
+                .iter()
+                .map(|n| (&n.id, &n.attempt, &n.terminal_id))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(serde_json::to_value(f.terminals.list()).unwrap(), terminals);
+        assert_eq!(
+            std::fs::read_to_string(f.dir.path().join("launches")).unwrap(),
+            launches
+        );
+        assert_eq!(after.iter().find(|n| n.id == id).unwrap().name, "sad-3");
+    }
+}
