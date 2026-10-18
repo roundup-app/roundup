@@ -1,17 +1,22 @@
 /* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
 
+/* U2232: the hint line's row above the tab row. The bar's ground and rule (flat-tab.styles.css) start where it ends, so the tab row keeps the Rail footer's height (--rail-actions-height). */
+:root {
+  --hint-row-height: calc(var(--space-4) + var(--space-1));
+}
+
 /* U444, U2340c: the centre's last line, one line the Terminal's width; it holds its height empty or filled, so the Terminal never moves. */
 .resource-strip {
   position: relative;
   display: grid;
   grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
-  grid-template-rows: calc(var(--space-4) + var(--space-1)) var(--rail-actions-height);
+  grid-template-rows: var(--hint-row-height) var(--rail-actions-height);
   flex: none;
   box-sizing: border-box;
   align-items: center;
   gap: 0 var(--space-3);
   width: 100%;
-  height: calc(var(--space-4) + var(--space-1) + var(--rail-actions-height));
+  height: calc(var(--hint-row-height) + var(--rail-actions-height));
   padding: 0 var(--space-2) 0 0;
   color: var(--grey);
   font-family: var(--font-ui);
@@ -98,7 +103,7 @@
   inline-size: 0;
   min-inline-size: 100%;
   margin: 0 0 var(--space-1);
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   overflow: hidden;
   color: var(--grey);
   line-height: var(--space-4);

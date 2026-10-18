@@ -607,7 +607,7 @@ impl Daemon {
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
         }
-        // X12: a Terminal the user opens is owned by a Workstream, which only the Rail knows.
+        // X12: the Agents module resolves Workstream and Project ownership.
         let namespace = if method == "terminal.open" {
             "agent"
         } else {
@@ -1031,11 +1031,15 @@ impl Daemon {
 
     /// M14: an Agent opens a Terminal only in its own Workstream, one above it or one in its Reach.
     fn guard_terminal_open(&self, actor: &Actor, params: &Value) -> Result<(), RpcError> {
-        match params["workstream"].as_str() {
+        let params: contracts::terminal::OpenParams = rpc::params(params.clone())?;
+        match params.workstream.as_deref() {
             Some(workstream) if actor.kind == ActorKind::Agent => {
                 self.agents
                     .guard_terminal_read(actor, workstream, Some(workstream), false)
             }
+            None if actor.kind != ActorKind::User => Err(RpcError::forbidden(
+                "only the user may open a Project-owned Terminal",
+            )),
             _ => Ok(()),
         }
     }

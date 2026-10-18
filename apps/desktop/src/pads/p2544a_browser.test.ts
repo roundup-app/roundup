@@ -110,3 +110,58 @@ it("p2544a_readonly_blocks_do_not_write", async () => {
   expect(await evaluate("Boolean(document.querySelector('.milkdown-block-handle[data-show=true]'))")).toBe(false);
   expect(await evaluate("window.__fake.app.calls.filter(c => c.method === 'pad.write')")).toEqual([]);
 }, 180_000);
+
+const visualSource = 'Agent prose.\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n\nTail prose.\n';
+
+it("p2544e_visual_blocks_survive_autosave", async () => {
+  await open(false, visualSource);
+  await browser("wait", ".visual-mermaid svg");
+  await browser("wait", ".visual-drawing .excalidraw");
+  await browser("focus", ".ProseMirror");
+  await browser("press", "Control+Home");
+  await browser("keyboard", "type", "Reviewed ");
+  await browser("wait", "[data-state=saved]");
+  const edited = `Reviewed ${visualSource}`;
+  const source = () => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.text)");
+
+  expect(await source()).toBe(edited);
+  await browser("click", ".drawer .close");
+  await browser("eval", "document.querySelectorAll('[data-shelf-row] .pad-name')[3].click()");
+  await browser("wait", ".visual-mermaid svg");
+  await browser("wait", ".visual-drawing .excalidraw");
+  await browser("click", ".visual-mermaid");
+  await browser("wait", ".visual-source.is-open");
+  await browser("press", "End");
+  await browser("press", "ArrowDown");
+  await browser("press", "End");
+  await browser("press", "Backspace");
+  await browser("keyboard", "type", "C");
+  await browser("wait", "[data-state=saved]");
+  expect(await source()).toBe(edited.replace("A-->B", "A-->C"));
+  await browser("click", ".ProseMirror p:first-of-type");
+  await browser("wait", ".visual-mermaid svg");
+  expect(await evaluate("Boolean(document.querySelector('.visual-drawing .excalidraw'))")).toBe(true);
+  await browser("scrollintoview", ".visual-drawing canvas.interactive");
+  await browser("click", ".visual-drawing label:has([data-testid=toolbar-rectangle])");
+
+  const point = await evaluate(`(() => {
+    const rect = document.querySelector('.visual-drawing canvas.interactive').getBoundingClientRect();
+    return {x: Math.round(rect.x + rect.width * 0.65), y: Math.round(rect.y + rect.height * 0.6)};
+  })()`);
+
+  await browser("mouse", "move", String(point.x), String(point.y));
+  await browser("mouse", "down");
+  await browser("mouse", "move", String(point.x + 80), String(point.y + 60));
+  await browser("mouse", "up");
+
+  const afterMermaid = edited.replace("A-->B", "A-->C");
+
+  await expect.poll(source, { timeout: 20_000 }).not.toBe(afterMermaid);
+  await browser("wait", "[data-state=saved]");
+
+  const drawn: string = await source();
+  const drawing = drawn.match(/```excalidraw\n([\s\S]*?)\n```/);
+
+  expect(JSON.parse(drawing?.[1] ?? "null")).toMatchObject({ elements: [{ type: "rectangle" }] });
+  expect(drawn.replace(/```excalidraw\n[\s\S]*?\n```/, '```excalidraw\n{"type":"excalidraw","elements":[]}\n```')).toBe(afterMermaid);
+}, 240_000);

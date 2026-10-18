@@ -32,13 +32,13 @@
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: var(--space-4);
+  height: var(--hint-row-height);
   background-color: var(--ground);
   z-index: -1;
 }
 
 .resource-strip[data-flat-bar]::after {
-  inset: var(--space-4) 0 auto;
+  inset: var(--hint-row-height) 0 auto;
 }
 
 [data-flat-tab] {

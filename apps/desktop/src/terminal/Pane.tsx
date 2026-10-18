@@ -3,7 +3,7 @@ import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { DecisionCard } from "../decisions/DecisionCard";
 import { OrderLine } from "../orders/OrderLine";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -11,7 +11,8 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { TAKE_CONTROL, TAKE_CONTROL_KEYS } from "../keys/chords";
+import { CHORDS, TAKE_CONTROL_KEYS } from "../keys/chords";
+import { KeyChip } from "../keys/KeyChip";
 import { Menu } from "../ui/Menu";
 import type { ToastQueue } from "../toasts/queue";
 import { createSendSelection } from "./sendSelection";
@@ -266,24 +267,26 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const toggle = (): Promise<void> => (taken() ? giveBack() : takeOver());
 
   /** U531: `⌘⏎` takes control of the selected Agent in Watch and gives it back in a Takeover, from anywhere but a text field or a Shelf row button; a Terminal's own input counts as neither. */
+  const ownsTakeControl = (target: EventTarget | null): boolean => {
+    if (!(target instanceof Element)) return true;
+
+    if (target.closest(".shelf-row") && target.closest("button")) return false;
+
+    return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && (inWatch() || taken()));
+  };
+
   registerKeys({ kind: "app" }, [{
-    chords: TAKE_CONTROL,
-    when: (press) => {
-      const target = press.target;
+    action: CHORDS.find((row) => row.keys === TAKE_CONTROL_KEYS)!,
+    when: (press) => ownsTakeControl(press.target),
+    capture: (target) => ({
+      available: () => {
+        const id = terminalId();
 
-      if (!(target instanceof Element)) return true;
-
-      if (target.closest(".shelf-row") && target.closest("button")) return false;
-
-      return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && (inWatch() || taken()));
-    },
-    run: (press) => {
-      const id = terminalId();
-
-      if (press.repeat || !(inWatch() || taken()) || id === null || screens.exited(id) || connected.daemonExit() !== null || selected()?.kind !== "agent") return;
-
-      void toggle();
-    },
+        return ownsTakeControl(target) && (inWatch() || taken()) && id !== null && !screens.exited(id)
+          && connected.daemonExit() === null && selected()?.kind === "agent";
+      },
+      invoke: () => void toggle(),
+    }),
   }]);
 
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
@@ -430,6 +433,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
               <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
                 <Icon name="plus" />{copy.newWorkstreamWord}</button>
+              <ul class="pane-empty-keys">
+                <For each={CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut)}>{(row) => (
+                  <li><span>{row.what}</span><KeyChip keys={row.keys} /></li>
+                )}</For>
+              </ul>
             </div>
           </Show>
         </Show>
