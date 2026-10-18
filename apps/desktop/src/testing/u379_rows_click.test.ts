@@ -23,7 +23,7 @@ afterAll(async () => {
 type Line = { list: string; row: number; line: string; x: number; y: number };
 
 const TAB = `async (list) => {
-  const tab = [...document.querySelectorAll('.shelf [role="tab"]')].find((own) => own.textContent.toLowerCase().startsWith(list));
+  const tab = [...document.querySelectorAll('.shelf-tabs [role="tab"]')].find((own) => own.textContent.toLowerCase().startsWith(list));
   if (tab.getAttribute("aria-selected") !== "true") tab.click();
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
 }`;

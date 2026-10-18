@@ -1,6 +1,6 @@
 # UI: Project tabs and the title share the window bar
 
-Acceptance for #1104. Ids: U449, U450, U451. The user chose one window bar holding the Project tabs and a centred Project / Workstream title, with no new right-side items. Builds before #1093's boxed tabs; this specification changes their placement, not their appearance.
+Acceptance for #1104. Ids: U449, U450, U451. The user chose one window bar holding the Project tabs and a centred Project / Workstream title, with the Shelf’s tabs at the trailing end and nothing else on the right (the user’s decision of 2026-10-18). Builds before #1093's boxed tabs; this specification changes their placement, not their appearance.
 
 Module: the window setup in `crates/desktop` and `apps/desktop/src/header/`. Layout callers (`app/Layout.tsx` and the header, Shelf and overlay rules in `styles.css`) change only as required to put those regions under the bar. No Daemon method or data contract changes. Policy: any App seam command or permission needed for window title, drag or zoom follows the Contract recipe: update every production, fake and real-harness caller in the same PR, name new public identifiers in `GLOSSARY.md`, and obtain independent review. S1 and S9's permission lists may grow only for these window operations; no arbitrary window, socket or program becomes selectable by the webview. Rule 3 still applies to each implementation PR; split native and webview work with a native blocking dependency when needed.
 

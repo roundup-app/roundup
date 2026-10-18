@@ -17,7 +17,7 @@ it("u371_overlay_scrim_fades_with_the_interruptible_slide", async () => {
   const phases = await evaluate<number[][][]>(`(async () => {
     const scrim = () => document.querySelector('.shelf-scrim');
     const sample = () => [performance.now(), scrim() ? Number(getComputedStyle(scrim()).opacity) : -1];
-    const toggle = () => document.querySelector('[aria-label="Hide work items"], [aria-label="Show work items"]').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    const toggle = () => document.querySelector('#shelf-tab-todos').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     const run = async (reverse) => {
       toggle();
       const rows = [sample()];
