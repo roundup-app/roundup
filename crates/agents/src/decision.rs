@@ -1272,7 +1272,7 @@ mod tests {
             shared.open_decision(
                 Actor::daemon(),
                 id,
-                claude_code::permission_request(&json!({"tool_name":"Bash","tool_input":{}})),
+                claude_code::permission_request(&json!({"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{}})),
                 Value::Null,
                 None,
                 "question".into(),
