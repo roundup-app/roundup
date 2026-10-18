@@ -43,7 +43,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   try { await browser("close"); } finally { await server?.close(); rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
-});
+}, 60_000);
 
 const start = async () => {
   await browser("open", new URL("/harness.html?seed=bubbles", origin).href);

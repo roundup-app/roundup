@@ -572,7 +572,7 @@ export const Bubbles = (props: { screens: Screens }) => {
           show(target);
           // The manual popover becomes focusable when Solid commits this turn's visibility change.
           queueMicrotask(() => {
-            if (!readOnly() && rail.selected() === selected && mainTerminal() === main && shown().some((terminal) => terminal.id === target) && !closing().has(target!) && !placeOf(target!).min) props.screens.emulatorFor(target!).focus();
+            if (focus?.isConnected && !readOnly() && rail.selected() === selected && mainTerminal() === main && shown().some((terminal) => terminal.id === target) && !closing().has(target!) && !placeOf(target!).min) props.screens.emulatorFor(target!).focus();
           });
         }
       },

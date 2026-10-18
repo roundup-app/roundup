@@ -19,13 +19,13 @@ const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | n
     : focus.closest("[role=dialog]") ? null
     : focus.closest("[data-bubble]") ? "bubble"
     : focus.closest('[role="tree"]') ? "rail"
-    : inWatchedPane ? "agent"
+    : inWatchedPane || focus.closest(".pane-screen") ? "agent"
     : null;
 };
 
 /** U2230a: the quiet line of the keys that act where focus is, from the same `CHORDS` rows Help lists and the registry binds. */
 export const HintLine = () => {
-  const { rail } = useConnectedProject();
+  const { rail, takeover } = useConnectedProject();
   const [focus, setFocus] = createSignal<Element | null>(null);
   const [watched, setWatched] = createSignal(0);
 
@@ -37,7 +37,7 @@ export const HintLine = () => {
 
   const place = createMemo(() => placeAt(focus(), selectedIsAgent()));
 
-  const watching = () => selectedIsAgent() && document.querySelector(`.pane ${MANAGED}`) != null;
+  const watching = () => selectedIsAgent() && takeover.taken() !== rail.selected() && document.querySelector(`.pane ${MANAGED}`) != null;
 
   const hints = () => {
     const at = place();
