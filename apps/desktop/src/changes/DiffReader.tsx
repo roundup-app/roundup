@@ -1,3 +1,4 @@
+import { copy } from "../copy";
 import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
@@ -71,9 +72,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
       const view = new VirtualizedFileDiff<Note>({
         onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
-          const side = annotationSide === "deletions" ? "old" : "new";
+          const clickedSide = annotationSide === "deletions" ? "old" : "new";
           const old = selection();
-          setSelection({ side, start: event.shiftKey && old.side === side ? Math.min(old.start, lineNumber) : lineNumber, end: event.shiftKey && old.side === side ? Math.max(old.start, lineNumber) : lineNumber });
+          setSelection({ side: clickedSide, start: event.shiftKey && old.side === clickedSide ? Math.min(old.start, lineNumber) : lineNumber, end: event.shiftKey && old.side === clickedSide ? Math.max(old.start, lineNumber) : lineNumber });
           const range = selection();
           view.setSelectedLines({ side: annotationSide, start: range.start, end: range.end });
         },
@@ -105,7 +106,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
       const fileDiff = processFile(patch, { oldFile, newFile, throwOnError: true });
 
-      if (!fileDiff) throw new Error("Unable to render the file comparison");
+      if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
 
       view.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })), fileContainer: container, fileDiff });
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
@@ -114,19 +115,19 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     onCleanup(() => { current = false; dispose?.(); });
   });
 
-  return <section class="diff-reader" aria-label="Diff">
+  return <section class="diff-reader" aria-label={copy.diff}>
     <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
-    <Show when={failure()}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>Retry</button></>}</Show>
-    <Show when={read()} fallback={<Show when={!failure()}><p role="status">Loading diff…</p></Show>}>{value => <>
-      <Show when={value().status !== null} fallback={<p role="status">No remaining difference</p>}>
-        <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"} fallback={<p role="status">Binary file — line notes unavailable</p>}>
-          <Show when={coarse()}><p role="status">Large comparison shown as a complete replacement.</p></Show>
+    <Show when={failure()}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></>}</Show>
+    <Show when={read()} fallback={<Show when={!failure()}><p role="status">{copy.loadingDiff}</p></Show>}>{value => <>
+      <Show when={value().status !== null} fallback={<p role="status">{copy.noDifference}</p>}>
+        <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"} fallback={<p role="status">{copy.binaryDiff}</p>}>
+          <Show when={coarse()}><p role="status">{copy.replacementDiff}</p></Show>
           <div class="diff-content" ref={setHost} />
-          <button type="button" data-button="quiet" onClick={() => { setForm({ comparison: value(), selection: selection() }); }}>Add note</button>
-          <p role="status">Selected {selection().side} {selection().start}–{selection().end}</p>
+          <button type="button" data-button="quiet" onClick={() => { setForm({ comparison: value(), selection: selection() }); }}>{copy.addNote}</button>
+          <p role="status">{copy.selectedLines(selection().side, selection().start, selection().end)}</p>
         </Show>
       </Show>
-      <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>Refresh</button>
+      <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
     </>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
     <NoteBatch id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
