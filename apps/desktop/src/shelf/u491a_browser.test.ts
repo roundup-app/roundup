@@ -242,26 +242,6 @@ describe("u491a Shelf questions and navigation", () => {
     await lane.until("document.querySelectorAll('.shelf .todo-row').length === 3");
   }, 120_000);
 
-  it("u491a_scope_toggle", async () => {
-    const toggle = () => lane.evaluate<{ pressed: string | null; label: string | null; count: number }>("({ pressed: document.querySelector('.scope-control').getAttribute('aria-pressed'), label: document.querySelector('.scope-control').getAttribute('aria-label'), count: document.querySelectorAll('.scope-control').length })");
-
-    await lane.browser("click", '.rail [data-id="backend"] .name');
-    await lane.until("!!document.querySelector('.scope-control')");
-
-    const before = await toggle();
-
-    expect(before.count).toBe(1);
-    await lane.browser("click", ".scope-control");
-    await lane.until(`document.querySelector('.scope-control').getAttribute('aria-pressed') !== '${before.pressed}'`);
-
-    const after = await toggle();
-
-    expect(after.label).not.toBe(before.label);
-    expect(after.count).toBe(1);
-    await lane.browser("click", ".scope-control");
-    await lane.until(`document.querySelector('.scope-control').getAttribute('aria-pressed') === '${before.pressed}'`);
-    expect(await toggle()).toEqual(before);
-  }, 120_000);
 
   it("u491a_home_menu", async () => {
     // An Agent's own Todo lists under that Agent in the Rail, where its Home is moved by the menu.

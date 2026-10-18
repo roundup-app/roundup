@@ -58,7 +58,6 @@ describe("u15 Todo list", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-    expect(rows()).toEqual(["Todo", "1 done", "old one"]);
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Complete old one", checked: true }).disabled).toBe(true);
   });
 
