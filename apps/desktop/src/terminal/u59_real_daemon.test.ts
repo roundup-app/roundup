@@ -63,3 +63,63 @@ run("u59 on the real Daemon", () => {
     expect(["D1", "D6", "D7", "D10"].map((id) => [id, checks[id]!.status, checks[id]!.selector])).toEqual([["D1", "pass", ""], ["D6", "pass", ""], ["D7", "pass", ""], ["D10", "pass", ""]]);
   });
 });
+
+it.runIf(process.env["U2680_REAL"] === "1")("u2680a_u2680b_real_zsh_webgl_selection_observer", async () => {
+  const selectionDaemon = await startRealDaemon({ SHELL: "/bin/zsh", ZDOTDIR: real.dir, HOME: real.dir, skip_global_compinit: "1" }, true);
+
+  const read = <T,>(expression: string) => page.call<T>(`() => (${expression})`);
+  const until = (expression: string) => page.until(`() => (${expression})`);
+
+  const point = (selector: string) => page.call<{ x: number; y: number }>(`selector => {
+    const box = document.querySelector(selector).getBoundingClientRect();
+
+    return { x: Math.round(box.left + 2), y: Math.round(box.top + box.height / 2) };
+  }`, selector);
+
+  const click = async (selector: string) => {
+    const at = await point(selector);
+
+    await page.click(at.x, at.y);
+  };
+
+  const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await page.pointer("move", from.x, from.y);
+    await page.pointer("down", from.x, from.y);
+
+    for (let step = 1; step <= 5; step++) await page.pointer("move", from.x + (to.x - from.x) * step / 5, from.y + (to.y - from.y) * step / 5);
+    await page.pointer("up", to.x, to.y);
+  };
+
+  try {
+    await page.load(`${selectionDaemon.base}/harness.html?daemon=1`, 1512, 950);
+    await until("!!document.querySelector('.terminal-new')");
+    await click(".terminal-new");
+    await until("!!document.querySelector('.bubble:not([hidden]) .xterm-screen canvas')");
+    await page.call("() => { window.__emu = [...window.__terminals.values()][0]; }");
+    await page.call("() => document.querySelector('.bubble:not([hidden]) .xterm-helper-textarea').focus()");
+
+    for (const key of "printf 'alpha bravo charlie delta echo foxtrot %.0s' {1..1000}") await page.press(key, key);
+    await page.press("Enter", "Enter");
+    await until(`(async () => {
+      const id = document.querySelector('.bubble:not([hidden])').dataset.bubble;
+      const response = await fetch('/__daemon/rpc', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method: 'terminal.snapshot', params: { id } }) });
+      const reply = await response.json();
+      return reply.result && atob(reply.result.data).split('alpha bravo charlie delta echo foxtrot').length > 10;
+    })()`);
+    const screen = ".bubble:not([hidden]) .xterm-screen";
+    const at = await point(screen);
+    const from = { x: at.x + 20, y: await read<number>("Math.round(document.querySelector('.bubble:not([hidden]) .xterm-screen').getBoundingClientRect().top + 8)") };
+
+    await drag(from, { x: from.x + 100, y: from.y });
+    expect(await read<string>("window.__emu.selection()")).not.toBe("");
+    expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
+    await click(".bubble-header");
+    expect(await read<string>("window.__emu.selection()")).toBe("");
+    await page.doubleClick(from.x + 20, from.y);
+    expect(await read<string>("window.__emu.selection()")).not.toBe("");
+    await click(".window-title");
+    expect(await read<string>("window.__emu.selection()")).toBe("");
+  } finally {
+    await selectionDaemon.stop();
+  }
+}, 180_000);
