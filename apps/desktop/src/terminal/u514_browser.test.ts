@@ -78,29 +78,45 @@ const doubleAt = async (at: { x: number; y: number }) => {
   await wait("window.__doubleClicked === true");
 };
 
-it("u2680c_chrome_drag_and_double_click_leave_no_browser_selection", async () => {
-  await app();
+const chromeSurfaces = [
+  ".window-title", ".project-tab", ".terminal-tab", ".pane-control-state",
+  '[data-id="migrate"] .name', ".rail-add", ".todo-project-root",
+  ".shelf-tabs", ".shelf-add", ".shelf-title", ".todo-row-button",
+  ".terminal-new", ".resource-num", ".hint-line", ".overview-heading",
+  ".pane-empty", ".pane-empty-keys",
+];
 
-  for (const selector of [".window-title", ".shelf-tabs", ".shelf-add", ".shelf-title", ".terminal-new", ".hint-line", ".pane-empty"]) {
-    await drag(await point(selector), await point(selector, true));
-    expect(await read<boolean>("getSelection().isCollapsed"), selector).toBe(true);
-    await browser("dblclick", selector);
-    expect(await read<boolean>("getSelection().isCollapsed"), selector).toBe(true);
-  }
-}, 180_000);
+it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture => ({ surface, gesture }))))(
+  "u2680c_chrome_drag_and_double_click_leave_no_browser_selection_$surface ($gesture)", async ({ surface, gesture }) => {
+    await app();
 
-it("u2680d_leaving_an_editor_clears_selection_without_changing_text", async () => {
-  await app();
-  await browser("eval", `(() => {
-    const input = document.createElement('input');
-    input.id = 'selection-input';
-    input.value = 'alpha bravo';
-    input.style.position = 'fixed'; input.style.top = '100px'; input.style.left = '500px';
-    document.body.append(input); input.focus(); input.select();
+    if (surface === ".pane-empty-keys") {
+      await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
+    } else if (surface === ".pane-control-state" || surface === ".resource-num") {
+      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="migrate"] .name');
+    } else if (surface === ".terminal-tab") {
+      await browser("click", ".terminal-new");
+      await browser("click", ".window-title");
+    }
+
+    await wait(`!!document.querySelector(${JSON.stringify(surface)})`);
+
+    if (gesture === "drag") await drag(await point(surface), await point(surface, true));
+    else await browser("dblclick", surface);
+
+    expect(await read<boolean>("getSelection().isCollapsed"), surface).toBe(true);
+  }, 90_000);
+
+it.each(["pane-across-shelf", "blank-bubbles-into-pane"])("u2680c_chrome_drag_and_double_click_leave_no_browser_selection_%s", async (surface) => {
+  const selector = await placement("bubble");
+
+  const from = surface === "pane-across-shelf" ? await point(".pane") : await read<{ x: number; y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: Math.ceil(box.right + 20), y: Math.round(box.top + 8) };
   })()`);
-  expect(await read<number>("document.querySelector('#selection-input').selectionEnd - document.querySelector('#selection-input').selectionStart")).toBe(11);
-  await browser("click", ".window-title");
-  expect(await read<{ text: string; selected: number }>("(() => { const input = document.querySelector('#selection-input'); return { text: input.value, selected: input.selectionEnd - input.selectionStart }; })()")).toEqual({ text: "alpha bravo", selected: 0 });
+
+  await drag(from, await point(surface === "pane-across-shelf" ? ".shelf" : ".pane"));
+  expect(await read<boolean>("getSelection().isCollapsed")).toBe(true);
 }, 90_000);
 
 const placement = async (where: "agent" | "door" | "bubble") => {
@@ -161,33 +177,36 @@ it.each(["agent", "door", "bubble"] as const)("u2680a_terminal_boundaries_never_
   }
 }, 180_000);
 
-it.each(["agent", "door", "bubble"] as const)("u2680b_a_click_clears_browser_and_terminal_selections_%s", async (where) => {
+const clickTargets = ["output", "inset", "bottom-strip", ".pane", ".rail", ".shelf-tabs", ".shelf-area", ".window-title", ".resource-strip", ".hint-line", ".terminal-new"];
+
+const clickCases = (["agent", "door", "bubble"] as const).flatMap(where => {
+  const targets = where === "bubble" ? [...clickTargets, ".bubble-header", ...["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(zone => `.bubble-zone[data-zone="${zone}"]`)] : clickTargets;
+
+  return targets.map(target => ({ where, target }));
+});
+
+it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$where ($target)", async ({ where, target }) => {
   const selector = await placement(where);
-  const targets = [selector, ".rail", ".shelf-tabs", ".window-title", ".hint-line"];
+  await browser("dblclick", selector);
+  expect(await read<string>("window.__emu.selection()"), target).not.toBe("");
+  await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.window-title')); getSelection().addRange(range); })()");
 
-  if (where === "bubble") targets.push(".bubble-header", ...["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(zone => `.bubble-zone[data-zone="${zone}"]`));
+  const at = target === "inset" || target === "bottom-strip" ? await read<{ x: number; y: number }>(`(() => {
+    const screen = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    const host = document.querySelector(${JSON.stringify(selector)}).closest('.pane-screen, .bubble-body').getBoundingClientRect();
+    return ${target === "inset" ? "{ x: Math.round(host.left + 1), y: Math.round(host.top + 12) }" : "{ x: Math.round(screen.left + 20), y: Math.floor(host.bottom - 1) }"};
+  })()`) : await point(target === "output" ? selector : target);
 
-  targets.push(".terminal-new");
+  await browser("mouse", "move", String(at.x), String(at.y));
+  await browser("mouse", "down");
+  await browser("mouse", "up");
+  expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })"), target).toEqual({ terminal: "", browser: true });
 
-  for (const target of targets) {
-    await browser("dblclick", selector);
-    expect(await read<string>("window.__emu.selection()"), target).not.toBe("");
-    await browser("eval", "(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('.window-title')); getSelection().addRange(range); })()");
-    const at = await point(target);
+}, 90_000);
 
-    await browser("mouse", "move", String(at.x), String(at.y));
-    await browser("mouse", "down");
-    await browser("mouse", "up");
-    expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })"), target).toEqual({ terminal: "", browser: true });
+const editorKinds = ["pad", "input", "todo", "rename"] as const;
 
-    if (where === "bubble" && await read<boolean>("!document.querySelector('.bubble:not([hidden])')")) {
-      await browser("click", ".terminal-tab");
-      expect(await read<string>("window.__emu.selection()")).toBe("");
-    }
-  }
-}, 180_000);
-
-it.each(["pad", "todo", "rename"] as const)("u2680d_editors_keep_native_selection_and_copy_%s", async (kind) => {
+const editor = async (kind: typeof editorKinds[number]) => {
   await app();
   let selector: string;
 
@@ -203,47 +222,78 @@ it.each(["pad", "todo", "rename"] as const)("u2680d_editors_keep_native_selectio
     await wait("!!document.querySelector('.todo-detail-title p')");
     await browser("dblclick", ".todo-detail-title p");
     selector = '.todo-detail-title textarea';
+  } else if (kind === "input") {
+    await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'selection-input'; input.value = 'alpha bravo charlie'; input.style.position = 'fixed'; input.style.top = '100px'; input.style.left = '500px'; document.body.append(input); })()");
+    selector = '#selection-input';
   } else {
     await browser("dblclick", '[data-id="migrate"] .name');
     selector = '[data-id="migrate"] input';
   }
 
-  const before = await read<string>(`(() => { const editor = document.querySelector(${JSON.stringify(selector)}); return editor.value ?? editor.textContent; })()`);
+  await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
 
-  for (const gesture of ["drag", "double-click"]) {
-    if (!await read<boolean>(`!!document.querySelector(${JSON.stringify(selector)})`)) {
-      await browser("dblclick", kind === "todo" ? ".todo-detail-title p" : '[data-id="migrate"] .name');
-    }
+  return selector;
+};
 
-    if (gesture === "drag") {
-      const from = await read<{ x: number; y: number }>(`(() => {
-        const editor = document.querySelector(${JSON.stringify(selector)});
-        const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();
-        return { x: Math.round(${kind === "rename" ? "box.right - 8" : "box.left + 4"}), y: Math.round(box.top + (editor.matches('input, textarea') ? box.height / 2 : 8)) };
-      })()`);
+it.each(editorKinds)("u2680d_leaving_an_editor_clears_selection_without_changing_text_%s", async (kind) => {
+  const selector = await editor(kind);
 
-      await drag(from, { x: from.x + (kind === "rename" ? -35 : 25), y: from.y });
-    } else if (kind === "pad") {
-      const at = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: Math.round(box.left + 15), y: Math.round(box.top + 8) }; })()");
+  if (kind === "pad") {
+    const at = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: Math.round(box.left + 15), y: Math.round(box.top + 8) }; })()");
 
-      await doubleAt(at);
-    } else await browser("dblclick", selector);
+    await doubleAt(at);
+  } else await browser("dblclick", selector);
 
-    const text = await read<string>(`(() => {
+  await browser("eval", `void (window.__editor = document.querySelector(${JSON.stringify(selector)}))`);
+  const selected = "window.__editor instanceof HTMLInputElement || window.__editor instanceof HTMLTextAreaElement ? window.__editor.value.slice(window.__editor.selectionStart, window.__editor.selectionEnd) : getSelection().toString()";
+  const before = await read<string>("window.__editor.value ?? window.__editor.textContent");
+  expect(await read<string>(selected)).not.toBe("");
+  await browser("click", ".window-title");
+  expect(await read<string>(selected)).toBe("");
+  expect(await read<string>("window.__editor.value ?? window.__editor.textContent")).toBe(before);
+}, 90_000);
+
+it.each(editorKinds.flatMap(kind => ["drag", "double-click"].map(gesture => ({ kind, gesture }))))("u2680d_editors_keep_native_selection_and_copy_$kind ($gesture)", async ({ kind, gesture }) => {
+  const selector = await editor(kind);
+
+  if (gesture === "drag") {
+    const from = await read<{ x: number; y: number }>(`(() => {
       const editor = document.querySelector(${JSON.stringify(selector)});
-      window.__editor = editor;
-      return editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement
-        ? editor.value.slice(editor.selectionStart, editor.selectionEnd) : getSelection().toString();
+      const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();
+      return { x: Math.round(${kind === "rename" ? "box.right - 8" : "box.left + 4"}), y: Math.round(box.top + (editor.matches('input, textarea') ? box.height / 2 : 8)) };
     })()`);
 
-    expect(text, `${kind} ${gesture}`).not.toBe("");
-    await browser("clipboard", "copy");
-    await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()");
-    await browser("press", "Control+V");
-    expect(await read<string>("document.querySelector('#copy-result').value"), `${kind} ${gesture}`).toBe(text);
-    await browser("eval", "document.querySelector('#copy-result').remove(); window.__editor.focus()");
-  }
+    await drag(from, { x: from.x + (kind === "rename" ? -35 : 25), y: from.y });
+  } else if (kind === "pad") {
+    const at = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: Math.round(box.left + 15), y: Math.round(box.top + 8) }; })()");
 
-  await browser("click", ".window-title");
-  expect(await read<{ selected: string; text: string }>("({ selected: !window.__editor.isConnected ? '' : window.__editor instanceof HTMLTextAreaElement || window.__editor instanceof HTMLInputElement ? window.__editor.value.slice(window.__editor.selectionStart, window.__editor.selectionEnd) : getSelection().toString(), text: window.__editor.value ?? window.__editor.textContent })")).toEqual({ selected: "", text: before });
+    await doubleAt(at);
+  } else await browser("dblclick", selector);
+
+  const text = await read<string>(`(() => {
+    const editor = document.querySelector(${JSON.stringify(selector)});
+    window.__editor = editor;
+    return editor instanceof HTMLInputElement || editor instanceof HTMLTextAreaElement
+      ? editor.value.slice(editor.selectionStart, editor.selectionEnd) : getSelection().toString();
+  })()`);
+
+  expect(text, `${kind} ${gesture}`).not.toBe("");
+  await browser("clipboard", "copy");
+  await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()");
+  await browser("press", "Control+V");
+  expect(await read<string>("document.querySelector('#copy-result').value"), `${kind} ${gesture}`).toBe(text);
+  await browser("eval", "document.querySelector('#copy-result').remove(); window.__editor.focus()");
+
 }, 120_000);
+
+it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
+  const selector = await placement("bubble");
+  await browser("dblclick", selector);
+  expect(await read<string>("window.__emu.selection()")).not.toBe("");
+  await browser("click", ".window-title");
+  await wait("!document.querySelector('.bubble:not([hidden])')");
+  expect(await read<string>("window.__emu.selection()")).toBe("");
+  await browser("click", ".terminal-tab");
+  await wait("!!document.querySelector('.bubble:not([hidden])')");
+  expect(await read<string>("window.__emu.selection()")).toBe("");
+}, 90_000);
