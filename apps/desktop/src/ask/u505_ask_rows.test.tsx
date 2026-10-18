@@ -14,10 +14,12 @@ describe("u505 an Ask row shows progress from Agent state", () => {
       typed,
     ]);
 
-    await waitFor(() => expect(rowTexts()).toEqual(["ship it | ops | Needs-you", "later | lead | Queued for the supervisor"]));
+    await waitFor(() => expect(rowTexts()).toEqual(["ship it | ops | SentNeeds-you", "later | lead | Queued for the supervisor"]));
 
     app.emit(event({ name: "ask.changed", data: { ask: ask("a0", 1, [{ text: "later", placement: { kind: "routed", workstream: "lead" }, state: "typed" }]) } }));
-    await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | Idle"));
+    await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | SentIdle"));
+    app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2 } } }));
+    await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | SentWorking"));
   });
 
   it("u505_selecting_a_row_selects_its_workstream", async () => {

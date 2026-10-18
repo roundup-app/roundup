@@ -264,7 +264,7 @@ impl Agents {
                 ));
             }
             self.shared
-                .prompt(&id, &order::steer(&order, None), None, None, false)
+                .prompt(&id, &order::steer(&order, None), None, None, false, None)
                 .await
                 .map_err(|err| match err {
                     SteerError::Refused(reason) => {
@@ -283,7 +283,7 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text, None, None, false).await {
+                if let Err(err) = shared.prompt(&id, &text, None, None, false, None).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });
