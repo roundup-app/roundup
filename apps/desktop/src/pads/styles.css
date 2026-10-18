@@ -302,6 +302,10 @@
   pointer-events: none;
 }
 
+.pad-block-menu > .milkdown {
+  background: none;
+}
+
 .pad-block-menu .milkdown-slash-menu {
   pointer-events: auto;
 }
