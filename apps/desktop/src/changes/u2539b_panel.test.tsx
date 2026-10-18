@@ -98,5 +98,6 @@ describe("U2539b", () => {
     const stops = [...host.shadowRoot!.querySelectorAll<HTMLElement>("[tabindex]")].filter((element) => element.tabIndex >= 0);
 
     expect(stops.length).toBe(1);
+    await waitFor(() => expect(host.shadowRoot!.activeElement).toBe(stops[0]));
   });
 });
