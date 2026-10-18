@@ -15,7 +15,7 @@ const Root = (props: {
 }) => {
   const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label }));
 
-  return <Popover.Root open={props.items.length > 0} positioning={{ sameWidth: true, strategy: "fixed" }}>
+  return <Popover.Root open={props.items.length > 0} positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}>
     <ArkListbox.Root collection={collection()} value={[]} highlightedValue={props.highlightedValue ?? undefined} typeahead={false}
       onHighlightChange={(details) => props.onHighlightChange(details.highlightedValue)}
       onValueChange={(details) => {

@@ -67,7 +67,7 @@ export const AskBar = () => {
   }]);
   registerKeys({ kind: "layer", element: () => panel, active: over, modal: true }, [
     { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
-    { chords: ASK_CLOSE, run: () => close(true) },
+    { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
   const send = (): void => {
