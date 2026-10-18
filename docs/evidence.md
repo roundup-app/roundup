@@ -102,3 +102,14 @@ The shim negotiates MCP 2025-11-25: installed Claude rejects the old
 `elicitation/create` request in its 2026 protocol. rmcp 3.5.1 supplies the upstream
 [bootstrap-neutral discovery fix](https://github.com/modelcontextprotocol/rust-sdk/releases/tag/rmcp-v3.5.1)
 that permits the supported negotiation without a custom protocol implementation.
+
+## A2698a Ask delivery and local commands
+
+At 1512×950, an isolated headless agent-browser observed the App against the real Daemon and a temporary copy of `crates/rup/tests/e2e/fake_claude.py`. That copy handles `/clear` with `SessionStart` and no submit, holds `/held` until a release file appears, and injects refusal for `/model` by emitting no acceptance. These are controlled Adapter observations, not claims about running real Claude Code.
+
+- `/clear` reached Sent with Idle and remained typed through subsequent commands and acceptance bounds: [screen](../artifacts/ux/A2698a/head/real-clear.png), [rows](../artifacts/ux/A2698a/head/real-clear.rows.json).
+- `/held` showed Sent before its submit was released: [screen](../artifacts/ux/A2698a/head/real-held.png), [rows](../artifacts/ux/A2698a/head/real-held.json).
+- The injected refusal reached Failed with its Agent-naming reason and all three recovery actions; Drop changed it to dropped: [screen](../artifacts/ux/A2698a/head/real-refusal.png), [rows](../artifacts/ux/A2698a/head/real-refusal.rows.json). D1–D14 pass on the [real refusal screen](../artifacts/ux/A2698a/head/real-refusal.checks.json).
+- On `tree-40`, the failed reason and recovery controls remain visible, alongside Sent and the live Kind: [before](../artifacts/ux/A2698a/base/dense.png), [after](../artifacts/ux/A2698a/head/dense.png). D2/D5 pass. D6/D7 fail on `input.todo-tick` on both baseline `9ae183686` and the changed App; D10 reports those failures. All other Checks keep passing. `loop/rules.sh delta` reports no regression; the Ask controls add no D6 failure.
+
+The behavioral observers are A2698a's named A41/H11 and U505/U506 tests. The existing tests in those files retain distinct proofs (byte framing, durable claim, ordinary instruction acceptance, ordering, selection, refusal reason and waiting-part recovery); no complete proof is replaced, so none was removed. The ordinary lost-submit observer additionally rejects local-command Signals; the existing live-row observer now checks immediate Sent and subsequent activity changes.
