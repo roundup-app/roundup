@@ -88,8 +88,11 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   fireEvent.click(screen.getByRole("button", { name: "topic" }));
   expect((await screen.findByRole("alert")).textContent).toContain("worktree_missing: /p/a");
   expect(rowOf("b").querySelector("[data-state=ahead]")?.textContent).toBe("5 ahead");
+  const unavailable = await screen.findByLabelText("Worktree state unavailable");
+  expect(unavailable.dataset.state).toBe("unavailable");
   failed = false;
   setNow(100_000_000_015_000);
   await screen.findByText("5 ahead, 2 behind");
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByLabelText("Worktree state unavailable")).toBeNull();
 });

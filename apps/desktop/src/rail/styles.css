@@ -718,25 +718,43 @@
   border-radius: var(--tree-row-radius);
 }
 
-/* U2556c: passive Worktree state stays beside the name, ahead of row actions. */
+/* U2556c: reserve actions so hover and selection never move Worktree state. */
 .worktree-ahead {
-  padding-inline: var(--space-1);
   flex: none;
   cursor: default;
+  color: var(--grey);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-row[data-selected="true"] .worktree-ahead {
+  color: var(--text);
 }
 
 .rail-row .row-name-state {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   min-width: 0;
   gap: var(--space-2);
 }
-.rail-row[data-near="true"] .row-name-state {
-  flex: 1 1 0;
-}
-.rail-row[data-near="true"] .row-name-state .name {
+.rail-row .row-name-state .name {
   flex: 0 1 auto;
+  min-width: 0;
 }
-.rail-row .row-name-state:has(.worktree-ahead) + .row-tail {
-  margin-left: var(--space-3);
+.rail-row:has(.row-name-state) .row-icons {
+  position: static;
+  transform: none;
+}
+.rail-row:has(.row-name-state) .line {
+  gap: var(--space-1);
+}
+.rail-row:has(.row-name-state) .line > :first-child {
+  margin-right: calc(var(--rail-gap) - var(--space-1));
+}
+.rail-row:has(.row-name-state) .line > .fill {
+  display: none;
+}
+.rail-row .row-name-state + .row-tail {
+  margin-left: var(--space-4);
 }

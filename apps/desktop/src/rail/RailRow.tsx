@@ -95,6 +95,8 @@ export const RailRowView = (props: {
 }) => {
   const { worktrees } = useConnectedProject();
 
+  const worktreeFailure = () => worktrees.read(props.row.node.id)?.failure;
+
   const ahead = () => {
     const read = worktrees.read(props.row.node.id);
 
@@ -230,7 +232,10 @@ export const RailRowView = (props: {
               <span class="row-name-state">
                 {name()}
                 <Show when={ahead() > 0}>
-                  <span class="key-chip worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(ahead())}>{copy.worktreeAhead(ahead())}</span>
+                  <span class="worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(ahead())}>{copy.worktreeAhead(ahead())}</span>
+                </Show>
+                <Show when={worktreeFailure()}>
+                  <span class="worktree-ahead" data-state="unavailable" aria-label={copy.worktreeUnavailable}>—</span>
                 </Show>
               </span>
             }>{name()}</Show>
