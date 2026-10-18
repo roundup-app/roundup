@@ -14,6 +14,19 @@ impl Agents {
             .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
     }
 
+    /// U2539a: what the Agent's Worktree changed against its Base. Reads only.
+    pub(super) async fn changed_files(&self, id: &str) -> Result<ChangedFiles, RpcError> {
+        let record = self.shared.node(id)?.worktree;
+        let Some(record) = record else {
+            return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
+        };
+        let git = self.shared.git.bounded();
+        let worktree = worktree::Worktree::from(&record);
+        tokio::task::spawn_blocking(move || git.changed_files(&worktree))
+            .await
+            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
+    }
+
     /// G4: land the Agent's branch on its Base, after the Project's `check` passes in the Worktree.
     pub(super) async fn land(&self, id: &str) -> Result<Landed, RpcError> {
         let record = self.shared.node(id)?.worktree;

@@ -180,9 +180,9 @@ fn open_target(target: open::Target) -> Result<(), RpcError> {
 }
 
 #[tauri::command]
-async fn open_in_editor(path: String) -> Result<(), RpcError> {
+async fn open_in_editor(path: String, line: Option<u32>) -> Result<(), RpcError> {
     // LaunchServices discovery waits for the system, so it must not block the window's event loop.
-    tauri::async_runtime::spawn_blocking(move || open::open_in_editor(&path))
+    tauri::async_runtime::spawn_blocking(move || open::open_in_editor(&path, line))
         .await
         .map_err(|error| RpcError::new(rpc::code::INTERNAL, error.to_string()))?
 }

@@ -1,5 +1,6 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 import type { Brief as agent_Brief } from "./agent/Brief";
+import type { ChangedFiles as agent_ChangedFiles } from "./agent/ChangedFiles";
 import type { Context as agent_Context } from "./agent/Context";
 import type { CreateWorkstreamParams as agent_CreateWorkstreamParams } from "./agent/CreateWorkstreamParams";
 import type { Digest as agent_Digest } from "./agent/Digest";
@@ -159,6 +160,7 @@ export type RpcMethods = {
   "agent.prompt": { params: agent_PromptParams; result: null | agent_HeldAction };
   "agent.interrupt": { params: agent_NodeId; result: null | agent_HeldAction };
   "agent.worktreeState": { params: agent_NodeId; result: agent_WorktreeState };
+  "agent.changedFiles": { params: agent_NodeId; result: agent_ChangedFiles };
   "agent.land": { params: agent_NodeId; result: agent_Landed };
   "agent.discard": { params: agent_NodeId; result: null };
   "agent.context": { params: agent_NodeId; result: agent_Context };
