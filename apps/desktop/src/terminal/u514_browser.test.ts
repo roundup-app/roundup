@@ -297,3 +297,35 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
   await wait("!!document.querySelector('.bubble:not([hidden])')");
   expect(await read<string>("window.__emu.selection()")).toBe("");
 }, 90_000);
+
+
+it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and_copy_%s", async (content) => {
+  await app();
+  let selector: string;
+
+  if (content === "pad") {
+    await browser("click", "#shelf-tab-pads");
+    await wait("!!document.querySelector('.pad-name')");
+    await browser("click", ".pad-name");
+    selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
+  } else {
+    await browser("open", url("/harness.html?seed=decisions&renderer=dom"));
+    selector = "pre.decision-args";
+  }
+
+  await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
+  const from = await read<{ x: number; y: number }>(`(() => {
+    const range = document.createRange();
+    range.selectNodeContents(document.querySelector(${JSON.stringify(selector)}));
+    const box = range.getClientRects()[0];
+    return { x: Math.ceil(box.left + 1), y: Math.round(box.top + box.height / 2) };
+  })()`);
+  await drag(from, { x: from.x + 55, y: from.y });
+  const text = await read<string>("getSelection().toString()");
+
+  expect(text).not.toBe("");
+  await browser("clipboard", "copy");
+  await browser("eval", "(() => { const input = document.createElement('input'); input.id = 'copy-result'; input.style.position = 'fixed'; input.style.top = '50px'; document.body.append(input); input.focus(); })()");
+  await browser("press", "Control+V");
+  expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
+}, 120_000);
