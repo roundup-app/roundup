@@ -1,18 +1,18 @@
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
 import "./styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 
-type SpawnRead = { prompt: string | null; error: string | null };
+type SpawnRead = { id: string; prompt: string | null; error: string | null };
 
 type WorkOrder = Extract<Order, { kind: "work" }>;
 
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
-export const OrderDrawer = (props: { id: string }) => {
+export const OrderDrawer = (props: { id: string; inline?: boolean }) => {
   const { rail, app } = useConnectedProject();
   const node = () => rail.nodes.find((each) => each.id === props.id);
   const order = () => node()?.work ?? null;
@@ -20,16 +20,18 @@ export const OrderDrawer = (props: { id: string }) => {
   const [editing, setEditing] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
 
-  /** O10: read when the Drawer opens, never on the Rail; a failed read keeps its text. */
-  const [spawn] = createResource(() => props.id, async (id): Promise<SpawnRead> => {
+  /** O10, U83: read on opening the order or selecting a closed Agent; a failed read keeps its text. */
+  const [read] = createResource(() => props.id, async (id): Promise<SpawnRead> => {
     try {
       const answer = await app.rpc("agent.spawnPrompt", { id });
 
-      return { prompt: answer.prompt, error: null };
+      return { id, prompt: answer.prompt, error: null };
     } catch (thrown) {
-      return { prompt: null, error: thrown instanceof Error ? thrown.message : copy.thePromptCouldNotBeRead };
+      return { id, prompt: null, error: thrown instanceof Error ? thrown.message : copy.thePromptCouldNotBeRead };
     }
   });
+
+  const spawn = () => read()?.id === props.id ? read() : undefined;
 
   let editButton: HTMLButtonElement | undefined;
 
@@ -141,9 +143,29 @@ export const OrderDrawer = (props: { id: string }) => {
 
   return (
     <section
-      class="order-drawer"
+      class={props.inline ? "order-overview" : "order-drawer"}
       aria-label={copy.fullOrderOf(node()?.name ?? props.id)}
     >
+      <Show when={props.inline ? node()?.overview : undefined}>
+        {(overview) => <header class="overview-session">
+          <p class="light">{overview().program}</p>
+          <Show when={overview().name}>{(name) => <h2>{name()}</h2>}</Show>
+          <p class="overview-id">{overview().id}</p>
+          <Show when={overview().used !== undefined && overview().limit !== undefined && overview().limit! > 0}>
+            <div class="overview-context">
+              <span>{copy.contextUse(overview().used!, overview().limit!)}</span>
+              <meter aria-label={copy.context} aria-valuenow={overview().used} aria-valuemax={overview().limit} min={0} max={overview().limit} value={overview().used} />
+              <span>{copy.percent(Math.round(overview().used! / overview().limit! * 100))}</span>
+            </div>
+          </Show>
+          <div class="overview-card">
+            <Show when={overview().card?.intent}>{(text) => <section><h3>{copy.cardIntent}</h3><Markdown body={text()} /></section>}</Show>
+            <Show when={overview().card?.shape}>{(text) => <section><h3>{copy.cardShape}</h3><Markdown body={text()} /></section>}</Show>
+            <Show when={overview().card?.facts?.length}><section><h3>{copy.cardFacts}</h3><ul><For each={overview().card?.facts}>{(fact) => <li><Markdown body={fact} /></li>}</For></ul></section></Show>
+            <Show when={overview().card?.outcome}>{(text) => <section><h3>{copy.cardOutcome}</h3><Markdown body={text()} /></section>}</Show>
+          </div>
+        </header>}
+      </Show>
       <Switch>
         <Match when={order()} keyed>
           {(each) =>
@@ -152,19 +174,8 @@ export const OrderDrawer = (props: { id: string }) => {
                 <Show when={editing()} fallback={shown(each)}>
                   {editor(each)}
                 </Show>
-                <Show when={spawn()?.prompt ?? spawn()?.error}>
-                  {(text) => (
-                    <details class="order-prompt">
-                      <summary>{copy.prompt}</summary>
-                      <Show
-                        when={spawn()?.error === null}
-                        fallback={<p class="order-prompt-error">{text()}</p>}
-                      >
-                        <Markdown class="order-prompt-body" body={text()} />
-                      </Show>
-                    </details>
-                  )}
-                </Show>
+                <Show when={props.inline && each.limits.length > 0}><section><h3>{copy.orderLimits}</h3><ul><For each={each.limits}>{(limit) => <li><Markdown body={limit} /></li>}</For></ul></section></Show>
+
               </>
             ) : (
               <Markdown class="order-ask" body={each.question} />
@@ -172,6 +183,25 @@ export const OrderDrawer = (props: { id: string }) => {
           }
         </Match>
       </Switch>
+      <Show when={(props.inline || order()?.kind === "work") && (spawn()?.prompt ?? spawn()?.error)}>
+        {(text) => (
+          <Show when={props.inline} fallback={
+            <details class="order-prompt">
+              <summary>{copy.prompt}</summary>
+              <Show when={spawn()?.error === null} fallback={<p class="order-prompt-error">{text()}</p>}>
+                <Markdown class="order-prompt-body" body={text()} />
+              </Show>
+            </details>
+          }>
+            <section class="order-prompt">
+              <h3>{copy.prompt}</h3>
+              <Show when={spawn()?.error === null} fallback={<p class="order-prompt-error">{text()}</p>}>
+                <Markdown class="order-prompt-body" body={text()} />
+              </Show>
+            </section>
+          </Show>
+        )}
+      </Show>
     </section>
   );
 };

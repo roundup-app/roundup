@@ -200,6 +200,30 @@ export const createXtermEmulators = (
       cmdHeld = false;
     };
 
+    // Capture reaches Bubble resize edges even when their handlers stop propagation.
+    const clearOldSelection = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+
+      window.getSelection()?.removeAllRanges();
+      const target = event.target;
+
+      // Selection controls consume their Excerpt before the click clears the highlight.
+      if (target instanceof Element && target.closest(".send-to-agent, [role=menu]")) return;
+
+      terminal.clearSelection();
+    };
+
+    let clearAfterAction: ReturnType<typeof setTimeout> | undefined;
+
+    const selectionAction = (event: MouseEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Element) || !event.target.closest(".send-to-agent, [role=menu]")) return;
+
+      clearTimeout(clearAfterAction);
+      clearAfterAction = setTimeout(() => terminal.clearSelection(), 0);
+    };
+
+    window.addEventListener("pointerdown", clearOldSelection, true);
+    window.addEventListener("click", selectionAction, true);
     window.addEventListener("keydown", trackCmd);
     window.addEventListener("keyup", trackCmd);
     window.addEventListener("blur", dropCmd);
@@ -350,6 +374,9 @@ export const createXtermEmulators = (
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
         scheme?.removeEventListener("change", followScheme);
+        window.removeEventListener("pointerdown", clearOldSelection, true);
+        window.removeEventListener("click", selectionAction, true);
+        clearTimeout(clearAfterAction);
         window.removeEventListener("keydown", trackCmd);
         window.removeEventListener("keyup", trackCmd);
         window.removeEventListener("blur", dropCmd);
