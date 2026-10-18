@@ -383,6 +383,21 @@ expect_exit 0 'a code PR with Closes #1 passes' loop/rules.sh scenario-closes 12
 closes_pr 'Refs: #1' scenarios/a.md; echo y >>scenarios/a.md; commit 'fixes #1' 'Author-Agent: builder'
 expect_exit 1 'a scenario-only PR with Fixes #1 in a commit message fails' loop/rules.sh scenario-closes 12
 
+# L46 empty-diff: a head with no net change against main merges nothing, unless its body closes an Issue.
+empty_pr() { # <body>
+  gate_repo; git reset -q --hard main; git commit -q --allow-empty -m nothing -m 'Author-Agent: builder'
+  gate_set --arg body "$1" '.body=$body'
+}
+empty_pr 'Refs #1'
+expect_exit 1 'l46_an_empty_pr_that_only_refs_its_issue_fails' loop/rules.sh empty-diff 12
+expect pass 'l46_the_empty_failure_names_closes' gate_error_contains 'Closes #N' loop/rules.sh empty-diff 12
+empty_pr 'Closes #1'
+expect_exit 0 'l46_an_empty_pr_that_closes_its_issue_passes' loop/rules.sh empty-diff 12
+gate_repo; gate_set '.body="Refs #1"'
+expect_exit 0 'l46_a_pr_with_a_net_change_passes' loop/rules.sh empty-diff 12
+gate_repo; git revert --no-edit HEAD >/dev/null 2>&1; gate_set '.body="Refs #1"'
+expect_exit 1 'l46_a_pr_that_reverts_its_own_change_fails' loop/rules.sh empty-diff 12
+
 # L41
 src_repo() { new_repo; mkdir -p apps/desktop/src/rail apps/desktop/src/terminal apps/desktop/src/testing; }
 tokens_with() { src_repo; printf '%b\n' "$2" >"apps/desktop/src/$1"; commit x; }
