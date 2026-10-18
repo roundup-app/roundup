@@ -130,18 +130,9 @@
 }
 
 .todo-tick:disabled { cursor: default; }
-.todo-tick:hover { background-color: var(--hover); }
-.todo-tick:active {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-/* Keep the opaque inset below the state layer so the grey ring stays hollow. */
-.todo-tick:hover:not(:checked)::after {
-  background-image: linear-gradient(var(--hover), var(--hover));
-}
-.todo-tick:active:not(:checked)::after {
-  background-image: linear-gradient(var(--pressed), var(--pressed));
-}
+/* Hover and press show through the ring's ink, never a fill. */
+.todo-tick:hover:not(:checked):not(:disabled)::before { background-color: var(--text); }
+.todo-tick:active:not(:checked):not(:disabled)::before { background-color: var(--ink-pressed); }
 
 .shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
   grid-column: 1;

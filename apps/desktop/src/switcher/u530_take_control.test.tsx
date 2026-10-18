@@ -49,6 +49,6 @@ describe("u530 ⇧⏎ in the Switcher takes control", () => {
     await waitFor(() => expect(failures.at(-1)).toBe("Cy is done"));
     expect(connected.rail.selected()).toBe("cy");
     expect(connected.takeover.taken()).toBeNull();
-    expect(document.querySelector(".pane-watch")).not.toBeNull();
+    expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull();
   });
 });

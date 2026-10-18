@@ -480,3 +480,53 @@ fn g9_preparation_timeout_restores_earlier_moves() {
     assert!(!first.path.exists());
     assert!(!second.path.exists());
 }
+
+#[test]
+fn g2542d_enrolled_removal_and_rollback_retain_the_directory() {
+    let (dir, git, w) = repository();
+    git.set_enrolled(std::slice::from_ref(&w.path));
+    let directory = identity(&w.path);
+    let file = identity(&w.path.join("ignored"));
+    let reference = format!("refs/heads/{}", w.branch);
+    let tip = git.run(dir.path(), &["rev-parse", &reference]).unwrap();
+
+    // Rolled back: nothing moved, nothing deleted.
+    let removal = git
+        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .unwrap();
+    assert_eq!(identity(&w.path), directory);
+    removal.restore(&git, dir.path()).unwrap();
+    assert_eq!(identity(&w.path.join("ignored")), file);
+    assert_eq!(
+        git.run(dir.path(), &["rev-parse", &reference]).unwrap(),
+        tip
+    );
+
+    // Removed: the branch goes, the directory parks on its tip with the ignored file.
+    let mut removal = git
+        .prepare_removal(dir.path(), std::slice::from_ref(&w))
+        .unwrap();
+    removal.remove(&git, dir.path()).unwrap();
+    assert_eq!(identity(&w.path), directory);
+    assert_eq!(identity(&w.path.join("ignored")), file);
+    assert!(git.run(&w.path, &["symbolic-ref", "-q", "HEAD"]).is_err());
+    assert_eq!(git.run(&w.path, &["rev-parse", "HEAD"]).unwrap(), tip);
+    assert!(
+        git.run(dir.path(), &["rev-parse", "--verify", &reference])
+            .is_err()
+    );
+
+    // A failed metadata restore keeps the directory and says how to resume.
+    git.run(
+        &w.path,
+        &["commit", "-q", "--allow-empty", "-m", "moved on"],
+    )
+    .unwrap();
+    let err = removal.restore(&git, dir.path()).unwrap_err();
+    assert!(
+        err.message.contains("kept; to resume run `git -C"),
+        "{}",
+        err.message
+    );
+    assert_eq!(identity(&w.path.join("ignored")), file);
+}

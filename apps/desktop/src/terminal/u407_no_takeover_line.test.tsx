@@ -7,7 +7,7 @@ import { mountPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const line = () => document.querySelector(".pane-takeover");
+const line = () => document.querySelector('.pane-control[data-state="controlled"]');
 
 const flagged = () => document.querySelector(".pane")!.hasAttribute("data-takeover");
 
