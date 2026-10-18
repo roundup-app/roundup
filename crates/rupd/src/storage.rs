@@ -82,6 +82,32 @@ mod tests {
         include!("../tests/support/store_migrations.rs");
     }
 
+    #[test]
+    fn n2705a_a_fresh_project_stores_a_sender_name() {
+        let dir = tempfile::tempdir().unwrap();
+        open(dir.path()).unwrap();
+        let db = Connection::open(dir.path().join("project.db")).unwrap();
+        let count: i64 = db
+            .query_row("SELECT count(*) FROM message_sender_names", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0);
+        db.execute(
+            "INSERT INTO message_sender_names(agent, name) VALUES (?1, ?2)",
+            params!["7013", "sad"],
+        )
+        .unwrap();
+        let name: String = db
+            .query_row(
+                "SELECT name FROM message_sender_names WHERE agent = ?1",
+                ["7013"],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(name, "sad");
+    }
+
     #[tokio::test]
     async fn n16_all_stores_share_one_project_database() {
         use crate::{Conn, Daemon};
