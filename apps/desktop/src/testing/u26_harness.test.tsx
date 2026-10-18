@@ -7,6 +7,7 @@ import { SEEDS, seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
+import { KindGlyph } from "../ink/KindGlyph";
 import { showShelfTab } from "./shelfTabs";
 
 const NOW = 1_700_000_000_000;
@@ -289,4 +290,42 @@ describe("u26 the Daemon's rail methods", () => {
 
     await expect(app.rpc("rail.rename", { id: "nope", name: "x" })).rejects.toMatchObject({ code: -32001 });
   });
+});
+
+
+it("u3704_marked_kind_glyphs_and_counts", async () => {
+  for (const seed of ["tree-40", "agents-10", "door-stopped", "tabs-8", "bubbles"] as const) {
+    mount(seed);
+    await rail();
+    await waitFor(() => expect(document.querySelectorAll('.rail-row .glyph[role="img"]').length).toBeGreaterThan(0));
+
+    const assertStates = (surface: Element) => {
+      const states = [...surface.querySelectorAll<HTMLElement>("[data-state]")];
+
+      expect(states.length, seed).toBeGreaterThan(0);
+      expect(states.filter((state) => state.matches('.glyph')).length).toBe(surface.querySelectorAll('.glyph[role="img"]').length);
+      for (const state of states) {
+        expect(state.getAttribute("role")).not.toBe("button");
+        expect([null, "-1"]).toContain(state.getAttribute("tabindex"));
+        expect(state.matches("button, a, input")).toBe(false);
+      }
+    };
+
+    assertStates(await rail());
+    const count = document.querySelector(".ink-count");
+
+    if (count) expect(count.hasAttribute("data-state")).toBe(true);
+    const collapse = document.querySelector('button[aria-label="Collapse"]');
+
+    if (collapse) {
+      fireEvent.click(collapse);
+      await waitFor(() => expect(document.querySelector('.folded-agents')).not.toBeNull());
+      expect(document.querySelector('.folded-agents')!.hasAttribute("data-state")).toBe(true);
+      assertStates(await rail());
+    }
+    cleanup();
+  }
+  const { container } = render(() => <KindGlyph kind="working" decorative />);
+
+  expect(container.querySelector("[data-state]")).toBeNull();
 });
