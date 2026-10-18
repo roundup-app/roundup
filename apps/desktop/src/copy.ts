@@ -214,6 +214,7 @@ export const copy = {
   branch: "Branch",
   base: "Base",
   worktreeState: "State",
+  worktreeUnavailableMark: "—",
   worktreeUnavailable: "Worktree state unavailable",
   worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead`,
   worktreeAheadState: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead of Base`,
