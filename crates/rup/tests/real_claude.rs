@@ -39,6 +39,13 @@ async fn e12_a_complete_turn_has_only_loopback_traffic() {
             "E12 loopback complete turn",
         )
         .await;
+        let result = model.tool_result("toolu_e12_loopback").await;
+        assert!(
+            result["content"]
+                .as_str()
+                .unwrap()
+                .contains("E12 loopback todo")
+        );
         model.assert_matched();
         // Project shutdown and all descendants remain inside strace's observation window.
         drop(client);
