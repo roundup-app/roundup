@@ -267,6 +267,22 @@ describe("u369 and u371 the Shelf below the window bar", () => {
 });
 
 describe("u370 the Shelf closes and opens", () => {
+  it("u373_tabs_remain_available_when_the_project_connection_fails", async () => {
+    const controls = seedApp("tree-40", Date.now());
+
+    controls.app.subscribe = async () => { throw new Error("Shelf connection refused"); };
+
+    localStorage.setItem("roundup:shelf:/Users/you/harness", JSON.stringify({ open: false, tab: "todos" }));
+    render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await screen.findByText("Shelf connection refused");
+
+    fireEvent.click(tabNamed("Pads"));
+    expect(shelf().hidden).toBe(false);
+    expect(tabNamed("Pads").getAttribute("aria-expanded")).toBe("true");
+    expect(tabs().every(tab => !tab.querySelector(".shelf-count"))).toBe(true);
+    await waitFor(() => expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(tabNamed("Pads").id));
+  });
+
   it("u373_first_run_tabs_open_the_empty_shelf_without_counts", async () => {
     await mountApp("first-run");
     fireEvent.click(tabNamed("Todos"));

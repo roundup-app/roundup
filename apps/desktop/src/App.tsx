@@ -321,7 +321,7 @@ export const App = (props: {
             shelf={
               <Tabs.RootProvider value={shelfTabs} style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
                 <Show when={projects.tabs().length > 0} fallback={<ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
-                  <InProject open={activeConnection()}>
+                  <InProject open={activeConnection()} failed={() => <ShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}>
                     {() => <ProjectShelfTabs frame={frame} onToggle={shelfFocus.toggle} />}
                   </InProject>
                 </Show>
@@ -390,7 +390,7 @@ export const App = (props: {
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
             <Show when={projects.tabs().length > 0} fallback={<Tabs.Content value={frame.tab()} class="shelf-panel"><EmptyShelf /></Tabs.Content>}>
-              <InProject open={activeConnection()}>
+              <InProject open={activeConnection()} failed={() => <Tabs.Content value={frame.tab()} class="shelf-panel" />}>
                 {() => <Shelf open={frame.open} />}
               </InProject>
             </Show>
