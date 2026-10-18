@@ -119,6 +119,7 @@ export const Pads = () => {
             onSubmit={(name) => void create(name)}
             onClose={(reason) => {
               setNaming(false);
+
               if (reason !== "blur") plusButton?.focus();
             }}
           />
