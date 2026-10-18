@@ -107,32 +107,40 @@
   display: none;
 }
 
-/* U375: Watch says so above the pane, with the one way into a Takeover. */
-.pane-watch {
-  flex: none;
+/* U375, U187: the one state of the Terminal, Managed or You control, and the way to the other, float over its top-left corner; the top-right is the work-items control's and the bottom is the Agent's input. */
+.pane-control {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-3);
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-5);
   padding: var(--space-1) var(--space-3);
   color: var(--text);
   background-color: var(--sunken);
+  border-radius: var(--radius-drawer);
+  box-shadow: var(--shadow-drawer);
 }
 
-/* U187: a Takeover is a different mode, so it says so above the pane it opens. */
-.pane-takeover {
-  display: flex;
+.pane-control-state {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  justify-content: space-between;
-  flex: none;
-  padding: var(--space-1) var(--space-3);
-  color: var(--text);
-  background-color: var(--sunken);
+  gap: var(--space-2);
+  white-space: nowrap;
 }
 
-.pane[data-takeover] .pane-body {
-  border: 1px solid var(--hairline);
+.pane-control-state::before {
+  content: "●";
+  color: var(--grey);
+}
+
+.pane-control[data-state="controlled"] .pane-control-state::before {
+  color: var(--accent);
+}
+
+.pane-control > button {
+  flex: none;
 }
 
 /* D6, D7: the emulator's input is a textarea, so it carries the click target states; it is invisible, so each is a Token read with no transition. */
@@ -156,19 +164,6 @@
   color: var(--text);
   background-color: var(--selected);
   transition-duration: 0s;
-}
-
-.pane-watch > span,
-.pane-takeover > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pane-watch > button,
-.pane-takeover > button {
-  flex: none;
 }
 
 /* U514: the strips sit in the pane-screen's left padding, beside the cell grid, so no glyph is covered and `cols` is unchanged. */
