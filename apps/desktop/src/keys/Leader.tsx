@@ -1,3 +1,4 @@
+import { KeyChip } from "./KeyChip";
 import { createEffect, For, onCleanup, Show } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "../copy";
@@ -38,7 +39,7 @@ export const Leader = () => {
         <For each={LEADER}>
           {(key) => (
             <span class="leader-line">
-              <span class="leader-keys">{key.keys}</span>
+              <KeyChip keys={key.keys} />
               {`  ${key.short}`}
             </span>
           )}

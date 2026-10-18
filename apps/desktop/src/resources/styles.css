@@ -5,13 +5,13 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(var(--space-6), 1fr) auto auto;
-  grid-template-rows: var(--space-4) var(--rail-actions-height);
+  grid-template-rows: calc(var(--space-4) + var(--space-1)) var(--rail-actions-height);
   flex: none;
   box-sizing: border-box;
   align-items: center;
   gap: 0 var(--space-3);
   width: 100%;
-  height: calc(var(--space-4) + var(--rail-actions-height));
+  height: calc(var(--space-4) + var(--space-1) + var(--rail-actions-height));
   padding: 0 var(--space-2) 0 0;
   color: var(--grey);
   font-family: var(--font-ui);
@@ -83,7 +83,7 @@
   scrollbar-width: none;
 }
 
-/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: secondary text only, no box, never in the way of a click. Hints that do not fit whole are hidden from the end. */
+/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: grey labels beside key chips, never in the way of a click. Hints that do not fit whole are hidden from the end. */
 .hint[hidden] {
   display: none;
 }
@@ -97,7 +97,7 @@
   height: var(--space-4);
   inline-size: 0;
   min-inline-size: 100%;
-  margin: 0;
+  margin: 0 0 var(--space-1);
   padding: 0 var(--space-1);
   overflow: hidden;
   color: var(--grey);
