@@ -1,6 +1,7 @@
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
+import { info } from "../testing/nodes";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
@@ -91,14 +92,25 @@ it.each(["plus", "chord"])("u524_an_empty_project_opens_and_focuses_a_project_te
   expect(mounted.connected.rail.selected()).toBeNull();
 });
 
+it("u524_a_project_terminal_is_available_after_reload", async () => {
+  const mounted = await mountBubbles(null, [info("9", { owner: "/p", title: "login" })], []);
+  await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).not.toBeNull());
+  expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
+  fireEvent.click(document.querySelector('[aria-label="Close login"]')!);
+  await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).toBeNull());
+  expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "9" }]);
+});
+
 it("u524_a_failed_empty_project_open_can_be_retried", async () => {
   const mounted = await mountBubbles(null, [], []);
   const open = mounted.app.handlers["terminal.open"]!;
   mounted.app.handlers["terminal.open"] = () => { throw new Error("cannot open"); };
+
   fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot open"));
   expect(document.querySelector(".bubble")).toBeNull();
   mounted.app.handlers["terminal.open"] = open;
+
   fireEvent.click(document.querySelector('[aria-label="New Terminal"]')!);
   await waitFor(() => expect(document.activeElement?.closest(".bubble")?.getAttribute("data-bubble")).toBe("9"));
   expect(document.querySelector('[role="alert"]')).toBeNull();

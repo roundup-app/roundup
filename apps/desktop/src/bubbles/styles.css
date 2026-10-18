@@ -258,18 +258,3 @@
   pointer-events: auto;
   background: var(--ground);
 }
-
-.terminal-note-host {
-  display: contents;
-}
-
-/* U524: the note sits above the bar, outside the clipped Terminal host, so a narrow window still shows it. */
-.terminal-note {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  padding-inline: var(--space-1);
-  overflow-wrap: anywhere;
-  background: var(--ground);
-}
