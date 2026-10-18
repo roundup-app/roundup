@@ -90,6 +90,7 @@ button {
   color: var(--red);
 }
 
+[data-button="primary"]:hover:not([aria-disabled="true"]),
 [data-button="quiet"]:hover:not([aria-disabled="true"]),
 [data-button="row-action"]:hover:not([aria-disabled="true"]),
 [data-button="icon"]:hover:not([aria-disabled="true"]),
