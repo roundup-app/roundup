@@ -467,10 +467,14 @@ pre {
   font-family: var(--font-mono);
 }
 
-/* U2680d: editing surfaces retain native word, drag and clipboard selection. */
+/* Content must remain copyable even when its editor is read-only. */
 input,
 textarea,
-[contenteditable="true"] {
+[contenteditable="true"],
+.pad-editor,
+.ProseMirror[contenteditable="false"],
+pre,
+code {
   -webkit-user-select: text;
   user-select: text;
 }
