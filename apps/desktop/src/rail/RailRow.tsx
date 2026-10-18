@@ -235,7 +235,7 @@ export const RailRowView = (props: {
                   <span class="worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(ahead())}>{copy.worktreeAhead(ahead())}</span>
                 </Show>
                 <Show when={worktreeFailure()}>
-                  <span class="worktree-ahead" data-state="unavailable" aria-label={copy.worktreeUnavailable}>—</span>
+                  <span class="worktree-ahead" data-state="unavailable" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
                 </Show>
               </span>
             }>{name()}</Show>
