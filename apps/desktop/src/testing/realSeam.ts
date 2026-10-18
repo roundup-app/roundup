@@ -229,3 +229,9 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
   return app;
 };
+
+/** E10: the question the model fixtures answer; a spawn without a prompt types nothing (A9), so a fixture's Agent is spawned with it as its first prompt. */
+const FIXTURE_PROMPT = "What should this Agent do?";
+
+/** Spawn an Agent under `parent` whose first prompt is `FIXTURE_PROMPT`; its turns then play the fixture's entry. */
+export const spawnPrompted = (app: AppSeam, cwd: string, parent: string) => app.rpc("agent.spawn", { cwd, prompt: FIXTURE_PROMPT, parent });

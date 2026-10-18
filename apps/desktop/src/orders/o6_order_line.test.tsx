@@ -52,10 +52,10 @@ describe("O6: the order on one line above the Terminal", () => {
     expect(line()).toBeNull();
   });
 
-  it("o17_the_placeholder_question_shows_no_line", async () => {
+  it("o2_an_agent_that_holds_no_order_shows_no_line", async () => {
     await mountApp([], (app) => {
-      // A spawn with neither prompt nor order holds the Daemon's placeholder question (O2).
-      app.handlers["rail.tree"] = () => [0, 1, 2].map((order) => agent(`p${order}`, "working", "editing", { name: `pip${order}`, order, work: clarifying("What should this Agent do?") }));
+      // A spawn with neither prompt nor order holds no order (O2).
+      app.handlers["rail.tree"] = () => [0, 1, 2].map((order) => agent(`p${order}`, "working", "editing", { name: `pip${order}`, order, work: null }));
     });
     select("pip0");
 
