@@ -404,9 +404,16 @@ it("p2544b_inflight_edits_are_not_lost", async () => {
   fireEvent.input(field, { target: { value: "newest" } });
   await vi.advanceTimersByTimeAsync(500);
   expect(writes).toBe(1);
+  const caret = field.querySelector(".ProseMirror p")?.firstChild;
+
+  if (!caret) throw new Error("Edited paragraph is missing");
+
+  document.getSelection()?.collapse(caret, 3);
   reply.resolve(padOf("notes", USER, "first\n"));
   await vi.advanceTimersByTimeAsync(0);
   expect(field.value).toBe("newest");
+  expect(document.getSelection()?.anchorNode).toBe(caret);
+  expect(document.getSelection()?.anchorOffset).toBe(3);
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
     { method: "pad.write", params: { name: "notes", text: "first\n" } },
     { method: "pad.write", params: { name: "notes", text: "newest\n" } },
@@ -546,4 +553,39 @@ it("p2544b_an_external_change_during_save_still_requires_a_choice", async () => 
   app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
   fireEvent.click(screen.getByText("Keep mine"));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(2));
+});
+
+it("p2544b_project_switch_cannot_write_into_the_new_connection", async () => {
+  const previous = await openShelf([padOf("notes", USER, "old project")]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "previous project draft" } });
+  cleanup();
+  const next = await openShelf([padOf("notes", USER, "new project")]);
+  const newField = await openPad("notes");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  // Observation window after disposing the old Project's Drawer.
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(previous.app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "previous project draft\n" } },
+  ]);
+  expect(next.calls()).not.toContain("pad.write");
+  expect(newField.value).toBe("new project");
+});
+
+it("p2544b_keep_mine_waits_for_the_active_save", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.focusOut(field);
+  state.pads = [padOf("notes", USER, "agent append")];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await screen.findByText(/Changed by/);
+  fireEvent.click(screen.getByText("Keep mine"));
+  expect(writes).toBe(1);
+  reply.resolve(padOf("notes", USER, "draft\n"));
+  await waitFor(() => expect(writes).toBe(2));
+  expect(screen.queryByText(/Changed by/)).toBeNull();
 });

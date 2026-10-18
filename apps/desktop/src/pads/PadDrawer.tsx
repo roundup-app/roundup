@@ -39,7 +39,7 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let sent: string | null = null;
-  let due = false;
+  let due: "autosave" | "keep-mine" | null = null;
   let finalDraft: string | undefined;
   const [saved, setSaved] = createSignal(false);
   const saveAfterPause = debounce(() => flush(), 500);
@@ -47,7 +47,7 @@ const PadBody = (props: {
   /** Moves the source and its dirty/clean baseline together so a resolved change cannot remain a conflict. */
   const settle = (next: Pad) => {
     saveAfterPause.clear();
-    due = false;
+    due = null;
     setSaved(false);
     setEditing(false);
     setOrigin(next.text);
@@ -90,7 +90,7 @@ const PadBody = (props: {
 
         if (!current) {
           saveAfterPause.clear();
-          due = false;
+          due = null;
           setSaved(false);
           setConflictActor(null);
 
@@ -109,7 +109,7 @@ const PadBody = (props: {
 
         if (actor && actor.kind !== "user") {
           saveAfterPause.clear();
-          due = false;
+          due = null;
           setSaved(false);
           setConflictActor(actor);
         }
@@ -139,12 +139,13 @@ const PadBody = (props: {
 
   const ownedByUser = () => pad().owner.kind === "user";
 
-  const write = (resolveConflict = false) =>
+  const write = () =>
     act(async () => {
-      if (sent !== null || !due || deleted() || !ownedByUser() || (conflictActor() && !resolveConflict)) return;
+      if (sent !== null || due === null || deleted() || !ownedByUser() || (conflictActor() && due !== "keep-mine")) return;
 
+      const resolveConflict = due === "keep-mine";
       const text = finalDraft ?? currentDraft();
-      due = false;
+      due = null;
 
       if (text === origin() && !resolveConflict) return;
 
@@ -153,6 +154,7 @@ const PadBody = (props: {
 
       try {
         const next = await connected.app.rpc("pad.write", { name, text });
+
         // An external change that arrived during this call still needs an explicit choice.
         if (conflictActor() && !resolveConflict) setOrigin(next.text);
         else adopt(next);
@@ -162,7 +164,7 @@ const PadBody = (props: {
         setSaved(!closed && !conflictActor() && currentDraft() === next.text);
       } catch (thrown) {
         // A refusal keeps the draft; only another edit or blur retries it.
-        due = false;
+        due = null;
         throw thrown;
       } finally {
         sent = null;
@@ -173,7 +175,7 @@ const PadBody = (props: {
 
   const flush = () => {
     saveAfterPause.clear();
-    due = true;
+    due ??= "autosave";
     void write();
   };
 
@@ -211,7 +213,7 @@ const PadBody = (props: {
   const remove = () =>
     act(async () => {
       saveAfterPause.clear();
-      due = false;
+      due = null;
       await connected.app.rpc("pad.delete", { name });
       setDeleted(true);
       setRemovedByMe(true);
@@ -221,15 +223,16 @@ const PadBody = (props: {
   const onChange = () => {
     setSaved(false);
     setEditing(true);
-    due = false;
 
-    if (!sent && editor?.unchanged()) {
+    if (due !== "keep-mine") due = null;
+
+    if (sent === null && editor?.unchanged()) {
       settle(pad());
 
       return;
     }
 
-    if (ownedByUser() && !conflictActor() && !deleted()) saveAfterPause();
+    if (ownedByUser() && (!conflictActor() || sent !== null) && !deleted()) saveAfterPause();
   };
 
   const onText = (text: string) => {
@@ -250,8 +253,8 @@ const PadBody = (props: {
 
   const keepMine = () => {
     saveAfterPause.clear();
-    due = true;
-    void write(true);
+    due = "keep-mine";
+    void write();
   };
 
   const useTheirs = () => settle(pad());
