@@ -3,7 +3,7 @@ import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
-import { registerKeys } from "../keys/registry";
+import { registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
@@ -66,7 +66,9 @@ export const AskBar = () => {
     capture: () => ({ available: () => daemonExit() === null && !over(),
     invoke: open }),
   }]);
-  registerKeys({ kind: "layer", element: () => panel, active: over, modal: true }, [
+  const scope: KeyScope = { kind: "layer", element: () => panel, active: over, modal: true };
+
+  registerKeys(scope, [
     { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
     { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
@@ -121,7 +123,7 @@ export const AskBar = () => {
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
         <Show when={!over()}><ProjectOverview /></Show>
-        <AskRows onOpened={() => close(false)} />
+        <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
     </Show>
   );
