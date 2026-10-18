@@ -1236,7 +1236,17 @@ async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
         .unwrap_err();
     assert_eq!(error.code, rpc::code::CONFLICT);
     assert!(error.message.contains(&child.name), "{error:?}");
-    assert_eq!(rail_tree(&fx.user).await, before);
+    // A child may still be finishing a turn of its own, so Status is not the refusal's to keep.
+    let unchanged = |tree: Vec<RailNode>| -> Vec<RailNode> {
+        tree.into_iter()
+            .map(|node| RailNode {
+                status: None,
+                status_revision: None,
+                ..node
+            })
+            .collect()
+    };
+    assert_eq!(unchanged(rail_tree(&fx.user).await), unchanged(before));
     // Selecting every child removes them deepest first.
     rewind(&fx, None, "keep").await;
     assert!(node(&fx.user, &child.id).await.is_none());
