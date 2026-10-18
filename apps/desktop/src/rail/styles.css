@@ -722,7 +722,7 @@
 .worktree-chip {
   flex: none;
   max-width: 100%;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   cursor: default;
   color: var(--text);
   font-size: var(--text-caption);
@@ -736,30 +736,25 @@
 .rail-row .row-name-state {
   display: flex;
   flex: 1 1 0;
+  flex-wrap: wrap;
   align-items: center;
   min-width: 0;
   gap: var(--space-1) var(--space-2);
-  container-type: inline-size;
+  padding-block: var(--space-1);
 }
 .rail-row .row-name-state .name {
-  flex: 1 0 calc(3 * var(--space-6));
+  flex: 1 0 calc(2 * var(--space-6));
   min-width: 0;
   max-width: 100%;
 }
-/* Collapse lower-priority facts before they consume the name minimum. */
 .worktree-chips {
   display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-@container (width < 18rem) {
-  .worktree-chip[data-state="pr"] { display: none; }
-}
-@container (width < 12rem) {
-  .worktree-chip[data-stale] { display: none; }
+  white-space: normal;
 }
 .worktree-chip[data-stale="true"],
 .rail-row[data-selected="true"] .worktree-chip[data-stale="true"] {
