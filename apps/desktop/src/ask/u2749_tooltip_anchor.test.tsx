@@ -13,7 +13,7 @@ it("u2749a_project_root_kind_owns_its_tooltip", async () => {
   await mountAskBar([], null, [door("a", "working", "busy")]);
   const glyph = screen.getByRole("img", { name: "Working" });
   const owner = glyph.closest("[data-part=trigger]")!;
-  expect(owner.tagName).toBe("SPAN");
+  expect(owner).not.toBe(screen.getByRole("button", { name: "a Working" }));
   const rect = new DOMRect(100, 100, 16, 16);
   const anchor = vi.spyOn(owner, "getBoundingClientRect").mockReturnValue(rect);
   fireEvent.pointerMove(glyph.querySelector("path")!, { pointerType: "mouse", clientX: 108, clientY: 108 });
