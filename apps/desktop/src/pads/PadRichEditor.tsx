@@ -12,6 +12,8 @@ import { toolbar } from "@milkdown/crepe/feature/toolbar";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
 import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
+import { trailingConfig } from "@milkdown/kit/plugin/trailing";
+import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
 import { Plugin } from "@milkdown/kit/prose/state";
 import { replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
@@ -58,6 +60,7 @@ export default function PadRichEditor(props: {
   let menuHost: HTMLDivElement | undefined;
   let crepe: CrepeBuilder | undefined;
   let created: ReturnType<CrepeBuilder["create"]> | undefined;
+  const caretNodes = new WeakSet<DocumentNode>();
   let original = props.text;
   let applying = false;
   let closed = false;
@@ -108,6 +111,15 @@ export default function PadRichEditor(props: {
 
     crepe.editor.config((ctx) => {
       ctx.update(remarkStringifyOptionsCtx, (options) => ({ ...options, bullet: "-" as const }));
+      ctx.update(trailingConfig.key, (options) => ({
+        ...options,
+        getNode: (state) => {
+          const node = options.getNode(state);
+          caretNodes.add(node);
+
+          return node;
+        },
+      }));
     });
 
     crepe.editor.use(
@@ -212,7 +224,7 @@ export default function PadRichEditor(props: {
       const document = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).state.doc);
       let originalDocument = document();
 
-      const getText = () => crepe!.editor.action((ctx) => sourceForDocument(original, originalDocument, document(), ctx));
+      const getText = () => crepe!.editor.action((ctx) => sourceForDocument(original, originalDocument, document(), ctx, caretNodes));
 
       ready = true;
       crepe.setReadonly(props.readonly);

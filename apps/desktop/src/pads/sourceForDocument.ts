@@ -15,12 +15,12 @@ const comparable = (node: DocumentNode): DocumentNode => {
 
 const equal = (left: DocumentNode, right: DocumentNode) => comparable(left).eq(comparable(right));
 
-const children = (doc: DocumentNode) => {
+const children = (doc: DocumentNode, caretNodes: WeakSet<DocumentNode>) => {
   const nodes: DocumentNode[] = [];
   doc.forEach((node) => nodes.push(node));
 
-  // Crepe owns this extra caret target, which has no authored source range.
-  if (nodes.length > 1 && nodes.at(-1)!.type.name === "paragraph" && nodes.at(-1)!.content.size === 0 && nodes.at(-2)!.type.name !== "paragraph") nodes.pop();
+  // Only Crepe-created caret targets lack source; an authored empty paragraph must survive.
+  if (nodes.at(-1) && caretNodes.has(nodes.at(-1)!) && nodes.at(-1)!.content.size === 0) nodes.pop();
 
   return nodes;
 };
@@ -33,6 +33,7 @@ export const sourceForDocument = (
   originalDocument: DocumentNode,
   currentDocument: DocumentNode,
   ctx: Ctx,
+  caretNodes: WeakSet<DocumentNode>,
 ): string | null => {
   if (currentDocument.eq(originalDocument)) return originalSource;
 
@@ -59,8 +60,8 @@ export const sourceForDocument = (
     previousEnd = to;
   }
 
-  const before = children(originalDocument);
-  const after = children(currentDocument);
+  const before = children(originalDocument, caretNodes);
+  const after = children(currentDocument, caretNodes);
 
   if (!originalSource && blocks.length === 0 && before.length === 1 && before[0]!.content.size === 0) {
     blocks.push({ node: before[0]!, from: 0, to: 0 });
@@ -172,7 +173,7 @@ export const sourceForDocument = (
   const reparsed = ctx.get(parserCtx)(result);
 
   if (!reparsed) return null;
-  const reconciled = children(reparsed);
+  const reconciled = children(reparsed, caretNodes);
 
   return reconciled.length === after.length && reconciled.every((node, i) => equal(node, after[i]!)) ? result : null;
 };

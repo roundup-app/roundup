@@ -49,6 +49,7 @@ it.each([
   { name: "neighbouring table and list", source: `first\n\n* keep this marker\n\n${table}\n\nlast\n\n`, edit: `changed\n\n* keep this marker\n\n${table}\n\nlast`, expected: `changed\n\n* keep this marker\n\n${table}\n\nlast\n\n` },
   { name: "two separated edits", source: `one\n\n${table}\n\nthree`, edit: `ONE\n\n${table}\n\nTHREE`, expected: `ONE\n\n${table}\n\nTHREE` },
   { name: "insertion", source: "first\n\nlast", edit: "first\n\nnew\n\nlast", expected: "first\n\nnew\n\nlast" },
+  { name: "authored empty paragraph after table", source: `first\n\n${table}\n\n<br />\n`, edit: `FIRST\n\n${table}\n\n<br />`, expected: `FIRST\n\n${table}\n\n<br />\n` },
   { name: "append", source: "first", edit: "first\n\nnew", expected: "first\n\nnew" },
   { name: "initially empty", source: "", edit: "new", expected: "new" },
   { name: "prepend", source: "last\n", edit: "new\n\nlast", expected: "new\n\nlast\n" },
