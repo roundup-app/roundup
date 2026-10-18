@@ -85,8 +85,6 @@ export const RailRowView = (props: {
   onStartDoor: () => void;
   doorPending: boolean;
   doorFailure: string | null;
-  /** U164: how many of this Agent's Runs are running; shown as `· n` after the name, and hidden at zero. */
-  runs?: number;
   lifted: boolean;
   sortRef: (element: HTMLElement | undefined) => void;
   onOpenMenu: (press: MouseEvent) => void;
@@ -116,7 +114,6 @@ export const RailRowView = (props: {
 
   createEffect(() => {
     props.row.node.name;
-    props.runs;
     near();
     props.selected;
     editing();
@@ -190,9 +187,6 @@ export const RailRowView = (props: {
           onDblClick={() => setEditing(true)}
         >
           {props.row.node.name}
-          <Show when={(props.runs ?? 0) > 0}>
-            <span class="runs">{copy.separator}{props.runs}</span>
-          </Show>
         </span>
       }
     >
