@@ -1,0 +1,61 @@
+/* Keep "styles.css" in the name: vite.config.ts loads only CSS files matching it. */
+
+/* U2539b: the bar's Worktree control and its panel; tokens only. */
+.worktree-control {
+  --button-inline: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: calc(var(--space-6) * 6);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.worktree-branch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktree-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: calc(var(--space-6) * 12);
+  max-width: 90vw;
+  font-family: var(--font-ui);
+  font-size: var(--text-small);
+}
+
+.worktree-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.worktree-facts dt {
+  color: var(--grey);
+}
+
+.worktree-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.worktree-none {
+  margin: 0;
+  color: var(--grey);
+}
+
+.worktree-tree {
+  height: calc(var(--space-6) * 8);
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  --trees-fg-override: var(--text);
+  --trees-border-color-override: var(--hairline);
+}
