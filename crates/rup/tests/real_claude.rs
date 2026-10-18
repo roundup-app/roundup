@@ -5192,50 +5192,38 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
         std::env::var_os("CLAUDE_CODE_OAUTH_TOKEN").is_some(),
         "authorized subscription credential required"
     );
-    fn answers(config: &std::path::Path) -> Vec<(String, String)> {
-        let mut dirs = vec![config.join("projects")];
+    fn answers(project: &daemon::Project) -> Vec<(String, String)> {
+        let mut questions = std::collections::HashMap::<String, bool>::new();
         let mut answers = Vec::new();
-        while let Some(dir) = dirs.pop() {
-            let Ok(entries) = std::fs::read_dir(dir) else {
+        for row in conversation_entries(project) {
+            if row["type"] != "user" && row["type"] != "assistant" {
                 continue;
-            };
-            for entry in entries {
-                let path = entry.unwrap().path();
-                if path.is_dir() {
-                    dirs.push(path);
-                    continue;
+            }
+            let session = row["sessionId"]
+                .as_str()
+                .expect("transcript session identity");
+            let identity_question = questions.entry(session.to_owned()).or_default();
+            if row["type"] == "user" {
+                if let Some(text) = row["message"]["content"].as_str() {
+                    *identity_question =
+                        row["origin"]["kind"] != "peer" && text.contains("who are you?");
+                } else if row["origin"]["kind"] == "peer" {
+                    *identity_question = false;
                 }
-                if path.extension().is_none_or(|ext| ext != "jsonl") {
-                    continue;
-                }
-                let mut identity_question = false;
-                for line in std::fs::read_to_string(path).unwrap().lines() {
-                    let Ok(row) = serde_json::from_str::<Value>(line) else {
-                        continue;
-                    };
-                    if row["type"] == "user" {
-                        if let Some(text) = row["message"]["content"].as_str() {
-                            identity_question =
-                                row["origin"]["kind"] != "peer" && text.contains("who are you?");
-                        } else if row["origin"]["kind"] == "peer" {
-                            identity_question = false;
-                        }
-                    }
-                    if row["type"] != "assistant" || !identity_question {
-                        continue;
-                    }
-                    if let Some(content) = row["message"]["content"].as_array() {
-                        for block in content {
-                            if block["type"] == "text" {
-                                answers.push((
-                                    row["uuid"]
-                                        .as_str()
-                                        .expect("transcript entry identity")
-                                        .to_owned(),
-                                    block["text"].as_str().unwrap().to_owned(),
-                                ));
-                            }
-                        }
+            }
+            if row["type"] != "assistant" || !*identity_question {
+                continue;
+            }
+            if let Some(content) = row["message"]["content"].as_array() {
+                for block in content {
+                    if block["type"] == "text" {
+                        answers.push((
+                            row["uuid"]
+                                .as_str()
+                                .expect("transcript entry identity")
+                                .to_owned(),
+                            block["text"].as_str().unwrap().to_owned(),
+                        ));
                     }
                 }
             }
@@ -5326,7 +5314,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             let before = if name == "sad" {
                 Vec::new()
             } else {
-                answers(&config)
+                answers(&project)
             };
             if name == "sad-2" {
                 tokio::time::timeout(Duration::from_secs(120), async {
@@ -5351,7 +5339,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             }
             let answer = tokio::time::timeout(Duration::from_secs(120), async {
                 loop {
-                    let found = answers(&config);
+                    let found = answers(&project);
                     if let Some(answer) = found.iter().find(|answer| !before.contains(answer)) {
                         break answer.1.clone();
                     }

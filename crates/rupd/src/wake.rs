@@ -297,17 +297,6 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
         let EventData::RailRenamed { id, name } = event.data else {
             continue;
         };
-        let running = |nodes: &[RailNode]| {
-            nodes.iter().any(|node| {
-                node.id == id
-                    && is_agent(node)
-                    && node.terminal_id.is_some()
-                    && node
-                        .status
-                        .as_ref()
-                        .is_some_and(|status| status.kind != Kind::Done)
-            })
-        };
         let nodes: Vec<RailNode> = reader
             .call(
                 "rail",
@@ -317,7 +306,15 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
             )
             .await
             .expect("read renamed Agent");
-        if !running(&nodes) {
+        if !nodes.iter().any(|node| {
+            node.id == id
+                && is_agent(node)
+                && node.terminal_id.is_some()
+                && node
+                    .status
+                    .as_ref()
+                    .is_some_and(|status| status.kind != Kind::Done)
+        }) {
             continue;
         }
         let sent = reader.call::<contracts::message::Message>("message", "message.send", serde_json::json!({
