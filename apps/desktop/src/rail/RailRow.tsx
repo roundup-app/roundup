@@ -97,10 +97,10 @@ export const RailRowView = (props: {
 
   const worktreeFailure = () => worktrees.read(props.row.node.id)?.failure;
 
-  const ahead = () => {
+  const facts = () => {
     const read = worktrees.read(props.row.node.id);
 
-    return read?.failure === null ? read.state.ahead : 0;
+    return read?.failure === null ? read.state : null;
   };
 
   const { near, handlers } = createNear(() => props.selected);
@@ -231,12 +231,20 @@ export const RailRowView = (props: {
             <Show when={workstream() || !props.row.node.worktree} fallback={
               <span class="row-name-state">
                 {name()}
-                <Show when={ahead() > 0}>
-                  <span class="worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(ahead())}>{copy.worktreeAhead(ahead())}</span>
-                </Show>
-                <Show when={worktreeFailure()}>
-                  <span class="worktree-ahead" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
-                </Show>
+                <span class="worktree-chips">
+                  <Show when={(facts()?.ahead ?? 0) > 0}>
+                    <span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
+                  </Show>
+                  <Show when={facts()?.ci}>{(ci) => (
+                    <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}><span>{copy.worktreeCiChip(ci().state)}</span><Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
+                  )}</Show>
+                  <Show when={facts()?.pr}>{(pr) => (
+                    <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
+                  )}</Show>
+                  <Show when={worktreeFailure()}>
+                    <span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
+                  </Show>
+                </span>
               </span>
             }>{name()}</Show>
             <span class="row-tail">

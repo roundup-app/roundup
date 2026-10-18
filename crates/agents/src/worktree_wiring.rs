@@ -10,9 +10,32 @@ impl Agents {
         self.shared.worktrunk.refresh(&self.shared);
         let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let worktree = worktree::Worktree::from(&record);
-        tokio::task::spawn_blocking(move || git.state(&project, &worktree))
+        let mut state = tokio::task::spawn_blocking(move || git.state(&project, &worktree))
             .await
-            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
+            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))??;
+        // A local read can outlive replacement: never attach the replacement's facts to it.
+        if self.shared.node(id)?.worktree.as_ref() != Some(&record) {
+            return Err(RpcError::new(code::NOT_FOUND, "Worktree identity changed"));
+        }
+        if let Some(facts) = self.worktree_facts(id, &record) {
+            use contracts::agent::{WorktreeCi, WorktreeCiState, WorktreePr};
+            state.ci = facts.ci.map(|(value, stale)| WorktreeCi {
+                state: match value.as_str() {
+                    "passed" => WorktreeCiState::Passed,
+                    "failed" => WorktreeCiState::Failed,
+                    "running" => WorktreeCiState::Running,
+                    "no-ci" => WorktreeCiState::NoCi,
+                    "conflicts" => WorktreeCiState::Conflicts,
+                    "error" => WorktreeCiState::Error,
+                    _ => WorktreeCiState::Unknown,
+                },
+                stale,
+            });
+            state.pr = facts.pr.and_then(|(number, stale)| {
+                std::num::NonZeroU64::new(number).map(|number| WorktreePr { number, stale })
+            });
+        }
+        Ok(state)
     }
 
     /// U2539a: what the Agent's Worktree changed against its Base. Reads only.
