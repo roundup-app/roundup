@@ -17,6 +17,7 @@
     "@milkdown/crepe": "^7.22.2",
     "@milkdown/kit": "^7.22.2",
     "@radix-ui/colors": "3.0.0",
+    "@solid-primitives/scheduled": "^1.5.3",
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "@xterm/addon-fit": "^0.11.0",
