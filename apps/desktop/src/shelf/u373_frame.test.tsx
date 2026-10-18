@@ -278,15 +278,16 @@ describe("u369 and u371 the Shelf below the window bar", () => {
 });
 
 describe("u370 the Shelf closes and opens", () => {
-  it("u370_the_button_closes_and_opens", async () => {
+  it("u373_a_bar_tab_opens_the_shelf_on_it", async () => {
     await mountApp();
-    const hide = within(shelf()).getByRole("button", { name: "Hide work items" });
+    chord();
+    const pads = within(document.querySelector(".window-bar")!).getByRole("tab", { name: /^Pads/ });
 
-    expect(hide.getAttribute("aria-expanded")).toBe("true");
-    fireEvent.click(hide);
-    fireEvent.click(await within(document.querySelector(".content-actions")!).findByRole("button", { name: "Show work items" }));
+    fireEvent.click(pads);
     expect(shelf().hidden).toBe(false);
-    expect(within(shelf()).getByRole("button", { name: "Hide work items" }).getAttribute("aria-expanded")).toBe("true");
+    expect(pads.getAttribute("aria-selected")).toBe("true");
+    expect(pads.getAttribute("aria-expanded")).toBe("true");
+    expect(within(shelf()).getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(pads.id);
   });
 
   it("u370_leader_s_toggles_from_every_focus", async () => {
