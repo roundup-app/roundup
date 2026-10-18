@@ -417,6 +417,8 @@ fn verb_command(spec: &Spec) -> Command {
     command
 }
 
+const NAMES_HELP: &str = "Human-readable command output names Agents by Rail name. IDs remain command arguments and machine fields in --json.";
+
 fn tree(specs: &[Spec]) -> Command {
     let mut root = Command::new("rup")
         .bin_name("rup")
@@ -449,6 +451,7 @@ fn tree(specs: &[Spec]) -> Command {
     for noun in nouns {
         let mut group = Command::new(noun.to_owned())
             .about(format!("Commands on {noun}s"))
+            .after_help(NAMES_HELP)
             .subcommand_required(true);
         for spec in specs.iter().filter(|spec| spec.noun == noun) {
             group = group.subcommand(verb_command(spec));
@@ -519,9 +522,10 @@ pub fn help_text() -> String {
     let mut text = String::from(
         "rup: the command line of roundup\n\n\
          roundup runs coding Agents in a Project and shows the user their Status, Todos, Pads, Messages and Terminals. \
-         rup is how an Agent reads and changes all of that from its shell: every command acts as you, the Agent whose id is in ROUNDUP_AGENT.\n\n\
-         Examples:\n",
+         rup is how an Agent reads and changes all of that from its shell: every command acts as you, the Agent whose id is in ROUNDUP_AGENT.\n\n",
     );
+    text.push_str(NAMES_HELP);
+    text.push_str("\n\nExamples:\n");
     text.push_str(EXAMPLES);
     text.push_str("\n\nCommands:\n");
     let mut nouns: Vec<&str> = Vec::new();
@@ -907,6 +911,7 @@ async fn invoke(
     offer: &Offered,
     agent: &str,
     arguments: JsonObject,
+    json: bool,
 ) -> Result<(Value, Value), Failure> {
     let client = connect(agent).await?;
     if spec.door_only {
@@ -922,6 +927,13 @@ async fn invoke(
         }
     }
     let params = offer.params(agent, Some(arguments));
+    let display = if json {
+        params.clone()
+    } else {
+        mcp::display_params(&client, spec.method, &params)
+            .await
+            .map_err(Failure::Rpc)?
+    };
     let call = client.request(spec.method, &params);
     let result = if spec.waits_for_user {
         call.await
@@ -935,7 +947,15 @@ async fn invoke(
                 ))
             })?
     };
-    result.map(|value| (params, value)).map_err(Failure::Rpc)
+    let value = result.map_err(Failure::Rpc)?;
+    let value = if json {
+        value
+    } else {
+        mcp::display_data(&client, spec.method, value)
+            .await
+            .map_err(Failure::Rpc)?
+    };
+    Ok((display, value))
 }
 
 async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode {
@@ -960,7 +980,7 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
         .into_iter()
         .find(|offer| offer.method == spec.method)
         .expect("the tree is built from the tool list");
-    match invoke(spec, &offer, &agent, arguments).await {
+    match invoke(spec, &offer, &agent, arguments, json).await {
         Ok((params, result)) => {
             print_result(spec.method, &params, &result, json);
             ExitCode::from(DONE)
