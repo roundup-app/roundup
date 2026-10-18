@@ -162,7 +162,7 @@ fn named_editor(text: &str) -> Editor {
     }
 }
 
-/// The first editor that applies: `ROUNDUP_EDITOR`, then VS Code and Cursor; one counts when `installed` finds it.
+/// The first editor that applies: `ROUNDUP_EDITOR`, then VS Code, Cursor and Zed; one counts when `installed` finds it.
 fn choose_editor(chosen: Option<&str>, installed: &dyn Fn(&Editor) -> bool) -> Option<Editor> {
     chosen
         .map(str::trim)
@@ -170,23 +170,32 @@ fn choose_editor(chosen: Option<&str>, installed: &dyn Fn(&Editor) -> bool) -> O
         .map(named_editor)
         .into_iter()
         .chain(
-            [LINE_APPS[0], LINE_APPS[3]]
+            [LINE_APPS[0], LINE_APPS[3], LINE_APPS[1], LINE_APPS[2]]
                 .iter()
                 .map(|(id, _)| Editor::Bundle((*id).into())),
         )
         .find(|editor| installed(editor))
 }
 
-/// The program and arguments that open `path` in `editor`.
-fn editor_command(editor: &Editor, path: &std::path::Path) -> (String, Vec<std::ffi::OsString>) {
+/// The program and arguments that open `path` in `editor`: a file with a `line` goes to the editor as its goto URL when the editor takes one.
+fn editor_command(
+    editor: &Editor,
+    path: &std::path::Path,
+    line: Option<u32>,
+) -> (String, Vec<std::ffi::OsString>) {
     let (flag, app) = match editor {
         Editor::Bundle(id) => ("-b", id),
         Editor::Name(name) => ("-a", name),
     };
-    (
-        "open".into(),
-        vec![flag.into(), app.into(), path.as_os_str().to_owned()],
-    )
+    let scheme = LINE_APPS
+        .iter()
+        .find(|(id, _)| matches!(editor, Editor::Bundle(bundle) if bundle == id))
+        .map(|(_, scheme)| *scheme);
+    let target = match (line, scheme) {
+        (Some(line), Some(scheme)) if path.is_file() => goto_url(scheme, path, line).into(),
+        _ => path.as_os_str().to_owned(),
+    };
+    ("open".into(), vec![flag.into(), app.into(), target])
 }
 
 // Query LaunchServices without opening Finder or launching the app during discovery.
@@ -210,34 +219,30 @@ fn is_installed(editor: &Editor) -> bool {
 
 type Launcher<'a> = dyn FnMut(&str, &[std::ffi::OsString]) -> Result<(), RpcError> + 'a;
 
-/// Opens the directory in the chosen editor, with the environment, the installed test and the launcher passed in so a test replaces them.
+/// Opens the directory or file (at `line`) in the chosen editor, with the environment, the installed test and the launcher passed in so a test replaces them.
 fn open_in_editor_with(
     path: &str,
+    line: Option<u32>,
     chosen: Option<&str>,
     installed: &dyn Fn(&Editor) -> bool,
     launch: &mut Launcher<'_>,
 ) -> Result<(), RpcError> {
     let path = parse_path(path)?;
-    if !path.is_dir() {
-        return Err(RpcError::conflict(format!(
-            "{} is not a directory",
-            path.display()
-        )));
-    }
     let editor = choose_editor(chosen, installed).ok_or_else(|| {
         RpcError::new(
             rpc::code::NOT_FOUND,
-            "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR",
+            "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR",
         )
     })?;
-    let (program, args) = editor_command(&editor, &path);
+    let (program, args) = editor_command(&editor, &path, line);
     launch(&program, &args)
 }
 
-/// `open_in_editor`: the directory opens in the user's code editor (`scenarios/ui-rail-actions.md` U429).
-pub fn open_in_editor(path: &str) -> Result<(), RpcError> {
+/// `open_in_editor`: the directory or file (at `line`) opens in the user's code editor (`scenarios/ui-rail-actions.md` U429, `scenarios/ui-worktree-changes.md` U2539c).
+pub fn open_in_editor(path: &str, line: Option<u32>) -> Result<(), RpcError> {
     open_in_editor_with(
         path,
+        line,
         std::env::var("ROUNDUP_EDITOR").ok().as_deref(),
         &is_installed,
         &mut |program, args| {
@@ -378,12 +383,21 @@ mod tests {
     type Launched = Vec<(String, Vec<std::ffi::OsString>)>;
 
     fn run(path: &str, chosen: Option<&str>, present: &[&str]) -> (Result<(), RpcError>, Launched) {
+        run_at(path, None, chosen, present)
+    }
+
+    fn run_at(
+        path: &str,
+        line: Option<u32>,
+        chosen: Option<&str>,
+        present: &[&str],
+    ) -> (Result<(), RpcError>, Launched) {
         let mut launched = Vec::new();
         let installed = |editor: &Editor| {
             let (Editor::Bundle(id) | Editor::Name(id)) = editor;
             present.contains(&id.as_str())
         };
-        let result = open_in_editor_with(path, chosen, &installed, &mut |program, args| {
+        let result = open_in_editor_with(path, line, chosen, &installed, &mut |program, args| {
             launched.push((program.to_owned(), args.to_vec()));
             Ok(())
         });
@@ -391,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn u429_opens_the_directory_in_the_first_known_editor() {
+    fn u2539c_a_directory_still_opens_as_u429_says() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().to_str().unwrap();
 
@@ -421,7 +435,7 @@ mod tests {
     }
 
     #[test]
-    fn u429_roundup_editor_wins_over_the_defaults() {
+    fn u2539c_roundup_editor_still_wins() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().to_str().unwrap();
 
@@ -451,7 +465,7 @@ mod tests {
         assert_eq!(err.code, rpc::code::NOT_FOUND);
         assert_eq!(
             err.message,
-            "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR"
+            "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR"
         );
         assert!(launched.is_empty());
     }
@@ -473,14 +487,84 @@ mod tests {
     }
 
     #[test]
-    fn u429_a_file_is_conflict() {
+    fn u2539c_a_file_opens_at_its_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("a b.ts");
+        std::fs::write(&file, "x").unwrap();
+
+        for (id, scheme) in [
+            ("com.microsoft.VSCode", "vscode"),
+            ("com.todesktop.230313mzl4w4u92", "cursor"),
+            ("dev.zed.Zed", "zed"),
+        ] {
+            let (result, launched) = run_at(file.to_str().unwrap(), Some(9), None, &[id]);
+
+            assert!(result.is_ok());
+            assert_eq!(
+                launched[0].1,
+                [
+                    "-b".into(),
+                    id.into(),
+                    format!("{scheme}://file{}/a%20b.ts:9", dir.path().display()).into()
+                ] as [std::ffi::OsString; 3]
+            );
+        }
+    }
+
+    #[test]
+    fn u2539c_an_editor_without_a_line_opens_the_file() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("a.ts");
         std::fs::write(&file, "x").unwrap();
 
-        let (result, launched) = run(file.to_str().unwrap(), None, &["com.microsoft.VSCode"]);
+        let (_, launched) = run_at(
+            file.to_str().unwrap(),
+            Some(9),
+            Some("Sublime Text"),
+            &["Sublime Text"],
+        );
 
-        assert_eq!(result.unwrap_err().code, rpc::code::CONFLICT);
-        assert!(launched.is_empty());
+        assert_eq!(
+            launched[0].1,
+            ["-a".into(), "Sublime Text".into(), file.into_os_string()] as [std::ffi::OsString; 3]
+        );
+    }
+
+    #[test]
+    fn u2539c_zed_is_tried_after_cursor() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+
+        let (_, both) = run(
+            path,
+            None,
+            &["dev.zed.Zed", "com.todesktop.230313mzl4w4u92"],
+        );
+        let (_, zed) = run(path, None, &["dev.zed.Zed-Preview", "dev.zed.Zed"]);
+        let (_, preview) = run(path, None, &["dev.zed.Zed-Preview"]);
+
+        assert_eq!(
+            both[0].1[1],
+            std::ffi::OsString::from("com.todesktop.230313mzl4w4u92")
+        );
+        assert_eq!(zed[0].1[1], std::ffi::OsString::from("dev.zed.Zed"));
+        assert_eq!(
+            preview[0].1[1],
+            std::ffi::OsString::from("dev.zed.Zed-Preview")
+        );
+    }
+
+    #[test]
+    fn u2539c_a_line_on_a_directory_is_ignored() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let (_, launched) = run_at(
+            dir.path().to_str().unwrap(),
+            Some(5),
+            None,
+            &["com.microsoft.VSCode"],
+        );
+
+        assert_eq!(launched[0].1[2], dir.path().as_os_str().to_owned());
     }
 }
