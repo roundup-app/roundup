@@ -440,7 +440,13 @@ impl Git {
         let patch = self
             .run(dir, &[&diff[..], &["-U0", &base]].concat())
             .map_err(failed)?;
-        // Both outputs list the files in the same order, one patch section per name-status entry.
+        let counts = self
+            .run(dir, &[&diff[..], &["--numstat", &base]].concat())
+            .map_err(failed)?;
+        // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
+        // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
+        let mut binary = counts.lines().map(|row| row.starts_with("-\t-\t"));
+        // All outputs use the same ordered diff queue, one record per name-status entry.
         let mut sections = patch.split("\ndiff --git ").map(first_changed_line);
         let mut fields = names.split('\0').filter(|field| !field.is_empty());
         let mut files = Vec::new();
@@ -455,7 +461,8 @@ impl Git {
                 b'R' | b'C' => ChangedStatus::Renamed,
                 _ => ChangedStatus::Modified,
             };
-            let line = if status == ChangedStatus::Deleted {
+            let is_binary = binary.next().unwrap_or(false);
+            let line = if status == ChangedStatus::Deleted || is_binary {
                 None
             } else {
                 line
