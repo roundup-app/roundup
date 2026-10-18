@@ -8,6 +8,7 @@ import { createDecisions } from "../decisions/decisions";
 import type { DecisionsState } from "../decisions/decisions";
 import { createDrawer } from "../drawer/drawer";
 import type { DrawerState } from "../drawer/drawer";
+import { createWorktreeState } from "./worktrees";
 import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
 import { createRailState } from "./rail";
@@ -22,6 +23,7 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   decisions: DecisionsState;
   /** U504: the Asks the user sent and where each part went. */
@@ -51,7 +53,7 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, app, events, rail, drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
+  return { project, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();
