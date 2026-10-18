@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
@@ -129,7 +130,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
               class="word light"
               disabled={deleting()}
               onClick={(event) => {
-                const source = event.detail === 0 ? "key" : "pointer";
+                const source = activationSource(event);
 
                 if (deleting()) return;
                 setDeleting(true);

@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Show } from "solid-js";
@@ -23,7 +24,7 @@ export const OrderLine = (props: { node: RailNode }) => {
           aria-label={copy.orderOf(props.node.name)}
           onClick={(event) => {
             const id = props.node.id;
-            drawer.open(() => <OrderDrawer id={id} />, event.detail === 0 ? "key" : "pointer");
+            drawer.open(() => <OrderDrawer id={id} />, activationSource(event));
           }}
         >
           {line()}

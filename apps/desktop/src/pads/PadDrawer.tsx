@@ -1,3 +1,5 @@
+import { activationSource } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
@@ -171,7 +173,7 @@ const PadBody = (props: {
       if (path !== null) await connected.app.rpc("pad.export", { name, path });
     });
 
-  const remove = (source: "key" | "pointer") =>
+  const remove = (source: ActivationSource) =>
     act(async () => {
       await connected.app.rpc("pad.delete", { name });
       setRemovedByMe(true);
@@ -278,7 +280,7 @@ const PadBody = (props: {
           {copy.deletePad(name)}
           <Show when={pad().owner.kind !== "user"}>{copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner))}</Show>
           <Show when={currentDraft() !== origin()}>{copy.unsavedChangesAreLost}</Show>
-          <button data-button="quiet" type="button" class="word light" onClick={(event) => void remove(event.detail === 0 ? "key" : "pointer")}>{copy.delete}</button>{" "}
+          <button data-button="quiet" type="button" class="word light" onClick={(event) => void remove(activationSource(event))}>{copy.delete}</button>{" "}
           <button data-button="quiet"
             type="button"
             class="word light"

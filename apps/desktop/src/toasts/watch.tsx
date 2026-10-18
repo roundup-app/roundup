@@ -1,3 +1,4 @@
+import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import type { Actor } from "@contracts/Actor";
 import type { Kind } from "@contracts/Kind";
@@ -47,7 +48,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     return null;
   };
 
-  const openTodo = (id: number) => async (source: "key" | "pointer") => {
+  const openTodo = (id: number) => async (source: ActivationSource) => {
     let listed: Todo[] = [];
 
     try {
@@ -66,7 +67,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     return null;
   };
 
-  const openPad = (name: string) => async (source: "key" | "pointer") => {
+  const openPad = (name: string) => async (source: ActivationSource) => {
     let listed: Pad[] = [];
 
     try {

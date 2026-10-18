@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
@@ -115,7 +116,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
         if (!isOpen()) setMounted(null);
       }}
     >
-      <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(event.detail === 0 ? "key" : "pointer")}>
+      <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
         <Icon name="x" />
       </IconButton>
       <Show when={mounted()} keyed>

@@ -1,3 +1,5 @@
+import { activationSource } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createBulkDelete } from "../shelf/BulkDelete";
 import { isTodoOfRunning } from "../rail/pads/owned";
@@ -57,7 +59,7 @@ export const OpenRow = (props: {
   selected?: boolean;
   todo: Todo;
   known: ReadonlyMap<number, Todo>;
-  onOpen: (todo: Todo, source: "key" | "pointer") => void;
+  onOpen: (todo: Todo, source: ActivationSource) => void;
   onComplete: (todo: Todo) => Promise<string | null>;
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
   /** U490a: a row ordered through `ui/Sortable` instead. */
@@ -99,7 +101,7 @@ export const OpenRow = (props: {
           hang={false}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
           pressed={props.pressed}
-          onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, event.detail === 0 ? "key" : "pointer")}
+          onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
           reorderable={props.sorted !== undefined}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
@@ -164,7 +166,7 @@ export const OpenRow = (props: {
               <span>{copy.waitsOnWord}</span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
                   <Show when={index() > 0}><span>{copy.comma}</span></Show>
-                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, event.detail === 0 ? "key" : "pointer")}>
+                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>
                     {props.nested ? `#${blocker.id}` : blocker.title}
                   </button>
                 </>
@@ -306,7 +308,7 @@ export const Todos = () => {
   const [shown, setShown] = createSignal<{ id: number; content: () => JSX.Element } | null>(null);
   const selectedId = () => (shown() !== null && connected.drawer.content() === shown()?.content ? shown()?.id : undefined);
 
-  const show = (todo: Todo, source: "key" | "pointer") => {
+  const show = (todo: Todo, source: ActivationSource) => {
     const content = () => <TodoDrawer id={todo.id} todos={todos} />;
 
     setShown({ id: todo.id, content });
@@ -361,7 +363,7 @@ export const Todos = () => {
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
               pressed={selection.selected().includes(todo.id)}
-              onPick={(item, event) => !bulk.pending() && selection.click(item.id, event, () => show(item, event.detail === 0 ? "key" : "pointer"))}
+              onPick={(item, event) => !bulk.pending() && selection.click(item.id, event, () => show(item, activationSource(event)))}
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
@@ -424,7 +426,7 @@ export const Todos = () => {
                       pressed={selection.selected().includes(todo.id)}
                       ref={(row) => selection.register(todo.id, row)}
                       onKeyDown={(event) => selectionKey(todo, event)}
-                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, event.detail === 0 ? "key" : "pointer"))}
+                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
                     >
                       <span class="shelf-title" title={todo.title}>{todo.title}</span>
                     </RowButton>

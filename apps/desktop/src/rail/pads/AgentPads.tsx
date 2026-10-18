@@ -1,3 +1,4 @@
+import { activationSource } from "../../keys/registry";
 import { copy } from "../../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
@@ -108,7 +109,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
 
   const openPad = (name: string, event: MouseEvent) => {
     props.pads.setFailure(null);
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />, event.detail === 0 ? "key" : "pointer");
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />, activationSource(event));
   };
 
   const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
