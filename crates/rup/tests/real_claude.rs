@@ -2438,18 +2438,7 @@ async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
             .unwrap(),
         json!({"pending": true})
     );
-    let mut working = false;
-    loop {
-        let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door => Some(status),
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
+    turn_done(model, &client, &door, "bad handoff observer").await;
     assert!(
         model.journal().iter().any(|entry| entry["body"]["tools"]
             .as_array()
@@ -2507,20 +2496,15 @@ async fn a32_a_bad_id_in_the_handoff_keeps_the_clear_pending() {
     })
     .await;
     assert_eq!(cleared.iteration, 2);
-    let mut working = false;
-    loop {
-        let status = next(&mut client, |event| match event {
-            EventData::AgentStatus(status) if status.id == door && status.attempt == "2" => {
-                Some(status)
-            }
-            _ => None,
-        })
-        .await;
-        working |= status.status.kind == Kind::Working;
-        if working && status.status.kind == Kind::Idle {
-            break;
-        }
-    }
+    // SessionStart can launch the first turn before workstream.cleared is emitted.
+    // Read the completed turn instead of awaiting a Working event already consumed above.
+    turn_done(
+        model,
+        &client,
+        &door,
+        "Follow this instruction: Valid handoff after bad ids",
+    )
+    .await;
     assert!(
         model.journal().iter().any(|entry| entry["body"]["tools"]
             .as_array()

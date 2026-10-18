@@ -144,6 +144,11 @@ Starting an Agent's next Attempt in its saved conversation; an explicit mode fir
 
 **YOLO** (`yolo`):
 Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
+**Conversation overview** (`ConversationOverview`, `RailNode.overview`):
+Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
+
+**Conversation card** (`ConversationCard`, `ConversationOverview.card`):
+The available intent, shape, facts and outcome rebuilt from assistant card blocks, each key from its newest well-formed value. An empty facts list clears older facts and is omitted from the displayed parts.
 
 **Worktree**:
 The git working directory assigned exclusively to one Agent when the Project's `worktrees` setting is on, with its own Agent branch. It is newly created in legacy mode or explicitly enrolled and retained at a stable path in prepared-directory mode (`docs/worktrees.md`).
