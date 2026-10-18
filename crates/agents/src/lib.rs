@@ -290,6 +290,7 @@ enum Slot {
     },
     /// A22: a resume's launch is pending acknowledgement; `since` is when, on `clock`, it began.
     Resuming {
+        mode: contracts::agent::ResumeMode,
         attempt: String,
         since: i64,
         /// The stashed exited Run, presented and restored on rollback; `None` when there was
@@ -316,6 +317,7 @@ enum Slot {
     Running(Run),
     /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
     ResumeCleanup {
+        yolo: bool,
         attempt: String,
         terminal_id: String,
         pending: bool,
@@ -368,6 +370,7 @@ enum FirstPrompt {
 }
 
 struct Run {
+    yolo: bool,
     /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
     startup_context: bool,
     attempt: String,

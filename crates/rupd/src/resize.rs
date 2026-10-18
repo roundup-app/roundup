@@ -752,9 +752,8 @@ fn action_params(call: &HeldCall) -> Result<Value, RpcError> {
         HeldCall::SetOrder(params) => serde_json::to_value(params),
         HeldCall::Answer(params) => serde_json::to_value(params),
         HeldCall::Close(params) | HeldCall::Kill(params) => serde_json::to_value(params),
-        HeldCall::Stop(params) | HeldCall::Interrupt(params) | HeldCall::Resume(params) => {
-            serde_json::to_value(params)
-        }
+        HeldCall::Stop(params) | HeldCall::Interrupt(params) => serde_json::to_value(params),
+        HeldCall::Resume(params) => serde_json::to_value(params),
         HeldCall::Prompt(params) => serde_json::to_value(params),
         HeldCall::Write(params) => serde_json::to_value(params),
         HeldCall::Rewind(params) => serde_json::to_value(params),

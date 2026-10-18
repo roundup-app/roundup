@@ -112,6 +112,12 @@ impl Shared {
             None => true,
         };
         node.can_resume &= exited;
+        node.yolo = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => run.yolo,
+            Some(Slot::Resuming { old: Some(old), .. }) => old.yolo,
+            Some(Slot::ResumeCleanup { yolo, .. }) => *yolo,
+            _ => false,
+        };
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.inbox = self.events.inbox.fact(&node.id);
@@ -645,6 +651,7 @@ mod tests {
         shared.runs().insert(
             id.clone(),
             Slot::Resuming {
+                mode: contracts::agent::ResumeMode::Normal,
                 attempt,
                 since: 0,
                 old: None,
