@@ -29,3 +29,5 @@ loop/rules.sh delta artifacts/ux/P2544b/base artifacts/ux/P2544b/head
 ```
 
 #2552 stays open for P2544c source-range reconciliation, P2544d Revision guards and full P2544e real-Daemon reopen/visual-block acceptance. This slice retains today's save path and adds no contract.
+
+CI repair follow-up: [run 39093080209](https://github.com/saadshahd/roundup/actions/runs/39093080209) passed all 328 tests in web shard 3, then failed on an unhandled Testing Library `observer.disconnect()` timeout attributed to U356. Its nested `findByLabelText` can receive a null Workstream container between a successful `rail.tree` reply and the Rail render. The scoped shared-observer repair is [#2610](https://github.com/saadshahd/roundup/issues/2610), a native prerequisite of #2552; this Pad-only PR changes no U356 assertion or shared helper. Main merged cleanly; `merge-loss` passes. CI must judge the updated head.
