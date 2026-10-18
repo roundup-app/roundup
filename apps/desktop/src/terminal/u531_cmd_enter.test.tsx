@@ -44,12 +44,16 @@ describe("u531 ⌘⏎ takes control of the selected Agent", () => {
     expect(begins(gone.app)).toEqual([]);
   });
 
-  it("u531_cmd_enter_in_a_takeover_gives_control_back", async () => {
+  it("u531_cmd_enter_from_the_agents_terminal_toggles_control_both_ways", async () => {
     const { app, connected } = await watch();
+    const screen = () => document.querySelector<HTMLElement>(".pane-screen [tabindex]")!;
 
-    press("Enter", { metaKey: true }, document.body);
+    screen().focus();
+    press("Enter", { metaKey: true }, screen());
     await waitFor(() => expect(connected.takeover.taken()).toBe("ann"));
-    press("Enter", { metaKey: true }, document.querySelector<HTMLElement>(".pane-screen [tabindex]")!);
+    expect(document.querySelector(".pane-control[data-state=controlled]")).not.toBeNull();
+
+    press("Enter", { metaKey: true }, screen());
     await waitFor(() => expect(connected.takeover.taken()).toBeNull());
     expect(app.calls.filter((call) => call.method.startsWith("takeover.")).map((call) => call.method)).toEqual(["takeover.begin", "takeover.end"]);
     expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull();

@@ -1,7 +1,7 @@
 {
   "fixtures": [
     {
-      "match": {"userMessage": "<session>\nFollow this instruction: What should this Agent do?"},
+      "match": {"userMessage": "<session>\nWhat should this Agent do?"},
       "response": {"content": "{\"title\":\"Review work\"}"}
     },
     {
@@ -9,7 +9,7 @@
       "response": {"content": "{\"title\":\"Workstream planning\"}"}
     },
     {
-      "match": {"userMessage": "Follow this instruction: What should this Agent do?", "hasToolResult": false},
+      "match": {"userMessage": "What should this Agent do?", "hasToolResult": false},
       "response": {"content": "Ready for your instructions."}
     },
     {

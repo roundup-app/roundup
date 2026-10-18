@@ -338,7 +338,7 @@ impl Served {
     }
 
     /// An Agent spawned on this Daemon whose first turn is played to its end, so it is `idle`: its
-    /// id and Attempt. Its first prompt is the first paste.
+    /// id and Attempt. Nothing is typed to it at start (A9), so its first paste is the first Message.
     async fn idle_agent(&self, client: &rpc::Client) -> (String, String) {
         let cwd = self.dir.path().to_string_lossy().into_owned();
         let agent = client
@@ -354,8 +354,7 @@ impl Served {
         );
         let start = r#"{"hook_event_name":"SessionStart","session_id":"s","source":"startup"}"#;
         assert!(self.signal(&id, &attempt, start).status.success());
-        let first = self.pastes(1).await.remove(0);
-        assert_eq!(self.submit(&id, &attempt, &first).status.code(), Some(0));
+        assert_eq!(self.submit(&id, &attempt, "start").status.code(), Some(0));
         let stop = r#"{"hook_event_name":"Stop"}"#;
         assert!(self.signal(&id, &attempt, stop).status.success());
         (id, attempt)
@@ -418,7 +417,7 @@ async fn b39_the_hook_exits_2_only_for_a_prompt_whose_messages_are_all_delivered
     let submit = |prompt: &str| served.submit(id, attempt, prompt);
     // The Agent is idle, so the Message is typed at once and waits in flight for its Signal.
     let sent = served.send(id, "hi").await;
-    served.pastes(2).await;
+    served.pastes(1).await;
     let status = || message_status(&client, 1);
 
     // Exit 0, and the Message still unconfirmed: no line, an id that names nothing, a line that
@@ -469,7 +468,7 @@ async fn b39_a_prompt_claude_code_wraps_as_a_paste_confirms_its_messages() {
     let sent = served
         .send(&id, "[wake]\nwhy-2303-closed is idle\n  last: idle")
         .await;
-    let prompt = wrapped_as_paste(&served.pastes(2).await[1]);
+    let prompt = wrapped_as_paste(&served.pastes(1).await[0]);
 
     assert_eq!(served.submit(&id, &attempt, &prompt).status.code(), Some(0));
     sent.await.unwrap().unwrap();
@@ -490,7 +489,7 @@ async fn b39_a_prompt_its_signal_did_not_confirm_is_not_typed_again_and_is_logge
     let client = rpc::Client::connect(&served.socket()).await.unwrap();
     let (id, attempt) = served.idle_agent(&client).await;
     let sent = served.send(&id, "one").await;
-    let one = served.pastes(2).await.remove(1);
+    let one = served.pastes(1).await.remove(0);
     // A prompt whose id line the Daemon cannot read, as Claude Code's own Paste placeholder.
     let unread = "Follow this instruction: [Pasted text #1 +3 lines]";
     assert_eq!(served.submit(&id, &attempt, unread).status.code(), Some(0));
@@ -502,7 +501,7 @@ async fn b39_a_prompt_its_signal_did_not_confirm_is_not_typed_again_and_is_logge
     let _two = served.send(&id, "two").await;
 
     assert_eq!(
-        served.pastes(3).await[1..],
+        served.pastes(2).await,
         [one, "[from you, note] two\n\n[rup messages: 2]".to_owned()]
     );
     assert_eq!(message_status(&client, 1).await, "pending");

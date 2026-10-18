@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
+import { createServedApp, spawnPrompted } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -80,13 +81,12 @@ run("u364 on the real Daemon", () => {
       await page.until(`() => document.querySelectorAll('.rail-row[data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
       await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
-      for (let at = 1; at <= 5; at++) {
-        const want = (workstream - 1) * 5 + at;
+      const app = createServedApp(real.base);
+      const door = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream")[workstream - 1]!;
 
-        await page.until(
-          `() => { if (${AGENTS}.length < ${want}) [...document.querySelectorAll('button')].find((each) => each.getAttribute("aria-label") === "Add Agent")?.click(); return ${AGENTS}.length >= ${want}; }`,
-          60_000,
-        );
+      for (let at = 1; at <= 5; at++) {
+        await spawnPrompted(app, real.dir, door.id);
+        await page.until(`() => ${AGENTS}.length >= ${(workstream - 1) * 5 + at}`, 60_000);
       }
     }
 
