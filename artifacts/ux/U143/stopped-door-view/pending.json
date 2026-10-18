@@ -1,0 +1,24 @@
+{
+  "after": {
+    "bottom": 886,
+    "height": 848,
+    "left": 288,
+    "right": 1192,
+    "top": 38,
+    "width": 904,
+    "x": 288,
+    "y": 38
+  },
+  "before": {
+    "bottom": 886,
+    "height": 848,
+    "left": 288,
+    "right": 1192,
+    "top": 38,
+    "width": 904,
+    "x": 288,
+    "y": 38
+  },
+  "disabled": "true",
+  "pending": "Starting supervisor…\n\nStart"
+}
