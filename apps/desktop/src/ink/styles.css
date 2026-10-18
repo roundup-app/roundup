@@ -63,28 +63,11 @@ p.ink[role="alert"] {
   background-color: transparent;
 }
 
-.shelf-row:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
-  border-radius: var(--radius-row);
-}
-
-.shelf-row:active {
-  background-image: linear-gradient(var(--pressed), var(--pressed));
-}
-
 .shelf-row[data-selected="true"] {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
   border-radius: var(--radius-row);
-}
-
-.shelf-row[data-selected="true"]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
-}
-
-.shelf-row[data-selected="true"]:active {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
 /* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */
@@ -180,4 +163,53 @@ p.ink[role="alert"] {
   max-width: var(--measure);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* U38: the empty list sits centred in the room under the add button, in `--grey` only. */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--grey);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.empty-state > .icon {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.empty-state-hint {
+  font-size: var(--text-caption);
+}
+
+/* U16, U19: the entry row's field is the title's own text: no box, border, fill or ring, the caret alone shows focus. */
+.entry-field {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.entry-field::placeholder {
+  color: var(--grey);
+  opacity: 1;
+}
+
+.entry-row > .shelf-glyph > .todo-tick {
+  pointer-events: none;
+}
+
+/* The shared focus ring (styles.css) is deliberately off here: the user chose the caret alone for this field. */
+.entry-row .entry-field:focus-visible {
+  outline: none;
 }

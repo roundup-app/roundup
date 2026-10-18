@@ -21,12 +21,12 @@ it("u3705_controls_have_names_and_tooltips", async () => {
 
 it("u3705_copy_is_catalogued", async () => {
   await mountSwitcher("ann");
-  await waitFor(() => expect(document.querySelector(".pane-watch")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull());
 
   const take = screen.getByRole("button", { name: "Take control" });
 
   expect(take.hasAttribute("title")).toBe(false);
-  expect(document.querySelector(".pane-watch")?.textContent).not.toMatch(/takeover/i);
+  expect(document.querySelector(".pane-control[data-state=managed]")?.textContent).not.toMatch(/takeover/i);
   fireEvent.click(take);
   await waitFor(() => expect(screen.getByRole("button", { name: "Give control back" })).not.toBeNull());
   expect(document.querySelector(".pane")?.textContent).not.toMatch(/takeover/i);
