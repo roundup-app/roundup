@@ -7,6 +7,7 @@ impl Agents {
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
+        self.shared.worktrunk.refresh(&self.shared);
         let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let worktree = worktree::Worktree::from(&record);
         tokio::task::spawn_blocking(move || git.state(&project, &worktree))

@@ -70,6 +70,35 @@ impl Git {
         }
     }
 
+    pub(super) fn collection_permitted(&self, project: &Path) -> Result<bool, RpcError> {
+        // wt's merge-tree probes can execute merge.<name>.driver. Refuse optional
+        // enrichment rather than run a repository-configured executable.
+        let output = self
+            .output(
+                project,
+                &["config", "--get-regexp", r"^merge\..*\.driver$"],
+                None,
+            )
+            .map_err(failed)?;
+        match output.status.code() {
+            Some(0) => Ok(false),
+            Some(1) => Ok(true),
+            _ => Err(failed("could not inspect configured merge drivers")),
+        }
+    }
+
+    pub(super) fn read_until(&self, deadline: Instant) -> Self {
+        Self {
+            deadline: Some(deadline),
+            ..self.reader()
+        }
+    }
+
+    // Optional collection must never queue local git reads behind its own IO.
+    pub(super) fn reader(&self) -> Self {
+        Self::with_path(self.path.clone())
+    }
+
     /// One budget covers lock acquisition and every command in an App-facing operation.
     pub(crate) fn bounded(&self) -> Self {
         Self {
@@ -714,7 +743,7 @@ impl Git {
         Ok(())
     }
 
-    fn registered_worktrees(
+    pub(super) fn registered_worktrees(
         &self,
         project: &Path,
     ) -> Result<Vec<(PathBuf, Option<String>)>, RpcError> {
