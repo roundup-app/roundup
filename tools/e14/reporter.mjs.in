@@ -1,0 +1,30 @@
+import { writeFileSync, readFileSync } from "node:fs";
+
+// The JSON reporter omits per-test startTime. Public diagnostics retain the
+// worker's timestamps even when reporter callbacks are delivered in a batch.
+export default class LifecycleReporter {
+  onTestRunEnd(modules, errors) {
+    const report = modules.map((module) => {
+      const source = readFileSync(module.moduleId, "utf8");
+      const real = /fixtures\/|realModel/.test(source);
+
+      const tests = Array.from(module.children.allTests(), (test) => {
+        const diagnostic = test.diagnostic();
+
+        return {
+          id: `${module.relativeModuleId}::${test.fullName}`,
+          status: test.result().state,
+          start: diagnostic?.startTime,
+          end: diagnostic ? diagnostic.startTime + diagnostic.duration : undefined,
+          retries: diagnostic?.retryCount,
+          repeats: diagnostic?.repeatCount,
+          real,
+        };
+      });
+
+      return { id: module.relativeModuleId, state: module.state(), tests };
+    });
+
+    writeFileSync(process.env.E14_LIFECYCLE, JSON.stringify({ modules: report, errors }, null, 2) + "\n");
+  }
+}
