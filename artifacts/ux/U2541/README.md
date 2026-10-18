@@ -1,7 +1,9 @@
 # U2541 paired captures
 
 Base: origin/main `9989ec264569d71bbbb933c60de40ef99bb6b84b`.
-Head: `f5ab9da1971d08949ad27f549ad8b32766daed54`.
+Head: `562fefb8e` (Help refreshed after restoring the existing text spacing).
+Hint and leader captures are from `f5ab9da1971d08949ad27f549ad8b32766daed54`;
+the later change affects only Help spacing.
 
 `base/` and `head/` each contain 16 PNG/Checks pairs from the real tree-40 harness:
 light/dark × normal/increased contrast × 1512×950, 1280×800 and 700×800 hint lines,
