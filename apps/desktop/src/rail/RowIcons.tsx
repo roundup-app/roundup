@@ -12,10 +12,10 @@ export type RowActions = {
   editor: () => void;
 } & (
   | { kind: "workstream"; add: { disabled: boolean; run: () => void }; clear?: () => void }
-  | { kind: "agent"; stop?: () => void }
+  | { kind: "agent"; stop?: () => void; resume?: () => void }
 );
 
-const RowIcon = (props: { name: "plus" | "clear" | "stop" | "folder" | "editor"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
+const RowIcon = (props: { name: "plus" | "clear" | "stop" | "play" | "folder" | "editor"; label: string; disabled?: boolean; onClick: (click: MouseEvent) => void }) => (
   <IconButton
     aria-label={props.label}
     aria-disabled={props.disabled ? true : undefined}
@@ -44,6 +44,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
       {(clear) => <RowIcon name="clear" label={copy.clearWorkstream} onClick={clear()} />}
     </Show>
     <Show when={props.actions.kind === "agent" ? props.actions.stop : undefined}>{(stop) => <RowIcon name="stop" label={copy.stop} onClick={stop()} />}</Show>
+    <Show when={props.actions.kind === "agent" ? props.actions.resume : undefined}>{(resume) => <RowIcon name="play" label={copy.resume} onClick={resume()} />}</Show>
     <RowIcon name="folder" label={copy.openFolder} onClick={props.actions.folder} />
     <RowIcon name="editor" label={copy.openInEditor} onClick={props.actions.editor} />
   </span>
