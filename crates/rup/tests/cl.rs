@@ -319,3 +319,138 @@ async fn cl4_an_unknown_command_exits_2_with_the_help() {
     assert!(stderr(&out).contains("User: yes   Ext: yes"));
     assert!(stdout(&out).is_empty());
 }
+
+#[path = "common/served.rs"]
+mod common;
+
+#[tokio::test]
+async fn cl2706a_outside_callers_read_current_rail_names() {
+    let fx = common::NamedRail::start().await;
+    let (_decision, pending) = fx.decision().await;
+    for prefix in [vec!["mcp"], vec!["--as", "ext:observer", "mcp"]] {
+        let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(prefix)
+            .env("RUPD_SOCKET", fx.served.socket())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let transport = (child.stdout.take().unwrap(), child.stdin.take().unwrap());
+        let shim = tokio::time::timeout(Duration::from_secs(20), ().serve(transport))
+            .await
+            .unwrap()
+            .unwrap();
+        let tools = shim.list_all_tools().await.unwrap();
+        assert!(!tools.iter().any(|tool| tool.name == "workstream_handoff"));
+        for renamed in [false, true] {
+            let name = if renamed { "Planning" } else { "Research" };
+            if renamed {
+                fx.rename().await;
+            } else {
+                for (id, name) in [
+                    (&fx.door, "Research"),
+                    (&fx.child, "Writer"),
+                    (&fx.peer, "Reviewer"),
+                ] {
+                    fx.user
+                        .request("rail.rename", json!({"id":id,"name":name}))
+                        .await
+                        .unwrap();
+                }
+            }
+            for (tool, args) in [
+                ("rail_move", json!({"id":fx.door,"parent":null,"index":0})),
+                ("rail_tree", json!({})),
+                ("decision_list", json!({})),
+            ] {
+                let result = shim
+                    .call_tool(
+                        CallToolRequestParams::new(tool)
+                            .with_arguments(args.as_object().unwrap().clone()),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(result.is_error, Some(false), "{result:?}");
+                let raw = &result.content[0].as_text().unwrap().text;
+                match tool {
+                    "rail_move" => assert_eq!(raw, &format!("moved {name} to Project root")),
+                    "rail_tree" => {
+                        let nodes: Value = serde_json::from_str(raw).unwrap();
+                        assert_eq!(nodes[0]["name"], name);
+                        assert!(
+                            nodes
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .filter(|node| !node["parent"].is_null())
+                                .all(|node| node["parent_name"] == name)
+                        );
+                    }
+                    _ => {
+                        let decisions: Value = serde_json::from_str(raw).unwrap();
+                        assert_eq!(decisions[0]["agent"], fx.child);
+                        assert_eq!(
+                            decisions[0]["agent_name"],
+                            if renamed { "Author" } else { "Writer" }
+                        );
+                    }
+                }
+            }
+            let disposable = fx.spawn("Disposable").await;
+            let discarded_name = if renamed { "Archived" } else { "Disposable" };
+            if renamed {
+                fx.user
+                    .request(
+                        "rail.rename",
+                        json!({"id":disposable,"name":discarded_name}),
+                    )
+                    .await
+                    .unwrap();
+            }
+            let discarded = shim
+                .call_tool(
+                    CallToolRequestParams::new("agent_discard")
+                        .with_arguments(json!({"id":disposable}).as_object().unwrap().clone()),
+                )
+                .await
+                .unwrap();
+            assert_eq!(discarded.is_error, Some(false), "{discarded:?}");
+            assert_eq!(
+                discarded.content[0].as_text().unwrap().text,
+                format!("discarded Worktree of Agent {discarded_name}")
+            );
+            let nodes = fx.user.request("rail.tree", ()).await.unwrap();
+            assert!(
+                nodes
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|node| node["id"] != disposable)
+            );
+            let forbidden = shim
+                .call_tool(CallToolRequestParams::new("agent_context"))
+                .await
+                .unwrap();
+            assert_eq!(forbidden.is_error, Some(true));
+        }
+    }
+    pending.abort();
+}
+
+#[tokio::test]
+async fn cl2706a_help_explains_rail_names() {
+    let project = start_daemon(None);
+    for args in [vec![], vec!["help"], vec!["--help"], vec!["-h"]] {
+        let output = rup(Some(&project.socket), project.dir.path(), &args).await;
+        assert_eq!(output.status.code(), Some(0));
+        let help = stdout(&output);
+        assert!(
+            help.contains("Rail name")
+                && help.contains("--json")
+                && help.contains("IDs remain command arguments"),
+            "{help}"
+        );
+    }
+}

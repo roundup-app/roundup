@@ -118,13 +118,7 @@ async fn main() -> ExitCode {
         ["permission", agent_id] if !agent_id.starts_with('-') => permission(agent_id).await,
         // As for `signal`: exit 2 would block the tool call.
         ["permission", ..] => Err("usage: rup permission <agent-id>".into()),
-        ["mcp"] => match options.ext {
-            Some(actor) => return mcp::run(actor).await,
-            None => {
-                eprintln!("usage: rup mcp <agent-id> | rup --as ext:<name> mcp");
-                return ExitCode::from(2);
-            }
-        },
+        ["mcp"] => return mcp::run(options.actor()).await,
         ["mcp", _] if options.ext.is_some() => {
             eprintln!("rup: an Agent id and --as ext:<name> cannot both be given");
             return ExitCode::from(2);

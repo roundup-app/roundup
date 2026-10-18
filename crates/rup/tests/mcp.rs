@@ -26,7 +26,11 @@ struct Shim {
 
 fn start_rup_mcp(socket: &Path, agent: &str) -> Child {
     tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
-        .args(if agent.is_empty() { vec!["--as", "ext:test", "mcp"] } else { vec!["mcp", agent] })
+        .args(if agent.is_empty() {
+            vec!["mcp"]
+        } else {
+            vec!["mcp", agent]
+        })
         .env("RUPD_SOCKET", socket)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1294,7 +1298,11 @@ fn m17_daemon(socket: &Path, reply: Value) -> tokio::task::JoinHandle<()> {
                 while let Some(line) = lines.next_line().await.unwrap() {
                     let request: Value = serde_json::from_str(&line).unwrap();
                     let result = if request["method"] == "rail.tree" {
-                        json!([{"id":"a1", "kind":"workstream", "name":"Door", "parent":null, "order":0, "can_resume":false, "stray":[]}])
+                        json!([
+                            {"id":"a1", "kind":"workstream", "name":"Door", "parent":null, "order":0, "can_resume":false, "stray":[]},
+                            {"id":"door", "kind":"workstream", "name":"Research", "parent":null, "order":1, "can_resume":false, "stray":[]},
+                            {"id":"child", "kind":"agent", "name":"Writer", "parent":"door", "order":0, "can_resume":false, "stray":[]}
+                        ])
                     } else {
                         reply.clone()
                     };
@@ -1336,8 +1344,11 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "exported Pad notes to /tmp/notes.md",
             ),
             "pad.setStorage" => (json!({"files":true}), "enabled Pad files"),
-            "agent.discard" => (json!({"id":"child"}), "discarded Worktree of Agent child"),
-            "rail.move" => (json!({"id":"child","parent":"door"}), "moved child to door"),
+            "agent.discard" => (json!({"id":"child"}), "discarded Worktree of Agent Writer"),
+            "rail.move" => (
+                json!({"id":"child","parent":"door"}),
+                "moved Writer to Research",
+            ),
             "project.setWorktrees" => (json!({"on":false}), "disabled Worktrees"),
             "project.open" => (
                 json!({"path":"/tmp/project"}),
@@ -1354,7 +1365,7 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             ),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
-                "handed off Workstream a1",
+                "handed off Workstream Door",
             ),
             other => panic!("add an acknowledgement fixture for offered unit method {other}"),
         };
@@ -1777,15 +1788,248 @@ async fn p2544d_mcp_write_preserves_conflict_code() {
 
 #[tokio::test]
 async fn m2706a_actions_name_rail_nodes() {
-    let project = start_daemon();
-    let user = client_as(&project.socket, Actor::user()).await;
-    let node = user.request("rail.createWorkstream", json!({"name":"Research"})).await.unwrap();
-    let shim = spawn_shim(&project.socket, "").await;
-    let reply = shim.call("rail_move", json!({"id":node["id"],"parent":null,"index":0})).await;
-    assert_eq!(reply.is_error, Some(false), "{reply:?}");
-    assert_eq!(reply.content[0].as_text().unwrap().text, "moved Research to Project root");
-    let tree = user.request("rail.tree", ()).await.unwrap();
-    assert_eq!(tree[0]["parent"], Value::Null);
-    assert_eq!(tree[0]["order"], 0);
-    project.daemon.abort();
+    named_actions(false).await;
+}
+
+#[tokio::test]
+async fn m2706a_actions_use_names_after_rename() {
+    named_actions(true).await;
+}
+
+async fn named_actions(rename: bool) {
+    let mut fx = common::NamedRail::start().await;
+    let door = spawn_shim(&fx.served.socket(), &fx.door).await;
+    let user = spawn_shim(&fx.served.socket(), "").await;
+    if rename {
+        let discarded = door.call("agent_discard", json!({"id":fx.child})).await;
+        assert_eq!(discarded.is_error, Some(false), "{discarded:?}");
+        // Discard removes the identity permanently; recreate its precondition before renaming.
+        fx.child = fx.spawn("Writer").await;
+    }
+    for phase in 0..=usize::from(rename) {
+        if phase == 1 {
+            fx.rename().await;
+        }
+        let (door_name, child_name) = if phase == 0 {
+            ("Research", "Writer")
+        } else {
+            ("Planning", "Author")
+        };
+        let moved = door
+            .call(
+                "rail_move",
+                json!({"id":fx.child,"parent":fx.door,"index":0}),
+            )
+            .await;
+        assert_eq!(moved.is_error, Some(false), "{moved:?}");
+        assert_eq!(
+            moved.content[0].as_text().unwrap().text,
+            format!("moved {child_name} to {door_name}")
+        );
+        let tree = fx.user.request("rail.tree", ()).await.unwrap();
+        let child = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == fx.child)
+            .unwrap();
+        assert_eq!(child["parent"], fx.door);
+        assert_eq!(child["order"], 0);
+        let moved = user
+            .call("rail_move", json!({"id":fx.door,"parent":null,"index":0}))
+            .await;
+        assert_eq!(
+            moved.content[0].as_text().unwrap().text,
+            format!("moved {door_name} to Project root")
+        );
+    }
+    // Discard deletes its node; names must have been resolved before the call.
+    let name = if rename { "Author" } else { "Writer" };
+    let tree = fx.user.request("rail.tree", ()).await.unwrap();
+    let path = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == fx.child)
+        .unwrap()["worktree"]["path"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(Path::new(&path).exists());
+    let discarded = door.call("agent_discard", json!({"id":fx.child})).await;
+    assert_eq!(discarded.is_error, Some(false), "{discarded:?}");
+    assert_eq!(
+        discarded.content[0].as_text().unwrap().text,
+        format!("discarded Worktree of Agent {name}")
+    );
+    assert!(!Path::new(&path).exists());
+    let tree = fx.user.request("rail.tree", ()).await.unwrap();
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .all(|node| node["id"] != fx.child)
+    );
+    for phase in 0..=usize::from(rename) {
+        let name = if phase == 0 { "Research" } else { "Planning" };
+        fx.user
+            .request("rail.rename", json!({"id":fx.door,"name":name}))
+            .await
+            .unwrap();
+        let mut events = fx.begin_clear().await;
+        let handed = door
+            .call(
+                "workstream_handoff",
+                json!({"summary":"Reviewed the work","keep_todos":[],"keep_pads":[]}),
+            )
+            .await;
+        assert_eq!(handed.is_error, Some(false), "{handed:?}");
+        assert_eq!(
+            handed.content[0].as_text().unwrap().text,
+            format!("handed off Workstream {name}")
+        );
+        assert_eq!(
+            fx.cleared(&mut events).await,
+            u32::try_from(phase).unwrap() + 2
+        );
+    }
+}
+
+#[tokio::test]
+async fn m2706a_data_names_every_referenced_agent() {
+    let fx = common::NamedRail::start().await;
+    let door = spawn_shim(&fx.served.socket(), &fx.door).await;
+    let child = spawn_shim(&fx.served.socket(), &fx.child).await;
+    let (_id, pending) = fx.decision().await;
+    for renamed in [false, true] {
+        if renamed {
+            fx.rename().await;
+        }
+        let (parent, name, peer) = if renamed {
+            ("Planning", "Author", "Editor")
+        } else {
+            ("Research", "Writer", "Reviewer")
+        };
+        let tree = text(&door.call("rail_tree", json!({})).await);
+        let node = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == fx.child)
+            .unwrap();
+        assert_eq!(node["name"], name);
+        assert_eq!(node["parent_name"], parent);
+        let context = text(&child.call("agent_context", json!({})).await);
+        assert_eq!(context["self"]["name"], name);
+        assert_eq!(context["parent"]["name"], parent);
+        assert_eq!(context["ask"]["name"], parent);
+        assert_eq!(context["peers"][0]["name"], peer);
+        let digest = text(&door.call("agent_digest", json!({})).await);
+        assert!(
+            digest["children"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["name"] == name)
+        );
+        let decisions = text(&door.call("decision_list", json!({})).await);
+        assert_eq!(decisions[0]["agent"], fx.child);
+        assert_eq!(decisions[0]["agent_name"], name);
+        assert!(decisions[0].get("failure").is_none());
+        assert_eq!(
+            serde_json::from_str::<Value>(decisions[0]["args"].as_str().unwrap()).unwrap()["question"],
+            "Choose"
+        );
+    }
+    pending.abort();
+}
+
+#[tokio::test]
+async fn m2706a_non_agent_identifiers_keep_their_meaning() {
+    let fx = common::NamedRail::start().await;
+    let door = spawn_shim(&fx.served.socket(), &fx.door).await;
+    let (id, pending) = fx.decision().await;
+    let answered = door
+        .call(
+            "decision_answer",
+            json!({"id":id,"answer":"Yes","proof":"test-proof"}),
+        )
+        .await;
+    assert_eq!(
+        answered.content[0].as_text().unwrap().text,
+        format!("answered Decision {id}: Yes")
+    );
+    assert_eq!(pending.await.unwrap().unwrap()["answer"], "Yes");
+    let todo = fx
+        .user
+        .request("todo.create", json!({"title":"Notes"}))
+        .await
+        .unwrap();
+    let deleted = door.call("todo_delete", json!({"id":todo["id"]})).await;
+    assert_eq!(
+        deleted.content[0].as_text().unwrap().text,
+        format!("deleted Todo {}", todo["id"])
+    );
+    let tree = fx.user.request("rail.tree", ()).await.unwrap();
+    let terminal = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == fx.child)
+        .unwrap()["terminal_id"]
+        .clone();
+    let shown = door.call("terminal_show", json!({"id":terminal})).await;
+    assert_eq!(
+        shown.content[0].as_text().unwrap().text,
+        format!("showing Terminal {}", terminal.as_str().unwrap())
+    );
+}
+
+#[tokio::test]
+async fn m2706a_a_failed_name_lookup_sends_no_action() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("invalid-rail.sock");
+    let mut seen = fake_daemon(
+        &socket,
+        &[
+            "daemon.identify",
+            "agent.channelUp",
+            "rail.tree",
+            "agent.discard",
+        ],
+    );
+    let shim = spawn_shim(&socket, "7013").await;
+    let reply = shim.call("agent_discard", json!({"id":"7014"})).await;
+    assert_eq!(reply.is_error, Some(true));
+    let raw = reply.content[0].as_text().unwrap().text.as_str();
+    assert!(!raw.contains("7013") && !raw.contains("7014"), "{raw}");
+    let mut reads = 0;
+    while let Ok(request) = seen.try_recv() {
+        assert_ne!(request["method"], "agent.discard");
+        reads += usize::from(request["method"] == "rail.tree");
+    }
+    assert_eq!(reads, 2, "startup and the action each read the Rail");
+}
+
+#[tokio::test]
+async fn m2706a_failed_answer_authors_have_names() {
+    let dir = tempfile::tempdir().unwrap();
+    let socket = dir.path().join("answer-author.sock");
+    let server = m17_daemon(
+        &socket,
+        json!([{
+            "id":"d1", "agent":"missing", "args":"authored content: missing",
+            "failure":{"answered_by":{"kind":"agent","id":"a1","parent":"a1"}}
+        }]),
+    );
+    let shim = spawn_shim(&socket, "a1").await;
+    let decisions = text(&shim.call("decision_list", json!({})).await);
+    assert_eq!(decisions[0]["agent_name"], "an Agent that is gone");
+    assert_eq!(decisions[0]["failure"]["answered_by"]["name"], "Door");
+    assert_eq!(
+        decisions[0]["failure"]["answered_by"]["parent_name"],
+        "Door"
+    );
+    assert_eq!(decisions[0]["args"], "authored content: missing");
+    server.abort();
 }
