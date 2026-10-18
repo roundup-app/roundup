@@ -109,14 +109,15 @@ async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
         .unwrap();
     let id = agent["id"].as_str().unwrap();
     let screen = || async {
-        let snapshot = client
-            .request("terminal.snapshot", json!({"id": id}))
-            .await
-            .unwrap();
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(snapshot["data"].as_str().unwrap())
-            .unwrap();
-        String::from_utf8_lossy(&bytes).into_owned()
+        // Snapshots encode blank cells as cursor movements; text assertions need rendered rows.
+        let screen: contracts::terminal::Screen = serde_json::from_value(
+            client
+                .request("terminal.screen", json!({"id": id}))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        screen.lines.join("\n")
     };
     until_async(
         "fresh Claude reaches prompt input without answering a dialog",
@@ -133,10 +134,31 @@ async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
         )
         .await
         .unwrap();
-    until_async("Claude accepts the pasted first prompt", || async {
-        screen().await.contains(prompt).then_some(())
+    let mut last_screen = String::new();
+    let accepted = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            last_screen = screen().await;
+            if last_screen.contains(prompt) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
     })
     .await;
+    if accepted.is_err() {
+        let snapshot = client
+            .request("terminal.snapshot", json!({"id": id}))
+            .await
+            .unwrap();
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(snapshot["data"].as_str().unwrap())
+            .unwrap();
+        panic!(
+            "Claude did not accept the pasted first prompt; rendered screen: {last_screen:?}; \
+             terminal snapshot: {:?}",
+            String::from_utf8_lossy(&bytes)
+        );
+    }
     client
         .request(
             "terminal.write",
