@@ -478,6 +478,9 @@ The Client's optional bounded receiver of the Output streams its connection sele
 **Event log**:
 The Daemon's table in `project.db` of every Event but Terminal output, kept to the last 10 000 (`EVENT_WINDOW`); `events.subscribe` replays from it (`scenarios/daemon.md` D10, D11).
 
+**Rail rename** (`rail.renamed`, `RailRenamed`):
+The Event carrying one Rail node's exact machine id and newly committed name, in name-commit order. A Workstream's id also addresses its Door; unchanged names are not renames.
+
 **Event number** (`seq`):
 The positive integer the Event log gives an Event as its row id: it rises by one per saved Event, never repeats across a Daemon restart, and rides on the Event every subscriber sees. Terminal output has none (D10).
 
