@@ -253,6 +253,7 @@ async fn a2741a_first_prompt_and_rpc_share_the_committed_name_seam() {
 async fn a2741a_unchanged_prompt_names_produce_no_change() {
     for case in [
         "no words",
+        "same name",
         "later prompt",
         "explicit spawn",
         "explicit rename",
@@ -310,6 +311,7 @@ async fn a2741a_unchanged_prompt_names_produce_no_change() {
         let mut events = f.bus.subscribe();
         let prompt = match case {
             "no words" => "please, the...",
+            "same name" => "new agent",
             "Clarification" => {
                 "What should this Agent do?\n\nFind the intent and elicit what is missing, asking whom `agent_context` names under `ask`. Then record a Work order with `agent_set_order`."
             }
