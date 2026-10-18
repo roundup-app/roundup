@@ -62,7 +62,6 @@ it.each([
   { name: "join", source: "first\n\nlast\n\n* untouched", edit: "first last\n\n* untouched", expected: "first last\n\n* untouched" },
   { name: "non-ASCII CRLF without final newline", source: "café\r\n\r\n* 日本語", edit: "café ☕\n\n* 日本語", expected: "café ☕\r\n\r\n* 日本語" },
   { name: "reordered authored list", source: "* authored\n\nlast\n", edit: "last\n\n* authored", expected: "last\n\n* authored\n" },
-  { name: "new unordered list", source: "first\n\n* authored", edit: "- new\n\nfirst\n\n* authored", expected: "- new\n\nfirst\n\n* authored" },
   { name: "opaque definition between edited paragraphs", source: "one\n\n[ref]: https://example.com\n\nthree", edit: "ONE\n\nTHREE", expected: "ONE\n\n[ref]: https://example.com\n\nTHREE" },
   { name: "reference definition", source: "first\n\n[link][ref]\n\n[ref]: https://example.com \"title\"\n", edit: "FIRST\n\n[link](https://example.com \"title\")", expected: "FIRST\n\n[link][ref]\n\n[ref]: https://example.com \"title\"\n" },
   { name: "front matter HTML and footnote", source: "---\ntitle: Test\n---\n\nfirst\n\n<div>opaque</div>\n\n[^1]: footnote\n", edit: "---\ntitle: Test\n---\n\nFIRST\n\n<div>opaque</div>\n\n[^1]: footnote", expected: "---\ntitle: Test\n---\n\nFIRST\n\n<div>opaque</div>\n\n[^1]: footnote\n" },
@@ -109,4 +108,11 @@ it("p2544c_ambiguous_mapping_keeps_source_and_draft", async () => {
   view.dispatch(view.state.tr.insertText("draft", 1));
   expect(handle.getText()).toBeNull();
   expect(view.state.doc.textContent).toBe("draft");
+});
+
+it("p2544c_new_lists_use_dash_existing_markers_survive", async () => {
+  const { handle, replace } = await open("first\n\n* authored");
+
+  replace("- new\n\nfirst\n\n* authored");
+  expect(handle.getText()).toBe("- new\n\nfirst\n\n* authored");
 });
