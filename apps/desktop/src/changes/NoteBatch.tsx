@@ -28,7 +28,7 @@ export const NoteBatch = (props: { id: string; name: string; notes: Notes; compa
     <section class="note-batch" aria-label={copy.notesRegion}>
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
-          <Tip text={note.comparison.newPath}>{(trigger) => <p class="note-path" {...trigger()}>{note.comparison.newPath}</p>}</Tip>
+          <Tip text={note.comparison.newPath}>{(trigger) => <p class="note-path" {...trigger()} style={{ width: "fit-content", "max-width": "100%" }}>{note.comparison.newPath}</p>}</Tip>
           <p>{copy.noteLocation(note.comparison.newPath, note.side, note.start, note.end)}<Show when={older(note)}>{copy.originalContext}</Show></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
