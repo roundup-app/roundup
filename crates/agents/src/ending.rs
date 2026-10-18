@@ -331,16 +331,25 @@ pub(super) async fn kill_or_already_gone(
     terminal_id: &str,
 ) -> Result<(), RpcError> {
     let mut exit = terminals.subscribe(terminal_id).ok();
-    if let Some(exit) = exit.as_mut()
-        && exit_through_claude_code(terminals, terminal_id, exit).await
+    let ended = if let Some(exit) = exit.as_mut() {
+        exit_through_claude_code(terminals, terminal_id, exit).await
+    } else {
+        false
+    };
+    if !ended {
+        match kill.kill(terminal_id).await {
+            Err(err) if err.code != code::NOT_FOUND => return Err(err),
+            _ => {}
+        }
+    }
+    // A reaped program can precede the reader's TerminalExited publication.
+    // Resume cleanup needs that publication before it can confirm the Terminal stopped.
+    if let Some(mut exit) = exit
+        && terminals
+            .list()
+            .iter()
+            .any(|t| t.id == terminal_id && t.running)
     {
-        return Ok(());
-    }
-    match kill.kill(terminal_id).await {
-        Err(err) if err.code != code::NOT_FOUND => return Err(err),
-        _ => {}
-    }
-    if let Some(mut exit) = exit {
         let _ = tokio::time::timeout(KILL_WAIT_BOUND, wait_for_exit(&mut exit)).await;
     }
     Ok(())
