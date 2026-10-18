@@ -8,7 +8,7 @@ use rpc::{Bus, Ctx, Module, code};
 use serde_json::{Value, json};
 use std::sync::{
     Arc,
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
@@ -360,12 +360,16 @@ async fn a42_an_invalid_pick_changes_nothing() {
 }
 
 struct Recorder {
+    refuse: Arc<AtomicBool>,
     writer: Box<dyn std::io::Write + Send>,
     tx: mpsc::UnboundedSender<Vec<u8>>,
     bytes: Vec<u8>,
 }
 impl std::io::Write for Recorder {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        if self.refuse.load(Ordering::SeqCst) {
+            return Err(std::io::Error::other("Terminal refused the write"));
+        }
         let n = self.writer.write(bytes)?;
         self.bytes.extend_from_slice(&bytes[..n]);
         Ok(n)
@@ -376,10 +380,14 @@ impl std::io::Write for Recorder {
         Ok(())
     }
 }
+const ASK_BOUND: Duration = Duration::from_secs(1);
+
 struct DoorHarness {
     h: Harness,
     bytes: mpsc::UnboundedReceiver<Vec<u8>>,
     terminals: Arc<terminal::Terminals>,
+    refuse: Arc<AtomicBool>,
+    ended: Arc<AtomicBool>,
 }
 impl DoorHarness {
     fn open(dir: &std::path::Path) -> Self {
@@ -391,11 +399,16 @@ impl DoorHarness {
         std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         let bus = Bus::new();
         let (tx, bytes) = mpsc::unbounded_channel();
+        let refuse = Arc::new(AtomicBool::new(false));
+        let refused = refuse.clone();
+        let ended = Arc::new(AtomicBool::new(false));
+        let gone = ended.clone();
         let terminals = Arc::new(
             terminal::Terminals::open(dir, bus.clone())
                 .unwrap()
                 .with_input_writer(move |writer| {
                     Box::new(Recorder {
+                        refuse: refused.clone(),
                         writer,
                         tx: tx.clone(),
                         bytes: vec![],
@@ -416,7 +429,15 @@ impl DoorHarness {
                 agents::worktree::Git::from_env(),
             )
             .unwrap()
-            .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) }),
+            .with_context(|_, _| async { Ok("Context must not enter a new Ask's Steer".into()) })
+            .with_steer_bound(ASK_BOUND)
+            .with_steer_effect(move |_| {
+                if gone.load(Ordering::SeqCst) {
+                    Err(rpc::RpcError::not_found("Door ended before write"))
+                } else {
+                    Ok(())
+                }
+            }),
         );
         let (tx, calls) = mpsc::unbounded_channel();
         let count = Arc::new(AtomicUsize::new(0));
@@ -445,6 +466,8 @@ impl DoorHarness {
             },
             bytes,
             terminals,
+            refuse,
+            ended,
         }
     }
     async fn signal(&self, id: &str, event: &str) {
@@ -915,4 +938,101 @@ async fn a42_picking_new_uses_the_first_six_words_as_its_title() {
     f.changed(&mut events, &ask["id"], "typed").await;
     assert_eq!(f.h.count.load(Ordering::SeqCst), 1);
     f.stop().await;
+}
+
+#[tokio::test]
+async fn a41_the_part_reads_typed_before_the_wait_ends() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    f.start(&id).await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask = f.h.send("@Work hello").await;
+    assert_eq!(f.read().await, paste("hello"));
+    f.changed(&mut events, &ask["id"], "typed").await;
+    f.signal(&id, "UserPromptSubmit").await;
+    f.stop().await;
+}
+
+#[tokio::test]
+async fn a41_a_clear_ask_ends_typed_never_failed() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    f.start(&id).await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask = f.h.send("@Work /clear").await;
+    assert_eq!(f.read().await, paste("/clear"));
+    f.signal(&id, "SessionStart").await;
+    // Observe past H11's acceptance bound: no late failure may replace typed.
+    let observed = tokio::time::timeout(ASK_BOUND * 2, async {
+        loop {
+            let wire = serde_json::to_value(events.recv().await.unwrap()).unwrap();
+            if wire["data"]["ask"]["id"] == ask["id"] {
+                assert_ne!(wire["data"]["ask"]["parts"][0]["state"], "failed");
+            }
+        }
+    })
+    .await;
+    assert!(observed.is_err());
+    assert_eq!(f.h.list().await[0]["parts"][0]["state"], "typed");
+    assert!(f.bytes.try_recv().is_err());
+    f.stop().await;
+}
+
+#[tokio::test]
+async fn a41_a_real_non_acceptance_still_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    f.start(&id).await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask = f.h.send("@Work /model").await;
+    assert_eq!(f.read().await, paste("/model"));
+    f.changed(&mut events, &ask["id"], "typed").await;
+    let failed = f.changed(&mut events, &ask["id"], "failed").await;
+    assert_eq!(
+        failed["parts"][0]["reason"],
+        format!("agent {id} did not accept the prompt")
+    );
+    assert!(f.bytes.try_recv().is_err());
+    f.stop().await;
+}
+
+#[tokio::test]
+async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
+    for ended in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut f = DoorHarness::open(dir.path());
+        let id = f.workstream().await;
+        f.start(&id).await;
+        f.refuse.store(!ended, Ordering::SeqCst);
+        f.ended.store(ended, Ordering::SeqCst);
+        let mut events = f.h.ctx.bus.subscribe();
+        let ask = f.h.send("@Work /clear").await;
+        let failed = loop {
+            let wire = serde_json::to_value(
+                tokio::time::timeout(ASK_BOUND * 2, events.recv())
+                    .await
+                    .unwrap()
+                    .unwrap(),
+            )
+            .unwrap();
+            if wire["data"]["ask"]["id"] == ask["id"] {
+                let part = &wire["data"]["ask"]["parts"][0];
+                assert_ne!(part["state"], "typed");
+                if part["state"] == "failed" {
+                    break part.clone();
+                }
+            }
+        };
+        let reason = if ended {
+            "the Door ended before this reached it".to_owned()
+        } else {
+            format!("agent {id} did not accept the prompt")
+        };
+        assert_eq!(failed["reason"], reason);
+        assert!(f.bytes.try_recv().is_err());
+        f.stop().await;
+    }
 }
