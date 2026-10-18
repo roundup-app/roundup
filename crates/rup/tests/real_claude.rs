@@ -1795,7 +1795,18 @@ async fn a41_a_leading_slash_runs_the_skill() {
         .request("rail.startDoor", json!({"id":id}))
         .await
         .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
+    // SessionStart also emits Idle; finish the initial turn before sending the skill.
+    for kind in [Kind::Working, Kind::Idle] {
+        tokio::time::timeout(
+            Duration::from_secs(15),
+            next(&mut client, |event| {
+                matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == kind)
+                    .then_some(())
+            }),
+        )
+        .await
+        .unwrap_or_else(|_| panic!("{:?}", project.model.as_ref().unwrap().journal()));
+    }
     let ask = client
         .request("ask.send", json!({"text":"@Skill /a41-proof x"}))
         .await
