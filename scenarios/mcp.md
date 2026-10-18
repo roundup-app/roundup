@@ -34,7 +34,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `project.resources` | the App's Resource strip (D8, U408): an Agent reading how hungry its peers are would gain nothing it can act on, and each call samples the operating system |
 | `workstream.clear` | the user's act of starting a Workstream over (A32): an Agent that cleared it would remove the Subagents the user watches. A Door answers the user's clear with `workstream_handoff` |
 | `open_target` | the user's Cmd+click on a Terminal's link (U365): an Agent that could open a URL or a path launches an app on the user's Mac |
-| `agent.changedFiles` | the App's Worktree panel (U2539b): an Agent reads its own diff with git, and a peer's Worktree is not its to list |
+| `agent.changedFiles`, `agent.compareFile` | the App's Worktree panel and file comparison (U2539b, U2540a): an Agent reads its own diff with git, and a peer's Worktree is not its to list or read |
 | `open_in_editor` | the user's click on a Rail row's editor icon (U429): an Agent that could call it launches an app on the user's Mac |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
 | `plugin:window-bar\|set_window_title`, `plugin:window-bar\|drag_window`, `plugin:window-bar\|zoom_window` | the user's native window title and gestures (U449–U451); Agents do not rename or move that window |
