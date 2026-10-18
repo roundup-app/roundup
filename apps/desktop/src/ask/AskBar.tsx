@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { copy } from "../copy";
+import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -127,7 +128,12 @@ const ProjectOverview = () => {
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={rail.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-    <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
+    <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
+      <Icon name="check" />
+      <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
+    </div>}>
+      <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
+    </Show>
     <ul class="overview-list">
       <For each={workstreams()}>{(node) => <li>
         {entry(node)}
@@ -160,8 +166,8 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     {(trigger) => <button {...trigger({ onClick: props.select })} type="button" class="overview-entry"
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
-        <KindGlyph kind={status().kind} decorative /><span>{LABELS[status().kind]}</span>
+      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} title={LABELS[status().kind]} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
+        <KindGlyph kind={status().kind} />
       </span>}</Show>
     </button>}
   </Tip>;
