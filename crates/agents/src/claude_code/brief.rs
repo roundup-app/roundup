@@ -279,12 +279,21 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 8] = [
     ),
 ];
 
+/// LC14: the Door's standing instruction; a Door whose bundle lacks the skill has the Brief without it.
+const INTENT: &str = "On each new ask from the user, run the `hope:intent` skill first with the user's words, then act on the work order it produces. ";
+
+/// LC14: `text` for a Door, without the standing instruction.
+pub fn without_intent(text: &str) -> String {
+    text.replace(INTENT, "")
+}
+
 const DOOR: &str = "\
 ## Your role
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
 The user types to you in your own Terminal. Report the outcome directly in your Terminal when the work ends. \
 When the user's goal or a taste limit is unclear, ask directly in your Terminal and wait for their reply there. \
+{intent}\
 Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
 A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
@@ -514,7 +523,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
     text.push_str(SHOW_ME);
     if role == Role::Door {
         text.push('\n');
-        text.push_str(DOOR);
+        text.push_str(&DOOR.replace("{intent}", INTENT));
         text.push_str(DOOR_QUESTIONS);
     }
     if role == Role::Scout {
