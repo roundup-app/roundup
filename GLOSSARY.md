@@ -144,6 +144,7 @@ Starting an Agent's next Attempt in its saved conversation; an explicit mode fir
 
 **YOLO** (`yolo`):
 Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
+
 **Conversation overview** (`ConversationOverview`, `RailNode.overview`):
 Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
