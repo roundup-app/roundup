@@ -710,3 +710,5 @@ pub(super) mod tests {
         (seen, shared.decisions.list(), kind)
     }
 }
+
+// diag
