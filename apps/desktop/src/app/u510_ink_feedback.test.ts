@@ -30,7 +30,7 @@ const INVENTORY = `() => {
     const box = el.getBoundingClientRect();
 
     if (box.width === 0 || box.height === 0 || box.left < 0 || box.right > innerWidth || !el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) || el.getAttribute('aria-disabled') === 'true' || el.disabled) continue;
-    if (el.closest('[role="tab"]') || el.matches('.tab-name-button, .todo-project-root, [role="tab"]')) continue;
+    if (el.closest('[role="tab"]') || el.matches('.tab-name-button, [data-todo-root], [role="tab"]')) continue;
 
     const key = [el.dataset.button, el.className, (el.getAttribute('aria-label') ?? '').replace(/[0-9#].*$/, ''), el.closest('[data-selected="true"]') ? 'selected' : ''].join('|');
 
