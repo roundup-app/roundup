@@ -296,7 +296,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
     expect(checks.D10.value).toMatchObject({ viewport: "1280x800", scheme: "dark" });
-    expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
+    expect(checks.D10, JSON.stringify(checks)).toMatchObject({ status: "pass" });
   }, 60_000);
 
   for (const seed of ["daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
