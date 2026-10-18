@@ -8,6 +8,7 @@ import packageJson from "../../package.json";
 import { AlertDialog, Dialog } from "./Dialog";
 import { Menu } from "./Menu";
 import { Tooltip } from "./Tooltip";
+import { CHORDS } from "../keys/chords";
 import { Tip } from "../rail/Tip";
 import { copy } from "../copy";
 import { IconButton } from "./IconButton";
@@ -94,16 +95,30 @@ it("u477_app_has_no_raw_icon_only_buttons", () => {
   expect(unowned).toEqual([]);
 });
 
-it.each(["icon", "tip"])("u2570b_unkeyed_tooltips_keep_their_content_%s", async (wrapper) => {
+it.each([["icon", "hover"], ["icon", "focus"], ["tip", "hover"], ["tip", "focus"]])("u2570b_unkeyed_tooltips_keep_their_content_%s_%s", async (wrapper, input) => {
   render(() => wrapper === "icon"
     ? <IconButton aria-label={copy.minimise}>−</IconButton>
     : <Tip text={copy.openFolder}>{(trigger) => <button {...trigger()} aria-label={copy.openFolder}>folder</button>}</Tip>);
   const button = screen.getByRole("button", { name: wrapper === "icon" ? copy.minimise : copy.openFolder });
 
-  fireEvent.keyDown(document, { key: "Tab" });
-  button.focus();
+  if (input === "hover") fireEvent.pointerMove(button, { pointerType: "mouse" });
+  else { fireEvent.keyDown(document, { key: "Tab" }); button.focus(); }
+
   const tip = await screen.findByRole("tooltip");
 
   expect(tip.textContent).toBe(wrapper === "icon" ? copy.minimise : copy.openFolder);
   expect(tip.querySelector("kbd")).toBeNull();
+});
+
+it("u2570a_icon_button_forwards_its_chord_only_to_the_tooltip", async () => {
+  render(() => <IconButton aria-label={copy.newAgent} chord={CHORDS[0]}>+</IconButton>);
+  const button = screen.getByRole("button", { name: copy.newAgent });
+
+  fireEvent.keyDown(document, { key: "Tab" });
+  button.focus();
+  const tip = await screen.findByRole("tooltip");
+
+  expect([...tip.querySelectorAll("kbd")].map((key) => key.textContent).join("")).toBe(CHORDS[0]!.keys);
+  expect(button.hasAttribute("chord")).toBe(false);
+  expect(tip.hasAttribute("chord")).toBe(false);
 });
