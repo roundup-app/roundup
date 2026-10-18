@@ -234,7 +234,7 @@ impl Runtime {
     }
 }
 
-/// LC13: whether the pinned bundle holds the `hope` skill the Door's Brief names.
+/// LC14: whether the pinned bundle holds the `hope` skill the Door's Brief names.
 pub fn has_intent() -> bool {
     source().is_ok_and(|source| {
         source

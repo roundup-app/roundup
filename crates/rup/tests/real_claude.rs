@@ -3852,7 +3852,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .filter(|pair| pair[0] == "--plugin-dir")
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
-        // LC13: a Door is lean and gets `hope` and the question plugin; its children are workers.
+        // LC14: a Door is lean and gets `hope` and the question plugin; its children are workers.
         let bundled = [
             ("hope", "13.1.0"),
             ("hunch", "0.9.4"),
