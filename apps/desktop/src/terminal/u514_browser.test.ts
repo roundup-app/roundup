@@ -1,4 +1,6 @@
 import { expect, it } from "vitest";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
 const load = async (query = "") => {
@@ -62,14 +64,18 @@ const drag = async (from: { x: number; y: number }, to: { x: number; y: number }
 const doubleAt = async (at: { x: number; y: number }) => {
   // SAFETY: this isolated agent-browser returns its documented stream status with a numeric port.
   const status = JSON.parse(await browser("stream", "status")) as { data: { port: number } };
-  const socket = new WebSocket(`ws://127.0.0.1:${status.data.port}`);
-
-  await new Promise<void>((resolve, reject) => { socket.addEventListener("open", () => resolve(), { once: true }); socket.addEventListener("error", () => reject(new Error("agent-browser input stream failed")), { once: true }); });
   await browser("eval", "window.__doubleClicked = false; document.addEventListener('dblclick', () => { window.__doubleClicked = true; }, { once: true, capture: true })");
-
-  for (const clickCount of [1, 2]) for (const eventType of ["mousePressed", "mouseReleased"]) socket.send(JSON.stringify({ type: "input_mouse", eventType, ...at, button: "left", clickCount }));
-
-  try { await wait("window.__doubleClicked === true"); } finally { socket.close(); }
+  // Node's WebSocket avoids jsdom's browser-origin policy on this local agent-browser stream.
+  await promisify(execFile)(process.execPath, ["--input-type=module", "-e", `
+    const socket = new WebSocket('ws://127.0.0.1:' + process.argv[1]);
+    socket.onerror = () => process.exit(1);
+    socket.onopen = () => {
+      const at = JSON.parse(process.argv[2]);
+      for (const clickCount of [1, 2]) for (const eventType of ['mousePressed', 'mouseReleased']) socket.send(JSON.stringify({ type: 'input_mouse', eventType, ...at, button: 'left', clickCount }));
+      socket.close();
+    };
+  `, String(status.data.port), JSON.stringify(at)], { timeout: 10_000 });
+  await wait("window.__doubleClicked === true");
 };
 
 it("u2680c_chrome_drag_and_double_click_leave_no_browser_selection", async () => {
@@ -213,10 +219,10 @@ it.each(["pad", "todo", "rename"] as const)("u2680d_editors_keep_native_selectio
       const from = await read<{ x: number; y: number }>(`(() => {
         const editor = document.querySelector(${JSON.stringify(selector)});
         const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();
-        return { x: Math.round(box.left + 3), y: Math.round(box.top + 8) };
+        return { x: Math.round(${kind === "rename" ? "box.right - 8" : "box.left + 4"}), y: Math.round(box.top + (editor.matches('input, textarea') ? box.height / 2 : 8)) };
       })()`);
 
-      await drag(from, { x: from.x + 55, y: from.y });
+      await drag(from, { x: from.x + (kind === "rename" ? -35 : 25), y: from.y });
     } else if (kind === "pad") {
       const at = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: Math.round(box.left + 15), y: Math.round(box.top + 8) }; })()");
 
