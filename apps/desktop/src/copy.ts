@@ -194,7 +194,6 @@ export const copy = {
   agents: (value1: CopyValue) => `${value1} agents`,
   rowActions: "Row actions",
   addAgentLabel: "Add Agent",
-  addAgentN: "Add Agent ⌘N",
   agent: "Agent",
   clear: "Clear",
   clearWorkstream: "Clear Workstream…",
