@@ -28,6 +28,7 @@ const methodsAfterOpen = (calls: string[]) =>
   calls.filter(
     (method) =>
       method !== "daemon.ping" &&
+      method !== "terminal.scheme" &&
       method !== "rail.tree" &&
       method !== "terminal.list" &&
       method !== "pad.list" &&

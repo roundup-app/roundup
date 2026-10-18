@@ -1,6 +1,6 @@
 # Terminals
 
-Module: `crates/terminal`. Ids: X1–X10, X13.
+Module: `crates/terminal`. Ids: X1–X10, X13, X17.
 
 **X1 output.** Given a Project, when `terminal.spawn {command: ["/bin/sh","-c","echo hi"]}` is called and a client is subscribed, then a `terminal.output` event whose base64 `data` decodes to bytes containing `hi` is emitted.
 
@@ -34,3 +34,10 @@ Module: `crates/terminal`. Ids: X1–X10, X13.
 - A 1 MiB log is searched within `PATIENCE` and holds no lock while it is, so the program's output and `terminal.kill` are never blocked (X9). Test: `x13_searching_a_full_log_does_not_block_output_or_kill`.
 
 Tests (`x13_`, Rust, in `crates/terminal/tests/` and `crates/rup/tests/`), plus a generated-contract case that regenerating changes nothing. Observer: `just check` and the real-Daemon run (the U144 harness) that runs `printf` lines in a Terminal, reads from an offset, searches and sees the same result as the Rust tests.
+
+**X17 a program's colour query is answered from the App's scheme.** Found by the owner's report: Claude Code asks for the background colour (OSC 11) about 0.3 s after it starts and keeps its dark palette for the session when nothing answers, so a Terminal in the light scheme showed dark colours (U59). The App's emulator is not attached then, or at all for a Door's child that is not shown, so the Daemon answers. Contract change (the Contract recipe of `.agents/builder.md`, rule 4): new method `terminal.scheme {scheme: "light" | "dark", background, foreground}` (the two colours as `#rrggbb`, taken from the emulator's theme so they have one source), with its caller, the fake App and `contracts/generated/` in the same PR; `GLOSSARY.md` gains **Terminal scheme**. Decided here:
+1. **Answer.** Once `terminal.scheme` has been called, a program's OSC 10 or 11 query `?` gets one reply of the current colour (`rgb:rrrr/gggg/bbbb`, ST-terminated), DA1 (`ESC [ c`) gets one reply, and DSR 996 (`ESC [ ? 996 n`) gets `ESC [ ? 997 ; 1 n` for dark or `2` for light, for every running Terminal, shown or not, in the order asked. Before the first call nothing is answered. A colour that is not `#rrggbb` is `INVALID_PARAMS`. Tests: `x17_a_colour_query_gets_one_reply_in_the_current_scheme`, `x17_no_scheme_set_means_no_reply`, `x17_a_colour_that_is_not_hex_is_refused`.
+2. **Notice.** A program that turned on mode 2031 (`ESC [ ? 2031 h`) and not turned it off gets `ESC [ ? 997 ; Nn` once each time the scheme changes, and a program that did not gets nothing; the same scheme sent again changes nothing. Test: `x17_a_switch_sends_one_notice_to_programs_that_asked_for_them`.
+3. **App.** The App calls `terminal.scheme` when it connects to a Project's Daemon, before any Terminal is spawned, and again whenever the window's scheme switches, with the colours of `terminalThemeFor` (U59). Its emulator answers none of OSC 10, OSC 11 or DA1 itself, so no program gets two replies. Tests: `x17_connecting_tells_the_daemon_the_scheme_and_each_switch_tells_it_again`, `x17_the_emulator_leaves_a_colour_query_and_da1_to_the_daemon` in `apps/desktop/src/terminal/`.
+
+Tests are `x17_`. Observer: `just check`, and a real `claude` on the mock model whose palette is read from its first screen in each scheme and after a live switch (artifacts in `artifacts/ux/terminal-colour-query/`). Policy: the reply format and DA1's answer are chosen here; a later scenario changes them.

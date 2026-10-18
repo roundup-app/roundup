@@ -11,6 +11,7 @@ import type { DrawerState } from "../drawer/drawer";
 import { createWorktreeState } from "./worktrees";
 import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
+import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
 import { createTakeover } from "./takeover";
 import type { TakeoverState } from "./takeover";
@@ -37,6 +38,8 @@ export type ConnectedProject = {
   contractNotice: string | null;
   /** How the Daemon ended, once it has; from then on every call fails, so no region sends one. */
   daemonExit: Accessor<DaemonExit | null>;
+  /** X17: stops telling the Daemon the window's scheme; called when the Project's connection ends. */
+  stopTerminalScheme: () => void;
 };
 
 export const connectProject = async (
@@ -48,12 +51,13 @@ export const connectProject = async (
   storage?: RailStorage,
 ): Promise<ConnectedProject> => {
   const contractNotice = await checkContract(app);
-  const events = await connectEvents(app);
+  // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
+  const [stopTerminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
   const rail = createRailState(app, events, storage);
 
   await rail.settled();
 
-  return { project, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit };
+  return { project, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();

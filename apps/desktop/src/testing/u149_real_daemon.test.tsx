@@ -26,7 +26,7 @@ afterEach(() => {
   useRenderers(bundledRenderers);
 });
 
-window.matchMedia ??= (query) => ({ ...new EventTarget(), matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined });
+window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false });
 
 // jsdom has no layout; ProseMirror asks a Range for its rectangles when a selection moves.
 Range.prototype.getClientRects ??= () => document.body.getClientRects();
