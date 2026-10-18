@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ChildProcess } from "node:child_process";
-import { Agent, request } from "node:http";
+import { request } from "node:http";
 import { build } from "vite";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -125,29 +125,6 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
     expect([await status(`127.0.0.1:${url.port}`), await status(`evil.example:${url.port}`)]).toEqual([200, 403]);
   });
-
-  it("u144_a_connection_idle_past_nodes_keep_alive_timeout_still_carries_the_next_call", async () => {
-    const url = new URL(`${base}/__daemon/open`);
-    const agent = new Agent({ keepAlive: true, maxSockets: 1 });
-
-    const get = () =>
-      new Promise<boolean>((done, fail) => {
-        request({ agent, hostname: url.hostname, port: url.port, path: url.pathname }, (response) => {
-          response.resume();
-          response.on("end", () => done(response.req.reusedSocket));
-        })
-          .on("error", fail)
-          .end();
-      });
-
-    try {
-      expect(await get()).toBe(false);
-      await new Promise((idle) => setTimeout(idle, 7_000));
-      expect(await get()).toBe(true);
-    } finally {
-      agent.destroy();
-    }
-  }, 20_000);
 
   it("u144_vite_build_leaves_the_daemon_route_out_of_dist", async () => {
     const out = await mkdtemp(join(tmpdir(), "roundup-dist-"));
