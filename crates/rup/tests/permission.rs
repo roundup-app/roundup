@@ -56,10 +56,10 @@ fn h8_a_payload_that_is_not_json_exits_1() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn h8_an_unknown_agent_exits_1_naming_it() {
+async fn h8_an_unknown_agent_exits_1_naming_the_cause() {
     let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;
     let out = permission(Some(&served.socket()), "999", r#"{"tool_name":"Bash"}"#);
-    assert_fails_loud(&out, "agent 999");
+    assert_fails_loud(&out, "not found: an Agent that is gone");
 }
 
 #[test]
