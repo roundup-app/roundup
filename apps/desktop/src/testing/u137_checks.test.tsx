@@ -24,6 +24,18 @@ const addSheet = (css: string) => {
 };
 
 describe("u137 one module measures the checks", () => {
+  it("u137_editor_menu_is_not_an_item_row", () => {
+    document.body.innerHTML = '<aside><ul><li data-id="pad"><span class="glyph"></span>Pad</li></ul><div class="milkdown-slash-menu"><nav class="tab-group"><ul><li class="selected">Text</li><li>List</li><li>Advanced</li></ul></nav><div class="menu-groups"><ul><li data-index="0">Paragraph</li></ul></div></div></aside>';
+    const before = document.body.innerHTML;
+    expect(runChecks().D4.status).toBe("pass");
+    expect(document.body.innerHTML).toBe(before);
+
+    document.querySelector<HTMLElement>(".milkdown-slash-menu li")!.style.color = "#ff00ff";
+    expect(runChecks().D1.status).toBe("fail");
+    document.querySelector(".glyph")!.remove();
+    expect(runChecks().D4).toMatchObject({ status: "fail", selector: 'li[data-id="pad"]' });
+  });
+
   it("u137_a_later_check_call_observes_changed_styles", () => {
     document.body.innerHTML = "<p class='rail-row'>x</p>";
     addSheet(".rail-row { transition-duration: 0s; }");
@@ -192,6 +204,29 @@ rendered("u137 rendered focus marks", () => {
     await page.load("/harness.html?seed=door-report", 1280, 800);
   }, 90_000);
   afterAll(async () => { await page?.close(); });
+
+  it("u137_floating_menu_shadow_keeps_unrelated_shadow_rejection", async () => {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.scheme(scheme);
+      await page.load("/harness.html?seed=tree-40");
+
+      const observed = await page.call<string[]>(`() => {
+        document.body.innerHTML = '<div class="milkdown-slash-menu" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+        const statuses = [window.__checks().D8.status];
+        document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
+        statuses.push(window.__checks().D8.status);
+        document.querySelector('.content').style.boxShadow = 'none';
+        document.querySelector('.milkdown-slash-menu p').style.boxShadow = '0 2px 5px red';
+        statuses.push(window.__checks().D8.status);
+        document.querySelector('.milkdown-slash-menu p').style.boxShadow = 'none';
+        document.querySelector('.milkdown-slash-menu').style.boxShadow = '0 2px 5px red';
+        statuses.push(window.__checks().D8.status);
+        return statuses;
+      }`);
+
+      expect(observed, scheme).toEqual(["pass", "fail", "fail", "fail"]);
+    }
+  }, 60_000);
 
   for (const field of ["title", "ask"]) {
     for (const lowContrast of [false, true]) {
