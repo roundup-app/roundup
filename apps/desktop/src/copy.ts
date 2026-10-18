@@ -133,6 +133,7 @@ export const copy = {
   delete: "Delete",
   deletePad: (value1: CopyValue) => `Delete ${value1}?  `,
   ownsItYouMayDeleteAnyPad: (value1: CopyValue) => `${value1} owns it; you may delete any Pad  `,
+  padSaved: "Saved",
   unsavedChangesAreLost: "Unsaved changes are lost  ",
   keep: "Keep",
   changedBy: "Changed by ",

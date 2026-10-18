@@ -1104,6 +1104,7 @@ async fn lc9_the_profile_holds_in_the_real_tui() {
                 "Glob",
                 "Grep",
                 "Read",
+                "Skill",
                 "ToolSearch"
             ]
             .contains(&name.as_str()),
@@ -3854,7 +3855,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .filter(|pair| pair[0] == "--plugin-dir")
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
-        // LC5: a Door is lean and gets the question plugin only; its children are workers.
+        // LC14: a Door is lean and gets `hope` and the question plugin; its children are workers.
         let bundled = [
             ("hope", "13.1.0"),
             ("hunch", "0.9.4"),
@@ -3862,7 +3863,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             ("roundup-question", "0.0.1"),
         ];
         let wanted = if argv.iter().any(|arg| arg == "--tools") {
-            &bundled[3..]
+            &[bundled[0], bundled[3]][..]
         } else {
             &bundled[..]
         };
