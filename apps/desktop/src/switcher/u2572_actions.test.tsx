@@ -368,3 +368,20 @@ it("u2572b_the_Shelf_action_keeps_its_opening_toggle_after_the_overlay_closes", 
   await chooseAction("Show or hide the work items", "enter");
   expect(window.dataset.shelf).toBe("closed");
 });
+
+it("u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream", async () => {
+  const first = workstream("first", { order: 0 });
+  const second = workstream("second", { order: 1 });
+  const { app, connected } = await mountSwitcher(null, [first, second], []);
+  await show();
+  expect(actionNames()).toContain("New Terminal");
+  await search("New Terminal");
+  const stale = actionRows()[0]!;
+  app.handlers["rail.tree"] = () => [second];
+  await connected.rail.refresh();
+  await waitFor(() => expect(actionNames()).not.toContain("New Terminal"));
+  fireEvent.click(stale);
+  expect(field()).not.toBeNull();
+  expect(app.calls.filter((call) => call.method === "terminal.open")).toEqual([]);
+  expect(connected.rail.selected()).toBeNull();
+});

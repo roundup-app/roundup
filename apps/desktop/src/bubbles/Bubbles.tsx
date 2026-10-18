@@ -308,10 +308,12 @@ export const Bubbles = (props: { screens: Screens }) => {
     });
   };
 
+  const terminalOwner = () => resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
+
   /** The id `terminal.open` answered, else null when there was nothing to open or the call failed. */
   const openTerminal = async (): Promise<string | null> => {
     // U524: a selection that resolves to no Workstream (the Project root) opens in the first Workstream in Rail order.
-    const workstream = resolvedWorkstream(rail.nodes, rail.selected()) ?? siblingsOf(rail.nodes, null).find(isWorkstream)?.id ?? null;
+    const workstream = terminalOwner();
 
     if (opening() || readOnly()) return null;
 
@@ -549,8 +551,14 @@ export const Bubbles = (props: { screens: Screens }) => {
   registerKeys({ kind: "app" }, [
     { action: CHORDS.find((row) => row.keys === "⌘T")!,
       when: (press) => outsideEditor(press.target),
-      capture: (focus) => ({ available: () => outsideEditor(focus) && !opening() && !readOnly(),
-        invoke: () => void open() }),
+      capture: (focus) => {
+        const owner = terminalOwner();
+
+        return {
+          available: () => outsideEditor(focus) && !opening() && !readOnly() && terminalOwner() === owner,
+          invoke: () => void open(),
+        };
+      },
     },
   ]);
 
