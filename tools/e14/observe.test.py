@@ -100,15 +100,26 @@ class E14(unittest.TestCase):
             (directory / "src/lib.rs").write_text("")
             (directory / "tests" / f"{binary}.rs").write_text(f'#[test] fn {prefix}observer_fixture() {{ std::thread::sleep(std::time::Duration::from_millis(10)); }}')
             report = directory / "junit.xml"
-            config = directory / "nextest.toml"
-            config.write_text('[profile.ci1.junit]\npath=' + json.dumps(str(report)) + '\n')
-            result = subprocess.run(["cargo", "nextest", "run", "--manifest-path", str(directory / "Cargo.toml"), "--config-file", str(config), "--profile", "ci1"], capture_output=True, text=True, timeout=60)
+            (directory / ".config").mkdir()
+            (directory / ".config/nextest.toml").write_text("")
+            config = observer.nextest_config(directory, directory, "ci1")
+            result = subprocess.run(["cargo", "nextest", "run", "--manifest-path", str(directory / "Cargo.toml"), "--config-file", str(config), "--profile", "ci1"], env=dict(os.environ, E14_RUST_EVENTS=str(directory / "rust-events")), capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             rows = observer.rust_rows(report)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["id"], observer.RUST_SUITES["required_test_prefix"] + "observer_fixture")
             self.assertTrue(rows[0]["real"])
             self.assertGreater(rows[0]["end"], rows[0]["start"])
+            # The same wrapper must execute the real command when it fails too.
+            (directory / "tests" / f"{binary}.rs").write_text(f'#[test] fn {prefix}observer_fixture() {{ panic!("expected failure"); }}')
+            for trace in (directory / "rust-events").iterdir():
+                trace.unlink()
+            failed = subprocess.run(["cargo", "nextest", "run", "--manifest-path", str(directory / "Cargo.toml"), "--config-file", str(config), "--profile", "ci1"], env=dict(os.environ, E14_RUST_EVENTS=str(directory / "rust-events")), capture_output=True, text=True, timeout=60)
+            self.assertEqual(failed.returncode, 100, failed.stdout + failed.stderr)
+            execution = json.loads(next((directory / "rust-events").iterdir()).read_text())
+            self.assertNotEqual(execution["exit_code"], 0)
+            with self.assertRaisesRegex(ValueError, "failed or retried Rust test"):
+                observer.rust_rows(report)
 
     def test_e14_memory_collector_finishes_only_after_stop(self):
         with tempfile.TemporaryDirectory() as temporary:
