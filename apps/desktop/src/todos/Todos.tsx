@@ -390,7 +390,9 @@ export const Todos = () => {
             onSubmit={(title) => void create(title)}
             onClose={(reason) => {
               setTyping(false);
+
               if (reason === "escape") setCreateFailure(null);
+
               if (reason !== "blur") plusButton?.focus();
             }}
           />
