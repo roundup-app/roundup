@@ -59,6 +59,8 @@ const open = async () => {
   ];
   Object.assign(app.handlers, padHandlers({ pads: [{ name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
+  app.handlers["takeover.begin"] = () => null;
+  app.handlers["takeover.end"] = () => null;
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
@@ -169,8 +171,7 @@ describe("u2230 shortcut hints", () => {
     await waitFor(() => expect(keysIn(".leader-line")).toEqual(LEADER.map((row) => row.keys)));
   });
 
-  it("u2230_every_hint_names_a_bound_chord", async () => {
-    for (const [place, go] of [["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const) {
+  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
       for (const hint of hintsFor(place)) {
         // Each press changes what has focus (take control, the Rail, the next Agent), so each starts on a fresh App.
         cleanup();
@@ -186,16 +187,23 @@ describe("u2230 shortcut hints", () => {
         expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
 
         if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
         else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
         else await waitFor(() => expect(app.calls.some((call) => call.method === (hint.keys === "⌘⌫" ? "rail.remove" : "takeover.begin"))).toBe(true));
       }
-    }
   });
 
   it("u2230a_hints_follow_focus", async () => {
     await open();
     await toRail();
     await toPane();
+    const control = screen.getByRole("button", { name: copy.takeOver });
+    control.focus();
+    fireEvent.click(control);
+    await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
+    await waitFor(() => expect(line()).toEqual(label("agent", false)));
+    fireEvent.keyDown(document.activeElement!, { key: "Enter", code: "Enter", metaKey: true });
+    await waitFor(() => expect(document.activeElement).toBe(control));
     await toRail();
     await toBubble();
     await toRail();

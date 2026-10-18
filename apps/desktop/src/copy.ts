@@ -138,6 +138,7 @@ export const copy = {
   plusTerminal: "+ Terminal",
   terminals: "Terminals",
   closeTerminal: (value1: CopyValue) => `Close ${value1}`,
+  switchAgentTerminal: "Switch Agent / Terminal",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
   closeTheBubble: "Close the Bubble",
   endTheTakeover: "Give control back",
