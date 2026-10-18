@@ -722,7 +722,7 @@
 .worktree-chip {
   flex: none;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
   cursor: default;
   color: var(--text);
   font-size: var(--text-caption);
@@ -736,25 +736,35 @@
 .rail-row .row-name-state {
   display: flex;
   flex: 1 1 0;
-  flex-wrap: wrap;
   align-items: center;
   min-width: 0;
-  gap: var(--space-1) var(--space-2);
-  padding-block: var(--space-1);
+  gap: var(--space-2);
+  container-type: inline-size;
 }
 .rail-row .row-name-state .name {
-  flex: 1 0 calc(2 * var(--space-6));
+  flex: 1 1 var(--space-6);
   min-width: 0;
   max-width: 100%;
 }
 .worktree-chips {
   display: flex;
-  flex-wrap: wrap;
   max-width: 100%;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  white-space: normal;
+  white-space: nowrap;
+}
+/* Keep ahead and CI beside the name; the full PR remains in the Worktree view. */
+@container (width < 12rem) {
+  .worktree-chip[data-state="pr"] {
+    display: none;
+  }
+}
+@container (width < 16rem) {
+  .worktree-chip[data-state="pr"][data-stale="true"],
+  .worktree-chips:has([data-state][data-stale="true"]) .worktree-chip[data-state="pr"] {
+    display: none;
+  }
 }
 .worktree-chip[data-stale="true"],
 .rail-row[data-selected="true"] .worktree-chip[data-stale="true"] {

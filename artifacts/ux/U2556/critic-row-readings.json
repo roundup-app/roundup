@@ -1,0 +1,227 @@
+[
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 106.40625,
+        "y": 107.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI",
+        "x": 137.625,
+        "y": 107.5
+      },
+      {
+        "display": "block",
+        "text": "#3991",
+        "x": 165.78125,
+        "y": 107.5
+      }
+    ],
+    "height": 32,
+    "name": "an agent with a very long name that must truncate in the rail row",
+    "width": 159
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 94.03125,
+        "y": 139.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI, stale",
+        "x": 125.25,
+        "y": 139.5
+      },
+      {
+        "display": "none",
+        "text": "#3991, stale",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-2",
+    "width": 135
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 127.625,
+        "y": 171.5
+      },
+      {
+        "display": "block",
+        "text": "✗CI",
+        "x": 158.84375,
+        "y": 171.5
+      },
+      {
+        "display": "none",
+        "text": "#3991",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-3",
+    "width": 135
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 127.625,
+        "y": 203.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI",
+        "x": 158.84375,
+        "y": 203.5
+      },
+      {
+        "display": "none",
+        "text": "#3991",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-4",
+    "width": 135
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 127.625,
+        "y": 235.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI",
+        "x": 158.84375,
+        "y": 235.5
+      },
+      {
+        "display": "none",
+        "text": "#3991",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-5",
+    "width": 135
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 118.03125,
+        "y": 267.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI, stale",
+        "x": 149.25,
+        "y": 267.5
+      },
+      {
+        "display": "none",
+        "text": "#3991, stale",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-7",
+    "width": 159
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 127.625,
+        "y": 299.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI",
+        "x": 158.84375,
+        "y": 299.5
+      },
+      {
+        "display": "none",
+        "text": "#3991",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-8",
+    "width": 135
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 127.625,
+        "y": 331.5
+      },
+      {
+        "display": "block",
+        "text": "↻CI",
+        "x": 158.84375,
+        "y": 331.5
+      },
+      {
+        "display": "none",
+        "text": "#3991",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-9",
+    "width": 135
+  },
+  {
+    "chips": [
+      {
+        "display": "block",
+        "text": "70↑",
+        "x": 127.625,
+        "y": 363.5
+      },
+      {
+        "display": "block",
+        "text": "✓CI",
+        "x": 158.84375,
+        "y": 363.5
+      },
+      {
+        "display": "none",
+        "text": "#3991",
+        "x": 0,
+        "y": 0
+      }
+    ],
+    "height": 32,
+    "name": "agent-10",
+    "width": 135
+  }
+]
