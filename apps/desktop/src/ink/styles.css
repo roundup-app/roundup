@@ -63,28 +63,11 @@ p.ink[role="alert"] {
   background-color: transparent;
 }
 
-.shelf-row:hover {
-  background-image: linear-gradient(var(--hover), var(--hover));
-  border-radius: var(--radius-row);
-}
-
-.shelf-row:active {
-  background-image: linear-gradient(var(--pressed), var(--pressed));
-}
-
 .shelf-row[data-selected="true"] {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
   border-radius: var(--radius-row);
-}
-
-.shelf-row[data-selected="true"]:hover {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
-}
-
-.shelf-row[data-selected="true"]:active {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
 /* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */
