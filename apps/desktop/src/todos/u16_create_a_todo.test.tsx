@@ -14,12 +14,12 @@ const openField = async () => {
 const type = (field: HTMLElement, text: string) => fireEvent.input(field, { target: { value: text } });
 
 describe("u16 create a Todo", () => {
-  it("u16_clicking_plus_opens_one_inline_title_field_at_the_top_of_the_list", async () => {
-    await mountTodos([todo(1)]);
+  it("u16_clicking_plus_opens_one_title_field_in_a_row_after_the_last_todo", async () => {
+    await mountTodos([todo(1), todo(2)]);
 
     const field = await openField();
 
-    expect(field.nextElementSibling?.querySelector(".todo-row-button")?.textContent).toBe("todo 1");
+    expect(screen.getByText("todo 2").compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("u16_clicking_plus_twice_still_shows_one_field", async () => {
@@ -40,7 +40,7 @@ describe("u16 create a Todo", () => {
     expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "half a thought");
   });
 
-  it("u16_enter_calls_todo_create_with_the_title_and_closes_the_field", async () => {
+  it("u16_enter_calls_todo_create_with_the_title_and_leaves_a_fresh_focused_field", async () => {
     const { app } = await mountTodos([]);
     app.handlers["todo.create"] = ({ title }) => todo(1, { title });
     const field = await openField();
@@ -51,7 +51,8 @@ describe("u16 create a Todo", () => {
     await waitFor(() => expect(callsTo(app, "todo.create")).toEqual([
       { method: "todo.create", params: { title: "rate limits", body: null, blockers: null } },
     ]));
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(field).toHaveProperty("value", "");
+    expect(document.activeElement).toBe(field);
   });
 
   it("u16_the_new_row_appears_through_the_event_not_the_call", async () => {
@@ -69,7 +70,7 @@ describe("u16 create a Todo", () => {
     expect([before, await screen.findByText(/rate limits/)].map(Boolean)).toEqual([false, true]);
   });
 
-  it("u16_escape_closes_the_field_and_calls_nothing", async () => {
+  it("u16_escape_closes_the_field_calls_nothing_and_refocuses_plus", async () => {
     const { app } = await mountTodos([]);
     const field = await openField();
     type(field, "half a thought");
@@ -77,6 +78,21 @@ describe("u16 create a Todo", () => {
     fireEvent.keyDown(field, { key: "Escape" });
 
     expect([screen.queryByRole("textbox"), callsTo(app, "todo.create")]).toEqual([null, []]);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Todo" }));
+  });
+
+  it("u16_blur_closes_an_empty_field_and_keeps_a_typed_one", async () => {
+    await mountTodos([]);
+    const field = await openField();
+
+    fireEvent.blur(field);
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    type(await openField(), "half a thought");
+    fireEvent.blur(screen.getByRole("textbox"));
+
+    expect(screen.getByRole("textbox")).toHaveProperty("value", "half a thought");
   });
 
   it.each(["", "   "])("u16_enter_on_the_empty_title_%j_closes_the_field_and_calls_nothing", async (text) => {
@@ -89,7 +105,7 @@ describe("u16 create a Todo", () => {
     expect([screen.queryByRole("textbox"), callsTo(app, "todo.create")]).toEqual([null, []]);
   });
 
-  it("u16_a_failed_create_shows_the_message_in_place_of_the_field", async () => {
+  it("u16_a_failed_create_shows_the_message_and_keeps_the_field", async () => {
     const { app } = await mountTodos([]);
     app.handlers["todo.create"] = () => Promise.reject(new RpcError(-32602, "title is empty"));
     const field = await openField();
@@ -99,7 +115,7 @@ describe("u16 create a Todo", () => {
 
     expect([(await screen.findByText(/title is empty/)).textContent, screen.queryByRole("textbox")]).toEqual([
       "title is empty",
-      null,
+      screen.getByRole("textbox"),
     ]);
   });
 
