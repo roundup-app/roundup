@@ -49,7 +49,7 @@ describe("u26 the harness seeds", () => {
 
   it("u143_the_stopped_door_seed_shows_its_exit_and_restart_action", async () => {
     mount("door-stopped");
-    fireEvent.click(await screen.findByText("first workstream"));
+    fireEvent.click(await within(await rail()).findByText("first workstream"));
 
     expect(await screen.findByText("Supervisor stopped, exited 0")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Start supervisor" }).length).toBeGreaterThan(0);
