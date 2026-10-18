@@ -228,15 +228,21 @@ pub fn prepare_python(dir: &Path) {
     std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// A real release binary under `target`, built from the committed sources.
+/// A real optimized binary under `target`, compiled from the committed dependency-free source.
 pub fn prepare_rust(dir: &Path) {
-    let status = Command::new("cargo")
-        .args(["build", "--release", "--quiet"])
-        .env_remove("CARGO_TARGET_DIR")
+    std::fs::create_dir_all(dir.join("target/release")).unwrap();
+    let status = Command::new("rustc")
+        .args([
+            "--edition=2021",
+            "-O",
+            "src/main.rs",
+            "-o",
+            "target/release/smoke",
+        ])
         .current_dir(dir)
         .status()
         .unwrap();
-    assert!(status.success(), "cargo build");
+    assert!(status.success(), "rustc fixture");
 }
 
 pub fn prepare_env(dir: &Path) {
