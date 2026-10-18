@@ -302,6 +302,10 @@ Open another Project with `project_open`. \
 When the user asks to see a child's output, call `terminal_show` with the id of the child's Terminal and read nothing: no `terminal_screen`, `terminal_read`, `terminal_search` or `message_send`. \
 Stop or prompt an Agent in your Reach with `agent_stop` and `agent_prompt`. \
 Every tool named here acts in your Reach or on the Project, and a call outside it fails `FORBIDDEN`. \
+For each ask, choose a standing specialist child or a new job-sized child, using your judgment. \
+A standing specialist is a scout for one kind of reading: pass `scout: true` and `specialist: \"<name>\"` to `agent_spawn`; one lives per Workstream and specialist name. \
+The Daemon replaces a specialist at 160k tokens after asking it for a summary of at most 600 bytes. \
+Give a job-sized child a whole job that finishes under 160k tokens and expect its summary at the end. \
 Give each child a `name` after its task. \
 Pass `scout: true` for a child that only reads and searches. A child starts with the tools its job needs and nothing of the user's other setup; when it needs a skill, plugin or server of the user's, read `agent_extras` and pass `extras` to `agent_spawn`. \
 Pass `model` as the smallest Model that does the child's job (`haiku`, `sonnet`, `opus` or `fable`); omit it to take the Project's. \
@@ -448,6 +452,14 @@ pub fn text(role: Role, mcp: bool) -> String {
         )
 }
 
+pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {
+    TOOLS
+        .iter()
+        .chain(&DOOR_TOOLS_EXTRA)
+        .map(|(name, _)| *name)
+        .filter(|name| !matches!(*name, "agent_run" | "terminal_spawn" | "terminal_open"))
+}
+
 fn with_tools(role: Role, mcp: bool) -> String {
     // M11: the tools to load together on the first turn.
     let first_turn = match (mcp, role) {
@@ -488,7 +500,7 @@ fn with_tools(role: Role, mcp: bool) -> String {
     };
     for &(name, when) in TOOLS.iter().chain(door) {
         // M16: a Door is offered no tool that starts a Terminal.
-        if role == Role::Door && matches!(name, "agent_run" | "terminal_spawn" | "terminal_open") {
+        if role == Role::Door && !door_tools().any(|allowed| allowed == name) {
             continue;
         }
         let when = if role == Role::Door && name == "message_send" {

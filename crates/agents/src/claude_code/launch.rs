@@ -472,10 +472,39 @@ impl Launcher {
         };
         let carried = lean.as_ref().map(|_| self.user_carried());
         let missing_intent = self.door_lacks_intent(role);
-        replace_file(
-            &settings,
-            &self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent),
-        )
+        let mut carried = carried;
+        if role == Role::Door
+            && let Some(carried) = &mut carried
+        {
+            carried.allow.retain(|rule| {
+                rule.as_str().is_some_and(|rule| {
+                    let tool = rule.split('(').next().unwrap_or(rule);
+                    matches!(tool, "Read" | "Grep" | "Glob" | "Skill" | "ToolSearch")
+                        || brief::door_tools()
+                            .filter(|name| *name != "terminal_write")
+                            .any(|name| tool == format!("mcp__roundup__{name}"))
+                })
+            });
+        }
+        replace_file(&settings, &{
+            let mut settings =
+                self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent);
+            if role == Role::Door && mcp {
+                let mut allowed: Vec<Value> = brief::door_tools()
+                    .filter(|name| *name != "terminal_write")
+                    .map(|name| json!(format!("mcp__roundup__{name}")))
+                    .collect();
+                if let Some(carried) = &carried {
+                    for rule in &carried.allow {
+                        if !allowed.contains(rule) {
+                            allowed.push(rule.clone());
+                        }
+                    }
+                }
+                settings["permissions"]["allow"] = json!(allowed);
+            }
+            settings
+        })
         .map_err(RpcError::internal)?;
         let mut servers = Map::new();
         if mcp {
