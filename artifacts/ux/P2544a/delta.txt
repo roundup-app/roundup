@@ -47,7 +47,7 @@ dark-slash D4 still-passing
 dark-slash D5 still-passing
 dark-slash D6 still-failing
 dark-slash D7 still-failing
-dark-slash D8 regressed
+dark-slash D8 still-passing
 dark-slash D9 still-passing
 dark-slash D10 still-failing
 dark-slash D11 still-passing
@@ -103,7 +103,7 @@ light-slash D4 still-passing
 light-slash D5 still-passing
 light-slash D6 still-failing
 light-slash D7 still-failing
-light-slash D8 regressed
+light-slash D8 still-passing
 light-slash D9 still-passing
 light-slash D10 still-failing
 light-slash D11 still-passing
