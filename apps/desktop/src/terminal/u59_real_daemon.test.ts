@@ -65,10 +65,11 @@ run("u59 on the real Daemon", () => {
 });
 
 it.runIf(process.env["U2680_REAL"] === "1")("u2680a_u2680b_real_zsh_webgl_selection_observer", async () => {
-  const selectionDaemon = await startRealDaemon({ SHELL: "/bin/zsh" }, true);
+  const selectionDaemon = await startRealDaemon({ SHELL: "/bin/zsh", ZDOTDIR: real.dir, HOME: real.dir, skip_global_compinit: "1" }, true);
 
   const read = <T,>(expression: string) => page.call<T>(`() => (${expression})`);
   const until = (expression: string) => page.until(`() => (${expression})`);
+
   const point = (selector: string) => page.call<{ x: number; y: number }>(`selector => {
     const box = document.querySelector(selector).getBoundingClientRect();
 
@@ -96,7 +97,8 @@ it.runIf(process.env["U2680_REAL"] === "1")("u2680a_u2680b_real_zsh_webgl_select
     await until("!!document.querySelector('.bubble:not([hidden]) .xterm-screen canvas')");
     await page.call("() => { window.__emu = [...window.__terminals.values()][0]; }");
     await page.call("() => document.querySelector('.bubble:not([hidden]) .xterm-helper-textarea').focus()");
-    await page.call("() => document.execCommand('insertText', false, \"printf 'alpha bravo charlie delta echo foxtrot %.0s' {1..1000}\")");
+
+    for (const key of "printf 'alpha bravo charlie delta echo foxtrot %.0s' {1..1000}") await page.press(key, key);
     await page.press("Enter", "Enter");
     await until(`(async () => {
       const id = document.querySelector('.bubble:not([hidden])').dataset.bubble;
