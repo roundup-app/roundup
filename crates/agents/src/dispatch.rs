@@ -207,7 +207,18 @@ impl Module for Agents {
                 shared.guard_reach(&ctx.actor, &id, true)?;
                 let node = {
                     let mut rail = shared.rail();
+                    let before = rail.node(&id)?.name;
                     let node = rail.rename(&id, &name)?;
+                    // Publish before releasing Rail: both producers follow its commit order.
+                    if node.name != before {
+                        shared.bus.emit(
+                            ctx.actor.clone(),
+                            EventData::RailRenamed {
+                                id: node.id.clone(),
+                                name: node.name.clone(),
+                            },
+                        );
+                    }
                     if let Some(slot) = shared.runs().get_mut(&id) {
                         slot.settle_name();
                     }
