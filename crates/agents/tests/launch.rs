@@ -2479,3 +2479,38 @@ fn lc10_no_launch_uses_bare_safe_mode_or_agent() {
         }
     }
 }
+
+#[test]
+fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
+    for mcp in [true, false] {
+        let s = setup();
+        s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__*","Read(*)"]}}).to_string());
+        let argv = s.prepare_lean("7", Role::Door, &Pair { mcp_off: !mcp, ..Pair::default() }, None).unwrap();
+        let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+        let allowed = settings["permissions"]["allow"].as_array().unwrap();
+        for forbidden in ["Bash", "PowerShell", "terminal_spawn", "terminal_open", "terminal_write"] {
+            assert!(!Setup::after(&argv, "--tools").unwrap().contains(forbidden));
+            assert!(!allowed.iter().any(|rule| rule.as_str().unwrap().contains(forbidden)), "{allowed:?}");
+        }
+        assert!(!allowed.contains(&json!("mcp__roundup__*")));
+        assert!(allowed.contains(&json!("Read(*)")));
+    }
+}
+
+#[test]
+fn lc11_the_brief_names_a_standing_specialist_and_a_job_sized_child() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    for token in ["standing specialist", "job-sized"] { assert!(text.contains(token), "{token}"); }
+}
+
+#[test]
+fn lc12_the_brief_names_the_specialist_field() {
+    assert!(brief(&setup(), "7", Role::Door).contains("specialist"));
+}
+
+#[test]
+fn lc13_the_brief_sizes_a_job_under_160k() {
+    let text = brief(&setup(), "7", Role::Door);
+    for token in ["160k", "whole job"] { assert!(text.contains(token), "{token}"); }
+}
