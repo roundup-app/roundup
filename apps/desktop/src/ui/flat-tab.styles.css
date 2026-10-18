@@ -84,7 +84,6 @@
 [data-flat-tab],
 [data-flat-add] {
   --button-surface: transparent;
-  --button-hover: transparent;
   --button-radius: 0;
   --pressed: transparent;
 }
@@ -93,7 +92,6 @@
 [data-flat-tab] .app-tabs-trigger[data-selected],
 [data-flat-tab] .app-tabs-trigger[data-selected]:hover {
   --button-surface: transparent;
-  --button-hover: transparent;
 }
 
 /* Keyboard focus only, inside the bar's box so no ring is clipped. */

@@ -13,6 +13,28 @@ pub struct Worktrees {
     pub check: Option<String>,
 }
 
+/// G2542a, G2542c: the Project's prepared-directory mode, set only by explicit local user
+/// configuration. A non-empty `enrolled` turns the mode on (with `worktrees` on); each path is
+/// an existing Worktree of this repository that the Project already prepared.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct Prepared {
+    pub enrolled: Vec<String>,
+    /// Run in the directory, with `sh -c`, on every assignment; exit 0 before the Agent starts.
+    pub readiness: Option<String>,
+    /// Positive: how long the readiness command may run, in milliseconds.
+    pub timeout_ms: Option<u64>,
+    /// Run only by `project.prepareDirectory`, before the readiness command; never at launch.
+    pub setup: Option<String>,
+}
+
+/// G2542a: `project.prepareDirectory`, the explicit preparation of one unavailable directory.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct PrepareParams {
+    pub path: String,
+}
+
 /// M2219: whether Agents launch with the roundup MCP server; a Project that never set it reads `on: true`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "project/")]
