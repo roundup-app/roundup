@@ -133,7 +133,7 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
       <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>
         {(trigger) => <Dynamic component={node() ? "button" : "div"} {...trigger({ onClick: open })}
           ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
-          type={node() ? "button" : undefined} class="ask-line" onPointerEnter={measure}>{line()}</Dynamic>}
+          type={node() ? "button" : undefined} class="ask-line" data-feedback="ink" onPointerEnter={measure}>{line()}</Dynamic>}
       </Tip>
       <Show when={asking()}>
         <div class="ask-back">
