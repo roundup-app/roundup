@@ -193,9 +193,9 @@ impl Shared {
         observation: Observation,
     ) -> Result<Option<i64>, RpcError> {
         let first_prompt = match &observation {
-            Observation::Signal(payload) => {
-                claude_code::submitted_prompt(payload).map(name::from_prompt)
-            }
+            Observation::Signal(payload) => claude_code::submitted_prompt(payload)
+                .filter(|prompt| !order::is_clarification_steer(prompt))
+                .map(name::from_prompt),
             _ => None,
         };
         let names_conversation = matches!(&observation, Observation::Signal(payload)

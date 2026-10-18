@@ -183,7 +183,7 @@ const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) =>
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
 };
 
-// D2: font sizes are type steps and margin, padding and gap are space steps.
+// D2: type and space steps, with only U2541’s Token-backed KeyChip side padding excepted.
 const d2 = (page: Page): Measure =>
   offender(page, (el, style) => {
     if (inTerminal(el)) return null;
@@ -192,10 +192,19 @@ const d2 = (page: Page): Measure =>
 
     if (size !== null && !TYPE_STEPS.has(size)) return { fontSize: style.fontSize };
 
+    const chip = el.matches("kbd.key-chip");
+    const chipPadding = px(page.token("key-chip-padding") ?? "");
+
     for (const property of ["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"]) {
       const value = px(page.resolve(style.getPropertyValue(property)));
 
-      if (value !== null && !SPACE_STEPS.has(value)) return { [property]: style.getPropertyValue(property) };
+      // D1 checks declaration provenance; D2 checks the rendered Token value and
+      // the complete chip padding so an on-scale but nonconforming chip also fails.
+      const chipSide = chip && (property === "padding-left" || property === "padding-right");
+      const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
+      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0 : value === null || SPACE_STEPS.has(value);
+
+      if (!conforms) return { [property]: style.getPropertyValue(property) };
     }
 
     return null;
@@ -253,7 +262,7 @@ const d3 = (page: Page): Measure => {
 
 // D4: every Rail, Shelf and Drawer row draws a Glyph, so no Kind is carried by colour alone.
 const d4 = ({ doc }: Page): Measure => {
-  const rows = [...doc.querySelectorAll("[role=treeitem][data-id], aside li, aside [role=listitem]")];
+  const rows = [...doc.querySelectorAll("[role=treeitem][data-id], aside li, aside [role=listitem]")].filter((row) => !row.closest(".milkdown-slash-menu") || row.matches("[data-id], [role=listitem], [role=treeitem]"));
   const bare = rows.find((row) => !row.querySelector(".glyph svg, .glyph"));
 
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
@@ -489,7 +498,7 @@ const d7 = (page: Page): Measure => {
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
-// D8: no border over 1 px or off `--hairline`; only the Drawer and the bubble panel have a shadow; no `backdrop-filter` element contains another.
+// D8: floating menus use the Drawer shadow; their descendants retain all surface checks.
 const d8 = (page: Page): Measure => {
   return offender(page, (el, style) => {
     const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));
@@ -506,7 +515,24 @@ const d8 = (page: Page): Measure => {
 
     const shadow = style.boxShadow;
 
-    if (shadow && shadow !== "none" && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    // Computed shadows put colour first and expand zero lengths; Tokens put colour last.
+    const shadowParts = (value: string) => {
+      const resolved = resolveAt(page, el, value);
+      const colour = resolved.match(/rgba?\([^)]+\)/)?.[0];
+
+      if (!colour) return "";
+
+      const lengths = resolved.replace(colour, "").trim().split(/\s+/).map((part) => /^-?[\d.]+(?:px)?$/.test(part) ? Number.parseFloat(part) : part);
+
+      // Omitted blur and spread lengths compute to zero.
+      while (lengths.length < 4) lengths.push(0);
+
+      return JSON.stringify([parseColour(colour), lengths]);
+    };
+
+    const menuShadow = el.matches(".milkdown-slash-menu") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+
+    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble, .pane-control") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 

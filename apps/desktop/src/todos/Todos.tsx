@@ -4,6 +4,8 @@ import { isTodoOfRunning } from "../rail/pads/owned";
 import { createSelection } from "../shelf/selection";
 import { TickBox } from "./TickBox";
 import { Icon } from "../ink/Icon";
+import { EmptyState } from "../ink/EmptyState";
+import { EntryRow } from "../ink/EntryRow";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -284,12 +286,9 @@ export const Todos = () => {
     );
   });
 
-  // The field closes before the call so a second Enter cannot create the Todo twice.
+  // The entry row empties itself before this runs, so a second Enter cannot create the Todo twice.
   const create = async (title: string) => {
-    setTyping(false);
     setCreateFailure(null);
-
-    if (title === "") return;
 
     const home = selectedWorkstream();
 
@@ -341,21 +340,8 @@ export const Todos = () => {
       </button>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={typing()}>
-        <input
-          aria-label={copy.newTodoTitle}
-          ref={(input) => queueMicrotask(() => input.focus())}
-          onKeyDown={(key) => {
-            if (key.key === "Enter") void create(key.currentTarget.value.trim());
-            else if (key.key === "Escape") {
-              setTyping(false);
-              setCreateFailure(null);
-            }
-          }}
-        />
-      </Show>
-      <Show when={isEmpty()}>
-        <p>{copy.noTodosYet}</p>
+      <Show when={isEmpty() && !typing()}>
+        <EmptyState icon="check" title={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={noneRunning()}>
         <p>{copy.noTodosFromRunningAgents}</p>
@@ -393,6 +379,24 @@ export const Todos = () => {
           )}
         </For>
         </Sortable.Root>
+      </Show>
+      <Show when={typing()}>
+        <div class="shelf-list">
+          <EntryRow
+            glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
+            class="todo-inset"
+            label={copy.newTodoTitle}
+            placeholder={copy.newTodoPlaceholder}
+            onSubmit={(title) => void create(title)}
+            onClose={(reason) => {
+              setTyping(false);
+
+              if (reason === "escape") setCreateFailure(null);
+
+              if (reason !== "blur") plusButton?.focus();
+            }}
+          />
+        </div>
       </Show>
       <Show when={done().length > 0}>
         <div class="shelf-list">

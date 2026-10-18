@@ -157,7 +157,9 @@ mod tests {
         assert_eq!(actual, expected);
         assert_eq!(
             Migrations::new(migrations()).current_version(&db).unwrap(),
-            rusqlite_migration::SchemaVersion::Inside(std::num::NonZeroUsize::new(10).unwrap())
+            rusqlite_migration::SchemaVersion::Inside(
+                std::num::NonZeroUsize::new(migrations().len()).unwrap()
+            )
         );
         standalone::write_ask(&db);
         let ws = call(
@@ -419,11 +421,10 @@ mod tests {
             .chain(sql.iter().map(|s| M::up(s)))
             .collect();
         apply(&mut db, all).unwrap();
-        assert_eq!(base, 10);
         let applied: i64 = db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(applied, 12);
+        assert_eq!(applied, i64::try_from(base).unwrap() + 2);
         let tables: i64 = db
             .query_row(
                 "SELECT count(*) FROM sqlite_master WHERE name IN ('t_first','t_second')",
