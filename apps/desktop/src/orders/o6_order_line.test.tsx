@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { mountApp, select } from "../decisions/decisionsFixture";
-import { agent, clarifying, door } from "../testing/nodes";
+import { agent, clarifying, door, event } from "../testing/nodes";
 
 const work = {
   kind: "work" as const,
@@ -98,4 +98,18 @@ describe("O6: the order on one line above the Terminal", () => {
     );
     expect(screen.queryByLabelText("Full order of alpha")).toBeNull();
   });
+  it("o6_an_open_order_drawer_closes_when_the_agent_exits_and_the_order_moves_inline", async () => {
+    const { app } = await mount();
+
+    select("alpha");
+    await waitFor(() => expect(line()).not.toBeNull());
+    fireEvent.click(line()!);
+    await screen.findByLabelText("Full order of alpha");
+    app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
+
+    await waitFor(() => expect(line()).toBeNull());
+    await waitFor(() => expect(document.querySelector(".order-drawer")).toBeNull());
+    expect(document.querySelector(".order-overview")?.textContent).toContain(work.ask);
+  });
+
 });
