@@ -236,12 +236,10 @@ export const Bubbles = (props: { screens: Screens }) => {
   const running = (terminal: TerminalInfo): boolean => terminal.running && rail.terminalExit(terminal.id) === null;
 
   const stateKind = (terminal: TerminalInfo): Kind => {
-    if (running(terminal)) return "working";
-
     const exit = rail.terminalExit(terminal.id);
     const code = exit?.kind === "code" ? exit.code : exit ? null : terminal.exit_code;
 
-    return code === 0 ? "done" : "error";
+    return running(terminal) ? "working" : code === 0 ? "done" : "error";
   };
 
   const stateText = (terminal: TerminalInfo): string => {
