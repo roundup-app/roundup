@@ -59,6 +59,10 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 2
+      - name: E14 whole-runner memory observer
+        run: |
+          python3 -m pip install -r tools/e14/requirements.txt
+          setsid python3 tools/e14/observe.py memory --output "$RUNNER_TEMP/e14-memory.jsonl" >"$RUNNER_TEMP/e14-memory.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
           save-cache: ${{ matrix.partition == 1 }}
@@ -69,7 +73,22 @@ jobs:
             sudo apt-get install -y strace iproute2 util-linux
           fi
       - name: test-rust
-        run: python3 loop/app-data.py just test-rust-since "$BASE" --profile ci${{ matrix.partition }} --test-threads 4
+        run: |
+          python3 -m pip install -r tools/e14/requirements.txt
+          python3 tools/e14/observe.py run --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+      - name: E14 observer regression
+        if: ${{ !cancelled() && matrix.partition == 1 }}
+        run: python3 tools/e14/observe.test.py
+      - name: E14 Rust measurement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e14-rust${{ matrix.partition }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/e14/
+            ${{ runner.temp }}/e14-memory.*
+          if-no-files-found: error
+          retention-days: 30
 
   # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
   # tests of `mac`: clippy's 36 s of work and its setup run beside them, not before. `mac` saves the cache.
@@ -159,6 +178,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: E14 whole-runner memory observer
+        run: |
+          python3 -m pip install -r tools/e14/requirements.txt
+          setsid python3 tools/e14/observe.py memory --output "$RUNNER_TEMP/e14-memory.jsonl" >"$RUNNER_TEMP/e14-memory.log" 2>&1 </dev/null &
       - uses: ./.github/actions/setup
         with:
           rust: 'build'
@@ -171,7 +194,19 @@ jobs:
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults-${{ matrix.partition }}.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold-${{ matrix.partition }}.jsonl"
       - name: test-web
-        run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-faults-${{ matrix.partition }}.jsonl" -- just test-web-since "$BASE" --shard=${{ matrix.partition }}/${{ strategy.job-total }}
+        run: |
+          python3 -m pip install -r tools/e14/requirements.txt
+          python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+      - name: E14 web measurement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e14-web${{ matrix.partition }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/e14/
+            ${{ runner.temp }}/e14-memory.*
+          if-no-files-found: error
+          retention-days: 30
       - name: Chromium file fault evidence
         if: always()
         uses: actions/upload-artifact@v4
