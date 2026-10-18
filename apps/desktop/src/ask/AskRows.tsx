@@ -79,7 +79,7 @@ const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: s
       <span class="ask-where">{props.where}</span>
       <span class="ask-state" data-state={props.part.state}>
         <Show when={status()} fallback={STATE_WORDS[props.part.state]}>
-          {(live) => <><KindGlyph kind={live().kind} decorative /><span>{LABELS[live().kind]}</span></>}
+          {(live) => <><span>{copy.askSent}</span><KindGlyph kind={live().kind} decorative /><span>{LABELS[live().kind]}</span></>}
         </Show>
       </span>
     </>
