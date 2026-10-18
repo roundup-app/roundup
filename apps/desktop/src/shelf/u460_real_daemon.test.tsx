@@ -68,6 +68,7 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes", async () => {
   fireEvent.click(await screen.findByRole("button", { name: new RegExp(`#${first.id} `) }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${second.id} `) }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
   await waitFor(async () => {
     const rows = await app.rpc("todo.list", null);
@@ -88,6 +89,7 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   showShelfTab("Pads");
   fireEvent.click(await screen.findByRole("button", { name }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
   await waitFor(async () => expect((await app.rpc("pad.list", null)).some((row) => row.name === name)).toBe(false));
   expect((await ownerCall(owner.id, "pad.write", name, "after")).error?.code).toBe(-32001);
@@ -128,6 +130,7 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", asyn
   fireEvent.click(await screen.findByRole("button", { name: new RegExp(`#${first.id} `) }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${second.id} `) }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
   await screen.findByText(/partial two .*injected unavailable connection/);
   const rows = await app.rpc("todo.list", null);
