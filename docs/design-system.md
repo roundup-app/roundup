@@ -197,9 +197,9 @@ no border and a `--space-4` (16 px) height.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `--key-chip-fill` | rgba(0, 0, 0, 0.06) | rgba(255, 255, 255, 0.08) |
-| `--radius-chip` | 4 px | 4 px |
-| `--key-chip-padding` | 5 px | 5 px |
+| `--key-chip-fill` | `rgba(0, 0, 0, 0.06)` | `rgba(255, 255, 255, 0.08)` |
+| `--radius-chip` | `4px` | same |
+| `--key-chip-padding` | `5px` | same |
 
 Increased contrast retains the fill and promotes labels to text. Whole hints drop from
 the end when space runs out (U2230b). Keys have no motion (D6).
