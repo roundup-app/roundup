@@ -26,7 +26,7 @@ export type ShelfFrame = {
   animated: Accessor<boolean>;
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
-  toggle: () => void;
+  toggle: (source?: "key" | "pointer") => void;
   /** The slide ended; a closed Shelf leaves the layout. */
   settle: () => void;
 };
@@ -58,9 +58,9 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     }),
   );
 
-  const toggle = () => {
+  const toggle = (source: "key" | "pointer" = "pointer") => {
     const next = !open();
-    const slides = !reducedMotion();
+    const slides = source !== "key" && !reducedMotion();
 
     setAnimated(slides);
     setOpen(next);

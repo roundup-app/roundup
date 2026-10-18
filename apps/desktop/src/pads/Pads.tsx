@@ -186,7 +186,7 @@ const PadRows = (props: {
                     pads={props.pads}
                     onLateFailure={props.onLateFailure}
                   />
-                )))
+                ), event.detail === 0 ? "key" : "pointer"))
               }
             >
               <span class="shelf-title">{pad.name}</span>

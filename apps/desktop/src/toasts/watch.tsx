@@ -47,7 +47,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     return null;
   };
 
-  const openTodo = (id: number) => async () => {
+  const openTodo = (id: number) => async (source: "key" | "pointer") => {
     let listed: Todo[] = [];
 
     try {
@@ -61,12 +61,12 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     if (!listed.some((todo) => todo.id === id)) return GONE;
 
     show();
-    drawer.open(() => <TodoHost id={id} />);
+    drawer.open(() => <TodoHost id={id} />, source);
 
     return null;
   };
 
-  const openPad = (name: string) => async () => {
+  const openPad = (name: string) => async (source: "key" | "pointer") => {
     let listed: Pad[] = [];
 
     try {
@@ -80,7 +80,7 @@ export const watchProject = (connected: ConnectedProject, push: (candidate: Cand
     if (!listed.some((pad) => pad.name === name)) return GONE;
 
     show();
-    drawer.open(() => <PadHost name={name} />);
+    drawer.open(() => <PadHost name={name} />, source);
 
     return null;
   };

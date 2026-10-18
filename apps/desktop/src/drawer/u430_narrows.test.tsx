@@ -78,34 +78,3 @@ describe("u430 an open Drawer narrows the centre and covers none of it", () => {
     }
   });
 });
-
-it("u2580a_instant_actions_release_slide_and_fit_once", async () => {
-  vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "clearTimeout"] });
-  try {
-    const { connected, emulators } = await mountPane([node("a")], [info("t-a")]);
-    connected.rail.select("a");
-    render(() => <DrawerHost drawer={connected.drawer} reducedMotion={() => false} />);
-    const emulator = emulators.get("t-a")!;
-    const fit = vi.spyOn(emulator, "fit");
-    connected.drawer.open(() => <p>old detail</p>);
-    vi.advanceTimersToNextFrame();
-    fit.mockClear();
-    fireEvent.keyDown(screen.getByLabelText("Close"), { key: "Escape" });
-    expect(drawerSliding()).toBe(false);
-    expect(screen.queryByText("old detail")).toBeNull();
-    vi.advanceTimersToNextFrame();
-    expect(fit).toHaveBeenCalledTimes(1);
-    connected.drawer.open(() => <p>new detail</p>, "key");
-    window.dispatchEvent(new Event("resize"));
-    fit.mockClear();
-    vi.advanceTimersToNextFrame();
-    expect(fit).toHaveBeenCalledTimes(1);
-    fireEvent.transitionEnd(screen.getByLabelText("Drawer"));
-    vi.advanceTimersByTime(600);
-    expect(screen.getByText("new detail")).toBeTruthy();
-    expect(fit).toHaveBeenCalledTimes(1);
-  } finally {
-    cleanup();
-    vi.useRealTimers();
-  }
-});

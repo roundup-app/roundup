@@ -128,13 +128,15 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
               type="button"
               class="word light"
               disabled={deleting()}
-              onClick={() => {
+              onClick={(event) => {
+                const source = event.detail === 0 ? "key" : "pointer";
+
                 if (deleting()) return;
                 setDeleting(true);
                 void attempt(async () => {
                   await app.rpc("todo.delete", { id: props.id });
                   setRemovedByMe(true);
-                  drawer.close();
+                  drawer.close(source);
                 }).then(() => setDeleting(false));
               }}
             >{copy.delete}</button>{" "}

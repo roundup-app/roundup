@@ -171,11 +171,11 @@ const PadBody = (props: {
       if (path !== null) await connected.app.rpc("pad.export", { name, path });
     });
 
-  const remove = () =>
+  const remove = (source: "key" | "pointer") =>
     act(async () => {
       await connected.app.rpc("pad.delete", { name });
       setRemovedByMe(true);
-      connected.drawer.close();
+      connected.drawer.close(source);
     });
 
   const leaveField = async (typed: string) => {
@@ -278,7 +278,7 @@ const PadBody = (props: {
           {copy.deletePad(name)}
           <Show when={pad().owner.kind !== "user"}>{copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner))}</Show>
           <Show when={currentDraft() !== origin()}>{copy.unsavedChangesAreLost}</Show>
-          <button data-button="quiet" type="button" class="word light" onClick={() => void remove()}>{copy.delete}</button>{" "}
+          <button data-button="quiet" type="button" class="word light" onClick={(event) => void remove(event.detail === 0 ? "key" : "pointer")}>{copy.delete}</button>{" "}
           <button data-button="quiet"
             type="button"
             class="word light"

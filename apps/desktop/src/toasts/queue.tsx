@@ -21,7 +21,7 @@ export type Candidate = {
   line: string;
   /** U413: this event is for the Agent the user has selected. */
   selected: boolean;
-  open: () => Promise<string | null> | string | null;
+  open: (source: "key" | "pointer") => Promise<string | null> | string | null;
 };
 
 type Entry = Candidate & { id: string };
@@ -61,7 +61,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
       sync();
     },
-    onActivate: (id) => {
+    onActivate: (id, source) => {
       if (id === MORE) return;
 
       const entry = known.get(id);
@@ -69,7 +69,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
       if (!entry) return;
 
       setFailure(null);
-      void Promise.resolve(entry.open()).then(setFailure);
+      void Promise.resolve(entry.open(source)).then(setFailure);
     },
   });
 

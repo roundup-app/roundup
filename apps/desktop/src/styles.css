@@ -365,6 +365,12 @@ p {
   transition: transform var(--duration-drawer) var(--easing-out), visibility var(--duration-drawer) linear;
 }
 
+/* U2580a: the whole layout settles with a key-driven Drawer, including interrupted slides.
+   The short settling marker covers close; an open instant Drawer keeps the Shelf still. */
+.window:has(.drawer[data-settling="true"], .drawer[data-motion="none"][data-open="true"]) :is(.columns, .shelf, .shelf-scrim) {
+  transition: none;
+}
+
 .drawer > .close {
   position: absolute;
   top: 8px;

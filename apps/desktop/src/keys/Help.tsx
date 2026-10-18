@@ -27,18 +27,24 @@ export const Help = () => {
     setOpen(true);
   };
 
+  const close = (): void => {
+    setOpen(false);
+
+    if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus({ preventScroll: true });
+  };
+
   registerKeys({ kind: "app" }, [{ chords: HELP_KEYS, when: (press) => opensFrom(press.target), run: show }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
-    { chords: HELP_KEYS, run: () => setOpen(false) },
+    { chords: [...HELP_KEYS, "Escape"], run: close },
   ]);
 
   return (
     <Show when={open()}>
-    <Dialog.Root open onOpenChange={({ open }) => setOpen(open)}
+    <Dialog.Root open onOpenChange={({ open }) => { if (!open) close(); }}
       initialFocusEl={() => panel ?? null}
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-      <Dialog.Content class="help" aria-label={copy.help} ref={(element) => (panel = element)}>
+      <Dialog.Content class="help" aria-label={copy.help} ref={(element) => { panel = element; queueMicrotask(() => element.isConnected && element.focus({ preventScroll: true })); }}>
         <For each={HELP_ROWS}>
           {(chord) => (
             <p class="help-line">
