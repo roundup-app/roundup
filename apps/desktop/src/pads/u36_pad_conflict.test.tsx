@@ -113,17 +113,22 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
-  it("u36_keep_mine_keeps_the_line_while_its_write_is_in_flight", async () => {
-    const { app } = await openConflict();
+  it("p2544d_pending_keep_mine_cannot_clear_a_newer_conflict", async () => {
+    const { app, state, field } = await openConflict();
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
 
     fireEvent.click(screen.getByText("Keep mine"));
-
     expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
-
-    reply.resolve(padOf("release-checklist", USER, "mine, edited"));
-    await waitFor(() => expect(screen.queryByText(/Changed by/)).toBeNull());
+    state.pads = [{ ...padOf("release-checklist", USER, "newer external text"), revision: 3 }];
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "release-checklist" } });
+    await waitForReload(app, 2);
+    reply.resolve({ ...padOf("release-checklist", USER, "mine, edited"), revision: 2 });
+    await reply.promise;
+    await writeAdopted();
+    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
+    fireEvent.click(screen.getByText("Use theirs"));
+    expect(field.value).toBe("newer external text");
   });
 
   it("p2544d_conflict_choices_preserve_latest_draft", async () => {
