@@ -475,10 +475,7 @@ async fn e12_default_permissions_reach_the_permission_hook() {
     .await;
     let model = project.model.as_ref().unwrap();
     let result = model.tool_result("toolu_e12_denied").await;
-    assert!(
-        result["content"].as_str().unwrap().contains("denied"),
-        "{result}"
-    );
+    assert_eq!(result["content"], "Denied in roundup", "{result}");
     assert!(!project.dir.path().join("e12-denied").exists());
     model.assert_matched();
 }
