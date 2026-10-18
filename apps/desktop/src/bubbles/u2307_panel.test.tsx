@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { event } from "../testing/nodes";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
 
@@ -13,12 +13,26 @@ afterEach(cleanup);
 const bubble = (): HTMLElement | null => document.querySelector<HTMLElement>(".bubble:not([hidden])");
 
 const shown = async () => {
+  const listeners = vi.spyOn(document, "addEventListener");
   const mounted = await mountBubbles("w", []);
 
   mounted.setListed([{ ...(await import("../testing/nodes")).info("1", { owner: "w", title: "zsh" }) }]);
+  listeners.mockClear();
   mounted.app.emit(event({ name: "terminal.changed" }));
   await waitFor(() => expect(bubble()).not.toBeNull());
-  await new Promise((done) => setTimeout(done, 20));
+  // Panel uses Ark Dialog's dismissable layer. @zag-js/interact-outside's
+  // trackInteractOutsideImpl registers pointerdown in a zero-delay timer;
+  // visible content alone does not mean the layer can receive the next press.
+
+  try {
+    await waitFor(() => expect(listeners.mock.calls.some(([type]) => type === "pointerdown")).toBe(true));
+  } finally {
+    listeners.mockRestore();
+  }
+
+  // Zag's layerStack.remove retains recentlyRemoved through nextTick (two
+  // animation frames), during which isInNestedLayer suppresses outside presses.
+  await new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
 
   return mounted;
 };
