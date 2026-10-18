@@ -42,7 +42,7 @@ const PadBody = (props: {
   let closed = false;
   let sent: string | null = null;
   let due: "autosave" | "keep-mine" | null = null;
-  let finalDraft: string | undefined;
+  let finalDraft: string | null | undefined;
   const [saved, setSaved] = createSignal(false);
   const saveAfterPause = debounce(() => flush(), 500);
 
@@ -71,7 +71,7 @@ const PadBody = (props: {
     left.owner.kind === right.owner.kind &&
     left.owner.id === right.owner.id;
 
-  const currentDraft = () => editor?.getText() ?? shown();
+  const currentDraft = () => editor ? editor.getText() : shown();
 
   onCleanup(
     connected.events.subscribe((event) => {
@@ -149,8 +149,17 @@ const PadBody = (props: {
       if (sent !== null || due === null || deleted() || !ownedByUser() || (conflictActor() && due !== "keep-mine")) return;
 
       const resolveConflict = due === "keep-mine";
-      const text = finalDraft ?? currentDraft();
+      const text = finalDraft === undefined ? currentDraft() : finalDraft;
       due = null;
+
+      if (text === null) {
+        const message = copy.padSourceMappingFailed;
+
+        if (closed) props.onLateFailure(message);
+        else actionFailure.show(message);
+
+        return;
+      }
 
       if (text === origin() && !resolveConflict) return;
 

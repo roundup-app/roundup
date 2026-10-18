@@ -111,6 +111,7 @@ fn waiting_on(status: &Status, wait: Option<u32>) -> Status {
 
 struct Shared {
     git: worktree::Git,
+    worktrunk: worktrunk::Collector,
     project_dir: PathBuf,
     rail: Mutex<rail::Rail>,
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
@@ -223,6 +224,7 @@ type Applied = (Option<String>, Option<i64>);
 pub const STEER_BOUND: Duration = Duration::from_secs(10);
 
 /// H13: how long an Interrupt waits for the title to change before `NOT_ACKED`.
+/// `ROUNDUP_INTERRUPT_BOUND_MS` lengthens it for a test on a loaded machine.
 pub const INTERRUPT_BOUND: Duration = Duration::from_secs(5);
 
 /// E6: how long after a start the Channel may stay `pending`. `ROUNDUP_CHANNEL_DEADLINE_MS`
@@ -437,11 +439,12 @@ mod spawn;
 mod steer;
 mod store;
 mod worktree_wiring;
+mod worktrunk;
 
 use door::{Scan, scan_interval_from_env};
 use ending::{Ending, RailPublication};
 pub use events::{InboxObserver, PromptObserver};
-use events::{channel_deadline_from_env, channel_in, watch};
+use events::{channel_deadline_from_env, channel_in, interrupt_bound_from_env, watch};
 use rail_view::{valid_explicit_order, valid_order};
 use registration::{hold, save_signal_conversation};
 use steer::SteerError;

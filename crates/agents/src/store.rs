@@ -82,6 +82,7 @@ impl Agents {
         }))?;
         Ok(Self {
             shared: Arc::new_cyclic(|me| Shared {
+                worktrunk: crate::worktrunk::Collector::default(),
                 git,
                 project_dir: project.to_owned(),
                 rail: Mutex::new(rail),
@@ -100,7 +101,7 @@ impl Agents {
                 steer_bound: STEER_BOUND,
                 steer: crate::SteerSettings {
                     before_steer: None,
-                    interrupt_bound: INTERRUPT_BOUND,
+                    interrupt_bound: interrupt_bound_from_env(),
                 },
                 events: events::State {
                     gate_observer: None,
@@ -497,6 +498,7 @@ pub(super) mod tests {
         let bus = Bus::new();
         let terminals = Arc::new(Terminals::open(dir.path(), bus.clone()).unwrap());
         let shared = Arc::new(Shared {
+            worktrunk: crate::worktrunk::Collector::default(),
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
@@ -547,6 +549,7 @@ pub(super) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bus = Bus::new();
         Arc::new(Shared {
+            worktrunk: crate::worktrunk::Collector::default(),
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
@@ -630,6 +633,7 @@ pub(super) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bus = Bus::new();
         let shared = Arc::new(Shared {
+            worktrunk: crate::worktrunk::Collector::default(),
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
