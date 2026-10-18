@@ -1148,13 +1148,24 @@ async fn b9_a_lag_while_the_rail_cannot_answer_still_drops_pending_once_it_can()
 }
 
 #[tokio::test]
-async fn b2_a_sender_no_longer_on_the_rail_is_named_by_its_id() {
-    let (_dir, h) = project();
-    h.send_as(agent("a"), "b", "one").await;
-
-    h.becomes("b", Kind::Idle);
-
-    assert_eq!(h.typed(1).await, ["[from a, note] one"]);
+async fn b2705a_a_removed_sender_keeps_its_last_rail_name() {
+    for renamed in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sender = agent_node("7013", Kind::Working);
+        sender.name = "sad".into();
+        let h = Held2::new(dir.path(), vec![sender, agent_node("8027", Kind::Working)]);
+        h.send_as(agent("7013"), "8027", "one").await;
+        if renamed {
+            h.rail.0.lock().unwrap()[0].name = "glad".into();
+            h.send_as(agent("7013"), "8027", "two").await;
+        }
+        h.rail.0.lock().unwrap().retain(|node| node.id != "7013");
+        h.becomes("8027", Kind::Idle);
+        let typed = h.typed(1).await;
+        let name = if renamed { "glad" } else { "sad" };
+        assert!(typed[0].starts_with(&format!("[from {name}, note] one")));
+        assert!(!typed[0].contains("7013"));
+    }
 }
 
 #[tokio::test]
@@ -2384,4 +2395,38 @@ async fn b37_a_busy_error_delivery_returns_to_pending_until_the_next_turn() {
         *h.calls.lock().unwrap(),
         [("b".into(), "[from a, note] try next turn".into())]
     );
+}
+
+#[tokio::test]
+async fn b2705a_a_reopened_store_keeps_a_removed_senders_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut sender = agent_node("7013", Kind::Working);
+    sender.name = "sad".into();
+    let h = Held2::new(dir.path(), vec![sender, agent_node("8027", Kind::Working)]);
+    h.send_as(agent("7013"), "8027", "one").await;
+    h.rail.0.lock().unwrap().retain(|node| node.id != "7013");
+    let h = h.restarted();
+    h.becomes("8027", Kind::Idle);
+    assert_eq!(h.typed(1).await, ["[from sad, note] one"]);
+}
+
+#[tokio::test]
+async fn b2705a_an_unknown_removed_sender_has_no_id() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Held2::new(dir.path(), vec![agent_node("8027", Kind::Working)]);
+    h.send_as(agent("7013"), "8027", "one").await;
+    h.becomes("8027", Kind::Idle);
+    assert_eq!(h.typed(1).await, ["[from an Agent that is gone, note] one"]);
+}
+
+#[tokio::test]
+async fn b2705a_a_sender_renamed_before_delivery_uses_its_current_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut sender = agent_node("7013", Kind::Working);
+    sender.name = "sad".into();
+    let h = Held2::new(dir.path(), vec![sender, agent_node("8027", Kind::Working)]);
+    h.send_as(agent("7013"), "8027", "one").await;
+    h.rail.0.lock().unwrap()[0].name = "glad".into();
+    h.becomes("8027", Kind::Idle);
+    assert_eq!(h.typed(1).await, ["[from glad, note] one"]);
 }
