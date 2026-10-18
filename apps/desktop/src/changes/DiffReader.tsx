@@ -114,9 +114,17 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
       virtualizer.setup(mount);
       view.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })), fileContainer: container, fileDiff });
-      requestAnimationFrame(() => { if (current) virtualizer.scrollTo({ top: 0 }); });
+
+      // The initial empty viewport gives Pierre a bottom anchor; reset after its first layout.
+      const initialLayout = new ResizeObserver(() => {
+        if (!current || mount.clientHeight === 0) return;
+        initialLayout.disconnect();
+        virtualizer.scrollTo({ top: 0 });
+      });
+
+      initialLayout.observe(mount);
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
-      dispose = () => { view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
+      dispose = () => { initialLayout.disconnect(); view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
     }).then(error => { if (current && error) setFailure(error); });
     onCleanup(() => { current = false; dispose?.(); });
   });
