@@ -139,7 +139,7 @@ it("u2556b_unavailable_and_stale_are_explained", async () => {
   app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: false, ci: { state: "passed", stale: true }, pr: { number: 18, stale: true } });
   setNow(100_000_000_000_000);
   await screen.findByText("Passed, stale");
-  expect(screen.getByText("#18, stale")).toBeTruthy();
+  expect(screen.getAllByText("#18, stale")).toHaveLength(2);
   expect(screen.getByLabelText("CI passed, stale").dataset.state).toBe("passed");
   expect(screen.getByLabelText("CI passed, stale").dataset.stale).toBe("true");
   expect(screen.queryByText("CI unavailable")).toBeNull();
