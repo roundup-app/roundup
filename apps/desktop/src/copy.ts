@@ -265,6 +265,7 @@ export const copy = {
   askNewWorkstream: "New Workstream",
   askDrop: "Drop",
   askNotSent: "Not sent: ",
+  switcherActions: "Actions",
   switcherLabel: "Switch to",
   switcherPlaceholder: "Name",
   noMatch: "No match",
