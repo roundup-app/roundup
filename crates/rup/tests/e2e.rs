@@ -3073,35 +3073,6 @@ async fn m9_the_brief_names_exactly_the_tools_offered() {
     }
 }
 
-/// X12: the Terminals belong to the Daemon, so a connection ending closes nothing and a new one lists them again.
-#[tokio::test]
-async fn x12_a_connection_ending_closes_nothing() {
-    let project = start(&[("SHELL", "/bin/sh")]);
-    let client = project.client().await;
-    let workstream = client
-        .request(
-            "rail.createWorkstream",
-            json!({"name": "w", "parent": null}),
-        )
-        .await
-        .unwrap();
-    let opened = client
-        .request("terminal.open", json!({"workstream": workstream["id"]}))
-        .await
-        .unwrap();
-    let id = opened["terminal_id"].as_str().unwrap().to_owned();
-
-    drop(client);
-    let client = project.client().await;
-
-    let listed = client.request("terminal.list", Value::Null).await.unwrap();
-    let listed = listed.as_array().unwrap();
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0]["id"], id.as_str());
-    assert_eq!(listed[0]["running"], true);
-    assert_eq!(listed[0]["owner"], workstream["id"]);
-}
-
 /// X11, X12: a Terminal the user opens is a bubble's, not a Rail node: it is written to, read back
 /// and closed, and a connection ending closes nothing.
 #[tokio::test]
@@ -3147,6 +3118,10 @@ async fn x12_open_write_close(project_owned: bool) {
     // X12: a connection ending closes nothing.
     drop(client);
     let client = project.client().await;
+    assert_eq!(
+        client.request("terminal.list", Value::Null).await.unwrap(),
+        listed
+    );
     let data = base64::engine::general_purpose::STANDARD.encode("echo $((20 + 22))\n");
     client
         .request("terminal.write", json!({"id": id, "data": data}))
