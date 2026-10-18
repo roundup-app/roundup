@@ -42,6 +42,12 @@ export const copy = {
   notesAccepted: (status: string) => `Notes accepted — ${status}`,
   notesUnknown: (reason: string) => `Acceptance unknown. ${reason}`,
 
+  todoDeleted: (id: number) => `#${id} was deleted`,
+  couldNotDelete: "Could not delete",
+  rowActionsFor: (id: number) => `Actions for todo ${id}`,
+  selectTodo: "Select",
+  moveUp: "Move up",
+  moveDown: "Move down",
   agentsAndTerminals: "Workstreams and Agents",
   appearHereOnePerRow: "appear here, one per row,",
   nestedByIndent: "nested by indent",
