@@ -3,7 +3,6 @@ import { copy } from "../copy";
 import { Show, type JSX } from "solid-js";
 import { Icon } from "../ink/Icon";
 import { IconButton } from "../ui/IconButton";
-import { Tip } from "./Tip";
 import { ownKeys } from "./rows";
 
 /** U426: what a Workstream row or an Agent row can do from its icons; an absent member is an icon the row does not carry. */
@@ -34,9 +33,19 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
   <span class="row-icons" role="group" aria-label={copy.rowActions}>
     <Show when={props.actions.kind === "workstream" ? props.actions.add : undefined}>
       {(add) => (
-        <Tip text={copy.addAgentLabel} chord={CHORDS[0]}>
-            {(trigger) => <button {...trigger({ ...ownKeys, "aria-label": copy.addAgentLabel, "aria-disabled": add().disabled || undefined, onClick: (click: MouseEvent) => { click.stopPropagation(); add().run(); } })} type="button" class="rail-add" data-button="icon"><Icon name="plus" /></button>}
-          </Tip>
+        <IconButton
+          {...ownKeys}
+          class="rail-add"
+          aria-label={copy.addAgentLabel}
+          aria-disabled={add().disabled || undefined}
+          chord={CHORDS[0]}
+          onClick={(click) => {
+            click.stopPropagation();
+            add().run();
+          }}
+        >
+          <Icon name="plus" />
+        </IconButton>
       )}
     </Show>
     {props.children}
