@@ -8,7 +8,7 @@ import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
 import { registerKeys, type KeyScope } from "../keys/registry";
-import { Tip } from "../rail/Tip";
+import { Tip, type TriggerProps } from "../ui/Tip";
 import { Select } from "../ui/Select";
 
 /** The Workstream a part went to, once it has one. */
@@ -115,14 +115,12 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
   const candidates = () => (props.part.placement.kind === "unclear" ? props.part.placement.candidates : []);
   const others = () => rail.nodes.filter((each) => each.kind === "workstream" && !candidates().includes(each.id));
 
-  const line = () => (
+  const line = (trigger: TriggerProps) => (
     <>
-      <span ref={text} class="ask-text">{props.part.text}</span>
+      <span {...trigger} ref={text} class="ask-text">{props.part.text}</span>
       <span class="ask-where">
-        <span class="ask-kind" title={status() ? LABELS[status()!.kind] : undefined}>
-          <Show when={status()}>{(live) => <KindGlyph kind={live().kind} />}</Show>
-        </span>
-        <span ref={name} class="ask-name">{props.where}</span>
+        <Show when={status()}>{(live) => <Tip text={LABELS[live().kind]}>{(trigger) => <span {...trigger()} class="ask-kind"><KindGlyph kind={live().kind} /></span>}</Tip>}</Show>
+        <Tip text={props.where} disabled={!cut()}>{(trigger) => <span {...trigger()} ref={name} class="ask-name">{props.where}</span>}</Tip>
       </span>
       <span class="ask-state" data-state={props.part.state}>{STATE_WORDS[props.part.state]}</span>
     </>
@@ -130,11 +128,13 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
 
   return (
     <li class="ask-row" data-state={props.part.state}>
-      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>
-        {(trigger) => <Dynamic component={node() ? "button" : "div"} {...trigger({ onClick: open })}
+      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>{(trigger) => {
+        const tip = trigger();
+
+        return <Dynamic component={node() ? "button" : "div"} onClick={open} onFocus={tip.onFocus} onBlur={tip.onBlur} aria-describedby={tip["aria-describedby"]}
           ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
-          type={node() ? "button" : undefined} class="ask-line" data-feedback="ink" onPointerEnter={measure}>{line()}</Dynamic>}
-      </Tip>
+          type={node() ? "button" : undefined} class="ask-line" data-feedback="ink" onPointerEnter={measure}>{line(tip)}</Dynamic>;
+      }}</Tip>
       <Show when={asking()}>
         <div class="ask-back">
           <p class="ask-reason">{props.part.reason ?? (props.part.placement.kind === "unclear" ? props.part.placement.question : "")}</p>

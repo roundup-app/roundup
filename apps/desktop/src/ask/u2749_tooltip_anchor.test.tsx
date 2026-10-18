@@ -11,7 +11,8 @@ it("u2749a_project_root_kind_owns_its_tooltip", async () => {
   const owner = glyph.closest("[data-part=trigger]")!;
   expect(owner.tagName).toBe("SPAN");
   const rect = new DOMRect(100, 100, 16, 16);
-  vi.spyOn(owner, "getBoundingClientRect").mockReturnValue(rect);
-  fireEvent.pointerMove(owner, { pointerType: "mouse", clientX: 108, clientY: 108 });
+  const anchor = vi.spyOn(owner, "getBoundingClientRect").mockReturnValue(rect);
+  fireEvent.pointerMove(glyph.querySelector("path")!, { pointerType: "mouse", clientX: 108, clientY: 108 });
   expect((await screen.findByRole("tooltip")).textContent).toBe("Working");
+  expect(anchor).toHaveBeenCalled();
 });

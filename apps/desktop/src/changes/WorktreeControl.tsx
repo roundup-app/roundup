@@ -1,3 +1,4 @@
+import { Tip } from "../ui/Tip";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
@@ -76,9 +77,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
           <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { setEditing(undefined); setDiff(false); }} onClose={close} />}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
-            <dd title={props.worktree.branch}>{props.worktree.branch}</dd>
+            <Tip text={props.worktree.branch}>{(trigger) => <dd {...trigger()}>{props.worktree.branch}</dd>}</Tip>
             <dt>{copy.base}</dt>
-            <dd title={props.worktree.base}>{props.worktree.base}</dd>
+            <Tip text={props.worktree.base}>{(trigger) => <dd {...trigger()}>{props.worktree.base}</dd>}</Tip>
             <Show when={facts()}>
               {(state) => (
                 <>

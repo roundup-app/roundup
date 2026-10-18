@@ -2,13 +2,10 @@ import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "../copy";
 import { createEffect, createSignal, For, onCleanup, Show, untrack, type JSX } from "solid-js";
-import { Portal } from "solid-js/web";
 import { IconButton } from "../ui/IconButton";
-import { Tooltip } from "../ui/Tooltip";
 import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
-import { Tip } from "./Tip";
-import type { TriggerProps } from "./Tip";
+import { Tip, type TriggerProps } from "../ui/Tip";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -202,108 +199,104 @@ export const RailRowView = (props: {
   );
 
   /** The row's own element: Ark's item or branch control, which the Tooltip's trigger props join. */
-  const row = (mine: (extra: RowProps) => RowProps) => (
-    <Tooltip.Trigger
-      asChild={(trigger) => (
-        // SAFETY: the Tooltip types its trigger for a button; the row is a div, and the props are the same event and ARIA attributes.
-        <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => { rowBox = el; props.sortRef(el); }}>
-          <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
-          <p class="line">
-            <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
-              <IconButton
-                class="rail-chevron"
-                aria-label={copy.collapse}
-                {...ownKeys}
-                onClick={(click) => {
-                  click.stopPropagation();
-                  props.onToggle();
-                }}
-              >
-                <Icon name={props.row.collapsed ? "right" : "down"} />
-              </IconButton>
-              <KindGlyph kind={kind() ?? "idle"} />
-            </Show>
-            <Show when={workstream() || !props.row.node.worktree} fallback={
-              <span class="row-name-state">
-                {name()}
-                <span class="worktree-chips">
-                  <Show when={(facts()?.ahead ?? 0) > 0}>
-                    <span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
-                  </Show>
-                  <Show when={facts()?.ci}>{(ci) => (
-                    <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}><span>{copy.worktreeCiChip(ci().state)}</span><Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
-                  )}</Show>
-                  <Show when={facts()?.pr}>{(pr) => (
-                    <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
-                  )}</Show>
-                  <Show when={worktreeFailure()}>
-                    <span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
-                  </Show>
-                </span>
-              </span>
-            }>{name()}</Show>
-            <Show when={workstream()}>
-              <Show
-                when={props.row.collapsed}
-                fallback={
-                  <Show when={props.needsYou > 0}>
-                    <span class="ink-count" data-state="" data-tone="amber">
-                      <KindGlyph kind="needs-you" decorative /> {props.needsYou}
-                    </span>
-                  </Show>
-                }
-              >
-                {(collapsed) => (
-                  <span class="folded-agents" data-state="">
-                    <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
-                    <span class="light">{collapsed().agents.length}</span>
-                  </span>
-                )}
+  const row = (mine: (extra: RowProps) => RowProps, trigger: (extra?: TriggerProps) => TriggerProps) => (
+    // SAFETY: TreeView and Tip merge the same DOM props; this renderer fixes their currentTarget to this row div.
+    <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => { rowBox = el; props.sortRef(el); }}>
+      <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
+      <p class="line">
+        <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
+          <IconButton
+            class="rail-chevron"
+            aria-label={copy.collapse}
+            {...ownKeys}
+            onClick={(click) => {
+              click.stopPropagation();
+              props.onToggle();
+            }}
+          >
+            <Icon name={props.row.collapsed ? "right" : "down"} />
+          </IconButton>
+          <KindGlyph kind={kind() ?? "idle"} />
+        </Show>
+        <Show when={workstream() || !props.row.node.worktree} fallback={
+          <span class="row-name-state">
+            {name()}
+            <span class="worktree-chips">
+              <Show when={(facts()?.ahead ?? 0) > 0}>
+                <span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
               </Show>
-            </Show>
-            <span class="fill" aria-hidden="true" />
-            <span class="row-tail">
-              <RowIcons actions={props.actions}>
-                <Show when={showsAction()}>
-                  <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>
-                    {(tip) => (
-                      <button
-                        {...tip({
-                          ...ownKeys,
-                          "aria-disabled": props.doorPending ? true : undefined,
-                          onClick: (click: MouseEvent) => {
-                            click.stopPropagation();
-
-                            if (!props.doorPending) props.onStartDoor();
-                          },
-                        })}
-                        type="button"
-                        data-button="icon"
-                        class="door-action"
-                        aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
-                      >
-                        <Icon name="play" />
-                        <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
-                      </button>
-                    )}
-                  </Tip>
-                </Show>
-              </RowIcons>
+              <Show when={facts()?.ci}>{(ci) => (
+                <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}><span>{copy.worktreeCiChip(ci().state)}</span><Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
+              )}</Show>
+              <Show when={facts()?.pr}>{(pr) => (
+                <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
+              )}</Show>
+              <Show when={worktreeFailure()}>
+                <span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
+              </Show>
             </span>
-            <PadsControl pads={pads} />
-          </p>
-        </div>
-      )}
-    />
+          </span>
+        }>{name()}</Show>
+        <Show when={workstream()}>
+          <Show
+            when={props.row.collapsed}
+            fallback={
+              <Show when={props.needsYou > 0}>
+                <span class="ink-count" data-state="" data-tone="amber">
+                  <KindGlyph kind="needs-you" decorative /> {props.needsYou}
+                </span>
+              </Show>
+            }
+          >
+            {(collapsed) => (
+              <span class="folded-agents" data-state="">
+                <For each={collapsed().agents.slice(0, FOLDED_GLYPHS)}>{(each) => <KindGlyph kind={each} />}</For>
+                <span class="light">{collapsed().agents.length}</span>
+              </span>
+            )}
+          </Show>
+        </Show>
+        <span class="fill" aria-hidden="true" />
+        <span class="row-tail">
+          <RowIcons actions={props.actions}>
+            <Show when={showsAction()}>
+              <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>
+                {(tip) => (
+                  <button
+                    {...tip({
+                      ...ownKeys,
+                      "aria-disabled": props.doorPending ? true : undefined,
+                      onClick: (click: MouseEvent) => {
+                        click.stopPropagation();
+
+                        if (!props.doorPending) props.onStartDoor();
+                      },
+                    })}
+                    type="button"
+                    data-button="icon"
+                    class="door-action"
+                    aria-label={props.doorFailure ? copy.retryDoor : copy.startDoor}
+                  >
+                    <Icon name="play" />
+                    <span class="door-action-label">{props.doorFailure ? copy.retryDoor : copy.startDoor}</span>
+                  </button>
+                )}
+              </Tip>
+            </Show>
+          </RowIcons>
+        </span>
+        <PadsControl pads={pads} />
+      </p>
+    </div>
   );
 
   return (
     <>
-      <Tooltip.Root disabled={lines().length === 0} closeOnEscape={false} positioning={{ strategy: "fixed", placement: "bottom-start", getAnchorRect: () => rowBox?.getBoundingClientRect() ?? null }}>
-        <Show
+      <Tip disabled={lines().length === 0} anchor={() => rowBox} class="rail-name-tip" content={<For each={lines()}>{(line) => <div>{line}</div>}</For>}>
+        {(trigger) => <Show
           when={props.branch}
           fallback={
-            <TreeView.Item data-id={props.row.node.id} aria-labelledby={nameId()} asChild={(item) => row((extra) => item(extra))} />
+            <TreeView.Item data-id={props.row.node.id} aria-labelledby={nameId()} asChild={(item) => row((extra) => item(extra), trigger)} />
           }
         >
           <TreeView.Branch
@@ -314,19 +307,11 @@ export const RailRowView = (props: {
               if (click.target === click.currentTarget) click.currentTarget.querySelector<HTMLElement>('[data-part="branch-control"]')?.click();
             }}
           >
-            <TreeView.BranchControl asChild={(control) => row((extra) => control(extra))} />
+            <TreeView.BranchControl asChild={(control) => row((extra) => control(extra), trigger)} />
           </TreeView.Branch>
         </Show>
-        <Show when={lines().length > 0}>
-          <Portal>
-            <Tooltip.Positioner>
-              <Tooltip.Content class="rail-name-tip">
-                <For each={lines()}>{(line) => <div>{line}</div>}</For>
-              </Tooltip.Content>
-            </Tooltip.Positioner>
-          </Portal>
-        </Show>
-      </Tooltip.Root>
+        }
+      </Tip>
       <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
   );
