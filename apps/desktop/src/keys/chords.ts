@@ -59,12 +59,12 @@ export const pressOf = (press: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "metaK
 
 const MODIFIERS = Object.entries({ Control: "ctrl", Alt: "alt", Meta: "meta", Shift: "shift" });
 
-/** tinykeys spellings derived from the same presses Help displays. */
-export const chordsFor = (keys: string): readonly string[] => {
+/** tinykeys spellings derived from the same presses Help displays. `key` retains the Rail's logical letter matching, including events without a physical code. */
+export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => {
   const chord = CHORDS.find((chord) => chord.keys === keys);
 
   return (chord?.presses ?? []).map((press) =>
-    press.split("+").map((part) => MODIFIERS.find(([, name]) => name === part)?.[0] ?? part).join("+"),
+    press.split("+").map((part) => MODIFIERS.find(([, name]) => name === part)?.[0] ?? (match === "key" && /^Key[A-Z]$/.test(part) ? part.slice(3).toLowerCase() : part)).join("+"),
   );
 };
 

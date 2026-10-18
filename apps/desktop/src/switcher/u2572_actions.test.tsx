@@ -385,3 +385,15 @@ it("u2572c_a_root_Terminal_action_does_not_fall_back_to_another_Workstream", asy
   expect(app.calls.filter((call) => call.method === "terminal.open")).toEqual([]);
   expect(connected.rail.selected()).toBeNull();
 });
+
+it("u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open", async () => {
+  const { app } = await mountSwitcher("ops");
+  document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!.focus();
+  await show();
+  expect(actionNames()).toContain("Close the Bubble");
+  app.handlers["terminal.close"] = () => new Promise(() => {});
+  fireEvent.click(document.querySelector<HTMLButtonElement>('.terminal-tab-pair[data-bubble="7"] button[aria-label^="Close "]')!);
+  await waitFor(() => expect(actionNames()).not.toContain("Close the Bubble"));
+  expect(app.calls.filter((call) => call.method === "terminal.close").map((call) => call.params)).toEqual([{ id: "7" }]);
+  expect(field()).not.toBeNull();
+});
