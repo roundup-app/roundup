@@ -4,6 +4,7 @@ import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { AppSeam, DaemonExit } from "../app/seam";
 import { failureOf } from "../todos/failureOf";
 import type { RailState } from "./rail";
+import { NOW_TICK_MS } from "./clock";
 
 type Read = { failure: null; state: WorktreeState } | { failure: string };
 
@@ -35,7 +36,16 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
 
   return {
     read: (id: string): Read | undefined => current(id)?.read(),
-    refresh: (id: string): Promise<void> => current(id)?.refresh() ?? Promise.resolve(),
+    refresh: (id: string): Promise<void> => {
+      const entry = current(id);
+
+      if (!entry) return Promise.resolve();
+
+      // A view can open just before a coarse tick; skip that tick rather than poll twice within five seconds.
+      if (!entry.read.loading) entry.attempted = now() + NOW_TICK_MS;
+
+      return entry.refresh();
+    },
     /** Called once by the connected Project's rendered owner. Uses the App's coarse tick, never a second timer. */
     watch: (visible: Accessor<boolean>) => {
       createEffect(() => {
@@ -70,7 +80,7 @@ export const createWorktreeState = (app: AppSeam, rail: RailState, now: Accessor
                   return failure === null ? { failure, state } : { failure };
                 })());
 
-                return { identity: key, read, dispose, attempted: time, refresh: async () => {
+                return { identity: key, read, dispose, attempted: time + NOW_TICK_MS, refresh: async () => {
                   // The resource owns completion; callers also join its initial request.
                   if (read.loading) await latest;
                   else await refetch();

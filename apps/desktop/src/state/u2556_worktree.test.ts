@@ -29,9 +29,9 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   finish(facts);
   await Promise.all([first, second]);
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: null, state: facts }));
-  tick(4_999);
+  tick(15_000);
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(1);
-  tick(5_000);
+  tick(30_000);
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(2);
 });
 
@@ -117,6 +117,21 @@ it("u2556b_failure_is_contained_and_the_next_tick_recovers", async () => {
   expect(connected.worktrees.read("b")).toEqual({ failure: null, state: facts });
   expect(app.calls.filter((call) => call.method === "agent.worktreeState").map((call) => call.params)).toEqual([{ id: "a" }, { id: "b" }]);
   failed = false;
-  tick(15_000);
+  tick(30_000);
   await waitFor(() => expect(connected.worktrees.read("a")).toEqual({ failure: null, state: facts }));
+});
+
+it("u2556b_opening_near_a_tick_does_not_add_a_poll", async () => {
+  const app = createFakeApp();
+  app.handlers["rail.tree"] = () => [agent("a", "working", "busy", { worktree })];
+  app.handlers["agent.worktreeState"] = () => facts;
+  const [now, tick] = createSignal(0);
+  const connected = await connectProject(app, { path: "/p", name: "p" }, () => false, now);
+  createRoot((dispose) => { disposals.push(dispose); connected.worktrees.watch(() => true); });
+  await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
+  await connected.worktrees.refresh("a");
+  tick(15_000);
+  expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(2);
+  tick(30_000);
+  expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(3);
 });
