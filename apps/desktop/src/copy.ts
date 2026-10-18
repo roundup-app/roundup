@@ -4,6 +4,14 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  context: "Context",
+  contextUse: (used: number, limit: number) => `Context ${new Intl.NumberFormat("en", { notation: "compact" }).format(used)} / ${new Intl.NumberFormat("en", { notation: "compact" }).format(limit)}`,
+  cardIntent: "Intent",
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- ConversationCard.shape is a domain term in GLOSSARY.md (A2681c).
+  cardShape: "Shape",
+  cardFacts: "Facts",
+  cardOutcome: "Outcome",
+  orderLimits: "Limits",
   comparisonRenderFailed: "Unable to render the file comparison",
   diff: "Diff",
   loadingDiff: "Loading diff…",

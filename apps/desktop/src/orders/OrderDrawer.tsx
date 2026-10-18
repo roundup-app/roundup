@@ -153,16 +153,16 @@ export const OrderDrawer = (props: { id: string; inline?: boolean }) => {
           <p class="overview-id">{overview().id}</p>
           <Show when={overview().used !== undefined && overview().limit !== undefined && overview().limit! > 0}>
             <div class="overview-context">
-              <span>Context {new Intl.NumberFormat("en", { notation: "compact" }).format(overview().used!)} / {new Intl.NumberFormat("en", { notation: "compact" }).format(overview().limit!)}</span>
-              <meter aria-label="Context" aria-valuenow={overview().used} aria-valuemax={overview().limit} min={0} max={overview().limit} value={overview().used} />
-              <span>{Math.round(overview().used! / overview().limit! * 100)}%</span>
+              <span>{copy.contextUse(overview().used!, overview().limit!)}</span>
+              <meter aria-label={copy.context} aria-valuenow={overview().used} aria-valuemax={overview().limit} min={0} max={overview().limit} value={overview().used} />
+              <span>{copy.percent(Math.round(overview().used! / overview().limit! * 100))}</span>
             </div>
           </Show>
           <div class="overview-card">
-            <Show when={overview().card?.intent}>{(text) => <section><h3>Intent</h3><Markdown body={text()} /></section>}</Show>
-            <Show when={overview().card?.shape}>{(text) => <section><h3>Shape</h3><Markdown body={text()} /></section>}</Show>
-            <Show when={overview().card?.facts?.length}><section><h3>Facts</h3><ul><For each={overview().card?.facts}>{(fact) => <li><Markdown body={fact} /></li>}</For></ul></section></Show>
-            <Show when={overview().card?.outcome}>{(text) => <section><h3>Outcome</h3><Markdown body={text()} /></section>}</Show>
+            <Show when={overview().card?.intent}>{(text) => <section><h3>{copy.cardIntent}</h3><Markdown body={text()} /></section>}</Show>
+            <Show when={overview().card?.shape}>{(text) => <section><h3>{copy.cardShape}</h3><Markdown body={text()} /></section>}</Show>
+            <Show when={overview().card?.facts?.length}><section><h3>{copy.cardFacts}</h3><ul><For each={overview().card?.facts}>{(fact) => <li><Markdown body={fact} /></li>}</For></ul></section></Show>
+            <Show when={overview().card?.outcome}>{(text) => <section><h3>{copy.cardOutcome}</h3><Markdown body={text()} /></section>}</Show>
           </div>
         </header>}
       </Show>
@@ -174,7 +174,7 @@ export const OrderDrawer = (props: { id: string; inline?: boolean }) => {
                 <Show when={editing()} fallback={shown(each)}>
                   {editor(each)}
                 </Show>
-                <Show when={props.inline && each.limits.length > 0}><section><h3>Limits</h3><ul><For each={each.limits}>{(limit) => <li><Markdown body={limit} /></li>}</For></ul></section></Show>
+                <Show when={props.inline && each.limits.length > 0}><section><h3>{copy.orderLimits}</h3><ul><For each={each.limits}>{(limit) => <li><Markdown body={limit} /></li>}</For></ul></section></Show>
 
               </>
             ) : (
