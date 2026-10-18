@@ -114,8 +114,9 @@ impl Shared {
         node.can_resume &= exited;
         node.yolo = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run.yolo,
-            Some(Slot::Resuming { old: Some(old), .. }) => old.yolo,
-            Some(Slot::ResumeCleanup { yolo, .. }) => *yolo,
+            Some(
+                Slot::Resuming { old: Some(old), .. } | Slot::ResumeCleanup { old: Some(old), .. },
+            ) => old.yolo,
             _ => false,
         };
         let channels = self.channels.lock().expect("channels lock");

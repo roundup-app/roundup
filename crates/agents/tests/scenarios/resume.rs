@@ -1611,3 +1611,47 @@ async fn a2693a_a_stop_or_removal_claim_refuses_an_explicit_resume() {
         assert_eq!(f.terminals.list().len(), 1);
     }
 }
+
+#[tokio::test]
+async fn a2693a_cleanup_stop_keeps_the_last_acknowledged_mode() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let fail = Arc::new(AtomicBool::new(false));
+    let mut f = Fixture::running("sleep 30");
+    f.agents = f.agents.with_resume_effect({
+        let fail = Arc::clone(&fail);
+        move |phase, _| {
+            if fail.load(Ordering::SeqCst) && matches!(phase, "claimed" | "cleanup") {
+                Err(rpc::RpcError::conflict("injected resume/cleanup failure"))
+            } else {
+                Ok(())
+            }
+        }
+    });
+    let f = Arc::new(f);
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    resume_in_mode(&f, &node, Some("yolo")).await;
+    fail.store(true, Ordering::SeqCst);
+    let err = f
+        .call("agent.resume", json!({"id":node.id,"mode":"normal"}))
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::UNKNOWN_OUTCOME);
+    assert!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .yolo
+    );
+    fail.store(false, Ordering::SeqCst);
+    f.call("agent.stop", json!({"id":node.id})).await.unwrap();
+    assert!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .yolo
+    );
+}

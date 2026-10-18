@@ -396,7 +396,7 @@ impl Shared {
         runs.insert(
             id.to_owned(),
             Slot::ResumeCleanup {
-                yolo: old.as_ref().is_some_and(|old| old.yolo),
+                old,
                 attempt,
                 terminal_id: terminal_id.clone(),
                 pending: true,
@@ -421,8 +421,7 @@ impl Shared {
                 let mut runs = shared.runs();
                 match cleanup {
                     Ok(()) => {
-                        runs.remove(&id);
-                        if let Some(old) = old {
+                        if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.remove(&id) {
                             runs.insert(id.clone(), Slot::Running(*old));
                         }
                         error

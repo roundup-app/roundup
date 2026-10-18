@@ -82,8 +82,13 @@ impl Shared {
         if let Some(Slot::Running(run)) = runs.get_mut(id) {
             run.closing = false;
             run.ended |= ended;
-        } else {
-            runs.remove(id);
+        } else if let Some(Slot::ResumeCleanup {
+            old: Some(mut old), ..
+        }) = runs.remove(id)
+        {
+            old.closing = false;
+            old.ended |= ended;
+            runs.insert(id.to_owned(), Slot::Running(*old));
         }
     }
 
@@ -286,8 +291,13 @@ impl Shared {
             } else if let Some(Slot::Running(run)) = runs.get_mut(id) {
                 run.closing = false;
                 run.ended = true;
-            } else {
-                runs.remove(id);
+            } else if let Some(Slot::ResumeCleanup {
+                old: Some(mut old), ..
+            }) = runs.remove(id)
+            {
+                old.closing = false;
+                old.ended = true;
+                runs.insert(id.to_owned(), Slot::Running(*old));
             }
             result
         };
