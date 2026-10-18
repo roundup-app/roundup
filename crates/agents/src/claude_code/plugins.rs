@@ -277,6 +277,11 @@ fn source() -> Result<Source, Error> {
             return Err(Error::Integrity(path));
         }
     }
+    // LC13: the Door's Brief names this skill.
+    let intent = "hope/skills/intent/SKILL.md";
+    if !paths.contains(&intent.to_owned()) {
+        return Err(Error::Integrity(intent.into()));
+    }
     Ok(source)
 }
 

@@ -954,11 +954,14 @@ fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
     let agent = s.prepare("8").unwrap();
 
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
-    assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch");
+    assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
     assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
     assert_eq!(agent.len(), 11);
     assert!(!agent.iter().any(|arg| arg == "--tools"));
-    assert_eq!(agents::claude_code::DOOR_TOOLS, "Read,Grep,Glob,ToolSearch");
+    assert_eq!(
+        agents::claude_code::DOOR_TOOLS,
+        "Read,Grep,Glob,ToolSearch,Skill"
+    );
 }
 
 #[test]
@@ -1443,8 +1446,13 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
                 .map(|pair| Path::new(&pair[1]))
                 .collect();
             if role == Role::Door {
-                // LC5: the Door gets only the question plugin.
-                assert_eq!(paths.len(), 1);
+                // LC13: the Door gets `hope` and the question plugin.
+                assert_eq!(paths.len(), 2);
+                assert_eq!(
+                    read(&paths[0].join(".claude-plugin/plugin.json"))["name"],
+                    "hope"
+                );
+                assert!(paths[0].join("skills/intent/SKILL.md").is_file());
                 continue;
             }
             assert_eq!(paths.len(), 4);
@@ -1828,7 +1836,7 @@ fn m2219_off_keeps_the_hooks_and_the_tools_without_toolsearch() {
     let s = setup();
     let door = s.prepare_off("7", Role::Door);
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
-    assert_eq!(door[at + 1], "Read,Grep,Glob");
+    assert_eq!(door[at + 1], "Read,Grep,Glob,Skill");
     let hooks = &read(Path::new(&door[2]))["hooks"];
     for event in EVENTS {
         assert!(hooks[event].is_array(), "{event}");
@@ -2058,7 +2066,7 @@ fn lc1_each_role_launches_as_its_row() {
     assert_eq!(PROFILES.len(), 3);
     assert_eq!(
         profile(Role::Door).tools,
-        Some(("Read,Grep,Glob,ToolSearch", "Read,Grep,Glob"))
+        Some(("Read,Grep,Glob,ToolSearch,Skill", "Read,Grep,Glob,Skill"))
     );
     assert_eq!(
         profile(Role::Scout).tools.unwrap().0,
@@ -2153,7 +2161,7 @@ fn lc3_the_door_launches_lean_and_its_brief_omits_the_plain_body() {
     let argv = s.prepare_as("7", Role::Door).unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,ToolSearch")
+        Some("Read,Grep,Glob,ToolSearch,Skill")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert_eq!(Setup::after(&argv, "--setting-sources"), Some("project"));
@@ -2217,7 +2225,7 @@ async fn lc5_a_worker_gets_the_plugins_and_global_instructions() {
 }
 
 #[tokio::test]
-async fn lc5_the_door_and_scout_get_no_bundled_plugin() {
+async fn lc5_only_the_door_among_lean_children_gets_hope() {
     for (row, role, pair) in lean_children().into_iter().take(2) {
         let s = setup();
         let launcher = plugin_launcher(&s);
@@ -2225,16 +2233,22 @@ async fn lc5_the_door_and_scout_get_no_bundled_plugin() {
             .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
             .await
             .unwrap();
-        let dirs: Vec<&String> = argv
+        let names: Vec<_> = argv
             .windows(2)
             .filter(|pair| pair[0] == "--plugin-dir")
-            .map(|pair| &pair[1])
+            .map(|pair| {
+                read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone()
+            })
             .collect();
-        assert_eq!(dirs.len(), 1, "{row:?}: only roundup-question");
-        assert_eq!(
-            read(&Path::new(dirs[0]).join(".claude-plugin/plugin.json"))["name"],
-            "roundup-question"
-        );
+        let want = match row {
+            Role::Door => json!(["hope", "roundup-question"]),
+            _ => json!(["roundup-question"]),
+        };
+        assert_eq!(json!(names), want, "{row:?}");
+        let brief =
+            std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
+                .unwrap();
+        assert_eq!(brief.contains("hope:intent"), row == Role::Door, "{row:?}");
         assert_eq!(env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
     }
 }
