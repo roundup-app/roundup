@@ -764,6 +764,9 @@
     max-width: min-content;
     white-space: normal;
   }
+  .worktree-chip > span {
+    white-space: nowrap;
+  }
 }
 /* Keep ahead and CI beside the name; the full PR remains in the Worktree view. */
 @container (width < 12rem) {
