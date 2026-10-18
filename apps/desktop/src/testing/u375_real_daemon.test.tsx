@@ -36,7 +36,7 @@ describe("u375 the user watches a Subagent on the real Daemon", () => {
 
     render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={emulators.factory} />);
     fireEvent.click(await screen.findByText(sub.name));
-    await screen.findByText(`Watching ${sub.name}: Read-only`);
+    await screen.findByText("Managed");
 
     const emulator = await waitFor(() => {
       const found = emulators.made.get(terminalId);
@@ -53,7 +53,7 @@ describe("u375 the user watches a Subagent on the real Daemon", () => {
     expect(await outputOf()).toBe(before);
 
     fireEvent.click(screen.getByRole("button", { name: "Take control" }));
-    await screen.findByText(`Control: Typing goes straight to ${sub.name}`);
+    await screen.findByText("You control");
     emulator.type(new TextEncoder().encode("taken\r"));
     await waitFor(async () => expect(await outputOf()).toBeGreaterThan(before), { timeout: 15_000 });
   }, 120_000);

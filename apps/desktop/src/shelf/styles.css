@@ -90,6 +90,16 @@
   opacity: 1;
 }
 
+.shelf-panel {
+  height: 100%;
+}
+
+.shelf-panel > section {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .shelf-panel > section > * + * {
   margin-top: var(--space-2);
 }

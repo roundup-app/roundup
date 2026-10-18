@@ -11,7 +11,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { TAKE_CONTROL } from "../keys/chords";
+import { TAKE_CONTROL, TAKE_CONTROL_KEYS } from "../keys/chords";
 import { Menu } from "../ui/Menu";
 import type { ToastQueue } from "../toasts/queue";
 import { createSendSelection } from "./sendSelection";
@@ -222,7 +222,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (failure === null) focusTerminal();
   };
 
-  let takeControl: HTMLButtonElement | undefined;
+  let toggleControl: HTMLButtonElement | undefined;
 
   const giveBack = async (): Promise<void> => {
     const id = selected()?.id;
@@ -235,7 +235,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (selected()?.id === id) {
       setTakeFailure(failure);
 
-      if (failure === null) takeControl?.focus();
+      if (failure === null) toggleControl?.focus();
     }
   };
 
@@ -263,7 +263,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (current !== null) screens.emulatorFor(current).focus();
   };
 
-  /** U531: `⌘⏎` takes control of the selected Agent in Watch, from anywhere but a text field, a Shelf row button or a Terminal that is taken. */
+  const toggle = (): Promise<void> => (taken() ? giveBack() : takeOver());
+
+  /** U531: `⌘⏎` takes control of the selected Agent in Watch and gives it back in a Takeover, from anywhere but a text field or a Shelf row button; a Terminal's own input counts as neither. */
   registerKeys({ kind: "app" }, [{
     chords: TAKE_CONTROL,
     when: (press) => {
@@ -273,14 +275,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
       if (target.closest(".shelf-row") && target.closest("button")) return false;
 
-      return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && inWatch());
+      return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && (inWatch() || taken()));
     },
     run: (press) => {
       const id = terminalId();
 
-      if (press.repeat || !inWatch() || id === null || screens.exited(id) || connected.daemonExit() !== null || selected()?.kind !== "agent") return;
+      if (press.repeat || !(inWatch() || taken()) || id === null || screens.exited(id) || connected.daemonExit() !== null || selected()?.kind !== "agent") return;
 
-      void takeOver();
+      void toggle();
     },
   }]);
 
@@ -385,19 +387,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         )}
       </Show>
       <Show when={selected()?.kind !== "workstream" ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
-      <Show when={taken()}>
-        <p class="pane-takeover" role="status"><span>{copy.takeoverTypingGoesStraightTo}{selected()?.name}</span>
-          <Show when={selected()?.kind === "agent"}>
-            <button data-button="quiet" type="button" class="word" aria-disabled={connected.daemonExit() !== null ? true : undefined} onClick={() => { if (connected.daemonExit() === null) void giveBack(); }}>{copy.endTheTakeover}</button>
-          </Show>
-        </p>
-      </Show>
-      <Show when={inWatch() && terminalId() !== null && !screens.exited(terminalId()!)}>
-        <div class="pane-watch" role="status">
-          <span>{refused() ? copy.readOnlyTakeControlWith : `${copy.watching}${selected()?.name}${copy.readOnly}`}</span>
-          <button data-button="quiet" type="button" class="word" aria-label={copy.takeOver} aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={takeControl} onClick={() => { if (connected.daemonExit() === null) void takeOver(); }}>{copy.takeOver}<span class="light" aria-hidden="true">{" "}{copy.takeControlKeys}</span></button>
-        </div>
-      </Show>
       <div
         class="pane-body"
         classList={{ "drop-over": dropOver() }}
@@ -406,6 +395,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           watch(element);
         }}
       >
+        <Show when={taken() || (inWatch() && terminalId() !== null && !screens.exited(terminalId()!))}>
+          <div class="pane-control" data-state={taken() ? "controlled" : "managed"}>
+            <span class="pane-control-state" role="status">{taken() ? copy.youControl : refused() ? copy.managedTypingNotSent : copy.managed}</span>
+            <Show when={selected()?.kind === "agent"}>
+              <button data-button="quiet" type="button" class="word" aria-label={taken() ? copy.endTheTakeover : copy.takeOver} aria-keyshortcuts="Meta+Enter" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={toggleControl} onClick={() => { if (connected.daemonExit() === null) void toggle(); }}>{taken() ? copy.endTheTakeover : copy.takeOver}<span class="light" aria-hidden="true">{" "}{TAKE_CONTROL_KEYS}</span></button>
+            </Show>
+          </div>
+        </Show>
         <Menu.Root onOpenChange={(change) => setContextOpen(change.open)} onSelect={(chosen) => {
           const id = terminalId();
 
