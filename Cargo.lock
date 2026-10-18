@@ -21,6 +21,7 @@ dependencies = [
  "messages",
  "notify",
  "provenance",
+ "regex",
  "rpc",
  "rusqlite",
  "rusqlite_migration",
