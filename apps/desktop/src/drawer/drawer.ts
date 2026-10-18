@@ -1,3 +1,4 @@
+import type { ActivationSource } from "../keys/registry";
 import { batch, createSignal } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 
@@ -7,9 +8,9 @@ export type DrawerState = {
   /** The one Drawer that is open, or `null`. */
   content: Accessor<DrawerContent | null>;
   /** Replaces whatever Drawer is open. */
-  open(content: DrawerContent, source?: "key" | "pointer"): void;
-  close(source?: "key" | "pointer"): void;
-  source: Accessor<"key" | "pointer">;
+  open(content: DrawerContent, source?: ActivationSource): void;
+  close(source?: ActivationSource): void;
+  source: Accessor<ActivationSource>;
 };
 
 export const DRAWER_EASING = "var(--easing-out)";
@@ -17,7 +18,7 @@ export const DRAWER_EASING = "var(--easing-out)";
 export const createDrawer = (): DrawerState => {
   const [content, setContent] = createSignal<DrawerContent | null>(null);
 
-  const [source, setSource] = createSignal<"key" | "pointer">("pointer");
+  const [source, setSource] = createSignal<ActivationSource>("pointer");
 
   return {
     content,

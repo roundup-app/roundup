@@ -1,3 +1,5 @@
+import { activationSource } from "../keys/registry";
+import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
@@ -20,14 +22,14 @@ import "./styles.css";
 const LABELS: Record<ShelfTab, string> = { todos: copy.todos, pads: copy.pads };
 
 /** U370: the one button that hides and shows the Shelf; it sits in the Shelf's tablist line while open and at the header's trailing edge while closed. */
-export const ShelfToggle = (props: { open: boolean; onToggle: (source: "key" | "pointer") => void }) => (
+export const ShelfToggle = (props: { open: boolean; onToggle: (source: ActivationSource) => void }) => (
   <button
     data-button="icon"
     type="button"
     class="shelf-toggle"
     aria-label={props.open ? copy.hideShelf : copy.showShelf}
     aria-expanded={props.open}
-    onClick={(event) => props.onToggle(event.detail === 0 ? "key" : "pointer")}
+    onClick={(event) => props.onToggle(activationSource(event))}
   >
     <Icon name={props.open ? "right" : "left"} />
   </button>
@@ -70,7 +72,7 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
 };
 
 /** U373: a tablist of `Todos` and `Pads` with a quiet count each, and the open tab's list as the only panel. */
-export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) => void; onHide: (source: "key" | "pointer") => void }) => {
+export const Shelf = (props: { open: Accessor<boolean>; tab: Accessor<ShelfTab>; onTab: (tab: ShelfTab) => void; onHide: (source: ActivationSource) => void }) => {
   const [actions, setActions] = createSignal<HTMLDivElement>();
   const connected = useConnectedProject();
   const scope = useShelfScope(connected);

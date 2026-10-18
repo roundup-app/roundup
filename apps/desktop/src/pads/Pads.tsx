@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
 import { createBulkDelete } from "../shelf/BulkDelete";
@@ -186,7 +187,7 @@ const PadRows = (props: {
                     pads={props.pads}
                     onLateFailure={props.onLateFailure}
                   />
-                ), event.detail === 0 ? "key" : "pointer"))
+                ), activationSource(event)))
               }
             >
               <span class="shelf-title">{pad.name}</span>
