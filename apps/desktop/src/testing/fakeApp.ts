@@ -20,6 +20,7 @@ const emptyReads: Handlers = {
   "rail.tree": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "terminal.list": () => [],
+  "terminal.scheme": () => null,
   "todo.list": () => [],
   "message.list": () => [],
   "pad.list": () => [],

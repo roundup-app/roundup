@@ -89,6 +89,7 @@ export const CONTRACT = {
     "terminal.read": "a26d4029bcabce19",
     "terminal.resize": "34cea52675905c72",
     "terminal.resizeHistory": "bebc6d13051f1af4",
+    "terminal.scheme": "fbb0341800913b81",
     "terminal.screen": "c99507ba33c124a8",
     "terminal.search": "5983af6be499aca1",
     "terminal.show": "f3ccba13660fc20f",
