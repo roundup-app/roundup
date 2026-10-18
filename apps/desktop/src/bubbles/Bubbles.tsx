@@ -822,7 +822,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                         onClick={() => toggleMinimised(id)}
                         onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) setEditing(id); }}>
                         <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
-                        <Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show>
+                        <Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show>
                       </button>
                     )}
                   </Tip>
@@ -841,7 +841,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                         onMount(() => requestAnimationFrame(() => { input.focus({ preventScroll: true }); input.select(); }));
                       }} /></Editable.Area>
                     </Editable.Root>
-                    <Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput} /></Show>
+                    <Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show>
                   </div>
                 </Show>
                 <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>

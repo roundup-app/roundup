@@ -186,10 +186,8 @@
 
 /* A plain Terminal's shell has no state roundup can read; output the user has not seen is one quiet dot, never the accent, amber or red. */
 .terminal-tab-unseen {
-  width: var(--space-1);
-  height: var(--space-1);
-  border-radius: 50%;
-  background: var(--grey);
+  color: var(--grey);
+  font-size: var(--text-caption);
 }
 
 .terminal-tab-name {
