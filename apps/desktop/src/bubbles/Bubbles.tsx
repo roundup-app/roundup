@@ -1,4 +1,4 @@
-import { chordsFor, leaderChord } from "../keys/chords";
+import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
@@ -280,27 +280,25 @@ export const Bubbles = (props: { screens: Screens }) => {
     else props.screens.emulatorFor(id).focus();
   };
 
-  const focusedId = (): string | null => {
-    const active = document.activeElement;
-
+  const focusedId = (active: Element | null = document.activeElement): string | null => {
     return active instanceof Element ? (active.closest<HTMLElement>("[data-bubble]")?.dataset.bubble ?? null) : null;
   };
 
-  const toggleMinimised = (id: string): void => {
-    const place = placeOf(id);
+  const toggleMinimised = (id: string, wasMin = placeOf(id).min): void => {
+    const place = { ...placeOf(id), min: wasMin };
 
     if (place.min) show(id);
     else setPlace(id, { ...place, min: true });
     queueMicrotask(() => focusItem(id));
   };
 
-  const closeFocused = (): void => {
-    const id = focusedId();
+  const closeFocused = (focus: Element | null): void => {
+    const id = focusedId(focus);
 
     if (id === null) return;
 
     const back = before;
-    const fromTab = document.activeElement?.closest(".terminal-tabs") !== null;
+    const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
       if (failure() !== null || fromTab) return;
@@ -546,24 +544,30 @@ export const Bubbles = (props: { screens: Screens }) => {
   });
 
   // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a held key repeats nothing.
-  const outsideEditor = (press: KeyboardEvent) => !(press.target instanceof Element && press.target.closest(".terminal-tab-editor"));
-
-  const once = (act: (press: KeyboardEvent) => void) => (press: KeyboardEvent) => {
-    if (!press.repeat) act(press);
-  };
+  const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
-    { chords: chordsFor("⌘T"), when: outsideEditor, run: once(() => void open()) },
+    { action: CHORDS.find((row) => row.keys === "⌘T")!,
+      when: (press) => outsideEditor(press.target),
+      capture: (focus) => ({ available: () => outsideEditor(focus) && !opening() && !readOnly(),
+        invoke: () => void open() }),
+    },
   ]);
 
-  // U165: leader `M` minimises or restores the focused Bubble, leader `W` closes it; with none focused they do nothing.
-  registerKeys({ kind: "leader" }, [
-    { chords: leaderChord("M"), run: () => {
-      const id = focusedId();
+  const hasFocusedBubble = (focus: Element | null): boolean => {
+    const id = focusedId(focus);
 
-      if (id !== null) toggleMinimised(id);
+    return focus?.isConnected === true && id !== null && shown().some((terminal) => terminal.id === id) && !readOnly() && !closing.has(id);
+  };
+
+  registerKeys({ kind: "leader" }, [
+    { action: LEADER.find((row) => row.keys === "M")!, capture: (focus) => {
+      const id = focusedId(focus);
+      const wasMin = id !== null && placeOf(id).min;
+
+      return { available: () => hasFocusedBubble(focus), invoke: () => toggleMinimised(id!, wasMin) };
     } },
-    { chords: leaderChord("W"), run: closeFocused },
+    { action: LEADER.find((row) => row.keys === "W")!, capture: (focus) => ({ available: () => hasFocusedBubble(focus), invoke: () => closeFocused(focus) }) },
   ]);
 
   const onFocusIn = (event: FocusEvent): void => {

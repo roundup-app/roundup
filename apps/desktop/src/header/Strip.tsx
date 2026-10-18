@@ -2,7 +2,7 @@ import { Tabs } from "../ui/Tabs";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { leaderChord } from "../keys/chords";
+import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { CloseDialog } from "./CloseDialog";
 import { ProjectTab } from "./ProjectTab";
@@ -178,9 +178,9 @@ export const Strip = (props: {
 
   // U186: leader `⇧J` marks the next Project that needs you, or this one; the webview takes it wherever focus is.
   registerKeys({ kind: "leader" }, [{
-    chords: leaderChord("⇧J"),
-    when: () => !asking(),
-    run: () => {
+    action: LEADER.find((row) => row.keys === "⇧J")!,
+    capture: () => ({ available: () => !asking() && props.tabs.length >= 2 && props.tabs.some((tab) => markOf(tab) !== null),
+    invoke: () => {
       if (props.tabs.length < 2) return;
 
       const at = props.tabs.findIndex((tab) => tab.path === props.active);
@@ -188,7 +188,7 @@ export const Strip = (props: {
 
       if (marked) props.onMark(marked.path);
       else if (props.active) props.onMark(props.active);
-    },
+    } }),
   }]);
 
   const edge = (side: "left" | "right", shown: Edge | null) => (

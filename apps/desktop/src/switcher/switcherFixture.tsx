@@ -4,6 +4,8 @@ import { createSignal, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import { Bubbles } from "../bubbles/Bubbles";
+import { AskBar } from "../ask/AskBar";
+import { AttentionKey } from "../rail/AttentionKey";
 import { Keys } from "../keys/Keys";
 import { Rail } from "../rail/Rail";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -49,10 +51,13 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
     return (
       <ConnectedProjectContext.Provider value={connected}>
         <Keys />
+        <AttentionKey />
+        <AskBar />
         <Rail />
         <div class="centre-stack">
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+          <div class="resource-strip" />
           <Switcher onFailure={(message) => failures.push(message)} onOpen={() => {}} />
         </div>
       </ConnectedProjectContext.Provider>
@@ -77,4 +82,4 @@ export const openSwitcher = (): void => void leaderKey("KeyK");
 
 export const field = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>(".switcher input");
 
-export const rows = (): string[] => [...document.querySelectorAll(".switcher .app-combobox-item")].map((row) => [...row.querySelectorAll("span:not(.glyph, .switcher-mark):not(.glyph *)")].map((part) => part.textContent).join(" "));
+export const rows = (): string[] => [...document.querySelectorAll('.switcher .app-combobox-item:not([data-value^="action:"])')].map((row) => [...row.querySelectorAll("span:not(.glyph, .switcher-mark):not(.glyph *)")].map((part) => part.textContent).join(" "));
