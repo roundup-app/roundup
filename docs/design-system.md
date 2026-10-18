@@ -20,7 +20,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow or duration literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
+All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
 Starting values. The thresholds in the checks are fixed; a value that fails a threshold is changed, never the threshold.
 
@@ -47,6 +47,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
+| `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
 | `--duration-crossfade` | `120ms` | same | a crossfade (`docs/motion.md`, ~120 ms): the periphery dimming while the Thread's input is typed in (U105) |
