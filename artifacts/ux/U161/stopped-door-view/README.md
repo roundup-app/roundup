@@ -1,22 +1,17 @@
-# U143 / U161 stopped centre
+# Stopped centre: U143 / U161
 
-Isolated headless Chromium, fresh profiles `browser-39150906597` (base) and `browser-39150906597-final` (integrated head), 1512×950. Base: `42778f757` (`origin/main`); head: `7046de249` (integrated implementation; the following evidence commit changes captures only). The U26 harness serves the unchanged App seam. These observations claim the webview only.
+Baseline: `f87bc1490` (origin/main). Application head: `e8d43edfd`; the following evidence commit changes only captures and this report. Isolated headless Chromium session `builder-39153403242`, fresh profile `/tmp/browser-39153403242`, U26 fake-Daemon harness. This observes the webview.
 
 | Before | After | Why |
 | --- | --- | --- |
-| Supervisor stopped / chevron + Start supervisor | Supervisor stopped / play + Start | One mention of supervisor; an action icon instead of a disclosure mark |
-| A stopped Agent has only the history note | Done or Agent stopped above the retained note | Distinguish state from missing output |
-| Centre actions have no icon gap | Shared Token spacing and title type for Start and New Workstream | Match the centre empty-state pattern |
+| Chevron beside Start supervisor / Retry supervisor | Play icon, Token gap and title type | Show a launch action |
+| Fixed 28px action height | Token minimum height | Match centre actions |
+| Rounded empty-state block | Flat block constrained to pane width | Keep the centre consistent with the App |
 
-Moves: D2, D5, D6. D1–D10 pass before and after on the stopped Door and Agent in light and dark, and on the empty Project in light. On tree-40, D5 and D10 already fail on main and retain the same failures after the change; the other Checks pass. The failure text itself remains visible. The JSON files also retain D11–D14 and D16.
+Moves: D2, D5, D6. All published Checks pass before and after on the stopped Door at 1280×800, 1440×800 and 1512×950, light and dark. Each PNG has the full `window.__checks()` reading beside it in `base/` or `head/`. No passing Check regresses.
 
-- [Stopped Door, light](head/door.png), [dark](head/door-dark.png).
-- [Stopped Agent, light](head/agent.png), [dark](head/agent-dark.png).
-- [Empty Project](head/empty.png).
-- [Failed start, dark](head/failure-dark.png): injected `failNext(-32003, ...)`, visible failure and Retry.
-- [Pending start](head/pending.png): held `rail.startDoor`, disabled button and one call. The recorded `.pane` bounds are identical before and after.
-- [Failure on tree-40](head/tree-failure.png): selected backend, injected start failure, full failure visible. Compare [base](base/tree-failure.png); readings accompany both captures.
+The empty Project and tree-40 failure are also captured at 1512×950, light. All their Checks pass before and after. The dense seed selects backend, injects `failNext(-32003, "Supervisor launch failed: executable unavailable")`, then activates the centre start button. The full failure is visible in the centre and the Rail, with Retry supervisor available.
 
-The behaviour tests find Start / Retry by button role and catalogue name, assert the selected Workstream id and call count, and prevent repeated pending activation. Launch, retry, direct Agent access and running-Door behaviour retain their existing paths.
+Main's scenario files, catalogue, Agent history presentation and tests are retained. In particular, `u143_a_failed_start_reads_did_not_start_with_the_message_and_retry` asserts the failed state, both alerts and Retry supervisor; `u143_the_words_tell_the_four_states_apart` asserts the distinct state strings. No test is cut relative to main.
 
-Test cuts (rule 10): `u471_action_labels_describe_the_existing_action_start_supervisor` duplicated `u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once`; that U143 test remains. `u143_a_failed_start_reads_did_not_start_with_the_message_and_retry` duplicated `u471_action_labels_describe_the_existing_action_retry_supervisor`; the U471 test remains and preserves the supplied failure text. `u143_the_words_tell_the_four_states_apart` is retired as an exact-copy assertion: the five state-transition tests remain, and the design critic owns the words. The earlier-run test drops its CSS-class assertions and retains its history-note and no-Terminal-call checks.
+The shorter centre labels require the separate specification #2707 before implementation in #2679. The closed Agent overview remains #2683's work. This styling PR does not close #2679.
