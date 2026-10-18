@@ -105,7 +105,7 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
                 .env("CLAUDE_CONFIG_DIR", project.join("config"))
-                .stderr(std::process::Stdio::null());
+                .stderr(std::process::Stdio::inherit());
         },
     )
 }
@@ -348,6 +348,15 @@ impl Run {
         while let Ok(Some(event)) =
             tokio::time::timeout(Duration::from_millis(300), self.watcher.next_event()).await
         {
+            eprintln!(
+                "DIAG {} {:?}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+                    % 100000,
+                event.data
+            );
             match event.data {
                 EventData::MessageHeld(m) => held.push(m.id),
                 EventData::MessageDelivered(m) => delivered.push(m.id),
@@ -527,6 +536,13 @@ async fn b52_thirty_idle_edges_send_a_note_once_and_type_nothing() {
 
 #[tokio::test]
 async fn b52_thirty_idle_edges_with_a_session_not_listening_hold_once_and_type_nothing() {
+    for round in 0..30 {
+        eprintln!("DIAG round {round}");
+        b52_body().await;
+    }
+}
+
+async fn b52_body() {
     let mut run = Run::start().await;
     run.unlist_session();
     let id = run.note("once").await;
