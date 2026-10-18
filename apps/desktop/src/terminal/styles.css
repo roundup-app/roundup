@@ -90,11 +90,6 @@
   background: var(--ground);
 }
 
-.pane-state {
-  font-size: var(--text-title);
-  color: var(--text);
-}
-
 /* The top takes the side inset's Token. It sits on the emulator's own element because FitAddon subtracts that element's padding, and not its parent's, from the rows it fits. */
 .pane .xterm {
   padding-top: var(--space-2);

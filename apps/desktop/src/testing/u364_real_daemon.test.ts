@@ -78,8 +78,8 @@ run("u364 on the real Daemon", () => {
 
     for (let workstream = 1; workstream <= 2; workstream++) {
       await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
-      await page.until(`() => document.querySelectorAll('.rail-row[data-kind]').length > 0 && Boolean(document.querySelector(".pane-door button") || document.querySelector('.pane-screen'))`, 30_000);
-      await page.until(`() => { const door = document.querySelector(".pane-door button"); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
+      await page.until(`() => document.querySelectorAll('.rail-row[data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
+      await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
       const app = createServedApp(real.base);
       const door = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream")[workstream - 1]!;
