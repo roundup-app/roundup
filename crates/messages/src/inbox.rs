@@ -59,6 +59,32 @@ pub(crate) async fn require_usable(inner: &Inner, agent: &str) -> Result<(), Rpc
     }
 }
 
+/// B51(g): what the sender hears of a note Claude Code would drop for repeating the last one.
+pub(crate) const REPEAT: &str = "same text as your last note; Claude Code drops repeats";
+
+/// B51(f), B51(g): whether `p`, sent by `ctx`, is a note from an Agent or an Extension to an Agent.
+pub(crate) fn is_note_send(ctx: &Ctx, p: &SendParams) -> bool {
+    p.kind == MessageKind::Note && ctx.actor.kind != ActorKind::User && p.to != Actor::user().id
+}
+
+/// B51(f): after a note is stored, the sender hears `INBOX_UNAVAILABLE` when its receiver's inbox
+/// is a `mismatch`: the note is `held` for `inbox` and stays so until Claude Code or the Daemon
+/// changes. A `missing` inbox is not told: the session is starting or gone, and the note goes at
+/// the Agent's next passing check.
+pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
+    let Some(inbox) = inner.inbox.get() else {
+        return Ok(());
+    };
+    if inbox.check(&note.to).await != Inbox::Mismatch {
+        return Ok(());
+    }
+    hold(inner, std::slice::from_ref(note));
+    Err(RpcError::new(
+        code::INBOX_UNAVAILABLE,
+        "notes held: Claude Code changed its message format",
+    ))
+}
+
 /// B51(b): holds each of `notes` for `inbox`, `message.held` once each.
 fn hold(inner: &Inner, notes: &[Message]) {
     for note in notes {
