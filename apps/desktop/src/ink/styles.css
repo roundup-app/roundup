@@ -13,6 +13,12 @@
   vertical-align: middle;
 }
 
+.glyph[data-state],
+.ink-count[data-state],
+.folded-agents[data-state] {
+  cursor: default;
+}
+
 .glyph svg {
   width: var(--space-4);
   height: var(--space-4);
