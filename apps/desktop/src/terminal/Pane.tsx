@@ -449,7 +449,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             <div class="pane-empty pane-door">
               <p class="light">{doorStateText(state())}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
-                <Icon name="right" />
+                <Icon name="play" />
                 {rail.doorFailure(selected()!.id) ? copy.retryDoor : copy.startDoor}
               </button>
             </div>

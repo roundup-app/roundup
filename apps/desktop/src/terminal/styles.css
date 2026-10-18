@@ -72,7 +72,9 @@
 .pane .pane-action {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  min-height: var(--space-6);
+  gap: var(--space-2);
+  font-size: var(--text-title);
   --button-inline: var(--space-3);
 }
 
@@ -83,7 +85,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-control);
+  max-width: calc(100% - var(--space-4) * 2);
+  white-space: normal;
   background: var(--ground);
 }
 
