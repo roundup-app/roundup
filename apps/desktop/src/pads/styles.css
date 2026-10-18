@@ -204,7 +204,7 @@
   --pad-block-radius: 0;
 }
 
-.pad-rich-editor:not(.pad-readonly) .milkdown .ProseMirror {
+.pad-rich-editor .milkdown .ProseMirror {
   margin-left: var(--space-5);
   padding-left: var(--space-6);
 }
@@ -255,6 +255,8 @@
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li {
   padding: var(--space-1) var(--space-2);
+  font-size: var(--text-body);
+  line-height: var(--line-menu);
   background: none;
   color: var(--grey);
 }
@@ -262,24 +264,23 @@
 .pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li.selected,
 .pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li:hover {
   color: var(--text);
+  background: none;
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups {
   padding: 0 var(--space-2) var(--space-2);
-  max-height: calc(var(--space-6) * 10);
+  max-height: var(--pad-menu-max-height);
   scroll-behavior: auto;
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group h6 {
-  padding: var(--space-2);
-  color: var(--grey);
-  font-size: var(--text-small);
+  display: none;
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li {
   padding: var(--space-2);
   gap: var(--space-3);
-  min-width: calc(var(--space-6) * 6);
+  min-width: var(--pad-menu-min-width);
   background: none;
   color: var(--grey);
 }
@@ -287,6 +288,11 @@
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.hover,
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.active {
   color: var(--text);
+  background: none;
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li[aria-selected="true"] svg {
+  color: var(--accent);
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li svg {
@@ -298,6 +304,7 @@
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li > span {
   font-size: var(--text-body);
+  font-weight: 400;
 }
 
 .pad-block-menu {
@@ -312,18 +319,6 @@
 
 .pad-block-menu .milkdown-slash-menu {
   pointer-events: auto;
-}
-
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li {
-  font-size: var(--text-body);
-  line-height: 1.4;
-}
-
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li.selected,
-.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li:hover,
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.hover,
-.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.active {
-  background: none;
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group + .menu-group::before {

@@ -52,6 +52,12 @@ it("p2544a_slash_menu_pointer_and_keys", async () => {
   await open();
   await slash();
   await browser("wait", ".milkdown-slash-menu[data-show=true]");
+  expect(await evaluate(`(() => {
+    const field = document.querySelector('.ProseMirror');
+    const active = document.getElementById(field.getAttribute('aria-activedescendant'));
+    return [document.getElementById(field.getAttribute('aria-controls'))?.getAttribute('role'),
+      active?.getAttribute('role'), active?.getAttribute('aria-selected'), active?.dataset.index];
+  })()`)).toEqual(["listbox", "option", "true", "0"]);
   await browser("click", ".milkdown-slash-menu li[data-index='1']");
   await browser("keyboard", "type", "Pointer heading");
   expect(await evaluate("document.querySelector('.ProseMirror h1:last-child')?.textContent")).toBe("Pointer heading");
@@ -59,6 +65,8 @@ it("p2544a_slash_menu_pointer_and_keys", async () => {
   await browser("keyboard", "type", "/");
   await browser("wait", ".milkdown-slash-menu[data-show=true]");
   await browser("press", "ArrowDown");
+  expect(await evaluate(`document.getElementById(document.querySelector('.ProseMirror')
+    .getAttribute('aria-activedescendant'))?.dataset.index`)).toBe("1");
   await browser("press", "ArrowDown");
   await browser("press", "ArrowUp");
   await browser("press", "Enter");
@@ -70,6 +78,7 @@ it("p2544a_slash_menu_pointer_and_keys", async () => {
   const before = await evaluate("document.querySelector('.ProseMirror').textContent");
 
   await browser("press", "Escape");
+  expect(await evaluate("document.querySelector('.ProseMirror').hasAttribute('aria-activedescendant')")).toBe(false);
   expect(await evaluate("document.querySelector('.ProseMirror').textContent")).toBe(before);
   await browser("keyboard", "type", "continued");
   expect(await evaluate("document.querySelector('.ProseMirror').textContent.endsWith('/continued')")).toBe(true);

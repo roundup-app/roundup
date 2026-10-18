@@ -1,6 +1,6 @@
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
-import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -51,6 +51,8 @@ export default function PadRichEditor(props: {
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
 }) {
+  const menuId = createUniqueId();
+  let menuObserver: MutationObserver | undefined;
   let host: HTMLDivElement | undefined;
   let menuHost: HTMLDivElement | undefined;
   let crepe: CrepeBuilder | undefined;
@@ -158,6 +160,50 @@ export default function PadRichEditor(props: {
       field.setAttribute("aria-label", copy.padBody);
       field.setAttribute("aria-multiline", "true");
 
+      // Crepe owns navigation; mirror its rendered selection without intercepting keys.
+      const updateMenu = () => {
+        const menu = menuHost?.querySelector(".milkdown-slash-menu");
+        const list = menu?.querySelector(".menu-groups");
+        const shown = menu?.getAttribute("data-show") === "true";
+        const items = list?.querySelectorAll<HTMLElement>("li[data-index]");
+        let active: string | undefined;
+
+        if (list) {
+          list.id = menuId;
+          list.setAttribute("role", "listbox");
+          list.setAttribute("aria-label", copy.blocks);
+          list.querySelectorAll("ul").forEach((group) => group.setAttribute("role", "presentation"));
+        }
+
+        items?.forEach((item) => {
+          item.id = `${menuId}-${item.dataset.index}`;
+          item.setAttribute("role", "option");
+          const selected = item.classList.contains("hover");
+
+          item.setAttribute("aria-selected", String(selected));
+
+          if (selected) active = item.id;
+        });
+
+        if (shown && active) {
+          field.setAttribute("aria-controls", menuId);
+          field.setAttribute("aria-activedescendant", active);
+        } else {
+          field.removeAttribute("aria-controls");
+          field.removeAttribute("aria-activedescendant");
+        }
+
+        host?.querySelectorAll(".milkdown-block-handle .operation-item")
+          .forEach((item) => item.setAttribute("aria-hidden", "true"));
+      };
+
+      menuObserver = new MutationObserver(updateMenu);
+      menuObserver.observe(menuHost!, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ["class", "data-show"],
+      });
+      menuObserver.observe(host, { subtree: true, childList: true });
+      updateMenu();
+
       const document = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).state.doc);
       let originalDocument = document();
       const getText = () => sourceForDocument(original, originalDocument, document(), () => crepe!.getMarkdown());
@@ -203,6 +249,7 @@ export default function PadRichEditor(props: {
 
   onCleanup(() => {
     closed = true;
+    menuObserver?.disconnect();
 
     // Destroying during create schedules a retry that can outlive the host's DOM environment.
     if (crepe) void created?.then(
