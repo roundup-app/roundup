@@ -56,7 +56,7 @@ export function shelfBrowser() {
   };
 
   const toggle = async () => {
-    await evaluate(`(() => { document.querySelector('#shelf-tab-todos').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); return true; })()`);
+    await evaluate(`(() => { document.querySelector('.shelf-tab[data-selected]').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })); return true; })()`);
     await settle();
   };
 
