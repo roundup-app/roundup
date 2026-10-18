@@ -44,6 +44,8 @@ impl Agents {
         } else {
             "agents.db"
         }))?;
+        let enrolled = rail.get_prepared()?.enrolled;
+        git.set_enrolled(&enrolled.iter().map(PathBuf::from).collect::<Vec<_>>());
         let recovery = git.bounded();
         for (node, plan, ready) in rail.provisioning()? {
             let Some(plan) = plan else {
