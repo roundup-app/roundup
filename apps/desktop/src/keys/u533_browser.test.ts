@@ -61,7 +61,7 @@ it("u533_message_an_agent_in_two_chords_on_tree_40", async () => {
   await browser("keyboard", "type", "agent-23");
   await browser("wait", "--fn", `document.querySelectorAll('.switcher .app-combobox-item').length === 1`);
   await chord("Shift+Enter");
-  await browser("wait", "--fn", `window.__fake.app.calls.some(call => call.method === 'takeover.begin') && !document.querySelector('.pane-watch') && !!document.activeElement?.closest('.pane-screen')`);
+  await browser("wait", "--fn", `window.__fake.app.calls.some(call => call.method === 'takeover.begin') && !document.querySelector('.pane-control[data-state=managed]') && !!document.activeElement?.closest('.pane-screen')`);
   await browser("keyboard", "type", "hello");
   await browser("press", "Enter");
   await browser("wait", "--fn", `window.__fake.app.calls.some(call => call.method === 'terminal.write' && atob(call.params.data).includes('\\r'))`);
