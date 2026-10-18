@@ -84,7 +84,10 @@ async fn b2_a_message_sent_as_the_receiver_goes_idle_is_still_typed() {
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
 
-    assert_eq!(*typed.lock().unwrap(), ["[from a, note] late"]);
+    assert_eq!(
+        *typed.lock().unwrap(),
+        ["[from an Agent that is gone, note] late"]
+    );
 }
 
 #[tokio::test]

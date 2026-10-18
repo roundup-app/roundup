@@ -74,7 +74,8 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [wanted, setWanted] = createSignal<string | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
-  const [origin, setOrigin] = createSignal({ left: 0, top: 0 });
+  const [measured, setMeasured] = createSignal(false);
+  const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
   const [editing, setEditing] = createSignal<string | null>(null);
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
@@ -103,13 +104,16 @@ export const Bubbles = (props: { screens: Screens }) => {
     onCleanup(() => stack.removeAttribute("data-root-terminal"));
   });
 
-  const placeOf = (id: string): Place => places()[id] ?? defaultPlace(Object.keys(places()).length, extent());
+  const placeOf = (id: string): Place => places()[id] ?? defaultPlace(extent());
 
   // A bubble's default place is stored when it first shows, so hiding it, moving another or resizing the window never shifts it (U164).
   // U2224: selecting an Agent row folds every bubble to its chip, so none covers the output it selects.
   let lastSelected: string | null | undefined;
 
   createEffect(() => {
+    // Save a fresh default only after the layer excludes the resource strip; an early rectangle would persist the wrong inset.
+    if (!measured()) return;
+
     const eligible = shown();
     const chosen = rail.selected();
     const folds = lastSelected !== undefined && chosen !== lastSelected && rail.nodes.some((candidate) => candidate.id === chosen && candidate.kind === "agent");
@@ -122,7 +126,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     const next = { ...held };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
-    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(Object.keys(next).length, untrack(extent)), min: terminal.id !== latest };
+    for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: terminal.id !== latest };
 
     for (const terminal of visible) next[terminal.id] = { ...next[terminal.id]!, min: terminal.id !== latest };
 
@@ -191,11 +195,12 @@ export const Bubbles = (props: { screens: Screens }) => {
     const sync = (): void => {
       const stack = host.parentElement?.getBoundingClientRect();
       const composer = host.parentElement?.querySelector(".resource-strip")?.getBoundingClientRect();
+      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+
       const corner = host.getBoundingClientRect();
 
-      setOrigin((held) => (held.left === corner.left && held.top === corner.top ? held : { left: corner.left, top: corner.top }));
-
-      host.style.bottom = stack && composer && composer.height > 0 ? `${Math.max(0, stack.bottom - composer.top)}px` : "";
+      setOrigin((held) => (held.left === corner.left && held.top === corner.top && held.width === corner.width && held.height === corner.height ? held : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
+      setMeasured(true);
     };
 
     const watched = new ResizeObserver(() => {
@@ -333,11 +338,11 @@ export const Bubbles = (props: { screens: Screens }) => {
     await openTerminal();
   };
 
-  // U421: the bubble last focused, else the latest started, is the one a Pull takes.
+  // Pull and ⌘B share the last eligible focus, falling back to the latest started Terminal.
   let lastFocused: string | null = null;
 
-  const pullTarget = (): string | null => {
-    const ids = shown().map((terminal) => terminal.id);
+  const lastTarget = (): string | null => {
+    const ids = shown().filter((terminal) => !closing().has(terminal.id)).map((terminal) => terminal.id);
 
     return lastFocused !== null && ids.includes(lastFocused) ? lastFocused : (ids.at(-1) ?? null);
   };
@@ -390,7 +395,7 @@ export const Bubbles = (props: { screens: Screens }) => {
     const start = (): void => {
       active = true;
 
-      const target = pullTarget();
+      const target = lastTarget();
 
       if (target !== null) {
         id = target;
@@ -541,6 +546,46 @@ export const Bubbles = (props: { screens: Screens }) => {
       },
     },
   ]);
+
+  const mainTerminal = (): string | null => {
+    const id = rail.nodes.find((node) => node.id === rail.selected())?.terminal_id ?? null;
+
+    return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
+  };
+
+  const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
+
+  const switchPair = (focus: Element | null) => {
+    const selected = rail.selected();
+    const main = mainTerminal();
+    const fromBubble = focusedId(focus);
+    const target = fromBubble ?? lastTarget();
+    const inTerminal = hasTerminalFocus(focus);
+    const toAgent = fromBubble !== null && focus?.closest(".bubble") !== null;
+
+    return {
+      available: () => focus?.isConnected === true && inTerminal && !readOnly() && main !== null && mainTerminal() === main
+        && rail.selected() === selected && target !== null && shown().some((terminal) => terminal.id === target) && !closing().has(target),
+      invoke: () => {
+        if (toAgent) {
+          show(null);
+          props.screens.emulatorFor(main!).focus();
+        } else {
+          show(target);
+          // The manual popover becomes focusable when Solid commits this turn's visibility change.
+          queueMicrotask(() => {
+            if (focus?.isConnected && !readOnly() && rail.selected() === selected && mainTerminal() === main && shown().some((terminal) => terminal.id === target) && !closing().has(target!) && !placeOf(target!).min) props.screens.emulatorFor(target!).focus();
+          });
+        }
+      },
+    };
+  };
+
+  registerKeys({ kind: "app" }, [{
+    action: CHORDS.find((row) => row.keys === "⌘B")!,
+    when: () => hasTerminalFocus(document.activeElement),
+    capture: switchPair,
+  }]);
 
   const hasFocusedBubble = (focus: Element | null): boolean => {
     const id = focusedId(focus);
@@ -761,7 +806,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
         <Portal>
           <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
-            style={{ left: `${origin().left}px`, top: `${origin().top}px` }}>
+            style={{ left: `${origin().left}px`, top: `${origin().top}px`, "--bubble-pane-left": `${origin().left}px`, "--bubble-pane-top": `${origin().top}px`, "--bubble-pane-width": `${origin().width}px`, "--bubble-pane-height": `${origin().height}px` }}>
             <section class="bubble" data-bubble={id} role="group" aria-label={nameFor(terminal()!)} hidden={place().min}
               style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
               <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {

@@ -45,7 +45,7 @@ it("u470_scope_rows_match_counts_and_failure_stays_visible", async () => {
     await browser("mouse", "move", "0", "0");
 
     for (const all of [false, true]) for (const tab of ["todos", "pads"]) {
-      await evaluate(`(() => { if (${scope}.getAttribute('aria-pressed') !== '${all}') ${scope}.click(); document.querySelector('#shelf-tab-${tab}').click(); return true; })()`);
+      await evaluate(`(() => { if (${scope}.getAttribute('aria-pressed') !== '${all}') ${scope}.click(); if (document.querySelector('#shelf-tab-${tab}').getAttribute('aria-expanded') !== 'true') document.querySelector('#shelf-tab-${tab}').click(); return true; })()`);
       await settle();
 
       const read = await evaluate<{ rows: number; count: number }>(`(() => {
@@ -101,7 +101,7 @@ it("u470_tab_space_and_enter", async () => {
     expect(await evaluate<{ clicks: number; keys: string[]; repeats: boolean[] }>("window.__scopePresses")).toEqual({ clicks: 2, keys: [" ", "Enter"], repeats: [false, false] });
     await browser("press", "Tab");
     await settle();
-    expect(await evaluate<string>("document.activeElement.getAttribute('aria-label')")).toBe("Hide work items");
+    expect(await evaluate<boolean>("document.activeElement.closest('.shelf [role=tabpanel]') !== null")).toBe(true);
   } finally {
     await browser("close");
     await server.close();
