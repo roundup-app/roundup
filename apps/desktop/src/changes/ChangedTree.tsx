@@ -1,0 +1,145 @@
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import { copy } from "../copy";
+import { ErrorLine } from "../ink/ErrorLine";
+import { failureOf } from "../todos/failureOf";
+import { useConnectedProject } from "../state/connectedProject";
+import { absolutePath, statusText } from "./paths";
+import treeStyles from "./tree.styles.css?inline";
+
+/** The library is fetched when the panel first has files to draw (rule 7). */
+let library: Promise<typeof import("@pierre/trees")> | undefined;
+
+const loadTrees = () => (library ??= import("@pierre/trees"));
+
+/** Whether the library has been asked for yet. */
+export const treesLoaded = (): boolean => library !== undefined;
+
+/** U2539b, U2539d: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
+export const ChangedTree = (props: { root: string; files: readonly ChangedFile[] }) => {
+  const { app } = useConnectedProject();
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const byPath = new Map(props.files.map((file) => [file.path, file]));
+  const [host, setHost] = createSignal<HTMLDivElement>();
+
+  const choose = (path: string | null) => {
+    const file = path === null ? undefined : byPath.get(path);
+
+    if (!file || file.status === "deleted") return;
+
+    setFailure(null);
+    void failureOf(() => app.openInEditor(absolutePath(props.root, file), file.line ?? undefined)).then(setFailure);
+  };
+
+  onMount(() => {
+    let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
+    let gone = false;
+    let stopScroll: (() => void) | undefined;
+    let stopRows: (() => void) | undefined;
+
+    void loadTrees().then(({ FileTree }) => {
+      const mount = host();
+
+      if (gone || !mount) return;
+
+      tree = new FileTree({
+        paths: props.files.map((file) => file.path),
+        initialExpansion: "open",
+        itemHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24,
+        stickyFolders: false,
+        icons: { set: "minimal", colored: false },
+        // The library defines its palette on :host, inside its shadow root.
+        // Keep the overrides there too so inheritance cannot restore its defaults.
+        unsafeCSS: treeStyles,
+        gitStatus: props.files.map((file) => ({ path: file.path, status: file.status })),
+        renderRowDecoration: ({ item }) => {
+          const file = byPath.get(item.path);
+
+          return file ? { text: statusText[file.status], title: file.from ? `${file.from} → ${file.path}` : file.path } : null;
+        },
+      });
+      tree.render({ containerWrapper: mount });
+      // Ark cannot discover tabbable rows inside Pierre’s shadow root; enter its roving row after render.
+      const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
+
+      if (shadow) {
+        // Virtualization replaces rows; restore accessible names on every rendered batch.
+        const describeRows = () => {
+          for (const row of shadow.querySelectorAll<HTMLElement>('[data-item-type="file"]')) {
+            const file = byPath.get(row.dataset.itemPath ?? "");
+
+            if (!file) continue;
+
+            const detail = file.from ? `, ${file.from} → ${file.path}` : file.status === "deleted" ? `, ${copy.fileUnavailableInEditor}` : "";
+            const label = `${file.path}, ${statusText[file.status]}${detail}`;
+
+            if (row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
+          }
+
+          mount.style.setProperty("--worktree-rows", String(tree?.getVisibleCount() ?? 0));
+        };
+
+        const observer = new MutationObserver(describeRows);
+
+        observer.observe(shadow, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-label", "data-item-path"] });
+        describeRows();
+        const unsubscribe = tree.subscribe(describeRows);
+
+        stopRows = () => { observer.disconnect(); unsubscribe(); };
+      }
+
+      shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+      const scroller = shadow?.querySelector<HTMLElement>("[data-file-tree-virtualized-scroll]");
+
+      if (scroller) {
+        const measure = () => {
+          mount.toggleAttribute("data-clipped-top", scroller.scrollTop > 0);
+          mount.toggleAttribute("data-clipped-bottom", scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 1);
+        };
+
+        const observer = new ResizeObserver(measure);
+
+        observer.observe(scroller);
+
+        for (const child of scroller.children) observer.observe(child);
+
+        scroller.addEventListener("scroll", measure);
+        measure();
+        stopScroll = () => {
+          observer.disconnect();
+          scroller.removeEventListener("scroll", measure);
+        };
+      }
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Enter") choose(tree?.getFocusedPath() ?? null);
+    };
+
+    const onDoubleClick = (event: MouseEvent) => {
+      const row = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.itemType === "file");
+
+      choose(row?.dataset.itemPath ?? null);
+    };
+
+    const element = host();
+
+    element?.addEventListener("keydown", onKeyDown);
+    element?.addEventListener("dblclick", onDoubleClick);
+    onCleanup(() => {
+      gone = true;
+      element?.removeEventListener("keydown", onKeyDown);
+      element?.removeEventListener("dblclick", onDoubleClick);
+      stopScroll?.();
+      stopRows?.();
+      tree?.cleanUp();
+    });
+  });
+
+  return (
+    <>
+      <div ref={setHost} class="worktree-tree" />
+      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+    </>
+  );
+};

@@ -11,7 +11,7 @@ use std::process::{Command, Output, Stdio};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 use std::time::{Duration, Instant};
 
-use contracts::agent::WorktreeState;
+use contracts::agent::{ChangedFile, ChangedFiles, ChangedStatus, WorktreeState};
 use rpc::{RpcError, code};
 
 /// What provisioning makes. `RailNode.worktree` (`contracts::agent::Worktree`) stores the same
@@ -412,6 +412,91 @@ impl Git {
             behind,
             dirty: self.dirty(worktree)?,
         })
+    }
+
+    /// U2539a: the files the Worktree's working tree differs in from the merge base of its branch
+    /// and its Base, outside `.roundup/`, sorted by path. Runs no command that writes.
+    pub fn changed_files(&self, worktree: &Worktree) -> Result<ChangedFiles, RpcError> {
+        if !worktree.path.is_dir() {
+            return Err(RpcError::new(
+                code::NOT_FOUND,
+                format!("worktree_missing: {}", worktree.path.display()),
+            ));
+        }
+        let dir = &worktree.path;
+        let base = self
+            .run(dir, &["merge-base", &worktree.base, "HEAD"])
+            .map_err(failed)?;
+        let diff = [
+            "--no-optional-locks",
+            "diff",
+            "--no-color",
+            "--no-ext-diff",
+            "-M",
+        ];
+        let names = self
+            .run(dir, &[&diff[..], &["-z", "--name-status", &base]].concat())
+            .map_err(failed)?;
+        let patch = self
+            .run(dir, &[&diff[..], &["-U0", &base]].concat())
+            .map_err(failed)?;
+        let counts = self
+            .run(dir, &[&diff[..], &["--numstat", &base]].concat())
+            .map_err(failed)?;
+        // Git quotes unusual paths without -z, so each count record occupies one line even for a rename.
+        // Counts also classify a pure binary rename, whose patch has no binary marker or hunk.
+        let mut binary = counts.lines().map(|row| row.starts_with("-\t-\t"));
+        // All outputs use the same ordered diff queue, one record per name-status entry.
+        let mut sections = patch.split("\ndiff --git ").map(first_changed_line);
+        let mut fields = names.split('\0').filter(|field| !field.is_empty());
+        let mut files = Vec::new();
+        while let Some(letter) = fields.next() {
+            let renamed = letter.starts_with('R') || letter.starts_with('C');
+            let from = if renamed { fields.next() } else { None };
+            let Some(path) = fields.next() else { break };
+            let line = sections.next().flatten();
+            let status = match letter.as_bytes()[0] {
+                b'A' => ChangedStatus::Added,
+                b'D' => ChangedStatus::Deleted,
+                b'R' | b'C' => ChangedStatus::Renamed,
+                _ => ChangedStatus::Modified,
+            };
+            let is_binary = binary.next().unwrap_or(false);
+            let line = if status == ChangedStatus::Deleted || is_binary {
+                None
+            } else {
+                line
+            };
+            files.push(ChangedFile {
+                path: path.to_owned(),
+                status,
+                line,
+                from: from.map(str::to_owned),
+            });
+        }
+        let untracked = self
+            .run(
+                dir,
+                &[
+                    "--no-optional-locks",
+                    "ls-files",
+                    "-z",
+                    "--others",
+                    "--exclude-standard",
+                ],
+            )
+            .map_err(failed)?;
+        for path in untracked.split('\0').filter(|path| !path.is_empty()) {
+            files.push(ChangedFile {
+                path: path.to_owned(),
+                status: ChangedStatus::Untracked,
+                line: untracked_line(&dir.join(path)),
+                from: None,
+            });
+        }
+        files.retain(|file| !file.path.starts_with(".roundup/"));
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(ChangedFiles { files })
     }
 
     /// Whether the Worktree has a staged, unstaged or untracked change outside `.roundup/`.
@@ -1036,3 +1121,31 @@ mod prepared;
 #[cfg(test)]
 #[path = "../tests/scenarios/g9.rs"]
 mod g9;
+
+/// The new-side first line of the first hunk of one `git diff -U0` section; `None` for a binary
+/// file, 1 for a change with no hunk (a pure rename or mode change).
+fn first_changed_line(section: &str) -> Option<u32> {
+    if section
+        .lines()
+        .any(|line| line.starts_with("Binary files "))
+    {
+        return None;
+    }
+    let Some(hunk) = section.lines().find(|line| line.starts_with("@@ ")) else {
+        return Some(1);
+    };
+    let new_side = hunk.split_whitespace().find(|part| part.starts_with('+'))?;
+    let start = new_side.trim_start_matches('+').split(',').next()?;
+    Some(start.parse::<u32>().ok()?.max(1))
+}
+
+/// 1 for a text file, `None` for a binary one (a NUL in its first 8000 bytes) or one that cannot be read.
+fn untracked_line(path: &Path) -> Option<u32> {
+    let mut head = Vec::new();
+    std::fs::File::open(path)
+        .ok()?
+        .take(8000)
+        .read_to_end(&mut head)
+        .ok()?;
+    (!head.contains(&0)).then_some(1)
+}
