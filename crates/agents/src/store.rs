@@ -228,8 +228,8 @@ impl Agents {
     }
 
     /// B51: check Agent `id`'s Claude inbox and keep the outcome as its Rail fact `inbox`.
-    pub async fn inbox_check(&self, id: &str) -> contracts::agent::Inbox {
-        let state = self.launcher.inbox_check(id).await;
+    pub fn inbox_check(&self, id: &str) -> contracts::agent::Inbox {
+        let state = self.launcher.inbox_check(id);
         self.shared.events.inbox.set(id, state);
         state
     }

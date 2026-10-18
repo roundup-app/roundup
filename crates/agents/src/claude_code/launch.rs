@@ -155,8 +155,6 @@ pub struct Launcher {
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
     lacks_intent: bool,
     plugins: Arc<OnceCell<Delivery>>,
-    /// The installed Claude Code's version, once `claude --version` has answered (B51).
-    pub(super) version: Arc<OnceCell<String>>,
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
     /// launch; gone with the Launcher.
     sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
@@ -286,7 +284,6 @@ impl Launcher {
             user_tool_search: false,
             lacks_intent: false,
             plugins: Arc::new(OnceCell::new()),
-            version: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
         }
     }

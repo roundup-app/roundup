@@ -1,6 +1,7 @@
 //! B50, B51: the adapter's side of Claude Code's messaging socket, against the recorded fixtures
-//! of `fixtures/inbox/<version>/`. Re-record them from the real Claude Code when its version
-//! changes; the real round trip is proved by the e2e tests that run the pinned `claude`.
+//! of `fixtures/inbox/<version>/`, one per Claude Code version recorded from the real program. A
+//! new version needs a fixture only when its session file or transcript differs; the real round
+//! trip is proved by the e2e tests that run the pinned `claude`.
 
 use std::io::{BufRead, BufReader};
 use std::os::unix::fs::PermissionsExt;
@@ -12,13 +13,20 @@ use agents::claude_code::inbox::{Entry, recorded};
 use contracts::agent::Inbox;
 use serde_json::Value;
 
-const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/inbox/2.1.300");
+/// The Claude Code versions a fixture was recorded from.
+const VERSIONS: [&str; 2] = ["2.1.300", "2.1.302"];
 
-/// A Launcher whose `claude` prints `version`, and the config folder it looks for sessions in.
-fn launcher(version: &str) -> (Launcher, tempfile::TempDir) {
+fn fixtures(version: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/inbox")
+        .join(version)
+}
+
+/// A Launcher and the config folder it looks for sessions in.
+fn launcher() -> (Launcher, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
     let bin = dir.path().join("claude");
-    std::fs::write(&bin, format!("#!/bin/sh\necho '{version} (Claude Code)'\n")).unwrap();
+    std::fs::write(&bin, "#!/bin/sh\n").unwrap();
     std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
     let launcher = Launcher::new(
         bin.to_string_lossy(),
@@ -31,25 +39,33 @@ fn launcher(version: &str) -> (Launcher, tempfile::TempDir) {
 
 /// What Claude Code does for Agent `a` at launch: listens on its socket and lists the session
 /// with its token, as the recorded `session.json` and `session.key` do.
-fn session(launcher: &Launcher, config: &Path) -> UnixListener {
-    listed(launcher, config, std::process::id())
+fn session(launcher: &Launcher, config: &Path, version: &str) -> UnixListener {
+    listed(launcher, config, version, std::process::id(), |json| json)
 }
 
-/// `session`, listed under `pid`.
-fn listed(launcher: &Launcher, config: &Path, pid: u32) -> UnixListener {
+/// `session` of `version`, listed under `pid` with its session file passed through `edit`.
+fn listed(
+    launcher: &Launcher,
+    config: &Path,
+    version: &str,
+    pid: u32,
+    edit: impl FnOnce(String) -> String,
+) -> UnixListener {
     let socket = launcher.socket_path("a");
     let listener = UnixListener::bind(&socket).unwrap();
     let sessions = config.join("sessions");
     std::fs::create_dir_all(&sessions).unwrap();
-    let json = std::fs::read_to_string(Path::new(FIXTURES).join("session.json")).unwrap();
+    let json = std::fs::read_to_string(fixtures(version).join("session.json")).unwrap();
     std::fs::write(
         sessions.join("69890.json"),
-        json.replace("SOCKET", &socket.to_string_lossy())
-            .replace("PID", &pid.to_string()),
+        edit(
+            json.replace("SOCKET", &socket.to_string_lossy())
+                .replace("PID", &pid.to_string()),
+        ),
     )
     .unwrap();
     std::fs::copy(
-        Path::new(FIXTURES).join("session.key"),
+        fixtures(version).join("session.key"),
         sessions.join("69890.78f995701ed0.key"),
     )
     .unwrap();
@@ -74,47 +90,74 @@ fn lines(listener: &UnixListener) -> Vec<Value> {
         .collect()
 }
 
-#[tokio::test]
-async fn b51_a_killed_session_left_listed_is_missing() {
-    let (launcher, dir) = launcher("2.1.300");
+#[test]
+fn b51_a_killed_session_left_listed_is_missing() {
+    let (launcher, dir) = launcher();
     let mut gone = std::process::Command::new("true").spawn().unwrap();
     let pid = gone.id();
     gone.wait().unwrap();
-    let _listener = listed(&launcher, dir.path(), pid);
-    assert_eq!(launcher.inbox_check("a").await, Inbox::Missing);
+    let _listener = listed(&launcher, dir.path(), "2.1.302", pid, |json| json);
+    assert_eq!(launcher.inbox_check("a"), Inbox::Missing);
+}
+
+#[test]
+fn b51_a_session_listing_the_recorded_protocol_is_ok_on_every_recorded_version() {
+    for version in VERSIONS {
+        let (launcher, dir) = launcher();
+        let _listener = session(&launcher, dir.path(), version);
+        assert_eq!(launcher.inbox_check("a"), Inbox::Ok, "{version}");
+    }
+}
+
+#[test]
+fn b51_a_session_listing_another_protocol_or_none_is_a_mismatch() {
+    for edit in [
+        (|json: String| json.replace("\"peerProtocol\":1", "\"peerProtocol\":2"))
+            as fn(String) -> String,
+        |json| json.replace("\"peerProtocol\":1,", ""),
+    ] {
+        let (launcher, dir) = launcher();
+        let _listener = listed(&launcher, dir.path(), "2.1.302", std::process::id(), edit);
+        assert_eq!(launcher.inbox_check("a"), Inbox::Mismatch);
+    }
 }
 
 #[tokio::test]
 async fn b50_a_note_is_an_auth_line_then_one_labelled_line_in_the_launch_permission_mode() {
-    let (launcher, dir) = launcher("2.1.300");
-    let listener = session(&launcher, dir.path());
-    launcher
-        .inbox_write("a", &[note(7, "look", false), note(8, "again", false)])
-        .unwrap();
-    let sent = lines(&listener);
-    assert_eq!(sent[0]["type"], "auth");
-    assert_eq!(sent[0]["token"], "f68a2cb41ca29945a351924446fcbf1f");
-    assert_eq!(sent.len(), 3, "one line per note");
-    assert_eq!(sent[1]["msg_id"], "00000000-0000-4000-8000-000000000007");
-    assert_eq!(sent[2]["msg_id"], "00000000-0000-4000-8000-000000000008");
-    let content = sent[1]["message"]["content"].as_str().unwrap();
-    assert!(
-        content.starts_with("<cross-session-message from=\"uds:")
-            && content.contains(
-                "from-name=\"rupd\" from-mode=\"default\">\nlook\n</cross-session-message>"
-            ),
-        "{content}"
-    );
-    assert_eq!(
-        (&sent[1]["type"], &sent[1]["priority"]),
-        (&"user".into(), &"next".into())
-    );
+    for version in VERSIONS {
+        let (launcher, dir) = launcher();
+        let listener = session(&launcher, dir.path(), version);
+        launcher
+            .inbox_write("a", &[note(7, "look", false), note(8, "again", false)])
+            .unwrap();
+        let sent = lines(&listener);
+        let key: Value =
+            serde_json::from_slice(&std::fs::read(fixtures(version).join("session.key")).unwrap())
+                .unwrap();
+        assert_eq!(sent[0]["type"], "auth");
+        assert_eq!(sent[0]["token"], key["peerToken"], "{version}");
+        assert_eq!(sent.len(), 3, "one line per note");
+        assert_eq!(sent[1]["msg_id"], "00000000-0000-4000-8000-000000000007");
+        assert_eq!(sent[2]["msg_id"], "00000000-0000-4000-8000-000000000008");
+        let content = sent[1]["message"]["content"].as_str().unwrap();
+        assert!(
+            content.starts_with("<cross-session-message from=\"uds:")
+                && content.contains(
+                    "from-name=\"rupd\" from-mode=\"default\">\nlook\n</cross-session-message>"
+                ),
+            "{content}"
+        );
+        assert_eq!(
+            (&sent[1]["type"], &sent[1]["priority"]),
+            (&"user".into(), &"next".into())
+        );
+    }
 }
 
 #[tokio::test]
 async fn b50_a_long_note_shows_as_one_line() {
-    let (launcher, dir) = launcher("2.1.300");
-    let listener = session(&launcher, dir.path());
+    let (launcher, dir) = launcher();
+    let listener = session(&launcher, dir.path(), "2.1.302");
     let long = format!("[digest] {}", "é".repeat(300));
     launcher
         .inbox_write("a", &[note(1, &long, true), note(2, &long, false)])
@@ -131,10 +174,13 @@ async fn b50_a_long_note_shows_as_one_line() {
 
 #[test]
 fn b50_the_transcript_records_a_note_as_a_peer_message_under_its_msg_id() {
-    let transcript = Path::new(FIXTURES).join("transcript.jsonl");
-    // The user's prompt carries no origin; a note carries the msg_id it was sent under, as a user
-    // entry between turns (7) and as a queued attachment mid-turn (11).
-    assert_eq!(recorded(&transcript, 0).0, [7, 11]);
+    // A note carries the msg_id it was sent under, as a user entry between turns (7) and as a
+    // queued attachment mid-turn (11); the 2.1.300 fixture also holds the user's own prompt, which
+    // carries no origin.
+    for version in VERSIONS {
+        let transcript = fixtures(version).join("transcript.jsonl");
+        assert_eq!(recorded(&transcript, 0).0, [7, 11], "{version}");
+    }
 }
 
 #[test]
