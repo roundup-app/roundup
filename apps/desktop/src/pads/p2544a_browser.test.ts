@@ -59,6 +59,8 @@ it("p2544a_slash_menu_pointer_and_keys", async () => {
   await browser("keyboard", "type", "/");
   await browser("wait", ".milkdown-slash-menu[data-show=true]");
   await browser("press", "ArrowDown");
+  await browser("press", "ArrowDown");
+  await browser("press", "ArrowUp");
   await browser("press", "Enter");
   await browser("keyboard", "type", "Keyboard heading");
   expect(await evaluate("document.querySelector('.ProseMirror h1:last-child')?.textContent")).toBe("Keyboard heading");
@@ -96,5 +98,6 @@ it("p2544a_readonly_blocks_do_not_write", async () => {
   await browser("keyboard", "type", "/changed");
   await browser("hover", ".ProseMirror p:first-of-type");
   expect(await evaluate("document.querySelector('.ProseMirror').textContent")).toBe(before);
+  expect(await evaluate("Boolean(document.querySelector('.milkdown-block-handle[data-show=true]'))")).toBe(false);
   expect(await evaluate("window.__fake.app.calls.filter(c => c.method === 'pad.write')")).toEqual([]);
 }, 180_000);
