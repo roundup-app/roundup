@@ -16,9 +16,9 @@ export const LABELS: Record<Kind, string> = { error: copy.error, "needs-you": co
 
 const SOLID = new Set(["cross", "check"]);
 
-export const KindGlyph = (props: { kind: Kind; decorative?: boolean }) => (
-  <span class={hasInk(glyphOf(props.kind)) ? "glyph ink" : "glyph"} data-tone={glyphOf(props.kind).tone} data-drawing={glyphOf(props.kind).drawing}
-    role={props.decorative ? undefined : "img"} aria-label={props.decorative ? undefined : LABELS[props.kind]} aria-hidden={props.decorative ? "true" : undefined}>
+export const KindGlyph = (props: { kind: Kind; decorative?: boolean; label?: string; class?: string }) => (
+  <span class={["glyph", hasInk(glyphOf(props.kind)) && "ink", props.class].filter(Boolean).join(" ")} data-state={props.decorative ? undefined : ""} data-tone={glyphOf(props.kind).tone} data-drawing={glyphOf(props.kind).drawing}
+    role={props.decorative ? undefined : "img"} aria-label={props.decorative ? undefined : (props.label ?? LABELS[props.kind])} aria-hidden={props.decorative ? "true" : undefined}>
     <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill={SOLID.has(glyphOf(props.kind).drawing) ? "currentColor" : "none"} stroke="currentColor"
       stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="8" cy="8" r="6" stroke-dasharray={glyphOf(props.kind).drawing === "dashed" ? "2.4 2.4" : undefined} />

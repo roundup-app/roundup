@@ -118,17 +118,8 @@
 .bubble-state {
   grid-column: 3;
   justify-self: start;
-  width: var(--space-2);
-  height: var(--space-2);
   margin-inline-start: var(--space-2);
-  border-radius: var(--radius-drawer);
-  outline: 1px solid var(--grey);
-  outline-offset: -1px;
-}
-
-.bubble-state[data-running="true"] {
-  outline-color: var(--accent);
-  background: var(--accent);
+  cursor: default;
 }
 
 /* The fit leaves under one cell spare; the body paints it as the Terminal's ground. FitAddon always takes xterm's 14 px scrollbar from the width, so the host is that much wider than the body, which clips it: the grid then ends within a cell of the inset. */
@@ -182,6 +173,7 @@
   align-items: center;
   align-self: stretch;
   min-height: var(--space-5);
+  column-gap: var(--space-3);
   /* The name's button pad and the close control's icon inset are --space-1 each, so the name and the × both sit --space-2 from the tab's edges, as the + does. */
   padding-inline: var(--space-1);
 }
@@ -192,6 +184,11 @@
   align-items: center;
   gap: var(--space-1);
   min-width: var(--space-5);
+}
+
+.terminal-tab [data-state] {
+  cursor: default;
+  flex: none;
 }
 
 .terminal-tab-name {

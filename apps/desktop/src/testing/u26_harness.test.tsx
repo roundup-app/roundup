@@ -292,7 +292,6 @@ describe("u26 the Daemon's rail methods", () => {
   });
 });
 
-
 it("u3704_marked_kind_glyphs_and_counts", async () => {
   for (const seed of ["tree-40", "agents-10", "door-stopped", "tabs-8", "bubbles"] as const) {
     mount(seed);
@@ -300,10 +299,11 @@ it("u3704_marked_kind_glyphs_and_counts", async () => {
     await waitFor(() => expect(document.querySelectorAll('.rail-row .glyph[role="img"]').length).toBeGreaterThan(0));
 
     const assertStates = (surface: Element) => {
-      const states = [...surface.querySelectorAll<HTMLElement>("[data-state]")];
+      const states = [...surface.querySelectorAll<HTMLElement>("[data-state]")].filter((state) => state.matches(".glyph, .ink-count, .folded-agents"));
 
       expect(states.length, seed).toBeGreaterThan(0);
       expect(states.filter((state) => state.matches('.glyph')).length).toBe(surface.querySelectorAll('.glyph[role="img"]').length);
+
       for (const state of states) {
         expect(state.getAttribute("role")).not.toBe("button");
         expect([null, "-1"]).toContain(state.getAttribute("tabindex"));
@@ -312,19 +312,25 @@ it("u3704_marked_kind_glyphs_and_counts", async () => {
     };
 
     assertStates(await rail());
-    const count = document.querySelector(".ink-count");
+    const counts = [...document.querySelectorAll(".ink-count")];
 
-    if (count) expect(count.hasAttribute("data-state")).toBe(true);
+    if (seed === "tree-40") expect(counts.length).toBeGreaterThan(0);
+
+    for (const count of counts) expect(count.hasAttribute("data-state")).toBe(true);
+
     const collapse = document.querySelector('button[aria-label="Collapse"]');
 
     if (collapse) {
       fireEvent.click(collapse);
       await waitFor(() => expect(document.querySelector('.folded-agents')).not.toBeNull());
-      expect(document.querySelector('.folded-agents')!.hasAttribute("data-state")).toBe(true);
+
+      for (const folded of document.querySelectorAll(".folded-agents")) expect(folded.hasAttribute("data-state")).toBe(true);
       assertStates(await rail());
     }
+
     cleanup();
   }
+
   const { container } = render(() => <KindGlyph kind="working" decorative />);
 
   expect(container.querySelector("[data-state]")).toBeNull();

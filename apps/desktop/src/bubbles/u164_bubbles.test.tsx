@@ -146,9 +146,9 @@ describe("u164 a bubble floats over the centre pane", () => {
     await waitFor(() => bubble("1"));
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="1"]')!);
 
-    expect(bubble("1").querySelector(".bubble-state")!.getAttribute("aria-label")).toBe("Running");
+    expect(bubble("1").querySelector(".bubble-state[data-state]")!.getAttribute("aria-label")).toBe("Running");
     mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
-    await waitFor(() => expect(bubble("1").querySelector(".bubble-state")!.getAttribute("aria-label")).toBe("Exit 3"));
+    await waitFor(() => expect(bubble("1").querySelector(".bubble-state[data-state]")!.getAttribute("aria-label")).toBe("Exit 3"));
     expect(bubbleNames()).toContain("cargo test");
   });
 
