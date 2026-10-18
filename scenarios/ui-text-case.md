@@ -48,8 +48,8 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 
 | Existing label | User label | Existing action retained |
 |---|---|---|
-| Start Door | Start supervisor | Start the selected Workstream's Door |
-| Retry Door | Retry supervisor | Retry its failed start |
+| Start Door | Start supervisor (Rail), Start (centre) | Start the selected Workstream's Door |
+| Retry Door | Retry supervisor (Rail), Retry (centre) | Retry its failed start |
 | End Takeover | Give control back | End Takeover and resume routed delivery |
 | Take over | Take control | Begin Takeover |
 | Show Shelf | Show work items | Open the Shelf |

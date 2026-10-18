@@ -74,6 +74,8 @@
   align-items: center;
   min-height: 28px;
   --button-inline: var(--space-3);
+  gap: var(--space-2);
+  font-size: var(--text-title);
 }
 
 /* Over a stopped Door's last output, so the state and the way out stay readable. */
@@ -248,4 +250,21 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+}
+
+.pane .pane-state {
+  font-size: var(--text-title);
+  color: var(--text);
+}
+
+.pane .pane-earlier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pane .pane-earlier > .pane-empty {
+  position: static;
+  transform: none;
+  max-width: none;
 }
