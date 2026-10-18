@@ -78,7 +78,7 @@
 }
 :host {
   --trees-padding-inline-override: 0;
-  --trees-item-padding-x-override: 0;
+  --trees-item-padding-x-override: var(--space-1);
   --trees-item-margin-x-override: 0;
   --trees-item-row-gap-override: var(--space-1);
   --trees-level-gap-override: var(--space-2);
