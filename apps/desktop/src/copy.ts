@@ -220,13 +220,17 @@ export const copy = {
   worktreePr: "PR",
   worktreeCiUnavailable: "CI unavailable",
   worktreePrUnavailable: "PR unavailable",
-  worktreeCiText: (state: WorktreeCiState, stale: boolean) => `${{ passed: "CI passed", failed: "CI failed", running: "CI running", "no-ci": "No CI", conflicts: "CI conflicts", error: "CI error", unknown: "CI unknown" }[state]}${stale ? ", stale" : ""}`,
-  worktreeCiChip: (state: WorktreeCiState, stale: boolean) => `${{ passed: "✓CI", failed: "✗CI", running: "…CI", "no-ci": "No CI", conflicts: "!CI", error: "CI error", unknown: "CI?" }[state]}${stale ? " stale" : ""}`,
+  worktreeCiText: (state: WorktreeCiState, stale: boolean, label = false) => {
+    const value = { passed: "Passed", failed: "Failed", running: "Running", "no-ci": "No CI", conflicts: "Conflicts", error: "Error", unknown: "Unknown" }[state];
+
+    return `${label && state !== "no-ci" ? `CI ${value.toLowerCase()}` : value}${stale ? ", stale" : ""}`;
+  },
+  worktreeCiChip: (state: WorktreeCiState) => `${{ passed: "✓CI", failed: "✗CI", running: "↻CI", "no-ci": "No CI", conflicts: "!CI", error: "CI error", unknown: "CI?" }[state]}`,
   worktreePrText: (number: number, stale: boolean) => `#${number}${stale ? ", stale" : ""}`,
   worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? ", stale" : ""}`,
   worktreeUnavailableMark: "—",
   worktreeUnavailable: "Worktree state unavailable",
-  worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead`,
+  worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US")}↑`,
   worktreeAheadState: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead of Base`,
   worktreeStateText: (ahead: number, behind: number, dirty: boolean) => `${ahead} ahead, ${behind} behind${dirty ? ", dirty" : ""}`,
   noChanges: "No changes",
