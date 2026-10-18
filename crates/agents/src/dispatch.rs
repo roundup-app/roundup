@@ -23,7 +23,12 @@ impl Module for Agents {
             "agent.prompt" => {
                 let PromptParams { id, text } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Steer")?;
-                self.prompt(&id, &text).await?;
+                let steer = if ctx.actor.kind == ActorKind::User && text.starts_with('/') {
+                    Steer::User(&text)
+                } else {
+                    Steer::Instruction(&text)
+                };
+                self.prompt(&id, steer).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&())
             }

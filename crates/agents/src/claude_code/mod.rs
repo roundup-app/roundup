@@ -369,6 +369,7 @@ const SUBMIT_PAUSE: std::time::Duration = std::time::Duration::from_millis(100);
 pub(super) fn write_submitted(
     writer: &mut dyn std::io::Write,
     bytes: &[u8],
+    accepted: Option<&std::sync::Mutex<bool>>,
 ) -> std::io::Result<()> {
     let paste = bytes
         .strip_suffix(b"\r")
@@ -376,8 +377,15 @@ pub(super) fn write_submitted(
     writer.write_all(paste)?;
     writer.flush()?;
     std::thread::sleep(SUBMIT_PAUSE);
+    // A hook can arrive before the input thread reports completion to its caller.
+    // Only the final write holds this gate, so paste settling never blocks Signals.
+    let mut accepted = accepted.map(|gate| gate.lock().expect("slash-command write gate"));
     writer.write_all(b"\r")?;
-    writer.flush()
+    writer.flush()?;
+    if let Some(accepted) = &mut accepted {
+        **accepted = true;
+    }
+    Ok(())
 }
 
 /// The bytes of an Interrupt (H13): one `ESC`, which ends Claude Code's turn.

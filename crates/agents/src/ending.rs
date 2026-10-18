@@ -31,7 +31,7 @@ impl Agents {
         let contracts::agent::PromptParams { id, text } = params;
         self.may_steer(&ctx.actor, &id, "Steer")?;
         self.shared
-            .prompt(&id, &text, None, Some(attempt), false)
+            .prompt(&id, &text, None, Some(attempt), false, None)
             .await
             .map_err(PromptError::from)?;
         Self::touch_rail(ctx, &id)

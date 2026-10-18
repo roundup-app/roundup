@@ -432,15 +432,23 @@ impl Intake {
                     if !self.store().update(&id, ord, &part, State::Queued)? {
                         continue;
                     }
+                    let intake = self.clone();
+                    let ask_id = id.clone();
                     match self
                         .agents
-                        .prompt(workstream, Steer::User(&part.text))
+                        .shared
+                        .prompt(
+                            workstream,
+                            &part.text,
+                            None,
+                            None,
+                            true,
+                            Some(Arc::new(move |_| intake.emit(&ask_id).map(|_| ()))),
+                        )
                         .await
+                        .map_err(PromptError::from)
                     {
-                        Ok(()) => {
-                            self.emit(&id)?;
-                            continue;
-                        }
+                        Ok(()) => continue,
                         Err(PromptError::Busy { .. }) => {
                             part.state = State::Queued;
                             self.store().update(&id, ord, &part, State::Typed)?;
