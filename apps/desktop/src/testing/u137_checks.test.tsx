@@ -24,6 +24,14 @@ const addSheet = (css: string) => {
 };
 
 describe("u137 one module measures the checks", () => {
+  it("u137_editor_menu_is_not_an_item_row", () => {
+    document.body.innerHTML = '<aside><ul><li data-id="pad"><span class="glyph"></span>Pad</li></ul><div class="milkdown-slash-menu"><nav class="tab-group"><ul><li class="selected">Text</li><li>List</li><li>Advanced</li></ul></nav><div class="menu-groups"><ul><li data-index="0">Paragraph</li></ul></div></div></aside>';
+    expect(runChecks().D4.status).toBe("pass");
+
+    document.querySelector(".glyph")!.remove();
+    expect(runChecks().D4).toMatchObject({ status: "fail", selector: 'li[data-id="pad"]' });
+  });
+
   it("u137_a_later_check_call_observes_changed_styles", () => {
     document.body.innerHTML = "<p class='rail-row'>x</p>";
     addSheet(".rail-row { transition-duration: 0s; }");
