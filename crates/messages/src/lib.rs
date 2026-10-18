@@ -1923,6 +1923,7 @@ mod tests {
             work: None,
             iteration: None,
             inbox: None,
+            overview: None,
         }
     }
 
