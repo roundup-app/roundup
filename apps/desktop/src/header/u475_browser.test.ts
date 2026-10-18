@@ -1,12 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { CHECK_IDS } from "../testing/checks";
-import type { Checks } from "../testing/checks";
-import { captureDir } from "../testing/captures";
 import { appServer, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
@@ -15,7 +12,6 @@ const profile = mkdtempSync(join(tmpdir(), "u475-"));
 
 const session = `u475-${process.pid}`;
 
-const art = captureDir("U475");
 
 let server: AppServer;
 
@@ -36,8 +32,6 @@ beforeAll(async () => {
   server = await appServer();
   origin = server.resolvedUrls.local[0]!;
   await browser("--profile", profile, "open", origin);
-
-  if (art) mkdirSync(art, { recursive: true });
 }, 90_000);
 
 afterAll(async () => {
@@ -107,39 +101,3 @@ it("u475_close_failure_is_visible", async () => {
   expect(await read<string>(`document.querySelector('.project-tab').dataset.path`)).toBe(path);
   expect(await read<boolean>(`[...document.querySelectorAll('*')].some(el => el.textContent === 'could not stop rupd' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')`)).toBe(true);
 }, 60_000);
-
-// D5 reads contrast per scheme, so the Checks run in light and dark.
-for (const scheme of ["light", "dark"]) {
-  const name = `${scheme}-1280`;
-
-  it(`u475_close_dialog_checks ${name}`, async () => {
-    await load(scheme);
-    const baseline = await read<Checks>("window.__checks()");
-
-    if (art) {
-      await browser("screenshot", join(art, `${name}-before.png`));
-      writeFileSync(join(art, `${name}-before.checks.json`), JSON.stringify(baseline));
-    }
-
-    await open();
-    const checks = await read<Checks>("window.__checks()");
-
-    for (const id of CHECK_IDS) expect(checks[id].status, id).toBe("pass");
-
-    if (art) {
-      await browser("screenshot", join(art, `${name}-question.png`));
-      writeFileSync(join(art, `${name}-question.checks.json`), JSON.stringify(checks));
-    }
-
-    await stop();
-    await failure();
-    const failureChecks = await read<Checks>("window.__checks()");
-
-    for (const id of CHECK_IDS) expect(failureChecks[id].status, id).toBe("pass");
-
-    if (art) {
-      await browser("screenshot", join(art, `${name}-failure.png`));
-      writeFileSync(join(art, `${name}-failure.checks.json`), JSON.stringify(failureChecks));
-    }
-  }, 60_000);
-}

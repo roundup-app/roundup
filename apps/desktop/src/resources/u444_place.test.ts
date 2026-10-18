@@ -1,9 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath, openPage, FULLSCREEN } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
-import { captureDir } from "../testing/captures";
 
 let page: ChromePage;
 
@@ -32,14 +29,6 @@ it("u444_the_strip_is_the_centres_last_line_under_the_terminal", async () => {
 
       expect(await page.call(`() => { const strip = document.querySelector('.resource-strip'); return strip.parentElement.lastElementChild === strip; }`)).toBe(true);
       expect(await page.call(`() => Boolean(document.querySelector('.resource-strip .terminal-new'))`)).toBe(true);
-      const dir = captureDir("U444");
-
-      if (dir) {
-        mkdirSync(dir, { recursive: true });
-        const name = `composer-${width}x800-${scheme}`;
-        writeFileSync(join(dir, `${name}.png`), Buffer.from(await page.shot(), "base64"));
-        writeFileSync(join(dir, `${name}.checks.json`), JSON.stringify(await page.call(`() => window.__checks()`), null, 2));
-      }
     }
   }
 }, 120_000);

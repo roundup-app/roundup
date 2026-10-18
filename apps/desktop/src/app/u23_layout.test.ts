@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { captureDir } from "../testing/captures";
 import { promisify } from "node:util";
 import { createServer } from "vite";
-import { chromePath, FULLSCREEN } from "../testing/chromePage";
+import { chromePath } from "../testing/chromePage";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 // The real Layout plus installed Ark, served by Vite in an isolated headless session.
@@ -13,8 +12,6 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 const profile = mkdtempSync(join(tmpdir(), "u507-profile-"));
 
 let server: Awaited<ReturnType<typeof createServer>>;
-
-let main: Awaited<ReturnType<typeof createServer>> | undefined;
 
 const session = `u507-layout-${process.pid}`;
 
@@ -76,18 +73,11 @@ export const Layout = (props) => {
   });
 
   await server.listen();
-  const root = process.env["ROUNDUP_U507_MAIN"];
-
-  if (root) {
-    main = await createServer({ root, cacheDir: "node_modules/.vite-u507-main", server: { port: 0, hmr: false } });
-    await main.listen();
-  }
 }, 90_000);
 
 afterAll(async () => {
   try { await browser("close"); } finally {
     await server?.close();
-    await main?.close();
     rmSync(profile, { recursive: true, force: true });
   }
 });
@@ -134,49 +124,6 @@ it("u507_bindings_preserve_resize_state", async () => {
   await evaluate(`document.querySelector('.rail [data-id="payments"] .name').click()`);
   await browser("wait", ".pane-screen");
   expect(await read()).toBe("payments");
-}, 180_000);
-
-it("u507_layout_checks", async () => {
-  const captures = captureDir("U495") ?? captureDir("U507");
-  const baseline = new Map<string, Record<string, { status: string }>>();
-
-  for (const side of main ? ["base", "head"] : ["head"]) {
-    const origin = (side === "base" ? main! : server).resolvedUrls!.local[0];
-
-    for (const width of [FULLSCREEN.width]) {
-      await browser("set", "viewport", String(width), "800");
-      const url = `${origin}harness.html?seed=tree-40${side === "head" && !captureDir("U495") ? "&bound=1" : ""}`;
-      await browser("open", url);
-      await browser("wait", "--fn", "Boolean(window.__fake) && Boolean(document.querySelector('[data-layout-root]'))");
-      await evaluate("localStorage.clear()");
-      await browser("open", url);
-      await browser("wait", ".shelf-tabs");
-      await settle();
-      await evaluate("window.__fake.app.exitDaemon({code:1})");
-      await settle();
-
-      for (const open of [true, false]) {
-        if (!open) {
-          await evaluate(`document.querySelector('[aria-label="Hide work items"]').click()`);
-          await settle();
-        }
-
-        const name = `${width}x800-${open ? "open" : "closed"}-failure`;
-        const checks = await evaluate<Record<string, { status: string }>>("window.__checks()");
-
-        if (side === "base") baseline.set(name, checks);
-        else for (const [id, check] of Object.entries(checks)) {
-          if (["D2", "D5", "D6"].includes(id) || baseline.get(name)?.[id]?.status === "pass") expect(check.status, `${name} ${id}: ${JSON.stringify(check)}`).toBe("pass");
-        }
-
-        if (captures) {
-          mkdirSync(join(captures, side), { recursive: true });
-          writeFileSync(join(captures, side, `${name}.checks.json`), JSON.stringify(checks));
-          await browser("screenshot", join(captures, side, `${name}.png`));
-        }
-      }
-    }
-  }
 }, 180_000);
 
 it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {

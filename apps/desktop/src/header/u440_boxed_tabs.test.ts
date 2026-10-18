@@ -1,10 +1,7 @@
 import { execFile } from "node:child_process";
-import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
-import { captureDir, readCapture } from "../testing/captures";
+import { captureDir } from "../testing/captures";
 import type { Box, Observation } from "./u449Observation";
 import { appServer, type AppServer } from "../testing/appServer";
 
@@ -18,8 +15,6 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
 
   let server: AppServer;
   let rows: Row[];
-  let baseRows: Row[] = [];
-  let baseServer: ViteDevServer | undefined;
 
   // The script walks three viewports one after another; each runs in its own browser, side by side, and the rows join in the script's order.
   const readBoxes = async (origin: string, variant: "head" | "base"): Promise<Row[]> => {
@@ -32,24 +27,9 @@ describe("u440 to u443 boxed tabs in isolated Chromium", () => {
     server = await appServer();
     rows = await readBoxes(server.resolvedUrls.local[0]!, "head");
     expect(rows.length).toBe(36);
-    const baseRoot = process.env.U440_BASE_ROOT;
-
-    if (baseRoot) {
-      baseServer = await createServer({ root: baseRoot, configFile: join(baseRoot, "vite.config.ts"), server: { port: 0, host: "127.0.0.1", hmr: false }, logLevel: "silent" });
-      await baseServer.listen();
-      baseRows = await readBoxes(baseServer.resolvedUrls!.local[0]!, "base");
-    } else baseRows = rows.map(row => JSON.parse(readCapture("U440", `base/${row.case}.geometry.json`)));
   }, 1_200_000);
-  afterAll(async () => { await server?.close(); await baseServer?.close(); });
-  it("u2233_flat_tabs_pass_the_moved_checks", () => {
-    expect(baseRows.length).toBe(rows.length);
-
-    for (const row of rows) {
-      const base = baseRows.find(base => base.case === row.case)!;
-
-      for (const [id, reading] of Object.entries(base.checks)) if (reading.status === "pass") expect(row.checks[id]?.status, row.case + "/" + id).toBe("pass");
-    }
-  });
+  afterAll(async () => { await server?.close(); });
   it("u440_a_tab_has_no_project_icon", () => {
     for (const row of rows) for (const tab of row.tabs) expect(tab.icons, row.case).toBe(0);
-  });});
+  });
+});

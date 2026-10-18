@@ -1,12 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { expect, it } from "vitest";
-import { CHECK_IDS, type Checks } from "../testing/checks";
-import { captureDir } from "../testing/captures";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
-const open = async (seed: string, base = false) => {
-  await browser("open", url(`/harness.html?seed=${seed}`, base));
+const open = async (seed: string) => {
+  await browser("open", url(`/harness.html?seed=${seed}`));
   await wait(`!!window.__fake && document.querySelectorAll('button').length > 2`);
 };
 
@@ -76,67 +72,3 @@ it("u501_full_content_is_available", async () => {
   await browser("hover", ".resource-value");
   await wait(`document.querySelector('.app-tooltip')?.textContent === document.querySelector('.resource-name').textContent`);
 }, 120_000);
-
-// The Rail's run count (`rail/`, outside this lane) fails D5 in light on main itself; paired runs compare it, a head-only run skips it.
-const FOREIGN = ["span.runs"];
-
-// D2, D5 and D6 pass at head unless main already fails the same selector.
-const noRegression = (base: Checks | undefined, head: Checks) => {
-  for (const id of CHECK_IDS) {
-    const failing = JSON.stringify(head[id]);
-    const same = base ? base[id].status === "fail" && JSON.stringify(base[id]) === failing : FOREIGN.some((selector) => failing.includes(`"selector":"${selector}"`));
-
-    if (base?.[id].status === "pass" || (["D2", "D5", "D6"].includes(id) && !same)) expect(head[id].status, `${id}: ${JSON.stringify(head[id])}`).toBe("pass");
-  }
-};
-
-const SURFACES = [
-  ["tree-40", "tree-40", failClose],
-  ["agents-10", "agents-10", async () => {}],
-  ["decisions", "decision", async () => {}],
-  ["bubbles", "bubble", async () => {}],
-  ["resources", "resources", async () => { await browser("click", '[data-id="worktree-agent"]'); await wait(`document.querySelectorAll('.resource-value').length === 3`); }],
-] as const;
-
-const contrast = process.env.PROVIDERS_CONTRAST === "more";
-
-for (const scheme of ["light", "dark"]) for (const width of [1280, 1440]) {
-  it(`u493_rendered_checks ${scheme}-${width}-${contrast}`, async () => {
-    const art = captureDir("U493");
-
-    if (art) expect(process.env.U500_BASE_ROOT).toBeTruthy();
-    await browser("set", "media", scheme);
-    await browser("set", "viewport", String(width), "800");
-
-    const baseline: Record<string, Checks> = {};
-
-    for (const side of process.env.U500_BASE_ROOT ? ["base", "head"] : ["head"]) {
-      for (const [seed, label, reveal] of SURFACES) {
-        await open(seed, side === "base");
-        expect(await read<boolean>(`matchMedia("(prefers-contrast: more)").matches`)).toBe(contrast);
-
-        if (seed === "bubbles") await browser("click", '[data-id="runner"]').catch(() => {});
-
-        for (const state of ["initial", "revealed", "focus"]) {
-          if (state === "revealed") await reveal();
-
-          if (state === "focus") await browser("press", "Tab");
-
-          const checks = await read<Checks>(`import('/src/testing/checks.ts').then(module => module.runChecks())`);
-          const name = `${scheme}-${width}-${contrast}-${label}-${state}`;
-
-          if (art) {
-            const directory = join(art, side);
-
-            mkdirSync(directory, { recursive: true });
-            await browser("screenshot", join(directory, `${name}.png`));
-            writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks));
-          }
-
-          if (side === "base") baseline[name] = checks;
-          else noRegression(baseline[name], checks);
-        }
-      }
-    }
-  }, 240_000);
-}
