@@ -251,7 +251,7 @@ mod tests {
         let error = crate::PromptError::from(
             watched
                 .shared
-                .prompt("7013", "hello", None, None, false)
+                .prompt("7013", "hello", None, None, false, None)
                 .await
                 .unwrap_err(),
         );
