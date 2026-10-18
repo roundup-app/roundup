@@ -24,7 +24,7 @@ const fake: CanvasApi = {
 };
 
 // jsdom has no matchMedia; the canvas theme follows the colour scheme.
-window.matchMedia ??= (query) => ({ ...new EventTarget(), matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined });
+window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false });
 
 beforeEach(() => {
   useRenderers({ ...bundledRenderers, canvas: async () => fake });

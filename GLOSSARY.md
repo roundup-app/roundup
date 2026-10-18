@@ -469,6 +469,9 @@ An Agent's accepted Terminal resize and its retained outcome: waiting for the ch
 **Output stream** (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`):
 One Terminal's bytes with their offsets, delivered only to a connection that selected that Terminal (`scenarios/terminal-stream.md` X14). `terminal.output` selects it and answers the offset of the first byte; the Daemon then pushes `terminal.output` notifications with the bytes and, when the connection fell behind, a `terminal.gap` naming the offsets it dropped, so the App recovers with `terminal.snapshot`. `terminal.outputStop` or closing the connection releases it. Output never enters the Bus.
 
+**Terminal scheme** (`terminal.scheme`, `SchemeParams`, `Scheme`):
+The App's light or dark colour scheme and the two colours of its emulator theme, which the App tells the Daemon at connect and on each switch (`scenarios/terminal.md` X17). The Daemon answers a program's colour query and tells a program that turned on mode 2031 of a change from it; until the App has told it, it answers nothing.
+
 **RPC output intake** (`Client::take_output`, `OutputFrame`):
 The Client's optional bounded receiver of the Output streams its connection selected, taken before selecting. It reports lag separately from replies and control events; retained frames keep their Terminal ids and byte offsets for Snapshot recovery.
 
