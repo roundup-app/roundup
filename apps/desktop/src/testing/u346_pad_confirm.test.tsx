@@ -59,7 +59,7 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     const shelf = await screen.findByRole("region", { name: "Work items" });
 
-    await within(shelf).findByRole("tablist", { name: "Work items" });
+    await screen.findByRole("tablist", { name: "Work items" });
     showShelfTab("Pads");
 
     fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));
@@ -188,7 +188,8 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("open", `${real.base}/harness.html?daemon=1`);
       await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
       await browser("click", `[data-id='${home.id}'] [data-part=branch-control]`);
-      await browser("click", "#shelf-tab-pads");
+
+      if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
       await browser("wait", "[data-shelf-row] .pad-name");
       await browser("click", "[data-shelf-row] .pad-name");
       // DrawerHost slides on pointer opening; DOM presence does not mean its controls have stopped moving.

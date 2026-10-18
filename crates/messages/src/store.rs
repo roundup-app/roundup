@@ -88,6 +88,29 @@ impl Store {
         Ok(store)
     }
 
+    pub(crate) fn record_sender_name(&self, agent: &str, name: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "INSERT INTO message_sender_names (agent, name) VALUES (?1, ?2)
+             ON CONFLICT(agent) DO UPDATE SET name=excluded.name WHERE name != excluded.name",
+                params![agent, name],
+            )
+            .map(|_| ())
+            .map_err(RpcError::internal)
+    }
+
+    pub(crate) fn sender_name(&self, agent: &str) -> Result<String, RpcError> {
+        self.db
+            .query_row(
+                "SELECT name FROM message_sender_names WHERE agent=?1",
+                [agent],
+                |row| row.get(0),
+            )
+            .optional()
+            .map(|name| name.unwrap_or_else(|| "an Agent that is gone".into()))
+            .map_err(RpcError::internal)
+    }
+
     pub(crate) fn is_reserved(&self, agent: &str) -> Result<bool, RpcError> {
         self.db
             .prepare("SELECT 1 FROM message_restarts WHERE agent=? AND released IS NULL")

@@ -80,11 +80,11 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   await wait("Boolean(document.querySelector('.pane-screen'))");
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'rail.startDoor').length")).toBe(1);
 
-  await clickText("Hide work items");
+  await browser("click", "#shelf-tab-todos");
   await wait("document.querySelector('.shelf').hidden");
-  await clickText("Show work items");
+  await browser("click", "#shelf-tab-todos");
   await wait("!document.querySelector('.shelf').hidden && document.querySelector('.shelf').dataset.open === 'true'");
-  await clickText("Hide work items");
+  await browser("click", "#shelf-tab-todos");
   await load(origin, "door-stopped", width, "light");
   await wait("Boolean(document.querySelector('.pane-screen'))");
   await evaluate(`(() => {
@@ -106,7 +106,7 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   await load(origin, "tree-40", width, "light");
   await browser("click", '.rail-row[data-id="payments"]');
   await wait("Boolean(document.querySelector('.pane-screen'))");
-  await clickText("Hide work items");
+  await browser("click", "#shelf-tab-todos");
   await evaluate(`(() => {
     const app = window.__fake.app;
     app.handlers['workstream.clear'] = () => ({pending: true});
@@ -126,7 +126,7 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'workstream.clear')[1].params")).toEqual({ id: "payments", reason: "keep MY reason 🧭  exactly", without_handoff: true });
   await evaluate(`window.__fake.emit({actor: {kind:'user', id:'you', parent:null}, name:'workstream.cleared', data:{id:'payments', iteration:2}})`);
   await wait("!document.querySelector('[data-clear-prompt]')");
-  await clickText("Show work items");
+  await browser("click", "#shelf-tab-todos");
   await wait("document.querySelector('.shelf').dataset.open === 'true'");
   await clickText("Show all Workstreams");
   await wait("Boolean(document.querySelector('.shelf [data-id=\"2\"] .todo-row-button'))");

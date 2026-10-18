@@ -17,8 +17,8 @@ describe("u179 the header is the strip", () => {
   it("u449_the_header_keeps_the_strip_and_project_title", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
-    expect(header().textContent).toBe("apiweb+web");
-    expect(header().textContent).not.toContain("roundup");
+    expect(within(header()).getByRole("heading", { name: "web" })).toBeTruthy();
+    expect(projectTabs().map(entry => entry.textContent)).toEqual(["api", "web"]);
   });
 
   it("u179_the_plus_is_grey_and_chooses_a_folder_then_opens_it_as_the_last_tab", async () => {
@@ -56,7 +56,8 @@ describe("u179 the header is the strip", () => {
 
     await screen.findByText("Open a folder to start");
 
-    expect(header().textContent).toBe("+roundup");
+    expect(within(header()).getByRole("heading", { name: "roundup" })).toBeTruthy();
+    expect(within(header()).getByRole("button", { name: "Open a folder" })).toBeTruthy();
     expect((projectTabs()[0] ?? null)).toBeNull();
   });
 });

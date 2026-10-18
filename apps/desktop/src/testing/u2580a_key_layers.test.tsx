@@ -6,7 +6,8 @@ import { drawerSliding } from "../drawer/sliding";
 import { mountPane } from "../terminal/paneHarness";
 import { info, node } from "./nodes";
 import { Layout } from "../app/Layout";
-import { ShelfToggle } from "../shelf/Shelf";
+import { createShelfTabs, ShelfTabs } from "../shelf/Shelf";
+import { Tabs } from "../ui/Tabs";
 import { createShelfFrame, type ShelfFrame } from "../shelf/frame";
 import { shelfSliding } from "../shelf/sliding";
 import { shelfBrowser } from "../shelf/u371Browser";
@@ -107,9 +108,9 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     }
 
     for (const key of ["Enter", "Space"] as const) {
-      expect(await activate('.shelf-toggle', key, "document.querySelector('.shelf').hidden")).toBe(true);
+      expect(await activate('#shelf-tab-todos', key, "document.querySelector('.shelf').hidden")).toBe(true);
       await settle();
-      expect(await activate('.shelf-toggle', key, "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf [role=tab]')")).toBe(true);
+      expect(await activate('#shelf-tab-todos', key, "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
       await settle();
     }
 
@@ -131,7 +132,7 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("s", "KeyS", "document.querySelector('.shelf').hidden")).toBe(true);
     await settle();
     await leader();
-    expect(await keyFrame("s", "KeyS", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf [role=tab]')")).toBe(true);
+    expect(await keyFrame("s", "KeyS", "!document.querySelector('.shelf').hidden && document.activeElement.matches('.shelf-tabs [role=tab]')")).toBe(true);
     await settle();
 
     // Select a Workstream before Cmd+T creates a Terminal; its completed RPC is readiness for minimising/restoring it.
@@ -200,8 +201,10 @@ it("u2580a_shelf_instant_actions_release_slide_and_fit_once", async () => {
       frame = createShelfFrame(() => "/test", () => false, () => {});
       const state = frame;
 
-      return <Layout header={null} rail={null} centre={null} shelf={<ShelfToggle open={state.open()} onToggle={state.toggle} />}
-        overlay={null} shelfPlacement={{ open: state.open(), rendered: state.rendered(), shown: state.shown(), animated: state.animated(), onSettle: state.settle }} />;
+      const tabs = createShelfTabs(state);
+
+      return <Tabs.RootProvider value={tabs}><Layout header={<ShelfTabs frame={state} onToggle={state.toggle} />} rail={null} centre={null} shelf={null}
+        overlay={null} shelfPlacement={{ open: state.open(), rendered: state.rendered(), shown: state.shown(), animated: state.animated(), onSettle: state.settle }} /></Tabs.RootProvider>;
     });
     const fit = vi.spyOn(emulators.get("t-a")!, "fit");
     frame!.toggle("pointer");
@@ -210,7 +213,7 @@ it("u2580a_shelf_instant_actions_release_slide_and_fit_once", async () => {
     expect(shelfSliding()).toBe(true);
     fit.mockClear();
     // Enter/Space produce a detail=0 click; it reverses the in-flight pointer close.
-    fireEvent.click(screen.getByRole("button", { name: "Show work items", hidden: true }), { detail: 0 });
+    fireEvent.click(screen.getByRole("tab", { name: /^Todos/, hidden: true }), { detail: 0 });
     expect(shelfSliding()).toBe(false);
     vi.advanceTimersToNextFrame();
     expect(fit).toHaveBeenCalledTimes(1);
