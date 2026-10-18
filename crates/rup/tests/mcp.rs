@@ -313,7 +313,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 46] = [
+const NO_TOOL: [&str; 49] = [
     // A40, P9: each carries a Steer from the user.
     "ask.send",
     "ask.list",
@@ -353,6 +353,10 @@ const NO_TOOL: [&str; 46] = [
     "project.setModels",
     // M2219: the user's setting for whether Agents get these tools at all
     "project.setMcp",
+    // G2542: enrolling a directory and running its commands is the user's explicit consent
+    "project.setPrepared",
+    "project.getPrepared",
+    "project.prepareDirectory",
     "agent.setModel",
     // D8: the App's Resource strip
     "project.resources",
