@@ -441,3 +441,61 @@ async fn a2703a_rejected_calls_use_rail_names() {
         "{missing}"
     );
 }
+
+#[tokio::test]
+async fn a2741a_delayed_consumer_keeps_each_committed_name() {
+    let f = Fixture::running("exec sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("rail.rename", json!({"id":node.id,"name":"sad"}))
+        .await
+        .unwrap();
+    let mut events = f.bus.subscribe();
+    for name in ["sad-2", "sad-3"] {
+        f.call("rail.rename", json!({"id":node.id,"name":name}))
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        crate::common::renames(&mut events),
+        [
+            (node.id.clone(), "sad-2".into()),
+            (node.id.clone(), "sad-3".into())
+        ]
+    );
+    assert_eq!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .name,
+        "sad-3"
+    );
+
+    let (a, b) = tokio::join!(
+        f.call("rail.rename", json!({"id":node.id,"name":"concurrent-a"})),
+        f.call("rail.rename", json!({"id":node.id,"name":"concurrent-b"}))
+    );
+    a.unwrap();
+    b.unwrap();
+    let changes = crate::common::renames(&mut events);
+    assert_eq!(changes.len(), 2);
+    let mut names: Vec<_> = changes
+        .iter()
+        .map(|(id, name)| {
+            assert_eq!(id, &node.id);
+            name.as_str()
+        })
+        .collect();
+    names.sort_unstable();
+    assert_eq!(names, ["concurrent-a", "concurrent-b"]);
+    assert_eq!(
+        changes.last().unwrap().1,
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .name
+    );
+}

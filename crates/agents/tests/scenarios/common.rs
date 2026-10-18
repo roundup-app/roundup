@@ -290,3 +290,23 @@ pub const GATED: &str = "stty raw -echo; D=\"$(dirname \"$0\")\"; echo 1 > \"$D/
 pub fn star(dir: &Path) {
     std::fs::write(dir.join("star"), "1").unwrap();
 }
+
+/// Drain the attached Bus consumer without losing lag errors or polling Rail snapshots.
+pub fn renames(events: &mut Receiver<Event>) -> Vec<(String, String)> {
+    let mut changes = Vec::new();
+    loop {
+        match events.try_recv() {
+            Ok(event) => {
+                let event = serde_json::to_value(event).unwrap();
+                if event["name"] == "rail.renamed" {
+                    changes.push((
+                        event["data"]["id"].as_str().unwrap().into(),
+                        event["data"]["name"].as_str().unwrap().into(),
+                    ));
+                }
+            }
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => return changes,
+            Err(error) => panic!("rename consumer failed: {error}"),
+        }
+    }
+}
