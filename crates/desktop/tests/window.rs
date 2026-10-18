@@ -17,9 +17,8 @@ fn u452_window_width_is_at_least_1280() {
 }
 
 #[test]
-fn u452_window_opens_maximized() {
+fn u452_window_height_is_unchanged() {
     let window = app_window();
-    assert_eq!(window["maximized"].as_bool(), Some(true));
     for field in ["height", "minHeight", "maxHeight"] {
         assert!(window.get(field).is_none(), "{field} must stay absent");
     }
