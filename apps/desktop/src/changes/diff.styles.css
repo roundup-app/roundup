@@ -1,0 +1,61 @@
+/* Pierre's shadow root owns these defaults; keep every palette and type value in App Tokens. */
+:host {
+  --diffs-foreground: var(--text);
+  --diffs-background: var(--sunken);
+  --diffs-token-keyword: var(--accent);
+  --diffs-token-constant: var(--text);
+  --diffs-token-string: var(--text);
+  --diffs-token-string-expression: var(--text);
+  --diffs-token-comment: var(--grey);
+  --diffs-token-parameter: var(--text);
+  --diffs-token-function: var(--text);
+  --diffs-token-punctuation: var(--grey);
+  --diffs-token-link: var(--accent);
+  --diffs-token-inserted: var(--text);
+  --diffs-token-deleted: var(--text);
+  --diffs-token-changed: var(--text);
+  --diffs-font-family: var(--font-mono);
+  --diffs-header-font-family: var(--font-ui);
+  --diffs-font-size: var(--text-small);
+  --diffs-line-height: var(--space-5);
+  --diffs-gap-block: var(--space-2);
+  --diffs-gap-inline: var(--space-2);
+  --diffs-light: var(--text);
+  --diffs-dark: var(--text);
+  --diffs-light-bg: var(--sunken);
+  --diffs-dark-bg: var(--sunken);
+  --diffs-fg-number-override: var(--grey);
+  --diffs-fg-conflict-marker-override: var(--grey);
+  --diffs-bg-buffer-override: var(--sunken);
+  --diffs-bg-context-override: var(--sunken);
+  --diffs-bg-context-gutter-override: var(--sunken);
+  --diffs-bg-separator-override: var(--sunken);
+  --diffs-added-light: var(--accent);
+  --diffs-added-dark: var(--accent);
+  --diffs-deleted-light: var(--red);
+  --diffs-deleted-dark: var(--red);
+  --diffs-modified-light: var(--amber);
+  --diffs-modified-dark: var(--amber);
+  --diffs-warning-light: var(--amber);
+  --diffs-warning-dark: var(--amber);
+  --diffs-deletion-color-override: var(--red);
+  --diffs-addition-color-override: var(--accent);
+  --diffs-modified-color-override: var(--amber);
+  --diffs-bg-deletion-override: var(--selected);
+  --diffs-bg-deletion-emphasis-override: var(--pressed);
+  --diffs-bg-addition-override: var(--ground);
+  --diffs-bg-addition-emphasis-override: var(--pressed);
+  --diffs-fg-number-deletion-override: var(--grey);
+  --diffs-fg-number-addition-override: var(--grey);
+  --diffs-bg-deletion-number-override: var(--sunken);
+  --diffs-bg-addition-number-override: var(--sunken);
+  --diffs-bg-selection-override: var(--selected);
+  --diffs-bg-selection-number-override: var(--selected);
+  --diffs-selection-number-fg: var(--text);
+  --diffs-bg-hover-override: var(--sunken);
+}
+.diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
+button { color: var(--grey); background: var(--sunken); font: inherit; border: 0; }
+button:hover { color: var(--text); }
+button:focus-visible { outline: 2px solid var(--accent); }
+button:active { color: var(--ink-pressed); }

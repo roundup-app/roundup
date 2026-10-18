@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Agent diff observer</title></head><body><div id="root"></div><script type="module">
+import { createComponent } from "solid-js";
+import { render } from "solid-js/web";
+import { App } from "../App";
+import { seedApp } from "../testing/seeds";
+import { runChecks } from "../testing/checks";
+import { railStorage } from "../rail/persist/storage";
+import { RpcError } from "../app/seam";
+import { notesFor } from "./notes";
+import "../tokens.css";
+import "../styles.css";
+
+const dense = new URLSearchParams(location.search).has("dense");
+
+const controls = seedApp("tree-40", Date.now());
+
+const { app } = controls;
+
+const original = app.handlers["rail.tree"];
+
+const worktree = { branch: "roundup/agent-1", base: "main", path: "/p/.roundup/agent-1" };
+
+app.handlers["rail.tree"] = async () => (await original(null) ?? []).map(node => node.id === "agent-1" ? { ...node, worktree } : node);
+
+const path = dense ? `${"directory/".repeat(10)}very-long-file-name.ts` : "src/example.ts";
+
+const comparison = { base: "original-base-commit", oldPath: path, newPath: path, status: "modified", old: { kind: "text", revision: "original-old", text: dense ? Array.from({ length: 10000 }, (_, i) => `const old${i} = ${i};`).join("\n") : "const first = 1;\nconst second = 2;\n" }, new: { kind: "text", revision: "original-new", text: dense ? Array.from({ length: 10000 }, (_, i) => `const next${i} = ${i};`).join("\n") : "const first = 3;\nconst second = 4;\n" } };
+
+app.handlers["agent.worktreeState"] = () => ({ ahead: 1, behind: 0, dirty: true });
+
+app.handlers["agent.changedFiles"] = () => ({ files: [{ path, line: 1, status: "modified" }, ...Array.from({ length: dense ? 499 : 1 }, (_, i) => ({ path: `src/file-${i}.ts`, status: "modified", line: 1 }))] });
+
+app.handlers["agent.compareFile"] = () => comparison;
+
+if (dense) for (let i = 0; i < 100; i++) notesFor(app).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
+
+const failure = railStorage(app.opened.project.path).write({ selected: "agent-1", collapsed: [] });
+
+if (failure) throw new Error(failure);
+
+window.__fake = controls;
+
+window.__checks = runChecks;
+
+// The existing failure injector can target the next comparison without affecting the tree's reads.
+if (new URLSearchParams(location.search).has("failure")) app.handlers["agent.compareFile"] = () => { throw new RpcError(-32001, `Worktree unavailable: ${path}`); };
+
+render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now }), document.getElementById("root"));
+
+</script></body></html>

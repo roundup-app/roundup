@@ -8,13 +8,17 @@ import { Icon } from "../ink/Icon";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
 import { Popover } from "../ui/Popover";
+import { notesFor } from "./notes";
+import type { Notes, Note } from "./notes";
+import { NoteBatch } from "./NoteBatch";
+import { DiffReader } from "./DiffReader";
 import { ChangedTree } from "./ChangedTree";
 import "./styles.css";
 
 type Read = { failure: null; changed: ChangedFiles } | { failure: string } | null;
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
-const Panel = (props: { id: string; worktree: Worktree }) => {
+const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes }) => {
   const { app, worktrees } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
@@ -26,6 +30,9 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
 
   const [open, setOpen] = createSignal(false);
   const [read, setRead] = createSignal<Read>(null);
+  const [path, setPath] = createSignal<string>();
+  const [editing, setEditing] = createSignal<Note>();
+  const [diff, setDiff] = createSignal(false);
   const [control, setControl] = createSignal<HTMLButtonElement>();
 
   createEffect(on(open, (now) => {
@@ -50,6 +57,8 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
 
   const close = () => {
     setOpen(false);
+    setDiff(false);
+    setEditing(undefined);
     control()?.focus();
   };
 
@@ -62,7 +71,9 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
         </button>
       )} />
       <Popover.Positioner>
-        <Popover.Content class="worktree-panel" aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
+        <Popover.Content class="worktree-panel" data-diff={diff() || undefined} aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
+          <Show when={!diff()}><div class="diff-actions"><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div></Show>
+          <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { setEditing(undefined); setDiff(false); }} onClose={close} />}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
             <dd title={props.worktree.branch}>{props.worktree.branch}</dd>
@@ -90,8 +101,10 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
 
               if (value.changed.files.length === 0) return <p class="worktree-none">{copy.noChanges}</p>;
 
-              return <ChangedTree root={props.worktree.path} files={value.changed.files} />;
+              return <><ChangedTree root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
             }}
+          </Show>
+        <NoteBatch id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
           </Show>
         </Popover.Content>
       </Popover.Positioner>
@@ -101,17 +114,18 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
 
 /** U2539b: the bottom bar's one control for the selected Agent's Worktree; none for an Agent without one. */
 export const WorktreeControl = () => {
-  const { rail } = useConnectedProject();
+  const { rail, app } = useConnectedProject();
+  const notes = notesFor(app);
 
-  const selected: Accessor<{ id: string; worktree: Worktree } | null> = createMemo(
+  const selected: Accessor<{ id: string; name: string; worktree: Worktree } | null> = createMemo(
     () => {
       const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
-      return node && node.worktree ? { id: node.id, worktree: node.worktree } : null;
+      return node && node.worktree ? { id: node.id, name: node.name, worktree: node.worktree } : null;
     },
     null,
     { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
-  return <Show when={selected()} keyed>{(each) => <Panel id={each.id} worktree={each.worktree} />}</Show>;
+  return <Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} />}</Show>;
 };
