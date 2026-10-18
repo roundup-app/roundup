@@ -7,7 +7,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
-import { modalOpen, registerKeys } from "../keys/registry";
+import { registerKeys, type KeyScope } from "../keys/registry";
 import { Tip } from "../rail/Tip";
 import { Select } from "../ui/Select";
 
@@ -29,7 +29,7 @@ const focusPane = (): void => {
 };
 
 /** U505, U506: one row for each part of each Ask, newest first. */
-export const AskRows = (props: { onOpened: () => void }) => {
+export const AskRows = (props: { onOpened: () => void; keys: KeyScope }) => {
   const { asks, rail } = useConnectedProject();
 
   const parts = createMemo(() => asks.entries().flatMap((entry) => entry.parts.map((part, index) => ({ entry, part, index }))));
@@ -55,13 +55,13 @@ export const AskRows = (props: { onOpened: () => void }) => {
   return (
     <ul class="ask-rows" aria-label={copy.askRows}>
       <For each={parts()}>
-        {({ entry, part, index }) => <AskRow entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
+        {({ entry, part, index }) => <AskRow keys={props.keys} entry={entry} part={part} index={index} where={where(part)} workstream={workstreamOf(part)} open={open} />}
       </For>
     </ul>
   );
 };
 
-const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
+const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: number; where: string; workstream: string | null; open: (id: string) => void }) => {
   const { asks, rail } = useConnectedProject();
 
   let button: HTMLButtonElement | undefined;
@@ -83,15 +83,18 @@ const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: s
     onCleanup(() => observer.disconnect());
   });
 
-  registerKeys({ kind: "layer", element: () => button, active: () => !!button && document.activeElement === button && !modalOpen(), modal: false }, [{
+  const arrows = [{
     chords: ["ArrowUp", "ArrowDown"],
-    when: (event) => event.target === button,
-    run: (event) => {
+    when: (event: KeyboardEvent) => event.target === button,
+    run: (event: KeyboardEvent) => {
       const rows = [...(button?.closest(".ask-rows")?.querySelectorAll<HTMLButtonElement>("button.ask-line") ?? [])];
       const index = rows.findIndex((row) => row === button);
       rows[index + (event.key === "ArrowDown" ? 1 : -1)]?.focus();
     },
-  }]);
+  }];
+
+  registerKeys({ kind: "region", element: () => button }, arrows);
+  registerKeys(props.keys, arrows);
 
   const node = () => (props.workstream === null ? undefined : rail.nodes.find((each) => each.id === props.workstream));
 

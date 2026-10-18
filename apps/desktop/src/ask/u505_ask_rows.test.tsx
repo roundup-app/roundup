@@ -117,16 +117,32 @@ describe("u505 an Ask row shows progress from Agent state", () => {
           data: {ask: {id: "arrows", at: "1", text: "arrows", parts}}});
       })()`);
       await browser("wait", "--fn", "document.querySelectorAll('button.ask-line').length === 2");
-      await browser("focus", ".ask-row[data-state=queued] button.ask-line");
 
-      for (const [key, state] of [["ArrowUp", "queued"], ["ArrowDown", "typed"], ["ArrowDown", "typed"], ["ArrowUp", "queued"], ["ArrowDown", "typed"]] as const) {
-        await browser("press", key);
-        await browser("wait", "--fn", `document.activeElement === document.querySelector('.ask-row[data-state="${state}"] button.ask-line')`);
+      for (const mode of ["home", "over"]) {
+        if (mode === "over") {
+          await browser("press", "Meta+/");
+          await browser("wait", "--fn", "document.querySelector('.ask-bar')?.dataset.mode === 'over'");
+        }
+
+        await browser("focus", ".ask-row[data-state=queued] button.ask-line");
+
+        for (const [key, state] of [["ArrowUp", "queued"], ["ArrowDown", "typed"], ["ArrowDown", "typed"], ["ArrowUp", "queued"], ["ArrowDown", "typed"]] as const) {
+          await browser("press", key);
+          await browser("wait", "--fn", `document.activeElement === document.querySelector('.ask-row[data-state="${state}"] button.ask-line')`);
+        }
+
+        if (mode === "over") {
+          await browser("press", "Escape");
+          await browser("wait", "--fn", "!document.querySelector('.ask-input')");
+          await browser("press", "Meta+/");
+          await browser("wait", "--fn", "document.querySelector('.ask-bar')?.dataset.mode === 'over'");
+          await browser("focus", ".ask-row[data-state=typed] button.ask-line");
+        }
+
+        await browser("press", "Enter");
+        await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
+        expect((await browser("eval", "document.querySelector('.pane-screen').contains(document.activeElement)")).result).toBe(true);
       }
-
-      await browser("press", "Enter");
-      await browser("wait", "--fn", "document.querySelector('.rail-row[data-id=payments]')?.dataset.selected === 'true' && !document.querySelector('.ask-input')");
-      expect((await browser("eval", "document.querySelector('.pane-screen').contains(document.activeElement)")).result).toBe(true);
     });
   }, 120_000);
 
