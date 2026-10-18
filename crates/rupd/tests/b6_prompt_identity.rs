@@ -1786,6 +1786,24 @@ async fn b6_ordinary_door_write_lost_input_thread_result_stays_unknown() {
     assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
     assert!(error.message.contains("do not retry"), "{error:?}");
     assert!(error.message.contains("input ended"), "{error:?}");
+    // The input thread drops its result before it drops its queue; wait until the queue is gone,
+    // so the later write meets the ended thread and not one still unwinding.
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let probe = caller
+                .request(
+                    "terminal.write",
+                    json!({"id":run.terminal,"data":STANDARD.encode(b"")}),
+                )
+                .await;
+            if probe.is_err_and(|e| e.code != rpc::code::UNKNOWN_OUTCOME) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the ended input thread drops its queue");
     // The failed input thread cannot accept or replay bytes through a replacement queue.
     let later = caller
         .request(
