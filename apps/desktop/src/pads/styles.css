@@ -17,7 +17,21 @@
 }
 
 .pad-head-name {
+  flex: 0 1 auto;
+  line-height: var(--space-5);
+}
+
+/* Saved is state beside the name; actions trail with twice their inter-action gap. */
+.pad-head-title {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: var(--space-2);
+  margin-right: var(--space-2);
+}
+
+.pad-saved {
+  flex-shrink: 0;
   line-height: var(--space-5);
 }
 

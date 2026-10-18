@@ -4,6 +4,7 @@ export const CONTRACT = {
     "agent.actionHistory": "84ba706abda432d4",
     "agent.ask": "d719318c25643424",
     "agent.brief": "578d4809b6cafc1b",
+    "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",
     "agent.context": "5afea722eb616445",
     "agent.digest": "03bc0665308ea78d",

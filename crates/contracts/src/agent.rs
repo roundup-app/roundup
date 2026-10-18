@@ -91,6 +91,38 @@ pub struct WorktreeState {
     pub dirty: bool,
 }
 
+/// How a Changed file differs from the Agent's Base (U2539a).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "agent/")]
+pub enum ChangedStatus {
+    Added,
+    Modified,
+    Renamed,
+    Deleted,
+    Untracked,
+}
+
+/// One file the Agent's Worktree differs in: `line` is the 1-based first differing line in the
+/// working copy (`null` for a deleted or binary file), `from` the old path of a renamed file.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ChangedFile {
+    pub path: String,
+    pub status: ChangedStatus,
+    pub line: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub from: Option<String>,
+}
+
+/// What `agent.changedFiles` returns (U2539a), sorted by `path`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ChangedFiles {
+    pub files: Vec<ChangedFile>,
+}
+
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]

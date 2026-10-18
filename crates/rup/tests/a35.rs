@@ -1982,7 +1982,11 @@ async fn m16_door_calls_cannot_bypass_a_child_takeover() {
         let replies = door_calls(
             &fx,
             &[
-                ("agent_prompt", json!({"id": child, "text": "after mark"})),
+                // Keep the released prompt in flight until the queued interrupt runs.
+                (
+                    "agent_prompt",
+                    json!({"id": child, "text": "m16 slow turn"}),
+                ),
                 ("agent_interrupt", json!({"id": child})),
                 (
                     "terminal_write",
