@@ -1,0 +1,107 @@
+{
+  "checks": {
+    "D1": {
+      "status": "pass",
+      "value": [],
+      "selector": ""
+    },
+    "D2": {
+      "status": "pass",
+      "value": [],
+      "selector": ""
+    },
+    "D3": {
+      "status": "pass",
+      "value": [],
+      "selector": ""
+    },
+    "D4": {
+      "status": "pass",
+      "value": {
+        "rows": 0
+      },
+      "selector": ""
+    },
+    "D5": {
+      "status": "pass",
+      "value": [],
+      "selector": ""
+    },
+    "D6": {
+      "status": "pass",
+      "value": {
+        "targets": 12
+      },
+      "selector": ""
+    },
+    "D7": {
+      "status": "pass",
+      "value": {
+        "targets": 12
+      },
+      "selector": ""
+    },
+    "D8": {
+      "status": "pass",
+      "value": [],
+      "selector": ""
+    },
+    "D9": {
+      "status": "pass",
+      "value": [],
+      "selector": ""
+    },
+    "D10": {
+      "status": "pass",
+      "value": {
+        "failing": [],
+        "scheme": "dark",
+        "contrast": "no-preference",
+        "viewport": "1512x950"
+      },
+      "selector": ""
+    },
+    "D11": {
+      "status": "pass",
+      "value": "no Thread",
+      "selector": ""
+    },
+    "D12": {
+      "status": "pass",
+      "value": "no Shelf row",
+      "selector": ""
+    },
+    "D13": {
+      "status": "pass",
+      "value": 0,
+      "selector": ""
+    },
+    "D14": {
+      "status": "pass",
+      "value": "no Shelf row",
+      "selector": ""
+    },
+    "D16": {
+      "status": "pass",
+      "value": "no Thread",
+      "selector": ""
+    }
+  },
+  "focus": "<body>\n    <div id=\"root\"><div data-scope=\"tabs\" data-part=\"root\" id=\"tabs:cl-0\" data-orientation=\"horizontal\" dir=\"ltr\" style=\"display: contents;\"><div class=\"window\" data-layout-root=\"\" data-shelf=\"open\" data-shelf-mode=\"reserved\" data-shelf-shown=\"true\" data-shelf-animated=\"false\" id=\"cl-7\" data-scope=\"splitter\" data-part=\"root\" data-orientation=\"horizontal\" data-dragging=\"undefined\" style=\"--rail-width: 288px; --shelf-span: 320px;\"><header class=\"header\"><div class=\"window-bar\" data-flat-bar=\"\"><div class=\"traffic-lights\" aria-hidden=\"true\"></div><div class=\"strip\"><div class=\"strip-scroll\"><div data-scope=\"tabs\" data-part=\"list\" id=\"tabs:cl-0:list\" role=\"tablist\" dir=\"ltr\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-label=\"Projects\" class=\"app-tabs-list tablist\" style=\"--cut-start: 0px; --cut-end: 0px;\"><div class=\"project-tab\" role=\"presentation\" data-path=\"/Users/you/harness\" data-flat-tab=\"\" data-selected=\"true\"><button data-scope=\"tooltip\" data-part=\"trigger\" role=\"tab\" type=\"button\" dir=\"ltr\" data-orientation=\"horizontal\" data-value=\"/Users/you/harness\" aria-selected=\"true\" data-selected=\"true\" data-focus=\"\" aria-controls=\"tabs:cl-0:content-%2FUsers%2Fyou%2Fharness\" data-ownedby=\"tabs:cl-0:list cl-2\" id=\"tabs:cl-0:trigger-%2FUsers%2Fyou%2Fharness\" tabindex=\"0\" data-button=\"quiet\" data-state=\"closed\" class=\"app-tabs-trigger tab-name-button\" aria-busy=\"false\"><span class=\"tab-name\"><span class=\"tab-head\">harness</span><span class=\"tab-tail\"></span></span></button><button data-scope=\"tooltip\" data-part=\"trigger\" id=\"tooltip:cl-3:trigger\" data-ownedby=\"cl-3\" dir=\"ltr\" data-state=\"closed\" type=\"button\" aria-label=\"Close harness\" data-visible=\"false\" data-button=\"icon\" class=\"word tab-close\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-x lucide-icon icon\" aria-hidden=\"true\"><path d=\"M18 6 6 18\" key=\"1bl5f8\"></path><path d=\"m6 6 12 12\" key=\"d8bk6v\"></path></svg></button></div></div></div><button data-scope=\"tooltip\" data-part=\"trigger\" id=\"tooltip:cl-4:trigger\" data-ownedby=\"cl-4\" dir=\"ltr\" data-state=\"closed\" type=\"button\" data-flat-add=\"\" aria-label=\"Open a folder\" data-button=\"icon\" class=\"word strip-add\">+</button></div><div data-scope=\"tooltip\" data-part=\"trigger\" id=\"tooltip:cl-6:trigger\" data-ownedby=\"cl-6\" dir=\"ltr\" data-state=\"closed\" class=\"window-title\" role=\"heading\" aria-level=\"1\" tabindex=\"0\" aria-label=\"harness\">harness</div></div></header><div data-scope=\"tabs\" data-part=\"content\" dir=\"ltr\" id=\"tabs:cl-0:content-%2FUsers%2Fyou%2Fharness\" aria-labelledby=\"tabs:cl-0:trigger-%2FUsers%2Fyou%2Fharness\" role=\"tabpanel\" data-ownedby=\"tabs:cl-0:list\" data-selected=\"\" data-orientation=\"horizontal\" aria-label=\"harness\" style=\"display: grid; grid-area: 2 / 1; min-height: 0px; min-width: 0px;\"><div class=\"content-actions\"></div><div class=\"columns\" style=\"grid-area:1 / 1\"><section class=\"rail\" data-layout-panel=\"rail\" aria-label=\"Rail\" data-scope=\"splitter\" data-part=\"panel\" data-orientation=\"horizontal\" data-dragging=\"undefined\" data-id=\"rail\" data-index=\"0\" id=\"cl-7-rail\" data-ownedby=\"cl-7\"><div class=\"rail-scroll\"><button type=\"button\" data-button=\"quiet\" data-todo-root=\"\" class=\"todo-project-root\" aria-pressed=\"true\"><span>Project root</span></button><div data-scope=\"tree-view\" data-part=\"root\" id=\"tree:cl-13:root\" dir=\"ltr\" class=\"rail-tree\"><div class=\"section-head\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-messages-square lucide-icon icon\" aria-hidden=\"true\"><path d=\"M16 10a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 14.286V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z\" key=\"1n2ejm\"></path><path d=\"M20 9a2 2 0 0 1 2 2v10.286a.71.71 0 0 1-1.212.502l-2.202-2.202A2 2 0 0 0 17.172 19H10a2 2 0 0 1-2-2v-1\" key=\"1qfcsi\"></path></svg><span>WORKSTREAMS</span></div><div class=\"rail-sortable\"><div data-scope=\"tree-view\" data-part=\"tree\" id=\"tree:cl-13:tree\" dir=\"ltr\" role=\"tree\" aria-label=\"Rail\" aria-labelledby=\"tree:cl-13:label\" tabindex=\"-1\" class=\"app-tree\"></div></div></div></div><div class=\"rail-actions\"><button data-button=\"add\" class=\"word\" aria-label=\"Add Workstream\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-plus lucide-icon icon\" aria-hidden=\"true\"><path d=\"M5 12h14\" key=\"1ays0h\"></path><path d=\"M12 5v14\" key=\"s699le\"></path></svg> Workstream</button></div></section><section class=\"centre\" data-layout-panel=\"centre\" aria-label=\"Centre\" data-scope=\"splitter\" data-part=\"panel\" data-orientation=\"horizontal\" data-dragging=\"undefined\" data-id=\"centre\" data-index=\"1\" id=\"cl-7-centre\" data-ownedby=\"cl-7\"><div class=\"centre-stack\"><div class=\"pane\"><div class=\"pane-body\"><div data-scope=\"menu\" data-part=\"context-trigger\" dir=\"ltr\" id=\"menu:cl-14:ctx-trigger\" data-ownedby=\"cl-14\" data-state=\"closed\" class=\"pane-screen\" style=\"user-select: none;\"></div><div class=\"pane-empty pane-door\"><p class=\"light\">No Workstream yet</p><button data-button=\"primary\" class=\"word pane-action\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-plus lucide-icon icon\" aria-hidden=\"true\"><path d=\"M5 12h14\" key=\"1ays0h\"></path><path d=\"M12 5v14\" key=\"s699le\"></path></svg> New Workstream</button></div></div><div class=\"pane-failure\"></div></div><div class=\"bubbles\" style=\"bottom: 60px;\"></div><div class=\"resource-strip\" data-flat-bar=\"\" role=\"status\" aria-live=\"off\" aria-hidden=\"false\"><p class=\"hint-line\"></p><span class=\"resource-agent\"></span><div class=\"terminal-tabs-host\"><div class=\"terminal-tabs\" role=\"group\" aria-label=\"Terminals\"><button type=\"button\" data-button=\"add\" class=\"terminal-new\" aria-label=\"New Terminal\" data-flat-add=\"\">+ Terminal</button></div></div></div></div></section><div data-scope=\"splitter\" data-part=\"resize-trigger\" dir=\"ltr\" id=\"splitter:cl-7:splitter:rail:centre\" role=\"separator\" data-id=\"rail:centre\" data-ownedby=\"cl-7\" tabindex=\"0\" aria-valuenow=\"288\" aria-valuemin=\"252\" aria-valuemax=\"480\" data-orientation=\"horizontal\" aria-orientation=\"vertical\" aria-controls=\"cl-7-rail cl-7-centre\" class=\"resize-edge app-splitter rail-edge\" aria-label=\"Resize Rail\" style=\"touch-action: none; user-select: none; flex: 0 0 auto; cursor: col-resize; min-height: 0px;\"></div></div><div class=\"overlay\"><aside class=\"drawer\" style=\"position: absolute; top: 0px; right: 0px; bottom: 0px; transform: translateX(100%); transition: transform var(--duration-drawer) var(--easing-out);\" aria-label=\"Drawer\" inert=\"\" data-open=\"false\" data-motion=\"slide\" data-settling=\"false\"><button data-scope=\"tooltip\" data-part=\"trigger\" id=\"tooltip:cl-16:trigger\" data-ownedby=\"cl-16\" dir=\"ltr\" data-state=\"closed\" type=\"button\" aria-label=\"Close\" data-button=\"icon\" class=\"word close\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-x lucide-icon icon\" aria-hidden=\"true\"><path d=\"M18 6 6 18\" key=\"1bl5f8\"></path><path d=\"m6 6 12 12\" key=\"d8bk6v\"></path></svg></button></aside><div class=\"toasts\" role=\"status\" aria-live=\"polite\" style=\"--toast-lift: 0px; --toast-stack: 0px;\"></div></div><section class=\"shelf\" data-layout-panel=\"shelf\" aria-label=\"Work items\" data-open=\"true\" data-animated=\"false\" data-scope=\"splitter\" data-part=\"panel\" data-orientation=\"horizontal\" data-dragging=\"undefined\" data-id=\"shelf\" data-index=\"2\" id=\"cl-7-shelf\" data-ownedby=\"cl-7\"><div class=\"shelf-bar\"><div class=\"shelf-tabs\" role=\"tablist\" aria-label=\"Work items\"><button data-button=\"quiet\" type=\"button\" role=\"tab\" class=\"shelf-tab\" aria-controls=\"shelf-panel\" id=\"shelf-tab-todos\" aria-selected=\"true\" tabindex=\"0\"><div class=\"section-head\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check lucide-icon icon\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\" key=\"1gmf2c\"></path></svg><span>Todos</span></div></button><button data-button=\"quiet\" type=\"button\" role=\"tab\" class=\"shelf-tab\" aria-controls=\"shelf-panel\" id=\"shelf-tab-pads\" aria-selected=\"false\" tabindex=\"-1\"><div class=\"section-head\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-file-text lucide-icon icon\" aria-hidden=\"true\"><path d=\"M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z\" key=\"1oefj6\"></path><path d=\"M14 2v5a1 1 0 0 0 1 1h5\" key=\"wfsgrz\"></path><path d=\"M10 9H8\" key=\"b1mrlr\"></path><path d=\"M16 13H8\" key=\"t4e002\"></path><path d=\"M16 17H8\" key=\"z1uh3a\"></path></svg><span>Pads</span></div></button></div><button data-button=\"icon\" type=\"button\" class=\"shelf-toggle\" aria-label=\"Hide work items\" aria-expanded=\"true\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-right lucide-icon icon\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\" key=\"mthhwq\"></path></svg></button></div><div class=\"shelf-scroll\" data-clipped-top=\"false\" data-clipped-bottom=\"false\"><div class=\"shelf-area\"><div role=\"tabpanel\" id=\"shelf-panel\" class=\"shelf-panel\" aria-labelledby=\"shelf-tab-todos\"><section aria-label=\"Todos\"><button data-button=\"add\" type=\"button\" class=\"shelf-add\" aria-label=\"Add Todo\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-plus lucide-icon icon\" aria-hidden=\"true\"><path d=\"M5 12h14\" key=\"1ays0h\"></path><path d=\"M12 5v14\" key=\"s699le\"></path></svg><span>Todo</span></button><div class=\"empty-state\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check lucide-icon icon\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\" key=\"1gmf2c\"></path></svg><p>No Todos yet</p><p class=\"empty-state-hint\">Agents add them as they work, or press + Todo.</p></div></section></div></div></div><div><div></div></div></section><div class=\"shelf-edge-slot\" data-open=\"true\" data-animated=\"false\"><div data-scope=\"splitter\" data-part=\"resize-trigger\" dir=\"ltr\" id=\"splitter:cl-11:splitter:centre:shelf\" role=\"separator\" data-id=\"centre:shelf\" data-ownedby=\"cl-7\" tabindex=\"0\" aria-valuenow=\"320\" aria-valuemin=\"240\" aria-valuemax=\"560\" data-orientation=\"horizontal\" aria-orientation=\"vertical\" aria-controls=\"cl-7-centre cl-7-shelf\" class=\"resize-edge app-splitter shelf-edge\" aria-label=\"Resize work items\" style=\"touch-action: none; user-select: none; flex: 0 0 auto; cursor: col-resize; min-height: 0px;\"></div></div></div></div></div></div>\n    <script type=\"module\" src=\"/src/testing/harness.tsx?t=1792305795232\"></script>\n  \n\n<div></div><div></div><div></div><div></div><div></div></body>",
+  "placeholder": [
+    {
+      "text": "No Workstream yet New Workstream",
+      "display": "flex"
+    }
+  ],
+  "bar": {
+    "x": 288,
+    "y": 890,
+    "width": 904,
+    "height": 60,
+    "top": 890,
+    "right": 1192,
+    "bottom": 950,
+    "left": 288
+  }
+}
