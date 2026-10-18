@@ -68,7 +68,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
     <Popover.Root open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
       <Show when={control.open()}><Portal>
         <Popover.Positioner>
-          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent}>
+          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent} onPointerDown={() => control.hold()}>
             <input
               ref={input}
               class="send-to-agent-note"

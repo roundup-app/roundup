@@ -76,7 +76,9 @@
   background-color: var(--sunken);
 }
 
-.todo-tick:focus-visible { outline-width: 0; }
+.todo-tick:focus-visible {
+  outline: 0 solid var(--accent);
+}
 .todo-tick:focus-visible::before {
   outline: inherit;
   outline-width: 2px;
@@ -102,8 +104,13 @@
 
 .todo-tick:disabled { cursor: default; }
 /* Hover and press show through the ring's ink, never a fill. */
-.todo-tick:hover:not(:checked):not(:disabled)::before { background-color: var(--text); }
-.todo-tick:active:not(:checked):not(:disabled)::before { background-color: var(--ink-pressed); }
+.todo-tick:hover:not(:disabled) { color: var(--text); }
+.todo-tick:active:not(:disabled) {
+  color: var(--ink-pressed);
+  transition-duration: 0s;
+}
+.todo-tick:hover:not(:disabled)::before,
+.todo-tick:active:not(:disabled)::before { background-color: currentColor; }
 
 .shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
   grid-column: 1;
