@@ -132,6 +132,7 @@ impl Project {
             model: None,
             effort: None,
             scout: None,
+            specialist: None,
             extras: None,
         };
         let node = client.request("agent.spawn", params).await.unwrap();

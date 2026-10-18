@@ -1185,7 +1185,12 @@ fn m11_settings_ask_for_tool_search_unless_the_user_set_it() {
 fn m11_permission_for_roundup_tools_is_still_allowed() {
     let s = setup();
     let settings = read(Path::new(&s.prepare_as("7", Role::Door).unwrap()[2]));
-    assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
+    assert!(
+        settings["permissions"]["allow"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("mcp__roundup__agent_spawn"))
+    );
 }
 
 #[test]
@@ -2099,11 +2104,20 @@ fn lc2_a_child_starts_from_its_own_settings() {
         );
         assert!(has(&argv, "--strict-mcp-config") && has(&argv, "--mcp-config"));
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-        assert_eq!(
-            settings["permissions"]["allow"],
-            json!(["mcp__roundup__*", "Bash(git status)"]),
-            "roundup's first, a rule once"
-        );
+        if row == Role::Door {
+            assert!(
+                settings["permissions"]["allow"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&json!("mcp__roundup__agent_spawn"))
+            );
+        } else {
+            assert_eq!(
+                settings["permissions"]["allow"],
+                json!(["mcp__roundup__*", "Bash(git status)"]),
+                "roundup's first, a rule once"
+            );
+        }
         assert_eq!(settings["permissions"]["deny"], json!(["Read(.env)"]));
         // LC2: login carries over; the user's `env` and `defaultMode` do not.
         assert_eq!(settings["apiKeyHelper"], "printf key");
@@ -2485,12 +2499,33 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
     for mcp in [true, false] {
         let s = setup();
         s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__*","Read(*)"]}}).to_string());
-        let argv = s.prepare_lean("7", Role::Door, &Pair { mcp_off: !mcp, ..Pair::default() }, None).unwrap();
+        let argv = s
+            .prepare_lean(
+                "7",
+                Role::Door,
+                &Pair {
+                    mcp_off: !mcp,
+                    ..Pair::default()
+                },
+                None,
+            )
+            .unwrap();
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
         let allowed = settings["permissions"]["allow"].as_array().unwrap();
-        for forbidden in ["Bash", "PowerShell", "terminal_spawn", "terminal_open", "terminal_write"] {
+        for forbidden in [
+            "Bash",
+            "PowerShell",
+            "terminal_spawn",
+            "terminal_open",
+            "terminal_write",
+        ] {
             assert!(!Setup::after(&argv, "--tools").unwrap().contains(forbidden));
-            assert!(!allowed.iter().any(|rule| rule.as_str().unwrap().contains(forbidden)), "{allowed:?}");
+            assert!(
+                !allowed
+                    .iter()
+                    .any(|rule| rule.as_str().unwrap().contains(forbidden)),
+                "{allowed:?}"
+            );
         }
         assert!(!allowed.contains(&json!("mcp__roundup__*")));
         assert!(allowed.contains(&json!("Read(*)")));
@@ -2501,16 +2536,20 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
 fn lc11_the_brief_names_a_standing_specialist_and_a_job_sized_child() {
     let s = setup();
     let text = brief(&s, "7", Role::Door);
-    for token in ["standing specialist", "job-sized"] { assert!(text.contains(token), "{token}"); }
+    for token in ["standing specialist", "job-sized"] {
+        assert!(text.contains(token), "{token}");
+    }
 }
 
 #[test]
 fn lc12_the_brief_names_the_specialist_field() {
-    assert!(brief(&setup(), "7", Role::Door).contains("specialist"));
+    assert!(brief(&setup(), "7", Role::Door).contains("`specialist: \"<name>\"`"));
 }
 
 #[test]
 fn lc13_the_brief_sizes_a_job_under_160k() {
     let text = brief(&setup(), "7", Role::Door);
-    for token in ["160k", "whole job"] { assert!(text.contains(token), "{token}"); }
+    for token in ["160k", "whole job"] {
+        assert!(text.contains(token), "{token}");
+    }
 }
