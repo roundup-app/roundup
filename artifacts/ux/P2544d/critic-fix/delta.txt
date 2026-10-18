@@ -1,0 +1,6 @@
+dark-conflict.checks: regressions=[]; failing=D1,D10,D2,D6,D7
+dark-opened.checks: regressions=[]; failing=D1,D10,D2,D6,D7
+dark-settled.checks: regressions=[]; failing=D1,D10,D2,D6,D7
+light-conflict.checks: regressions=[]; failing=D1,D10,D2,D6,D7
+light-opened.checks: regressions=[]; failing=D1,D10,D2,D6,D7
+light-settled.checks: regressions=[]; failing=D1,D10,D2,D6,D7

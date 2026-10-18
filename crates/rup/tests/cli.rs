@@ -985,3 +985,39 @@ async fn b45_the_cli_command_is_the_tool_and_exits_by_the_table() {
     let gone = dir.path().join("absent.sock");
     assert_eq!(code(&on(&gone).rup(&["agent", "wake", "3"]).await), 1);
 }
+
+#[tokio::test]
+async fn p2544d_cli_write_accepts_revision_guard() {
+    let project = start_daemon().await;
+    let run = on(&project.socket);
+    assert_eq!(
+        code(
+            &run.rup(&["pad", "create", "notes", "--text", "original"])
+                .await
+        ),
+        0
+    );
+    assert_eq!(
+        code(
+            &run.rup(&["pad", "write", "notes", "winner", "--expectedRevision", "1"])
+                .await
+        ),
+        0
+    );
+    let stale = run
+        .rup(&[
+            "pad",
+            "write",
+            "notes",
+            "loser",
+            "--expectedRevision",
+            "1",
+            "--json",
+        ])
+        .await;
+    assert_eq!(code(&stale), 1);
+    assert!(err(&stale).contains("revision 2"));
+    let read: Value =
+        serde_json::from_str(&out(&run.rup(&["pad", "read", "notes", "--json"]).await)).unwrap();
+    assert_eq!(read["text"], "winner");
+}
