@@ -1,0 +1,550 @@
+{
+ "light-backend": {
+  "rest": {
+   "id": "backend",
+   "near": "false",
+   "rowH": 32,
+   "dot": {
+    "l": 48,
+    "r": 64,
+    "t": 106,
+    "b": 122
+   },
+   "name": {
+    "l": 72,
+    "r": 109.171875,
+    "t": 105.953125,
+    "b": 122.046875
+   },
+   "nameCentreY": 114,
+   "dotCentreY": 114,
+   "state": {
+    "l": 117.171875,
+    "r": 144.171875,
+    "t": 106,
+    "b": 122
+   },
+   "stateClass": "ink-count",
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 102,
+    "b": 126
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "hidden",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  },
+  "hover": {
+   "id": "backend",
+   "near": "true",
+   "rowH": 32,
+   "dot": {
+    "l": 48,
+    "r": 64,
+    "t": 106,
+    "b": 122
+   },
+   "name": {
+    "l": 72,
+    "r": 109.171875,
+    "t": 105.953125,
+    "b": 122.046875
+   },
+   "nameCentreY": 114,
+   "dotCentreY": 114,
+   "state": {
+    "l": 117.171875,
+    "r": 144.171875,
+    "t": 106,
+    "b": 122
+   },
+   "stateClass": "ink-count",
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 102,
+    "b": 126
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "visible",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  }
+ },
+ "light-auth": {
+  "rest": {
+   "id": "auth",
+   "near": "false",
+   "rowH": 32,
+   "dot": {
+    "l": 76,
+    "r": 92,
+    "t": 150,
+    "b": 166
+   },
+   "name": {
+    "l": 100,
+    "r": 148.171875,
+    "t": 149.953125,
+    "b": 166.046875
+   },
+   "nameCentreY": 158,
+   "dotCentreY": 158,
+   "state": null,
+   "stateClass": null,
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 146,
+    "b": 170
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "hidden",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  },
+  "hover": {
+   "id": "auth",
+   "near": "true",
+   "rowH": 32,
+   "dot": {
+    "l": 76,
+    "r": 92,
+    "t": 150,
+    "b": 166
+   },
+   "name": {
+    "l": 100,
+    "r": 148.171875,
+    "t": 149.953125,
+    "b": 166.046875
+   },
+   "nameCentreY": 158,
+   "dotCentreY": 158,
+   "state": null,
+   "stateClass": null,
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 146,
+    "b": 170
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "visible",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  }
+ },
+ "dark-backend": {
+  "rest": {
+   "id": "backend",
+   "near": "false",
+   "rowH": 32,
+   "dot": {
+    "l": 48,
+    "r": 64,
+    "t": 106,
+    "b": 122
+   },
+   "name": {
+    "l": 72,
+    "r": 109.171875,
+    "t": 105.953125,
+    "b": 122.046875
+   },
+   "nameCentreY": 114,
+   "dotCentreY": 114,
+   "state": {
+    "l": 117.171875,
+    "r": 144.171875,
+    "t": 106,
+    "b": 122
+   },
+   "stateClass": "ink-count",
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 102,
+    "b": 126
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "hidden",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  },
+  "hover": {
+   "id": "backend",
+   "near": "true",
+   "rowH": 32,
+   "dot": {
+    "l": 48,
+    "r": 64,
+    "t": 106,
+    "b": 122
+   },
+   "name": {
+    "l": 72,
+    "r": 109.171875,
+    "t": 105.953125,
+    "b": 122.046875
+   },
+   "nameCentreY": 114,
+   "dotCentreY": 114,
+   "state": {
+    "l": 117.171875,
+    "r": 144.171875,
+    "t": 106,
+    "b": 122
+   },
+   "stateClass": "ink-count",
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 102,
+    "b": 126
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "visible",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  }
+ },
+ "dark-auth": {
+  "rest": {
+   "id": "auth",
+   "near": "false",
+   "rowH": 32,
+   "dot": {
+    "l": 76,
+    "r": 92,
+    "t": 150,
+    "b": 166
+   },
+   "name": {
+    "l": 100,
+    "r": 148.171875,
+    "t": 149.953125,
+    "b": 166.046875
+   },
+   "nameCentreY": 158,
+   "dotCentreY": 158,
+   "state": null,
+   "stateClass": null,
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 146,
+    "b": 170
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "hidden",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  },
+  "hover": {
+   "id": "auth",
+   "near": "true",
+   "rowH": 32,
+   "dot": {
+    "l": 76,
+    "r": 92,
+    "t": 150,
+    "b": 166
+   },
+   "name": {
+    "l": 100,
+    "r": 148.171875,
+    "t": 149.953125,
+    "b": 166.046875
+   },
+   "nameCentreY": 158,
+   "dotCentreY": 158,
+   "state": null,
+   "stateClass": null,
+   "icons": {
+    "l": 164.171875,
+    "r": 271,
+    "t": 146,
+    "b": 170
+   },
+   "kids": [
+    [
+     "Add Agent",
+     "static",
+     "flex",
+     50.828125
+    ],
+    [
+     "Start supervisor",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Clear Workstream…",
+     "static",
+     "flex",
+     24
+    ],
+    [
+     "Open folder",
+     "absolute",
+     "flex",
+     24
+    ],
+    [
+     "Open in editor",
+     "absolute",
+     "flex",
+     24
+    ]
+   ],
+   "iconsVisibility": "visible",
+   "fontSize": "14px",
+   "lineHeight": "16.1px",
+   "nameClientH": 16,
+   "nameScrollH": 16,
+   "nameClipped": true
+  }
+ }
+}
