@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { ask, mountAskBar } from "./askFixture";
 
@@ -42,6 +42,28 @@ describe("u506 an unclear row asks back", () => {
     await waitFor(() => expect(elements().every((button) => !button.disabled)).toBe(true));
     press("Drop");
     await waitFor(() => expect(picks(app)).toEqual([{ id: "a1", part: 0, target: { kind: "new" } }, { id: "a1", part: 0, target: { kind: "drop" } }]));
+  });
+
+  it("u506_a_failed_row_offers_each_recovery_once", async () => {
+    const failed = ask("a1", 1, [{ text: "/clear", placement: { kind: "routed", workstream: "lead" }, state: "failed", reason: "agent lead did not accept the prompt" }]);
+
+    for (const target of [{ kind: "workstream", id: "ops" }, { kind: "new" }, { kind: "drop" }]) {
+      const { app } = await mountAskBar([failed]);
+      app.handlers["ask.pick"] = () => failed;
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Drop" })).toBeTruthy());
+
+      if (target.kind === "workstream") {
+        fireEvent.click(screen.getByRole("combobox", { name: "Another Workstream" }));
+        const option = await screen.findByRole("option", { name: "ops" });
+        fireEvent.click(option);
+      } else {
+        fireEvent.click(screen.getByRole("button", { name: target.kind === "new" ? "New Workstream" : "Drop" }));
+      }
+
+      await waitFor(() => expect(picks(app)).toEqual([{ id: "a1", part: 0, target }]));
+      cleanup();
+    }
   });
 
   it("u506_the_buttons_are_reachable_by_keyboard", async () => {
