@@ -17,15 +17,19 @@ it("u371_overlay_scrim_fades_with_the_interruptible_slide", async () => {
   const phases = await evaluate<number[][][]>(`(async () => {
     const scrim = () => document.querySelector('.shelf-scrim');
     const sample = () => [performance.now(), scrim() ? Number(getComputedStyle(scrim()).opacity) : -1];
-    const toggle = () => document.querySelector('[aria-label="Hide work items"], [aria-label="Show work items"]').click();
+    const toggle = () => document.querySelector('[aria-label="Hide work items"], [aria-label="Show work items"]').dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
     const run = async (reverse) => {
       toggle();
       const rows = [sample()];
       let reversed = false;
-      await new Promise(resolve => {
+      await new Promise((resolve, reject) => {
         const tick = () => {
           rows.push(sample());
           const slide = document.getAnimations().find(a => a.effect?.target?.matches?.('.shelf'));
+          if (reverse && !reversed && !slide) {
+            reject(new Error('Shelf slide ended before pointer reversal'));
+            return;
+          }
           if (reverse && !reversed && slide && slide.currentTime >= slide.effect.getTiming().duration * .45) {
             const before = sample()[1];
             toggle();

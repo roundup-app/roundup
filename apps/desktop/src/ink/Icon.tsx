@@ -1,6 +1,7 @@
 import Code from "lucide-solid/icons/code";
 import FolderOpen from "lucide-solid/icons/folder-open";
 import Square from "lucide-solid/icons/square";
+import GitBranch from "lucide-solid/icons/git-branch";
 import Check from "lucide-solid/icons/check";
 import ChevronDown from "lucide-solid/icons/chevron-down";
 import ChevronLeft from "lucide-solid/icons/chevron-left";
@@ -29,7 +30,7 @@ import X from "lucide-solid/icons/x";
 import { Dynamic } from "solid-js/web";
 import "./styles.css";
 
-const icons = { play: Play, check: Check, down: ChevronDown, left: ChevronLeft, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, takeover: Hand, messages: MessagesSquare, folder: FolderOpen, editor: Code, stop: Square, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil };
+const icons = { play: Play, check: Check, down: ChevronDown, left: ChevronLeft, right: ChevronRight, circle: Circle, diamond: Diamond, owned: DiamondPlus, dot: Dot, export: FileDown, talk: MessageSquare, trash: Trash, pause: Pause, plus: Plus, minus: Minus, x: X, more: Ellipsis, clear: Eraser, order: FileText, takeover: Hand, messages: MessagesSquare, folder: FolderOpen, editor: Code, stop: Square, memory: MemoryStick, cpu: Cpu, disk: HardDrive, edit: Pencil, branch: GitBranch };
 
 export const Icon = (props: { name: keyof typeof icons; filled?: boolean }) => (
   <Dynamic component={icons[props.name]} class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} stroke-linecap="round" stroke-linejoin="round" fill={props.filled ? "currentColor" : "none"} />
