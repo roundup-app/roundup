@@ -100,7 +100,7 @@ impl Agents {
                 steer_bound: STEER_BOUND,
                 steer: crate::SteerSettings {
                     before_steer: None,
-                    interrupt_bound: INTERRUPT_BOUND,
+                    interrupt_bound: interrupt_bound_from_env(),
                 },
                 events: events::State {
                     gate_observer: None,
