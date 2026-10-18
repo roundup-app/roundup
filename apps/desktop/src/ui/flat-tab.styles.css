@@ -56,11 +56,6 @@
   color: var(--text);
 }
 
-[data-flat-tab]:active {
-  color: var(--ink-pressed);
-  transition-duration: 0s;
-}
-
 [data-flat-tab][data-selected="true"] {
   position: relative;
   z-index: 1;
