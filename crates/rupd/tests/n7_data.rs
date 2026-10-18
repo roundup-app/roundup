@@ -204,7 +204,8 @@ mod x14_daemon_observer {
                 }}),
             )
             .await?;
-            self.call("rail.rename", json!({"id": self.rail, "name": identity}))
+            // A same-name rename emits only RailChanged, keeping one marker per Bus slot.
+            self.call("rail.rename", json!({"id": self.rail, "name": "observer"}))
                 .await?;
             Ok(())
         }
