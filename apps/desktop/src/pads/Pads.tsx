@@ -4,6 +4,8 @@ import { createBulkDelete } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
+import { EmptyState } from "../ink/EmptyState";
+import { EntryRow } from "../ink/EntryRow";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
@@ -23,12 +25,12 @@ export const Pads = () => {
   const list = usePadList();
   const pads = list.pads;
   const [naming, setNaming] = createSignal(false);
+  let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
   const scope = useShelfScope(connected);
 
   const create = (name: string) =>
     failure.run(async () => {
-      setNaming(false);
       const home = scope.workstream();
 
       await connected.app.rpc("pad.create", { name, text: null });
@@ -73,6 +75,7 @@ export const Pads = () => {
         type="button"
         aria-label={copy.addPad}
         class="shelf-add"
+        ref={(button) => (plusButton = button)}
         onClick={() => {
           failure.clear();
           setNaming(true);
@@ -81,21 +84,14 @@ export const Pads = () => {
         <Icon name="plus" />
         <span>{copy.pad}</span>
       </button>
-      <Show
-        when={failure.message()}
-        fallback={
-          <Show when={naming()}>
-            <NameField onName={create} onCancel={() => setNaming(false)} />
-          </Show>
-        }
-      >
+      <Show when={failure.message()}>
         {(message) => <ErrorLine message={message()} />}
       </Show>
       <Show when={list.failure()}>
         {(message) => <ErrorLine message={message()} />}
       </Show>
-      <Show when={isEmpty()}>
-        <p>{copy.noPadsYet}</p>
+      <Show when={isEmpty() && !naming()}>
+        <EmptyState icon="order" title={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
       <Show when={noneRunning()}>
         <p>{copy.noPadsFromRunningAgents}</p>
@@ -113,6 +109,22 @@ export const Pads = () => {
         onMakeYours={(name) => void makeYours(name)}
         onLateFailure={failure.show}
       />
+      <Show when={naming()}>
+        <div class="shelf-list">
+          <EntryRow
+            glyph={<span class="light"><OwnerMark owner={USER} decorative /></span>}
+            class="pad-inset"
+            label={copy.padName}
+            placeholder={copy.newPadPlaceholder}
+            onSubmit={(name) => void create(name)}
+            onClose={(reason) => {
+              setNaming(false);
+
+              if (reason !== "blur") plusButton?.focus();
+            }}
+          />
+        </div>
+      </Show>
       <bulk.Bar />
     </section>
   );
@@ -186,17 +198,3 @@ const PadRows = (props: {
     </div>
   );
 };
-
-const NameField = (props: {
-  onName: (name: string) => void;
-  onCancel: () => void;
-}) => (
-  <input
-    aria-label={copy.padName}
-    ref={(field) => queueMicrotask(() => field.focus())}
-    onKeyDown={(key) => {
-      if (key.key === "Enter") props.onName(key.currentTarget.value);
-      else if (key.key === "Escape") props.onCancel();
-    }}
-  />
-);

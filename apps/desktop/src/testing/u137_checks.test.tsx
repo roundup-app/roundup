@@ -24,6 +24,18 @@ const addSheet = (css: string) => {
 };
 
 describe("u137 one module measures the checks", () => {
+  it("u137_editor_menu_is_not_an_item_row", () => {
+    document.body.innerHTML = '<aside><ul><li data-id="pad"><span class="glyph"></span>Pad</li></ul><div class="milkdown-slash-menu"><nav class="tab-group"><ul><li class="selected">Text</li><li>List</li><li>Advanced</li></ul></nav><div class="menu-groups"><ul><li data-index="0">Paragraph</li></ul></div></div></aside>';
+    const before = document.body.innerHTML;
+    expect(runChecks().D4.status).toBe("pass");
+    expect(document.body.innerHTML).toBe(before);
+
+    document.querySelector<HTMLElement>(".milkdown-slash-menu li")!.style.color = "#ff00ff";
+    expect(runChecks().D1.status).toBe("fail");
+    document.querySelector(".glyph")!.remove();
+    expect(runChecks().D4).toMatchObject({ status: "fail", selector: 'li[data-id="pad"]' });
+  });
+
   it("u137_a_later_check_call_observes_changed_styles", () => {
     document.body.innerHTML = "<p class='rail-row'>x</p>";
     addSheet(".rail-row { transition-duration: 0s; }");
@@ -148,6 +160,35 @@ describe("u137 one module measures the checks", () => {
   });
 });
 
+describe("u131 D2 KeyChip spacing", () => {
+  it.each([
+    ["kbd", "", "padding-left: 5px"],
+    ["span", "key-chip", "padding-left: 5px"],
+    ...["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"].map((property) => ["p", "", `${property}: 5px`]),
+    ...["margin-top", "margin-right", "margin-bottom", "margin-left", "row-gap", "column-gap"].map((property) => ["kbd", "key-chip", `padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); ${property}: 5px`]),
+    ...["padding-left: 4px", "padding-right: 8px", "padding-top: 4px", "padding-bottom: 5px", "padding-left: 6px"].map((padding) => ["kbd", "key-chip", `padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); ${padding}`]),
+  ])("u131_rejects_nonconforming_spacing_on_%s_%s_%s", (tag, className, spacing) => {
+    document.body.innerHTML = `<${tag} class="${className}">x</${tag}>`;
+    addSheet(`:root { --key-chip-padding: 5px; } ${tag} { font-size: 13px; ${spacing}; }`);
+
+    expect(runChecks().D2.status).toBe("fail");
+  });
+
+  it.each(["", "--key-chip-padding: 6px;"])("u131_requires_the_specified_chip_token_%s", (token) => {
+    document.body.innerHTML = '<kbd class="key-chip">⌘</kbd>';
+    addSheet(`:root { ${token} } .key-chip { font-size: 13px; padding: 0 5px; }`);
+
+    expect(runChecks().D2.status).toBe("fail");
+  });
+
+  it("u131_accepts_the_u2541_key_chip_side_padding_token", () => {
+    document.body.innerHTML = '<kbd class="key-chip">⌘</kbd>';
+    addSheet(":root { --key-chip-padding: 5px; } .key-chip { font-size: 13px; padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); }");
+
+    expect(runChecks().D2).toEqual({ status: "pass", value: [], selector: "" });
+  });
+});
+
 const chrome = chromePath();
 
 const rendered = chrome || process.env.CI ? describe : describe.skip;
@@ -163,6 +204,29 @@ rendered("u137 rendered focus marks", () => {
     await page.load("/harness.html?seed=door-report", 1280, 800);
   }, 90_000);
   afterAll(async () => { await page?.close(); });
+
+  it("u137_floating_menu_shadow_keeps_unrelated_shadow_rejection", async () => {
+    for (const scheme of ["light", "dark"] as const) {
+      await page.scheme(scheme);
+      await page.load("/harness.html?seed=tree-40");
+
+      const observed = await page.call<string[]>(`() => {
+        document.body.innerHTML = '<div class="milkdown-slash-menu" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+        const statuses = [window.__checks().D8.status];
+        document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
+        statuses.push(window.__checks().D8.status);
+        document.querySelector('.content').style.boxShadow = 'none';
+        document.querySelector('.milkdown-slash-menu p').style.boxShadow = '0 2px 5px red';
+        statuses.push(window.__checks().D8.status);
+        document.querySelector('.milkdown-slash-menu p').style.boxShadow = 'none';
+        document.querySelector('.milkdown-slash-menu').style.boxShadow = '0 2px 5px red';
+        statuses.push(window.__checks().D8.status);
+        return statuses;
+      }`);
+
+      expect(observed, scheme).toEqual(["pass", "fail", "fail", "fail"]);
+    }
+  }, 60_000);
 
   for (const field of ["title", "ask"]) {
     for (const lowContrast of [false, true]) {
@@ -251,6 +315,27 @@ rendered("U135 U136 U161 painted scheme checks", () => {
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
       expect(checks.D5, JSON.stringify(checks.D5)).toMatchObject({ status: "pass" });
+    }, 60_000);
+  }
+
+  for (const scheme of ["light", "dark"] as const) for (const contrast of [undefined, "more"] as const) {
+    it(`u131_accepts_token_backed_chip_padding_in_${scheme}_${contrast ?? "normal"}`, async () => {
+      await page.scheme(scheme, contrast);
+      await load("agents-10");
+      await page.call(`() => {
+        const tokens = document.head.appendChild(document.createElement('style'));
+        tokens.dataset.viteDevId = '/src/tokens.css';
+        tokens.textContent = ':root { --key-chip-padding: 5px; }';
+        const sheet = document.head.appendChild(document.createElement('style'));
+        sheet.textContent = 'kbd.key-chip { padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); font-size: var(--text-small); font-family: var(--font-ui); }';
+        const chip = document.createElement('kbd');
+        chip.className = 'key-chip';
+        chip.textContent = '⌘';
+        document.querySelector('.pane-screen').appendChild(chip);
+      }`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      for (const id of CHECK_IDS) expect(checks[id], `${id}: ${JSON.stringify(checks[id])}`).toMatchObject({ status: "pass" });
     }, 60_000);
   }
 
