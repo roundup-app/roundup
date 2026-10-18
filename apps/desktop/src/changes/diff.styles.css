@@ -1,5 +1,19 @@
 /* Pierre's shadow root owns these defaults; keep every palette and type value in App Tokens. */
 :host {
+  --diffs-foreground: var(--text);
+  --diffs-background: var(--sunken);
+  --diffs-token-keyword: var(--accent);
+  --diffs-token-constant: var(--text);
+  --diffs-token-string: var(--text);
+  --diffs-token-string-expression: var(--text);
+  --diffs-token-comment: var(--grey);
+  --diffs-token-parameter: var(--text);
+  --diffs-token-function: var(--text);
+  --diffs-token-punctuation: var(--grey);
+  --diffs-token-link: var(--accent);
+  --diffs-token-inserted: var(--text);
+  --diffs-token-deleted: var(--text);
+  --diffs-token-changed: var(--text);
   --diffs-font-family: var(--font-mono);
   --diffs-header-font-family: var(--font-ui);
   --diffs-font-size: var(--text-small);
@@ -29,7 +43,7 @@
   --diffs-modified-color-override: var(--amber);
   --diffs-bg-deletion-override: var(--selected);
   --diffs-bg-deletion-emphasis-override: var(--pressed);
-  --diffs-bg-addition-override: var(--selected);
+  --diffs-bg-addition-override: var(--ground);
   --diffs-bg-addition-emphasis-override: var(--pressed);
   --diffs-fg-number-deletion-override: var(--grey);
   --diffs-fg-number-addition-override: var(--grey);
@@ -40,7 +54,6 @@
   --diffs-selection-number-fg: var(--text);
   --diffs-bg-hover-override: var(--sunken);
 }
-[data-line] span { color: var(--text) !important; }
 .diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
 button { color: var(--grey); background: var(--sunken); font: inherit; border: 0; }
 button:hover { color: var(--text); }

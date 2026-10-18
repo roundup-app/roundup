@@ -27,6 +27,7 @@ export const NoteBatch = (props: { id: string; name: string; notes: Notes; compa
     <section class="note-batch" aria-label={copy.notesRegion}>
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
+          <p class="note-path" title={note.comparison.newPath}>{note.comparison.newPath}</p>
           <p>{copy.noteLocation(note.comparison.newPath, note.side, note.start, note.end)}<Show when={older(note)}>{copy.originalContext}</Show></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
