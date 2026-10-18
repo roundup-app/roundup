@@ -56,7 +56,7 @@
 
 .worktree-tree {
   position: relative;
-  height: calc(var(--space-6) * 8);
+  height: min(calc(var(--space-6) * 8), calc(var(--space-5) * var(--worktree-rows, 1)));
   min-height: 0;
   overflow: hidden;
   font-family: var(--font-ui);

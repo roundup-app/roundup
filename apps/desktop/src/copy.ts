@@ -220,6 +220,7 @@ export const copy = {
   statusModified: "Modified",
   statusRenamed: "Renamed",
   statusDeleted: "Deleted",
+  fileUnavailableInEditor: "unavailable in editor",
   statusUntracked: "Untracked",
   project: "Project",
   kilobyteUnit: "KB",

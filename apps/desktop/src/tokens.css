@@ -108,7 +108,7 @@
   }
 }
 
-/* U510: a pressed ghost button dims its ink. */
-button {
+/* U510: ghost buttons and shadow-root tree rows dim their pressed ink. */
+button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
 }

@@ -92,7 +92,10 @@
   margin: 0;
   transition: none;
   transform: none;
-  background: linear-gradient(var(--hairline), var(--hairline)) left / 1px 100% no-repeat;
+  background-image: linear-gradient(var(--hairline), var(--hairline));
+  background-position: left;
+  background-size: 1px 100%;
+  background-repeat: no-repeat;
 }
 [data-item-section="spacing-item"] + [data-item-section="spacing-item"] { margin-left: var(--space-1); }
 [data-truncate-container], [data-truncate-grid] { margin-block: 0; }

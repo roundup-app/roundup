@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
+import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
@@ -69,13 +70,13 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
 
             if (!file) continue;
 
-            const detail = file.from ? `, ${file.from} → ${file.path}` : file.status === "deleted" ? ", unavailable in editor" : "";
+            const detail = file.from ? `, ${file.from} → ${file.path}` : file.status === "deleted" ? `, ${copy.fileUnavailableInEditor}` : "";
             const label = `${file.path}, ${statusText[file.status]}${detail}`;
 
             if (row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
           }
 
-          mount.style.height = `min(calc(var(--space-6) * 8), calc(var(--space-5) * ${tree?.getVisibleCount() ?? 0}))`;
+          mount.style.setProperty("--worktree-rows", String(tree?.getVisibleCount() ?? 0));
         };
 
         const observer = new MutationObserver(describeRows);
