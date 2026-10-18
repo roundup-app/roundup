@@ -16,6 +16,7 @@ import type { PromptParams as agent_PromptParams } from "./agent/PromptParams";
 import type { RailNode as agent_RailNode } from "./agent/RailNode";
 import type { Removal as agent_Removal } from "./agent/Removal";
 import type { RenameParams as agent_RenameParams } from "./agent/RenameParams";
+import type { ResumeParams as agent_ResumeParams } from "./agent/ResumeParams";
 import type { RunParams as agent_RunParams } from "./agent/RunParams";
 import type { SetModelParams as agent_SetModelParams } from "./agent/SetModelParams";
 import type { SetOrderParams as agent_SetOrderParams } from "./agent/SetOrderParams";
@@ -214,7 +215,7 @@ export type RpcMethods = {
   "checkpoint.write": { params: checkpoint_WriteParams; result: checkpoint_Checkpoint };
   "checkpoint.list": { params: checkpoint_ListParams; result: checkpoint_Checkpoint[] };
   "rail.remove": { params: agent_NodeId; result: agent_Removal | null };
-  "agent.resume": { params: agent_NodeId; result: agent_RailNode | agent_HeldAction };
+  "agent.resume": { params: agent_ResumeParams; result: agent_RailNode | agent_HeldAction };
   "agent.setModel": { params: agent_SetModelParams; result: agent_RailNode };
   "workstream.clear": { params: workstream_ClearParams; result: workstream_ClearResult };
   "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };

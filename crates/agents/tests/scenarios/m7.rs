@@ -329,7 +329,14 @@ async fn m7_a_run_outside_reach_starts_nothing() {
             .unwrap_err();
 
         assert_eq!(err.code, code::FORBIDDEN);
-        assert!(err.message.contains(target));
+        let target_name =
+            w.f.tree()
+                .await
+                .into_iter()
+                .find(|node| &node.id == target)
+                .unwrap()
+                .name;
+        assert!(err.message.contains(&target_name) && !err.message.contains(target));
         assert_eq!(serde_json::to_value(w.f.terminals.list()).unwrap(), before);
         assert!(w.touches_of(&format!("agent:{target}")).is_empty());
         assert!(events.try_recv().is_err());
@@ -411,7 +418,14 @@ async fn m7_a_spawn_prompt_outside_reach_is_refused_without_effects() {
             .await
             .unwrap_err();
         assert_eq!(err.code, code::FORBIDDEN);
-        assert!(err.message.contains(&target));
+        let target_name =
+            w.f.tree()
+                .await
+                .into_iter()
+                .find(|node| node.id == target)
+                .unwrap()
+                .name;
+        assert!(err.message.contains(&target_name) && !err.message.contains(&target));
         assert_eq!(w.touches.sequence().unwrap(), before);
         assert!(events.try_recv().is_err());
     }

@@ -241,20 +241,27 @@ pub const CHANNEL_DEADLINE: Duration = Duration::from_secs(15);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PromptError {
     /// The Agent is not `idle`, or its last Steer is still waiting to be submitted.
-    Busy { id: String, kind: Kind },
+    Busy {
+        id: String,
+        name: String,
+        kind: Kind,
+    },
     /// The text was written (or could not be) and no `UserPromptSubmit` Signal followed; the
     /// Terminal's input line keeps it and nothing is sent again.
-    NotAccepted { id: String },
+    NotAccepted { id: String, name: String },
     /// No Agent `id` is running.
-    NotFound { id: String },
+    NotFound { id: String, name: String },
+    /// Resolving a Rail name failed; this is not evidence that the Agent is gone.
+    Rail(RpcError),
 }
 
 impl std::fmt::Display for PromptError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Busy { id, kind } => write!(f, "agent {id} is {kind:?}, not idle"),
-            Self::NotAccepted { id } => write!(f, "agent {id} did not accept the prompt"),
-            Self::NotFound { id } => write!(f, "agent {id} is not running"),
+            Self::Busy { name, kind, .. } => write!(f, "{name} is {kind:?}, not idle"),
+            Self::NotAccepted { name, .. } => write!(f, "{name} did not accept the prompt"),
+            Self::NotFound { name, .. } => write!(f, "{name} is not running"),
+            Self::Rail(error) => error.fmt(f),
         }
     }
 }
@@ -268,6 +275,7 @@ impl From<PromptError> for RpcError {
             PromptError::Busy { .. } => Self::busy(message),
             PromptError::NotAccepted { .. } => Self::not_accepted(message),
             PromptError::NotFound { .. } => Self::not_found(message),
+            PromptError::Rail(error) => error,
         }
     }
 }
@@ -290,6 +298,7 @@ enum Slot {
     },
     /// A22: a resume's launch is pending acknowledgement; `since` is when, on `clock`, it began.
     Resuming {
+        mode: contracts::agent::ResumeMode,
         attempt: String,
         since: i64,
         /// The stashed exited Run, presented and restored on rollback; `None` when there was
@@ -316,6 +325,8 @@ enum Slot {
     Running(Run),
     /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
     ResumeCleanup {
+        /// Keep the last acknowledged Run until cleanup or explicit Stop restores it.
+        old: Option<Box<Run>>,
         attempt: String,
         terminal_id: String,
         pending: bool,
@@ -368,6 +379,7 @@ enum FirstPrompt {
 }
 
 struct Run {
+    yolo: bool,
     /// A42 keeps a new Ask's first Steer byte for byte; other starts include E3 Context.
     startup_context: bool,
     attempt: String,
@@ -486,7 +498,14 @@ impl Shared {
         verbatim: bool,
         written: Option<SteerEffect>,
     ) -> Result<(), SteerError> {
-        let not_found = || PromptError::NotFound { id: id.to_owned() };
+        let name = self
+            .rail()
+            .name(id)
+            .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        let not_found = |name: &str| PromptError::NotFound {
+            id: id.to_owned(),
+            name: name.to_owned(),
+        };
         let (terminal_id, submitted, slash_written) = loop {
             let mut completion = {
                 let mut runs = self.runs();
@@ -494,9 +513,10 @@ impl Shared {
                     return Err(SteerError::Refused(match runs.get(id) {
                         Some(Slot::Starting { .. } | Slot::Resuming { .. }) => PromptError::Busy {
                             id: id.to_owned(),
+                            name: name.clone(),
                             kind: Kind::Working,
                         },
-                        _ => not_found(),
+                        _ => not_found(&name),
                     }));
                 };
                 if first.is_some_and(|attempt| attempt != run.attempt)
@@ -506,7 +526,7 @@ impl Shared {
                     || run.closing
                     || run.adapter.is_ended()
                 {
-                    return Err(SteerError::Refused(not_found()));
+                    return Err(SteerError::Refused(not_found(&name)));
                 }
                 let kind = run
                     .adapter
@@ -531,6 +551,7 @@ impl Shared {
                     {
                         return Err(SteerError::Refused(PromptError::Busy {
                             id: id.to_owned(),
+                            name: name.clone(),
                             kind,
                         }));
                     }
@@ -551,7 +572,7 @@ impl Shared {
             completion
                 .wait_for(Option::is_some)
                 .await
-                .map_err(|_| SteerError::Refused(not_found()))?;
+                .map_err(|_| SteerError::Refused(not_found(&name)))?;
         };
         let bytes = if verbatim {
             claude_code::verbatim_bytes(text)
@@ -579,11 +600,21 @@ impl Shared {
             .await;
         let failure = match effect {
             Err(err) if err.code == code::NOT_FOUND => {
-                return Err(SteerError::Refused(not_found()));
+                let name = self
+                    .rail()
+                    .name(id)
+                    .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+                return Err(SteerError::Refused(not_found(&name)));
             }
             Err(err) => {
                 eprintln!("agents: could not write the prompt to terminal {terminal_id}: {err}");
-                let reason = PromptError::NotAccepted { id: id.to_owned() };
+                let reason = PromptError::NotAccepted {
+                    id: id.to_owned(),
+                    name: self
+                        .rail()
+                        .name(id)
+                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                };
                 if err.code == code::UNKNOWN_OUTCOME {
                     SteerError::Uncertain(reason)
                 } else {
@@ -596,10 +627,20 @@ impl Shared {
                 }
                 match tokio::time::timeout(self.steer_bound, submitted).await {
                     Ok(Ok(())) => return Ok(()),
-                    _ => SteerError::Uncertain(PromptError::NotAccepted { id: id.to_owned() }),
+                    _ => SteerError::Uncertain(PromptError::NotAccepted {
+                        id: id.to_owned(),
+                        name: self
+                            .rail()
+                            .name(id)
+                            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                    }),
                 }
             }
         };
+        let name = self
+            .rail()
+            .name(id)
+            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
         let mut runs = self.runs();
         let ended = match runs.get_mut(id) {
             Some(Slot::Running(run)) if run.terminal_id == terminal_id => {
@@ -610,8 +651,8 @@ impl Shared {
         };
         Err(if ended {
             match failure {
-                SteerError::Refused(_) => SteerError::Refused(not_found()),
-                SteerError::Uncertain(_) => SteerError::Uncertain(not_found()),
+                SteerError::Refused(_) => SteerError::Refused(not_found(&name)),
+                SteerError::Uncertain(_) => SteerError::Uncertain(not_found(&name)),
             }
         } else {
             failure
@@ -622,7 +663,8 @@ impl Shared {
     /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
     /// means the Escape was written but its outcome is uncertain. Nothing is retried.
     async fn interrupt(&self, id: &str, original: Option<&str>) -> Result<(), RpcError> {
-        let not_found = || RpcError::not_found(format!("agent {id} is not running"));
+        let name = self.rail().name(id)?;
+        let not_found = || RpcError::not_found(format!("{name} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
             // B6: a held Interrupt never ends a replacement Attempt's turn.
@@ -630,14 +672,14 @@ impl Shared {
                 && runs.get(id).is_none_or(|slot| slot.attempt() != original)
             {
                 return Err(RpcError::conflict(format!(
-                    "{id}: original Attempt changed or ended before Interrupt"
+                    "{name}: original Attempt changed or ended before Interrupt"
                 )));
             }
             let Some(Slot::Running(run)) = runs.get_mut(id) else {
                 return Err(match runs.get(id) {
                     Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(
                         code::NOT_RUNNING,
-                        format!("agent {id} has no turn to interrupt yet"),
+                        format!("{name} has no turn to interrupt yet"),
                     ),
                     _ => not_found(),
                 });
@@ -652,7 +694,7 @@ impl Shared {
             if matches!(kind, Kind::Idle | Kind::Done | Kind::Error) {
                 return Err(RpcError::new(
                     code::NOT_RUNNING,
-                    format!("agent {id} is {kind:?}, with no turn to interrupt"),
+                    format!("{name} is {kind:?}, with no turn to interrupt"),
                 ));
             }
             if run
@@ -661,7 +703,7 @@ impl Shared {
                 .is_some_and(|waiting| !waiting.is_closed())
             {
                 return Err(RpcError::conflict(format!(
-                    "agent {id} is already being interrupted"
+                    "{name} is already being interrupted"
                 )));
             }
             let (waiting, acked) = oneshot::channel();
@@ -685,26 +727,28 @@ impl Shared {
             .await;
         let error = match written {
             Err(err) => {
+                let name = self.rail().name(id)?;
                 eprintln!("agents: could not write the interrupt to terminal {terminal_id}: {err}");
                 if err.code == code::UNKNOWN_OUTCOME {
                     RpcError::unknown_outcome(format!(
-                        "agent {id}: Interrupt outcome uncertain; do not retry: {err}"
+                        "{name}: Interrupt outcome uncertain; do not retry: {err}"
                     ))
                 } else {
                     RpcError::new(
                         err.code,
-                        format!("agent {id}: Interrupt refused; no bytes written: {err}"),
+                        format!("{name}: Interrupt refused; no bytes written: {err}"),
                     )
                 }
             }
             Ok(()) => match tokio::time::timeout(self.steer.interrupt_bound, acked).await {
                 Ok(Ok(())) => return Ok(()),
                 _ => {
+                    let name = self.rail().name(id)?;
                     eprintln!("agents: {id}: the title did not change after the interrupt");
                     RpcError::new(
                         code::NOT_ACKED,
                         format!(
-                            "agent {id} did not acknowledge the interrupt; Escape written; outcome uncertain; do not retry"
+                            "{name} did not acknowledge the interrupt; Escape written; outcome uncertain; do not retry"
                         ),
                     )
                 }

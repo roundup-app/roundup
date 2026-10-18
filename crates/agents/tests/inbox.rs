@@ -128,7 +128,11 @@ async fn b50_a_note_is_an_auth_line_then_one_labelled_line_in_the_launch_permiss
         let (launcher, dir) = launcher();
         let listener = session(&launcher, dir.path(), version);
         launcher
-            .inbox_write("a", &[note(7, "look", false), note(8, "again", false)])
+            .inbox_write(
+                "a",
+                &[note(7, "look", false), note(8, "again", false)],
+                false,
+            )
             .unwrap();
         let sent = lines(&listener);
         let key: Value =
@@ -160,7 +164,7 @@ async fn b50_a_long_note_shows_as_one_line() {
     let listener = session(&launcher, dir.path(), "2.1.302");
     let long = format!("[digest] {}", "é".repeat(300));
     launcher
-        .inbox_write("a", &[note(1, &long, true), note(2, &long, false)])
+        .inbox_write("a", &[note(1, &long, true), note(2, &long, false)], false)
         .unwrap();
     let sent = lines(&listener);
     let body = |line: &Value| {
