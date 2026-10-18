@@ -28,11 +28,9 @@
 }
 
 .pane-screen {
-  box-sizing: border-box;
   height: 100%;
-  /* U514, U2340d: the inset the Turn strips live in, inside the clip box; the top takes the same inset as the sides; the centre has none of its own. */
+  /* U514, U2340d: the inset the Turn strips live in, inside the clip box; the centre has none of its own. */
   padding-inline: var(--space-2);
-  padding-block-start: var(--space-2);
   /* U371, U430: keep the old Terminal columns clipped through a reserved slide.
      A transient horizontal scrollbar would cost one row and send a second resize. */
   overflow: clip;
@@ -87,6 +85,11 @@
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-control);
   background: var(--ground);
+}
+
+/* The top takes the side inset's Token. It sits on the emulator's own element because FitAddon subtracts that element's padding, and not its parent's, from the rows it fits. */
+.pane .xterm {
+  padding-top: var(--space-2);
 }
 
 /* U59: xterm.css paints `.xterm-viewport` black; the pane shows the app's ground instead. */
