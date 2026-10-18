@@ -116,7 +116,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     fireEvent.input(field, { target: { value: "my draft" } });
     fireEvent.focusOut(field);
     await screen.findByText("Use theirs");
-    await screen.findByText(/pad notes is at revision 2/);
+    await waitFor(() => expect(screen.queryByText(/pad notes is at revision/)).toBeNull());
     await waitFor(() => expect(calls.filter((call) => call.method === "pad.list").length).toBeGreaterThan(1));
     expect(field.value).toBe("my draft");
     expect(calls.filter((call) => call.method === "pad.write")).toEqual([
@@ -125,8 +125,8 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "original remote", revision: 2 }]);
     await served.rpc("pad.append", { name: "notes", text: " intervening" });
     fireEvent.click(screen.getByText("Keep mine"));
-    await screen.findByText(/pad notes is at revision 3/);
     await waitFor(() => expect(calls.filter((call) => call.method === "pad.list")).toHaveLength(3));
+    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
     expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
       name: "notes", text: "my draft", expectedRevision: 2,
     });
@@ -135,6 +135,8 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     expect(calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
     fireEvent.click(screen.getByText("Use theirs"));
     await waitFor(() => expect(field.value).toBe("original remote intervening"));
+    expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
+    expect(screen.queryByText("Use theirs")).toBeNull();
     fireEvent.input(field, { target: { value: "after choice" } });
     fireEvent.focusOut(field);
     await waitFor(async () => expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "after choice", revision: 4 }]));

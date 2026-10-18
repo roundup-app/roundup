@@ -4,7 +4,7 @@ import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
-import { createEffect, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
+import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
@@ -37,6 +37,13 @@ const PadBody = (props: {
   const [origin, setOrigin] = createSignal(props.initial.text);
   const [editing, setEditing] = createSignal(false);
   const [conflictActor, setConflictActor] = createSignal<Actor | "unknown" | null>(null);
+
+  const conflictLabel = createMemo(() => {
+    const actor = conflictActor();
+
+    return actor === null ? "" : actor === "unknown" ? copy.padChanged : copy.changedBy + connected.rail.nameOf(actor);
+  });
+
   const actionFailure = createFailure();
   const [deleted, setDeleted] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
@@ -62,6 +69,7 @@ const PadBody = (props: {
     setShown(next.text);
     editor?.setText(next.text);
     setConflictActor(null);
+    actionFailure.clear();
   };
 
   /** The baseline always moves to the last loaded or saved text, even mid-edit, so a later dirty-check stays correct; the field itself only follows while the user is not typing, or their keystrokes would vanish. */
@@ -205,6 +213,8 @@ const PadBody = (props: {
           const failure = list.failure();
 
           if (failure) throw new Error(failure);
+
+          return;
         }
 
         throw thrown;
@@ -395,28 +405,21 @@ const PadBody = (props: {
         />
       </Suspense>
       <Show when={conflictActor()}>
-        {(actor) => (
-          <p style={markedLine}>
-            <span class="light" style={wholeWord}>{(() => {
-              const who = actor();
-
-              return who === "unknown" ? copy.padChanged : copy.changedBy + connected.rail.nameOf(who);
-            })()}
-            </span>
-            <button data-button="quiet"
-              type="button"
-              class="word"
-              style={wholeWord}
-              onClick={() => void keepMine()}
-            >{copy.keepMine}</button>
-            <button data-button="quiet"
-              type="button"
-              class="word"
-              style={wholeWord}
-              onClick={useTheirs}
-            >{copy.useTheirs}</button>
-          </p>
-        )}
+        <p style={{ ...markedLine, "align-items": "baseline" }}>
+          <span class="light" style={wholeWord}>{conflictLabel()}</span>
+          <button data-button="quiet"
+            type="button"
+            class="word"
+            style={wholeWord}
+            onClick={() => void keepMine()}
+          >{copy.keepMine}</button>
+          <button data-button="quiet"
+            type="button"
+            class="word"
+            style={wholeWord}
+            onClick={useTheirs}
+          >{copy.useTheirs}</button>
+        </p>
       </Show>
     </div>
   );

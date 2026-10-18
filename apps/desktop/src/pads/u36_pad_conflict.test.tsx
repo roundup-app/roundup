@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
+  RpcError,
   deferred,
   openPad,
   openShelf,
@@ -546,4 +547,35 @@ it("p2544d_external_change_pauses_autosave", async () => {
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
     { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 4 } },
   ]));
+});
+
+
+it.each([false, true])("p2544d_stale_save_surfaces_only_reload_failure_%s", async (reloadFails) => {
+  const { app, state } = await openShelf([padOf("notes", USER, "original")]);
+  const field = await openPad("notes");
+
+  app.handlers["pad.write"] = () => {
+    state.pads = [{ ...padOf("notes", USER, "external"), revision: 2 }];
+
+    if (reloadFails) app.handlers["pad.list"] = () => { throw new Error("reload unavailable"); };
+
+    throw new RpcError(-32003, "stale revision");
+  };
+
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.focusOut(field);
+  await screen.findByText("Use theirs");
+  await waitForReload(app);
+
+  if (reloadFails) await screen.findAllByText(/reload unavailable/);
+
+  expect(screen.queryByText(/stale revision/)).toBeNull();
+  expect(field.value).toBe("draft");
+
+  if (!reloadFails) {
+    fireEvent.click(screen.getByText("Use theirs"));
+    expect(field.value).toBe("external");
+    expect(screen.queryByText("Use theirs")).toBeNull();
+    expect(screen.queryByText(/stale revision/)).toBeNull();
+  }
 });
