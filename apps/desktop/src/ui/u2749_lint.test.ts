@@ -9,7 +9,7 @@ it("u2749c_lint_rejects_tooltip_bypasses", () => {
   const temporary = mkdtempSync(join(tmpdir(), "u2749-"));
 
   const cases = [
-    ["ark", "ask", 1], ["root", "ask", 1], ["title", "ask", 1], ["component-title", "ask", 1],
+    ["ark", "ask", 1], ["root", "ask", 1], ["alias", "ask", 1], ["title", "ask", 1], ["component-title", "ask", 1],
     ["tip", "ask", 0], ["primitive", "ui", 0],
   ] as const;
 
