@@ -139,19 +139,30 @@ impl Seen {
             ActorKind::Agent => caller.id == id,
             ActorKind::Ext => false,
         };
+        let name = |id: &str| {
+            from.nodes
+                .iter()
+                .find(|node| node.id == id && is_agent(node))
+                .map_or("an Agent that is gone", |node| node.name.as_str())
+        };
         if !allowed {
+            let caller_name = if caller.kind == ActorKind::Agent {
+                name(&caller.id)
+            } else {
+                &caller.id
+            };
             return Err(RpcError::forbidden(format!(
-                "{} may not read the digest of agent {id}",
-                caller.id
+                "{caller_name} may not read the digest of {}",
+                name(id)
             )));
         }
         let node = from
             .nodes
             .iter()
             .find(|node| node.id == id && is_agent(node))
-            .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
+            .ok_or_else(|| RpcError::not_found(name(id)))?;
         if node.kind != NodeKind::Workstream {
-            return Err(RpcError::conflict(format!("agent {id} is no Door")));
+            return Err(RpcError::conflict(format!("{} is no Door", node.name)));
         }
         let children = children_of(id, from);
         let mut book = self.book();
@@ -894,6 +905,109 @@ mod tests {
         assert_eq!(code(&Actor::user(), "t"), rpc::code::NOT_FOUND);
         assert_eq!(code(&Actor::user(), "a"), rpc::code::CONFLICT);
         assert!(seen.ask(&agent("m"), "m", &from).is_ok());
+    }
+
+    #[test]
+    fn b2705a_digest_errors_use_rail_names() {
+        let agent = |id: &str| Actor {
+            kind: ActorKind::Agent,
+            id: id.into(),
+            parent: None,
+        };
+        for (
+            case,
+            target_name,
+            caller_name,
+            target_present,
+            caller_present,
+            caller,
+            target,
+            expected_code,
+            expected,
+        ) in [
+            (
+                "outside caller",
+                "sad",
+                "review",
+                true,
+                true,
+                agent("8027"),
+                "7013",
+                rpc::code::FORBIDDEN,
+                "review may not read the digest of sad",
+            ),
+            (
+                "renamed",
+                "glad",
+                "checked",
+                true,
+                true,
+                agent("8027"),
+                "7013",
+                rpc::code::FORBIDDEN,
+                "checked may not read the digest of glad",
+            ),
+            (
+                "gone target still forbidden",
+                "sad",
+                "review",
+                false,
+                true,
+                agent("8027"),
+                "7013",
+                rpc::code::FORBIDDEN,
+                "review may not read the digest of an Agent that is gone",
+            ),
+            (
+                "gone caller",
+                "sad",
+                "review",
+                true,
+                false,
+                agent("8027"),
+                "7013",
+                rpc::code::FORBIDDEN,
+                "an Agent that is gone may not read the digest of sad",
+            ),
+            (
+                "user missing target",
+                "sad",
+                "review",
+                false,
+                true,
+                Actor::user(),
+                "7013",
+                rpc::code::NOT_FOUND,
+                "not found: an Agent that is gone",
+            ),
+            (
+                "non Door",
+                "sad",
+                "review",
+                true,
+                true,
+                Actor::user(),
+                "8027",
+                rpc::code::CONFLICT,
+                "review is no Door",
+            ),
+        ] {
+            let mut nodes = Vec::new();
+            if target_present {
+                let mut target = node("7013", NodeKind::Workstream, None, "working");
+                target.name = target_name.into();
+                nodes.push(target);
+            }
+            if caller_present {
+                let mut caller = node("8027", NodeKind::Agent, Some("7013"), "working");
+                caller.name = caller_name.into();
+                nodes.push(caller);
+            }
+            let from = sources(&nodes, &[], &[], &[]);
+            let error = Seen::default().ask(&caller, target, &from).unwrap_err();
+            assert_eq!(error.code, expected_code, "{case}");
+            assert_eq!(error.message, expected, "{case}");
+        }
     }
 
     fn sources<'a>(

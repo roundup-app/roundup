@@ -351,7 +351,7 @@ impl Messages {
             && ctx.actor.kind != ActorKind::User
             && receiver_status.is_some()
         {
-            let nodes = rail_nodes(&self.inner).await?;
+            let nodes = load_rail_nodes(&self.inner).await?;
             Some(hops::agents_above(&nodes, &p.to, &ctx.actor.id))
         } else {
             None
@@ -623,7 +623,7 @@ impl Messages {
         reply(&dropped)
     }
 
-    fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, RpcError> {
+    async fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, RpcError> {
         let by_agent = ctx.actor.kind == ActorKind::Agent;
         if ctx.actor.kind == ActorKind::Ext {
             return Err(RpcError::forbidden(
@@ -642,6 +642,21 @@ impl Messages {
                 "a Route's from and to must differ",
             ));
         }
+        let nodes = if by_agent {
+            load_rail_nodes(&self.inner).await?
+        } else {
+            Vec::new()
+        };
+        let name = |id: &str| {
+            if id == Actor::user().id {
+                "you"
+            } else {
+                nodes
+                    .iter()
+                    .find(|node| node.id == id)
+                    .map_or("an Agent that is gone", |node| node.name.as_str())
+            }
+        };
         {
             let store = self.store()?;
             // M14: a Route the user or an Extension set is never overridden by an Agent (B5).
@@ -651,7 +666,8 @@ impl Messages {
             {
                 return Err(RpcError::forbidden(format!(
                     "the Route from {} to {} was set by the user",
-                    p.from, p.to
+                    name(&p.from),
+                    name(&p.to)
                 )));
             }
             store.set_route(
@@ -806,7 +822,7 @@ impl Messages {
     /// `agent`'s Status for a Takeover call (B6): `NOT_FOUND` unless `agent` names an Agent node
     /// on the Rail or a Door — never the user, a plain Workstream.
     async fn resolve_takeover_target(&self, agent: &str) -> Result<Option<RailNode>, RpcError> {
-        let nodes = rail_nodes(&self.inner).await?;
+        let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .into_iter()
             .find(|node| node.id == agent)
@@ -821,7 +837,7 @@ impl Messages {
         if to == Actor::user().id {
             return Ok(None);
         }
-        let nodes = rail_nodes(&self.inner).await?;
+        let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .into_iter()
             .find(|node| node.id == to)
@@ -949,7 +965,7 @@ impl Messages {
             "message.list" => self.list(ctx, params(value)?),
             "message.deliver" => self.deliver(ctx, params(value)?).await,
             "message.drop" => self.drop_message(ctx, params(value)?).await,
-            "route.set" => self.set_route(ctx, params(value)?),
+            "route.set" => self.set_route(ctx, params(value)?).await,
             "route.list" => self.list_routes(),
             "takeover.begin" => self.takeover_begin(ctx, params(value)?).await,
             "takeover.end" => self.takeover_end(ctx, params(value)?).await,
@@ -1046,7 +1062,7 @@ async fn settle_logged(inner: &Arc<Inner>, op: &str) {
 /// B13 to B16: moves every question whose current hop passed, ended or ran out its bound to its
 /// next hop, or to the Escalated question; `force` passes that hop now (`message.pass`). Emits what it made.
 async fn settle(inner: &Arc<Inner>, force: Option<u32>, op: &str) -> Result<(), RpcError> {
-    let nodes = rail_nodes(inner).await?;
+    let nodes = load_rail_nodes(inner).await?;
     let made = {
         let mut store = lock(&inner.store);
         (inner.fault)(op).map_err(RpcError::internal)?;
@@ -1124,6 +1140,16 @@ fn spawn_status_listener(
                     let _ = inner.completed.send("on_status");
                 }
                 Ok(contracts::Event {
+                    data: EventData::RailRenamed { id, name },
+                    ..
+                }) => {
+                    lock(&inner.store)
+                        .record_sender_name(&id, &name)
+                        .expect("message sender name");
+                    #[cfg(test)]
+                    let _ = inner.completed.send("rename");
+                }
+                Ok(contracts::Event {
                     data: EventData::RailChanged,
                     ..
                 }) => resync_due = true,
@@ -1147,7 +1173,7 @@ async fn on_status(inner: &Arc<Inner>, agent: &str, attempt: &str, revision: &st
     // StopFailure ends a turn, not its Terminal. Read authoritative liveness so a late
     // error cannot reopen an exited Attempt or close a resumed one.
     let (closed, ready) = if kind == Kind::Error {
-        let Ok(nodes) = rail_nodes(inner).await else {
+        let Ok(nodes) = load_rail_nodes(inner).await else {
             return;
         };
         let node = nodes
@@ -1190,7 +1216,7 @@ async fn resync(inner: &Arc<Inner>) -> bool {
             })
             .collect::<Vec<_>>()
     };
-    let Ok(nodes) = rail_nodes(inner).await else {
+    let Ok(nodes) = load_rail_nodes(inner).await else {
         return false;
     };
     let mut store = lock(&inner.store);
@@ -1230,8 +1256,8 @@ async fn resync(inner: &Arc<Inner>) -> bool {
     true
 }
 
-/// The Rail's nodes, read with the Daemon as the caller.
-async fn rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcError> {
+/// Read the Rail as the Daemon and persist its current sender names for removal/reopen.
+async fn load_rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcError> {
     let ctx = Ctx {
         actor: Actor::daemon(),
         bus: inner.bus.clone(),
@@ -1239,7 +1265,20 @@ async fn rail_nodes(inner: &Inner) -> Result<Vec<RailNode>, RpcError> {
     };
     let tree = inner.agents.call(&ctx, "rail.tree", Value::Null).await?;
 
-    serde_json::from_value(tree).map_err(RpcError::internal)
+    let nodes: Vec<RailNode> = serde_json::from_value(tree).map_err(RpcError::internal)?;
+    record_sender_names(inner, &nodes)?;
+    Ok(nodes)
+}
+
+/// Save the last Rail names observed by Messages for delivery after removal.
+fn record_sender_names(inner: &Inner, nodes: &[RailNode]) -> Result<(), RpcError> {
+    let mut store = lock(&inner.store);
+    store.atomically(|store| {
+        for node in nodes {
+            store.record_sender_name(&node.id, &node.name)?;
+        }
+        Ok(())
+    })
 }
 
 /// B2's `<sender's name>`: the Rail name for an Agent, since a Rail node can be renamed; the
@@ -1248,12 +1287,8 @@ async fn sender_name(inner: &Inner, from: &Actor) -> Result<String, RpcError> {
     if from.kind != ActorKind::Agent {
         return Ok(from.id.clone());
     }
-    let nodes = rail_nodes(inner).await?;
-
-    Ok(nodes
-        .into_iter()
-        .find(|node| node.id == from.id)
-        .map_or_else(|| from.id.clone(), |node| node.name))
+    load_rail_nodes(inner).await?;
+    lock(&inner.store).sender_name(&from.id)
 }
 
 /// B30 (B2, B7): types every pending Message to `agent` as one prompt, up to `BATCH_BYTES` (the
@@ -1419,7 +1454,7 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
             // The next idle may already have run while this batch was in flight.
             // Only a newer ready revision can authorize another try: Busy at the same
             // revision must wait, and a new Attempt cannot inherit this delivery.
-            let Ok(nodes) = rail_nodes(inner).await else {
+            let Ok(nodes) = load_rail_nodes(inner).await else {
                 return;
             };
             let Some(node) = nodes.iter().find(|node| {
@@ -1516,7 +1551,7 @@ enum Pick {
 
 /// B2, B3, B6, B13, B37: delivers pending input when the receiver is ready for a turn.
 async fn nudge(inner: &Arc<Inner>, agent: &str) {
-    let Ok(nodes) = rail_nodes(inner).await else {
+    let Ok(nodes) = load_rail_nodes(inner).await else {
         return;
     };
     if let Some(node) = nodes.iter().find(|node| {
@@ -2773,16 +2808,57 @@ mod tests {
 
     /// M14: an Agent's Route is stored as the Agent's, and never replaces one the user set.
     #[tokio::test]
-    async fn m14_an_agent_never_replaces_a_route_the_user_set() {
+    async fn b2705a_a_user_set_route_refusal_names_its_endpoints() {
         let dir = tempfile::tempdir().unwrap();
-        let h = Harness::new(dir.path(), vec![]);
-        let set = |delivery: &str| json!({"from": "a", "to": "b", "delivery": delivery});
+        let mut sender = agent_node("7013", Kind::Working);
+        sender.name = "sad".into();
+        let mut receiver = agent_node("8027", Kind::Working);
+        receiver.name = "review".into();
+        let rail = FakeRail::new(vec![sender, receiver]);
+        let bus = Bus::new();
+        let h = Harness {
+            messages: Messages::open(dir.path(), bus.clone(), rail.clone(), noop_deliver())
+                .unwrap(),
+            bus_events: bus.subscribe(),
+            bus,
+            touches: Arc::new(Touches::in_memory().unwrap()),
+        };
+        let set = |delivery: &str| json!({"from": "7013", "to": "8027", "delivery": delivery});
         h.call("route.set", set("ask-first")).await.unwrap();
 
         let refused = h
             .call_as(agent("m"), "route.set", set("auto"))
             .await
             .unwrap_err();
+        assert_eq!(
+            refused.message,
+            "the Route from sad to review was set by the user"
+        );
+        rail.0.lock().unwrap()[0].name = "glad".into();
+        rail.0.lock().unwrap()[1].name = "checked".into();
+        let renamed = h
+            .call_as(agent("m"), "route.set", set("auto"))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            renamed.message,
+            "the Route from glad to checked was set by the user"
+        );
+        rail.0.lock().unwrap().clear();
+        let gone = h
+            .call_as(agent("m"), "route.set", set("auto"))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            gone.message,
+            "the Route from an Agent that is gone to an Agent that is gone was set by the user"
+        );
+        assert_eq!(
+            h.call("route.list", Value::Null).await.unwrap(),
+            json!([
+                {"from":"7013", "to":"8027", "delivery":"ask-first"}
+            ])
+        );
         h.call_as(
             agent("m"),
             "route.set",
@@ -3682,7 +3758,10 @@ mod tests {
         // B30: both Messages are one prompt.
         let typed = typed.lock().unwrap();
         assert_eq!(typed.len(), 1);
-        assert_eq!(typed[0].1, "[from a, note] one\n\n[from a, note] two");
+        assert_eq!(
+            typed[0].1,
+            "[from an Agent that is gone, note] one\n\n[from an Agent that is gone, note] two"
+        );
     }
 
     #[tokio::test]
