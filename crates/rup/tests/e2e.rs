@@ -4467,6 +4467,15 @@ async fn e2704a_context_digest_and_wake_errors_use_names() {
             format!("reader may not read the {noun} of writer")
         );
     }
+    for method in ["agent.context", "agent.brief", "agent.skills"] {
+        let missing = user
+            .request(method, json!({"id":"7013"}))
+            .await
+            .unwrap_err();
+        assert_eq!(missing.code, rpc::code::NOT_FOUND);
+        assert_eq!(missing.message, "not found: an Agent that is gone");
+    }
+
     let repeated = caller
         .request("agent.wake", json!({"ids":[rail.b, rail.b]}))
         .await

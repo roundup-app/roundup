@@ -360,23 +360,28 @@ mod tests {
     }
     #[test]
     fn e2704a_destinations_follow_names_once() {
-        let nodes = [
-            node("7013", NodeKind::Agent, "sad", Some("7014"), false),
-            node("7014", NodeKind::Agent, "parent", None, false),
-            node("7015", NodeKind::Agent, "peer", Some("7014"), false),
-        ];
-        let text = words(&compose(&nodes, &[], "7013").unwrap(), false);
-        assert!(!text.contains("7013"), "{text}");
-        for (name, id) in [("parent", "7014"), ("peer", "7015")] {
-            assert_eq!(text.matches(id).count(), 1, "{text}");
-            assert!(
-                text.contains(&format!("{name} (message_send {{to}} value: \"{id}\")")),
-                "{text}"
-            );
+        for (kind, who) in [
+            (NodeKind::Agent, "your parent"),
+            (NodeKind::Workstream, "your Door"),
+        ] {
+            let nodes = [
+                node("7013", NodeKind::Agent, "sad", Some("7014"), false),
+                node("7014", kind, "parent", None, true),
+                node("7015", NodeKind::Agent, "peer", Some("7014"), false),
+            ];
+            let words = text(&nodes, &compose(&nodes, &[], "7013").unwrap());
+            assert!(!words.contains("7013"), "{words}");
+            for (name, id) in [("parent", "7014"), ("peer", "7015")] {
+                assert_eq!(words.matches(id).count(), 1, "{words}");
+                assert!(
+                    words.contains(&format!("{name} (message_send {{to}} value: \"{id}\")")),
+                    "{words}"
+                );
+            }
+            assert!(words.contains("Peer: peer (message_send {to} value: \"7015\"), idle."));
+            assert!(words.contains(&format!("Ask: parent, {who}, using the destination above.")));
+            assert!(!words.contains("Agent id"));
         }
-        assert!(text.contains("Peer: peer (message_send {to} value: \"7015\"), idle."));
-        assert!(text.contains("Ask: parent, your parent, using the destination above."));
-        assert!(!text.contains("Agent id"));
     }
 
     #[test]
