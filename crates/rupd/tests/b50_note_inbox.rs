@@ -219,7 +219,13 @@ impl Run {
     }
 
     /// Takes the session off the list, as when Claude Code is not listening; the files, to put back.
-    fn unlist_session(&self) -> Vec<(PathBuf, Vec<u8>)> {
+    /// It waits for the start-up check of the inbox first: a check already past the listing would
+    /// find the session gone only after it released a note held meanwhile.
+    async fn unlist_session(&self) -> Vec<(PathBuf, Vec<u8>)> {
+        until("the start-up inbox check", async || {
+            self.rail_inbox().await.map(|_| ())
+        })
+        .await;
         let files: Vec<_> = std::fs::read_dir(self.sessions())
             .unwrap()
             .map(|file| {
@@ -423,7 +429,7 @@ async fn b50_a_long_note_shows_as_one_line() {
 #[tokio::test]
 async fn b51_a_session_not_listening_holds_the_note_with_zero_terminal_writes() {
     let mut run = Run::start().await;
-    run.unlist_session();
+    run.unlist_session().await;
     let id = run.note("hello").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
@@ -452,7 +458,7 @@ async fn b51_an_unprobed_claude_version_is_a_mismatch() {
 #[tokio::test]
 async fn b51_a_held_inbox_note_is_released_when_the_session_listens_again() {
     let mut run = Run::start().await;
-    let listed = run.unlist_session();
+    let listed = run.unlist_session().await;
     let first = run.note("one").await;
     let second = run.note("two").await;
     until("held", async || {
@@ -474,7 +480,7 @@ async fn b51_a_held_inbox_note_is_released_when_the_session_listens_again() {
 #[tokio::test]
 async fn b51_deliver_by_hand_sends_nothing_and_errors() {
     let run = Run::start().await;
-    run.unlist_session();
+    run.unlist_session().await;
     let id = run.note("hello").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
@@ -493,7 +499,7 @@ async fn b51_deliver_by_hand_sends_nothing_and_errors() {
 #[tokio::test]
 async fn b51_the_user_message_is_typed_whatever_the_inbox() {
     let run = Run::start().await;
-    run.unlist_session();
+    run.unlist_session().await;
     run.user
         .request(
             "message.send",
@@ -528,7 +534,7 @@ async fn b52_thirty_idle_edges_send_a_note_once_and_type_nothing() {
 #[tokio::test]
 async fn b52_thirty_idle_edges_with_a_session_not_listening_hold_once_and_type_nothing() {
     let mut run = Run::start().await;
-    run.unlist_session();
+    run.unlist_session().await;
     let id = run.note("once").await;
     for _ in 0..30 {
         run.idle_edge().await;

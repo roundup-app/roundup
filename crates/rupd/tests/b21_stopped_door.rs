@@ -56,7 +56,7 @@ impl Run {
         let child = user
             .request(
                 "agent.spawn",
-                json!({"name":"review","parent":door,"cwd":dir.path()}),
+                json!({"name":"review","parent":door,"cwd":dir.path(),"prompt":"What should this Agent do?"}),
             )
             .await
             .unwrap()["id"]
@@ -82,19 +82,21 @@ impl Run {
             user,
             agent,
         };
-        run.idle(&run.child).await;
+        run.idle(&run.child, 4).await;
         run.start_door().await;
         // SessionStart saves the Door's conversation (A21) before Claude Code writes it, so every
         // later start resumes it (A23) only once its first prompt is on disk; stopped earlier, the
         // Door keeps a conversation `claude --resume` cannot find.
-        run.idle(&run.door).await;
+        run.idle(&run.door, 4).await;
         wait(|| written(&run.dir.path().join("config"), DOOR_PROMPT)).await;
         run.stop_door().await;
         run
     }
 
-    async fn idle(&self, id: &str) {
-        // The initial order's turn ends Idle at revision 4: Starting (1), SessionStart (2), Submit (3).
+    /// `id` reads idle at `revision` or later: a Door's initial order's turn ends Idle at 4 (Starting
+    /// (1), SessionStart (2), Submit (3)); an Agent spawned without a prompt is typed nothing (A9)
+    /// and idles at 2.
+    async fn idle(&self, id: &str, revision: u32) {
         wait(|| {
             snapshots(self.dir.path()).iter().any(|v| {
                 v["nodes"].as_array().unwrap().iter().any(|n| {
@@ -102,7 +104,7 @@ impl Run {
                         && n["status"]["kind"] == "idle"
                         && n["status_revision"]
                             .as_str()
-                            .is_some_and(|r| r.parse::<u32>().unwrap() >= 4)
+                            .is_some_and(|r| r.parse::<u32>().unwrap() >= revision)
                 })
             })
         })
@@ -488,7 +490,7 @@ async fn b21_a_removed_door_gets_no_waiting_digest() {
         )
         .await
         .unwrap();
-    run.idle(child["id"].as_str().unwrap()).await;
+    run.idle(child["id"].as_str().unwrap(), 2).await;
     let later = Client::connect(&run.daemon.socket).await.unwrap();
     later
         .request(
@@ -630,7 +632,7 @@ async fn changed_children_under_caps() {
             .await
             .unwrap();
         let id = node["id"].as_str().unwrap();
-        run.idle(id).await;
+        run.idle(id, 2).await;
         let client = Client::connect(&run.daemon.socket).await.unwrap();
         client
             .request(

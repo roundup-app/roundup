@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
+import { createServedApp, spawnPrompted } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -74,13 +74,8 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       }, { timeout: 30_000, interval: 1000 });
 
       for (const [at, kind] of kinds.entries()) {
-        // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
-        // Keep queries synchronous inside this retry: a findBy on an absent row leaks its timeout after rejecting the null container.
-        await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(within(row(workstream)).getByLabelText("Add Agent"));
-
-          expect(await agentsOf(workstream)).toHaveLength(at + 1);
-        }, { timeout: 30_000, interval: 1000 });
+        await spawnPrompted(app, real.dir, workstream);
+        await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
