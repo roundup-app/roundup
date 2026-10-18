@@ -75,7 +75,9 @@ it("u2567c_real_daemon_attention_opens_its_agents_terminal", async () => {
 
   await app.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } });
   await page.load(`${real.base}/harness.html?daemon=1`, 1512, 950);
-  await page.until(`() => document.querySelector('.overview-attention .overview-entry')?.textContent.includes('Needs-you')`);
+  await page.until(`() => Boolean(document.querySelector('.todo-project-root'))`);
+  await page.call(`() => document.querySelector('.todo-project-root').click()`);
+  await page.until(`() => [...document.querySelectorAll('.overview-attention .overview-entry')].some((entry) => entry.textContent === 'reviewerNeeds-you')`);
 
   const names = await page.call<string[]>(`() => [...document.querySelectorAll('.overview-list > li')].map((entry) => entry.textContent)`);
 
