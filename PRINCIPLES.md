@@ -2,6 +2,8 @@
 
 Every design and UX choice serves these. A PR body names the ids it serves; the Reviewer answers each gate from the diff, and every answer must be "no" (a goal's gate is advisory).
 
+New capabilities in P11–P13 remain goals until their behavioral observers pass. Their gates apply to changed paths; an unrelated existing gap is not a new regression. A policy merge alone delivers none of these features.
+
 ## P1 Single front door
 
 The Workstream organizes the work; its Door is the default Agent the user speaks to, and the Thread is that conversation, not another container. The Door breaks objectives down, routes work, absorbs Agent chatter and gives one summary when the work settles; these remain goals until their observers pass. It is the default, never the only way in: the user can always type into any Agent, and during a Takeover the Door sends that Agent nothing (its Messages wait Held).
@@ -71,8 +73,6 @@ Messages pending for an Agent when it becomes `idle` are typed as one prompt, so
 
 - Gate: does a path type a second prompt to an Agent where one prompt could carry both, or put per-Agent text into the Brief's file?
 - Observer: with the fake `claude`, B22's burst types at most one prompt per `idle` of the Door; the Brief's files of two Doors are equal bytes; on the Mac, with `CLAUDE_CODE_ENABLE_TELEMETRY=1`, the second of two Doors started in one Project reads the cache on its first request (`claude_code.token.usage` of type `cacheRead` above zero, for the main conversation's Model).
-
-New capabilities in P11–P13 remain goals until their behavioral observers pass. Their gates apply to changed paths; an unrelated existing gap is not a new regression. A policy merge alone delivers none of these features.
 
 ## P11 Unfinished input (goal)
 
