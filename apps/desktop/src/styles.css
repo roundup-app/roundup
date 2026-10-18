@@ -383,7 +383,8 @@ p {
 @media (prefers-reduced-transparency: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  *::backdrop {
     backdrop-filter: none !important;
   }
 }

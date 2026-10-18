@@ -186,6 +186,7 @@ describe("u2230 shortcut hints", () => {
         expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
 
         if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
         else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
         else await waitFor(() => expect(app.calls.some((call) => call.method === (hint.keys === "⌘⌫" ? "rail.remove" : "takeover.begin"))).toBe(true));
       }
