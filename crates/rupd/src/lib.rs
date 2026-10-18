@@ -849,6 +849,7 @@ impl Daemon {
             | "agent.discard"
             | "agent.land"
             | "agent.worktreeState"
+            | "agent.changedFiles"
             | "agent.spawnPrompt"
             | "agent.run"
             | "rail.rename"
