@@ -36,6 +36,11 @@ describe("u130 the look-literal scanner", () => {
       ["animation-duration: 120ms;", "animation-duration: 120ms"],
       ["transition: opacity 150ms ease-out;", "transition: opacity 150ms ease-out"],
       ["animation: fade 0.15s;", "animation: fade 0.15s"],
+      ...["ease", "ease-in", "ease-out", "ease-in-out", "cubic-bezier(0.2, 0.8, 0.1, 1)"].flatMap((curve): [string, string][] => [
+        [`transition: opacity var(--duration-toast) ${curve};`, `transition: opacity var(--duration-toast) ${curve}`],
+        [`animation-timing-function: ${curve};`, `animation-timing-function: ${curve}`],
+        [`--curve: ${curve};`, `--curve: ${curve}`],
+      ]),
     ];
 
     for (const [declaration, expected] of cases) expect(literals(declaration), declaration).toEqual([expected]);
@@ -44,13 +49,13 @@ describe("u130 the look-literal scanner", () => {
   it("u130_scanner_allows_a_var_read_for_each_category_including_the_drawer_shadow", () => {
     expect(
       literals(
-        "color: var(--text);\n background: var(--ground);\n box-shadow: var(--shadow-drawer);\n border-radius: var(--radius-row);\n font-size: var(--text-body);\n transition: transform var(--duration-drawer) ease-out;",
+        "color: var(--text);\n background: var(--ground);\n box-shadow: var(--shadow-drawer);\n border-radius: var(--radius-row);\n font-size: var(--text-body);\n transition: transform var(--duration-drawer) var(--easing-out);",
       ),
     ).toEqual([]);
   });
 
   it("u130_scanner_allows_the_keywords_that_are_not_look_values", () => {
-    expect(literals("color: inherit;\n background: transparent;\n box-shadow: none;\n border-radius: 0;\n transition: none;\n font-size: inherit;\n transition-duration: 0s;\n animation-duration: 0ms;")).toEqual([]);
+    expect(literals("color: inherit;\n background: transparent;\n box-shadow: none;\n border-radius: 0;\n transition: none;\n font-size: inherit;\n transition-duration: 0s;\n animation-duration: 0ms;\n animation-timing-function: linear;\n transition-timing-function: steps(8);")).toEqual([]);
   });
 
   it("u130_scanner_flags_a_value_only_partly_a_var_read", () => {
