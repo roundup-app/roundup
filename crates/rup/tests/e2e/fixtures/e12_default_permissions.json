@@ -1,0 +1,35 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: E12 deny the file creation"
+      },
+      "response": {
+        "content": "{\"title\":\"Denied file\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_e12_denied"
+      },
+      "response": {
+        "content": "The file creation was denied."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E12 deny the file creation",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_e12_denied",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch e12-denied\", \"description\": \"Create the E12 permission observer file\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
