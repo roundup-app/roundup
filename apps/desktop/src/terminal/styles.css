@@ -120,7 +120,6 @@
   color: var(--text);
   background-color: var(--sunken);
   border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
 }
 
 .pane-control-state {
