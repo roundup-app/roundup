@@ -139,6 +139,12 @@ One launch of an Agent's program, numbered per Agent from `1` in launch order (A
 **Status revision**:
 The strictly increasing ordinal of published Status transitions within one Attempt, `1` at Starting. A canonical positive decimal string on the wire; absent after reopen. Never stands in for an Attempt or Terminal liveness.
 
+**Conversation overview** (`ConversationOverview`, `RailNode.overview`):
+Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
+
+**Conversation card** (`ConversationCard`, `ConversationOverview.card`):
+The available intent, shape, facts and outcome rebuilt from assistant card blocks, each key from its newest well-formed value. An empty facts list clears older facts and is omitted from the displayed parts.
+
 **Resume**:
 Starting an exited Agent's next Attempt in its saved conversation.
 

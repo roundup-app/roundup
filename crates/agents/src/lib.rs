@@ -395,8 +395,8 @@ struct Run {
     session_started: bool,
     /// H19: the first title with the star glyph has arrived.
     starred: bool,
-    /// H11: the Steer written and awaiting its `UserPromptSubmit` Signal.
-    steer: Option<tokio::sync::oneshot::Sender<()>>,
+    /// H11: the Steer awaiting submission or local-command acceptance.
+    steer: Option<SteerWait>,
     /// H13: the Interrupt written and awaiting the title that acknowledges it.
     interrupt: Option<tokio::sync::oneshot::Sender<()>>,
     /// The first prompt has been submitted, or a `rail.rename` came first: either way the name
@@ -467,6 +467,12 @@ use worktree_wiring::report_undo;
 /// G6: a legacy Worktree record from before ownership proofs; nothing may clean it up.
 const UNPROVEN: &str = "unfinished legacy provisioning has no ownership proof";
 
+struct SteerWait {
+    submitted: tokio::sync::oneshot::Sender<()>,
+    /// A2698a: the final submit write must finish before local-command Signals count.
+    slash_written: Option<Arc<Mutex<bool>>>,
+}
+
 struct SteerSettings {
     before_steer: Option<SteerEffect>,
     /// H13: how long an Interrupt waits for the title to change.
@@ -476,8 +482,8 @@ struct SteerSettings {
 impl Shared {
     /// H11, H16: the one place a prompt is written to a Terminal. `first` marks the H12 first
     /// Steer, which goes before any Message. `text` goes out once, as one
-    /// bracketed paste and then `\r` as a write of its own, when `id` is `idle`; this returns when its `UserPromptSubmit`
-    /// Signal arrives. `first` binds the initial Steer to its Attempt.
+    /// bracketed paste and then `\r` as a write of its own, when `id` is `idle`.
+    /// User slash commands also accept post-write local-command Signals (A2698a). `first` binds the initial Steer to its Attempt.
     /// Nothing is written again on any failure.
     async fn prompt(
         &self,
@@ -486,6 +492,7 @@ impl Shared {
         first: Option<&str>,
         original: Option<&str>,
         verbatim: bool,
+        written: Option<SteerEffect>,
     ) -> Result<(), SteerError> {
         let name = self
             .rail()
@@ -495,7 +502,7 @@ impl Shared {
             id: id.to_owned(),
             name: name.to_owned(),
         };
-        let (terminal_id, submitted) = loop {
+        let (terminal_id, submitted, slash_written) = loop {
             let mut completion = {
                 let mut runs = self.runs();
                 let Some(Slot::Running(run)) = runs.get_mut(id) else {
@@ -533,7 +540,10 @@ impl Shared {
                 } else {
                     if ahead
                         || !matches!(kind, Kind::Idle | Kind::Error)
-                        || run.steer.as_ref().is_some_and(|steer| !steer.is_closed())
+                        || run
+                            .steer
+                            .as_ref()
+                            .is_some_and(|steer| !steer.submitted.is_closed())
                     {
                         return Err(SteerError::Refused(PromptError::Busy {
                             id: id.to_owned(),
@@ -542,12 +552,17 @@ impl Shared {
                         }));
                     }
                     let (steer, submitted) = oneshot::channel();
-                    run.steer = Some(steer);
+                    let slash_written = (verbatim && first.is_none() && text.starts_with('/'))
+                        .then(|| Arc::new(Mutex::new(false)));
+                    run.steer = Some(SteerWait {
+                        submitted: steer,
+                        slash_written: slash_written.clone(),
+                    });
                     // The first Steer stays ahead of Messages through physical completion.
                     if first.is_some() && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
                         run.first_prompt = Some(FirstPrompt::Written);
                     }
-                    break (run.terminal_id.clone(), submitted);
+                    break (run.terminal_id.clone(), submitted, slash_written);
                 }
             };
             completion
@@ -564,18 +579,22 @@ impl Shared {
         let agent = id.to_owned();
         // B6: await the physical effect before starting the submit timeout. An enqueue
         // acknowledgement could otherwise leave bytes to execute after completion.
-        let written = self
+        let effect = self
             .terminals
             .write_with(&terminal_id, move |writer| {
                 if let Some(before) = before {
                     before(&agent)?;
                 }
-                claude_code::write_submitted(writer, &bytes).map_err(|err| {
-                    RpcError::unknown_outcome(format!("Steer bytes may have been written: {err}"))
-                })
+                claude_code::write_submitted(writer, &bytes, slash_written.as_deref()).map_err(
+                    |err| {
+                        RpcError::unknown_outcome(format!(
+                            "Steer bytes may have been written: {err}"
+                        ))
+                    },
+                )
             })
             .await;
-        let failure = match written {
+        let failure = match effect {
             Err(err) if err.code == code::NOT_FOUND => {
                 let name = self
                     .rail()
@@ -598,16 +617,21 @@ impl Shared {
                     SteerError::Refused(reason)
                 }
             }
-            Ok(()) => match tokio::time::timeout(self.steer_bound, submitted).await {
-                Ok(Ok(())) => return Ok(()),
-                _ => SteerError::Uncertain(PromptError::NotAccepted {
-                    id: id.to_owned(),
-                    name: self
-                        .rail()
-                        .name(id)
-                        .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
-                }),
-            },
+            Ok(()) => {
+                if let Some(written) = written {
+                    written(id).expect("announce a physically written Steer");
+                }
+                match tokio::time::timeout(self.steer_bound, submitted).await {
+                    Ok(Ok(())) => return Ok(()),
+                    _ => SteerError::Uncertain(PromptError::NotAccepted {
+                        id: id.to_owned(),
+                        name: self
+                            .rail()
+                            .name(id)
+                            .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?,
+                    }),
+                }
+            }
         };
         let name = self
             .rail()

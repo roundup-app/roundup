@@ -355,6 +355,11 @@ impl Shared {
         // H11: the Steer's wait ends with the Signal that names it, or with the Agent.
         if matches!(&observation, Observation::Signal(payload)
             if claude_code::submitted_prompt(payload).is_some())
+            && run
+                .steer
+                .as_ref()
+                .and_then(|steer| steer.slash_written.as_ref())
+                .is_none_or(|gate| *gate.lock().expect("slash-command write gate"))
         {
             // H12 permits a late submission after refusal. Keep that acknowledgement even
             // after the Steer's timeout so a coordinator retry need not Resume again.
@@ -362,7 +367,7 @@ impl Shared {
                 run.first_prompt = Some(FirstPrompt::Acknowledged);
             }
             if let Some(steer) = run.steer.take() {
-                let _ = steer.send(());
+                let _ = steer.submitted.send(());
             }
         } else if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             run.steer = None;
@@ -384,7 +389,23 @@ impl Shared {
         if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             run.interrupt = None;
         }
+        let was_kind = run.adapter.status().map(|status| status.kind);
+        let signal = matches!(observation, Observation::Signal(_));
         let changed = run.adapter.observe(observation);
+        if signal
+            && (session_start
+                || changed
+                    .as_ref()
+                    .is_some_and(|status| Some(status.kind) != was_kind))
+            && run
+                .steer
+                .as_ref()
+                .and_then(|steer| steer.slash_written.as_ref())
+                .is_some_and(|gate| *gate.lock().expect("slash-command write gate"))
+            && let Some(steer) = run.steer.take()
+        {
+            let _ = steer.submitted.send(());
+        }
         if acks
             && changed
                 .as_ref()
