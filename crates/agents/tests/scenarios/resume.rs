@@ -1170,9 +1170,17 @@ async fn b32_r16_messages_use_the_authoritative_agents_dependency_for_agent_and_
 
 fn overview_transcript(f: &Fixture, text: &str) -> std::path::PathBuf {
     let cwd = f.dir.path().canonicalize().unwrap();
-    let project: String = cwd.to_string_lossy().chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
-    let path = f.dir.path().join("projects").join(project).join(format!("{CONVERSATION}.jsonl"));
+    let project: String = cwd
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    let path = f
+        .dir
+        .path()
+        .join("projects")
+        .join(project)
+        .join(format!("{CONVERSATION}.jsonl"));
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, text).unwrap();
     path
@@ -1181,11 +1189,193 @@ fn overview_transcript(f: &Fixture, text: &str) -> std::path::PathBuf {
 #[tokio::test]
 async fn a2681a_closed_node_has_identity_without_history_path() {
     let f = Fixture::running("sleep 30");
-    let path = overview_transcript(&f, "{\"type\":\"ai-title\",\"aiTitle\":\"A conversation\"}\n");
+    let path = overview_transcript(
+        &f,
+        "{\"type\":\"ai-title\",\"aiTitle\":\"A conversation\"}\n",
+    );
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let tree = f.call("rail.tree", json!({})).await.unwrap();
-    let node = tree.as_array().unwrap().iter().find(|n| n["id"] == node.id).unwrap();
-    assert_eq!(node["overview"], json!({"program": "Claude Code", "id": CONVERSATION, "name": "A conversation"}));
+    let node = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == node.id)
+        .unwrap();
+    assert_eq!(
+        node["overview"],
+        json!({"program": "Claude Code", "id": CONVERSATION, "name": "A conversation"})
+    );
     assert!(!tree.to_string().contains(path.to_str().unwrap()));
     assert!(!tree.to_string().contains("aiTitle"));
+}
+
+#[tokio::test]
+async fn a2681a_missing_or_unreadable_transcript_has_no_parts() {
+    for unreadable in [false, true] {
+        let f = Fixture::running("sleep 30");
+        let path = overview_transcript(&f, "{}\n");
+        std::fs::remove_file(&path).unwrap();
+        if unreadable {
+            std::fs::create_dir(path).unwrap();
+        }
+        let node = exited_with_conversation(&f, CONVERSATION).await;
+        assert!(node.overview.is_none());
+    }
+}
+
+#[tokio::test]
+async fn a2681a_no_saved_data_has_no_parts() {
+    let f = Fixture::running("sleep 30");
+    overview_transcript(&f, "{\"type\":\"ai-title\",\"aiTitle\":\"Do not infer\"}\n");
+    let node = f.spawn(None, None).await.unwrap();
+    f.call("agent.stop", json!({"id":node.id})).await.unwrap();
+    assert!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn a2681a_reopen_reads_closed_parts() {
+    let f = Fixture::running("sleep 30");
+    overview_transcript(&f, "{\"type\":\"ai-title\",\"aiTitle\":\"Kept\"}\n");
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let f = f.reopen();
+    let tree = f.tree().await;
+    let reopened = tree.iter().find(|n| n.id == node.id).unwrap();
+    assert_eq!(reopened.overview, node.overview);
+    assert!(reopened.overview.is_some());
+    assert!(reopened.terminal_id.is_none());
+}
+
+#[tokio::test]
+async fn a2681a_live_attempt_hides_parts_including_on_resume() {
+    let f = Fixture::running("sleep 30");
+    overview_transcript(
+        &f,
+        "{\"type\":\"ai-title\",\"aiTitle\":\"Hidden while live\"}\n",
+    );
+    let node = f.spawn(None, None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    assert!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_none()
+    );
+    f.call("agent.stop", json!({"id":node.id})).await.unwrap();
+    let closed = f
+        .until(|tree| tree.iter().any(|n| n.id == node.id && n.can_resume))
+        .await;
+    assert!(
+        closed
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_some()
+    );
+    let f = Arc::new(f);
+    let resuming = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.resume(&id).await })
+    };
+    let pending = f
+        .until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
+        .await;
+    assert!(
+        pending
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_none()
+    );
+    f.session_start(&node.id, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    let resumed = resuming.await.unwrap().unwrap();
+    assert_eq!(resumed.status.as_ref().unwrap().kind, Kind::Idle);
+    assert!(resumed.overview.is_none(), "an idle program is live");
+    f.call("agent.stop", json!({"id":node.id})).await.unwrap();
+}
+
+#[tokio::test]
+async fn a2681a_stopping_attempt_hides_parts() {
+    use tokio::sync::Notify;
+    let mut f = Fixture::running("trap '' INT; echo ready > ready; sleep 30");
+    overview_transcript(&f, "{}\n");
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let terminals = Arc::clone(&f.terminals);
+    f.agents = f.agents.with_terminal_kills({
+        let entered = Arc::clone(&entered);
+        let release = Arc::clone(&release);
+        move |id| {
+            let entered = Arc::clone(&entered);
+            let release = Arc::clone(&release);
+            let terminals = Arc::clone(&terminals);
+            async move {
+                entered.notify_one();
+                release.notified().await;
+                terminals.kill(&id).await
+            }
+        }
+    });
+    let node = f.spawn(None, None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    crate::common::until_file(&f.dir.path().join("ready")).await;
+    let f = Arc::new(f);
+    let stopping = {
+        let f = Arc::clone(&f);
+        let id = node.id.clone();
+        tokio::spawn(async move { f.call("agent.stop", json!({"id":id})).await })
+    };
+    tokio::time::timeout(Duration::from_secs(10), entered.notified())
+        .await
+        .unwrap();
+    let tree = f.tree().await;
+    assert!(
+        tree.iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_none()
+    );
+    release.notify_one();
+    stopping.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn a2681a_natural_exit_exposes_parts() {
+    let f = Fixture::running("while [ ! -f release ]; do sleep 0.01; done");
+    overview_transcript(&f, "{}\n");
+    let node = f.spawn(None, None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    std::fs::write(f.dir.path().join("release"), "").unwrap();
+    let tree = f
+        .until(|tree| tree.iter().any(|n| n.id == node.id && n.can_resume))
+        .await;
+    assert!(
+        tree.iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_some()
+    );
 }
