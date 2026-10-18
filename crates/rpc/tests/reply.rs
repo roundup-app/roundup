@@ -62,12 +62,12 @@ fn r16_reply_preserves_every_rail_field_in_row_order() {
     let expected = json!([{
         "id": "door", "kind": "workstream", "name": "Door 🦀", "parent": null,
         "order": 7, "status": null, "attempt": "9223372036854775807", "status_revision": null,
-        "terminal_id": null, "worktree": null, "can_resume": true, "channel": null,
+        "terminal_id": null, "worktree": null, "can_resume": true, "yolo": true, "channel": null,
         "work": null, "stray": [], "model": "model", "effort": "high", "iteration": 3
     }, {
         "id": "next", "kind": "workstream", "name": "Next", "parent": null,
         "order": 8, "status": null, "attempt": null, "status_revision": null,
-        "terminal_id": null, "worktree": null, "can_resume": false, "channel": null,
+        "terminal_id": null, "worktree": null, "can_resume": false, "yolo": false, "channel": null,
         "work": null, "stray": [], "model": null, "effort": null, "iteration": 1
     }]);
     let nodes: Vec<contracts::agent::RailNode> = serde_json::from_value(expected.clone()).unwrap();

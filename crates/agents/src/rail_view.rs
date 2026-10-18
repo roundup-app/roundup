@@ -118,6 +118,13 @@ impl Shared {
             None => true,
         };
         node.can_resume &= exited;
+        node.yolo = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => run.yolo,
+            Some(
+                Slot::Resuming { old: Some(old), .. } | Slot::ResumeCleanup { old: Some(old), .. },
+            ) => old.yolo,
+            _ => false,
+        };
         if node.can_resume
             && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing)
             && let Some((id, cwd)) = rail.conversation(&node.id)?
@@ -656,6 +663,7 @@ mod tests {
         shared.runs().insert(
             id.clone(),
             Slot::Resuming {
+                mode: contracts::agent::ResumeMode::Normal,
                 attempt,
                 since: 0,
                 old: None,

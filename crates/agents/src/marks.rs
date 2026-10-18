@@ -527,6 +527,7 @@ impl Agents {
                         Some((&launch_copy, &cwd)),
                         prompt,
                         publication,
+                        None,
                     )
                     .await
             });
@@ -541,6 +542,7 @@ impl Agents {
                 Some((copy, &mark.cwd)),
                 resume.prompt.clone(),
                 publication,
+                None,
             )
             .await?;
         resume.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));
