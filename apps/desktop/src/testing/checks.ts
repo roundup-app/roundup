@@ -489,7 +489,7 @@ const d7 = (page: Page): Measure => {
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };
 };
 
-// D8: no border over 1 px or off `--hairline`; only the Drawer and the bubble panel have a shadow; no `backdrop-filter` element contains another.
+// D8: no border over 1 px or off `--hairline`; only the Drawer, the bubble panel and the Terminal's control overlay (U375) have a shadow; no `backdrop-filter` element contains another.
 const d8 = (page: Page): Measure => {
   return offender(page, (el, style) => {
     const hairline = parseColour(resolveAt(page, el, "var(--hairline)"));
@@ -506,7 +506,7 @@ const d8 = (page: Page): Measure => {
 
     const shadow = style.boxShadow;
 
-    if (shadow && shadow !== "none" && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !el.matches("aside, aside *, .bubble, .pane-control") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 
