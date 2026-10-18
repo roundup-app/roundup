@@ -521,10 +521,9 @@ const d8 = (page: Page): Measure => {
       return JSON.stringify([parseColour(colour), lengths]);
     };
 
-    // U375 requires the control overlay to cast the same Token shadow as a floating panel.
-    const panelShadow = el.matches(".milkdown-slash-menu, .pane-control") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    const menuShadow = el.matches(".milkdown-slash-menu") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
-    if (shadow && shadow !== "none" && !panelShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble, .pane-control") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 
