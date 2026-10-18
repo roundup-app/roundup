@@ -244,6 +244,8 @@ export const copy = {
   managedTypingNotSent: "Managed: typing is not sent",
   youControl: "You control",
   takeOver: "Take control",
+  projectOverview: "Project overview",
+  projectAttention: (count: number) => count === 0 ? "Nothing needs you" : `${count} ${count === 1 ? "needs" : "need"} you`,
   askBarLabel: "Ask",
   askBarPlaceholder: "Ask anything. @ names a Workstream",
   askBarShortcut: "Ask bar",
