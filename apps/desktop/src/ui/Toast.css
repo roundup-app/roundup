@@ -19,7 +19,7 @@
   border-radius: var(--radius-control);
   opacity: 1;
   transform: translateY(0);
-  transition: opacity var(--duration-toast) ease-out, transform var(--duration-toast) ease-out;
+  transition: opacity var(--duration-toast) var(--easing-out), transform var(--duration-toast) var(--easing-out);
 }
 
 @starting-style {

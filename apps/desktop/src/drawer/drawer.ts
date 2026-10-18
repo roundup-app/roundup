@@ -11,7 +11,7 @@ export type DrawerState = {
   close(): void;
 };
 
-export const DRAWER_EASING = "ease-out";
+export const DRAWER_EASING = "var(--easing-out)";
 
 export const createDrawer = (): DrawerState => {
   const [content, setContent] = createSignal<DrawerContent | null>(null);
