@@ -19,7 +19,7 @@ const focusTarget = (): void => {
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { rail, takeover } = useConnectedProject();
+  const { rail, takeover, project } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
   const [text, setText] = createSignal("");
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
@@ -46,7 +46,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     props.onFailure(null);
 
     if (entry.terminal !== undefined) {
-      rail.select(entry.terminal.owner);
+      rail.select(entry.terminal.owner === project.path ? null : entry.terminal.owner);
       window.dispatchEvent(new CustomEvent(REVEAL_BUBBLE, { detail: entry.terminal.id }));
 
       return;

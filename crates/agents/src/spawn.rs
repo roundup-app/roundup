@@ -196,16 +196,22 @@ impl Agents {
         })
     }
 
-    /// X12: start the user's login shell in the Project folder, owned by Workstream `workstream`.
+    /// X12: start the user's login shell in the Project folder, owned by its Workstream or Project.
     pub(super) async fn open_terminal(&self, params: OpenParams) -> Result<Opened, RpcError> {
         let OpenParams { workstream } = params;
-        let node = self.shared.rail().node(&workstream)?;
-        if node.kind != NodeKind::Workstream {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                format!("{workstream} is not a Workstream"),
-            ));
-        }
+        let owner = match workstream {
+            Some(workstream) => {
+                let node = self.shared.rail().node(&workstream)?;
+                if node.kind != NodeKind::Workstream {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        format!("{workstream} is not a Workstream"),
+                    ));
+                }
+                workstream
+            }
+            None => self.project_dir().to_string_lossy().into_owned(),
+        };
         let shell = std::env::var_os("SHELL")
             .map(|shell| shell.to_string_lossy().into_owned())
             .filter(|shell| !shell.is_empty())
@@ -216,7 +222,7 @@ impl Agents {
             .spawn_shell_owned(
                 &self.project_dir().to_string_lossy(),
                 &shell,
-                &workstream,
+                &owner,
                 BTreeMap::new(),
             )
             .await?;
