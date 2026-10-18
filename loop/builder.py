@@ -802,11 +802,9 @@ def fix_task(pr, head, cause, run_id=0, output=None):
         plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
     # L120: the restore script may repair it before any model runs; it counts no attempt (`fixed` sees no model work).
     merge_loss = cause == 'rules' and rules_failed_only(current, MERGE_LOSS_STEP)
-    linked = LINKED.search(current['body'] or '')
     if output:
         with open(output, 'a') as out:
-            # The Issue's number picks the engine (L23), so a PR's fix runs start where its build did.
-            out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss + f'issue={linked[1]}\n' * bool(linked))
+            out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
     attempts = orders.marked(pr, '<!-- fix-attempt -->')
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0

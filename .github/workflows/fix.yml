@@ -60,7 +60,6 @@ jobs:
       cause: ${{ steps.task.outputs.cause }}
       plumbing: ${{ steps.task.outputs.plumbing }}
       merge_loss: ${{ steps.task.outputs.merge_loss }}
-      issue: ${{ steps.task.outputs.issue }}
       prompt: ${{ steps.task.outputs.prompt }}
     steps:
       - uses: actions/checkout@v5
