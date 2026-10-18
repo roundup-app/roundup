@@ -690,3 +690,95 @@ async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
         [first, other, again].map(|id| format!("rup-{id}"))
     );
 }
+
+impl Run {
+    async fn rename(&self, name: &str) -> u32 {
+        self.user
+            .request("rail.rename", json!({"id":self.child,"name":name}))
+            .await
+            .unwrap();
+        let body = format!("you are now called \"{name}\" on the Rail");
+        until("rename note queued", async || {
+            let messages = self
+                .user
+                .request("message.list", json!({"to":self.child}))
+                .await
+                .unwrap();
+            messages
+                .as_array()
+                .unwrap()
+                .iter()
+                .rev()
+                .find(|m| m["body"] == body)
+                .map(|m| m["id"].as_u64().unwrap() as u32)
+        })
+        .await
+    }
+
+    async fn assert_rename_delivery(&mut self, ids: &[u32], names: &[&str]) {
+        let expected: Vec<_> = ids.iter().map(|id| format!("rup-{id}")).collect();
+        until("ordered rename entries", async || {
+            (self.entries() == expected).then_some(())
+        })
+        .await;
+        for ((entry, id), name) in self.received().iter().zip(ids).zip(names) {
+            assert_eq!(
+                entry["msg_id"],
+                format!("00000000-0000-4000-8000-{id:012x}")
+            );
+            let content = entry["message"]["content"].as_str().unwrap();
+            assert!(content.contains("from-name=\"rupd\""), "{content}");
+            assert!(
+                content.contains(&format!("you are now called \"{name}\" on the Rail")),
+                "{content}"
+            );
+            let message = self.message(*id).await;
+            assert_eq!(message["from"]["id"], "rupd");
+            assert_eq!(message["kind"], "note");
+            assert_eq!(message["status"], "pending");
+        }
+        assert_eq!(self.typed().await, 0);
+        self.record(ids).await;
+        until("rename acknowledgements", async || {
+            let mut delivered = true;
+            for id in ids {
+                delivered &= self.status(*id).await.0 == "delivered";
+            }
+            delivered.then_some(())
+        })
+        .await;
+        self.idle_edge().await;
+        let (_, delivered) = self.seen().await;
+        for id in ids {
+            assert_eq!(delivered.iter().filter(|seen| *seen == id).count(), 1);
+        }
+        assert_eq!(self.entries(), expected);
+        assert_eq!(self.typed().await, 0);
+    }
+}
+
+#[tokio::test]
+async fn b2704a_rename_updates_context_and_queues_one_note() {
+    let mut run = Run::start().await;
+    let id = run.rename("sad-2").await;
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["self"]["name"], "sad-2");
+    run.assert_rename_delivery(&[id], &["sad-2"]).await;
+}
+
+#[tokio::test]
+async fn b2704a_busy_renames_arrive_once_in_order() {
+    let mut run = Run::start().await;
+    run.signal(json!({"hook_event_name":"PreToolUse","tool_name":"Bash"}))
+        .await;
+    let first = run.rename("sad-2").await;
+    let second = run.rename("sad-3").await;
+    assert!(run.entries().is_empty());
+    run.signal(json!({"hook_event_name":"Stop"})).await;
+    run.assert_rename_delivery(&[first, second], &["sad-2", "sad-3"])
+        .await;
+}
