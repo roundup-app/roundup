@@ -187,7 +187,7 @@ p {
 }
 
 .shelf-edge-slot[data-animated="true"] {
-  transition: transform var(--duration-drawer) ease-out;
+  transition: transform var(--duration-drawer) var(--easing-out);
 }
 
 .shelf-edge {
@@ -238,7 +238,7 @@ p {
 }
 
 .shelf[data-animated="true"] {
-  transition: transform var(--duration-drawer) ease-out;
+  transition: transform var(--duration-drawer) var(--easing-out);
 }
 
 /* The leading edge's shadow fades with the slide, on opacity. */
@@ -257,7 +257,7 @@ p {
 }
 
 .shelf[data-animated="true"]::before {
-  transition: opacity var(--duration-drawer) ease-out;
+  transition: opacity var(--duration-drawer) var(--easing-out);
 }
 
 /* Surfaces and depth (docs/design-system.md; U134): the Rail sits on `--sunken` and so does the Shelf, which floats; the pane and the Drawer sit on `--ground`. */
@@ -314,7 +314,7 @@ p {
 }
 
 .window[data-shelf-mode="reserved"][data-shelf-animated="true"] .columns {
-  transition: width var(--duration-drawer) ease-out;
+  transition: width var(--duration-drawer) var(--easing-out);
 }
 
 .shelf-scrim {
@@ -334,7 +334,7 @@ p {
 }
 
 .window[data-shelf-animated="true"] .shelf-scrim {
-  transition: opacity var(--duration-drawer) ease-out;
+  transition: opacity var(--duration-drawer) var(--easing-out);
 }
 
 /* U430: the columns end where the Drawer begins, over the Drawer's own duration and curve; instant when the Drawer is. */
@@ -352,7 +352,7 @@ p {
 }
 
 .window:has(.drawer[data-motion="slide"][data-open="true"], .drawer[data-motion="slide"] > :not(.close)) .columns {
-  transition: width var(--duration-drawer) ease-out;
+  transition: width var(--duration-drawer) var(--easing-out);
 }
 
 .drawer[data-open="true"] {
@@ -362,7 +362,7 @@ p {
 /* U409: the Shelf lies wholly under an open Drawer, so once the slide ends it leaves the tab order; closing shows it at once. */
 .window:has(.drawer[data-open="true"]) .shelf {
   visibility: hidden;
-  transition: transform var(--duration-drawer) ease-out, visibility var(--duration-drawer) linear;
+  transition: transform var(--duration-drawer) var(--easing-out), visibility var(--duration-drawer) linear;
 }
 
 .drawer > .close {
