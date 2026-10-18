@@ -59,11 +59,12 @@ server.bind(flag('--messaging-socket-path'))
 server.listen()
 json.dump({'pid': os.getpid(), 'messagingSocketPath': flag('--messaging-socket-path')}, open(sessions + '/%d.json' % os.getpid(), 'w'))
 json.dump({'peerToken': token}, open(sessions + '/%d.abc.key' % os.getpid(), 'w'))
+# Claude Code drops a msg_id it took up on any connection, so the set outlives one.
+seen = set()
 def take(conn):
   try:
     lines = conn.makefile()
     if json.loads(lines.readline()).get('token') != token: return
-    seen = set()
     for line in lines:
         msg = json.loads(line)
         # A msg_id taken up before is dropped, as Claude Code drops it.
