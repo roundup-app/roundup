@@ -21,11 +21,11 @@ class E14(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "5 overlapping"):
             observer.overlap(rows + [dict(id="b21", start=1100, end=1900, real=True)])
 
-    def test_e14_overlap_within_junit_resolution_is_touching_but_two_ms_is_not(self):
+    def test_e14_precise_intervals_only_touch_at_equal_timestamps(self):
         rows = [dict(id=str(i), start=1000, end=2000, real=True) for i in range(4)]
-        self.assertEqual(observer.overlap(rows + [dict(id="b21", start=1999, end=3000, real=True)]), 4)
+        self.assertEqual(observer.overlap(rows + [dict(id="b21", start=2000, end=3000, real=True)]), 4)
         with self.assertRaisesRegex(ValueError, "5 overlapping"):
-            observer.overlap(rows + [dict(id="b21", start=1998, end=3000, real=True)])
+            observer.overlap(rows + [dict(id="b21", start=1999.5, end=3000, real=True)])
 
     def test_e14_missing_lifecycle_or_memory_fails_visibly(self):
         with tempfile.TemporaryDirectory() as temporary:
