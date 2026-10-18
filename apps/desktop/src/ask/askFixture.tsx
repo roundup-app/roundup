@@ -5,6 +5,9 @@ import { Keys } from "../keys/Keys";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, workstream } from "../testing/nodes";
+import { createRailState } from "../state/rail";
+import { Pane } from "../terminal/Pane";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { AskBar } from "./AskBar";
 
 const TREE: RailNode[] = [
@@ -15,13 +18,21 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] = TREE) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false) => {
   const app = createFakeApp();
 
-  app.handlers["rail.tree"] = () => tree;
+  app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
   app.handlers["ask.list"] = () => asks;
 
+  app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "existing output" });
+  app.handlers["terminal.resize"] = () => null;
+  const { factory } = fakeEmulators();
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+
+  if (tree instanceof Promise) {
+    app.handlers["rail.tree"] = () => tree;
+    connected.rail = createRailState(app, connected.events);
+  }
 
   if (selected !== null) connected.rail.select(selected);
 
@@ -29,7 +40,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
       <button type="button" class="outside">outside</button>
-      <div class="centre-stack"><AskBar /></div>
+      <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar /></div>
     </ConnectedProjectContext.Provider>
   ));
 

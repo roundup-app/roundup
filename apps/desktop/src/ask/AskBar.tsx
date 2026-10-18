@@ -1,10 +1,15 @@
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
+import { KindGlyph, LABELS } from "../ink/KindGlyph";
+import { attentionOrder } from "../rail/attention";
+import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { Tip } from "../rail/Tip";
+import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
 import "./styles.css";
 
@@ -104,8 +109,59 @@ export const AskBar = () => {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+        <Show when={!over()}><ProjectOverview /></Show>
         <AskRows onOpened={() => close(false)} />
       </section>
     </Show>
   );
+};
+
+const ProjectOverview = () => {
+  const { rail } = useConnectedProject();
+  const attention = createMemo(() => attentionOrder(rail.nodes));
+  const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
+  const under = (id: string | null) => attention().filter((node) => resolvedWorkstream(rail.nodes, node.id) === id);
+
+  const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
+
+  return <section class="project-overview" aria-label="Project overview">
+    <Show when={rail.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+    <h2 class="overview-heading" data-state="attention">{attention().length === 0 ? "Nothing needs you" : `${attention().length} ${attention().length === 1 ? "needs" : "need"} you`}</h2>
+    <ul class="overview-list">
+      <For each={workstreams()}>{(node) => <li>
+        {entry(node)}
+        <Show when={under(node.id).length > 0}><ul class="overview-attention">
+          <For each={under(node.id)}>{(agent) => <li>{entry(agent, true)}</li>}</For>
+        </ul></Show>
+      </li>}</For>
+      <For each={under(null)}>{(node) => <li>{entry(node, true)}</li>}</For>
+    </ul>
+  </section>;
+};
+
+const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => void }) => {
+  const [cut, setCut] = createSignal(false);
+  let name: HTMLSpanElement | undefined;
+  const measure = () => setCut(!!name && name.scrollWidth > name.clientWidth);
+
+  createEffect(() => {
+    if (props.node.name) queueMicrotask(measure);
+  });
+  onMount(() => {
+    if (!name) return;
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(name);
+    onCleanup(() => observer.disconnect());
+  });
+
+  return <Tip text={props.node.name} disabled={!cut()}>
+    {(trigger) => <button {...trigger({ type: "button", class: "overview-entry", onClick: props.select })}
+      data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
+      <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
+      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
+        <KindGlyph kind={status().kind} decorative /><span>{LABELS[status().kind]}</span>
+      </span>}</Show>
+    </button>}
+  </Tip>;
 };
