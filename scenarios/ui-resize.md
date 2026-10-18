@@ -6,7 +6,7 @@ Webview only: no App command, no Daemon method and nothing under `contracts/` ch
 
 Engineering calls, each made here so the implementation run asks nothing:
 
-- **Widths.** Two Tokens set the widths: `--rail-width` (default 288 px, minimum 252 px, maximum 480 px) and `--shelf-width` (default 320 px as U368 to U373 set it, minimum 240 px, maximum 560 px). 252 px is today's Rail and the floor at which its row words fit (U23); 288 px is 36 px wider, the "bit wider" the user asked for. Neither is a `clamp` of a window percentage any more: U23's `20%` and `clamp(252px, 20%, 320px)` go.
+- **Widths.** Two Tokens set the widths: `--rail-width` (default 288 px, minimum 252 px, maximum 480 px) and `--shelf-width` (default 320 px as U369 to U373 set it, minimum 240 px, maximum 560 px). 252 px is today's Rail and the floor at which its row words fit (U23); 288 px is 36 px wider, the "bit wider" the user asked for. Neither is a `clamp` of a window percentage any more: U23's `20%` and `clamp(252px, 20%, 320px)` go.
 - **Room.** At supported window widths of at least 1280 px (U453), the Rail and Shelf use their full user resize ranges without window-dependent clamps. Their maximums sum to 1040 px, so the Shelf leaves the Rail visible.
 
 - **Per Project.** The two stored widths are kept as U100 keeps layout and U373 keeps the open tab: the webview's saved state, keyed by Project path, restored in the frame that first shows the tree, with no animation. A stored value that is not a finite number means the default; a finite one is clamped to its limits at render and stored as given, so restoration honours the stored width within its resize limits.
