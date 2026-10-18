@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
   deferred,
@@ -12,7 +12,10 @@ import {
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const edit = (field: HTMLTextAreaElement, value: string) => {
   fireEvent.focus(field);
@@ -383,4 +386,22 @@ describe("u20 open and edit", () => {
       "only the owner",
     );
   });
+});
+
+
+it("p2544b_pause_coalesces_latest_draft", async () => {
+  const { app } = await openShelf([padOf("notes", USER, "original")]);
+  const field = await openPad("notes");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "first" } });
+  // PadBody's 500 ms pause is the behavior under test.
+  await vi.advanceTimersByTimeAsync(499);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  fireEvent.input(field, { target: { value: "latest" } });
+  await vi.advanceTimersByTimeAsync(499);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "latest\n" } },
+  ]);
 });
