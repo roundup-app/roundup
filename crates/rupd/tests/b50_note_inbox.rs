@@ -19,8 +19,6 @@ const BOUND: Duration = Duration::from_secs(15);
 const FAKE: &str = r#"#!/usr/bin/env python3
 import json, os, re, socket, subprocess, sys, threading, tty
 here = os.path.dirname(os.path.abspath(__file__))
-if sys.argv[1:2] == ['--version']:
-    print(open(here + '/version').read().strip() if os.path.isfile(here + '/version') else '2.1.300 (Claude Code)'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'list']:
     print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']:
@@ -35,7 +33,7 @@ os.makedirs(sessions, exist_ok=True)
 server = socket.socket(socket.AF_UNIX)
 server.bind(path)
 server.listen()
-json.dump({'pid': os.getpid(), 'messagingSocketPath': path}, open(sessions + '/%d.json' % os.getpid(), 'w'))
+json.dump({'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(here + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
 json.dump({'peerToken': token}, open(sessions + '/%d.abc.key' % os.getpid(), 'w'))
 def take(conn):
     lines = conn.makefile()
@@ -105,7 +103,13 @@ fn launch(project: &Path, data: &Path) -> rupd_harness::Rupd {
                 .env("ROUNDUP_CLAUDE_BIN", project.join("claude"))
                 .env("ROUNDUP_RUP_BIN", rup)
                 .env("CLAUDE_CONFIG_DIR", project.join("config"))
-                .stderr(std::process::Stdio::null());
+                .stderr(
+                    std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(project.join("rupd.err"))
+                        .unwrap(),
+                );
         },
     )
 }
@@ -126,17 +130,17 @@ async fn until<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T>) -> T {
 impl Run {
     /// A Daemon with one idle Agent.
     async fn start() -> Self {
-        Self::start_on("2.1.300 (Claude Code)").await
+        Self::start_on(1).await
     }
 
-    /// A Daemon whose `claude --version` prints `version`.
-    async fn start_on(version: &str) -> Self {
+    /// A Daemon whose Claude Code lists `peerProtocol` `protocol` in its session file.
+    async fn start_on(protocol: u64) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, FAKE).unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(dir.path().join("version"), version).unwrap();
+        std::fs::write(dir.path().join("protocol"), protocol.to_string()).unwrap();
         let daemon = launch(dir.path(), data.path());
         let user = Client::connect(&daemon.socket).await.unwrap();
         let mut watcher = Client::connect(&daemon.socket).await.unwrap();
@@ -443,8 +447,8 @@ async fn b51_a_session_not_listening_holds_the_note_with_zero_terminal_writes() 
 }
 
 #[tokio::test]
-async fn b51_an_unprobed_claude_version_is_a_mismatch() {
-    let run = Run::start_on("9.9.9 (Claude Code)").await;
+async fn b51_an_unprobed_peer_protocol_is_a_mismatch() {
+    let run = Run::start_on(99).await;
     let id = run.note("hello").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
@@ -453,6 +457,13 @@ async fn b51_an_unprobed_claude_version_is_a_mismatch() {
     assert_eq!(run.rail_inbox().await.as_deref(), Some("mismatch"));
     assert!(run.entries().is_empty());
     assert_eq!(run.typed().await, 0);
+    // The transition is loud, once: the Rail is read again at each check, the log line is not.
+    let log = std::fs::read_to_string(run.dir.path().join("rupd.err")).unwrap();
+    let lines: Vec<_> = log
+        .lines()
+        .filter(|line| line.contains("messaging protocol this build does not"))
+        .collect();
+    assert_eq!(lines.len(), 1, "{log}");
 }
 
 #[tokio::test]
@@ -546,7 +557,7 @@ async fn b52_thirty_idle_edges_with_a_session_not_listening_hold_once_and_type_n
 
 #[tokio::test]
 async fn b52_a_restart_with_a_held_inbox_note_keeps_it_held() {
-    let mut run = Run::start_on("9.9.9 (Claude Code)").await;
+    let mut run = Run::start_on(99).await;
     let id = run.note("keep").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())

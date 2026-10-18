@@ -335,6 +335,7 @@ export const Rail = () => {
     const actions: Extract<RowActions, { kind: "agent" }> = { ...base, kind: "agent" };
 
     if (menu.isRunning(node, exit)) actions.stop = () => stopFromIcon(node, exit);
+    else if (menu.isResumable(node, exit)) actions.resume = () => menu.requestResume(node);
 
     return actions;
   };
