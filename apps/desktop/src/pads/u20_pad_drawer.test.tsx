@@ -35,6 +35,17 @@ const methodsAfterOpen = (calls: string[]) =>
   );
 
 describe("u20 open and edit", () => {
+  it("u20_a_pad_the_user_owns_has_editable_text", async () => {
+    await openShelf([padOf("release-checklist", USER, "x")]);
+
+    const field = await openPad("release-checklist");
+
+    expect([field.readOnly, screen.queryByLabelText("append")]).toEqual([
+      false,
+      null,
+    ]);
+  });
+
   it("u20_the_drawer_shows_the_owner_mark_and_the_name", async () => {
     await openShelf([padOf("auth-notes", AGENT, "x")]);
     await openPad("auth-notes");
