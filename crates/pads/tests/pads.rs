@@ -288,34 +288,7 @@ async fn p6_export_writes_one_file_and_never_creates_directories() {
     assert!(!out.path().join("nope").exists());
 }
 
-#[tokio::test]
-async fn p7_pads_survive_reopening_the_directory() {
-    let dir = TempDir::new().unwrap();
-    let a = agent("a");
-    let touches = Arc::new(Touches::in_memory().unwrap());
-    let call = |pads: Pads, method: &'static str, params: Value| {
-        let ctx = Ctx {
-            actor: a.clone(),
-            bus: Bus::new(),
-            touches: Arc::clone(&touches),
-        };
-        async move { pads.call(&ctx, method, params).await.unwrap() }
-    };
-    let first = Pads::open(dir.path(), Bus::new()).unwrap();
-    call(
-        first,
-        "pad.create",
-        json!({"name": "notes", "text": "kept"}),
-    )
-    .await;
-
-    let reopened = Pads::open(dir.path(), Bus::new()).unwrap();
-    let pad = call(reopened, "pad.read", json!({"name": "notes"})).await;
-
-    assert_eq!(pad["text"], "kept");
-    assert_eq!(pad["owner"]["id"], "a");
-}
-
+// Rule 10: p7_every_pad_keeps_its_own_owner_and_text_after_reopening proves the single-Pad reopen too.
 #[tokio::test]
 async fn p7_every_pad_keeps_its_own_owner_and_text_after_reopening() {
     let dir = TempDir::new().unwrap();
@@ -1468,4 +1441,125 @@ async fn p15_a_pad_stored_before_revisions_reads_revision_1() {
         .await;
 
     assert_eq!(pad["revision"], 1);
+}
+
+#[tokio::test]
+async fn p2544d_write_revision_guard() {
+    for files in [false, true] {
+        let rig = Rig::new();
+        rig.create("notes", "original").await;
+        rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
+            .await;
+        let a = agent("a");
+        rig.ok(
+            &a,
+            "pad.write",
+            json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+        )
+        .await;
+        let before = rig.ok(&a, "pad.list", json!({})).await;
+        let touches = rig.touches.history("pad:notes").unwrap();
+        let mut events = rig.bus.subscribe();
+        let error = rig
+            .fail(
+                &a,
+                "pad.write",
+                json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+            )
+            .await;
+        assert_eq!(error.code, code::CONFLICT);
+        assert!(error.message.contains("revision 2"));
+        assert_eq!(rig.ok(&a, "pad.list", json!({})).await, before);
+        assert_eq!(
+            rig.touches.history("pad:notes").unwrap().len(),
+            touches.len()
+        );
+        assert!(events.try_recv().is_err());
+        if files {
+            assert_eq!(rig.file_text("notes.md"), "winner");
+            assert_eq!(
+                std::fs::read_dir(rig.dir.path().join("pads"))
+                    .unwrap()
+                    .count(),
+                1
+            );
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn p2544d_two_connections_have_one_winner() {
+    for files in [false, true] {
+        let rig = Rig::new();
+        rig.create("notes", "original").await;
+        rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
+            .await;
+        let stores = [
+            Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
+            Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
+        ];
+        let barrier = std::sync::Barrier::new(2);
+        let runtime = tokio::runtime::Handle::current();
+        let results = std::thread::scope(|scope| {
+            let calls: Vec<_> = stores
+                .iter()
+                .zip(["first", "second"])
+                .map(|(pads, text)| {
+                    let ctx = Ctx {
+                        actor: agent("a"),
+                        bus: rig.bus.clone(),
+                        touches: rig.touches.clone(),
+                    };
+                    let barrier = &barrier;
+                    let runtime = &runtime;
+                    scope.spawn(move || {
+                        barrier.wait();
+                        runtime.block_on(pads.call(
+                            &ctx,
+                            "pad.write",
+                            json!({"name": "notes", "text": text, "expectedRevision": 1}),
+                        ))
+                    })
+                })
+                .collect();
+            calls
+                .into_iter()
+                .map(|call| call.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(
+            results
+                .iter()
+                .find_map(|result| result.as_ref().err())
+                .unwrap()
+                .code,
+            code::CONFLICT
+        );
+        let winner = results.into_iter().find_map(Result::ok).unwrap();
+        assert_eq!(rig.ok(&agent("a"), "pad.list", json!({})).await[0], winner);
+        if files {
+            assert_eq!(rig.file_text("notes.md"), winner["text"].as_str().unwrap());
+        }
+    }
+}
+
+#[tokio::test]
+async fn p2544d_guard_preserves_validation_and_authorization() {
+    let rig = Rig::new();
+    rig.create("notes", "original").await;
+    for (who, name, expected) in [
+        (agent("b"), "notes", code::FORBIDDEN),
+        (agent("a"), "missing", code::NOT_FOUND),
+        (agent("a"), "../notes", code::INVALID_PARAMS),
+    ] {
+        let error = rig
+            .fail(
+                &who,
+                "pad.write",
+                json!({"name": name, "text": "refused", "expectedRevision": 99}),
+            )
+            .await;
+        assert_eq!(error.code, expected);
+    }
 }

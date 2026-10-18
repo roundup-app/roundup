@@ -7,9 +7,42 @@ impl Agents {
         let Some(record) = record else {
             return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
         };
+        self.shared.worktrunk.refresh(&self.shared);
         let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
         let worktree = worktree::Worktree::from(&record);
         tokio::task::spawn_blocking(move || git.state(&project, &worktree))
+            .await
+            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
+    }
+
+    /// U2539a: what the Agent's Worktree changed against its Base. Reads only.
+    pub(super) async fn changed_files(&self, id: &str) -> Result<ChangedFiles, RpcError> {
+        let record = self.shared.node(id)?.worktree;
+        let Some(record) = record else {
+            return Err(RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")));
+        };
+        let git = self.shared.git.bounded();
+        let worktree = worktree::Worktree::from(&record);
+        tokio::task::spawn_blocking(move || git.changed_files(&worktree))
+            .await
+            .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
+    }
+
+    /// U2540a: read one comparison within the assigned Worktree.
+    pub(super) async fn compare_file(
+        &self,
+        id: &str,
+        path: &str,
+    ) -> Result<contracts::agent::FileComparison, RpcError> {
+        let record = self
+            .shared
+            .node(id)?
+            .worktree
+            .ok_or_else(|| RpcError::new(code::NOT_FOUND, format!("no_worktree: {id}")))?;
+        let git = self.shared.git.bounded();
+        let worktree = worktree::Worktree::from(&record);
+        let path = path.to_owned();
+        tokio::task::spawn_blocking(move || git.compare_file(&worktree, &path))
             .await
             .map_err(|err| RpcError::internal(format!("worktree_failed: {err}")))?
     }

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use contracts::agent::RailNode;
+use contracts::agent::{Channel, RailNode};
 use contracts::{Actor, ActorKind, IdentifyParams, Kind};
 use daemon::{Project, rail_tree};
 use serde_json::{Value, json};
@@ -79,7 +79,7 @@ async fn idle(client: &rpc::Client, id: &str) {
 }
 
 async fn fixture() -> Fix {
-    let project = daemon::start_real("a35_marks", &[]);
+    let project = daemon::start_real("a35_marks", &[("ROUNDUP_INTERRUPT_BOUND_MS", "60000")]);
     let dir = project.dir.path();
     git(dir, &["init", "-q", "-b", "main"]);
     git(dir, &["config", "user.name", "roundup"]);
@@ -641,21 +641,30 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
             .unwrap(),
     )
     .unwrap();
-    let mut working = false;
-    loop {
-        let kind = daemon::next(&mut events, |event| match event {
+    // O2: with neither prompt nor order the Agent is Steered nothing, so its SessionStart is its `idle`.
+    // The node is stable once it is Idle and its Channel is Up: a read before the Channel connects
+    // shows Pending, and a later read shows Up.
+    let (mut idle, mut up) = (false, false);
+    while !(idle && up) {
+        let seen = daemon::next(&mut events, |event| match event {
             contracts::EventData::AgentStatus(status) if status.id == later.id => {
-                Some(status.status.kind)
+                Some((Some(status.status.kind), false))
+            }
+            contracts::EventData::AgentChannel(channel)
+                if channel.id == later.id && channel.channel == Channel::Up =>
+            {
+                Some((None, true))
             }
             _ => None,
         })
         .await;
-        match kind {
-            Kind::Working => working = true,
-            Kind::Idle if working => return node(&fx.user, &later.id).await.unwrap(),
+        match seen {
+            (Some(Kind::Idle), _) => idle = true,
+            (None, true) => up = true,
             _ => {}
         }
     }
+    node(&fx.user, &later.id).await.unwrap()
 }
 
 #[tokio::test]
@@ -1227,7 +1236,17 @@ async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
         .unwrap_err();
     assert_eq!(error.code, rpc::code::CONFLICT);
     assert!(error.message.contains(&child.name), "{error:?}");
-    assert_eq!(rail_tree(&fx.user).await, before);
+    // A child may still be finishing a turn of its own, so Status is not the refusal's to keep.
+    let unchanged = |tree: Vec<RailNode>| -> Vec<RailNode> {
+        tree.into_iter()
+            .map(|node| RailNode {
+                status: None,
+                status_revision: None,
+                ..node
+            })
+            .collect()
+    };
+    assert_eq!(unchanged(rail_tree(&fx.user).await), unchanged(before));
     // Selecting every child removes them deepest first.
     rewind(&fx, None, "keep").await;
     assert!(node(&fx.user, &child.id).await.is_none());
@@ -1767,6 +1786,9 @@ async fn m16_a_door_can_perform_each_user_action_on_a_child() {
                 .contains("\"behavior\":\"allow\""),
             "{result}"
         );
+        // The tool result precedes the end of the Door's model turn. A new note during
+        // that exchange can be consumed with its result instead of starting the next turn.
+        idle(&fx.user, &fx.ws).await;
         let ask = json!({"name": "ask_user", "arguments": {"question": "Proceed?",
             "answers": [{"label": "Yes", "description": "Continue"}]}});
         let calls = [("tools/call", ask)];
@@ -1963,7 +1985,11 @@ async fn m16_door_calls_cannot_bypass_a_child_takeover() {
         let replies = door_calls(
             &fx,
             &[
-                ("agent_prompt", json!({"id": child, "text": "after mark"})),
+                // Keep the released prompt in flight until the queued interrupt runs.
+                (
+                    "agent_prompt",
+                    json!({"id": child, "text": "m16 slow turn"}),
+                ),
                 ("agent_interrupt", json!({"id": child})),
                 (
                     "terminal_write",

@@ -20,7 +20,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow or duration literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
+All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
 Starting values. The thresholds in the checks are fixed; a value that fails a threshold is changed, never the threshold.
 
@@ -47,6 +47,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--shelf-width` | `320px` | same | the open Shelf's width (U371; #622 makes it resizable) |
 | `--text-pad-subheading` / `--text-pad-heading` | `20px` / `24px` | same | rendered and formatted Pad headings |
 | `--radius-row` / `--radius-control` / `--radius-drawer` | `6px` / `6px` / `12px` | same | selection band, buttons, Drawer, Terminal bubble (U523) |
+| `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
 | `--duration-crossfade` | `120ms` | same | a crossfade (`docs/motion.md`, ~120 ms): the periphery dimming while the Thread's input is typed in (U105) |
@@ -127,7 +128,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | Id | Passes when | Scenario |
 |---|---|---|
 | D1 | every computed colour, background, border-color, shadow, radius and duration is the value of a Token | U130 |
-| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step | U131 |
+| D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. | U131 |
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone and a focus ring 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
@@ -187,3 +188,19 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately; the selected name and × retain the Enter press through keyup or blur via the shared button pressed hook. Overflow uses unselected-tab values; the strip's edge caps keep their opaque rest surface and answer with ink only; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
 
 The light header stays on root sunken. Borders carry ≥3:1 against the header and adjacent tab; selection uses a lighter ground and full ink, without a selected/header contrast threshold. Dark selected rest, hover and press stay no brighter than the corresponding selected Rail wash. Painted name buttons and rename fields carry exactly `--space-1` on both inline edges. The tab minimum includes those two insets outside U382’s eight-character text floor and the existing close target; the remaining box geometry belongs to U440.
+
+
+### U2541 shortcut key chips
+
+Hint line, Help and leader keys use the shared `KeyChip`, a plain `kbd` per symbol.
+Labels remain `--grey`; chips use `--text`, `--font-ui`, `--text-small`, weight 500,
+no border and a `--space-4` (16 px) height.
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--key-chip-fill` | `rgba(0, 0, 0, 0.06)` | `rgba(255, 255, 255, 0.08)` |
+| `--radius-chip` | `4px` | same |
+| `--key-chip-padding` | `5px` | same |
+
+Increased contrast retains the fill and promotes labels to text. Whole hints drop from
+the end when space runs out (U2230b). Keys have no motion (D6).

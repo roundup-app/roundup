@@ -1,5 +1,5 @@
 import { registerKeys } from "./keys/registry";
-import { leaderChord } from "./keys/chords";
+import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
@@ -90,6 +90,12 @@ const Connection = (props: {
     mine = connected();
 
     if (mine) props.onConnected(path, mine);
+  });
+
+  createEffect(() => {
+    const open = connected();
+
+    if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
   });
 
   // Refused Agent answers have no Event, so live requests refresh on the App's shared clock.
@@ -260,7 +266,14 @@ export const App = (props: {
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
-  registerKeys({ kind: "leader" }, [{ chords: leaderChord("S"), run: shelfFocus.toggle }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "S")!, capture: () => {
+    const wasOpen = frame.open();
+
+    return {
+      available: () => shelfElement() != null,
+      invoke: () => { if (frame.open() === wasOpen) shelfFocus.toggle("key"); },
+    };
+  } }]);
 
   const emulators = () => props.createEmulator ?? createXtermEmulators();
 
@@ -279,7 +292,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onClose: shelfFocus.toggle, onSettle: frame.settle }}
+        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onClose: () => shelfFocus.toggle("pointer"), onSettle: frame.settle }}
         header={
           <WindowBar
             app={props.app}
@@ -336,7 +349,7 @@ export const App = (props: {
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} toasts={toasts} />
                     <AskBar />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
-                    <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle(); }} />
+                    <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     <ResourceStrip />
                   </div>
                 );

@@ -1,5 +1,5 @@
 import { useConnectedProject } from "../state/connectedProject";
-import { leaderChord } from "../keys/chords";
+import { LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { nextAttention } from "./attention";
 
@@ -8,12 +8,13 @@ export const AttentionKey = () => {
   const { rail } = useConnectedProject();
 
   registerKeys({ kind: "leader" }, [{
-    chords: leaderChord("J"),
-    run: () => {
+    action: LEADER.find((row) => row.keys === "J")!,
+    capture: () => ({ available: () => nextAttention(rail.nodes, rail.selected()) !== null,
+    invoke: () => {
       const next = nextAttention(rail.nodes, rail.selected());
 
       if (next) rail.select(next.id);
-    },
+    } }),
   }]);
 
   return null;

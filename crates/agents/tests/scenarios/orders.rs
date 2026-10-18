@@ -104,10 +104,7 @@ async fn o1_o2_a_spawn_holds_the_order_it_was_given_or_the_one_its_prompt_or_not
     let tree = f.tree().await;
     assert_eq!(order_of(&tree, &by_order.id), Some(given));
     assert_eq!(order_of(&tree, &by_prompt.id), Some(work("fix it", &[])));
-    assert_eq!(
-        order_of(&tree, &by_nothing.id),
-        Some(Order::clarification("What should this Agent do?"))
-    );
+    assert_eq!(order_of(&tree, &by_nothing.id), None);
     assert_eq!(order_of(&tree, &by_question.id), Some(asking));
 }
 

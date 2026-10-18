@@ -67,4 +67,36 @@ run("u375 on the real Daemon", () => {
     }
 
   });
+
+it("u2567c_real_daemon_attention_opens_its_agents_terminal", async () => {
+  const app = createServedApp(real.base);
+  const workstream = await app.rpc("rail.createWorkstream", { name: "review", parent: null });
+  const agent = await app.rpc("agent.spawn", { cwd: real.dir, parent: workstream.id, prompt: null, order: { kind: "clarification", question: "What should I review?" }, name: "reviewer" });
+
+  await app.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } });
+  await page.load(`${real.base}/harness.html?daemon=1`, 1512, 950);
+  await page.until(`() => Boolean(document.querySelector('.todo-project-root'))`);
+  await page.call(`() => document.querySelector('.todo-project-root').click()`);
+  await page.until(`() => [...document.querySelectorAll('.overview-attention .overview-entry')].some((entry) => entry.textContent === 'reviewerNeeds-you')`);
+
+  const names = await page.call<string[]>(`() => [...document.querySelectorAll('.overview-list > li')].map((entry) => entry.textContent)`);
+
+  expect(names).toContain("reviewDonereviewerNeeds-you");
+  await page.call(`() => {
+    const fetch = window.fetch;
+    window.__overviewReads = [];
+    window.fetch = (url, options) => {
+      if (typeof options?.body === 'string') {
+        const call = JSON.parse(options.body);
+        if (call.method === 'terminal.snapshot') window.__overviewReads.push(call.params.id);
+      }
+      return fetch(url, options);
+    };
+    [...document.querySelectorAll('.overview-attention .overview-entry')].find((entry) => entry.textContent.includes('reviewer')).click();
+  }`);
+  await page.until(`() => Boolean(document.querySelector('.pane-screen .xterm'))`);
+
+  expect(await page.call<string[]>(`() => window.__overviewReads`)).toEqual([agent.terminal_id]);
+}, 60_000);
+
 });

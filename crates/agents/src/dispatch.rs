@@ -46,6 +46,16 @@ impl Module for Agents {
                 shared.guard_reach(&ctx.actor, &id, true)?;
                 reply(&self.worktree_state(&id).await?)
             }
+            "agent.changedFiles" => {
+                let NodeId { id } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, true)?;
+                reply(&self.changed_files(&id).await?)
+            }
+            "agent.compareFile" => {
+                let contracts::agent::CompareFileParams { id, path } = params(value)?;
+                shared.guard_reach(&ctx.actor, &id, true)?;
+                reply(&self.compare_file(&id, &path).await?)
+            }
             "agent.land" => {
                 let NodeId { id } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, false)?;

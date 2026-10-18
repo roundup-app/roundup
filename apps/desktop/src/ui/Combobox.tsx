@@ -14,9 +14,10 @@ const Root = (props: {
   label: string;
   placeholder: string;
   empty: string;
+  group?: (item: ComboboxItem) => string | undefined;
   row: (item: ComboboxItem) => JSX.Element;
 }) => {
-  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label }));
+  const collection = createMemo(() => createListCollection({ items: [...props.items], itemToValue: (item) => item.value, itemToString: (item) => item.label, groupBy: (item) => props.group?.(item) ?? "" }));
 
   // Ark highlights the row under the pointer; the highlight follows typing and the arrows alone, so a pointer event's own highlight change is dropped.
   let pointerEvent = false;
@@ -38,8 +39,11 @@ const Root = (props: {
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
     <ArkCombobox.Control><ArkCombobox.Input class="app-combobox-input" placeholder={props.placeholder} autofocus /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
-      <For each={props.items} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
-        {(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}
+      <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
+        {([group, items]) => group ? <ArkCombobox.ItemGroup>
+          <ArkCombobox.ItemGroupLabel class="app-combobox-group-label">{group}</ArkCombobox.ItemGroupLabel>
+          <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>
+        </ArkCombobox.ItemGroup> : <For each={items}>{(item) => <ArkCombobox.Item item={item} class="app-combobox-item">{props.row(item)}</ArkCombobox.Item>}</For>}
       </For>
     </ArkCombobox.Content>
   </ArkCombobox.Root>;

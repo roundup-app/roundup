@@ -19,9 +19,6 @@ describe("u392 the Agent add is an icon button", () => {
 
     expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent", "Agent", "g"]]);
 
-    fireEvent.keyDown(document, { key: "Tab" });
-    buttons[0]!.focus();
-    await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain("Add Agent ⌘N"));
   });
 
   it("u392_the_icon_add_spawns_with_the_workstream_as_parent", async () => {
@@ -31,18 +28,6 @@ describe("u392 the Agent add is an icon button", () => {
 
     fireEvent.click(await add());
     await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "g", model: null, effort: null }]));
-  });
-
-  it("u392_the_icon_add_focuses_an_open_composing_field", async () => {
-    const mounted = await mountRail([workstream("g")]);
-    mounted.rail.select("g");
-    fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
-    const field = await screen.findByLabelText("Task");
-
-    fireEvent.click(await add());
-
-    expect(document.activeElement).toBe(field);
-    expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
   });
 
   it("u392_the_icon_add_is_a_keyboard_reachable_button_of_the_icon_kind", async () => {

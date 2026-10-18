@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
+import { createServedApp, spawnPrompted } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -46,11 +46,8 @@ describe("a33 an idle Agent that waits on an open blocker reads blocked, observe
       expect((await tree()).find((node) => node.id === workstream)?.status?.label).not.toBe("starting");
     }, { timeout: 30_000, interval: 1000 });
 
-    await waitFor(async () => {
-      if (!(await agentNode())) fireEvent.click(await within(rail).findByLabelText("Add Agent"));
-
-      expect(await agentNode()).toBeTruthy();
-    }, { timeout: 30_000, interval: 1000 });
+    await spawnPrompted(app, real.dir, workstream);
+    await waitFor(async () => expect(await agentNode()).toBeTruthy(), { timeout: 30_000, interval: 1000 });
 
     const id = (await agentNode())!.id;
 

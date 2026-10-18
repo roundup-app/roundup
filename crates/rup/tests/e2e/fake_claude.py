@@ -198,7 +198,7 @@ def listen():
     os.makedirs(sessions, exist_ok=True)
     pid = os.getpid()
     with open(os.path.join(sessions, f"{pid}.json"), "w") as out:
-        json.dump({"pid": pid, "version": "2.1.300", "messagingSocketPath": path}, out)
+        json.dump({"pid": pid, "version": "2.1.300", "peerProtocol": 1, "messagingSocketPath": path}, out)
     with open(os.path.join(sessions, f"{pid}.{token()}.key"), "w") as out:
         json.dump({"peerToken": token()}, out)
     return server
@@ -291,12 +291,13 @@ def log_launch():
 
 def play_session():
     """A36, A37: SessionStart, so the Daemon saves the conversation (A21), then record what is typed."""
-    sys.stdout.write("\033]0;\u2733 claude\007")
-    sys.stdout.flush()
     if "--resume" in sys.argv:
         hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
     else:
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000036", "source": "startup"})
+    # Idle must follow SessionStart: callers may now resume the saved conversation.
+    sys.stdout.write("\033]0;\u2733 claude\007")
+    sys.stdout.flush()
     for line in typed_prompts():
         if "FAKE_CLAUDE_INPUT_LOG" in os.environ:
             with open(os.environ["FAKE_CLAUDE_INPUT_LOG"], "a") as log:

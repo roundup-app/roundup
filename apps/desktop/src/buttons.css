@@ -90,6 +90,7 @@ button {
   color: var(--red);
 }
 
+button:hover:not([aria-disabled="true"]),
 [data-button="quiet"]:hover:not([aria-disabled="true"]),
 [data-button="row-action"]:hover:not([aria-disabled="true"]),
 [data-button="icon"]:hover:not([aria-disabled="true"]),
@@ -98,10 +99,6 @@ button {
 }
 
 /* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
-button:hover:not([aria-disabled="true"]) {
-  color: var(--text);
-}
-
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
 button:active:not([aria-disabled="true"]),
 button[data-pressed="true"]:not([aria-disabled="true"]) {
