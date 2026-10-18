@@ -442,15 +442,18 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           </Show>
         </Show>
         <Show when={selected()?.kind !== "workstream" && selected() !== null && terminalId() === null && notice() === null}>
-          <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
+          <div class="pane-empty pane-earlier">
+            <Show when={selected()?.kind === "agent"}><p class="pane-state">{selected()?.status?.kind === "done" ? copy.done : copy.agentStopped}</p></Show>
+            <p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>
+          </div>
         </Show>
         <Show when={doorState()}>
           {(state) => (
             <div class="pane-empty pane-door">
               <p class="light">{doorStateText(state())}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.doorPending(selected()!.id) || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.doorPending(selected()!.id) && connected.daemonExit() === null) void rail.startDoor(selected()!.id); }}>
-                <Icon name="right" />
-                {rail.doorFailure(selected()!.id) ? copy.retryDoor : copy.startDoor}
+                <Icon name="play" />
+                {rail.doorFailure(selected()!.id) ? copy.retry : copy.start}
               </button>
             </div>
           )}

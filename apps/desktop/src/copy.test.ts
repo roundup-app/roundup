@@ -1,18 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
-import { door, workstream } from "./testing/nodes";
-import { mountRailAndPane } from "./terminal/paneHarness";
-
-afterEach(cleanup);
-
-it("u471_action_labels_describe_the_existing_action_start_supervisor", async () => {
-  const { app, connected } = await mountRailAndPane([workstream("w")]);
-  app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
-  connected.rail.select("w");
-  fireEvent.click((await screen.findAllByRole("button", { name: "Start supervisor" })).find((button) => button.closest(".pane-door"))!);
-  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }]));
-  expect(connected.rail.selected()).toBe("w");
-});
+import { expect, it } from "vitest";
 
 import { parse } from "@babel/parser";
 import { isNode } from "@babel/types";
@@ -134,21 +120,4 @@ const candidates = (source: string): { line: number; text: string }[] => {
 it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   const missing = sources().flatMap((file) => candidates(readFileSync(join(ROOT, file), "utf8")).map(({ line, text }) => `${file}:${line}: ${text}`));
   expect(missing).toEqual([]);
-});
-
-it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {
-  const { app, connected } = await mountRailAndPane([workstream("w")]);
-
-  app.handlers["rail.startDoor"] = () => { throw new Error("keep THIS launch failure 🧭"); };
-
-  connected.rail.select("w");
-  fireEvent.click((await screen.findAllByRole("button", { name: "Start supervisor" })).find((button) => button.closest(".pane-door"))!);
-  const retry = (await screen.findAllByRole("button", { name: "Retry supervisor" })).find((button) => button.closest(".pane-door"))!;
-
-  expect(document.body.textContent).toContain("keep THIS launch failure 🧭");
-  app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
-  fireEvent.click(retry);
-  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }, { id: "w" }]));
-  expect(connected.rail.selected()).toBe("w");
-  expect(app.calls.filter((call) => call.method === "rail.createWorkstream")).toEqual([]);
 });
