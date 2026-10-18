@@ -582,6 +582,7 @@ mod tests {
                     shared.runs().insert(
                         "7013".into(),
                         Slot::Resuming {
+                            mode: Default::default(),
                             attempt: "1".into(),
                             since: 0,
                             old: None,
@@ -599,6 +600,7 @@ mod tests {
                     shared.runs().insert(
                         "7013".into(),
                         Slot::ResumeCleanup {
+                            old: None,
                             attempt: "1".into(),
                             terminal_id: "1".into(),
                             pending: false,

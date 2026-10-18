@@ -118,10 +118,10 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
       await page.call(`() => document.querySelector('[data-id="dense"]').click()`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===10`);
       await record('selection');
-      await page.call(`() => document.querySelector('.todo-project-root').click()`);
-      await page.until(`() => document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true' && document.querySelector('.terminal-new')`);
+      await page.call(`() => document.querySelector('.rail [data-todo-root]').click()`);
+      await page.until(`() => document.querySelector('.rail [data-todo-root]').getAttribute('aria-pressed') === 'true' && document.querySelector('.terminal-new')`);
       await page.call(`() => document.querySelector('.terminal-new').click()`);
-      await page.until(`() => document.querySelectorAll('.terminal-tab').length===1 && document.querySelector('.todo-project-root').getAttribute('aria-pressed') === 'true'`);
+      await page.until(`() => document.querySelectorAll('.terminal-tab').length===1 && document.querySelector('.rail [data-todo-root]').getAttribute('aria-pressed') === 'true'`);
       await record('missing-selection');
     }
   }

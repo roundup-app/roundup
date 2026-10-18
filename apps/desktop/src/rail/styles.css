@@ -601,9 +601,26 @@
   }
 }
 
-.rail-scroll > .todo-project-root {
-  --button-lead: var(--space-4);
-  --button-inline: var(--space-4);
+/* U3704: attention stays beside the name rather than in the trailing action group. */
+.todo-project-root > .ink-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--amber);
+}
+
+.todo-project-root[data-scrolled="true"]::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--space-2);
+  box-shadow: var(--shadow-scroll);
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* Full-width rows keep their keyboard ring inside the clipping Rail. */

@@ -14,7 +14,7 @@ const mount = async () => {
 
 it('u362_project_root_selection_follows_the_rail_selection', async () => {
   const mounted = await mount();
-  const root = screen.getByRole('button', {name: 'Project root'});
+  const root = screen.getByRole('button', {name: /Overview.*Project root/});
   mounted.connected.rail.select(null);
   expect(root.getAttribute('aria-pressed')).toBe('true');
   mounted.connected.rail.select('r1');
