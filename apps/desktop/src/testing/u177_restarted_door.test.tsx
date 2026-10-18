@@ -33,7 +33,7 @@ const diagStart = (real: StartedDaemon) => {
 
       return response;
     } catch (error) {
-      note(`fetch#${id} ${label} THREW after ${Date.now() - at}ms ${String(error)}`);
+      note(`fetch#${id} ${label} THREW after ${Date.now() - at}ms ${String(error)} cause=${JSON.stringify({ code: (error as { cause?: { code?: string } }).cause?.code, message: (error as { cause?: Error }).cause?.message })}`);
       throw error;
     } finally {
       pending.delete(id);
