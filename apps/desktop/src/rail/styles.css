@@ -343,7 +343,7 @@
   min-width: 0;
   min-height: var(--space-6);
   margin-right: 0;
-  font-size: var(--text-title);
+  font-size: var(--text-row);
   font-weight: 400;
   --button-inline: 0;
   --button-lead: 0;
@@ -407,7 +407,7 @@
   display: block;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--text-title);
+  font-size: var(--text-row);
 }
 
 .rail-leaf .shelf-meta {
