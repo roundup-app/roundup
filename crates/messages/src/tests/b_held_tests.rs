@@ -397,7 +397,7 @@ async fn b6_the_end_releases_takeover_holds_in_id_order_and_keeps_ask_first_held
     assert_eq!(states[&2], held("ask-first"));
     assert_eq!(
         h.typed(1).await,
-        ["[from a, note] one\n\n[from a, note] three"]
+        ["[from an Agent that is gone, note] one\n\n[from an Agent that is gone, note] three"]
     );
     h.until(1, "delivered").await;
     h.until(3, "delivered").await;
@@ -485,14 +485,18 @@ async fn b7_messages_are_typed_in_the_order_they_became_deliverable() {
 
     assert_eq!(
         h.typed(1).await,
-        ["[from you, note] pending-a\n\n[from you, note] pending-b\n\n[from a, note] held-first"]
+        [
+            "[from you, note] pending-a\n\n[from you, note] pending-b\n\n[from an Agent that is gone, note] held-first"
+        ]
     );
 }
 
 #[tokio::test]
 async fn b30_ten_pending_messages_are_one_prompt() {
     let (_dir, h) = project();
-    let lines: Vec<String> = (0..10).map(|n| format!("[from a, note] m{n}")).collect();
+    let lines: Vec<String> = (0..10)
+        .map(|n| format!("[from an Agent that is gone, note] m{n}"))
+        .collect();
     for n in 0..10 {
         h.send_as(agent("a"), "b", &format!("m{n}")).await;
     }
@@ -513,7 +517,7 @@ async fn b30_a_batch_of_one_is_the_b2_prompt() {
 
     h.becomes("b", Kind::Idle);
 
-    assert_eq!(h.typed(1).await, ["[from a, note] one"]);
+    assert_eq!(h.typed(1).await, ["[from an Agent that is gone, note] one"]);
 }
 
 #[tokio::test]
@@ -528,13 +532,23 @@ async fn b30_the_batch_stops_at_32768_bytes_and_the_rest_waits_for_the_next_idle
     h.becomes("b", Kind::Idle);
     let first = h.typed(1).await;
     assert!(first[0].len() <= 32_768, "{}", first[0].len());
-    assert_eq!(first[0].matches("[from a, note]").count(), 3);
+    assert_eq!(
+        first[0]
+            .matches("[from an Agent that is gone, note]")
+            .count(),
+        3
+    );
     h.until(4, "pending").await;
     h.becomes("b", Kind::Working);
     h.becomes("b", Kind::Idle);
 
     let typed = h.typed(2).await;
-    assert_eq!(typed[1].matches("[from a, note]").count(), 2);
+    assert_eq!(
+        typed[1]
+            .matches("[from an Agent that is gone, note]")
+            .count(),
+        2
+    );
     h.until(5, "delivered").await;
 }
 
@@ -741,7 +755,7 @@ async fn b7_messages_released_by_an_end_go_behind_those_already_pending() {
 
     assert_eq!(
         h.typed(1).await,
-        ["[from a, note] two\n\n[from a, note] one"]
+        ["[from an Agent that is gone, note] two\n\n[from an Agent that is gone, note] one"]
     );
 }
 
@@ -758,7 +772,7 @@ async fn b7_a_message_sent_after_a_release_goes_behind_it() {
 
     assert_eq!(
         h.typed(1).await,
-        ["[from a, note] one\n\n[from a, note] two"]
+        ["[from an Agent that is gone, note] one\n\n[from an Agent that is gone, note] two"]
     );
 }
 
@@ -779,7 +793,7 @@ async fn b7_a_hold_released_on_reopen_goes_behind_the_pending_messages() {
 
     assert_eq!(
         h.typed(1).await,
-        ["[from a, note] two\n\n[from a, note] one"]
+        ["[from an Agent that is gone, note] two\n\n[from an Agent that is gone, note] one"]
     );
 }
 
@@ -815,13 +829,7 @@ async fn b2_a_refused_delivery_leaves_the_message_pending_and_emits_nothing() {
 #[tokio::test]
 async fn b2_typed_text_is_from_name_kind_body() {
     let dir = tempfile::tempdir().unwrap();
-    let h = Held2::new(
-        dir.path(),
-        vec![
-            agent_node("a", Kind::Working),
-            agent_node("b", Kind::Working),
-        ],
-    );
+    let h = Held2::new(dir.path(), vec![agent_node("b", Kind::Working)]);
     let question = json!({"to": "b", "kind": "question", "body": "x"});
     h.call_as(agent("a"), "message.send", question)
         .await
@@ -832,7 +840,7 @@ async fn b2_typed_text_is_from_name_kind_body() {
 
     assert_eq!(
         h.typed(1).await,
-        ["[from a, question] x\n\n[from you, note] y"]
+        ["[from an Agent that is gone, question] x\n\n[from you, note] y"]
     );
 }
 
@@ -1157,7 +1165,19 @@ async fn b2705a_a_removed_sender_keeps_its_last_rail_name() {
         h.send_as(agent("7013"), "8027", "one").await;
         if renamed {
             h.rail.0.lock().unwrap()[0].name = "glad".into();
-            h.send_as(agent("7013"), "8027", "two").await;
+            let mut completed = h.messages.inner.completed.subscribe();
+            h.bus.emit(
+                Actor::daemon(),
+                EventData::RailRenamed {
+                    id: "7013".into(),
+                    name: "glad".into(),
+                },
+            );
+            tokio::time::timeout(Duration::from_secs(2), async {
+                while completed.recv().await.unwrap() != "rename" {}
+            })
+            .await
+            .unwrap();
         }
         h.rail.0.lock().unwrap().retain(|node| node.id != "7013");
         h.becomes("8027", Kind::Idle);
@@ -1324,7 +1344,7 @@ async fn b2_queued_idle_cannot_deliver_work_accepted_after_it_was_published() {
     );
     h.rail.0.lock().unwrap()[0].status_revision = Some("4".into());
     super::super::on_status(&h.messages.inner, "b", "1", "4", Kind::Idle).await;
-    assert_eq!(h.typed(1).await, ["[from a, note] new"]);
+    assert_eq!(h.typed(1).await, ["[from an Agent that is gone, note] new"]);
 }
 
 const TERMINAL: &str = "t-b";
@@ -1405,7 +1425,7 @@ async fn b32_the_end_of_takeover_or_a_submit_releases_the_held_messages_as_one_b
     assert_eq!(
         h.typed(1).await,
         [
-            "[from a, note] one\n\n[from you, note] two\n\n[from a, note] three\n\n[from a, note] four"
+            "[from an Agent that is gone, note] one\n\n[from you, note] two\n\n[from an Agent that is gone, note] three\n\n[from an Agent that is gone, note] four"
         ]
     );
 }
@@ -1572,7 +1592,7 @@ async fn b30_a_message_sent_while_the_batch_is_typed_waits_for_the_next_idle() {
     assert_eq!(h.get(3).await["status"], "pending");
     assert_eq!(
         h.typed(1).await,
-        ["[from a, note] one\n\n[from a, note] two"]
+        ["[from an Agent that is gone, note] one\n\n[from an Agent that is gone, note] two"]
     );
 }
 
@@ -1660,7 +1680,7 @@ async fn b39_the_prompt_ends_with_the_id_line() {
 
     assert_eq!(
         prompts(&raw, 1).await,
-        ["[from a, note] one\n\n[from you, note] two\n\n[rup messages: 1 2]"]
+        ["[from an Agent that is gone, note] one\n\n[from you, note] two\n\n[rup messages: 1 2]"]
     );
 }
 
@@ -1771,7 +1791,7 @@ async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_at_the_nex
 
     assert_eq!(
         prompts(&retried, 1).await,
-        ["[from a, note] one\n\n[rup messages: 1]"]
+        ["[from an Agent that is gone, note] one\n\n[rup messages: 1]"]
     );
     assert_eq!(h.states().await[&1], pending());
 }
@@ -1793,7 +1813,7 @@ async fn b40_a_batch_in_flight_at_a_kill_is_retried_as_one_batch() {
     let again = prompts(&retried, 1).await.remove(0);
     assert_eq!(
         again,
-        "[from a, note] one\n\n[from a, note] two\n\n[from a, note] three\n\n[rup messages: 1 2 3]"
+        "[from an Agent that is gone, note] one\n\n[from an Agent that is gone, note] two\n\n[from an Agent that is gone, note] three\n\n[rup messages: 1 2 3]"
     );
     h.names();
     assert!(!h.messages.confirm_prompt("b", &again));
@@ -1869,7 +1889,7 @@ async fn b40_a_message_sent_after_the_restart_is_a_later_batch() {
 
     assert_eq!(
         prompts(&retried, 2).await[1],
-        "[from a, note] two\n\n[rup messages: 2]"
+        "[from an Agent that is gone, note] two\n\n[rup messages: 2]"
     );
 }
 
@@ -1936,7 +1956,7 @@ async fn b40_a_message_in_flight_to_a_gone_terminal_waits_for_the_resumed_agent(
 
     assert_eq!(
         prompts(&retried, 1).await,
-        ["[from a, note] typed\n\n[rup messages: 1]"]
+        ["[from an Agent that is gone, note] typed\n\n[rup messages: 1]"]
     );
 }
 
@@ -2282,8 +2302,8 @@ async fn b37_a_live_error_preserves_routes_takeover_and_order() {
     assert_eq!(
         *h.calls.lock().unwrap(),
         [
-            ("b".into(), "[from a, note] one".into()),
-            ("b".into(), "[from a, note] two".into())
+            ("b".into(), "[from an Agent that is gone, note] one".into()),
+            ("b".into(), "[from an Agent that is gone, note] two".into())
         ]
     );
 }
@@ -2393,7 +2413,10 @@ async fn b37_a_busy_error_delivery_returns_to_pending_until_the_next_turn() {
     }
     assert_eq!(
         *h.calls.lock().unwrap(),
-        [("b".into(), "[from a, note] try next turn".into())]
+        [(
+            "b".into(),
+            "[from an Agent that is gone, note] try next turn".into()
+        )]
     );
 }
 

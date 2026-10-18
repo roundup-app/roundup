@@ -215,7 +215,7 @@ async fn a35_restart_keeps_holds_and_b7_order() {
     h.messages.release_restart("door", "c", "2").await.unwrap();
     assert_eq!(
         *h.typed.lock().unwrap(),
-        vec!["[from you, note] first\n\n[from b, note] held"]
+        vec!["[from you, note] first\n\n[from an Agent that is gone, note] held"]
     );
     assert_eq!(
         h.messages.thread("door").unwrap()[1].reason,
@@ -527,7 +527,10 @@ async fn a35_temporary_statuses_preserve_takeover_held_reasons() {
     assert_eq!(h.messages.thread("door").unwrap(), before);
     assert!(h.typed.lock().unwrap().is_empty());
     h.call("takeover.end", json!({"agent":"door"})).await;
-    assert_eq!(*h.typed.lock().unwrap(), vec!["[from a, note] held"]);
+    assert_eq!(
+        *h.typed.lock().unwrap(),
+        vec!["[from an Agent that is gone, note] held"]
+    );
 }
 
 #[tokio::test]
@@ -601,7 +604,10 @@ async fn a35_a_question_waits_through_restart_without_using_its_answer_bound() {
     let after = h.messages.thread("door").unwrap();
     assert_eq!(after.len(), 1);
     assert_eq!(after[0].status, MessageStatus::Delivered);
-    assert_eq!(*h.typed.lock().unwrap(), vec!["[from a, question] which?"]);
+    assert_eq!(
+        *h.typed.lock().unwrap(),
+        vec!["[from an Agent that is gone, question] which?"]
+    );
 }
 
 #[tokio::test]

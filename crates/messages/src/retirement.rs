@@ -23,7 +23,7 @@ impl Messages {
                 ))
             };
         }
-        let nodes = rail_nodes(&self.inner).await?;
+        let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .iter()
             .find(|n| n.id == agent)
@@ -55,7 +55,11 @@ impl Messages {
         if completed {
             return Ok(());
         }
-        if rail_nodes(&self.inner).await?.iter().any(|n| n.id == agent) {
+        if load_rail_nodes(&self.inner)
+            .await?
+            .iter()
+            .any(|n| n.id == agent)
+        {
             return Err(RpcError::conflict("retiring Agent still on the Rail"));
         }
         (self.inner.fault)("complete_retirement").map_err(RpcError::internal)?;
