@@ -776,7 +776,15 @@ async fn a41_removing_a_workstream_fails_its_queued_part() {
         .unwrap();
     let failed = f.changed(&mut events, &ask["id"], "failed").await;
     assert_eq!(failed["parts"][0]["reason"], "the Workstream was removed");
-    assert!(f.bytes.try_recv().is_err());
+    // Removal ends Claude Code with its exit keys and types nothing of the part.
+    let mut typed = vec![];
+    while let Ok(chunk) = f.bytes.try_recv() {
+        typed.extend(chunk);
+    }
+    assert_eq!(
+        typed,
+        agents::claude_code::EXIT_KEY.repeat(agents::claude_code::EXIT_PRESSES)
+    );
     f.stop().await;
 }
 

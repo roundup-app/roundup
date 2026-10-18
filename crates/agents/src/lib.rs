@@ -176,6 +176,12 @@ impl KillsTerminals for Terminals {
 /// stress run).
 pub const KILL_WAIT_BOUND: Duration = Duration::from_secs(2);
 
+/// How long a Terminal's Claude Code gets to end through its own exit (`claude_code::EXIT_KEY`)
+/// before `kill_or_already_gone` kills it. Three presses ended a session in 0.6 to 2.1 s in every
+/// state tried; a hung or dialog-blocked Claude Code waits the whole bound, then dies as it did
+/// before.
+pub const CLEAN_EXIT_BOUND: Duration = Duration::from_secs(5);
+
 /// A22: how long `agent.resume` waits, on the injected clock, for the new Attempt's
 /// acknowledging `SessionStart` before it fails with `CONFLICT` and rolls back.
 pub const RESUME_ACK_BOUND: Duration = Duration::from_secs(10);

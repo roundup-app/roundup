@@ -319,11 +319,16 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     for dir in ["agents/src", "rupd/src"] {
         collect(&root.join(dir), &mut callers);
     }
-    // H11's prompt, H13's Interrupt and B6's explicit Terminal path (user input and
-    // original-prompt guarded bytes). A lost Signal must never add a fallback caller.
+    // H11's prompt, H13's Interrupt, B6's explicit Terminal path (user input and
+    // original-prompt guarded bytes) and A7's exit keys. A lost Signal must never add a fallback
+    // caller.
     assert_eq!(
         callers,
-        ["agents/src/decision.rs: 2", "agents/src/lib.rs: 2"]
+        [
+            "agents/src/decision.rs: 2",
+            "agents/src/ending.rs: 1",
+            "agents/src/lib.rs: 2"
+        ]
     );
 }
 
