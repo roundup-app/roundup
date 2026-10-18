@@ -196,8 +196,8 @@ impl Decisions {
     fn guard(&self, entry: &Open, identity: &PromptIdentity) -> Result<(), RpcError> {
         let original = self.identity(entry).map_err(|_| {
             RpcError::conflict(format!(
-                "original prompt {} of {} Attempt {} identity unavailable",
-                identity.decision, identity.agent, identity.attempt
+                "original prompt {} Attempt {} identity unavailable",
+                identity.decision, identity.attempt
             ))
         })?;
         if original != *identity {
@@ -229,8 +229,8 @@ impl Decisions {
 
 fn original_gone(identity: &PromptIdentity) -> RpcError {
     RpcError::conflict(format!(
-        "original prompt {} of {} Attempt {} is no longer available",
-        identity.decision, identity.agent, identity.attempt
+        "original prompt {} Attempt {} is no longer available",
+        identity.decision, identity.attempt
     ))
 }
 
@@ -384,16 +384,17 @@ impl Shared {
         choices: Option<Question>,
         prompt: String,
     ) -> Result<Opened, RpcError> {
+        let name = self.rail().name(id)?;
         let started = (self.clock)();
         let (rx, attempt, decision) = {
             // `runs` before `decisions`, as every other path: an Agent that ends cannot be left
             // with a Decision opened after its clear.
             let runs = self.runs();
             let Some(crate::Slot::Running(run)) = runs.get(id) else {
-                return Err(RpcError::not_found(format!("agent {id}")));
+                return Err(RpcError::not_found(&name));
             };
             if run.ended || run.closing {
-                return Err(RpcError::not_found(format!("agent {id} has ended")));
+                return Err(RpcError::not_found(format!("{name} has ended")));
             }
             let decision = Decision {
                 id: self.decisions.next_id(),
@@ -485,9 +486,11 @@ impl Shared {
         if self.reach(&actor.id)?.contains(id) {
             return Ok(());
         }
+        let rail = self.rail();
         Err(RpcError::forbidden(format!(
-            "node {id} is not in the Reach of {}",
-            actor.id
+            "{} is not in the Reach of {}",
+            rail.name(id)?,
+            rail.name(&actor.id)?
         )))
     }
 
@@ -504,10 +507,11 @@ impl Shared {
         if actor.kind != contracts::ActorKind::Agent {
             return Ok(());
         }
+        let name = self.rail().name(&actor.id)?;
         let forbidden = || {
             RpcError::forbidden(format!(
                 "terminal {terminal} is forbidden to {0}: not started by {0} or in its Reach",
-                actor.id
+                name
             ))
         };
         let nodes = self.rail().tree()?;
@@ -570,15 +574,17 @@ impl Shared {
         if to == actor.id {
             return Err(RpcError::forbidden(format!(
                 "{} may not set a Route to itself",
-                actor.id
+                self.rail().name(&actor.id)?
             )));
         }
         let reach = self.reach(&actor.id)?;
         for node in [from, to] {
             if node != actor.id && !reach.contains(node) {
+                let rail = self.rail();
                 return Err(RpcError::forbidden(format!(
-                    "{node} is neither {} nor in its Reach",
-                    actor.id
+                    "{} is neither {} nor in its Reach",
+                    rail.name(node)?,
+                    rail.name(&actor.id)?
                 )));
             }
         }
@@ -594,7 +600,7 @@ impl Shared {
             if !self.reach(&actor.id)?.contains(&agent) {
                 return Err(RpcError::forbidden(format!(
                     "decision {id} is outside the Reach of {}",
-                    actor.id
+                    self.rail().name(&actor.id)?
                 )));
             }
         }
@@ -638,9 +644,11 @@ impl Shared {
         agent: &str,
     ) -> Result<Vec<contracts::decision::AnsweredDecision>, RpcError> {
         if actor.kind == contracts::ActorKind::Agent && !self.reach(&actor.id)?.contains(agent) {
+            let rail = self.rail();
             return Err(RpcError::forbidden(format!(
-                "{agent} is outside the Reach of {}",
-                actor.id
+                "{} is outside the Reach of {}",
+                rail.name(agent)?,
+                rail.name(&actor.id)?
             )));
         }
         let history = self
@@ -667,13 +675,17 @@ impl Shared {
             return Err(RpcError::not_found(format!("decision {id}")));
         };
         if !self.reach(m)?.contains(&agent) {
+            let rail = self.rail();
             return Err(RpcError::forbidden(format!(
-                "decision {id} is of {agent}, which is not in the Reach of {m}"
+                "decision {id} is of {}, which is not in the Reach of {}",
+                rail.name(&agent)?,
+                rail.name(m)?
             )));
         }
         if self.takeover.as_ref().is_some_and(|active| active(&agent)) {
             return Err(RpcError::conflict(format!(
-                "{agent} is under a Takeover; the user decides at its Terminal"
+                "{} is under a Takeover; the user decides at its Terminal",
+                self.rail().name(&agent)?
             )));
         }
         Ok(())
@@ -749,7 +761,7 @@ impl Shared {
                 {
                     return Err(RpcError::conflict(format!(
                         "{} is under a Takeover; the user decides at its Terminal",
-                        identity.agent
+                        self.rail().name(&identity.agent)?
                     )));
                 }
             } else {
@@ -1134,6 +1146,11 @@ impl crate::Agents {
             .terminals
             .clone()
             .write_with(terminal, move |writer| {
+                let target = match &check {
+                    PromptInput::Captured(identity) => Some(identity.agent.clone()),
+                    PromptInput::Question(id) => shared.decisions.agent_of(id),
+                };
+                let name = shared.rail().name(target.as_deref().unwrap_or(""))?;
                 let runs = shared.runs();
                 let mut open = shared.decisions.open();
                 let unavailable = || match &check {
@@ -1183,7 +1200,7 @@ impl crate::Agents {
                     ));
                 }
                 if !user && shared.takeover.as_ref().is_some_and(|active| active(agent)) {
-                    return Err(RpcError::conflict(format!("{agent} is under a Takeover")));
+                    return Err(RpcError::conflict(format!("{name} is under a Takeover")));
                 }
                 if let PromptInput::Captured(identity) = &check {
                     shared.decisions.guard(entry, identity)?;
@@ -1227,5 +1244,120 @@ fn params_for_delivery(
         note: note.to_owned(),
         proof: None,
         identity,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::Watched;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn a2703a_errors_use_rail_names() {
+        let mut watched = Watched::named();
+        let _ = (&mut watched.watcher).await;
+        Arc::get_mut(&mut watched.shared).unwrap().takeover = Some(Arc::new(|_| true));
+        let shared = &watched.shared;
+        let reader = shared
+            .rail()
+            .insert(contracts::agent::NodeKind::Agent, "reader", None, None)
+            .unwrap();
+        let actor = Actor {
+            kind: contracts::ActorKind::Agent,
+            id: reader.id.clone(),
+            parent: None,
+        };
+        let open = |id: &str| {
+            shared.open_decision(
+                Actor::daemon(),
+                id,
+                claude_code::permission_request(&json!({"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{}})),
+                Value::Null,
+                None,
+                "question".into(),
+            )
+        };
+        let opened = open("7013").unwrap();
+        for (case, error) in [
+            (
+                "reach",
+                shared.guard_reach(&actor, "7013", false).unwrap_err(),
+            ),
+            ("capture", shared.capture(&actor, &opened.id).unwrap_err()),
+            (
+                "answer",
+                shared.may_answer(&reader.id, &opened.id).unwrap_err(),
+            ),
+            ("history", shared.answers_for(&actor, "7013").unwrap_err()),
+        ] {
+            assert!(
+                error.message.contains("reader") && !error.message.contains(&reader.id),
+                "{case}: {error}"
+            );
+            if case != "capture" {
+                assert!(error.message.contains("sad"), "{case}: {error}");
+            }
+            assert!(!error.message.contains("7013"), "{case}: {error}");
+        }
+        // A descendant's Decision is reachable, but its Takeover still refuses the answer.
+        let db = rusqlite::Connection::open(watched._dir.path().join("agents.db")).unwrap();
+        db.execute("UPDATE nodes SET parent = ? WHERE id = 7013", [&reader.id])
+            .unwrap();
+        let error = shared.may_answer(&reader.id, &opened.id).unwrap_err();
+        assert!(
+            error.message.contains("sad is under a Takeover") && !error.message.contains("7013"),
+            "{error}"
+        );
+        let terminal = shared
+            .terminals
+            .spawn(contracts::terminal::SpawnParams {
+                cwd: watched._dir.path().to_string_lossy().into_owned(),
+                command: Some(vec!["sh".into(), "-c".into(), "sleep 30".into()]),
+                env: Default::default(),
+                cols: 80,
+                rows: 24,
+            })
+            .await
+            .unwrap();
+        if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
+            run.terminal_id = terminal.id.clone();
+        }
+        let identity = shared.capture(&Actor::user(), &opened.id).unwrap();
+        let agents = crate::Agents {
+            shared: shared.clone(),
+            dir: watched._dir.path().to_owned(),
+            launcher: crate::claude_code::Launcher::new(
+                "false",
+                watched._dir.path().join("config"),
+                watched._dir.path().join("rup"),
+                None,
+            ),
+        };
+        let error = agents
+            .write_terminal(&actor, &actor, &terminal.id, vec![b'x'], Some(identity))
+            .await
+            .unwrap_err();
+        assert!(
+            error.message.contains("sad is under a Takeover") && !error.message.contains("7013"),
+            "{error}"
+        );
+        shared.terminals.kill(&terminal.id).await.unwrap();
+        if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
+            run.ended = true;
+        }
+        let ended = open("7013").err().unwrap();
+        assert!(
+            ended.message.contains("sad has ended") && !ended.message.contains("7013"),
+            "{ended}"
+        );
+        shared.runs().remove("7013");
+        for (id, name) in [("7013", "sad"), ("8013", "an Agent that is gone")] {
+            let error = open(id).err().unwrap();
+            assert!(
+                error.message.contains(name) && !error.message.contains(id),
+                "{error}"
+            );
+        }
     }
 }

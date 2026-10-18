@@ -453,7 +453,9 @@ impl Daemon {
                     .await
                     .map_err(|refused| match refused {
                         agents::PromptError::Busy { .. } => messages::Refusal::Busy,
-                        agents::PromptError::NotAccepted { .. } => messages::Refusal::NotAccepted,
+                        agents::PromptError::NotAccepted { .. } | agents::PromptError::Rail(_) => {
+                            messages::Refusal::NotAccepted
+                        }
                         agents::PromptError::NotFound { .. } => messages::Refusal::NotFound,
                     })
             })

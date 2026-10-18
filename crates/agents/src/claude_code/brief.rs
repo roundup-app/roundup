@@ -488,8 +488,9 @@ fn with_tools(role: Role, mcp: bool) -> String {
     let mut text = format!(
         "# roundup\n\n\
          roundup started you and supervises you; the user can see your Status and your Messages. \
-         Your id and where you stand are in the Context you get at start; the id never changes. \
-         Your shell sets `ROUNDUP_AGENT_ID` to it, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
+         Your Rail name and where you stand are in the Context you get at start. \
+         Refer to yourself and other Agents by Rail name, never by id. \
+         Your shell sets `ROUNDUP_AGENT_ID` for machine addressing, and `rup` is on your `PATH`: run `rup help` to learn its command line, {help}.\n\n\
          ## {heading}\n\n\
          {tools}{first_turn}\n\n",
     );

@@ -313,7 +313,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 51] = [
+const NO_TOOL: [&str; 52] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
@@ -333,6 +333,8 @@ const NO_TOOL: [&str; 51] = [
     // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
     "terminal.output",
     "terminal.outputStop",
+    // X17: the App tells the Daemon its colour scheme; no Agent sets it.
+    "terminal.scheme",
     "daemon.ping",
     "daemon.identify",
     "events.subscribe",

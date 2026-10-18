@@ -2,20 +2,37 @@ use super::*;
 use crate::ending::kill_or_already_gone;
 
 impl Agents {
-    /// A22: resume an exited Agent's saved conversation in a new Attempt. Returns only once the
+    /// A22: continue a saved conversation. A2693a's explicit mode also accepts a live Agent
+    /// or Door, keeping the serialization slot across stop and launch. Returns only once the
     /// new Attempt's `SessionStart` has acknowledged it (`finish_resuming`) or the attempt is
     /// given up on. Cleanup completes before a failure result; an unconfirmed cleanup keeps
     /// its Terminal identified and `can_resume` false until explicitly stopped. A20's pending
     /// Attempt prevents `agent.stop` and `rail.remove` from crossing cleanup in flight.
-    pub(super) async fn resume(&self, ctx: &Ctx, id: &str) -> Result<RailNode, RpcError> {
+    pub(super) async fn resume(
+        &self,
+        ctx: &Ctx,
+        id: &str,
+        mode: Option<contracts::agent::ResumeMode>,
+    ) -> Result<RailNode, RpcError> {
         {
             let rail = self.shared.rail();
             let node = rail.node(id)?;
-            if node.kind != NodeKind::Agent {
+            if node.kind != NodeKind::Agent
+                && !(mode.is_some() && node.kind == NodeKind::Workstream)
+            {
                 return Err(RpcError::conflict(format!("{id} is not an Agent")));
             }
         }
-        self.resume_saved(ctx, id, RESUME_ACK_BOUND).await
+        self.resume_conversation(
+            ctx,
+            id,
+            RESUME_ACK_BOUND,
+            None,
+            None,
+            RailPublication::Immediate,
+            mode,
+        )
+        .await
     }
 
     /// LC8: give child `id` more extras. A name that does not exist fails the call and the child
@@ -67,10 +84,19 @@ impl Agents {
         id: &str,
         ack_bound: Duration,
     ) -> Result<RailNode, RpcError> {
-        self.resume_conversation(ctx, id, ack_bound, None, None, RailPublication::Immediate)
-            .await
+        self.resume_conversation(
+            ctx,
+            id,
+            ack_bound,
+            None,
+            None,
+            RailPublication::Immediate,
+            None,
+        )
+        .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn resume_conversation(
         &self,
         ctx: &Ctx,
@@ -79,6 +105,7 @@ impl Agents {
         conversation: Option<(&str, &str)>,
         prompt: Option<String>,
         publication: RailPublication,
+        mode: Option<contracts::agent::ResumeMode>,
     ) -> Result<RailNode, RpcError> {
         let (attempt, conversation_id, worktree, saved_cwd, done_rx) = {
             let mut rail = self.shared.rail();
@@ -95,7 +122,10 @@ impl Agents {
                     return Err(RpcError::conflict(format!("{id} is stopping")));
                 }
                 Some(Slot::ResumeCleanup { error, .. }) => return Err(error.clone()),
-                Some(Slot::Running(run)) if !run.ended => {
+                Some(Slot::Running(run)) if run.closing => {
+                    return Err(RpcError::conflict(format!("{id} is stopping")));
+                }
+                Some(Slot::Running(run)) if !run.ended && mode.is_none() => {
                     return Err(RpcError::conflict(format!("{id} is running")));
                 }
                 None | Some(Slot::Running(_)) => {}
@@ -118,6 +148,7 @@ impl Agents {
             runs.insert(
                 id.to_owned(),
                 Slot::Resuming {
+                    mode: mode.unwrap_or_default(),
                     attempt: attempt.clone(),
                     since: (self.shared.clock)(),
                     old,
@@ -158,6 +189,32 @@ impl Agents {
             return Err(err);
         }
 
+        let stop_terminal = {
+            let mut runs = self.shared.runs();
+            match runs.get_mut(id) {
+                Some(Slot::Resuming { old: Some(old), .. }) if !old.ended => {
+                    self.shared
+                        .apply(None, old, id, &ctx.actor, Observation::Stopped, None)?;
+                    Some(old.terminal_id.clone())
+                }
+                _ => None,
+            }
+        };
+        if let Some(terminal) = stop_terminal {
+            if let Err(err) =
+                kill_or_already_gone(&*self.shared.ending.kill, &self.shared.terminals, &terminal)
+                    .await
+                    .and_then(|()| self.shared.confirm_terminal_exit(&terminal))
+            {
+                self.shared.rollback_resume(id, &attempt, err.clone());
+                ctx.emit(EventData::RailChanged);
+                return Err(err);
+            }
+            if let Some(Slot::Resuming { old: Some(old), .. }) = self.shared.runs().get_mut(id) {
+                old.ended = true;
+            }
+        }
+
         // A21 already saved the effective cwd the original run launched in: when a Worktree is
         // retained, that is some path under it (A21's own cwd is captured after Worktree
         // mapping, any subdirectory kept), never the Worktree's root by itself. `worktree` above
@@ -165,7 +222,14 @@ impl Agents {
         // `saved_cwd` as recorded.
         let effective_cwd = PathBuf::from(&saved_cwd);
         let spawned = match self
-            .start(id, &attempt, &effective_cwd, Some(&conversation_id), false)
+            .start(
+                id,
+                &attempt,
+                &effective_cwd,
+                Some(&conversation_id),
+                false,
+                mode == Some(contracts::agent::ResumeMode::Yolo),
+            )
             .await
         {
             Ok(spawned) => spawned,
@@ -332,6 +396,7 @@ impl Shared {
         runs.insert(
             id.to_owned(),
             Slot::ResumeCleanup {
+                old,
                 attempt,
                 terminal_id: terminal_id.clone(),
                 pending: true,
@@ -356,8 +421,7 @@ impl Shared {
                 let mut runs = shared.runs();
                 match cleanup {
                     Ok(()) => {
-                        runs.remove(&id);
-                        if let Some(old) = old {
+                        if let Some(Slot::ResumeCleanup { old: Some(old), .. }) = runs.remove(&id) {
                             runs.insert(id.clone(), Slot::Running(*old));
                         }
                         error

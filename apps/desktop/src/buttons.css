@@ -162,30 +162,53 @@ button[aria-disabled="true"] {
   color: var(--grey);
 }
 
-/* U362: the Project root aligns with Rail names and shares their row height and selection washes. */
-.todo-project-root {
-  color: var(--text);
+/* U2716a: the Overview band's washes and tile are the owner's explicit chrome exception. */
+.rail > .todo-project-root {
+  position: relative;
+  flex: none;
+  height: calc(var(--space-6) + var(--space-2));
   width: 100%;
-  height: calc(var(--space-5) + var(--space-1));
-  font-family: var(--font-ui);
-  display: grid;
-  grid-template-columns: calc(var(--space-4) + var(--space-2) + var(--space-1)) minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-row);
+  font-weight: 400;
+  color: var(--text);
+  background: var(--sunken);
   --button-radius: 0;
 }
 
-.todo-project-root > span {
-  grid-column: 2;
+/* The band's inset overrides the Rail's padding for its other fixed children. */
+.rail > button.todo-project-root[data-todo-root] {
+  padding-inline: var(--space-3);
 }
 
-.todo-project-root[aria-pressed="true"] {
+.todo-project-root > .overview-tile {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-control);
+  background: var(--selected);
   color: var(--text);
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-  background-position: left top;
-  background-size: 2px 100%, auto;
-  background-repeat: no-repeat;
 }
 
-.todo-project-root[data-todo-drop]:not([aria-pressed="true"]) {
+.rail > .todo-project-root:hover {
+  background: var(--hover);
+}
+
+.rail > .todo-project-root[aria-pressed="true"] {
+  background: var(--ground);
+}
+
+.todo-project-root[aria-pressed="true"] > .overview-tile {
+  background: var(--accent);
+  color: var(--ground);
+}
+
+.rail > .todo-project-root[data-todo-drop] {
   background: var(--hover);
 }

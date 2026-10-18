@@ -167,6 +167,14 @@ export const createXtermEmulators = (
     element.style.height = "100%";
     terminal.loadAddon(fitter);
     terminal.onRender(() => probe?.rendered());
+
+    // X17: the Daemon answers a program's colour query and DA1 from the App's scheme, shown or not; a second reply from here would reach the program twice.
+    for (const handler of [
+      terminal.parser.registerOscHandler(10, (data) => data === "?"),
+      terminal.parser.registerOscHandler(11, (data) => data === "?"),
+      terminal.parser.registerCsiHandler({ final: "c" }, () => true),
+    ]) disposers.push(() => handler.dispose());
+
     // xterm also asks about the keypress that follows a keydown it did not handle, so both are refused.
     terminal.attachCustomKeyEventHandler((event) => {
       const bytes = isShiftEnter(event) ? NEWLINE : macEditingBytes(event);

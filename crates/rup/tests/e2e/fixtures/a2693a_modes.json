@@ -1,0 +1,73 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A2693 remember the cobalt otter"
+      },
+      "response": {
+        "content": "{\"title\":\"Modes\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 remember the cobalt otter",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "A2693 retained cobalt otter"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A2693 recall with prompts off"
+      },
+      "response": {
+        "content": "{\"title\":\"Modes\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 recall with prompts off",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "A2693 retained cobalt otter"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A2693 recall with prompts on"
+      },
+      "response": {
+        "content": "{\"title\":\"Modes\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 recall with prompts on",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "A2693 retained cobalt otter"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 note with prompts off",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "A2693 note received"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 note with prompts on",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "A2693 note received"
+      }
+    }
+  ]
+}
