@@ -367,10 +367,6 @@
   color: var(--grey);
 }
 
-.rail-row .runs {
-  color: var(--ink-rest-selected);
-}
-
 /* Resting counts align with the 16 px marks inside the edge-aligned 24 px targets. */
 .rail-row .line > :is(.ink-count, .rail-pads-control, .folded-agents) {
   margin-right: var(--space-1);
