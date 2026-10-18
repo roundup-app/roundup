@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
@@ -187,4 +187,15 @@ describe("u143 direct Agent access beside a stopped Door", () => {
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });
+});
+
+
+it("u2571a_empty_centre_has_three_noninteractive_hints", async () => {
+  await emptyProject();
+  const content = startWorkstream().closest(".pane-door")! as HTMLElement;
+  const list = within(content).getByRole("list");
+  expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+  expect(content.querySelectorAll('button, a, [tabindex], input')).toHaveLength(1);
+  expect(within(list).queryAllByRole("button")).toEqual([]);
+  expect(within(list).queryAllByRole("link")).toEqual([]);
 });
