@@ -54,6 +54,28 @@ impl Agents {
     }
 }
 
+impl Agents {
+    /// Daemon shutdown: end every running Agent's Claude Code through its own exit, concurrently,
+    /// and return once each has exited or `CLEAN_EXIT_BOUND` has passed. What is left running is
+    /// the caller's to kill.
+    pub async fn exit_running(&self) -> Result<(), RpcError> {
+        let nodes = self.shared.rail().tree()?;
+        let mut exits = tokio::task::JoinSet::new();
+        for terminal_id in nodes.into_iter().filter_map(|node| node.terminal_id) {
+            let terminals = Arc::clone(&self.shared.terminals);
+            exits.spawn(async move {
+                if let Ok(mut exit) = terminals.subscribe(&terminal_id) {
+                    exit_through_claude_code(&terminals, &terminal_id, &mut exit).await;
+                }
+            });
+        }
+        while let Some(joined) = exits.join_next().await {
+            joined.map_err(RpcError::internal)?;
+        }
+        Ok(())
+    }
+}
+
 impl Shared {
     pub(super) fn release_closing(&self, id: &str, ended: bool) {
         let mut runs = self.runs();
@@ -298,7 +320,12 @@ pub(super) async fn kill_or_already_gone(
     terminals: &Terminals,
     terminal_id: &str,
 ) -> Result<(), RpcError> {
-    let exit = terminals.subscribe(terminal_id).ok();
+    let mut exit = terminals.subscribe(terminal_id).ok();
+    if let Some(exit) = exit.as_mut()
+        && exit_through_claude_code(terminals, terminal_id, exit).await
+    {
+        return Ok(());
+    }
     match kill.kill(terminal_id).await {
         Err(err) if err.code != code::NOT_FOUND => return Err(err),
         _ => {}
@@ -307,6 +334,63 @@ pub(super) async fn kill_or_already_gone(
         let _ = tokio::time::timeout(KILL_WAIT_BOUND, wait_for_exit(&mut exit)).await;
     }
     Ok(())
+}
+
+/// How often `program_ended` looks at the program.
+const PROGRAM_POLL: Duration = Duration::from_millis(50);
+
+/// Ask a Terminal's Claude Code to end itself, so it counts the end as a clean one and not as a
+/// failed start (`claude_code::EXIT_KEY`), and return whether the Terminal exited within
+/// `CLEAN_EXIT_BOUND`. `exit` is the Terminal's own event stream, subscribed before the first
+/// press. A `false` is reported on stderr, because the caller then kills the program.
+pub(super) async fn exit_through_claude_code(
+    terminals: &Terminals,
+    terminal_id: &str,
+    exit: &mut Receiver<EventData>,
+) -> bool {
+    let presses = async {
+        for _ in 0..claude_code::EXIT_PRESSES {
+            if let Err(err) = terminals.write(terminal_id, claude_code::EXIT_KEY).await {
+                return err;
+            }
+            tokio::time::sleep(claude_code::EXIT_PRESS_GAP).await;
+        }
+        std::future::pending().await
+    };
+    let outcome = tokio::time::timeout(CLEAN_EXIT_BOUND, async {
+        tokio::select! {
+            () = wait_for_exit(exit) => None,
+            () = program_ended(terminals, terminal_id) => None,
+            err = presses => Some(err),
+        }
+    })
+    .await;
+    match outcome {
+        Ok(None) => true,
+        // It ended between the subscribe and a press.
+        Ok(Some(err)) if err.code == code::NOT_FOUND => true,
+        Ok(Some(err)) => {
+            eprintln!(
+                "agents: could not type Claude Code's exit into terminal {terminal_id}: {err}; killing it"
+            );
+            false
+        }
+        Err(_) => {
+            eprintln!(
+                "agents: Claude Code did not exit within {CLEAN_EXIT_BOUND:?} of its exit keys in terminal {terminal_id}; killing it"
+            );
+            false
+        }
+    }
+}
+
+/// Resolve once the Terminal's program is reaped. A descendant that holds the PTY open keeps the
+/// Terminal's exit event back, so the event alone would wait the whole bound for a program that
+/// is already gone.
+async fn program_ended(terminals: &Terminals, terminal_id: &str) {
+    while !terminals.program_ended(terminal_id) {
+        tokio::time::sleep(PROGRAM_POLL).await;
+    }
 }
 
 /// Wait for a Terminal's own exit event, bounded by the caller. A lag never loses it, since it is
@@ -412,22 +496,14 @@ mod tests {
         assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)));
     }
     /// A kill that fails must return its error at once, not wait for an exit event from a program
-    /// the kill never touched: a real Terminal that is never killed proves the wait is skipped,
-    /// since it would otherwise run out `KILL_WAIT_BOUND` before returning.
-    #[tokio::test]
+    /// the kill never touched: a real Terminal that ignores its exit keys proves the wait after the
+    /// kill is skipped, since it would otherwise run out `KILL_WAIT_BOUND` before returning. The
+    /// program reads raw, so the exit keys are input to it and not a signal.
+    #[tokio::test(start_paused = true)]
     async fn kill_or_already_gone_returns_a_failed_kills_error_without_waiting() {
         let dir = tempfile::tempdir().unwrap();
         let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
-        let spawned = terminals
-            .spawn(SpawnParams {
-                cwd: dir.path().to_string_lossy().into_owned(),
-                command: Some(vec!["sleep".into(), "30".into()]),
-                env: Default::default(),
-                cols: 80,
-                rows: 24,
-            })
-            .await
-            .unwrap();
+        let spawned = spawn_raw(&terminals, dir.path(), "sleep 30").await;
         let began = Instant::now();
 
         let err = crate::ending::kill_or_already_gone(&FailingKill, &terminals, &spawned.id)
@@ -435,6 +511,102 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(err.code, rpc::code::INTERNAL);
-        assert!(began.elapsed() < crate::KILL_WAIT_BOUND / 2);
+        assert!(began.elapsed() < crate::CLEAN_EXIT_BOUND + crate::KILL_WAIT_BOUND / 2);
+    }
+
+    /// What a kill finds of the program's input when it is asked to kill.
+    struct RecordedKill(std::path::PathBuf, std::sync::Mutex<Vec<Vec<u8>>>);
+
+    #[async_trait::async_trait]
+    impl crate::KillsTerminals for RecordedKill {
+        async fn kill(&self, _id: &str) -> Result<(), rpc::RpcError> {
+            // The program's input thread writes after `Terminals::write` returns.
+            for _ in 0..100 {
+                let seen = std::fs::read(&self.0).unwrap_or_default();
+                if seen.len() >= crate::claude_code::EXIT_PRESSES {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            self.1
+                .lock()
+                .unwrap()
+                .push(std::fs::read(&self.0).unwrap_or_default());
+            Ok(())
+        }
+    }
+
+    /// Spawn `script` once its terminal reads raw, so `^C` reaches it as input, not as SIGINT.
+    async fn spawn_raw(
+        terminals: &Terminals,
+        dir: &std::path::Path,
+        script: &str,
+    ) -> terminal::Spawned {
+        let ready = dir.join("ready");
+        let spawned = terminals
+            .spawn(SpawnParams {
+                cwd: dir.to_string_lossy().into_owned(),
+                command: Some(vec![
+                    "sh".into(),
+                    "-c".into(),
+                    format!("stty raw -echo; touch {}; {script}", ready.display()),
+                ]),
+                env: Default::default(),
+                cols: 80,
+                rows: 24,
+            })
+            .await
+            .unwrap();
+        while !ready.exists() {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        spawned
+    }
+
+    /// A7: stopping an Agent whose Claude Code exits on its exit keys types them into its
+    /// Terminal and sends no signal, so Claude Code counts the end as a clean one.
+    #[tokio::test]
+    async fn a7_stop_types_claude_codes_exit_keys_and_sends_no_kill() {
+        let dir = tempfile::tempdir().unwrap();
+        let typed = dir.path().join("typed");
+        let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let spawned = spawn_raw(
+            &terminals,
+            dir.path(),
+            &format!("head -c 3 > {}", typed.display()),
+        )
+        .await;
+        let kill = RecordedKill(typed.clone(), Default::default());
+
+        crate::ending::kill_or_already_gone(&kill, &terminals, &spawned.id)
+            .await
+            .unwrap();
+
+        assert_eq!(std::fs::read(&typed).unwrap(), b"\x03\x03\x03");
+        assert!(kill.1.lock().unwrap().is_empty(), "no kill was needed");
+    }
+
+    /// A7: a Claude Code that ignores its exit keys is killed once `CLEAN_EXIT_BOUND` has passed,
+    /// after all three keys were typed, and the failure is reported on stderr.
+    #[tokio::test(start_paused = true)]
+    async fn a7_stop_kills_a_claude_code_that_ignores_its_exit_keys_after_the_bound() {
+        let dir = tempfile::tempdir().unwrap();
+        let typed = dir.path().join("typed");
+        let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let spawned = spawn_raw(
+            &terminals,
+            dir.path(),
+            &format!("cat > {}", typed.display()),
+        )
+        .await;
+        let kill = RecordedKill(typed, Default::default());
+        let began = Instant::now();
+
+        crate::ending::kill_or_already_gone(&kill, &terminals, &spawned.id)
+            .await
+            .unwrap();
+
+        assert!(began.elapsed() >= crate::CLEAN_EXIT_BOUND);
+        assert_eq!(*kill.1.lock().unwrap(), vec![b"\x03\x03\x03".to_vec()]);
     }
 }

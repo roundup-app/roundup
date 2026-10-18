@@ -69,6 +69,18 @@ pub const OFF_PLAN: [&str; 9] = [
 /// `idle` of an Esc during an auto-allowed tool.
 pub const STAR_HOLD: i64 = 200;
 
+/// What Claude Code takes as its own exit: three Ctrl+C presses. A fullscreen session that ends
+/// any other way within 10 s of its first frame counts as a failed start, and two failed starts
+/// turn fullscreen off for every Claude Code on the machine
+/// (code.claude.com/docs/en/fullscreen#fullscreen-renderer-didnt-finish-starting). The first press
+/// clears a draft or interrupts a turn, the second arms the exit and the third exits, so three
+/// end it from every state (observed on 2.1.302: idle, with a draft, mid-turn). One write of
+/// `^C^C` does not end a turn, and `^D^D` does not end a draft. A press lands only once the
+/// previous one has been handled, so each waits `EXIT_PRESS_GAP`.
+pub const EXIT_KEY: &[u8] = b"\x03";
+pub const EXIT_PRESSES: usize = 3;
+pub const EXIT_PRESS_GAP: std::time::Duration = std::time::Duration::from_millis(100);
+
 /// How the program's life ended, if it has.
 #[derive(Clone, Copy, PartialEq)]
 enum Ending {

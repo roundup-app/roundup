@@ -1072,6 +1072,8 @@ import os, signal, socket, sys
 if sys.argv[1:3] == ["plugin", "test"]:
     print("Q11 runtime hook closure: 1 pass")
     sys.exit(0)
+# Ignore the exit keys too (^C is SIGINT on this PTY), so only the kill ends the Agent.
+signal.signal(signal.SIGINT, signal.SIG_IGN)
 read, write = os.pipe()
 if os.fork() == 0:
     os.close(write)

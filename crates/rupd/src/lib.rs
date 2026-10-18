@@ -1516,10 +1516,17 @@ impl Daemon {
     }
 
     /// Stop every running Terminal's program, Agents' included, and return once none is running.
-    /// A program that ignores SIGHUP is killed by the Terminal module's own escalation. A
+    /// Each Agent's Claude Code is first asked to end itself, so Claude Code counts the end as a
+    /// clean one. A program that ignores SIGHUP is killed by the Terminal module's own escalation. A
     /// Terminal spawned while this runs is caught by the next round, up to [`STOP_ROUNDS`]; past
     /// that the caller gets an error rather than a loop that never ends.
     pub async fn stop_terminals(&self) -> Result<(), RpcError> {
+        if let Err(err) = self.agents.exit_running().await {
+            eprintln!(
+                "rupd: could not end Agents through their own exit: {}",
+                err.message
+            );
+        }
         for _ in 0..STOP_ROUNDS {
             if self.stop_running_terminals().await? == 0 {
                 return Ok(());
