@@ -174,7 +174,7 @@ export const createBulkDelete = <Id,>(props: {
         </Show>
         <Show when={failures().length > 0}>
           <ErrorLine message={copy.couldNotDelete} />
-          <For each={failures()}>{(failure) => <p>{failure.target.label}{copy.colon}{failure.message}</p>}</For>
+          <For each={failures()}>{(failure) => <p>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</p>}</For>
         </Show>
       </div>
     </Show>

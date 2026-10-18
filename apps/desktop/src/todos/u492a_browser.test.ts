@@ -23,6 +23,7 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     const initial = await lane.order();
     const [one] = initial;
 
+    await lane.browser("focus", `.shelf [data-todo="${one}"] .todo-row-button`);
     await lane.browser("click", `.shelf [data-todo="${one}"] [aria-label="Move down"]`);
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id !== '${one}'`);
     await read(lane, "reorder");
@@ -37,8 +38,10 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     // Bulk delete: cancel, then a partial failure.
     const [first, second] = await lane.order() ;
 
-    await lane.browser("click", `.shelf [data-todo="${first}"] [aria-label="Select"]`);
-    await lane.browser("click", `.shelf [data-todo="${second}"] [aria-label="Select"]`);
+    await lane.browser("focus", `.shelf [data-todo="${first}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.browser("focus", `.shelf [data-todo="${second}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until("!!document.querySelector('[role=\"alertdialog\"]')");
     await read(lane, "question");
@@ -105,8 +108,10 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     expect(await lane.calls("todo.reorder")).toEqual([]);
 
     // An injected delete error shows in the bar.
-    await lane.browser("click", `.shelf [data-todo="${ids[1]}"] [aria-label="Select"]`);
-    await lane.browser("click", `.shelf [data-todo="${ids[2]}"] [aria-label="Select"]`);
+    await lane.browser("focus", `.shelf [data-todo="${ids[1]}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
+    await lane.browser("focus", `.shelf [data-todo="${ids[2]}"] .todo-row-button`);
+    await lane.browser("press", "Meta+Enter");
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until("!!document.querySelector('[role=\"alertdialog\"]')");
     await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot delete this Todo because the Daemon refused it'); return true; })()");
