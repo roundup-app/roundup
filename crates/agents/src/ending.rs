@@ -443,6 +443,7 @@ pub(super) enum Ending {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
 
     use contracts::EventData;
     use contracts::terminal::{ExitedEvent, SpawnParams, TitleEvent};
@@ -579,19 +580,46 @@ mod tests {
     async fn a7_stop_types_claude_codes_exit_keys_and_sends_no_kill() {
         let dir = tempfile::tempdir().unwrap();
         let typed = dir.path().join("typed");
-        let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let (arrived, held) = tokio::sync::oneshot::channel();
+        let arrived = std::sync::Mutex::new(Some(arrived));
+        let (release, released) = std::sync::mpsc::channel();
+        let released = std::sync::Mutex::new(released);
+        let terminals = Arc::new(
+            Terminals::open(dir.path(), Bus::new())
+                .unwrap()
+                .with_exit_hold(move || {
+                    arrived.lock().unwrap().take().unwrap().send(()).unwrap();
+                    released.lock().unwrap().recv().unwrap();
+                }),
+        );
         let spawned = spawn_raw(
             &terminals,
             dir.path(),
             &format!("head -c 3 > {}", typed.display()),
         )
         .await;
-        let kill = RecordedKill(typed.clone(), Default::default());
+        let kill = Arc::new(RecordedKill(typed.clone(), Default::default()));
+        let mut stopping = {
+            let terminals = Arc::clone(&terminals);
+            let kill = Arc::clone(&kill);
+            let id = spawned.id.clone();
+            tokio::spawn(async move {
+                crate::ending::kill_or_already_gone(&*kill, &terminals, &id).await
+            })
+        };
+        held.await.unwrap();
+        // Hold Terminal publication after process exit: cleanup must still await its event.
+        let premature = tokio::time::timeout(crate::KILL_WAIT_BOUND / 2, &mut stopping).await;
+        release.send(()).unwrap();
+        assert!(premature.is_err(), "stop returned before Terminal exit");
+        stopping.await.unwrap().unwrap();
 
-        crate::ending::kill_or_already_gone(&kill, &terminals, &spawned.id)
-            .await
-            .unwrap();
-
+        assert!(
+            !terminals
+                .list()
+                .iter()
+                .any(|t| t.id == spawned.id && t.running)
+        );
         assert_eq!(std::fs::read(&typed).unwrap(), b"\x03\x03\x03");
         assert!(kill.1.lock().unwrap().is_empty(), "no kill was needed");
     }
