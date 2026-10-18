@@ -101,7 +101,7 @@ async fn a4_signal_for_an_unknown_agent_fails_loudly() {
     let served = Served::start("#!/bin/sh\nsleep 30\n", &[]).await;
     let out = served.signal("999", "1", r#"{"hook_event_name":"Stop"}"#);
     assert_eq!(out.status.code(), Some(1));
-    assert!(String::from_utf8_lossy(&out.stderr).contains("agent 999"));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("not found: an Agent that is gone"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

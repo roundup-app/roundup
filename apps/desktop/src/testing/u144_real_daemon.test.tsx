@@ -83,7 +83,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
       (error: RpcError) => error,
     );
 
-    expect([failure instanceof RpcError, failure?.message]).toEqual([true, expect.stringContaining("nowhere")]);
+    expect([failure instanceof RpcError, failure?.message]).toEqual([true, "not found: an Agent that is gone"]);
   });
 
   it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
