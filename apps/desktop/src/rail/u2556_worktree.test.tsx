@@ -21,7 +21,7 @@ it("u2556c_chips_are_accessible_state", async () => {
   const pr = screen.getByLabelText("PR #2531, stale");
 
   for (const state of [ci, pr]) {
-    expect(state.getAttribute("role")).toBeNull();
+    expect(state.getAttribute("role")).toBe("img");
     expect(state.tabIndex).toBe(-1);
   }
 
@@ -29,7 +29,7 @@ it("u2556c_chips_are_accessible_state", async () => {
   expect(pr.dataset.state).toBe("pr");
   expect(pr.dataset.stale).toBe("true");
   expect(chip.dataset.state).toBe("ahead");
-  expect(chip.getAttribute("role")).toBeNull();
+  expect(chip.getAttribute("role")).toBe("img");
   expect(chip.tabIndex).toBe(-1);
   fireEvent.click(chip);
   fireEvent.click(ci);
@@ -139,7 +139,8 @@ it("u2556b_unavailable_and_stale_are_explained", async () => {
   app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: false, ci: { state: "passed", stale: true }, pr: { number: 18, stale: true } });
   setNow(100_000_000_000_000);
   await screen.findByText("Passed, stale");
-  expect(screen.getAllByText("#18, stale")).toHaveLength(2);
+  expect(screen.getByText("#18, stale")).toBeTruthy();
+  expect(screen.getByRole("img", { name: "PR #18, stale" }).dataset.stale).toBe("true");
   expect(screen.getByLabelText("CI passed, stale").dataset.state).toBe("passed");
   expect(screen.getByLabelText("CI passed, stale").dataset.stale).toBe("true");
   expect(screen.queryByText("CI unavailable")).toBeNull();
