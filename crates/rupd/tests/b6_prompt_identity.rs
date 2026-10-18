@@ -84,12 +84,6 @@ def watch():
         threading.Thread(target=take, args=(conn,), daemon=True).start()
   except BaseException: pass
 threading.Thread(target=watch, daemon=True).start()
-if '--resume' not in sys.argv:
-    pending = b''
-    while not pending.endswith(b'\r'):
-        pending += os.read(0, 1)
-    text = pending.decode().replace('\x1b[200~','').replace('\x1b[201~','').removeprefix('Follow this instruction: ').strip()
-    hook('UserPromptSubmit', {'prompt':text})
 hook('Stop', {})
 print('READY', flush=True)
 pending = b''

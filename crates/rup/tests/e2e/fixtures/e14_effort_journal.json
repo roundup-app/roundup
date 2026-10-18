@@ -1,0 +1,8 @@
+{
+  "fixtures": [
+    {
+      "match": { "userMessage": "observe effort", "hasToolResult": false },
+      "response": { "content": "Ready." }
+    }
+  ]
+}

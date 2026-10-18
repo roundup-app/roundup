@@ -1,0 +1,45 @@
+{
+  "calls": [
+    {
+      "method": "terminal.open",
+      "params": {
+        "workstream": null
+      }
+    },
+    {
+      "method": "terminal.open",
+      "params": {
+        "workstream": null
+      }
+    },
+    {
+      "method": "terminal.list",
+      "params": null
+    },
+    {
+      "method": "terminal.resize",
+      "params": {
+        "id": "2",
+        "cols": 80,
+        "rows": 24
+      }
+    },
+    {
+      "method": "rail.tree",
+      "params": null
+    },
+    {
+      "method": "terminal.list",
+      "params": null
+    },
+    {
+      "method": "terminal.resize",
+      "params": {
+        "id": "2",
+        "cols": 95,
+        "rows": 26
+      }
+    }
+  ],
+  "focus": "2"
+}

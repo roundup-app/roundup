@@ -1,7 +1,6 @@
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
-import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import type { Worktree } from "@contracts/agent/Worktree";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -16,13 +15,19 @@ import { DiffReader } from "./DiffReader";
 import { ChangedTree } from "./ChangedTree";
 import "./styles.css";
 
-type Read = { failure: null; state: WorktreeState; changed: ChangedFiles } | { failure: string } | null;
-
-const stateOf = (read: Read): WorktreeState | null => (read?.failure === null ? read.state : null);
+type Read = { failure: null; changed: ChangedFiles } | { failure: string } | null;
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
 const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes }) => {
-  const { app } = useConnectedProject();
+  const { app, worktrees } = useConnectedProject();
+  const state = () => worktrees.read(props.id);
+
+  const facts = () => {
+    const read = state();
+
+    return read?.failure === null ? read.state : null;
+  };
+
   const [open, setOpen] = createSignal(false);
   const [read, setRead] = createSignal<Read>(null);
   const [path, setPath] = createSignal<string>();
@@ -40,9 +45,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     let loaded: Read = null;
 
     void failureOf(async () => {
-      const [state, changed] = await Promise.all([app.rpc("agent.worktreeState", { id: props.id }), app.rpc("agent.changedFiles", { id: props.id })]);
+      const [, changed] = await Promise.all([worktrees.refresh(props.id), app.rpc("agent.changedFiles", { id: props.id })]);
 
-      loaded = { failure: null, state, changed };
+      loaded = { failure: null, changed };
     }).then((failure) => {
       if (current) setRead(failure === null ? loaded : { failure });
     });
@@ -74,7 +79,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
             <dd title={props.worktree.branch}>{props.worktree.branch}</dd>
             <dt>{copy.base}</dt>
             <dd title={props.worktree.base}>{props.worktree.base}</dd>
-            <Show when={stateOf(read())}>
+            <Show when={facts()}>
               {(state) => (
                 <>
                   <dt>{copy.worktreeState}</dt>
@@ -83,11 +88,12 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               )}
             </Show>
           </dl>
+          <Show when={state()?.failure ?? read()?.failure}>{(failure) => <ErrorLine message={failure()} />}</Show>
           <Show when={read()}>
             {(done) => {
               const value = done();
 
-              if (value.failure !== null) return <ErrorLine message={value.failure} />;
+              if (value.failure !== null) return null;
 
               if (value.changed.files.length === 0) return <p class="worktree-none">{copy.noChanges}</p>;
 
@@ -114,7 +120,7 @@ export const WorktreeControl = () => {
       return node && node.worktree ? { id: node.id, name: node.name, worktree: node.worktree } : null;
     },
     null,
-    { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch },
+    { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
   return <Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} />}</Show>;

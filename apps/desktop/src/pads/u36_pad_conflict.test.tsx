@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
+  RpcError,
   deferred,
   openPad,
   openShelf,
@@ -38,15 +39,8 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
   // The first test pays the cold import and first render of the Shelf and Drawer (about 0.7 s warm, 5 s on a loaded runner); the rest take about 0.1 s.
   vi.setConfig({ testTimeout: 30_000 });
 
-  // Rule 10: retire u36_the_changed_by_line_is_light from unit coverage: its
-  // class assertion checks appearance, assigned to the rendered design observer.
-  // U36’s conflict-notice behavior remains proved by the following test.
-  it("u36_a_dirty_draft_shows_a_changed_by_line", async () => {
-    await openConflict();
-
-    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
-  });
-
+  // Rule 10: u36_typing_more_while_the_line_shows_keeps_the_line_and_blur_sends_no_write
+  // also proves the initial notice; the appearance-only test remains retired to the rendered observer.
   it("u36_a_dirty_draft_blur_sends_no_write", async () => {
     const { calls, field, state } = await openConflict();
 
@@ -102,7 +96,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
       expect(
         app.calls.filter((call) => call.method === "pad.write"),
       ).toEqual([
-        { method: "pad.write", params: { name: "release-checklist", text: "mine, edited" } },
+        { method: "pad.write", params: { name: "release-checklist", text: "mine, edited", expectedRevision: 1 } },
       ]),
     );
     expect(state.pads[0]?.text).toBe("mine, edited");
@@ -120,20 +114,38 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(screen.queryByText(/Changed by/)).toBeNull();
   });
 
-  it("u36_keep_mine_keeps_the_line_while_its_write_is_in_flight", async () => {
-    const { app } = await openConflict();
+  it.each([false, true])("p2544d_pending_keep_mine_cannot_clear_a_newer_conflict_use_theirs_%s", async (useTheirsEarly) => {
+    const { app, state, field } = await openConflict();
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
 
     fireEvent.click(screen.getByText("Keep mine"));
-
     expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
+    state.pads = [{ ...padOf("release-checklist", USER, "newer external text"), revision: 3 }];
+    app.emit({ actor: AGENT, name: "pad.changed", data: { name: "release-checklist" } });
+    await waitForReload(app, 2);
 
-    reply.resolve(padOf("release-checklist", USER, "mine, edited"));
-    await waitFor(() => expect(screen.queryByText(/Changed by/)).toBeNull());
+    if (useTheirsEarly) fireEvent.click(screen.getByText("Use theirs"));
+
+    reply.resolve({ ...padOf("release-checklist", USER, "mine, edited"), revision: 2 });
+    await reply.promise;
+    await writeAdopted();
+
+    if (!useTheirsEarly) {
+      expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
+      fireEvent.click(screen.getByText("Use theirs"));
+    }
+
+    expect(field.value).toBe("newer external text");
+    app.handlers["pad.write"] = ({ text }) => ({ ...padOf("release-checklist", USER, text), revision: 4 });
+    fireEvent.input(field, { target: { value: "edited after choice" } });
+    fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
+      name: "release-checklist", text: "edited after choice", expectedRevision: 3,
+    }));
   });
 
-  it("u36_keep_mine_never_overwrites_text_typed_after_a_quick_refocus", async () => {
+  it("p2544d_conflict_choices_preserve_latest_draft", async () => {
     const { app, field } = await openConflict();
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
@@ -145,11 +157,16 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "mine, edited more" } });
-    reply.resolve(padOf("release-checklist", USER, "mine, edited"));
+    reply.resolve({ ...padOf("release-checklist", USER, "mine, edited"), revision: 2 });
     await reply.promise;
     await new Promise((done) => setTimeout(done, 0));
 
     expect(field.value).toBe("mine, edited more");
+    app.handlers["pad.write"] = ({ text }) => ({ ...padOf("release-checklist", USER, text), revision: 3 });
+    fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
+      name: "release-checklist", text: "mine, edited more", expectedRevision: 2,
+    }));
   });
 
   it("u36_a_later_agent_change_refreshes_the_field_after_keep_mine_with_no_blur", async () => {
@@ -514,4 +531,45 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
     expect(field.value).toBe("mine, edited");
   });
+});
+
+it("p2544d_external_change_pauses_autosave", async () => {
+  const { app, state } = await openShelf([{ ...padOf("notes", USER, "mine"), revision: 3 }]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "draft" } });
+  state.pads = [{ ...padOf("notes", USER, "remote"), revision: 4 }];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await waitForReload(app);
+  await new Promise((done) => setTimeout(done, 550));
+  fireEvent.focusOut(field);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  fireEvent.click(screen.getByText("Keep mine"));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 4 } },
+  ]));
+});
+
+
+it("p2544d_failed_conflict_reload_surfaces_reload_failure", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "original")]);
+  const field = await openPad("notes");
+
+  app.handlers["pad.write"] = () => {
+    state.pads = [{ ...padOf("notes", USER, "external"), revision: 2 }];
+
+    app.handlers["pad.list"] = () => { throw new Error("reload unavailable"); };
+
+    throw new RpcError(-32003, "stale revision");
+  };
+
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.focusOut(field);
+  await screen.findByText("Use theirs");
+  await waitForReload(app);
+
+  await within(screen.getByLabelText("Drawer")).findByText(/reload unavailable/);
+
+  expect(screen.queryByText(/stale revision/)).toBeNull();
+  expect(field.value).toBe("draft");
+
 });

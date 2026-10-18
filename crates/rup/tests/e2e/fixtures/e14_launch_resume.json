@@ -1,0 +1,72 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: E14 remember the cobalt otter"
+      },
+      "response": {
+        "content": "{\"title\":\"Launch observer\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E14 remember the cobalt otter",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "E14 retained answer"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: What is this Workstream for?"
+      },
+      "response": {
+        "content": "{\"title\":\"Launch observer\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is this Workstream for?",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "E14 retained answer"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: E14 recall the Agent conversation"
+      },
+      "response": {
+        "content": "{\"title\":\"Launch observer\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E14 recall the Agent conversation",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "E14 retained answer"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: E14 recall the Door conversation"
+      },
+      "response": {
+        "content": "{\"title\":\"Launch observer\"}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E14 recall the Door conversation",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "E14 retained answer"
+      }
+    }
+  ]
+}

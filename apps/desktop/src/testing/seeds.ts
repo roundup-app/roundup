@@ -188,7 +188,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   app.handlers["terminal.list"] = () =>
     [...new Set([...nodes.flatMap((node) => node.terminal_id ? [node.terminal_id] : []), ...owned.keys(), ...exits.keys()])].map((id) =>
       ({ id, cwd: PROJECT.path, title: owned.get(id)?.title ?? null, program: "zsh", running: !exits.has(id), exit_code: exits.get(id) ?? null, owner: owned.get(id)?.owner ?? null }));
-  app.handlers["terminal.open"] = ({ workstream }) => start(workstream, null);
+  app.handlers["terminal.open"] = ({ workstream }) => start(workstream ?? PROJECT.path, null);
   app.handlers["agent.run"] = ({ id, command }) => start(id, command[0]?.split("/").pop() ?? null);
   app.handlers["terminal.close"] = ({ id }) => {
     if (!owned.delete(id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
@@ -438,7 +438,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
-  const controls = installDaemon(app, nodes, now, name === "tree-40", name === "bubbles");
+  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict", name === "bubbles");
   app.opened.project = name === "first-run" ? null : PROJECT;
 
   if (name === "tabs-8") {

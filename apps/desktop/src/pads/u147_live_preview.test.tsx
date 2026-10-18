@@ -57,7 +57,7 @@ describe("u147 the Pad is one live-preview surface", () => {
     fireEvent.focusOut(field);
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "# New" });
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "# New", expectedRevision: 1 });
   });
 
   it("u147_closing_the_drawer_after_a_change_writes_once", async () => {
@@ -68,7 +68,7 @@ describe("u147 the Pad is one live-preview surface", () => {
     connected.drawer.close();
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "changed" });
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "changed", expectedRevision: 1 });
   });
 
   it("u147_an_unchanged_document_keeps_its_source_bytes_and_writes_nothing", async () => {

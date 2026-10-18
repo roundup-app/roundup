@@ -1,8 +1,11 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { RpcError } from "../app/seam";
-import { agent, door, event, workstream } from "../testing/nodes";
+import { agent, door, event, info, workstream } from "../testing/nodes";
+import { openTabs, path } from "../header/stripFixture";
+import { CHORDS } from "../keys/chords";
+import { copy } from "../copy";
 import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
@@ -187,4 +190,73 @@ describe("u143 direct Agent access beside a stopped Door", () => {
 
     await waitFor(() => expect(calls(app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: null, parent: "r", model: null, effort: null }]));
   });
+});
+
+it("u2571a_empty_centre_has_three_noninteractive_hints", async () => {
+  await openTabs({ p: [] });
+  const content = startWorkstream().closest<HTMLElement>(".pane-door")!;
+  const list = within(content).getByRole("list");
+  expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+  expect(content.querySelectorAll('button, a, [tabindex], input')).toHaveLength(1);
+  expect(within(list).queryAllByRole("button")).toEqual([]);
+  expect(within(list).queryAllByRole("link")).toEqual([]);
+});
+
+it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
+  "u2571b_each_empty_hint_runs_its_action $what", async (row) => {
+    const { app } = await openTabs({ p: [] });
+    const daemon = app.of(path("p"));
+    daemon.handlers["terminal.open"] = () => ({ terminal_id: "new" });
+    daemon.handlers["terminal.list"] = () => [info("new", { owner: path("p") })];
+    daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
+    daemon.handlers["terminal.resize"] = () => null;
+    const start = startWorkstream();
+
+    start.focus();
+    const press = row.presses[0]!.split("+");
+    const code = press[press.length - 1]!;
+    fireEvent.keyDown(start, { code, key: code === "Slash" ? "/" : code.slice(3).toLowerCase(), metaKey: true });
+
+    if (row.what === copy.newAgent) {
+      await waitFor(() => expect(calls(daemon, "agent.spawn")).toHaveLength(1));
+      expect(calls(daemon, "agent.spawn")[0]).toMatchObject({ parent: null });
+    } else if (row.what === copy.newTerminal) {
+      await waitFor(() => expect(document.activeElement?.closest(".bubble")).not.toBeNull());
+      expect(calls(daemon, "terminal.open")).toEqual([{ workstream: null }]);
+    } else {
+      const input = await screen.findByRole("textbox", { name: copy.askBarLabel });
+
+      await waitFor(() => expect(document.activeElement).toBe(input));
+      fireEvent.keyDown(input, { code: "Escape", key: "Escape" });
+      await waitFor(() => expect(document.activeElement).toBe(start));
+      expect(screen.queryByRole("textbox", { name: copy.askBarLabel })).toBeNull();
+    }
+
+    expect(calls(daemon, "rail.createWorkstream")).toEqual([]);
+    expect(calls(daemon, "rail.startDoor")).toEqual([]);
+  },
+);
+
+it("u2571c_hints_follow_empty_pending_failure_and_nonempty_states", async () => {
+  const tree: RailNode[] = [];
+  const { app: projects } = await openTabs({ p: tree });
+  const app = projects.of(path("p"));
+  app.handlers["rail.tree"] = () => structuredClone(tree);
+  const pane = within(document.querySelector<HTMLElement>(".pane")!);
+  let reject!: (error: Error) => void;
+  app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>((_resolve, fail) => { reject = fail; });
+  fireEvent.click(startWorkstream());
+  await screen.findByText("Creating Workstream…");
+  expect(pane.getByRole("list")).toBeTruthy();
+  reject(new RpcError(-32000, "no space"));
+  await screen.findAllByRole("alert");
+  expect(pane.getByRole("list")).toBeTruthy();
+  tree.push(agent("root", "idle", "ready"));
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(pane.queryByRole("list")).toBeNull());
+  expect(screen.getByRole("region", { name: copy.projectOverview })).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
+  tree.splice(0);
+  app.emit(event({ name: "rail.changed" }));
+  await pane.findByRole("list");
 });
