@@ -110,3 +110,130 @@ it("p2544a_readonly_blocks_do_not_write", async () => {
   expect(await evaluate("Boolean(document.querySelector('.milkdown-block-handle[data-show=true]'))")).toBe(false);
   expect(await evaluate("window.__fake.app.calls.filter(c => c.method === 'pad.write')")).toEqual([]);
 }, 180_000);
+
+const visualSource = 'Agent prose.\n\n```mermaid\ngraph LR\nA-->B\n```\n\n```excalidraw\n{"type":"excalidraw","elements":[]}\n```\n\nTail prose.\n';
+
+it("p2544e_visual_blocks_survive_autosave", async () => {
+  await open(false, visualSource);
+  await browser("wait", ".visual-mermaid svg");
+  await browser("wait", ".visual-drawing .excalidraw");
+  await browser("focus", ".ProseMirror");
+  await browser("press", "Control+Home");
+  await browser("keyboard", "type", "Reviewed ");
+  await browser("wait", "[data-state=saved]");
+  const edited = `Reviewed ${visualSource}`;
+  const source = () => evaluate("window.__fake.app.rpc('pad.read', {name:'pad-3'}).then(p => p.text)");
+
+  expect(await source()).toBe(edited);
+  await browser("click", ".drawer .close");
+  await browser("eval", "document.querySelectorAll('[data-shelf-row] .pad-name')[3].click()");
+  await browser("wait", ".visual-mermaid svg");
+  await browser("wait", ".visual-drawing .excalidraw");
+  await browser("click", ".visual-mermaid");
+  await browser("wait", ".visual-source.is-open");
+  await browser("press", "End");
+  await browser("press", "ArrowDown");
+  await browser("press", "End");
+  await browser("press", "Backspace");
+  await browser("keyboard", "type", "C");
+  await browser("wait", "[data-state=saved]");
+  expect(await source()).toBe(edited.replace("A-->B", "A-->C"));
+  await browser("click", ".ProseMirror p:first-of-type");
+  await browser("wait", ".visual-mermaid svg");
+  expect(await evaluate("Boolean(document.querySelector('.visual-drawing .excalidraw'))")).toBe(true);
+  await browser("scrollintoview", ".visual-drawing canvas.interactive");
+  await browser("click", ".visual-drawing label:has([data-testid=toolbar-rectangle])");
+
+  const point = await evaluate(`(() => {
+    const rect = document.querySelector('.visual-drawing canvas.interactive').getBoundingClientRect();
+    return {x: rect.x + 100, y: rect.y + 120};
+  })()`);
+
+  await browser("mouse", "move", String(point.x), String(point.y));
+  await browser("mouse", "down");
+  await browser("mouse", "move", String(point.x + 80), String(point.y + 60));
+  await browser("mouse", "up");
+
+  const afterMermaid = edited.replace("A-->B", "A-->C");
+
+  await expect.poll(source, { timeout: 20_000 }).not.toBe(afterMermaid);
+  await browser("wait", "[data-state=saved]");
+
+  const drawn: string = await source();
+  const drawing = drawn.match(/```excalidraw\n([\s\S]*?)\n```/);
+
+  expect(JSON.parse(drawing?.[1] ?? "null")).toMatchObject({ elements: [{ type: "rectangle" }] });
+  expect(drawn.replace(/```excalidraw\n[\s\S]*?\n```/, '```excalidraw\n{"type":"excalidraw","elements":[]}\n```')).toBe(afterMermaid);
+}, 240_000);
+
+it("p2544e_reopen_saved_agent_work", async () => {
+  const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
+  const { join, resolve } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { startRealDaemon } = await import("../testing/realDaemonFixture");
+  const { createServedApp } = await import("../testing/realSeam");
+  const report = await mkdtemp(join(tmpdir(), "p2544e-tool-"));
+
+  const real = await startRealDaemon({
+    FAKE_CLAUDE_RUN: JSON.stringify([[resolve(process.cwd(), "../../target/debug/rup"), "pad", "create", "agent-work", "--text", visualSource]]),
+    FAKE_CLAUDE_RUN_REPORT: join(report, "calls.json"),
+  }, true);
+
+  try {
+    const app = createServedApp(real.base);
+    const home = await app.rpc("rail.createWorkstream", { name: "Pad review", parent: null });
+
+    const agent = await app.rpc("agent.spawn", {
+      cwd: real.dir, parent: home.id, prompt: null,
+      order: { kind: "work", ask: "Produce the review Pad", limits: [] },
+    });
+
+    await expect.poll(() => app.rpc("pad.list", null), { timeout: 30_000 }).toMatchObject([
+      { name: "agent-work", owner: { kind: "agent", id: agent.id }, home: home.id, text: visualSource, revision: 1 },
+    ]);
+
+    const openRealPad = async () => {
+      await browser("open", `${real.base}/harness.html?daemon=1`);
+      await browser("wait", `[data-id='${home.id}'] [data-part=branch-control]`);
+      await browser("click", `[data-id='${home.id}'] [data-part=branch-control]`);
+      await browser("click", "#shelf-tab-pads");
+      await browser("wait", "[data-shelf-row] .pad-name");
+      await browser("click", "[data-shelf-row] .pad-name");
+      await browser("wait", ".ProseMirror");
+    };
+
+    await openRealPad();
+    expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("false");
+    await browser("click", ".pad-head button[aria-label='Make yours']");
+    await browser("wait", ".ProseMirror[contenteditable=true]");
+    await browser("focus", ".ProseMirror");
+    await browser("press", "Control+Home");
+    await browser("keyboard", "type", "Reviewed ");
+    await browser("wait", "[data-state=saved]");
+    const expected = `Reviewed ${visualSource}`;
+
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, owner: { kind: "user" } });
+    await browser("click", ".drawer .close");
+    await real.restart();
+    await openRealPad();
+    await browser("wait", ".visual-mermaid svg");
+    await browser("wait", ".visual-drawing .excalidraw");
+    expect(await evaluate("document.querySelector('.ProseMirror p')?.textContent")).toBe("Reviewed Agent prose.");
+    expect(await app.rpc("pad.read", { name: "agent-work" })).toMatchObject({ text: expected, revision: 2, home: home.id });
+    const evidence = process.env.ROUNDUP_PAD_EVIDENCE;
+
+    if (evidence) {
+      await mkdir(evidence, { recursive: true });
+      await browser("screenshot", join(evidence, "real-daemon-reopened.png"));
+      await writeFile(join(evidence, "real-daemon-reopened.json"), JSON.stringify({
+        agent: agent.id, workstream: home.id,
+        pad: await app.rpc("pad.read", { name: "agent-work" }),
+        checks: await evaluate("window.__checks()"), native_claim: false,
+      }));
+    }
+  } finally {
+    await browser("open", "about:blank");
+    await real.stop();
+    await rm(report, { recursive: true, force: true });
+  }
+}, 300_000);
