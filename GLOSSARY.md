@@ -154,6 +154,9 @@ How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, a
 **Changed file**:
 A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).
 
+**File comparison** (`agent.compareFile`, `CompareFileParams`, `FileComparison`, `FileContent`):
+A read-only comparison of one relative Worktree file at the same merge-base commit as Changed files against its current disk bytes. It carries both original paths, status and SHA-256 content revisions; absent sides carry `absent`. Text is UTF-8 without NUL; other bytes are binary. Each side is limited to 4 MiB, Git to three seconds and 16 MiB output. Absolute paths, traversal, administrative paths, symlinks and special files are refused. No Message laws change.
+
 **Base**:
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
 

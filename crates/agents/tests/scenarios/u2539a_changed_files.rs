@@ -221,3 +221,228 @@ async fn u2539a_no_worktree_and_missing_worktree_fail_as_g3_does() {
         err.message
     );
 }
+
+#[tokio::test]
+async fn u2540a_compares_each_status_against_the_same_base() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    write(f.dir.path(), "edit.txt", "old\n");
+    write(f.dir.path(), "gone.txt", "gone\n");
+    write(f.dir.path(), "old.txt", "rename body\n");
+    commit_all(f.dir.path(), "seed");
+    let base = git(f.dir.path(), &["rev-parse", "HEAD"]).trim().to_owned();
+    let (id, path) = on(&f).await;
+    // Advancing Base must not replace the common ancestor with Base's current tip.
+    write(f.dir.path(), "edit.txt", "advanced Base\n");
+    commit_all(f.dir.path(), "advance Base");
+    write(&path, "committed.txt", "committed\n");
+    commit_all(&path, "commit");
+    git(&path, &["mv", "old.txt", "new.txt"]);
+    write(&path, "added.txt", "staged\n");
+    git(&path, &["add", "added.txt"]);
+    write(&path, "added.txt", "current\n");
+    write(&path, "edit.txt", "new\n");
+    write(&path, "loose.txt", "loose\n");
+    std::fs::remove_file(path.join("gone.txt")).unwrap();
+    for (name, old, new, status) in [
+        ("edit.txt", "old\n", "new\n", "modified"),
+        ("gone.txt", "gone\n", "", "deleted"),
+        ("new.txt", "rename body\n", "rename body\n", "renamed"),
+        ("added.txt", "", "current\n", "added"),
+        ("committed.txt", "", "committed\n", "added"),
+        ("loose.txt", "", "loose\n", "untracked"),
+    ] {
+        let result = f
+            .call("agent.compareFile", json!({"id": id, "path": name}))
+            .await
+            .unwrap();
+        assert_eq!(result["base"], base);
+        assert_eq!(result["status"], status);
+        assert_eq!(result["old"]["text"].as_str().unwrap_or(""), old);
+        assert_eq!(result["new"]["text"].as_str().unwrap_or(""), new);
+        assert!(result["old"]["revision"].is_string());
+        assert!(result["new"]["revision"].is_string());
+        assert_eq!(result["newPath"], name);
+        assert_eq!(
+            result["oldPath"],
+            if name == "new.txt" { "old.txt" } else { name }
+        );
+    }
+}
+
+#[tokio::test]
+async fn u2540a_refuses_paths_outside_the_worktree() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    let (id, path) = on(&f).await;
+    let outside = tempfile::tempdir().unwrap();
+    write(outside.path(), "secret", "outside");
+    std::os::unix::fs::symlink(outside.path(), path.join("escape")).unwrap();
+    std::os::unix::fs::symlink(outside.path().join("secret"), path.join("link")).unwrap();
+    for name in [
+        "/etc/passwd",
+        "../secret",
+        "a/../../secret",
+        "escape/secret",
+        "link",
+        ".git",
+        ".roundup/secret",
+        "./link",
+        "",
+    ] {
+        let err = f
+            .call("agent.compareFile", json!({"id": id, "path": name}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::INVALID_PARAMS, "{name}: {err:?}");
+    }
+    assert_eq!(
+        std::fs::read(outside.path().join("secret")).unwrap(),
+        b"outside"
+    );
+}
+
+#[tokio::test]
+async fn u2540a_read_changes_nothing() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    write(f.dir.path(), "a.txt", "old\n");
+    commit_all(f.dir.path(), "seed");
+    let (id, path) = on(&f).await;
+    write(&path, "a.txt", "staged\n");
+    git(&path, &["add", "a.txt"]);
+    write(&path, "a.txt", "disk\n");
+    let index = git(&path, &["rev-parse", "--git-path", "index"]);
+    let snapshot = || {
+        (
+            std::fs::read(path.join(index.trim())).unwrap(),
+            git(&path, &["symbolic-ref", "HEAD"]),
+            git(&path, &["rev-parse", "HEAD", "main"]),
+            std::fs::read(path.join("a.txt")).unwrap(),
+            std::fs::read(f.dir.path().join("a.txt")).unwrap(),
+        )
+    };
+    let before = snapshot();
+    for _ in 0..2 {
+        let result = f
+            .call("agent.compareFile", json!({"id": id, "path": "a.txt"}))
+            .await
+            .unwrap();
+        assert_eq!(result["new"]["text"], "disk\n");
+    }
+    assert_eq!(snapshot(), before);
+}
+
+async fn comparison_fixture() -> (Fixture, String, std::path::PathBuf) {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    write(f.dir.path(), "same", "same\n");
+    commit_all(f.dir.path(), "seed");
+    let (id, path) = on(&f).await;
+    (f, id, path)
+}
+
+#[tokio::test]
+async fn u2540a_binary_content_has_a_revision_without_text() {
+    let (f, id, path) = comparison_fixture().await;
+    std::fs::write(path.join("binary"), b"a\0b").unwrap();
+    let result = f
+        .call("agent.compareFile", json!({"id": id, "path": "binary"}))
+        .await
+        .unwrap();
+    assert_eq!(result["new"]["kind"], "binary");
+    assert!(result["new"].get("text").is_none());
+    assert!(
+        result["new"]["revision"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
+}
+
+#[tokio::test]
+async fn u2540a_refresh_identifies_changed_content_without_changing_old_context() {
+    let (f, id, path) = comparison_fixture().await;
+    let params = json!({"id": id, "path": "same"});
+    let same = f.call("agent.compareFile", params.clone()).await.unwrap();
+    assert_eq!(same["old"], same["new"]);
+    assert_eq!(same["status"], Value::Null);
+    write(&path, "same", "different\n");
+    let changed = f.call("agent.compareFile", params).await.unwrap();
+    assert_ne!(changed["new"]["revision"], same["new"]["revision"]);
+    assert_eq!(changed["old"], same["old"]);
+}
+
+#[tokio::test]
+async fn u2540a_missing_file_is_not_found() {
+    let (f, id, _) = comparison_fixture().await;
+    assert_eq!(
+        f.call("agent.compareFile", json!({"id": id, "path": "missing"}))
+            .await
+            .unwrap_err()
+            .code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn u2540a_oversized_content_fails_explicitly() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    let bytes = vec![b'x'; 4 * 1024 * 1024 + 1];
+    std::fs::write(f.dir.path().join("old-large"), &bytes).unwrap();
+    commit_all(f.dir.path(), "large Base file");
+    let (id, path) = on(&f).await;
+    std::fs::remove_file(path.join("old-large")).unwrap();
+    std::fs::write(path.join("new-large"), &bytes).unwrap();
+    for name in ["old-large", "new-large"] {
+        assert!(
+            f.call("agent.compareFile", json!({"id": id, "path": name}))
+                .await
+                .unwrap_err()
+                .message
+                .contains("4 MiB")
+        );
+    }
+}
+
+#[tokio::test]
+async fn u2540a_missing_worktree_is_not_found() {
+    let (f, id, path) = comparison_fixture().await;
+    std::fs::remove_dir_all(path).unwrap();
+    assert_eq!(
+        f.call("agent.compareFile", json!({"id": id, "path": "same"}))
+            .await
+            .unwrap_err()
+            .code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn u2540a_unassigned_worktree_is_not_found() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    let plain = f.spawn(None, None).await.unwrap();
+    assert_eq!(
+        f.call("agent.compareFile", json!({"id": plain.id, "path": "same"}))
+            .await
+            .unwrap_err()
+            .code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn u2540a_comparison_uses_only_the_selected_agents_worktree() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    write(f.dir.path(), "same", "base\n");
+    commit_all(f.dir.path(), "seed");
+    let (one, first) = on(&f).await;
+    let (two, second) = on(&f).await;
+    write(f.dir.path(), "same", "project\n");
+    write(&first, "same", "first\n");
+    write(&second, "same", "second\n");
+    for (id, text) in [(one, "first\n"), (two, "second\n")] {
+        let result = f
+            .call("agent.compareFile", json!({"id": id, "path": "same"}))
+            .await
+            .unwrap();
+        assert_eq!(result["old"]["text"], "base\n");
+        assert_eq!(result["new"]["text"], text);
+    }
+}
