@@ -6,6 +6,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Icon } from "../ink/Icon";
 import { Tip } from "../ink/Tip";
 import { cpuText, MISSING, sizeText } from "./format";
+import { WorktreeControl } from "../changes/WorktreeControl";
 import { HintLine } from "../keys/HintLine";
 import "./styles.css";
 
@@ -114,6 +115,7 @@ export const ResourceStrip = () => {
       <HintLine />
       {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
       <span class="resource-agent">
+        <WorktreeControl />
         <Show when={own() !== null}>
           <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
         </Show>

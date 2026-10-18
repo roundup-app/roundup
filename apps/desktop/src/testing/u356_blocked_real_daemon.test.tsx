@@ -62,6 +62,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       const workstream = (await tree()).find((node) => node.kind === "workstream" && !known.includes(node.id))!.id;
 
       workstreams.push(workstream);
+      await waitFor(() => expect(row(workstream)).toBeTruthy(), { timeout: 30_000 });
       // The Door's button shows only while it has not started, so press it until the Door is not "starting" or gone.
       await waitFor(async () => {
         const start = within(rail).queryByRole("button", { name: /Start supervisor/i });
@@ -74,8 +75,9 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
 
       for (const [at, kind] of kinds.entries()) {
         // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
+        // Keep queries synchronous inside this retry: a findBy on an absent row leaks its timeout after rejecting the null container.
         await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
+          if ((await agentsOf(workstream)).length <= at) fireEvent.click(within(row(workstream)).getByLabelText("Add Agent"));
 
           expect(await agentsOf(workstream)).toHaveLength(at + 1);
         }, { timeout: 30_000, interval: 1000 });
