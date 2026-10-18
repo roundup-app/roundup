@@ -74,7 +74,12 @@ const deleteSelected = async (count: number, noun: "Todos" | "Pads") => {
     expect(screen.getByText(`Delete ${count} ${noun}?`)).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
   });
-  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
+  const confirm = screen.getByRole("button", { name: `Delete ${count}` });
+  fireEvent.click(confirm);
+  expect(confirm.hasAttribute("disabled")).toBe(true);
+  // BulkDelete dismisses the question only after all targets and its readback
+  // finish; backend observations must not race that in-flight operation.
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Keep" })).toBeNull());
 };
 
 beforeAll(async () => {
