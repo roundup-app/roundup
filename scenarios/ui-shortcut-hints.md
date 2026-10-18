@@ -1,6 +1,6 @@
-# UI: shortcut hints (U2230 to U2230b, U2541 to U2541c)
+# UI: shortcut hints (U2230 to U2230b, U2541 to U2541c, U2570a to U2570c)
 
-Module: `apps/desktop/src/keys` and `apps/desktop/src/app`. Ids: U2230, U2230a, U2230b, U2541, U2541a, U2541b, U2541c. Terms: Agent, Terminal, Bubble, Rail (`GLOSSARY.md`). Direction: Issues #2230 and #2541 (the owner, 2026-10-18, after comparing Orca's `ShortcutKeyCombo`: "agree on your porposals to enhance key hints"); U2541 to U2541c replace #2230's "no box, pill, outline or background" and widen #2366's count to two to four hints per place; the keyboard route to message a running Agent is #2223's, and the bottom bar's space is #2225's.
+Module: `apps/desktop/src/keys` and `apps/desktop/src/app`. Ids: U2230, U2230a, U2230b, U2541, U2541a, U2541b, U2541c, U2570a, U2570b, U2570c. Terms: Agent, Terminal, Bubble, Rail (`GLOSSARY.md`). Direction: Issues #2230 and #2541 (the owner, 2026-10-18, after comparing Orca's `ShortcutKeyCombo`: "agree on your porposals to enhance key hints"); U2541 to U2541c replace #2230's "no box, pill, outline or background" and widen #2366's count to two to four hints per place; the keyboard route to message a running Agent is #2223's, and the bottom bar's space is #2225's.
 
 The hint line serves the Intervene stage of `.agents/data/journey.md`: the user learns the keys that act where focus is, without opening Help. This specification defines implementation acceptance; it claims no shipped hint line.
 
@@ -21,6 +21,33 @@ Scope of U2541 to U2541c (policy): `apps/desktop/src/keys/`, `apps/desktop/src/a
 **U2541b two to four hints in every place.** Given an open Project, when focus is in the Rail, a watched Agent's pane, a Terminal Bubble, a Pad (outside its Editor), a Drawer or the Switcher, then the line shows two to four hints from `CHORDS` rows whose `hint.at` names that place, in table order, each pressing to the action its label names (U2230). With Help open it shows none. The implementation fixes the places and their hints from the keys that exist after U2238 to U2241; a place with fewer than two bound keys shows none rather than inventing one. Tests: `u2541b_every_place_shows_two_to_four_hints` and the existing `u2230_every_hint_names_a_bound_chord`, which covers the new places.
 
 **U2541c a Pad's Editor shows its formatting keys.** Given focus in a Pad's Editor and the Pads editor work having bound blocks, bold and italic, when the line shows, then it shows those keys from `CHORDS` rows with `hint.at.editor`. Until those keys are bound, `editor` has no rows and the line stays empty there. Policy for ordering: the Issue that binds the Editor keys implements this scenario and is a native blocked-by of the implementation; it adds the rows, and no key symbol lives outside the table. Test: `u2541c_editor_hints_follow_bound_keys`.
+
+## Tooltips name their key
+
+Direction: #2570 (owner, 2026-10-18): the Rail's `+ agent` tooltip reads `New Agent` followed by `⌘` and `N` chips, using U2541's `KeyChip`. This extends the Intervene stage's key teaching to the action under the pointer or keyboard focus. Scope (policy): existing files in `apps/desktop/src/ui/`, `apps/desktop/src/rail/`, `apps/desktop/src/keys/` and `apps/desktop/src/copy.ts`, plus behavioural tests beside those files. No RPC, App seam command, new shortcut, domain model or new tooltip-bearing control.
+
+Inventory on main (policy): qualification is by the action the tooltip-bearing control runs, not by matching label text. These are all `CHORDS` rows in `apps/desktop/src/keys/chords.ts`, constant `CHORDS`:
+
+| Action | Existing tooltip-bearing control | Result |
+|---|---|---|
+| New Agent | Every Workstream row's `+ agent`, `apps/desktop/src/rail/RowIcons.tsx`, `RowIcons` | `New Agent`, then the New Agent row's key chips |
+| New Agent with a prompt | None | No tooltip added |
+| New Terminal | None (`apps/desktop/src/bubbles/Bubbles.tsx`, `Bubbles`, uses a plain add control) | No tooltip added |
+| Leader waits for a key | None | No tooltip added |
+| Take control in the Switcher | None | No tooltip added |
+| Remove | None (Rail menu action) | No tooltip added |
+| Take control | None | No tooltip added |
+| Ask bar | None (text field) | No tooltip added |
+
+The row's folder, editor, stop, clear and disclosure controls have no `CHORDS` action. Bubble close and minimise are `LEADER` actions, not `CHORDS` actions. Row/name, Project title, resource-name, failure and unavailable-send explanations describe content or availability, not a keyed action. All keep their existing tooltip content. If main adds a tooltip-bearing control for a `CHORDS` action before implementation, that control also qualifies under U2570a; extend this inventory in that implementation PR.
+
+Mechanism (policy): extend existing `Tooltip.Content` to accept an optional `Chord` row association and append `KeyChip` with that row's `keys` after its children. Existing `IconButton` and Rail `Tip` forward the optional association without putting it on the DOM. Callers select the actual `CHORDS` row explicitly; do not infer it from a translated label, parse a key from copy, duplicate key symbols, or maintain a second shortcut table. The Rail's add control supplies the New Agent row and uses `copy.newAgent` for tooltip text; its accessible name and click action stay unchanged. Remove the inline shortcut in `copy.addAgentN` when its last caller migrates. Reuse Ark Tooltip and the existing `KeyChip`; add no key markup, tooltip implementation, parser or registry.
+
+**U2570a keyed actions name their table key.** Given a mounted App with an open Project and Workstream rows, when each qualifying control is hovered or keyboard-focused, then its `tooltip` role contains its action label followed by the associated `CHORDS` row's keys through `KeyChip`. For `+ agent` the label is `New Agent`; every Workstream instance uses the same row. Changing that row's `keys` in the test fixture changes the displayed keys without changing caller copy. The control's accessible name remains unchanged, and clicking it still invokes its existing action once. Test: `u2570a_tooltips_follow_their_chord` in `apps/desktop/src/rail/`, covering hover, focus, row-driven updates and the existing add action's call count. Extend U2541's existing `u2541_one_component_draws_every_key` in `apps/desktop/src/keys/u2230_hints.test.tsx` to include a keyed tooltip; do not duplicate its shared-component proof.
+
+**U2570b unkeyed tooltips retain their meaning.** Given controls with no `CHORDS` association, including the Rail's folder action and Bubble minimise, when hovered or keyboard-focused, then their `tooltip` roles retain the existing label or explanation with no key semantics added, and their accessible names remain unchanged. Test: `u2570b_unkeyed_tooltips_keep_their_content` in `apps/desktop/src/ui/`, exercising the existing `IconButton` and Rail `Tip` without an association. Tooltip opening on hover and focus and dismissal on pointer leave or blur remain covered by `u474_tooltip_pointer_and_keyboard`, `u477_icon_button_leave_hides_its_name` and `u477_icon_button_blur_hides_its_name` in `apps/desktop/src/ui/u474_browser.test.ts`; extend that observer only if a required interaction lacks coverage.
+
+**U2570c the tooltip keeps its box.** Given the densest seed `tree-40` at 1512×950 in light, dark and increased contrast, when a Workstream's `+ agent` tooltip opens, then the label precedes one chip per key symbol, matching the Hint line's chips, with no clipping or overlap and readable label and chips. Moves D2, D5 and D6 (`docs/design-system.md`, heading `The checks`). Observer: isolated headless harness captures before and after hover and focus, `window.__checks()` and the design critic; layout, colour, order and exact copy are visual observations, not new test assertions (rule 10). Policy: `apps/desktop/src/ui/Tooltip.css`, Ark open/close delay, placement, dismissal configuration and positioning remain unchanged; only content is extended. Any inline arrangement uses existing Tokens. No Check passing on main regresses; rule 7 budgets and U2230 to U2230b and U2541 to U2541b remain passing. These observations establish webview behaviour; the user reports what they meet on the Mac.
 
 ## Regression and validation
 
