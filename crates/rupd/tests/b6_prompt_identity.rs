@@ -2786,7 +2786,7 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
         "hook('SessionStart',",
         "if '--resume' in sys.argv:\n    import time\n    open('resume-arrived', 'w').close()\n    while os.path.isfile('resume-gate'): time.sleep(0.005)\nhook('SessionStart',",
     );
-    std::fs::write(fake, script).unwrap();
+    rewrite_script(&fake, script);
     let gate = run.dir.path().join("resume-gate");
     std::fs::write(&gate, "pause").unwrap();
     let child = run.child.clone();
@@ -5795,12 +5795,21 @@ async fn b6_a_held_stop_never_stops_a_replacement_attempt() {
     }
 }
 
+/// Replaces the fake `claude` while a launched one may be running: a write in place fails with
+/// `Text file busy` (ETXTBSY) when a process executes the file, so the new script is renamed over it.
+fn rewrite_script(path: &Path, text: impl AsRef<[u8]>) {
+    let staged = path.with_extension("staged");
+    std::fs::write(&staged, text).unwrap();
+    std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::rename(&staged, path).unwrap();
+}
+
 #[tokio::test]
 async fn b6_a_stop_accepted_before_terminal_attachment_keeps_the_same_attempt() {
     let mut run = Run::start().await;
     let fake = run.dir.path().join("claude");
     let source = std::fs::read_to_string(&fake).unwrap();
-    std::fs::write(
+    rewrite_script(
         &fake,
         source.replace(
             "if sys.argv[1:3] == ['plugin', 'test']:\n    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)",
@@ -5814,8 +5823,7 @@ async fn b6_a_stop_accepted_before_terminal_attachment_keeps_the_same_attempt() 
             time.sleep(0.005)
     print('Q11 runtime hook closure: 1 pass'); sys.exit(0)"#,
         ),
-    )
-    .unwrap();
+    );
     // Reopen with an empty runtime admission cache; the probe precedes Terminal creation.
     run.daemon.child.kill().unwrap();
     run.daemon.child.wait().unwrap();
@@ -5896,7 +5904,7 @@ async fn b6_a_stop_accepted_during_user_resume_follows_the_resuming_attempt() {
         "hook('SessionStart',",
         "if '--resume' in sys.argv:\n    open('resume-arrived', 'w').close()\n    deadline = time.monotonic() + 10\n    while os.path.isfile('resume-gate'):\n        if time.monotonic() > deadline: raise RuntimeError('resume observer was not released')\n        time.sleep(0.005)\nhook('SessionStart',",
     );
-    std::fs::write(fake, script).unwrap();
+    rewrite_script(&fake, script);
     let gate = run.dir.path().join("resume-gate");
     std::fs::write(&gate, "pause").unwrap();
     let user = Arc::clone(&run.user);
@@ -5957,7 +5965,7 @@ async fn b6_a_failed_launch_accounts_for_a_held_stop_without_terminal_exit() {
     let mut run = Run::start().await;
     let fake = run.dir.path().join("claude");
     let source = std::fs::read_to_string(&fake).unwrap();
-    std::fs::write(
+    rewrite_script(
         &fake,
         source.replace(
             "if sys.argv[1:3] == ['plugin', 'test']:\n    print('Q11 runtime hook closure: 1 pass'); sys.exit(0)",
@@ -5971,8 +5979,7 @@ async fn b6_a_failed_launch_accounts_for_a_held_stop_without_terminal_exit() {
             time.sleep(0.005)
     print('unsupported runtime'); sys.exit(1)"#,
         ),
-    )
-    .unwrap();
+    );
     // Reopen with an empty runtime admission cache; the probe precedes Terminal creation.
     run.daemon.child.kill().unwrap();
     run.daemon.child.wait().unwrap();
