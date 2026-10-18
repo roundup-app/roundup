@@ -10,7 +10,7 @@ import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const startWords = () => screen.getAllByText(/^(Start|Retry) supervisor$/);
+const startWords = () => screen.getAllByRole("button", { name: /^(Start|Retry)$/ });
 
 const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!;
 
@@ -161,7 +161,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText(/^Start supervisor$/i, { selector: ".pane-door *" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start", exact: true }));
     await screen.findByText("Starting supervisor…");
     fireEvent.click(paneStart());
 
@@ -175,9 +175,9 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     };
 
     connected.rail.select("r");
-    fireEvent.click(await screen.findByText(/^Start supervisor$/i, { selector: ".pane-door *" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start", exact: true }));
 
-    expect([await screen.findByText("Supervisor did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "Retry supervisor"]);
+    expect([await screen.findByText("Supervisor did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: "Retry", exact: true })]);
   });
 });
 
