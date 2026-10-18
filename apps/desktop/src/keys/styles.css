@@ -11,7 +11,9 @@
   justify-content: center;
   box-sizing: border-box;
   height: var(--space-4);
-  padding: 0 var(--key-chip-padding);
+  padding: 0;
+  padding-right: var(--key-chip-padding);
+  padding-left: var(--key-chip-padding);
   border: none;
   border-radius: var(--radius-chip);
   font-family: var(--font-ui);
