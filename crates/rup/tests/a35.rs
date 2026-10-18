@@ -641,21 +641,17 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
             .unwrap(),
     )
     .unwrap();
-    let mut working = false;
-    loop {
-        let kind = daemon::next(&mut events, |event| match event {
-            contracts::EventData::AgentStatus(status) if status.id == later.id => {
-                Some(status.status.kind)
-            }
-            _ => None,
-        })
-        .await;
-        match kind {
-            Kind::Working => working = true,
-            Kind::Idle if working => return node(&fx.user, &later.id).await.unwrap(),
-            _ => {}
+    // O2: with neither prompt nor order the Agent is Steered nothing, so its SessionStart is its `idle`.
+    daemon::next(&mut events, |event| match event {
+        contracts::EventData::AgentStatus(status)
+            if status.id == later.id && status.status.kind == Kind::Idle =>
+        {
+            Some(())
         }
-    }
+        _ => None,
+    })
+    .await;
+    node(&fx.user, &later.id).await.unwrap()
 }
 
 #[tokio::test]

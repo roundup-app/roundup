@@ -201,7 +201,7 @@ impl Rail {
         self.insert_ordered(kind, name, parent, terminal_id, None)
     }
 
-    /// `insert` with the node's order (O2, O3); `None` is the default of its kind.
+    /// `insert` with the node's order (O2, O3); `None` is a Workstream's default and an Agent's no order.
     pub fn insert_ordered(
         &mut self,
         kind: NodeKind,
@@ -210,8 +210,14 @@ impl Rail {
         terminal_id: Option<&str>,
         work: Option<&Order>,
     ) -> Result<RailNode, RpcError> {
-        let work = serde_json::to_string(&work.map_or_else(|| default_order(kind), Order::clone))
-            .map_err(RpcError::internal)?;
+        let work = match (work, kind) {
+            (Some(order), _) => Some(order.clone()),
+            (None, NodeKind::Workstream) => Some(workstream_order()),
+            (None, NodeKind::Agent) => None,
+        }
+        .map(|order| serde_json::to_string(&order))
+        .transpose()
+        .map_err(RpcError::internal)?;
         let tx = self.db.transaction().map_err(sql)?;
         let nodes = load(&tx)?;
         check_parent(&nodes, kind, parent)?;
@@ -793,12 +799,9 @@ fn drop_terminal_nodes(db: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// O2, O3: the order a node holds when none was given.
-pub fn default_order(kind: NodeKind) -> Order {
-    Order::clarification(match kind {
-        NodeKind::Workstream => "What is this Workstream for?",
-        _ => "What should this Agent do?",
-    })
+/// O3: the order a Workstream's Door holds when none was given. An Agent holds none (O2).
+fn workstream_order() -> Order {
+    Order::clarification("What is this Workstream for?")
 }
 
 fn kind_name(kind: NodeKind) -> &'static str {
@@ -830,11 +833,13 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 (Some(path), Some(branch), Some(base)) => Some(Worktree { path, branch, base }),
                 _ => None,
             };
-            let work = Some(
-                row.get::<_, Option<String>>(10)?
-                    .and_then(|json| serde_json::from_str(&json).ok())
-                    .unwrap_or_else(|| default_order(kind)),
-            );
+            let stored = row
+                .get::<_, Option<String>>(10)?
+                .and_then(|json| serde_json::from_str(&json).ok());
+            let work = match kind {
+                NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
+                NodeKind::Agent => stored,
+            };
             Ok(RailNode {
                 id: row.get::<_, i64>(0)?.to_string(),
                 kind,

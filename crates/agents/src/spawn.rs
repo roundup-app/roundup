@@ -57,7 +57,7 @@ impl Agents {
         let cwd = Path::new(&params.cwd);
         let explicit = params.order.is_some();
         let (order, spawn_prompt) = match (params.prompt, params.order) {
-            (Some(prompt), Some(order)) if by_agent => (order, Some(prompt)),
+            (Some(prompt), Some(order)) if by_agent => (Some(order), Some(prompt)),
             (Some(_), Some(_)) => {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
@@ -71,14 +71,16 @@ impl Agents {
                      limits; add it, and keep the working detail in `prompt`",
                 ));
             }
-            (Some(prompt), None) => (Order::work(&prompt), None),
-            (None, Some(order)) => (order, None),
-            (None, None) => (rail::default_order(NodeKind::Agent), None),
+            (Some(prompt), None) => (Some(Order::work(&prompt)), None),
+            (None, Some(order)) => (Some(order), None),
+            (None, None) => (None, None),
         };
-        if explicit {
-            valid_explicit_order(&order)?;
-        } else {
-            valid_order(&order)?;
+        if let Some(order) = &order {
+            if explicit {
+                valid_explicit_order(order)?;
+            } else {
+                valid_order(order)?;
+            }
         }
         let given = params
             .name
@@ -104,7 +106,7 @@ impl Agents {
                 &name,
                 params.parent.as_deref(),
                 None,
-                Some(&order),
+                order.as_ref(),
             )?;
             if let Some(prompt) = &spawn_prompt {
                 rail.set_spawn_prompt(&node.id, prompt)?;
