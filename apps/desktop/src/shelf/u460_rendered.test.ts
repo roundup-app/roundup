@@ -43,7 +43,7 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await settle();
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);
     await settle();
-    await evaluate(`(() => { window.__fake.failNext(-32001, 'Injected deletion failure'); document.querySelector('.shelf-bulk button').click(); return true; })()`);
+    await evaluate(`(() => { window.__fake.failNext(-32001, 'Injected deletion failure'); document.querySelector('[role=alertdialog] .shelf-question-words button:last-child').click(); return true; })()`);
     await browser("wait", "--text", "Could not delete");
     await settle();
 
@@ -52,7 +52,7 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await settle();
     await browser("find", "role", "button", "click", "--name", "Clear done");
     await settle();
-    await evaluate(`(() => { document.querySelector('.shelf-bulk button:last-child').click(); return true; })()`);
+    await evaluate(`(() => { document.querySelector('[role=alertdialog] .shelf-question-words button:first-child').click(); return true; })()`);
     await settle();
     await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Pads')).click(); return true; })()`);
     await settle();
@@ -61,7 +61,7 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain('2 selected');
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);
     await settle();
-    await evaluate(`(() => { const remove = window.__fake.app.handlers['pad.delete']; window.__fake.app.handlers['pad.delete'] = params => params.name.length === 120 ? Promise.reject(new Error('Pad deletion failure')) : remove(params); document.querySelector('.shelf-bulk button').click(); return true; })()`);
+    await evaluate(`(() => { const remove = window.__fake.app.handlers['pad.delete']; window.__fake.app.handlers['pad.delete'] = params => params.name.length === 120 ? Promise.reject(new Error('Pad deletion failure')) : remove(params); document.querySelector('[role=alertdialog] .shelf-question-words button:last-child').click(); return true; })()`);
     await browser("wait", "--text", "Pad deletion failure");
     await settle();
 
