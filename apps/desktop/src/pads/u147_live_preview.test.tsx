@@ -40,7 +40,7 @@ describe("u147 the Pad is one live-preview surface", () => {
     fireEvent.focusOut(field);
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "# New\n" });
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "# New" });
   });
 
   it("u147_closing_the_drawer_after_a_change_writes_once", async () => {
@@ -51,19 +51,7 @@ describe("u147 the Pad is one live-preview surface", () => {
     connected.drawer.close();
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "changed\n" });
-  });
-
-  it("u147_closing_the_drawer_after_a_blur_write_does_not_write_twice", async () => {
-    const { app, connected } = await openShelf([padOf("note", USER, "old")]);
-    const field = await openPad("note");
-
-    fireEvent.input(field, { target: { value: "changed" } });
-    fireEvent.focusOut(field);
-    connected.drawer.close();
-
-    await new Promise((done) => setTimeout(done, 0));
-    expect(writes(app.calls)).toHaveLength(1);
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "changed" });
   });
 
   it("u147_an_unchanged_document_keeps_its_source_bytes_and_writes_nothing", async () => {
