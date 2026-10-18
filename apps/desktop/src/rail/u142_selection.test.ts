@@ -252,7 +252,7 @@ const selectAllInField = () => browser.page("Input.dispatchKeyEvent", { type: "k
 run("u142 the Rail selects rows, not browser text", () => {
   it("u142_the_drag_helper_selects_text_where_the_browser_allows_it", async () => {
     await load(SIZES[0]);
-    await browser.eval(`document.body.insertAdjacentHTML("afterbegin", '<p id="ctl" style="position:fixed;top:0;left:400px;margin:0;z-index:99;background:white;color:black">selectable control text</p>')`);
+    await browser.eval(`document.body.insertAdjacentHTML("afterbegin", '<p id="ctl" style="position:fixed;top:0;left:400px;margin:0;z-index:99;background:white;color:black;user-select:text;-webkit-user-select:text">selectable control text</p>')`);
     await browser.drag(await pointOf("#ctl", { dx: 2 }), await pointOf("#ctl", { fx: 1, dx: -2 }));
     expect(await selected()).not.toBe("");
   }, 30_000);
