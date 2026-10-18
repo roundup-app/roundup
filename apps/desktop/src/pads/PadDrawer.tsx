@@ -180,11 +180,14 @@ const PadBody = (props: {
       try {
         const next = await connected.app.rpc("pad.write", { name, text, expectedRevision });
 
-        // An external change that arrived during this call still needs an explicit choice.
-        if (conflictActor() && (!resolveConflict || version !== conflictVersion)) {
-          sourceRevision = next.revision;
-          setOrigin(next.text);
-        } else adopt(next);
+        // A newer explicit choice owns its baseline; an older reply cannot undo it.
+        if (version === conflictVersion || conflictActor()) {
+          // An unresolved external change still needs an explicit choice.
+          if (conflictActor() && (!resolveConflict || version !== conflictVersion)) {
+            sourceRevision = next.revision;
+            setOrigin(next.text);
+          } else adopt(next);
+        }
 
         if (resolveConflict && version === conflictVersion) setConflictActor(null);
 
