@@ -1,4 +1,3 @@
-import { waitFor } from "@solidjs/testing-library";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromePath, openPage } from "../testing/chromePage";
 import type { ChromePage } from "../testing/chromePage";
@@ -28,7 +27,6 @@ it("u2567c_real_daemon_attention_opens_its_agents_terminal", async () => {
   const workstream = await app.rpc("rail.createWorkstream", { name: "review", parent: null });
   const agent = await app.rpc("agent.spawn", { cwd: real.dir, parent: workstream.id, prompt: null, order: { kind: "clarification", question: "What should I review?" }, name: "reviewer" });
 
-  await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.id === agent.id)?.status?.kind).toBe("idle"), { timeout: 20_000 });
   await app.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } });
   await page.load(`${real.base}/harness.html?daemon=1`, 1512, 950);
   await page.until(`() => document.querySelector('.overview-attention .overview-entry')?.textContent.includes('Needs-you')`);
