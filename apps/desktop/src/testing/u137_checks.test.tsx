@@ -148,6 +148,15 @@ describe("u137 one module measures the checks", () => {
   });
 });
 
+describe("u131 D2 KeyChip spacing", () => {
+  it("u131_accepts_the_u2541_key_chip_side_padding_token", () => {
+    document.body.innerHTML = '<kbd class="key-chip">⌘</kbd>';
+    addSheet(":root { --key-chip-padding: 5px; } .key-chip { padding: 0 var(--key-chip-padding); }");
+
+    expect(runChecks().D2).toEqual({ status: "pass", value: [], selector: "" });
+  });
+});
+
 const chrome = chromePath();
 
 const rendered = chrome || process.env.CI ? describe : describe.skip;
