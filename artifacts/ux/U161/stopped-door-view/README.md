@@ -1,6 +1,6 @@
 # U143 / U161 stopped centre
 
-Isolated headless Chromium, fresh profile `browser-39150906597`, 1512×950. Base: `42778f757` (`origin/main`); head: this PR. The U26 harness serves the unchanged App seam. These observations claim the webview only.
+Isolated headless Chromium, fresh profiles `browser-39150906597` (base) and `browser-39150906597-final` (integrated head), 1512×950. Base: `42778f757` (`origin/main`); head: `7046de249` (integrated implementation; the following evidence commit changes captures only). The U26 harness serves the unchanged App seam. These observations claim the webview only.
 
 | Before | After | Why |
 | --- | --- | --- |
