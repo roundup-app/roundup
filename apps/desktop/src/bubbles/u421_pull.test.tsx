@@ -1,10 +1,17 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { placesStorage } from "./places";
 import { bubbleCalls, bubbleNames, mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
+  // Pull keeps using a deliberate saved rectangle; U2742's rendered observer owns the fresh default.
+  placesStorage("/p").write({
+    "1": { x: 16, y: 16, w: 600, h: 300, min: true },
+    "2": { x: 32, y: 32, w: 600, h: 300, min: false },
+    "3": { x: 48, y: 48, w: 600, h: 300, min: false },
+  });
 });
 
 afterEach(cleanup);
@@ -133,8 +140,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     await frame();
     await frame();
     expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([{ workstream: "other" }]);
-    expect(left("9")).toBe(200);
-    expect(top("9")).toBe(130);
+    expect(bubble("9").hidden).toBe(false);
     release(500, 130);
     expect(bubbleCalls(mounted.app, "terminal.open")).toHaveLength(1);
   });
@@ -236,7 +242,7 @@ describe("u421 a right-button drag pulls a bubble out", () => {
   });
 
   it("u421_a_pulled_place_survives_a_reload_and_is_forgotten_at_daemon_exited", async () => {
-    const mounted = await ready();
+    await ready();
 
     press(document.body, 400, 300);
     drag({ x: 450, y: 300 });
@@ -249,7 +255,6 @@ describe("u421 a right-button drag pulls a bubble out", () => {
 
     exited.setExit({ code: 1 });
     await waitFor(() => expect(window.sessionStorage.getItem("roundup:bubble-places:/p")).toBeNull());
-    expect(mounted).toBeDefined();
   });
 
   it("u421_a_plain_right_click_on_a_rail_row_still_opens_the_menu", async () => {
