@@ -9,6 +9,95 @@ use daemon::{next, rail_tree};
 use serde_json::{Value, json};
 use std::time::Duration;
 
+// E12's runtime observer is Linux-only; the Mac lane does not select this target.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn e12_a_complete_turn_has_only_loopback_traffic() {
+    use std::process::Command;
+    if std::env::var_os("E12_LOOPBACK_ONLY").is_some() {
+        let devices = std::fs::read_to_string("/proc/net/dev").unwrap();
+        let interfaces = devices
+            .lines()
+            .skip(2)
+            .map(|line| line.split(':').next().unwrap().trim())
+            .collect::<Vec<_>>();
+        assert_eq!(interfaces, ["lo"]);
+        let project = daemon::start_real("e12_loopback", &[]);
+        let client = project.client().await;
+        let agent = client
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "E12 loopback complete turn"}),
+            )
+            .await
+            .unwrap();
+        let model = project.model.as_ref().unwrap();
+        turn_done(
+            model,
+            &client,
+            agent["id"].as_str().unwrap(),
+            "E12 loopback complete turn",
+        )
+        .await;
+        let result = model.tool_result("toolu_e12_loopback").await;
+        assert!(
+            result["content"]
+                .as_str()
+                .unwrap()
+                .contains("E12 loopback todo")
+        );
+        model.assert_matched();
+        // Project shutdown and all descendants remain inside strace's observation window.
+        drop(client);
+        drop(project);
+        return;
+    }
+    let identity = |flag| {
+        let output = Command::new("id").arg(flag).output().unwrap();
+        assert!(output.status.success());
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    };
+    let trace = tempfile::NamedTempFile::new().unwrap();
+    let mut command = tokio::process::Command::new("sudo");
+    command
+        .args(["-n", "--preserve-env=PATH", "unshare", "--net", "--fork", "--kill-child", "--", "sh", "-ec"])
+        .arg(r#"ip link set lo up
+exec setpriv --reuid "$1" --regid "$2" --clear-groups strace -f -qq -e trace=connect,sendto,sendmsg,sendmmsg -o "$4" env E12_LOOPBACK_ONLY=1 "$3" --exact e12_a_complete_turn_has_only_loopback_traffic --nocapture"#)
+        .arg("e12-network")
+        .arg(identity("-u"))
+        .arg(identity("-g"))
+        .arg(std::env::current_exe().unwrap())
+        .arg(trace.path())
+        .kill_on_drop(true);
+    let output = tokio::time::timeout(Duration::from_secs(90), command.output())
+        .await
+        .expect("isolated complete turn finished within 90 seconds")
+        .expect("sudo, unshare, setpriv and strace are installed");
+    assert!(
+        output.status.success(),
+        "isolated observer failed: {}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let trace = std::fs::read_to_string(trace.path()).unwrap();
+    let mut destinations = 0;
+    for line in trace.lines() {
+        for (prefix, suffix) in [
+            ("sin_addr=inet_addr(\"", "\")"),
+            ("inet_pton(AF_INET6, \"", "\""),
+        ] {
+            for address in line.split(prefix).skip(1) {
+                let address = address.split(suffix).next().unwrap();
+                let address: std::net::IpAddr =
+                    address.parse().expect("strace decoded an IP address");
+                assert!(address.is_loopback(), "non-loopback destination: {address}");
+                destinations += 1;
+            }
+        }
+    }
+    assert!(destinations > 0, "strace observed no IP destinations");
+}
+
 #[tokio::test]
 async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
     use base64::Engine;

@@ -62,6 +62,12 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           save-cache: ${{ matrix.partition == 1 }}
+      - name: E12 network observer dependencies
+        run: |
+          if ! command -v strace || ! command -v ip || ! command -v setpriv; then
+            sudo apt-get update -qq
+            sudo apt-get install -y strace iproute2 util-linux
+          fi
       - name: test-rust
         run: python3 loop/app-data.py just test-rust-since "$BASE" --profile ci${{ matrix.partition }} --test-threads 4
 

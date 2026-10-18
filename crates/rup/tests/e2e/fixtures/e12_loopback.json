@@ -1,0 +1,28 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "toolu_e12_loopback",
+        "toolResultContains": "E12 loopback todo"
+      },
+      "response": {
+        "content": "E12 loopback turn completed"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "E12 loopback complete turn",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_e12_loopback",
+            "name": "mcp__roundup__todo_create",
+            "arguments": "{\"title\": \"E12 loopback todo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
