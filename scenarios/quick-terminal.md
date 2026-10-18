@@ -4,7 +4,7 @@ Module: `crates/terminal`, `crates/agents`, `crates/contracts`, `crates/rupd`, `
 
 1. **Stored Terminal rows.** A Rail stored by an earlier Daemon may hold nodes of Kind `terminal`. `Agents::open` drops each one (its program is gone, A8 starts no program) and the next write stores none; no bubble replaces it.
 2. **What persists.** A bubble's place, size and minimised state persist for the Daemon's life only: they are kept per Terminal id across a webview reload (U103), and forgotten at `daemon-exited` (U37) and for an id that `terminal.list` no longer holds.
-3. **What shows.** A bubble shows while the selection resolves (U145's resolution) to its owner: an Agent's Runs show with that Agent, and a Workstream's Terminals show whenever the selection is that Workstream or any row under it. A bubble that is not shown keeps running and is not closed; the Agent's row carries the count of its running Runs.
+3. **What shows.** A bubble shows while the selection resolves (U145's resolution) to its owner: an Agent's Runs show with that Agent, and a Workstream's Terminals show whenever the selection is that Workstream or any row under it. A Project-owned Terminal shows at the Project root (U524). A bubble that is not shown keeps running and is not closed; the Agent's row carries the count of its running Runs.
 4. **Keys.** `⌘T` opens a Terminal, `⌘B` and `⇧⌘B` cycle focus, `⌘.` minimises or restores the focused bubble and `⇧⌘⌫` closes it, all under U32's chord rules. `⇧⌘⌫` and not `⌘⌫`: the plain chord is the line-delete a shell user presses, and closing kills the program.
 5. **Retired.** Bubbles are opaque (U523); there is no transparency setting.
 
