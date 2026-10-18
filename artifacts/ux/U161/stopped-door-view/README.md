@@ -5,8 +5,8 @@ Isolated headless Chromium, fresh profile `browser-39150906597`, 1512×950. Base
 | Before | After | Why |
 | --- | --- | --- |
 | Supervisor stopped / chevron + Start supervisor | Supervisor stopped / play + Start | One mention of supervisor; an action icon instead of a disclosure mark |
-| A stopped Agent has only the history note | Agent stopped above the retained note | Distinguish state from missing output |
-| Centre actions have no icon gap | Shared Token spacing and row type for Start and New Workstream | Match the centre empty-state pattern |
+| A stopped Agent has only the history note | Done or Agent stopped above the retained note | Distinguish state from missing output |
+| Centre actions have no icon gap | Shared Token spacing and title type for Start and New Workstream | Match the centre empty-state pattern |
 
 Moves: D2, D5, D6. D1–D10 pass before and after on the stopped Door and Agent in light and dark, and on the empty Project in light. On tree-40, D5 and D10 already fail on main and retain the same failures after the change; the other Checks pass. The failure text itself remains visible. The JSON files also retain D11–D14 and D16.
 
