@@ -21,12 +21,12 @@ use super::brief::{self, Role};
 use super::extras;
 use super::plugins;
 
-/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it. Every other tool Claude Code has, `Bash`, `Edit`,
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14). Every other tool Claude Code has, `Bash`, `Edit`,
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
-pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch";
+pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch,Skill";
 
 /// M2219: a Door's tools with no roundup server; its Brief no longer tells it to load tools, so `ToolSearch` goes.
-pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob";
+pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Skill";
 
 /// LC1: a scout's tools; it reads and searches, and `Bash` is how it searches a repository.
 pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Bash,ToolSearch";
@@ -40,8 +40,8 @@ pub struct Profile {
     pub tools: Option<(&'static str, &'static str)>,
     /// Skills are on: no `--disable-slash-commands`, and the Project's skills are listed.
     pub skills: bool,
-    /// `--plugin-dir` for `hope`, `hunch` and `hold` (LC5).
-    pub bundled_plugins: bool,
+    /// The bundled plugins passed with `--plugin-dir`, by name (LC5, LC14).
+    pub bundled_plugins: &'static [&'static str],
     /// The user's global `CLAUDE.md` is appended to the Brief file (LC5).
     pub global_instructions: bool,
 }
@@ -54,7 +54,7 @@ pub const PROFILES: [(Role, Profile); 3] = [
             tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
             // A41: a `/command` sent to a Door runs there.
             skills: true,
-            bundled_plugins: false,
+            bundled_plugins: &["hope"],
             global_instructions: false,
         },
     ),
@@ -63,7 +63,7 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Profile {
             tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
             skills: false,
-            bundled_plugins: false,
+            bundled_plugins: &[],
             global_instructions: false,
         },
     ),
@@ -72,7 +72,7 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Profile {
             tools: None,
             skills: true,
-            bundled_plugins: true,
+            bundled_plugins: &["hope", "hunch", "hold"],
             global_instructions: true,
         },
     ),
@@ -102,6 +102,10 @@ struct Carried {
     deny: Vec<Value>,
     login: Map<String, Value>,
 }
+
+/// LC14: the one line a Door shows when its bundle lacks the `intent` skill.
+pub const INTENT_MISSING: &str =
+    "roundup: hope's intent skill is missing; this Door runs without it.";
 
 /// F4: what the shim for a vendor program prints on stderr before it exits 1.
 const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
@@ -148,6 +152,8 @@ pub struct Launcher {
     home: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
+    /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
+    lacks_intent: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// The installed Claude Code's version, once `claude --version` has answered (B51).
     pub(super) version: Arc<OnceCell<String>>,
@@ -278,10 +284,23 @@ impl Launcher {
             rup,
             home,
             user_tool_search: false,
+            lacks_intent: false,
             plugins: Arc::new(OnceCell::new()),
             version: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
         }
+    }
+
+    /// LC14: this Launcher for a bundle without `hope`'s `intent` skill. The pinned bundle holds
+    /// it, so this is how a Door's start without it is reached.
+    #[must_use]
+    pub fn without_intent_skill(mut self) -> Self {
+        self.lacks_intent = true;
+        self
+    }
+
+    fn door_lacks_intent(&self, role: Role) -> bool {
+        role == Role::Door && (self.lacks_intent || !plugins::has_intent())
     }
 
     pub fn from_env() -> Result<Self, OpenError> {
@@ -455,9 +474,10 @@ impl Launcher {
             None => extras::Delivery::default(),
         };
         let carried = lean.as_ref().map(|_| self.user_carried());
+        let missing_intent = self.door_lacks_intent(role);
         replace_file(
             &settings,
-            &self.settings_json(id, attempt, &path, mcp, carried.as_ref()),
+            &self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent),
         )
         .map_err(RpcError::internal)?;
         let mut servers = Map::new();
@@ -482,6 +502,9 @@ impl Launcher {
         }
         let brief_file = brief_path(&dir, id);
         let mut brief = brief::text(role, mcp);
+        if missing_intent {
+            brief = brief::without_intent(&brief);
+        }
         if lean.is_some() && profile(role).global_instructions {
             self.append_global_instructions(&mut brief);
         }
@@ -578,10 +601,13 @@ impl Launcher {
         if lean.is_some() {
             env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".to_owned(), "1".to_owned());
         }
-        let bundled = lean.as_ref().is_none_or(|lean| {
-            let role = if lean.scout { Role::Scout } else { role };
-            profile(role).bundled_plugins
-        });
+        let missing = self.door_lacks_intent(role);
+        let bundled = match &lean {
+            _ if missing => &[][..],
+            // LC6: an Agent the user started keeps every bundled plugin.
+            None => profile(Role::Agent).bundled_plugins,
+            Some(lean) => profile(if lean.scout { Role::Scout } else { role }).bundled_plugins,
+        };
         // I5: every shell the Agent's `claude` runs inherits who it is, and finds `rup` on its PATH.
         env.insert("ROUNDUP_AGENT".to_owned(), id.to_owned());
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
@@ -659,13 +685,13 @@ impl Launcher {
         }
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        // LC5: `hope`, `hunch` and `hold` go to a worker, or to an Agent the user started (LC6).
-        if bundled {
-            argv.extend(
-                command
-                    .get_args()
-                    .map(|arg| arg.to_string_lossy().into_owned()),
-            );
+        // LC5, LC14: each role's bundled plugins, by the folder name `Runtime::command` passes.
+        let args: Vec<_> = command.get_args().collect();
+        for pair in args.chunks(2) {
+            let named = Path::new(pair[1]).file_name().and_then(OsStr::to_str);
+            if named.is_some_and(|name| bundled.contains(&name)) {
+                argv.extend(pair.iter().map(|arg| arg.to_string_lossy().into_owned()));
+            }
         }
         argv.extend([
             "--plugin-dir".to_owned(),
@@ -746,6 +772,7 @@ impl Launcher {
         path: &OsStr,
         mcp: bool,
         carried: Option<&Carried>,
+        missing_intent: bool,
     ) -> Value {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
@@ -781,6 +808,13 @@ impl Launcher {
         let mut settings = json!({ "hooks": hooks });
         if mcp {
             settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });
+        }
+        // LC14: Claude Code's status line keeps the one line on screen for the whole session.
+        if missing_intent {
+            settings["statusLine"] = json!({
+                "type": "command",
+                "command": format!("printf %s {}", shell_quote(INTENT_MISSING)),
+            });
         }
         // LC2: the user's permission rules follow roundup's, a rule once.
         if let Some(Carried { allow, deny, login }) = carried {
