@@ -41,7 +41,7 @@
   font-size: var(--text-body);
 }
 
-.shelf .todo-row-button .shelf-title {
+.shelf :is(.todo-row-button .shelf-title, .todo-inset .entry-field) {
   font-weight: 600;
 }
 
