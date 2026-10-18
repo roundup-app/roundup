@@ -58,6 +58,25 @@ pub struct ResizeParams {
     pub rows: u16,
 }
 
+/// The App's light or dark colour scheme.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "terminal/")]
+pub enum Scheme {
+    Light,
+    Dark,
+}
+
+/// The scheme every Terminal's program is told it runs in (X17), with the two colours the Daemon
+/// reports for an OSC 10 or 11 query as `#rrggbb`.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "terminal/")]
+pub struct SchemeParams {
+    pub scheme: Scheme,
+    pub background: String,
+    pub foreground: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "terminal/")]
 pub struct TerminalInfo {
