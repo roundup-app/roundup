@@ -328,6 +328,11 @@ class L82(unittest.TestCase):
 
 
 class L46(unittest.TestCase):
+    def test_l46_the_rules_job_runs_the_empty_diff_gate_on_every_pull_request(self):
+        source = (ROOT / '.github/workflows/loop.yml').read_text()
+        step = source.split('run: loop/rules.sh empty-diff "$PR"', 1)[0].rsplit('      - ', 1)[1]
+        self.assertIn("github.event_name == 'pull_request'", step)
+
     def test_l46_a_workflow_job_posts_each_required_check(self):
         for workflow, job in (('check', 'check'), ('loop', 'rules'), ('review', 'post'), ('critic', 'post')):
             self.assertIn(f'\n  {job}:\n', (ROOT / f'.github/workflows/{workflow}.yml').read_text(), workflow)
