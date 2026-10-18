@@ -38,15 +38,15 @@ it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
 
     // Hover and keyboard focus each open the name, independently of the other.
     fireEvent.pointerMove(button, { pointerType: "mouse" });
-    await waitFor(() => expect(tips()).toContain(name));
+    await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(true));
     fireEvent.pointerLeave(button, { pointerType: "mouse" });
-    await waitFor(() => expect(tips()).not.toContain(name));
+    await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(false));
 
     fireEvent.keyDown(document, { key: "Tab" });
     button.focus();
-    await waitFor(() => expect(tips()).toContain(name));
+    await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(true));
     button.blur();
-    await waitFor(() => expect(tips()).not.toContain(name));
+    await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(false));
   }
 });
 

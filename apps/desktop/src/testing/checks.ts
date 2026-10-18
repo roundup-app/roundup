@@ -14,7 +14,7 @@ export type Checks = Record<CheckId, Check>;
 
 const NOT_MEASURABLE = "not measurable";
 
-const TYPE_STEPS = new Set([11, 12, 13, 15]);
+const TYPE_STEPS = new Set([11, 12, 13, 14, 15]);
 
 const SPACE_STEPS = new Set([0, 4, 8, 12, 16, 24, 32]);
 

@@ -22,7 +22,7 @@ afterAll(async () => {
 
 const ROW = `document.querySelector('.rail-row[data-id="backend"]')`;
 
-const DOOR = `([...${ROW}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Start supervisor') ?? null)`;
+const DOOR = `([...${ROW}.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Start supervisor' && b.checkVisibility({ visibilityProperty: true })) ?? null)`;
 
 run("u387 focus inside a row shows its row action", () => {
   vi.setConfig({ testTimeout: 30_000 });

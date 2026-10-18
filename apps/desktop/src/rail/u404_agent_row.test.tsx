@@ -25,7 +25,7 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe("asks: keep v1 routes?"));
   });
 
-  it("u404_ink_rows_are_bold_in_their_tone", async () => {
+  it("u404_ink_rows_carry_their_tone", async () => {
     await mountRail(TREE);
 
     expect(rowOf("asker").querySelector(".name")?.getAttribute("data-tone")).toBe("amber");
