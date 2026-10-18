@@ -236,7 +236,7 @@ export const RailRowView = (props: {
                     <span class="worktree-chip" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
                   </Show>
                   <Show when={facts()?.ci}>{(ci) => (
-                    <span class="worktree-chip" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}>{copy.worktreeCiChip(ci().state, ci().stale)}</span>
+                    <span class="worktree-chip" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}><span>{copy.worktreeCiChip(ci().state)}</span>{ci().stale ? copy.worktreeStale : ""}</span>
                   )}</Show>
                   <Show when={facts()?.pr}>{(pr) => (
                     <span class="worktree-chip" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, pr().stale)}</span>
