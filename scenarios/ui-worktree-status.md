@@ -1,6 +1,6 @@
 # UI: Worktree state, CI and PR (U2556a to U2556d)
 
-Work Issue: #2556. This specifies data in roundup's own UI, never a Terminal running worktrunk. It supersedes the requested outcome of `scenarios/ui-worktrunk.md`; it does not implement or require that Terminal entry. Journey: Understand and Review (`.agents/data/journey.md`). Builds on U2539b's on-demand Worktree view; implementation must depend on its implementation Issue #2549, not merely its completed specification #2539.
+Work Issue: #2556. This specifies data in roundup's own UI, never a Terminal running worktrunk. Journey: Understand and Review (`.agents/data/journey.md`). Builds on U2539b's on-demand Worktree view; implementation must depend on its implementation Issue #2549, not merely its completed specification #2539.
 
 Ownership: `crates/agents` owns read-only collection and caching through its existing git execution facilities; `crates/contracts` owns an additive extension of `agent.worktreeState`; `apps/desktop/src/rail/` and the Worktree view consume one Project-scoped client cache. No new RPC method, App seam command, Token, Glyph, Message or Worktree lifecycle operation. Implement the contract, regenerated clients, fake App and every caller together (rule 4). No new public domain name is needed: Worktree state retains its glossary meaning. Worktree status never authorizes Landing or removal from cached facts.
 
