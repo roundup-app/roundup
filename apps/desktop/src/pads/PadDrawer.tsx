@@ -101,6 +101,9 @@ const PadBody = (props: {
 
         setPad(current);
 
+        // Its RPC reply owns acknowledgement; an echo must not erase an undo back to the old baseline.
+        if (sent !== null && actor?.kind === "user" && current.text === sent) return;
+
         if (currentDraft() === origin()) {
           settle(current);
 
