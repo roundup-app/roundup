@@ -79,7 +79,7 @@ async fn idle(client: &rpc::Client, id: &str) {
 }
 
 async fn fixture() -> Fix {
-    let project = daemon::start_real("a35_marks", &[]);
+    let project = daemon::start_real("a35_marks", &[("ROUNDUP_INTERRUPT_BOUND_MS", "60000")]);
     let dir = project.dir.path();
     git(dir, &["init", "-q", "-b", "main"]);
     git(dir, &["config", "user.name", "roundup"]);
