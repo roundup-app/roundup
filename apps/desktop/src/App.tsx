@@ -128,6 +128,12 @@ const Connection = (props: {
     onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active)));
   });
 
+  createEffect(() => {
+    const open = connected();
+
+    if (open && !(open instanceof Error)) onCleanup(open.stopTerminalScheme);
+  });
+
   onCleanup(() => {
     if (mine) props.onConnected(path, null);
   });

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { copy } from "../copy";
 import { input, mountAskBar, press } from "./askFixture";
 
 afterEach(cleanup);
@@ -93,7 +94,7 @@ it("u2567b_the_overview_makes_no_call_of_its_own", async () => {
   app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40 } } }));
   await connected.rail.settled();
 
-  expect(app.calls.map((call) => call.method).sort()).toEqual(["ask.list", "daemon.ping", "decision.list", "rail.tree", "terminal.list"]);
+  expect(app.calls.map((call) => call.method).sort()).toEqual(["ask.list", "daemon.ping", "decision.list", "rail.tree", "terminal.list", "terminal.scheme"]);
 });
 
 it("u2567c_activating_an_entry_selects_its_workstream_and_shows_the_terminal", async () => {
@@ -120,7 +121,7 @@ it("u2567c_a_stopped_door_is_selected_but_not_started", async () => {
   app.calls.length = 0;
   fireEvent.click(within(overview()).getByRole("button", { name: "stopped" }));
 
-  expect(await screen.findByRole("button", { name: "Start supervisor" })).toBeDefined();
+  expect(await screen.findByRole("button", { name: copy.start })).toBeDefined();
   expect(connected.rail.selected()).toBe("stopped");
   expect(app.calls).toEqual([]);
   expect(app.outputSubscriptions).toEqual([]);

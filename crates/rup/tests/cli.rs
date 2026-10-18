@@ -1021,3 +1021,46 @@ async fn p2544d_cli_write_accepts_revision_guard() {
         serde_json::from_str(&out(&run.rup(&["pad", "read", "notes", "--json"]).await)).unwrap();
     assert_eq!(read["text"], "winner");
 }
+
+#[tokio::test]
+async fn a2693a_cli_and_mcp_forward_the_resume_mode() {
+    for mode in ["normal", "yolo"] {
+        let dir = tempfile::tempdir().unwrap();
+        let socket = dir.path().join("resume.sock");
+        let mut requests = stand_in(&socket, false, Vec::new(), &[]);
+        let output = on(&socket)
+            .rup(&["agent", "resume", "child", "--mode", mode])
+            .await;
+        assert_eq!(code(&output), 0, "{}", err(&output));
+        let request = request_of(&mut requests, "agent.resume").await;
+        assert_eq!(request, json!({"id":"child","mode":mode}));
+        let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(["mcp", "a1"])
+            .env("RUPD_SOCKET", &socket)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let transport = (child.stdout.take().unwrap(), child.stdin.take().unwrap());
+        let shim = tokio::time::timeout(BOUND, ().serve(transport))
+            .await
+            .unwrap()
+            .unwrap();
+        let result = shim
+            .call_tool(
+                rmcp::model::CallToolRequestParams::new("agent_resume").with_arguments(
+                    json!({"id":"child","mode":mode})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_ne!(result.is_error, Some(true));
+        let request = request_of(&mut requests, "agent.resume").await;
+        assert_eq!(request, json!({"id":"child","mode":mode}));
+    }
+}

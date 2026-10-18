@@ -33,11 +33,12 @@ impl RecordMarks for Agents {
             let conversation = self
                 .launcher
                 .record_conversation(Path::new(cwd), id)
-                .map_err(|err| {
-                    RpcError::internal(format!(
-                        "cannot record Mark for Agent {}: {}",
-                        source.agent, err.message
-                    ))
+                .map_err(|err| match self.rail_name(&source.agent) {
+                    Ok(name) => RpcError::internal(format!(
+                        "cannot record Mark for Agent {name}: {}",
+                        err.message
+                    )),
+                    Err(error) => error,
                 })?;
             agents.push(Mark {
                 agent: source.agent.clone(),
@@ -527,6 +528,7 @@ impl Agents {
                         Some((&launch_copy, &cwd)),
                         prompt,
                         publication,
+                        None,
                     )
                     .await
             });
@@ -541,6 +543,7 @@ impl Agents {
                 Some((copy, &mark.cwd)),
                 resume.prompt.clone(),
                 publication,
+                None,
             )
             .await?;
         resume.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));
@@ -595,10 +598,13 @@ impl Agents {
                         "duplicate selected Agent",
                     ));
                 }
-                let node = tree
-                    .iter()
-                    .find(|n| &n.id == id)
-                    .ok_or_else(|| RpcError::not_found(format!("Agent {id}")))?;
+                let node =
+                    tree.iter()
+                        .find(|n| &n.id == id)
+                        .ok_or_else(|| match self.rail_name(id) {
+                            Ok(name) => RpcError::not_found(name),
+                            Err(error) => error,
+                        })?;
                 if resume.later.contains(id) && node.kind != NodeKind::Agent {
                     return Err(RpcError::new(code::INVALID_PARAMS, "cannot retire a Door"));
                 }
@@ -731,5 +737,52 @@ impl Agents {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{claude_code::Launcher, tests::Watched};
+
+    #[tokio::test]
+    async fn a2703a_errors_use_rail_names() {
+        let watched = Watched::named();
+        let dir = watched._dir.path();
+        watched
+            .shared
+            .rail()
+            .save_conversation(
+                "7013",
+                "12345678-1234-4234-8234-123456789abc",
+                dir.to_str().unwrap(),
+            )
+            .unwrap();
+        let agents = Agents {
+            shared: watched.shared.clone(),
+            dir: dir.to_owned(),
+            launcher: Launcher::new("false", dir.join("config"), dir.join("rup"), None),
+        };
+        let error = agents.record("7013").await.unwrap_err();
+        assert!(
+            error.message.contains("sad") && !error.message.contains("7013"),
+            "{error}"
+        );
+        let bus = rpc::Bus::new();
+        let ctx = rpc::Ctx {
+            actor: contracts::Actor::user(),
+            bus,
+            touches: std::sync::Arc::new(
+                provenance::Touches::open(&dir.join("touches.db")).unwrap(),
+            ),
+        };
+        let error = agents
+            .stop_marks(&ctx, &mut Resume::new(vec![], vec!["8013".into()]))
+            .await
+            .unwrap_err();
+        assert!(
+            error.message.contains("an Agent that is gone") && !error.message.contains("8013"),
+            "{error}"
+        );
     }
 }

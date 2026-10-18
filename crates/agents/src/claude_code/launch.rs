@@ -211,6 +211,7 @@ impl std::fmt::Debug for Launcher {
 /// own Claude Code default applies.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Pair {
+    pub yolo: bool,
     pub model: Option<String>,
     pub effort: Option<String>,
     /// M2219: launch with no roundup MCP server; false (the default) keeps it.
@@ -503,6 +504,12 @@ impl Launcher {
                 }
                 settings["permissions"]["allow"] = json!(allowed);
             }
+            if pair.yolo {
+                settings["skipDangerousModePermissionPrompt"] = json!(true);
+                // Roundup has already checked its Route, Takeover and actor authority. Claude's
+                // inbox class vocabulary differs from the launch-mode label on our notes.
+                settings["crossSessionInbound"] = json!("accept");
+            }
             settings
         })
         .map_err(RpcError::internal)?;
@@ -587,7 +594,17 @@ impl Launcher {
         argv.push("--messaging-socket-path".into());
         argv.push(socket.to_string_lossy().into_owned());
         argv.push("--permission-mode".into());
-        argv.push(super::inbox::PERMISSION_MODE.into());
+        argv.push(
+            if pair.yolo {
+                "bypassPermissions"
+            } else {
+                super::inbox::PERMISSION_MODE
+            }
+            .into(),
+        );
+        if pair.yolo {
+            argv.push("--dangerously-skip-permissions".into());
+        }
         if let Some(conversation_id) = resume {
             argv.push("--resume".into());
             argv.push(conversation_id.to_owned());
