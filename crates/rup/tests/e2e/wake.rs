@@ -446,10 +446,8 @@ async fn b42_the_note_goes_through_the_inbox_at_the_next_idle() {
             .map(|line| line["prompt"].as_str().unwrap().to_owned())
     })
     .await;
-    assert!(
-        prompt.contains("[wake]") && prompt.contains("alpha is idle"),
-        "{prompt}"
-    );
+    // B41 retains a finish even if alpha resumes before firing; delivery preserves that note.
+    assert_eq!(prompt, note["body"].as_str().unwrap());
     h21_poll("the note to be delivered", async || {
         (status_of(&s.user, id).await == "delivered").then_some(())
     })
