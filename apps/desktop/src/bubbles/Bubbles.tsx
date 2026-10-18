@@ -553,12 +553,14 @@ export const Bubbles = (props: { screens: Screens }) => {
     return id !== null && document.querySelector(".pane-screen textarea, .pane-screen [tabindex]") ? id : null;
   };
 
+  const hasTerminalFocus = (focus: Element | null): boolean => focus?.isConnected === true && focus.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
+
   const switchPair = (focus: Element | null) => {
     const selected = rail.selected();
     const main = mainTerminal();
     const fromBubble = focusedId(focus);
     const target = fromBubble ?? lastTarget();
-    const inTerminal = focus?.closest(".bubble, button.terminal-tab, .pane-screen") !== null;
+    const inTerminal = hasTerminalFocus(focus);
     const toAgent = fromBubble !== null && focus?.closest(".bubble") !== null;
 
     return {
@@ -581,7 +583,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
   registerKeys({ kind: "app" }, [{
     action: CHORDS.find((row) => row.keys === "⌘B")!,
-    when: () => switchPair(document.activeElement).available(),
+    when: () => hasTerminalFocus(document.activeElement),
     capture: switchPair,
   }]);
 

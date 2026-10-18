@@ -247,4 +247,8 @@ it("u2742c_a_terminal_tab_without_a_main_agent_has_no_switch_pair", async () => 
   await read(`document.querySelector('.terminal-tab[data-bubble="103"]').focus(); window.__beforeNoPair = window.__fake.app.calls.length`);
   await key();
   expect(await read(`({tab:!!document.activeElement?.matches('.terminal-tab[data-bubble="103"]'), calls:window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))})`)).toEqual({ tab: true, calls: [] });
+  await read(`(() => {const bubble=document.querySelector('.bubble[data-bubble="103"]');if(bubble.hidden)document.querySelector('.terminal-tab[data-bubble="103"]').click();else bubble.querySelector('textarea').focus();})()`);
+  await wait(focused("103"));
+  expect(await read(`(() => {const event=new KeyboardEvent('keydown',{key:'b',code:'KeyB',metaKey:true,bubbles:true,cancelable:true});document.activeElement.dispatchEvent(event);return event.defaultPrevented;})()`)).toBe(true);
+  expect(await read(`window.__fake.app.calls.slice(window.__beforeNoPair).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))`)).toEqual([]);
 }, 90_000);
