@@ -296,7 +296,11 @@ pub fn fingerprint_of(methods: &[Method]) -> String {
 
 /// The fingerprint of `METHODS`.
 pub fn fingerprint() -> String {
-    fingerprint_of(METHODS)
+    // Rule 7: 11 alternating PR/main samples measured ping p95 at 0.158/0.138 ms (#2549).
+    // METHODS is immutable; hash it once instead of allocating and sorting on every daemon.ping.
+    static FINGERPRINT: std::sync::LazyLock<String> =
+        std::sync::LazyLock::new(|| fingerprint_of(METHODS));
+    FINGERPRINT.clone()
 }
 
 /// Render `methods` as `contracts/generated/contract.ts`: one line per method, in name order, holding that method's hash.
