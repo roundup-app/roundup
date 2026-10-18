@@ -14,8 +14,8 @@ export const OrderLine = (props: { node: RailNode }) => {
   const { drawer } = useConnectedProject();
 
   return (
-    <Show when={props.node.work}>
-      {(order) => (
+    <Show when={props.node.work === null ? null : orderLine(props.node.work)}>
+      {(line) => (
         <button
           data-button="quiet"
           type="button"
@@ -26,7 +26,7 @@ export const OrderLine = (props: { node: RailNode }) => {
             drawer.open(() => <OrderDrawer id={id} />);
           }}
         >
-          {orderLine(order())}
+          {line()}
         </button>
       )}
     </Show>

@@ -73,8 +73,10 @@ export const RAIL_KEYS = "ArrowLeft ArrowRight F2".split(" ");
 
 export const HELP_KEYS = ["[Shift]+?"];
 
-/** `⌘⏎` takes control (U531); `Escape` closes and `Shift+Enter` takes control in the open switcher (U529, U530). */
-export const TAKE_CONTROL = chordsFor("⌘⏎");
+/** The one key that takes control and gives it back (U531); `Escape` closes and `Shift+Enter` takes control in the open switcher (U529, U530). */
+export const TAKE_CONTROL_KEYS = "⌘⏎";
+
+export const TAKE_CONTROL = chordsFor(TAKE_CONTROL_KEYS);
 
 export const SWITCHER_CLOSE = "Escape".split(" ");
 
