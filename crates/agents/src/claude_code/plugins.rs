@@ -236,11 +236,14 @@ impl Runtime {
 
 /// LC14: whether the pinned bundle holds the `hope` skill the Door's Brief names.
 pub fn has_intent() -> bool {
-    source().is_ok_and(|source| {
-        source
-            .assets
-            .iter()
-            .any(|asset| asset.path == "hope/skills/intent/SKILL.md")
+    static FOUND: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *FOUND.get_or_init(|| {
+        source().is_ok_and(|source| {
+            source
+                .assets
+                .iter()
+                .any(|asset| asset.path == "hope/skills/intent/SKILL.md")
+        })
     })
 }
 

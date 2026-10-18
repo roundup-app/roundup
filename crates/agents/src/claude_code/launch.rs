@@ -152,8 +152,8 @@ pub struct Launcher {
     home: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
-    /// LC14: the bundled `hope` holds the skill a Door's Brief names; false only for a bundle without it.
-    intent: bool,
+    /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
+    lacks_intent: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// The installed Claude Code's version, once `claude --version` has answered (B51).
     pub(super) version: Arc<OnceCell<String>>,
@@ -284,7 +284,7 @@ impl Launcher {
             rup,
             home,
             user_tool_search: false,
-            intent: plugins::has_intent(),
+            lacks_intent: false,
             plugins: Arc::new(OnceCell::new()),
             version: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
@@ -295,8 +295,12 @@ impl Launcher {
     /// it, so this is how a Door's start without it is reached.
     #[must_use]
     pub fn without_intent_skill(mut self) -> Self {
-        self.intent = false;
+        self.lacks_intent = true;
         self
+    }
+
+    fn door_lacks_intent(&self, role: Role) -> bool {
+        role == Role::Door && (self.lacks_intent || !plugins::has_intent())
     }
 
     pub fn from_env() -> Result<Self, OpenError> {
@@ -470,7 +474,7 @@ impl Launcher {
             None => extras::Delivery::default(),
         };
         let carried = lean.as_ref().map(|_| self.user_carried());
-        let missing_intent = role == Role::Door && !self.intent;
+        let missing_intent = self.door_lacks_intent(role);
         replace_file(
             &settings,
             &self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent),
@@ -597,7 +601,7 @@ impl Launcher {
         if lean.is_some() {
             env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".to_owned(), "1".to_owned());
         }
-        let missing = role == Role::Door && !self.intent;
+        let missing = self.door_lacks_intent(role);
         let bundled = match &lean {
             _ if missing => &[][..],
             // LC6: an Agent the user started keeps every bundled plugin.
