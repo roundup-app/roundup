@@ -444,7 +444,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
         <Show when={selected()?.kind !== "workstream" && selected() !== null && terminalId() === null && notice() === null}>
           <Show when={selected()?.kind === "agent"} fallback={<p class="pane-empty light">{copy.noOutputKeptFromAnEarlierRun}</p>}>
             <div class="pane-empty pane-door">
-              <p class="pane-state">{copy.agentStopped}</p>
+              <p class="pane-state">{selected()?.status?.kind === "done" ? copy.done : copy.agentStopped}</p>
               <p class="light">{copy.noOutputKeptFromAnEarlierRun}</p>
             </div>
           </Show>

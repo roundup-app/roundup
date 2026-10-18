@@ -74,7 +74,7 @@
   align-items: center;
   min-height: var(--space-6);
   gap: var(--space-2);
-  font-size: var(--text-row);
+  font-size: var(--text-title);
   --button-inline: var(--space-3);
 }
 
