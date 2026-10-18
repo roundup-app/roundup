@@ -1,3 +1,4 @@
+import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
@@ -128,13 +129,15 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
               type="button"
               class="word light"
               disabled={deleting()}
-              onClick={() => {
+              onClick={(event) => {
+                const source = activationSource(event);
+
                 if (deleting()) return;
                 setDeleting(true);
                 void attempt(async () => {
                   await app.rpc("todo.delete", { id: props.id });
                   setRemovedByMe(true);
-                  drawer.close();
+                  drawer.close(source);
                 }).then(() => setDeleting(false));
               }}
             >{copy.delete}</button>{" "}
