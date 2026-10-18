@@ -3624,7 +3624,16 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
         ("FAKE_CLAUDE_INPUT_LOG", input.to_str().unwrap()),
     ]);
     let mut client = project.subscribed().await;
-    let agent = project.spawn_agent(&client).await;
+    let agent: RailNode = serde_json::from_value(
+        client
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "prompt": "d8 start"}),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
     wait_until_idle(
         &mut client,
         std::slice::from_ref(&agent.id),
@@ -3632,7 +3641,7 @@ async fn d8_sampling_sends_the_agent_nothing_and_changes_nothing() {
     )
     .await
     .unwrap_or_else(|report| panic!("{report}"));
-    // The Agent's own startup prompt arrives after it first idles: wait for it, then count.
+    // The Agent's spawn prompt arrives after it first idles: wait for it, then count.
     let deadline = Instant::now() + TEN_IDLE_BOUND;
     while std::fs::read_to_string(&input)
         .unwrap_or_default()
