@@ -1,7 +1,7 @@
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { Show } from "solid-js";
+import { Show, onCleanup } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { OrderDrawer } from "./OrderDrawer";
 import { orderLine } from "./orderText";
@@ -13,6 +13,11 @@ import "./styles.css";
  */
 export const OrderLine = (props: { node: RailNode }) => {
   const { drawer } = useConnectedProject();
+  let opened: (() => ReturnType<typeof OrderDrawer>) | undefined;
+
+  onCleanup(() => {
+    if (opened !== undefined && drawer.content() === opened) drawer.close();
+  });
 
   return (
     <Show when={props.node.work}>
@@ -24,7 +29,8 @@ export const OrderLine = (props: { node: RailNode }) => {
           aria-label={copy.orderOf(props.node.name)}
           onClick={(event) => {
             const id = props.node.id;
-            drawer.open(() => <OrderDrawer id={id} />, activationSource(event));
+            opened = () => <OrderDrawer id={id} />;
+            drawer.open(opened, activationSource(event));
           }}
         >
           {orderLine(order())}

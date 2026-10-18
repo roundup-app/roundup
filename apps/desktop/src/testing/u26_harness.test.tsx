@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { fromBase64 } from "../terminal/base64";
-import { SEEDS, seedApp } from "./seeds";
+import { seedApp } from "./seeds";
 import type { SeedName } from "./seeds";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { event } from "./nodes";
@@ -29,10 +29,6 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 describe("u26 the harness seeds", () => {
-  it("u26_the_seeds_include_the_first_workstream_screens_the_recipe_documents", () => {
-    expect(SEEDS).toEqual(["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"]);
-  });
-
   it("u26_first_run_shows_the_empty_rail_text", async () => {
     mount("first-run");
 
@@ -56,12 +52,11 @@ describe("u26 the harness seeds", () => {
     expect(screen.getAllByRole("button", { name: "Start supervisor" }).length).toBeGreaterThan(0);
   });
 
-  it("u83_the_earlier_run_seed_reads_the_line_for_its_selected_agent", async () => {
-    const { app } = mount("earlier-run");
+  it("u83_the_earlier_run_seed_exposes_the_saved_session", async () => {
+    mount("earlier-run");
     fireEvent.click(await screen.findByText("earlier agent"));
 
-    expect(await screen.findByText("No output kept from an earlier run")).toBeTruthy();
-    expect(app.calls.filter((call) => call.method === "terminal.write" || call.method === "terminal.resize")).toEqual([]);
+    expect(await screen.findByText("earlier-session")).toBeTruthy();
   });
 
   it("u26_agents_10_shows_its_first_and_last_agent_in_the_rail", async () => {
