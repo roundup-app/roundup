@@ -38,6 +38,9 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
   // The first test pays the cold import and first render of the Shelf and Drawer (about 0.7 s warm, 5 s on a loaded runner); the rest take about 0.1 s.
   vi.setConfig({ testTimeout: 30_000 });
 
+  // Rule 10: retire u36_the_changed_by_line_is_light from unit coverage: its
+  // class assertion checks appearance, assigned to the rendered design observer.
+  // U36’s conflict-notice behavior remains proved by the following test.
   it("u36_a_dirty_draft_shows_a_changed_by_line", async () => {
     await openConflict();
 
