@@ -128,13 +128,13 @@ it("u507_bindings_preserve_resize_state", async () => {
 
 it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tabs-8&tabs=1`);
-  await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab][aria-busy=false]').length === 8");
+  await browser("wait", "--fn", "document.querySelectorAll('.header .project-tab [role=tab][aria-busy=false]').length === 8");
   await evaluate(`document.querySelector('[data-path="/Users/you/project-number-2"] [role=tab]').click()`);
   await browser("wait", "--fn", "Boolean(document.querySelector('.rail [data-id=p2-agent]'))");
   await settle();
 
   const linked = () => evaluate(`(() => {
-    const tab = document.querySelector('.header [role=tab][aria-selected=true]');
+    const tab = document.querySelector('.header .project-tab [role=tab][aria-selected=true]');
     const controls = tab?.getAttribute('aria-controls')?.trim().split(/\\s+/) ?? [];
     const panel = controls.length === 1 ? document.getElementById(controls[0]) : null;
     const labels = panel?.getAttribute('aria-labelledby')?.trim().split(/\\s+/) ?? [];
@@ -145,30 +145,30 @@ it("u495_selected_project_tab_labels_the_real_layout_regions", async () => {
   })()`);
 
   expect(await linked()).toBe(true);
-  await browser("click", '.header [role=tab][aria-selected=true]');
+  await browser("click", '.header .project-tab [role=tab][aria-selected=true]');
   await browser("press", "ArrowRight");
-  await browser("wait", "--fn", "document.activeElement?.getAttribute('data-value') !== document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('data-value')");
-  expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-2");
+  await browser("wait", "--fn", "document.activeElement?.getAttribute('data-value') !== document.querySelector('.header .project-tab [role=tab][aria-selected=true]')?.getAttribute('data-value')");
+  expect(await evaluate(`document.querySelector('.header .project-tab [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-2");
   await browser("press", "Enter");
-  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header [role=tab][aria-selected=true]') && Boolean(document.querySelector('.rail [data-id=p3-agent]'))");
+  await browser("wait", "--fn", "document.activeElement === document.querySelector('.header .project-tab [role=tab][aria-selected=true]') && Boolean(document.querySelector('.rail [data-id=p3-agent]'))");
   expect(await linked()).toBe(true);
   await evaluate("window.__fake.app.chooser.path = '/Users/you/Project 雪 space'");
   await browser("click", ".strip-add");
-  await browser("wait", "--fn", "document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('data-value') === '/Users/you/Project 雪 space' && document.querySelector('.header [role=tab][aria-selected=true]')?.getAttribute('aria-busy') === 'false'");
+  await browser("wait", "--fn", "document.querySelector('.header .project-tab [role=tab][aria-selected=true]')?.getAttribute('data-value') === '/Users/you/Project 雪 space' && document.querySelector('.header .project-tab [role=tab][aria-selected=true]')?.getAttribute('aria-busy') === 'false'");
   expect(await linked()).toBe(true);
 }, 90_000);
 
 it("u495_composed_header_preserves_project_actions", async () => {
   await browser("set", "viewport", "1280", "800");
   await browser("open", `${server.resolvedUrls!.local[0]}harness.html?seed=tabs-8&tabs=1`);
-  await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab][aria-busy=false]').length === 8");
+  await browser("wait", "--fn", "document.querySelectorAll('.header .project-tab [role=tab][aria-busy=false]').length === 8");
   await settle();
   // A background Daemon still updates its mark under the common Tabs root.
   await evaluate(`window.__fake.app.of('/Users/you/project-number-3').emit({actor:{kind:'user',id:'you',parent:null},name:'agent.status',data:{id:'p3-agent',attempt:'1',status_revision:'9999',status:{kind:'error',label:'Background failure 雪',since:Date.now()}}})`);
   await browser("wait", "--fn", "Boolean(document.querySelector('[data-path=\"/Users/you/project-number-3\"] .tab-mark[data-kind=error]'))");
   await evaluate(`document.querySelector('[data-path="/Users/you/project-number-3"] .tab-mark').click()`);
   await browser("wait", "--fn", "document.querySelector('.rail [aria-selected=true]')?.dataset.id === 'p3-agent'");
-  expect(await evaluate(`document.querySelector('.header [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-3");
+  expect(await evaluate(`document.querySelector('.header .project-tab [role=tab][aria-selected=true]').getAttribute('data-value')`)).toBe("/Users/you/project-number-3");
 
   await browser("dblclick", '[data-path="/Users/you/project-number-3"] .tab-name');
   await browser("wait", ".tab-rename");
@@ -191,7 +191,7 @@ it("u495_composed_header_preserves_project_actions", async () => {
   await browser("click", '[data-path="/Users/you/project-number-4"] .tab-close');
   await browser("wait", "[role=alertdialog]");
   await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
-  await browser("wait", "--fn", "document.querySelectorAll('.header [role=tab]').length === 7");
+  await browser("wait", "--fn", "document.querySelectorAll('.header .project-tab [role=tab]').length === 7");
   expect(await evaluate("window.__fake.app.closed")).toEqual(["/Users/you/project-number-4"]);
   expect(await evaluate("document.querySelector('.header button button')")).toBeNull();
 }, 90_000);

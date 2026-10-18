@@ -47,6 +47,10 @@ run("u520 the Rail is a tree", () => {
     await page.load("/harness.html?seed=tree-40", 1280, 800);
     await page.until(`() => document.querySelector('[role=tree] [data-id="backend"]') !== null`);
 
+    // Close the Shelf so its bar-to-panel Tab path does not precede the Rail.
+    await page.call(`() => document.querySelector('#shelf-tab-todos').click()`);
+    await page.until(`() => document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') === 'false'`);
+
     // Tab enters the Rail on its first row.
     for (let tabs = 0; tabs < 12 && !(await page.call<boolean>(`() => document.activeElement?.closest('[role=tree]') !== null`)); tabs += 1) await page.press("Tab", "Tab");
 
