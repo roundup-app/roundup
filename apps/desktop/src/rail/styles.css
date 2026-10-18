@@ -734,13 +734,16 @@
 .rail-row .row-name-state {
   display: flex;
   flex: 1 1 0;
+  flex-wrap: wrap;
   align-items: center;
   min-width: 0;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
+  padding-block: var(--space-1);
 }
 .rail-row .row-name-state .name {
-  flex: 0 1 auto;
+  flex: 1 0 calc(2 * var(--space-6));
   min-width: 0;
+  max-width: 100%;
 }
 .rail-row:has(.row-name-state) .row-icons {
   position: static;

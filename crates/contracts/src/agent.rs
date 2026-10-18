@@ -89,6 +89,42 @@ pub struct WorktreeState {
     pub ahead: u32,
     pub behind: u32,
     pub dirty: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub ci: Option<WorktreeCi>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pr: Option<WorktreePr>,
+}
+
+/// Optional forge checks, independent of an Agent's Kind or local git state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct WorktreeCi {
+    pub state: WorktreeCiState,
+    pub stale: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum WorktreeCiState {
+    Passed,
+    Failed,
+    Running,
+    NoCi,
+    Conflicts,
+    Error,
+    Unknown,
+}
+
+/// A positive forge PR number, optionally retained after a failed refresh.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct WorktreePr {
+    #[ts(type = "number")]
+    pub number: std::num::NonZeroU64,
+    pub stale: bool,
 }
 
 /// How a Changed file differs from the Agent's Base (U2539a).

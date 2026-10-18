@@ -30,6 +30,7 @@ pub(super) struct Identity {
     pub agent: String,
     pub path: PathBuf,
     pub branch: String,
+    pub base: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -94,6 +95,15 @@ fn parse(bytes: &[u8]) -> Result<Envelope, String> {
             .is_some_and(|checks| !matches!(checks.source.as_str(), "pr" | "branch"))
     }) {
         return Err("unsupported check source".into());
+    }
+    // JSON numbers cross into the TypeScript client; refuse rounding a PR identity.
+    if envelope.items.iter().any(|row| {
+        row.pr
+            .as_ref()
+            .and_then(|pr| pr.number)
+            .is_some_and(|number| number.get() > 9_007_199_254_740_991)
+    }) {
+        return Err("PR number exceeds exact client integer range".into());
     }
     Ok(envelope)
 }
@@ -216,7 +226,6 @@ impl Collector {
     }
 
     /// Callers must supply the currently registered identity, never a row index.
-    /// No RPC exposes these facts before #2558's atomic contract change.
     pub(super) fn facts(&self, identity: &Identity, now: Instant) -> Option<Facts> {
         let state = self.state.lock().expect("worktrunk cache poisoned");
         let cached = state.facts.get(identity)?;
@@ -241,6 +250,7 @@ fn identities(shared: &super::Shared) -> Option<Vec<Identity>> {
                     agent: node.id,
                     path: PathBuf::from(record.path),
                     branch: record.branch,
+                    base: record.base,
                 })
             })
             .collect(),
@@ -529,21 +539,21 @@ fn drain(
 mod tests;
 
 impl super::Agents {
-    // #2558 owns exposing this tested internal seam with the additive contract.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "#2628 keeps enrichment crate-private until #2558 changes every caller"
-        )
-    )]
-    pub(crate) fn worktree_facts(&self, id: &str) -> Option<Facts> {
+    pub(crate) fn worktree_facts(
+        &self,
+        id: &str,
+        expected: &contracts::agent::Worktree,
+    ) -> Option<Facts> {
         let record = self.shared.node(id).ok()?.worktree?;
+        if &record != expected {
+            return None;
+        }
         self.shared.worktrunk.facts(
             &Identity {
                 agent: id.to_owned(),
                 path: PathBuf::from(record.path),
                 branch: record.branch,
+                base: record.base,
             },
             Instant::now(),
         )

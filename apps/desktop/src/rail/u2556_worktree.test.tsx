@@ -19,16 +19,20 @@ it("u2556c_chips_are_accessible_state", async () => {
   const chip = await screen.findByLabelText("9 ahead of Base");
   const ci = await screen.findByLabelText("CI failed");
   const pr = screen.getByLabelText("PR #2531, stale");
+
   for (const state of [ci, pr]) {
     expect(state.getAttribute("role")).toBeNull();
     expect(state.tabIndex).toBe(-1);
   }
+
   expect(ci.dataset.state).toBe("failed");
   expect(pr.dataset.state).toBe("stale");
   expect(chip.dataset.state).toBe("ahead");
   expect(chip.getAttribute("role")).toBeNull();
   expect(chip.tabIndex).toBe(-1);
   fireEvent.click(chip);
+  fireEvent.click(ci);
+  fireEvent.click(pr);
   await settled();
   expect(rowOf("a").dataset.selected).toBe("true");
   expect(app.openedTargets).toEqual([]);
@@ -46,9 +50,14 @@ it("u2556c_updates_preserve_agent_interaction", async () => {
   field.focus();
   fireEvent.input(field, { target: { value: "my draft" } });
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
-  app.handlers["agent.worktreeState"] = () => ({ ahead: 4, behind: 0, dirty: false });
+  let finish!: (state: WorktreeState) => void;
+
+  app.handlers["agent.worktreeState"] = () => new Promise((resolve) => { finish = resolve; });
   setNow(100_000_000_000_000);
+  fireEvent.input(field, { target: { value: "my draft" } });
+  finish({ ahead: 4, behind: 0, dirty: false, ci: { state: "running", stale: false } });
   await screen.findByLabelText("4 ahead of Base");
+  expect(screen.getByLabelText("CI running")).toBeTruthy();
   expect(document.activeElement).toBe(field);
   expect(field instanceof HTMLInputElement && field.value).toBe("my draft");
   expect(connected.rail.selected()).toBe("a");
@@ -75,7 +84,8 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
   await screen.findByLabelText("11 ahead of Base");
   await screen.findByText("11 ahead, 3 behind, dirty");
-  expect(screen.getAllByText("CI running, stale")).toHaveLength(2);
+  expect(screen.getByLabelText("CI running, stale").dataset.state).toBe("stale");
+  expect(screen.getByText("CI running, stale")).toBeTruthy();
   expect(screen.getAllByText("#42")).toHaveLength(2);
   expect(app.calls.filter((call) => call.method === "agent.changedFiles")).toHaveLength(1);
 });
@@ -106,4 +116,28 @@ it("u2556b_local_failure_is_reported_and_refresh_recovers", async () => {
   await screen.findByText("5 ahead, 2 behind");
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.queryByRole("img", { name: "Worktree state unavailable" })).toBeNull();
+});
+
+it.each(["passed", "no-ci", "conflicts", "error", "unknown"] as const)("u2556c_ci_states_remain_distinct: %s", async (state) => {
+  const { app, connected, setNow } = await mountRail([agent("a", "idle", "ready", { worktree })]);
+  await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
+  app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: false, ci: { state, stale: false } });
+  setNow(100_000_000_000_000);
+  await waitFor(() => expect(rowOf("a").querySelector(`[data-state="${state}"]`)).toBeTruthy());
+  expect(rowOf("a").querySelector(`[data-state="${state}"]`)?.getAttribute("aria-label")).toBe(state === "no-ci" ? "No CI" : `CI ${state}`);
+});
+
+it("u2556b_unavailable_and_stale_are_explained", async () => {
+  const { app, connected, setNow } = await mountRail([agent("a", "idle", "ready", { worktree })]);
+  connected.rail.select("a");
+  render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
+  app.handlers["agent.changedFiles"] = () => ({ files: [] });
+  fireEvent.click(screen.getByRole("button", { name: "topic" }));
+  await screen.findByText("CI unavailable");
+  await screen.findByText("PR unavailable");
+  app.handlers["agent.worktreeState"] = () => ({ ahead: 0, behind: 0, dirty: false, ci: { state: "passed", stale: true }, pr: { number: 18, stale: true } });
+  setNow(100_000_000_000_000);
+  await screen.findByText("CI passed, stale");
+  expect(screen.getAllByText("#18, stale")).toHaveLength(2);
+  expect(screen.queryByText("CI unavailable")).toBeNull();
 });

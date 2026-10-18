@@ -97,10 +97,10 @@ export const RailRowView = (props: {
 
   const worktreeFailure = () => worktrees.read(props.row.node.id)?.failure;
 
-  const ahead = () => {
+  const facts = () => {
     const read = worktrees.read(props.row.node.id);
 
-    return read?.failure === null ? read.state.ahead : 0;
+    return read?.failure === null ? read.state : null;
   };
 
   const { near, handlers } = createNear(() => props.selected);
@@ -231,9 +231,15 @@ export const RailRowView = (props: {
             <Show when={workstream() || !props.row.node.worktree} fallback={
               <span class="row-name-state">
                 {name()}
-                <Show when={ahead() > 0}>
-                  <span class="worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(ahead())}>{copy.worktreeAhead(ahead())}</span>
+                <Show when={(facts()?.ahead ?? 0) > 0}>
+                  <span class="worktree-ahead" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
                 </Show>
+                <Show when={facts()?.ci}>{(ci) => (
+                  <span class="worktree-ahead" data-state={ci().stale ? "stale" : ci().state} aria-label={copy.worktreeCiText(ci().state, ci().stale)}>{copy.worktreeCiChip(ci().state, ci().stale)}</span>
+                )}</Show>
+                <Show when={facts()?.pr}>{(pr) => (
+                  <span class="worktree-ahead" data-state={pr().stale ? "stale" : "pr"} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, pr().stale)}</span>
+                )}</Show>
                 <Show when={worktreeFailure()}>
                   <span class="worktree-ahead" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
                 </Show>

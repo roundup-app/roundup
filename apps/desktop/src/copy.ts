@@ -1,3 +1,5 @@
+import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
+
 type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
@@ -213,6 +215,14 @@ export const copy = {
   branch: "Branch",
   base: "Base",
   worktreeState: "State",
+  worktreeCi: "CI",
+  worktreePr: "PR",
+  worktreeCiUnavailable: "CI unavailable",
+  worktreePrUnavailable: "PR unavailable",
+  worktreeCiText: (state: WorktreeCiState, stale: boolean) => `${{ passed: "CI passed", failed: "CI failed", running: "CI running", "no-ci": "No CI", conflicts: "CI conflicts", error: "CI error", unknown: "CI unknown" }[state]}${stale ? ", stale" : ""}`,
+  worktreeCiChip: (state: WorktreeCiState, stale: boolean) => `${{ passed: "✓CI", failed: "✗CI", running: "…CI", "no-ci": "No CI", conflicts: "!CI", error: "CI error", unknown: "CI?" }[state]}${stale ? " stale" : ""}`,
+  worktreePrText: (number: number, stale: boolean) => `#${number}${stale ? ", stale" : ""}`,
+  worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? ", stale" : ""}`,
   worktreeUnavailableMark: "—",
   worktreeUnavailable: "Worktree state unavailable",
   worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead`,
