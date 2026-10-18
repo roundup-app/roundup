@@ -525,7 +525,7 @@ One `($, e, next)` function an Extension registers.
 ### Design system
 
 **Token**:
-One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow, duration or easing curve); no other file holds such a literal.
+One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow, blur, duration or easing curve); no other file holds such a literal. `--blur-bubble-backdrop` is the 12px background-pane blur beneath a focused Terminal Bubble.
 
 **Section head**:
 The icon, capital label and trailing rule that name a section of the Rail or Shelf.

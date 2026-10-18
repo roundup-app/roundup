@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); `onAgent` one that also binds from a watched or taken Agent's pane, and nowhere else outside a Rail row; the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; hint?: Hint };
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; inTerminals?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor";
@@ -9,12 +9,13 @@ export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switch
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
 
-/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⌘K` and `⌘/` bind at App scope; `⌘⏎` binds on a Rail row and in an Agent's pane, taking control and giving it back (U531); every other `⌃`, `⌥` and `⌘` key reaches the Terminal, a plain Terminal's `⌘⏎` included. `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
+/** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⌘K` and `⌘/` bind at App scope; `⌘⏎` binds on a Rail row and in an Agent's pane, taking control and giving it back (U531); every other `⌃`, `⌥` and `⌘` key reaches the Terminal, a plain Terminal's `⌘⏎` included. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 export const CHORDS: readonly Chord[] = [
   { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
   { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
   { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"], hint: { label: copy.leaderWaitsForAKey, at: { rail: 3, agent: 2, bubble: 1, pad: 1, drawer: 1 } } },
+  { keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
   { keys: "⇧⏎", what: copy.takeControlInTheSwitcher, presses: ["shift+Enter"], inSwitcher: true },
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], onAgent: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
