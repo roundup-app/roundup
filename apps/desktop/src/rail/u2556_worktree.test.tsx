@@ -1,3 +1,4 @@
+import type { WorktreeState } from "@contracts/agent/WorktreeState";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
@@ -13,9 +14,17 @@ it("u2556c_chips_are_accessible_state", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "working", "busy", { worktree }), agent("plain", "idle", "ready")]);
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
   expect(document.querySelector(".worktree-ahead")).toBeNull();
-  app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false });
+  app.handlers["agent.worktreeState"] = () => ({ ahead: 9, behind: 0, dirty: false, ci: { state: "failed", stale: false }, pr: { number: 2531, stale: true } });
   setNow(100_000_000_000_000);
   const chip = await screen.findByLabelText("9 ahead of Base");
+  const ci = await screen.findByLabelText("CI failed");
+  const pr = screen.getByLabelText("PR #2531, stale");
+  for (const state of [ci, pr]) {
+    expect(state.getAttribute("role")).toBeNull();
+    expect(state.tabIndex).toBe(-1);
+  }
+  expect(ci.dataset.state).toBe("failed");
+  expect(pr.dataset.state).toBe("stale");
   expect(chip.dataset.state).toBe("ahead");
   expect(chip.getAttribute("role")).toBeNull();
   expect(chip.tabIndex).toBe(-1);
@@ -55,7 +64,7 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   const { app, connected, setNow } = await mountRail([agent("a", "working", "busy", { worktree })]);
   connected.rail.select("a");
   render(() => <ConnectedProjectContext.Provider value={connected}><WorktreeControl /></ConnectedProjectContext.Provider>);
-  let finish!: (value: { ahead: number; behind: number; dirty: boolean }) => void;
+  let finish!: (value: WorktreeState) => void;
   await waitFor(() => expect(connected.worktrees.read("a")?.failure).toBeNull());
   app.handlers["agent.worktreeState"] = () => new Promise((resolve) => { finish = resolve; });
   app.handlers["agent.changedFiles"] = () => ({ files: [] });
@@ -63,9 +72,11 @@ it("u2556d_both_views_share_facts_and_identity", async () => {
   const count = app.calls.filter((call) => call.method === "agent.worktreeState").length;
   fireEvent.click(screen.getByRole("button", { name: "topic" }));
   expect(app.calls.filter((call) => call.method === "agent.worktreeState")).toHaveLength(count);
-  finish({ ahead: 11, behind: 3, dirty: true });
+  finish({ ahead: 11, behind: 3, dirty: true, ci: { state: "running", stale: true }, pr: { number: 42, stale: false } });
   await screen.findByLabelText("11 ahead of Base");
   await screen.findByText("11 ahead, 3 behind, dirty");
+  expect(screen.getAllByText("CI running, stale")).toHaveLength(2);
+  expect(screen.getAllByText("#42")).toHaveLength(2);
   expect(app.calls.filter((call) => call.method === "agent.changedFiles")).toHaveLength(1);
 });
 
