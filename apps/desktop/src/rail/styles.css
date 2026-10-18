@@ -755,7 +755,7 @@
   white-space: nowrap;
 }
 /* Keep ahead and CI beside the name; the full PR remains in the Worktree view. */
-@container (width < 10rem) {
+@container (width < 12rem) {
   .worktree-chip[data-state="pr"] {
     display: none;
   }
