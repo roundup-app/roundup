@@ -34,7 +34,12 @@ impl InboxState {
 
     pub(super) fn set(&self, agent: &str, state: contracts::agent::Inbox) {
         let mut facts = self.facts.lock().unwrap_or_else(|e| e.into_inner());
-        facts.insert(agent.to_owned(), state);
+        let before = facts.insert(agent.to_owned(), state);
+        if state == contracts::agent::Inbox::Mismatch && before != Some(state) {
+            eprintln!(
+                "agents: Agent {agent}: its Claude Code speaks a messaging protocol this build does not; notes to it are held"
+            );
+        }
     }
 
     /// B50(c): read the transcript again from its start, for an entry that Claude Code took up
