@@ -72,7 +72,7 @@ jobs:
           fi
           python3 loop/builder.py prompt <"$RUNNER_TEMP/task.md"
           echo 'due=true' >>"$GITHUB_OUTPUT"
-      # L23: Codex or Claude Code first by the Issue number's parity, the other when it did no work; `after` puts a non-empty `ask` to the user (`.agents/builder.md`, L79).
+      # L23: Codex first, Claude Code when it did no work; `after` puts a non-empty `ask` to the user (`.agents/builder.md`, L79).
       - id: engine
         name: Run Claude Code, then Codex
         if: steps.task.outputs.due == 'true'
