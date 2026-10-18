@@ -73,7 +73,9 @@ FAILED = '`{cause}` failed on this head. `gh pr checks {pr}` lists the failed ru
 CAUSES = {
     'check': FAILED,
     'rules': FAILED,
-    'review': 'The review run rejected this head; its findings are the last verdict below.',
+    'review': 'The review run rejected this head; its findings are the last verdict below. Never answer by undoing the '
+              "PR's whole change: `rules` fails a head with no net change against `main`. If you cannot meet the findings "
+              'without dropping the work, leave a draft with a `Stopped:` line naming the finding and push nothing.',
     'critic': 'The design critic rejected this head (L103); its findings are the last `CRITIC:` comment below. Meet each '
               'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
               'the notes are polish the critic raises once and never blocks on again.',
