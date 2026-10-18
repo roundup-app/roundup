@@ -18,7 +18,7 @@ afterAll(async () => { await page?.close(); });
 
 type Reading = { shown: number; watching: boolean; checks: Record<string, { status: string }> };
 
-const read = `() => ({ shown: document.querySelectorAll('.bubble:not([hidden])').length, watching: !!document.querySelector('.pane-watch'), checks: window.__checks() })`;
+const read = `() => ({ shown: document.querySelectorAll('.bubble:not([hidden])').length, watching: !!document.querySelector('.pane-control[data-state=managed]'), checks: window.__checks() })`;
 
 const shoot = async (name: string, reading: Reading): Promise<void> => {
   const dir = captureDir("U2224");

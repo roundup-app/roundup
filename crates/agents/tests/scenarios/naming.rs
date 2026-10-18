@@ -212,3 +212,20 @@ async fn a28_a_spawn_without_a_name_is_named_by_a9() {
     f.submit(&node.id, "fix the build").await;
     assert_eq!(f.name_of(&node.id).await, "fix-build");
 }
+
+#[tokio::test]
+async fn a44_a_clarification_steer_names_no_agent() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+
+    f.submit(
+        &node.id,
+        "What should this Agent do?\n\nFind the intent and elicit what is missing, asking whom \
+         `agent_context` names under `ask`. Then record a Work order with `agent_set_order`.",
+    )
+    .await;
+    assert_eq!(f.name_of(&node.id).await, "new-agent");
+
+    f.submit(&node.id, "fix the build").await;
+    assert_eq!(f.name_of(&node.id).await, "fix-build");
+}
