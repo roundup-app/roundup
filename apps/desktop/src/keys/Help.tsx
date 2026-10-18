@@ -44,15 +44,15 @@ export const Help = () => {
           {(chord) => (
             <p class="help-line">
               <KeyChip keys={chord.keys} />
-              {` ${chord.what}`}
+              {`  ${chord.what}`}
             </p>
           )}
         </For>
         <section class="help-shelf" aria-label={copy.shelfKeys}>
-        <p><KeyChip keys={copy.previousNextKeys} />{copy.focusThePreviousNextShelfRow}</p>
-        <p><KeyChip keys={copy.enter} />{copy.toggleTheFocusedShelfRowSelection}</p>
-        <p><KeyChip keys={copy.rangeKeys} />{copy.selectARangeOfShelfRows}</p>
-        <p><KeyChip keys={copy.esc} />{copy.deleteSelectedShelfRowsCancelSelection}</p>
+        <p><KeyChip keys={copy.previousNextKeys} />{" "}{copy.focusThePreviousNextShelfRow}</p>
+        <p><KeyChip keys={copy.enter} />{" "}{copy.toggleTheFocusedShelfRowSelection}</p>
+        <p><KeyChip keys={copy.rangeKeys} />{" "}{copy.selectARangeOfShelfRows}</p>
+        <p><KeyChip keys={copy.esc} />{" "}{copy.deleteSelectedShelfRowsCancelSelection}</p>
         </section>
       </Dialog.Content>
     </Dialog.Root>
