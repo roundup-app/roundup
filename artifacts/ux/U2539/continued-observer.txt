@@ -1,4 +1,5 @@
-Continuation of #2566, head 080e32b04 against main a611aba51.
+Continuation of #2566, implementation plus CSS extraction and branch-wrap repair.
+Baseline main: 97de19374 (includes the shared Check/spacing repair #2596).
 Isolated agent-browser sessions builder-39087250199 and builder-39087250199-base;
 no personal browser, native App or Mac observation.
 
@@ -6,7 +7,7 @@ Resources seed, selected worktree-agent; 500 changed files with all five statuse
 15 repeated path segments and a long filename, branch roundup/ plus long-branch-
 repeated 22 times. Captured light/dark at 1512x950, plus head at 1280x800.
 
-The post-verdict fixes in #2566 already cover each critic finding:
+The post-verdict fixes in #2566 cover each critic finding:
 - Shadow-root row/icon/status colours are only --text and --grey.
 - Ground is --sunken: rgb(245 245 247) light, rgb(20 20 22) dark.
 - Flattened directory and filename each truncate once; status decorations have
@@ -16,16 +17,14 @@ The post-verdict fixes in #2566 already cover each critic finding:
   rgb(10 96 216) light / rgb(77 155 255) dark, matching --accent.
 - D2/D5/D6 pass on the dense seed in both themes and viewports.
 
-At 1512x950, main and head have the same passing Checks. D1 fails on the
-unchanged .entry-field border-radius; D7 fails on the unchanged Project tab
-pressed feedback; D10 reports those failures. #2595 owns that main repair.
-These are not claimed green; earlier fix-* captures predate these main changes.
-
-Failure injection: openInEditor rejects with "editor unavailable"; Double click on the
-focused file leaves the panel open and renders the failure line visibly.
-See continued-*.png, *.checks.json, continued-shadow-*.json and focus probes.
+At 1512x950, main and head pass every available Check. Head also passes every
+available Check at 1280x800 in light and dark. Earlier fix-* captures predate
+main's Check repairs and the current long-branch stress case.
 
 Continuation repair: move the shadow rules into tree.styles.css?inline so U471
 does not interpret CSS as copy. Explicit white-space: normal on facts defeats
-the Popover nowrap inheritance; the long branch wraps within the panel. All
-continued head/focus/shadow captures were refreshed after these changes.
+the Popover nowrap inheritance; the long branch wraps within the panel.
+
+Failure injection: editorFailure is Error("editor unavailable"); double click
+on the focused file leaves the panel open and renders the failure visibly.
+See continued-*.png, *.checks.json, continued-shadow-*.json and focus probes.
