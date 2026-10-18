@@ -124,6 +124,7 @@ async fn g2542e_warm_launch_observer() {
     for dir in &dirs {
         prepare_all(dir, FILES);
     }
+    #[cfg(target_os = "linux")]
     let roots: Vec<PathBuf> = dirs
         .iter()
         .flat_map(|dir| IGNORED.iter().map(|name| dir.join(name)))

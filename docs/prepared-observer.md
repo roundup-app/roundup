@@ -1,10 +1,10 @@
 # Prepared-directory warm-launch observer (G2542e)
 
-The observer is the test `g2542e_warm_launch_observer` in `crates/agents/tests/scenarios/prepared_observer.rs`. It needs `node`, `python3`, `cargo` and `git` on `PATH`.
+The observer is the test `g2542e_warm_launch_observer` in `crates/agents/tests/scenarios/prepared_observer.rs`. It needs `node`, `python3`, `rustc`, `cargo` and `git` on `PATH`.
 
 ## What it does
 
-1. Starts a Project repository and two Worktrees (`a`, `b`), then prepares each (outside any timing) with real dependency roots for the three ecosystems: a Node module under `node_modules/`, a release binary built by `cargo` under `target/`, and a `python3 -m venv` whose console script names its interpreter by absolute path under `.venv/`, plus a local `.env`. Each root is padded with ignored files until a directory holds at least 10,000.
+1. Starts a Project repository and two Worktrees (`a`, `b`), then prepares each (outside any timing) with real dependency roots for the three ecosystems: a Node module under `node_modules/`, an optimized binary compiled by `rustc` from the dependency-free committed source under `target/`, and a `python3 -m venv` whose console script names its interpreter by absolute path under `.venv/`, plus a local `.env`. Each root is padded with ignored files until a directory holds at least 10,000.
 2. Enrolls both with `project.setPrepared`. The readiness command and the launched process both run the three smoke commands (`prepared_support.rs`: `smoke_all`).
 3. Makes twenty sequential assignments to the same target commit (`agent.spawn`, then `rail.remove`), alternating which directory is first in line. Each is timed from the request to the launched process's first successful smoke result (a marker file, polled every 2 ms).
 4. Observes, per assignment: every installer (`npm`, `pnpm`, `yarn`, `pip`, `pip3`, `uv`, `poetry`, `cargo fetch|build|install|add|update|run`) is a shim that logs and fails (the log must not exist); on Linux, inotify watches every directory and file under the dependency roots and reports any create, write, rename, unlink or attribute change (it must report none). At the end every dependency file's device, inode, size, mtime and ctime equals its value before the first assignment.
