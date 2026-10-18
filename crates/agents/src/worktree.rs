@@ -441,6 +441,8 @@ impl Git {
             return Err(failed("unreadable commit counts"));
         };
         Ok(WorktreeState {
+            ci: None,
+            pr: None,
             ahead,
             behind,
             dirty: self.dirty(worktree)?,
