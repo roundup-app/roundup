@@ -1,0 +1,94 @@
+{
+  "D1": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D10": {
+    "selector": "",
+    "status": "fail",
+    "value": {
+      "contrast": "no-preference",
+      "failing": [
+        "D6",
+        "D7"
+      ],
+      "scheme": "dark",
+      "viewport": "1512x950"
+    }
+  },
+  "D11": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D12": {
+    "selector": "div.shelf-row[data-id=\"1\"]",
+    "status": "pass",
+    "value": 0
+  },
+  "D13": {
+    "selector": "",
+    "status": "pass",
+    "value": 0
+  },
+  "D14": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 4
+    }
+  },
+  "D16": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D2": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D3": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D4": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 32
+    }
+  },
+  "D5": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D6": {
+    "selector": "input.todo-tick",
+    "status": "fail",
+    "value": {
+      "missing": "hover"
+    }
+  },
+  "D7": {
+    "selector": "input.todo-tick",
+    "status": "fail",
+    "value": {
+      "instant": false,
+      "pressed": 3
+    }
+  },
+  "D8": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D9": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  }
+}
