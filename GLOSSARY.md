@@ -201,8 +201,8 @@ One entry of the header strip for an open Project: its name (the folder's until 
 **Tab mark**:
 The small dot just after a Project tab's name: red if an Agent has Kind `error`, else amber if one has `needs-you`, else none (`scenarios/ui-project-tab-box.md`).
 
-**Rail**:
-The tree of Workstreams and Agents.
+**Rail** (`Rail::name`, `Agents::rail_name`):
+The tree of Workstreams and Agents. Rail names identify its nodes in prose.
 
 **Hint line**:
 The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
@@ -311,7 +311,7 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
 _Avoid_: notification
 
-**Steer**:
+**Steer** (`PromptError`):
 Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
 _Avoid_: inject, nudge
 

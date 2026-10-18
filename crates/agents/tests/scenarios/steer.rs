@@ -130,6 +130,9 @@ async fn h11_text_cannot_close_the_paste_early() {
 #[tokio::test]
 async fn h11_a_lost_submit_is_not_accepted_and_nothing_is_sent_again() {
     let (f, id) = idle(BOUND).await;
+    f.call("rail.rename", json!({"id":id,"name":"sad"}))
+        .await
+        .unwrap();
     let call = steer(&f, &id, "hello");
     until_typed(&f, paste("hello").len()).await;
     signal(&f, &id, "SessionStart").await;
@@ -138,7 +141,11 @@ async fn h11_a_lost_submit_is_not_accepted_and_nothing_is_sent_again() {
     let err = call.await.unwrap().unwrap_err();
 
     assert_eq!(err.code, code::NOT_ACCEPTED);
-    assert!(err.message.contains(&id), "{}", err.message);
+    assert!(
+        err.message.contains("sad") && !err.message.contains(&id),
+        "{}",
+        err.message
+    );
     tokio::time::sleep(BOUND).await;
     assert_eq!(read(&typed(&f)), paste("hello"));
     assert_eq!(status_of(&f.tree().await, &id).kind, Kind::Idle);
@@ -694,7 +701,10 @@ async fn b6_first_steer_completion_refuses_a_failed_launch() {
     assert!(f.tree().await.is_empty());
     assert_eq!(
         f.agents.first_steer_completion("1", "1").await,
-        Err(agents::PromptError::NotFound { id: "1".into() })
+        Err(agents::PromptError::NotFound {
+            id: "1".into(),
+            name: "an Agent that is gone".into()
+        })
     );
 }
 
@@ -749,7 +759,10 @@ async fn b6_first_steer_completion_refuses_a_stale_attempt() {
     let node = f.spawn(None, Some("build it")).await.unwrap();
     assert_eq!(
         f.agents.first_steer_completion(&node.id, "999").await,
-        Err(agents::PromptError::NotFound { id: node.id })
+        Err(agents::PromptError::NotFound {
+            id: node.id,
+            name: node.name
+        })
     );
 }
 
@@ -762,6 +775,57 @@ async fn o2_a_spawn_without_prompt_or_order_types_nothing_and_holds_no_order() {
     assert_eq!(read(&typed(&f)), "");
     let tree: Vec<contracts::agent::RailNode> = f.tree().await;
     assert_eq!(tree.iter().find(|node| node.id == id).unwrap().work, None);
+}
+
+async fn named_idle() -> (Arc<Fixture>, String) {
+    let f = Arc::new(frozen(Fixture::running(RECORD), BOUND));
+    rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap()
+        .execute_batch("DELETE FROM sqlite_sequence WHERE name = 'nodes'; INSERT INTO sqlite_sequence(name,seq) VALUES('nodes',7012)").unwrap();
+    let node = f.spawn(None, None).await.unwrap();
+    assert_eq!(node.id, "7013");
+    until_file(&f.dir.path().join("ready")).await;
+    star(f.dir.path());
+    start(&f, &node.id).await;
+    (f, node.id)
+}
+
+#[tokio::test]
+async fn a2703a_prompt_errors_use_rail_names() {
+    let (f, id) = named_idle().await;
+    f.call("rail.rename", json!({"id": id, "name": "sad"}))
+        .await
+        .unwrap();
+    signal(&f, &id, "UserPromptSubmit").await;
+    let busy = f.agents.prompt(&id, "hello").await.unwrap_err();
+    assert!(matches!(busy, agents::PromptError::Busy { .. }));
+    assert!(busy.to_string().contains("sad") && !busy.to_string().contains("7013"));
+    signal(&f, &id, "Stop").await;
+    let rejected = f.agents.prompt(&id, "hello").await.unwrap_err();
+    assert!(matches!(rejected, agents::PromptError::NotAccepted { .. }));
+    assert!(
+        rejected
+            .to_string()
+            .contains("sad did not accept the prompt")
+    );
+    f.call("agent.stop", json!({"id":id})).await.unwrap();
+    let stopped = f.agents.prompt(&id, "hello").await.unwrap_err();
+    assert!(matches!(stopped, agents::PromptError::NotFound { .. }));
+    assert!(stopped.to_string().contains("sad") && !stopped.to_string().contains("7013"));
+    let gone = f.agents.prompt("8013", "hello").await.unwrap_err();
+    assert!(gone.to_string().contains("an Agent that is gone"));
+    assert!(!gone.to_string().contains("8013"));
+}
+
+#[tokio::test]
+async fn a2703a_prompt_failure_uses_renamed_rail_name() {
+    let (f, id) = named_idle().await;
+    for name in ["sad", "glad"] {
+        f.call("rail.rename", json!({"id":id,"name":name}))
+            .await
+            .unwrap();
+        let error = f.agents.prompt(&id, "hello").await.unwrap_err().to_string();
+        assert_eq!(error, format!("{name} did not accept the prompt"));
+    }
 }
 
 #[tokio::test]
@@ -823,6 +887,8 @@ async fn h11_a_slash_command_ignores_acceptance_before_its_write_or_from_another
     f.call("agent.signal", json!({"id":node.id,"attempt":attempt.to_string(),"payload":{"hook_event_name":"SessionStart"}})).await.unwrap();
     let error = call.await.unwrap().unwrap_err();
     assert_eq!(error.code, code::NOT_ACCEPTED);
-    assert!(error.message.contains(&node.id));
+    assert!(
+        error.message.contains("did not accept the prompt") && !error.message.contains(&node.id)
+    );
     assert_eq!(read(&typed(&f)), bytes);
 }
