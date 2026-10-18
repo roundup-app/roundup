@@ -192,12 +192,15 @@ it("p2544e_reopen_saved_agent_work", async () => {
       if (await evaluate("document.querySelector('#shelf-tab-pads').getAttribute('aria-expanded')") !== "true") await browser("click", "#shelf-tab-pads");
       await browser("wait", "[data-shelf-row] .pad-name");
       await browser("click", "[data-shelf-row] .pad-name");
-      // DrawerHost slides on pointer opening; DOM presence does not mean its controls have stopped moving.
+      await browser("wait", ".ProseMirror[role=textbox]");
+      // DrawerHost and styles.css's Shelf transitions finish independently before the next pointer input.
+      // Readiness comes after the lazy editor mounts, so its layout participates in the settled frame.
       await evaluate(`(async () => {
-        await Promise.all(document.querySelector('.drawer').getAnimations().map(animation => animation.finished));
+        await Promise.all(document.getAnimations()
+          .filter(animation => animation.effect.getComputedTiming().iterations !== Infinity)
+          .map(animation => animation.finished));
         return true;
       })()`);
-      await browser("wait", ".ProseMirror[role=textbox]");
     };
 
     await openRealPad();
