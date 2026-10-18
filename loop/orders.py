@@ -80,12 +80,12 @@ def order(issue):
     row = dict(mode=mode, issue=issue['number'], url=issue['html_url'], ids=field(body, 'Scenarios'),
                file=match[1], slug=key, priority=priority, request=False, respecify=False)
     headings = {name for path in Path('scenarios').glob('*.md')
-                for name in re.findall(r'^\*\*([A-Z][0-9]+[a-z]?)[ .]', path.read_text(), re.M)}
+                for name in re.findall(r'^\*\*([A-Z]+[0-9]+[a-z]?)[ .]', path.read_text(), re.M)}
     names = []
-    # A lettered ID such as V4b names one scenario; an unlettered one may open a range such as O1-O6.
-    for lettered, first, last in re.findall(r'\b([A-Z][0-9]+[a-z])\b|\b([A-Z][0-9]+)(?:\s*(?:–|-|to)\s*[A-Z]?([0-9]+))?\b',
-                                            row['ids']):
-        names.extend([lettered] if lettered else (first[0] + str(n) for n in range(int(first[1:]), int(last or first[1:]) + 1)))
+    # A lettered ID such as V4b names one scenario; an unlettered one may open a range such as O1-O6 or LC11-LC13.
+    for lettered, prefix, first, last in re.findall(
+            r'\b([A-Z]+[0-9]+[a-z])\b|\b([A-Z]+)([0-9]+)(?:\s*(?:–|-|to)\s*[A-Z]*([0-9]+))?\b', row['ids']):
+        names.extend([lettered] if lettered else (prefix + str(n) for n in range(int(first), int(last or first) + 1)))
     if row['mode'] == 'implement' and (not names or not Path(row['file']).is_file() or
                                        any(name not in headings for name in names)):
         # Its acceptance is not on this checkout: a Builder specifies it first, then the queue implements it.
