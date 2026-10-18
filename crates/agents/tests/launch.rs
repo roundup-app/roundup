@@ -1446,7 +1446,7 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
                 .map(|pair| Path::new(&pair[1]))
                 .collect();
             if role == Role::Door {
-                // LC13: the Door gets `hope` and the question plugin.
+                // LC14: the Door gets `hope` and the question plugin.
                 assert_eq!(paths.len(), 2);
                 assert_eq!(
                     read(&paths[0].join(".claude-plugin/plugin.json"))["name"],
@@ -2254,7 +2254,7 @@ async fn lc5_only_the_door_among_lean_children_gets_hope() {
 }
 
 #[tokio::test]
-async fn lc13_a_door_without_the_intent_skill_starts_and_says_so() {
+async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
     let s = setup();
     let launcher = plugin_launcher(&s).without_intent_skill();
     let (argv, _) = launcher

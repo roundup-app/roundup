@@ -279,10 +279,10 @@ const DOOR_TOOLS_EXTRA: [(&str, &str); 8] = [
     ),
 ];
 
-/// LC13: the Door's standing instruction; a Door whose bundle lacks the skill has the Brief without it.
+/// LC14: the Door's standing instruction; a Door whose bundle lacks the skill has the Brief without it.
 const INTENT: &str = "On each new ask from the user, run the `hope:intent` skill first with the user's words, then act on the work order it produces. ";
 
-/// LC13: `text` for a Door, without the standing instruction.
+/// LC14: `text` for a Door, without the standing instruction.
 pub fn without_intent(text: &str) -> String {
     text.replace(INTENT, "")
 }

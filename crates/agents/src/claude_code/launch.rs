@@ -21,7 +21,7 @@ use super::brief::{self, Role};
 use super::extras;
 use super::plugins;
 
-/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC13). Every other tool Claude Code has, `Bash`, `Edit`,
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14). Every other tool Claude Code has, `Bash`, `Edit`,
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
 pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch,Skill";
 
@@ -40,7 +40,7 @@ pub struct Profile {
     pub tools: Option<(&'static str, &'static str)>,
     /// Skills are on: no `--disable-slash-commands`, and the Project's skills are listed.
     pub skills: bool,
-    /// The bundled plugins passed with `--plugin-dir`, by name (LC5, LC13).
+    /// The bundled plugins passed with `--plugin-dir`, by name (LC5, LC14).
     pub bundled_plugins: &'static [&'static str],
     /// The user's global `CLAUDE.md` is appended to the Brief file (LC5).
     pub global_instructions: bool,
@@ -103,7 +103,7 @@ struct Carried {
     login: Map<String, Value>,
 }
 
-/// LC13: the one line a Door shows when its bundle lacks the `intent` skill.
+/// LC14: the one line a Door shows when its bundle lacks the `intent` skill.
 pub const INTENT_MISSING: &str =
     "roundup: hope's intent skill is missing; this Door runs without it.";
 
@@ -152,7 +152,7 @@ pub struct Launcher {
     home: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
-    /// LC13: the bundled `hope` holds the skill a Door's Brief names; false only for a bundle without it.
+    /// LC14: the bundled `hope` holds the skill a Door's Brief names; false only for a bundle without it.
     intent: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// The installed Claude Code's version, once `claude --version` has answered (B51).
@@ -291,7 +291,7 @@ impl Launcher {
         }
     }
 
-    /// LC13: this Launcher for a bundle without `hope`'s `intent` skill. The pinned bundle holds
+    /// LC14: this Launcher for a bundle without `hope`'s `intent` skill. The pinned bundle holds
     /// it, so this is how a Door's start without it is reached.
     #[must_use]
     pub fn without_intent_skill(mut self) -> Self {
@@ -681,7 +681,7 @@ impl Launcher {
         }
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        // LC5, LC13: each role's bundled plugins, by the folder name `Runtime::command` passes.
+        // LC5, LC14: each role's bundled plugins, by the folder name `Runtime::command` passes.
         let args: Vec<_> = command.get_args().collect();
         for pair in args.chunks(2) {
             let named = Path::new(pair[1]).file_name().and_then(OsStr::to_str);
@@ -805,7 +805,7 @@ impl Launcher {
         if mcp {
             settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });
         }
-        // LC13: Claude Code's status line keeps the one line on screen for the whole session.
+        // LC14: Claude Code's status line keeps the one line on screen for the whole session.
         if missing_intent {
             settings["statusLine"] = json!({
                 "type": "command",
