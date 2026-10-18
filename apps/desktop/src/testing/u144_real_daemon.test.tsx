@@ -297,4 +297,50 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     expect(screen.getByRole("button", { name: "Add note" })).toBeTruthy();
   }, 60_000);
 
+  it("u2540d_landing_is_independent_of_diff_and_notes", async () => {
+    cleanup();
+    const { app } = connected;
+    const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Landing", order: { kind: "work", ask: "inspect", limits: [] } });
+    const path = node.worktree!.path;
+    const worktreeGit = (...args: string[]) => execute("git", ["-C", path, ...args], { timeout: 30_000 });
+
+    // The ownership observer intentionally dirtied the Project copy; Landing requires a clean Base.
+    await git("checkout", "--", "same.ts");
+    await waitFor(() => expect(connected.rail.nodes.some(each => each.id === node.id)).toBe(true));
+    connected.rail.select(node.id);
+    mount();
+    const calls = vi.spyOn(app, "rpc");
+
+    try {
+      for (const phase of ["before inspection", "after close", "with notes"]) {
+        const source = `${phase} source\n`;
+        await writeFile(join(path, "same.ts"), source);
+        await worktreeGit("add", "same.ts");
+        await worktreeGit("commit", "-m", phase);
+
+        if (phase !== "before inspection") {
+          fireEvent.click(screen.getByRole("button", { name: node.worktree!.branch }));
+          await openFile("same.ts");
+
+          if (phase === "with notes") await saveNote("optional unsent note");
+          fireEvent.click(screen.getByRole("button", { name: "Close" }));
+          await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        }
+
+        const landed = await app.rpc("agent.land", { id: node.id });
+        expect(landed.base).toBe((await git("rev-parse", "HEAD")).stdout.trim());
+        expect((await git("show", "HEAD:same.ts")).stdout).toBe(source);
+      }
+
+      expect(calls.mock.calls.filter(([method]) => method === "agent.land")).toHaveLength(3);
+      expect(calls.mock.calls.filter(([method]) => method === "message.send")).toHaveLength(0);
+      expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
+      fireEvent.click(screen.getByRole("button", { name: node.worktree!.branch }));
+      expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("optional unsent note");
+    } finally {
+      calls.mockRestore();
+      cleanup();
+    }
+  }, 60_000);
+
 });
