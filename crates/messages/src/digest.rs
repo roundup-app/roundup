@@ -896,6 +896,35 @@ mod tests {
         assert!(seen.ask(&agent("m"), "m", &from).is_ok());
     }
 
+    #[test]
+    fn b2705a_digest_errors_use_rail_names() {
+        let agent = |id: &str| Actor { kind: ActorKind::Agent, id: id.into(), parent: None };
+        for (case, target_name, caller_name, target_present, caller_present, caller, target, expected_code, expected) in [
+            ("outside caller", "sad", "review", true, true, agent("8027"), "7013", rpc::code::FORBIDDEN, "review may not read the digest of sad"),
+            ("renamed", "glad", "checked", true, true, agent("8027"), "7013", rpc::code::FORBIDDEN, "checked may not read the digest of glad"),
+            ("gone target still forbidden", "sad", "review", false, true, agent("8027"), "7013", rpc::code::FORBIDDEN, "review may not read the digest of an Agent that is gone"),
+            ("gone caller", "sad", "review", true, false, agent("8027"), "7013", rpc::code::FORBIDDEN, "an Agent that is gone may not read the digest of sad"),
+            ("user missing target", "sad", "review", false, true, Actor::user(), "7013", rpc::code::NOT_FOUND, "an Agent that is gone"),
+            ("non Door", "sad", "review", true, true, Actor::user(), "8027", rpc::code::CONFLICT, "review is no Door"),
+        ] {
+            let mut nodes = Vec::new();
+            if target_present {
+                let mut target = node("7013", NodeKind::Workstream, None, "working");
+                target.name = target_name.into();
+                nodes.push(target);
+            }
+            if caller_present {
+                let mut caller = node("8027", NodeKind::Agent, Some("7013"), "working");
+                caller.name = caller_name.into();
+                nodes.push(caller);
+            }
+            let from = sources(&nodes, &[], &[], &[]);
+            let error = Seen::default().ask(&caller, target, &from).unwrap_err();
+            assert_eq!(error.code, expected_code, "{case}");
+            assert_eq!(error.message, expected, "{case}");
+        }
+    }
+
     fn sources<'a>(
         nodes: &'a [RailNode],
         todos: &'a [Todo],
