@@ -79,9 +79,15 @@ run("u361 the rendered Todo row", () => {
         await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
         await page.call(FIXTURE);
         await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
-        // The real keyboard generates the native change event; Tab visits row then box.
+        // The real keyboard generates the native change event; visit the row controls until its tick box.
         await page.call(`() => document.querySelector('.shelf [data-todo-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
-        await page.press("Tab", "Tab");
+
+        for (let at = 0; at < 8; at++) {
+          await page.press("Tab", "Tab");
+
+          if (await page.call<boolean>(`() => document.activeElement.matches('.todo-tick')`)) break;
+        }
+
         expect(await page.call<string>(`() => document.activeElement.type`)).toBe("checkbox");
         await page.call(`() => window.__fake.failNext(-32000, 'cannot complete this Todo')`);
         await page.press(" ", "Space");

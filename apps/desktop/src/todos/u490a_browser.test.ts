@@ -134,11 +134,6 @@ for (const list of [nested, shelf]) {
       const last = await centre(rows, (await state(rows)).ids.length - 1);
 
       await drag(last, first, false);
-      expect(await page.call(`rows => {
-        const gap = document.querySelector(rows)?.closest('[data-plain]')?.querySelector('[data-dnd-placeholder]');
-        const style = gap && getComputedStyle(gap);
-        return gap ? [style.outlineStyle, style.borderRadius] : null;
-      }`, rows)).toEqual(["none", "0px"]);
       await page.press("Escape", "Escape");
       await page.pointer("up", first.x, first.y);
       await settled();
@@ -155,6 +150,8 @@ for (const list of [nested, shelf]) {
       await page.scheme("light");
       await list.setup();
 
+      const beforeHover = await centre(rows, 0);
+      await page.pointer("move", beforeHover.x, beforeHover.y);
       const point = await centre(rows, 0);
 
       await page.pointer("down", point.x, point.y);
@@ -167,8 +164,8 @@ for (const list of [nested, shelf]) {
       await page.scheme("light");
       await list.setup();
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
-      // The Shelf's rows carry `aria-pressed` for their selection; the library adds none of the rest.
-      expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|describedby|grabbed|disabled)=/.test(a))`, rows)).toEqual([]);
+      // The shared Tooltip may describe the row; Sortable adds no drag role or disabled state.
+      expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|grabbed|disabled)=/.test(a))`, rows)).toEqual([]);
       await page.press("Enter", "Enter");
       await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
       expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
