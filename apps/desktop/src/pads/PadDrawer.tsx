@@ -1,3 +1,4 @@
+import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { OwnerMark } from "../ink/OwnerMark";
@@ -38,9 +39,17 @@ const PadBody = (props: {
   let pendingActor: Actor | null = null;
   let closed = false;
   let sent: string | null = null;
+  let due = false;
+  let finalDraft: string | undefined;
+  const [saved, setSaved] = createSignal(false);
+  const saveAfterPause = debounce(() => flush(), 500);
 
   /** Moves the source and its dirty/clean baseline together so a resolved change cannot remain a conflict. */
   const settle = (next: Pad) => {
+    saveAfterPause.clear();
+    due = false;
+    setSaved(false);
+    setEditing(false);
     setOrigin(next.text);
     setShown(next.text);
     editor?.setText(next.text);
@@ -52,7 +61,7 @@ const PadBody = (props: {
     setPad(next);
     setOrigin(next.text);
 
-    if (!editing()) settle(next);
+    if (!closed && (!editing() || currentDraft() === next.text)) settle(next);
   };
 
   const sameContent = (left: Pad, right: Pad) =>
@@ -80,6 +89,9 @@ const PadBody = (props: {
         pendingActor = null;
 
         if (!current) {
+          saveAfterPause.clear();
+          due = false;
+          setSaved(false);
           setConflictActor(null);
 
           return;
@@ -95,21 +107,22 @@ const PadBody = (props: {
           return;
         }
 
-        if (actor && actor.kind !== "user") setConflictActor(actor);
+        if (actor && actor.kind !== "user") {
+          saveAfterPause.clear();
+          due = false;
+          setSaved(false);
+          setConflictActor(actor);
+        }
       },
       { defer: true },
     ),
   );
 
   onCleanup(() => {
+    // Snapshot before the lazy editor is destroyed; any queued write keeps this Pad's name and RPC connection.
+    finalDraft = currentDraft();
     closed = true;
-
-    // Closing the Drawer leaves the document like a blur does; a draft already sent stays one write.
-    if (pad().owner.kind === "user" && !conflictActor() && editor && editing()) {
-      const draft = editor.getText();
-
-      if (draft !== origin() && draft !== sent) void write(draft);
-    }
+    flush();
   });
 
   /** A call that fails after the Drawer closed has no ✕ line to land on, so it goes to the Shelf's. */
@@ -126,19 +139,43 @@ const PadBody = (props: {
 
   const ownedByUser = () => pad().owner.kind === "user";
 
-  const write = (text: string) =>
+  const write = (resolveConflict = false) =>
     act(async () => {
-      if (text !== origin()) {
-        sent = text;
+      if (sent !== null || !due || deleted() || !ownedByUser() || (conflictActor() && !resolveConflict)) return;
 
-        try {
-          adopt(await connected.app.rpc("pad.write", { name, text }));
-        } catch (thrown) {
-          sent = null;
-          throw thrown;
-        }
+      const text = finalDraft ?? currentDraft();
+      due = false;
+
+      if (text === origin()) return;
+
+      sent = text;
+      setSaved(false);
+
+      try {
+        const next = await connected.app.rpc("pad.write", { name, text });
+        // An external change that arrived during this call still needs an explicit choice.
+        if (conflictActor() && !resolveConflict) setOrigin(next.text);
+        else adopt(next);
+
+        if (resolveConflict) setConflictActor(null);
+
+        setSaved(!closed && !conflictActor() && currentDraft() === next.text);
+      } catch (thrown) {
+        // A refusal keeps the draft; only another edit or blur retries it.
+        due = false;
+        throw thrown;
+      } finally {
+        sent = null;
       }
+
+      if (due) void write();
     });
+
+  const flush = () => {
+    saveAfterPause.clear();
+    due = true;
+    void write();
+  };
 
   /** The Agent that owns the Pad, while it is on the Rail (U432). */
   const owner = () => (pad().owner.kind === "agent" ? connected.rail.nodes.find((node) => node.id === pad().owner.id) : undefined);
@@ -173,39 +210,36 @@ const PadBody = (props: {
 
   const remove = () =>
     act(async () => {
+      saveAfterPause.clear();
+      due = false;
       await connected.app.rpc("pad.delete", { name });
+      setDeleted(true);
       setRemovedByMe(true);
       connected.drawer.close();
     });
 
-  const leaveField = async (typed: string) => {
-    if (!editing() && typed === origin()) return;
-
-    if (conflictActor() || typed === sent) return;
-
-    setEditing(false);
-    await write(typed);
-  };
-
   const onChange = () => {
-    sent = null;
+    setSaved(false);
     setEditing(true);
+    due = false;
 
-    if (editor?.unchanged()) settle(pad());
+    if (!sent && editor?.unchanged()) {
+      settle(pad());
+
+      return;
+    }
+
+    if (ownedByUser() && !conflictActor() && !deleted()) saveAfterPause();
   };
 
   const onText = (text: string) => {
     setShown(text);
-
-    if (text === origin()) settle(pad());
   };
 
   const onEditorBlur = (next: EventTarget | null) => {
-    if (next instanceof Node && next.parentElement?.closest(".pad-rich-editor")) return;
+    if (next instanceof Element && next.closest(".pad-rich-editor")) return;
 
-    if (!ownedByUser()) return;
-
-    void leaveField(currentDraft());
+    if (ownedByUser()) flush();
   };
 
   /** U58: a Pad opened from under its Agent is taken here, by the owner mark, as U18's click does in the Shelf. */
@@ -214,14 +248,16 @@ const PadBody = (props: {
       adopt(await connected.app.rpc("pad.setOwner", { name, owner: USER }));
     });
 
-  const keepMine = () =>
-    act(async () => {
-      adopt(await connected.app.rpc("pad.write", { name, text: currentDraft() }));
-      // adopt alone won't clear this while a quick refocus keeps the field dirty.
-      setConflictActor(null);
-    });
+  const keepMine = () => {
+    saveAfterPause.clear();
+    due = true;
+    void write(true);
+  };
 
-  const useTheirs = () => settle(pad());
+  const useTheirs = () => {
+    setSaved(false);
+    settle(pad());
+  };
 
   return (
     <div class="pad-body">
@@ -236,8 +272,13 @@ const PadBody = (props: {
         >
           <span style={wholeWord}><OwnerMark owner={pad().owner} decorative /></span>
         </Show>
-        <span class="pad-head-name" title={name} style={cutName}>
-          {name}
+        <span class="pad-head-title">
+          <span class="pad-head-name" title={name} style={cutName}>
+            {name}
+          </span>
+          <Show when={saved() && !deleted() && !conflictActor()}>
+            <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
+          </Show>
         </span>
         <Show when={owner()}>
           <button
