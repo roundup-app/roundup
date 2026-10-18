@@ -242,6 +242,29 @@ mod tests {
 
     use crate::tests::*;
     #[tokio::test]
+    async fn a2703a_prompt_storage_failure_stays_an_error() {
+        let watched = Watched::named();
+        rusqlite::Connection::open(watched._dir.path().join("agents.db"))
+            .unwrap()
+            .execute_batch("DROP TABLE nodes")
+            .unwrap();
+        let error = crate::PromptError::from(
+            watched
+                .shared
+                .prompt("7013", "hello", None, None, false)
+                .await
+                .unwrap_err(),
+        );
+        assert!(matches!(error, crate::PromptError::Rail(_)));
+        let error = rpc::RpcError::from(error);
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        assert!(
+            !error.message.contains("7013") && !error.message.contains("gone"),
+            "{error}"
+        );
+    }
+
+    #[tokio::test]
     async fn a2703a_interrupt_write_failure_uses_rail_name() {
         struct Broken;
         impl std::io::Write for Broken {
