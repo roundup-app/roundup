@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { event } from "../testing/nodes";
-import { ask, mountAskBar, rowTexts } from "./askFixture";
+import { ask, mountAskBar, press, rowTexts } from "./askFixture";
 
 afterEach(cleanup);
 
@@ -24,12 +24,41 @@ describe("u505 an Ask row shows progress from Agent state", () => {
 
   it("u505_selecting_a_row_selects_its_workstream", async () => {
     const { connected } = await mountAskBar([typed]);
+    const select = vi.spyOn(connected.rail, "select");
 
     await waitFor(() => expect(rowTexts()).toHaveLength(1));
     fireEvent.click(document.querySelector<HTMLElement>(".ask-row button.ask-line")!);
 
     await waitFor(() => expect(connected.rail.selected()).toBe("ops"));
     expect(document.querySelector(".ask-input")).toBeNull();
+    expect(select).toHaveBeenCalledExactlyOnceWith("ops");
+  });
+
+  it("u505_arrows_move_between_openable_rows", async () => {
+    const { connected } = await mountAskBar([
+      ask("last", 1, [{ text: "last", placement: { kind: "routed", workstream: "lead" }, state: "queued" }]),
+      ask("plain", 2, [{ text: "plain", placement: { kind: "unclear", question: "Which?", candidates: ["ops"] }, state: "waiting" }]),
+      typed,
+    ]);
+    const first = await screen.findByRole("button", { name: /ship it/ });
+    const last = screen.getByRole("button", { name: /last/ });
+    first.focus();
+    press("ArrowUp");
+    expect(document.activeElement).toBe(first);
+    press("ArrowDown");
+    expect(document.activeElement).toBe(last);
+    press("ArrowDown");
+    expect(document.activeElement).toBe(last);
+    press("ArrowUp");
+    expect(document.activeElement).toBe(first);
+    fireEvent.click(document.activeElement!);
+    expect(connected.rail.selected()).toBe("ops");
+  });
+
+  it("u505_a_row_is_a_button_named_by_its_cells", async () => {
+    await mountAskBar([typed, ask("plain", 1, [{ text: "plain", placement: { kind: "new", title: "future" }, state: "placing" }])]);
+    expect(await screen.findByRole("button", { name: /ship it.*Needs-you.*ops.*Sent/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /plain/ })).toBeNull();
   });
 
   it("u505_a_failed_row_shows_its_reason", async () => {
