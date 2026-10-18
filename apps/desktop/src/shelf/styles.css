@@ -113,7 +113,7 @@
   padding-left: var(--space-4);
 }
 
-/* U460: the question replaces the action line without moving the list. */
+/* U460: selection and retry details stay below the list; Ark owns the question. */
 .shelf-bulk {
   padding: var(--space-2) var(--space-4);
   font-family: var(--font-ui);
@@ -154,3 +154,25 @@
   overflow: visible;
   text-overflow: clip;
 }
+
+/* Ark owns selection and panel focus; keep the Shelf's flat, inset-free bar. */
+.shelf-tabs.app-tabs-list { gap: var(--space-2); }
+.shelf-tab.app-tabs-trigger { --button-inline: 0; }
+.shelf-tab[data-selected] { --button-surface: transparent; --button-hover: transparent; }
+.shelf-panel.app-tabs-content { padding: 0; }
+.shelf-question {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-4);
+  z-index: 100;
+  width: calc(var(--shelf-width) - var(--space-6));
+  box-sizing: border-box;
+  max-height: calc(100vh - var(--space-6));
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.shelf-question-targets { list-style: none; margin: var(--space-2) 0; padding: 0; }
+.shelf-bulk-line[hidden] { display: none; }
+.shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: var(--space-3); }
+
+.shelf-question-words button:last-child { color: var(--text); }

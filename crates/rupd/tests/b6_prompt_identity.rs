@@ -90,6 +90,7 @@ pending = b''
 while True:
     data = os.read(0, 1)
     if not data: break
+    if data == b'\x03': os._exit(0)  # Claude Code's exit key
     if data == b'\x01':
         call = json.load(open('door-call.json'))
         conn = socket.socket(socket.AF_UNIX)
