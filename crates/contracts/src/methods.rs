@@ -234,7 +234,7 @@ pub const METHODS: &[Method] = &[
     m("rail.remove", "agent_NodeId", "agent_Removal | null"),
     m(
         "agent.resume",
-        "agent_NodeId",
+        "agent_ResumeParams",
         "agent_RailNode | agent_HeldAction",
     ),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),

@@ -599,6 +599,7 @@ mod tests {
             terminal_id: None,
             worktree: None::<Worktree>,
             can_resume: false,
+            yolo: false,
             channel: None,
             work: None,
             stray: Vec::new(),
