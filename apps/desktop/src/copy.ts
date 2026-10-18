@@ -434,6 +434,7 @@ export const copy = {
   orderWithLimits: (ask: string, limits: string) => `${ask} · ${limits}`,
   daemonExit: (exit: string) => `Daemon ${exit}`,
   unseenOutput: "New output",
+  unseenMark: "●",
   previousProjectsMark: "◂ ",
   nextProjectsMark: " ▸",
   roundup: "roundup",
