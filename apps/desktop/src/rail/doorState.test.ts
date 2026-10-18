@@ -24,4 +24,5 @@ describe("u143 Door state", () => {
   it("u143_a_Workstream_launched_before_is_stopped_with_how_it_ended", () => {
     expect(doorStateOf(door("r", "error", "e"), { kind: "code", code: 137 }, false, false)).toEqual({ kind: "stopped", exit: { kind: "code", code: 137 } });
   });
+
 });

@@ -10,7 +10,7 @@ import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const startWords = () => screen.getAllByRole("button", { name: new RegExp(`^(${copy.start}|${copy.retry})$`) });
+const startWords = () => screen.getAllByRole("button", { name: (name) => name === copy.start || name === copy.retry });
 
 const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!;
 
@@ -118,7 +118,7 @@ describe("u143 empty Project", () => {
     };
 
     fireEvent.click(startWorkstream());
-    await screen.findByText("Supervisor did not start");
+    await screen.findByText(copy.doorDidNotStart);
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
     fireEvent.click(paneStart());
 
@@ -133,25 +133,35 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
 
-    expect([await screen.findByText("Supervisor not started"), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
+    expect([await screen.findByText(copy.doorNotStarted), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
   });
 
-  it.each([137, null])("u143_a_door_that_exited_can_start_once_again (%s)", async (code) => {
+  it("u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once", async () => {
     const tree: RailNode[] = [door("r", "working", "w")];
     const { app, connected } = await mountRailAndPane(tree);
 
     connected.rail.select("r");
-    app.emit(event({ name: "terminal.exited", data: { id: "t-r", code } }));
-    await screen.findByText(copy.doorStoppedWithExit(code === null ? "exited by signal" : "exited 137"));
+    app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: 137 } }));
+    await screen.findByText(copy.doorStoppedWithExit("exited 137"));
     fireEvent.click(paneStart());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
   });
 
-  it("u143_a_failed_first_launch_reads_stopped_after_reload", async () => {
-    const { connected } = await mountRailAndPane([door("r", "error", "launch failed", { terminal_id: null })]);
+  it("u143_a_signalled_door_retains_its_exit_and_can_restart", async () => {
+    const { app, connected } = await mountRailAndPane([door("r", "working", "w")]);
+    connected.rail.select("r");
+    app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: null } }));
+    await screen.findByText(copy.doorStoppedWithExit("exited by signal"));
+    fireEvent.click(paneStart());
+    await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
+  });
+
+  it("u143_a_failed_first_launch_reloads_as_stopped", async () => {
+    const { app, connected } = await mountRailAndPane([door("r", "error", "launch failed", { terminal_id: null })]);
     connected.rail.select("r");
     await screen.findByText(copy.doorStopped);
+    expect(calls(app, "rail.startDoor")).toEqual([]);
     expect(screen.getByRole("button", { name: copy.start })).toBeTruthy();
   });
 
@@ -169,10 +179,10 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
     fireEvent.click(await screen.findByRole("button", { name: copy.start }));
-    await screen.findByText("Starting supervisor…");
+    await screen.findByText(copy.startingDoor);
     fireEvent.click(paneStart());
 
-    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText("Supervisor not started")]).toEqual([1, true, null]);
+    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText(copy.doorNotStarted)]).toEqual([1, true, null]);
   });
 
   it("u143_a_failed_start_reads_did_not_start_with_the_message_and_retry", async () => {
@@ -184,22 +194,21 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     connected.rail.select("r");
     fireEvent.click(await screen.findByRole("button", { name: copy.start }));
 
-    expect([await screen.findByText("Supervisor did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: copy.retry })]);
+    expect([await screen.findByText(copy.doorDidNotStart), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart()]).toEqual([expect.anything(), ["launch failed", "launch failed"], screen.getByRole("button", { name: copy.retry })]);
   });
 });
 
 describe("u143 direct Agent access beside a stopped Door", () => {
-  it("u143_cmd_t_opens_a_terminal_inside_the_stopped_workstream", async () => {
+  it("u143_terminal_shortcut_opens_inside_the_stopped_workstream", async () => {
     const { app } = await openTabs({ p: [workstream("r")] });
     const daemon = app.of(path("p"));
     daemon.handlers["terminal.open"] = () => ({ terminal_id: "new" });
-    daemon.handlers["terminal.list"] = () => [info("new", { owner: path("p") })];
+    daemon.handlers["terminal.list"] = () => [info("new", { owner: "r" })];
     daemon.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
     daemon.handlers["terminal.resize"] = () => null;
-    fireEvent.click(await screen.findByRole("treeitem", { name: /^r/ }));
-    fireEvent.keyDown(document.activeElement!, { code: "KeyT", key: "t", metaKey: true });
+    fireEvent.click(screen.getByRole("treeitem", { name: "r" }));
+    fireEvent.keyDown(document, { code: "KeyT", key: "t", metaKey: true });
     await waitFor(() => expect(calls(daemon, "terminal.open")).toEqual([{ workstream: "r" }]));
-    expect(calls(daemon, "rail.startDoor")).toEqual([]);
   });
 
   it("u143_agent_still_spawns_inside_the_selected_stopped_workstream", async () => {

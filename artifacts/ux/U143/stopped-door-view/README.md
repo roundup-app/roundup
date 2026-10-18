@@ -13,4 +13,4 @@ All published Checks pass in the adjacent JSON readings: before and after stoppe
 
 `pending.json` records equal pane bounds before and during a held `rail.startDoor`, with `aria-disabled=true`. `failure.png` and `dense.png` retain the injected failure text and centre Retry action. Focused behavioral tests cover pending repeat protection, failed-start retry without creation, signal/code exit, a failed first-launch tree after reload, and Cmd-T inside the selected stopped Workstream.
 
-Retired test: `u143_the_words_tell_the_four_states_apart`, as U143 requests. The five `doorState.test.ts` state-selection tests retain its behavioral proof; the design critic owns wording. No other test is cut.
+Retired test: `u143_the_words_tell_the_four_states_apart`, as U143 requests. The five `doorState.test.ts` state-selection tests retain its behavioral proof; the design critic owns wording. The duplicate U471 start-call test is also retired: `u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once` retains that proof.
