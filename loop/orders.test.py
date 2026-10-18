@@ -152,6 +152,21 @@ class Orders(unittest.TestCase):
                 row = orders.classify([issue(body=body)], {}, [])[0]
                 self.assertEqual((row['state'], row['mode']), ('ready', mode))
 
+    def test_l34_a_scenario_id_with_a_multi_letter_prefix_is_read_like_any_other(self):
+        for scenarios, mode in [('LC1', 'implement'), ('LC11-LC13', 'implement'), ('LC11–LC13', 'implement'),
+                                ('LC11 to LC13', 'implement'), ('LC11–13', 'implement'), ('LC1, LC14', 'implement'),
+                                ('LC15', 'specify'), ('LC13–LC15', 'specify')]:
+            with self.subTest(scenarios=scenarios):
+                body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}').replace('ui.md', 'lean-child-start.md')
+                row = orders.classify([issue(body=body)], {}, [])[0]
+                self.assertEqual((row['state'], row['mode']), ('ready', mode))
+
+    def test_l34_a_one_letter_range_still_expands(self):
+        for scenarios in ['U83', 'U83-U84', 'U83 to 84', 'U83–84']:
+            with self.subTest(scenarios=scenarios):
+                body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}')
+                self.assertEqual(orders.classify([issue(body=body)], {}, [])[0]['mode'], 'implement')
+
     def test_l34_explicit_pr_link_preserves_a_manual_agents_owner(self):
         prs=[dict(number=12,headRefName='codex/fix',body='Refs #1',isCrossRepository=False)]
         self.assertEqual(orders.classify([issue()],{},prs)[0]['state'],'in-flight')
