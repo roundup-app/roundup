@@ -5,6 +5,7 @@ import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
+import { Icon } from "../ink/Icon";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
@@ -105,9 +106,9 @@ export const AskBar = () => {
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={(element: HTMLTextAreaElement) => { field = element; }}
-            rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
+            rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()}
             onInput={(event) => setText(event.currentTarget.value)} onKey={onKey} />
-          <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
+          <Mentions.List label={copy.askMentions} items={matching()} />
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
         <Show when={!over()}><ProjectOverview /></Show>
@@ -127,7 +128,9 @@ const ProjectOverview = () => {
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={rail.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-    <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
+    <h2 class="overview-heading" data-state="attention" data-empty={attention().length === 0 ? "" : undefined}>
+      <Show when={attention().length === 0}><Icon name="check" /></Show>{copy.projectAttention(attention().length)}
+    </h2>
     <ul class="overview-list">
       <For each={workstreams()}>{(node) => <li>
         {entry(node)}
@@ -160,8 +163,8 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     {(trigger) => <button {...trigger({ onClick: props.select })} type="button" class="overview-entry"
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
-        <KindGlyph kind={status().kind} decorative /><span>{LABELS[status().kind]}</span>
+      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined} title={LABELS[status().kind]}>
+        <KindGlyph kind={status().kind} />
       </span>}</Show>
     </button>}
   </Tip>;

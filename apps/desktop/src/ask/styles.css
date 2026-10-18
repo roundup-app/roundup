@@ -34,15 +34,17 @@
   max-height: 160px;
   field-sizing: content;
   resize: none;
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   font: inherit;
-  color: inherit;
-  background: none;
-  border: 0;
+  color: var(--text);
+  background-color: var(--sunken);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
 }
 
-.ask-input:focus-visible {
-  outline-width: 0;
+.ask-input::placeholder {
+  color: var(--grey);
+  opacity: 1;
 }
 
 .ask-rows {
@@ -108,9 +110,16 @@
   gap: var(--space-2);
 }
 
+/* The list floats under the field (D8: opaque with a hairline, no shadow), so it moves nothing on the page. */
 .app-mentions {
   max-height: 160px;
   overflow-y: auto;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1);
+  z-index: 4;
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
 }
 
 .app-mentions .app-listbox-item[data-highlighted] {
@@ -157,6 +166,16 @@
   color: var(--grey);
 }
 
+/* U38's empty-state look (icon over a quiet `--grey` line), sized to its own section instead of the room under an add button. */
+.overview-heading[data-empty] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-2);
+  text-align: center;
+}
+
 .overview-list,
 .overview-attention {
   margin: 0;
@@ -190,7 +209,7 @@
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
-  gap: var(--space-1);
+  height: 1lh;
   color: var(--grey);
   white-space: nowrap;
 }

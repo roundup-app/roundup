@@ -6,19 +6,24 @@ import { input, mountAskBar, press } from "./askFixture";
 
 afterEach(cleanup);
 
+/** What a screen reader says for `node`: its text, with each named image (the Status icon) as its label. */
+const spoken = (node: Node): string => node instanceof Element && node.getAttribute("role") === "img"
+  ? node.getAttribute("aria-label") ?? ""
+  : node.hasChildNodes() ? [...node.childNodes].map(spoken).join("") : node.textContent ?? "";
+
 it("u2567a_entries_follow_rail_order_with_door_status", async () => {
   await mountAskBar([], null, [door("b", "working", "busy", { order: 2 }), workstream("a", { order: 1, status: null })]);
 
   const overview = screen.getByRole("region", { name: "Project overview" });
 
-  expect(within(overview).getAllByRole("button").map((button) => button.textContent)).toEqual(["a", "bWorking"]);
+  expect(within(overview).getAllByRole("button").map(spoken)).toEqual(["a", "bWorking"]);
 });
 
 const overview = () => screen.getByRole("region", { name: "Project overview" });
 
 const buttons = () => within(overview()).getAllByRole("button");
 
-const names = () => buttons().map((button) => button.textContent);
+const names = () => buttons().map(spoken);
 
 const tree = (): RailNode[] => [
   door("a", "error", "failed"),
@@ -32,7 +37,7 @@ it("u2567a_attention_lines_sit_under_the_right_workstream", async () => {
   const { connected } = await mountAskBar([], null, tree());
   connected.rail.toggleCollapsed("b");
 
-  expect([...overview().querySelectorAll(".overview-list > li")].map((item) => item.textContent)).toEqual(["aErroraError", "bWorkingwaitingNeeds-you"]);
+  expect([...overview().querySelectorAll(".overview-list > li")].map(spoken)).toEqual(["aErroraError", "bWorkingwaitingNeeds-you"]);
   expect(within(overview()).getByRole("heading").textContent).toBe("2 need you");
 });
 
