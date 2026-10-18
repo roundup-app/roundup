@@ -32,7 +32,7 @@ it("u2230b_hint_line_drops_from_the_end", async () => {
         await page.load(`/harness.html?seed=${seed}`, width, 800);
         await page.until(`() => Boolean(window.__fake)`);
         await page.call(`() => document.querySelector('[data-id="${agent}"]').click()`);
-        await page.until(`() => document.querySelector('.pane-watch')`);
+        await page.until(`() => document.querySelector('.pane-control[data-state=managed]')`);
 
         // The Shelf opens by default at 700 and leaves the bar no room: close it, as a user would.
         if (width === 700) {
