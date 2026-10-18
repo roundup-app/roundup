@@ -324,27 +324,16 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
             "to": id, "kind": "note", "body": format!("you are now called \"{name}\" on the Rail")
         }), Actor::daemon()).await;
         if let Err(err) = sent {
-            // INBOX_UNAVAILABLE still saves the note held for the inbox's recovery.
-            if err.code == rpc::code::INBOX_UNAVAILABLE {
-                continue;
-            }
-            // A stop or removal can win after the first read. The next start supplies the
-            // current name through Context; a rename never starts an Agent.
-            if matches!(err.code, rpc::code::NOT_FOUND | rpc::code::CONFLICT) {
-                let nodes: Vec<RailNode> = reader
-                    .call(
-                        "rail",
-                        "rail.tree",
-                        serde_json::Value::Null,
-                        Actor::daemon(),
-                    )
-                    .await
-                    .expect("read renamed Agent after refusal");
-                if !running(&nodes) {
-                    continue;
+            match err.code {
+                // B51 saves a mismatched-inbox note held before returning this error.
+                rpc::code::INBOX_UNAVAILABLE => {}
+                // Ordinary B1/B51 send refusals (including a concurrent stop) must not
+                // terminate the observer and prevent later committed names being sent.
+                rpc::code::NOT_FOUND | rpc::code::CONFLICT | rpc::code::INVALID_PARAMS => {
+                    eprintln!("rupd: Rail rename note for {name} refused: {err}");
                 }
+                _ => panic!("queue Rail rename note: {err}"),
             }
-            panic!("queue Rail rename note: {err}");
         }
     }
 }
