@@ -724,7 +724,7 @@
   max-width: 100%;
   white-space: nowrap;
   cursor: default;
-  color: var(--text);
+  color: var(--grey);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
@@ -742,7 +742,7 @@
   container-type: inline-size;
 }
 .rail-row .row-name-state .name {
-  flex: 1 1 var(--space-6);
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
 }
@@ -755,28 +755,24 @@
   min-width: 0;
   white-space: nowrap;
 }
-/* On deeply nested rows, stale stays below its own CI mark, never under the name. */
-@container (width < 8rem) {
-  .worktree-chips {
-    gap: var(--space-1);
-  }
-  .worktree-chip[data-stale="true"] {
-    max-width: min-content;
-    white-space: normal;
-  }
-  .worktree-chip > span {
-    white-space: nowrap;
-  }
-}
-/* Keep ahead and CI beside the name; the full PR remains in the Worktree view. */
-@container (width < 12rem) {
+/* Drop optional detail before squeezing the Agent's readable name. */
+@container (width < 16rem) {
   .worktree-chip[data-state="pr"] {
     display: none;
   }
 }
-@container (width < 16rem) {
-  .worktree-chip[data-state="pr"][data-stale="true"],
-  .worktree-chips:has([data-state][data-stale="true"]) .worktree-chip[data-state="pr"] {
+@container (width < 12rem) {
+  .worktree-stale {
+    display: none;
+  }
+}
+@container (width < 10rem) {
+  .worktree-chip[data-state="ahead"] {
+    display: none;
+  }
+}
+@container (width < 6rem) {
+  .worktree-chips {
     display: none;
   }
 }

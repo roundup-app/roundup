@@ -224,7 +224,7 @@ export const copy = {
 
     return `${label && state !== "no-ci" ? `CI ${value.toLowerCase()}` : value}${stale ? ", stale" : ""}`;
   },
-  worktreeCiChip: (state: WorktreeCiState) => ({ passed: "✓CI", failed: "✗CI", running: "↻CI", "no-ci": "No CI", conflicts: "!CI", error: "CI error", unknown: "CI?" }[state]),
+  worktreeCiChip: (state: WorktreeCiState) => ({ passed: "✓ CI", failed: "✗ CI", running: "… CI", "no-ci": "— CI", conflicts: "! CI", error: "⚠ CI", unknown: "? CI" }[state]),
   worktreeStale: ", stale",
   worktreePrText: (number: number, stale: boolean) => `#${number}${stale ? ", stale" : ""}`,
   worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? ", stale" : ""}`,

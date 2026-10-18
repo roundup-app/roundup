@@ -233,13 +233,13 @@ export const RailRowView = (props: {
                 {name()}
                 <span class="worktree-chips">
                   <Show when={(facts()?.ahead ?? 0) > 0}>
-                    <span class="worktree-chip" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
+                    <span class="worktree-chip" role="img" data-state="ahead" aria-label={copy.worktreeAheadState(facts()!.ahead)}>{copy.worktreeAhead(facts()!.ahead)}</span>
                   </Show>
                   <Show when={facts()?.ci}>{(ci) => (
-                    <span class="worktree-chip" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}><span>{copy.worktreeCiChip(ci().state)}</span>{ci().stale ? copy.worktreeStale : ""}</span>
+                    <span class="worktree-chip" role="img" data-state={ci().state} data-stale={ci().stale} aria-label={copy.worktreeCiText(ci().state, ci().stale, true)}><span>{copy.worktreeCiChip(ci().state)}</span><Show when={ci().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
                   )}</Show>
                   <Show when={facts()?.pr}>{(pr) => (
-                    <span class="worktree-chip" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, pr().stale)}</span>
+                    <span class="worktree-chip" role="img" data-state="pr" data-stale={pr().stale} aria-label={copy.worktreePrState(pr().number, pr().stale)}>{copy.worktreePrText(pr().number, false)}<Show when={pr().stale}><span class="worktree-stale">{copy.worktreeStale}</span></Show></span>
                   )}</Show>
                   <Show when={worktreeFailure()}>
                     <span class="worktree-chip" data-state="unavailable" role="img" aria-label={copy.worktreeUnavailable}>{copy.worktreeUnavailableMark}</span>
