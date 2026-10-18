@@ -30,7 +30,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   app.handlers["terminal.open"] = ({ workstream: owner }) => {
-    listed = [...listed, info("9", { owner, title: "login" })];
+    listed = [...listed, info("9", { owner: owner ?? "/p", title: "login" })];
     queueMicrotask(() => app.emit(event({ name: "terminal.changed" })));
 
     return { terminal_id: "9" };

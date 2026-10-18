@@ -9,6 +9,108 @@ use daemon::{next, rail_tree};
 use serde_json::{Value, json};
 use std::time::Duration;
 
+#[tokio::test]
+async fn e14_roundup_launches_and_resumes_real_claude() {
+    let project = daemon::start_real("e14_launch_resume", &[]);
+    let client = project.client().await;
+    let model = project.model.as_ref().unwrap();
+    for (door, selected, effort, expected) in [
+        (false, "sonnet", "low", "claude-sonnet-5-5"),
+        (true, "opus", "high", "claude-opus-5-5"),
+    ] {
+        let node = if door {
+            let workstream = client
+                .request(
+                    "rail.createWorkstream",
+                    json!({"name": "E14", "parent": null}),
+                )
+                .await
+                .unwrap();
+            client
+                .request(
+                    "rail.startDoor",
+                    json!({"id": workstream["id"], "model": selected, "effort": effort}),
+                )
+                .await
+                .unwrap()
+        } else {
+            client.request("agent.spawn", json!({"cwd": project.dir.path(), "prompt": "E14 remember the cobalt otter", "model": selected, "effort": effort})).await.unwrap()
+        };
+        let id = node["id"].as_str().unwrap();
+        let initial = if door {
+            "What is this Workstream for?"
+        } else {
+            "E14 remember the cobalt otter"
+        };
+        turn_done(model, &client, id, initial).await;
+        let first = model
+            .journal()
+            .into_iter()
+            .rev()
+            .find(|entry| {
+                !entry["body"]["tools"].is_null()
+                    && user_texts(entry).iter().any(|text| text.contains(initial))
+            })
+            .expect("initial work request");
+        assert_eq!(first["body"]["model"], expected);
+        assert_eq!(first["body"]["output_config"]["effort"], effort);
+        client
+            .request("agent.stop", json!({"id": id}))
+            .await
+            .unwrap();
+        client
+            .request(
+                if door {
+                    "rail.startDoor"
+                } else {
+                    "agent.resume"
+                },
+                json!({"id": id}),
+            )
+            .await
+            .unwrap();
+        let followup = if door {
+            "E14 recall the Door conversation"
+        } else {
+            "E14 recall the Agent conversation"
+        };
+        client
+            .request(
+                "message.send",
+                json!({"to": id, "kind": "note", "body": followup}),
+            )
+            .await
+            .unwrap();
+        turn_done(model, &client, id, followup).await;
+        let journal = model.journal();
+        let resumed = journal
+            .iter()
+            .rev()
+            .find(|entry| user_texts(entry).iter().any(|text| text.contains(followup)))
+            .unwrap();
+        assert_eq!(resumed["body"]["model"], expected);
+        assert_eq!(resumed["body"]["output_config"]["effort"], effort);
+        assert!(
+            user_texts(resumed)
+                .iter()
+                .any(|text| text.contains(initial)),
+            "resume lost the first prompt: {resumed:#?}"
+        );
+        assert!(
+            resumed["body"]["messages"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|message| message["role"] == "assistant"
+                    && message["content"]
+                        .to_string()
+                        .contains("E14 retained answer")),
+            "resume lost Claude's answer: {resumed:#?}"
+        );
+        model.assert_matched();
+    }
+}
+
 #[test]
 fn e14_aimock_journals_explicit_effort_and_its_absence() {
     let model = aimock::Model::start("e14_effort_journal");

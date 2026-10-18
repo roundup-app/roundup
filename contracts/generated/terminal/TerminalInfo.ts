@@ -14,6 +14,6 @@ program: string, running: boolean,
  */
 exit_code: number | null, 
 /**
- * The Workstream or Agent whose bubble shows it (X11, X12); `None` for a raw spawn (X1).
+ * The Workstream, Agent or absolute Project folder path whose bubble shows it (X11, X12); `None` for a raw spawn (X1).
  */
 owner: string | null, };
