@@ -69,6 +69,8 @@ import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
 import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
+import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
+import type { Prepared as project_Prepared } from "./project/Prepared";
 import type { ProjectModels as project_ProjectModels } from "./project/ProjectModels";
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
@@ -186,6 +188,9 @@ export type RpcMethods = {
   "agent.run": { params: agent_RunParams; result: terminal_Opened };
   "project.setWorktrees": { params: project_Worktrees; result: null };
   "project.setMcp": { params: project_Mcp; result: null };
+  "project.setPrepared": { params: project_Prepared; result: null };
+  "project.getPrepared": { params: null; result: project_Prepared };
+  "project.prepareDirectory": { params: project_PrepareParams; result: null };
   "project.get": { params: null; result: project_ProjectSettings };
   "project.setModels": { params: project_ProjectModels; result: null };
   "models.list": { params: null; result: project_ModelList };
