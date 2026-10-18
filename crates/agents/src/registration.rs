@@ -19,7 +19,8 @@ impl Shared {
         if !matches!(runs.get(id), Some(Slot::Starting { attempt: active, .. }) if active == attempt)
         {
             return Err(RpcError::conflict(format!(
-                "agent {id}: stale start completion"
+                "{}: stale start completion",
+                rail.name(id)?
             )));
         }
         let Some(Slot::Starting { named, held, .. }) = runs.remove(id) else {
@@ -334,4 +335,24 @@ pub(super) fn save_signal_conversation(
 pub(super) fn is_resume_ack(payload: &Value, conversation_id: &str) -> bool {
     claude_code::session_source(payload) == Some("resume")
         && claude_code::conversation_id(payload).as_deref() == Some(conversation_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tests::Watched;
+
+    #[tokio::test]
+    async fn a2703a_errors_use_rail_names() {
+        let watched = Watched::named();
+        for (id, name) in [("7013", "sad"), ("8013", "an Agent that is gone")] {
+            let error = watched
+                .shared
+                .finish_starting(id, "stale", |_| unreachable!())
+                .unwrap_err();
+            assert!(
+                error.message.contains(name) && !error.message.contains(id),
+                "{error}"
+            );
+        }
+    }
 }

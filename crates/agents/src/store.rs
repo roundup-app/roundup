@@ -353,6 +353,20 @@ pub(super) mod tests {
             }
         }
 
+        pub(crate) fn named() -> Self {
+            let watched = Self::start();
+            watched.watcher.abort();
+            let db = rusqlite::Connection::open(watched._dir.path().join("agents.db")).unwrap();
+            db.execute(
+                "INSERT INTO nodes (id,kind,name,ord) VALUES (7013,'agent','sad',0)",
+                [],
+            )
+            .unwrap();
+            let run = watched.shared.runs().remove("1").unwrap();
+            watched.shared.runs().insert("7013".into(), run);
+            watched
+        }
+
         pub(crate) fn signal(&self, event: &str) {
             let payload = json!({"hook_event_name": event, "tool_name": "Bash"});
             self.shared

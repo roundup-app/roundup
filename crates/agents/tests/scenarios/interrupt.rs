@@ -50,6 +50,8 @@ async fn signal(f: &Fixture, id: &str, event: &str) {
 async fn working(script: &str, bound: Duration) -> (Arc<Fixture>, String) {
     let mut f = Fixture::running(script);
     f.agents = f.agents.with_clock(|| 0).with_interrupt_bound(bound);
+    rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap()
+        .execute_batch("DELETE FROM sqlite_sequence WHERE name = 'nodes'; INSERT INTO sqlite_sequence(name,seq) VALUES('nodes',7012)").unwrap();
     let f = Arc::new(f);
     let node = f.spawn(None, None).await.unwrap();
     until_file(&f.dir.path().join("ready")).await;
@@ -152,10 +154,17 @@ async fn h13_an_interrupt_of_an_agent_with_an_open_decision_clears_it() {
 #[tokio::test]
 async fn h17_a_lost_acknowledgement_is_not_acked_and_nothing_else_is_written() {
     let (f, id) = working(IGNORES, BOUND).await;
+    f.call("rail.rename", json!({"id":id,"name":"sad"}))
+        .await
+        .unwrap();
     let err = interrupt(&f, &id).await.unwrap().unwrap_err();
 
     assert_eq!(err.code, code::NOT_ACKED);
-    assert!(err.message.contains(&id), "{}", err.message);
+    assert!(
+        err.message.contains("sad") && !err.message.contains(&id),
+        "{}",
+        err.message
+    );
     assert_eq!(status_of(&f.tree().await, &id).kind, Kind::Working);
     tokio::time::sleep(BOUND).await;
     assert_eq!(read(&typed(&f)), b"\x1b", "a second byte was written");
