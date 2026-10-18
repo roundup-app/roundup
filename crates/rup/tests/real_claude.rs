@@ -533,6 +533,8 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
     let project = daemon::start_real("e3_startup_context", &[]);
     let user = project.client().await;
     let mut events = project.subscribed().await;
+    // Exclude A9's extra rename-note turn from this single-request observer.
+    // d2_the_first_prompt_names_the_agent retains the first-prompt naming proof.
     let node = user
         .request(
             "agent.spawn",
@@ -607,15 +609,6 @@ async fn e3_real_claude_runs_both_session_start_commands_and_reads_the_context()
             .filter(|entry| entry["body"]["tools"].is_array())
             .count(),
         1
-    );
-    assert_eq!(
-        rail_tree(&user)
-            .await
-            .into_iter()
-            .find(|item| item.id == node["id"].as_str().unwrap())
-            .unwrap()
-            .name,
-        "e3"
     );
 }
 
@@ -4892,6 +4885,9 @@ async fn x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch() {
 fn conversation_entries(project: &daemon::Project) -> Vec<Value> {
     let mut entries = Vec::new();
     let projects = project.dir.path().join("claude-config/projects");
+    if !projects.try_exists().expect("read transcript directory") {
+        return entries;
+    }
     for folder in std::fs::read_dir(projects).unwrap().flatten() {
         if !folder.path().is_dir() {
             continue;
