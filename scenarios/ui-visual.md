@@ -14,7 +14,7 @@ These scenarios narrow U4 (ink): its Glyph tones for `working`, `idle` and `done
 
 > Amended by U401 and U404: the six marks are the ring-fill Glyphs, and an item's name is regular weight in every row, an Ink row too (amended: Ink is colour only).
 
-**U133 click targets.** Given every element in the Rail, the Shelf, a Drawer, the header and the pane's pinned actions that is a click target (`docs/design-system.md`, "Click targets"), then its focus style is a 2 px `--accent` outline at 3:1 against its ground (`--ground` and `--sunken`). `Export .md` is a button by this rule. A disabled one has `aria-disabled` and no `disabled` attribute (U25). Test: `u133_`.
+**U133 click targets.** Given every element in the Rail, the Shelf, a Drawer, the header and the pane's pinned actions that is a click target (`docs/design-system.md`, "Click targets"), then its keyboard focus style (U2770, `ui-pointer-focus.md`) is a 2 px `--accent` outline at 3:1 against its ground (`--ground` and `--sunken`). `Export .md` is a button by this rule. A disabled one has `aria-disabled` and no `disabled` attribute (U25). Test: `u133_`.
 
 **U134 surfaces and depth.** Given the main workspace with a Drawer open, when a test reads computed style, then the Rail and the Shelf use `--sunken`, the pane and the Drawer use `--ground`, no border is wider than 1 px or any colour but `--hairline` (a Terminal bubble, U164, has it on all four edges; U172's lines between the Rail's blocks and a group head's rule are 1 px `--hairline` too), only the Drawer, Terminal bubble and floating menu surfaces have `--shadow-drawer` (the Shelf uses U371’s shadows), no `backdrop-filter` element has another inside it, and the Terminal's size does not change when the Drawer opens (U5) (D8). Test: `u134_`.
 
