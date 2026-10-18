@@ -184,7 +184,7 @@ const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) =>
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
 };
 
-// D2: font sizes are type steps and margin, padding and gap are space steps.
+// D2: type and space steps, with only U2541’s Token-backed KeyChip side padding excepted.
 const d2 = (page: Page): Measure =>
   offender(page, (el, style) => {
     if (inTerminal(el)) return null;
@@ -193,10 +193,19 @@ const d2 = (page: Page): Measure =>
 
     if (size !== null && !TYPE_STEPS.has(size)) return { fontSize: style.fontSize };
 
+    const chip = el.matches("kbd.key-chip");
+    const chipPadding = px(page.token("key-chip-padding") ?? "");
+
     for (const property of ["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"]) {
       const value = px(page.resolve(style.getPropertyValue(property)));
 
-      if (value !== null && !SPACE_STEPS.has(value)) return { [property]: style.getPropertyValue(property) };
+      // D1 checks declaration provenance; D2 checks the rendered Token value and
+      // the complete chip padding so an on-scale but nonconforming chip also fails.
+      const chipSide = chip && (property === "padding-left" || property === "padding-right");
+      const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
+      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0 : value === null || SPACE_STEPS.has(value);
+
+      if (!conforms) return { [property]: style.getPropertyValue(property) };
     }
 
     return null;
