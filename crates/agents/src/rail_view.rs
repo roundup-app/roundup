@@ -161,6 +161,11 @@ impl Shared {
 }
 
 impl Agents {
+    /// Resolve an Agent's current Rail name for prose, preserving storage failures.
+    pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
+        self.shared.rail().name(id)
+    }
+
     /// B32: run a synchronous input-recording operation against authoritative ownership.
     ///
     /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
@@ -263,8 +268,13 @@ impl Agents {
         };
         if !allowed {
             return Err(RpcError::forbidden(format!(
-                "{} may not set the order of agent {id}",
-                ctx.actor.id
+                "{} may not set the order of {}",
+                if ctx.actor.kind == ActorKind::Agent {
+                    self.rail_name(&ctx.actor.id)?
+                } else {
+                    ctx.actor.id.clone()
+                },
+                self.rail_name(&id)?
             )));
         }
         let node = self.shared.rail().set_order(&id, &order)?;
