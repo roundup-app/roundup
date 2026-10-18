@@ -7,6 +7,7 @@ mod in_process;
 mod owned;
 mod plain_text;
 mod read;
+mod scheme;
 mod shell_marks;
 mod snapshot;
 mod spawn;

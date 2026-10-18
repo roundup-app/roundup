@@ -20,7 +20,7 @@ afterAll(async () => {
 
 afterEach(cleanup);
 
-window.matchMedia ??= (query) => ({ ...new EventTarget(), matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined });
+window.matchMedia ??= (query) => ({ matches: false, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false });
 
 describe("u375 the user watches a Subagent on the real Daemon", () => {
   it("u375_typing_in_watch_reaches_nothing_and_a_takeover_reaches_the_terminal", async () => {
