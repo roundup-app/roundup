@@ -49,9 +49,9 @@ const LINES = `async (list) => {
 /** The Drawer's state: open or not, and what it shows. */
 const DRAWER = `() => { const drawer = document.querySelector('aside[aria-label="Drawer"]'); return { open: drawer.getAttribute("data-open") === "true", text: (drawer.querySelector(".pad-head-name") ?? drawer).textContent }; }`;
 
-const CLOSE = `async () => { document.querySelector('aside[aria-label="Drawer"] .close')?.click(); await new Promise(requestAnimationFrame); await Promise.all(document.getAnimations().map(animation => animation.finished)); }`;
+const CLOSE = `async () => { document.querySelector('aside[aria-label="Drawer"] .close')?.click(); await new Promise(requestAnimationFrame); await Promise.allSettled(document.querySelector('aside[aria-label="Drawer"]').getAnimations().map(animation => animation.finished)); }`;
 
-const OPEN = `async () => { await new Promise(requestAnimationFrame); await Promise.all(document.getAnimations().map(animation => animation.finished)); }`;
+const OPEN = `async () => { await new Promise(requestAnimationFrame); await Promise.allSettled(document.querySelector('aside[aria-label="Drawer"]').getAnimations().map(animation => animation.finished)); }`;
 
 type Shown = { open: boolean; text: string };
 
