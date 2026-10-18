@@ -83,6 +83,12 @@ p.ink[role="alert"] {
   inset: 0;
 }
 
+/* Keep the title above the expanded row hit area so it receives tooltip pointer events. */
+.shelf-row :is(.todo-row-button, .pad-name) > [data-scope="tooltip"][data-part="trigger"] {
+  position: relative;
+  z-index: 1;
+}
+
 .shelf-glyph,
 .shelf-meta button {
   position: relative;
