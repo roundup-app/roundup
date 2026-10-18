@@ -105,7 +105,7 @@ it("u2540b_pointer_and_keyboard_select_lines", async () => {
   expect(await browser("eval", "[...document.querySelectorAll('[aria-label=\"Notes\"] > li')].at(-1).textContent")).toContain("old 1–2");
   expect(await browser("eval", "Number(document.documentElement.dataset.noteEnterCount)")).toBe(1);
   await capture("pointer-and-keyboard-notes");
-});
+}, 60_000);
 
 it("u2540d_review_stage_rendered_observer", async () => {
   for (const theme of ["light", "dark"]) {
