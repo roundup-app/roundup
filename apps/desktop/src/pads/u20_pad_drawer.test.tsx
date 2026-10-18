@@ -589,3 +589,26 @@ it("p2544b_keep_mine_waits_for_the_active_save", async () => {
   await waitFor(() => expect(writes).toBe(2));
   expect(screen.queryByText(/Changed by/)).toBeNull();
 });
+
+it("p2544b_a_save_echo_cannot_replace_an_inflight_undo", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
+  fireEvent.input(field, { target: { value: "first" } });
+  fireEvent.focusOut(field);
+  fireEvent.input(field, { target: { value: "old" } });
+  state.pads = [padOf("notes", USER, "first\n")];
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
+  await waitForReload(app);
+  expect(field.value).toBe("old");
+  reply.resolve(padOf("notes", USER, "first\n"));
+  await reply.promise;
+  await writeAdopted();
+  fireEvent.focusOut(field);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "first\n" } },
+    { method: "pad.write", params: { name: "notes", text: "old" } },
+  ]));
+});
