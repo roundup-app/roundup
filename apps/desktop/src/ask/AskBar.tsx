@@ -173,7 +173,7 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     onCleanup(() => observer.disconnect());
   });
 
-  return <Tip text={props.node.name} disabled={!cut()} anchor={() => name}>{(trigger, focus) => {
+  return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
     const tip = trigger();
 
     return <button {...focus} onClick={props.select} type="button" class="overview-entry"
