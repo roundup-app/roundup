@@ -20,7 +20,8 @@ it("u465_heads_keep_tab_roles_and_panel_links", async () => {
 
   for (const selected of [0, 1] as const) {
     tabs[selected]!.focus();
-    fireEvent.click(tabs[selected]!);
+
+    if (tabs[selected]!.getAttribute("aria-expanded") !== "true") fireEvent.click(tabs[selected]!);
     await waitFor(() => expect(tabs[selected]!.getAttribute("aria-selected")).toBe("true"));
 
     const panel = await waitFor(() => {

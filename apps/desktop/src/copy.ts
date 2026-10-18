@@ -138,6 +138,7 @@ export const copy = {
   plusTerminal: "+ Terminal",
   terminals: "Terminals",
   closeTerminal: (value1: CopyValue) => `Close ${value1}`,
+  switchAgentTerminal: "Switch Agent / Terminal",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
   closeTheBubble: "Close the Bubble",
   endTheTakeover: "Give control back",
@@ -307,8 +308,6 @@ export const copy = {
   showOnlyThisWorkstream: "Show only this Workstream",
   showAllWorkstreams: "Show all Workstreams",
 
-  hideShelf: "Hide work items",
-  showShelf: "Show work items",
   shelfLabel: "Work items",
   theDoorDidNotStartInTimeRetry: "The supervisor did not start in time; retry supervisor",
   managed: "Managed",

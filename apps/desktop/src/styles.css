@@ -72,13 +72,6 @@ p {
   min-width: 0;
 }
 
-.content-actions {
-  position: absolute;
-  top: var(--header-height);
-  right: var(--space-2);
-  z-index: 1;
-}
-
 .columns {
   width: 100%;
   position: relative;
@@ -106,12 +99,6 @@ p {
 .centre {
   padding-right: 0;
   padding-left: 0;
-}
-
-/* U2340a: while the floating Show work items button shows, the order line ends --space-6 from the edge, one --space-2 past the button. */
-.window[data-shelf="closed"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line,
-.window[data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])):not(:has(.drawer > :not(.close))) .centre .order-line {
-  padding-right: var(--space-6);
 }
 
 /* U391: the Rail is a column: the list scrolls above the footer, which is the Rail's last child and never scrolls. The failure line takes the Rail's side padding; the list and footer reach both edges. */
@@ -383,7 +370,8 @@ p {
 @media (prefers-reduced-transparency: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  *::backdrop {
     backdrop-filter: none !important;
   }
 }

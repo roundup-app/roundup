@@ -1,20 +1,18 @@
 /* The Shelf's frame (U373, U470, U371). Colours, radii, shadows and spacing are Tokens. */
 .shelf-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  column-gap: var(--space-2);
+  display: flex;
   flex: none;
   align-items: center;
-  box-sizing: border-box;
+  justify-content: flex-end;
   height: var(--header-height);
-  padding-right: var(--space-2);
-  padding-left: var(--space-4);
+  padding-inline: var(--space-4);
   font-family: var(--font-ui);
 }
 
-/* Keep the hide arrow at the trailing edge when no scope button is present. */
-.shelf-bar > .shelf-toggle {
-  grid-column: 3;
+.window-bar .shelf-tabs {
+  grid-column: 4 / 6;
+  justify-self: end;
+  padding-inline: var(--space-4);
 }
 
 .shelf-tabs {
@@ -34,10 +32,6 @@
 .shelf-tab > .section-head {
   color: inherit;
   text-transform: uppercase;
-}
-
-.shelf-bar > .shelf-toggle {
-  flex: none;
 }
 
 .shelf-count {
@@ -108,7 +102,7 @@
   font-family: var(--font-ui);
 }
 
-.shelf > p {
+.shelf-panel > p {
   padding-right: var(--space-4);
   padding-left: var(--space-4);
 }
@@ -176,3 +170,5 @@
 .shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: var(--space-3); }
 
 .shelf-question-words button:last-child { color: var(--text); }
+
+.shelf-tab[data-open="false"] { color: var(--grey); }

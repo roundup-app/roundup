@@ -26,6 +26,23 @@
   pointer-events: auto;
 }
 
+/* A native backdrop shares the pane coordinates without intercepting the outside press (U2307a). */
+.bubble-frame::backdrop {
+  position: fixed;
+  inset: auto;
+  left: var(--bubble-pane-left);
+  top: var(--bubble-pane-top);
+  width: var(--bubble-pane-width);
+  height: var(--bubble-pane-height);
+  pointer-events: none;
+  background: none;
+}
+
+.bubble-frame:has(.bubble:focus-within)::backdrop {
+  background: var(--scrim);
+  backdrop-filter: blur(var(--blur-bubble-backdrop));
+}
+
 .bubble[hidden],
 .bubble-zone[hidden] {
   display: none;
