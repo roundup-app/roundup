@@ -19,3 +19,21 @@ it("u514_browser_the_gutters_select_turns", async () => {
   await load("?marks=none");
   expect(await read<number>("document.querySelectorAll('.turn-gutter').length")).toBe(0);
 }, 90_000);
+
+it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_stopped_%s", async (stopped) => {
+  await load();
+  await browser("eval", `(() => {
+    const target = document.createElement('button');
+    target.textContent = 'Outside terminal';
+    target.id = 'outside';
+    target.onmousedown = event => { ${stopped ? 'event.preventDefault(); event.stopPropagation();' : ''} };
+    document.body.append(target);
+    window.__emu.selectTurn(0, false);
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    getSelection().addRange(range);
+  })()`);
+  expect(await read<string>("window.__emu.selection()")).not.toBe("");
+  await browser("click", "#outside");
+  expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })")).toEqual({ terminal: "", browser: true });
+}, 90_000);
