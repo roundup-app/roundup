@@ -582,7 +582,7 @@ mod tests {
                     shared.runs().insert(
                         "7013".into(),
                         Slot::Resuming {
-                            mode: contracts::agent::ResumeMode::Normal,
+                            mode: Default::default(),
                             attempt: "1".into(),
                             since: 0,
                             old: None,
