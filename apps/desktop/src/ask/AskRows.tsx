@@ -127,7 +127,7 @@ const AskRow = (props: { entry: AskEntry; part: AskPart; index: number; where: s
 
   return (
     <li class="ask-row" data-state={props.part.state}>
-      <Tip text={props.part.text + "\n" + props.where} disabled={!cut()}>
+      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>
         {(trigger) => <Dynamic component={node() ? "button" : "div"} {...trigger({ onClick: open })}
           ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
           type={node() ? "button" : undefined} class="ask-line" onPointerEnter={measure}>{line()}</Dynamic>}
