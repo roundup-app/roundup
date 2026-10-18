@@ -1,0 +1,83 @@
+{
+  "lints": {
+    "just lint-web": 0,
+    "just lint-rust": 0,
+    "just contracts-fresh": 0,
+    "loop/rules.sh vocab": 0,
+    "loop/rules.sh scenario-ids": 0,
+    "loop/rules.sh merge-loss": 0,
+    "loop/rules.sh delta base head": 0
+  },
+  "web": {
+    "related": {
+      "passed": 596,
+      "failed": 4,
+      "skipped": 3,
+      "failed_tests": [
+        "u2307a_an_outside_press_minimises_and_still_reaches_its_target",
+        "u2230_every_hint_names_a_bound_chord",
+        "u132_rows_keep_their_kind_with_u361_tick_boxes_on_todos",
+        "y1_the_shipped_tree_40_seed_returns_none"
+      ]
+    },
+    "serial_retry_same_timeouts": {
+      "passed": 27,
+      "failed": 0,
+      "covers": [
+        "u2307a_an_outside_press_minimises_and_still_reaches_its_target",
+        "u2230_every_hint_names_a_bound_chord",
+        "u132_rows_keep_their_kind_with_u361_tick_boxes_on_todos",
+        "y1_the_shipped_tree_40_seed_returns_none"
+      ]
+    },
+    "bubble_and_switcher": {
+      "passed": 33,
+      "failed": 0
+    },
+    "u32_direct_shortcuts": {
+      "passed": 17,
+      "failed": 0
+    },
+    "hint_timeout_also_reproduced_on_main": true
+  },
+  "rust": {
+    "affected_crates": {
+      "passed": 1567,
+      "failed": 4,
+      "skipped": 3,
+      "failed_tests": [
+        "a35_a_clear_makes_earlier_marks_unusable",
+        "a35_a_failed_restart_leaves_the_others_rewound_and_retries",
+        "a35_a_selected_rewind_keeps_other_child_marks",
+        "a35_a_selected_later_child_cannot_orphan_an_unselected_descendant"
+      ]
+    },
+    "serial_retry_same_timeouts": {
+      "passed": 4,
+      "failed": 0,
+      "covers": [
+        "a35_a_clear_makes_earlier_marks_unusable",
+        "a35_a_failed_restart_leaves_the_others_rewound_and_retries",
+        "a35_a_selected_rewind_keeps_other_child_marks",
+        "a35_a_selected_later_child_cannot_orphan_an_unselected_descendant"
+      ]
+    },
+    "current_x12_lifecycle_and_authorization": {
+      "passed": 3,
+      "failed": 0
+    }
+  },
+  "note": "The broad Rust binary predates consolidation of the duplicate connection-survival test; the consolidated current X12 observer was run separately. All failed web and Rust cases passed serial retries without source or timeout changes.",
+  "merged_head": {
+    "source_commit": "88952cd807a258e54158a195696aca4323737a21",
+    "main_commit": "0920646c2a662b079cd9ecdd21d5db6fba8a98e2",
+    "bubble_and_switcher_passed": 33,
+    "x12_passed": 3,
+    "cargo_test_contracts_exit": 0,
+    "contracts_fresh_exit": 0,
+    "lint_web_exit": 0,
+    "lint_rust_exit": 0,
+    "headless_open_focus_failure_retry_cleanup": "merged-*.result.json; every rendered Check passes",
+    "performance": "perf-latest-comparison.json"
+  }
+}
