@@ -73,7 +73,7 @@ export const copy = {
   shelfKeys: "Work items keys",
   previousNextKeys: "↑ / ↓",
   focusThePreviousNextShelfRow: " Focus the previous / next work items row",
-  enter: "⌘Enter",
+  enter: "⌘⏎",
   toggleTheFocusedShelfRowSelection: " Toggle the focused work items row selection",
   rangeKeys: "⇧↑ / ⇧↓",
   selectARangeOfShelfRows: " Select a range of work items rows",
