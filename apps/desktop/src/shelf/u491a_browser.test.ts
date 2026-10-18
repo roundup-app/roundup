@@ -32,7 +32,7 @@ describe("u491a Shelf questions and navigation", () => {
 
   it("u490a_pointer_reorders_with_the_title_tooltip_open", async () => {
     const [one, two, three] = await rows(lane);
-    await lane.browser("hover", `.shelf [data-id="${three}"] .todo-row-button`);
+    await lane.browser("hover", `.shelf [data-id="${three}"] .shelf-title`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'third')");
 
     const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {

@@ -215,7 +215,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                           addBlocker(other.id);
                         }}
                       >
-                        <KindGlyph kind={kindOf(other)} /> <span class="mono">#{other.id}</span>{`  ${other.title}`}
+                        {() => <><KindGlyph kind={kindOf(other)} /> <span class="mono">#{other.id}</span>{`  ${other.title}`}</>}
                       </RowButton>
                     )}
                   </For>

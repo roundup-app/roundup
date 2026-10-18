@@ -11,7 +11,7 @@ const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus:
 const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => {
   let owner: HTMLElement | undefined;
   let pointer: { x: number; y: number } | undefined;
-  const rect = () => (props.anchor?.() ?? owner)?.getBoundingClientRect() ?? null;
+  const rect = () => (props.anchor ? props.anchor() : owner)?.getBoundingClientRect() ?? null;
 
   const ownership = {
     pointer: (event: PointerEvent) => {

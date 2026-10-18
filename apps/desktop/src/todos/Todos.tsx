@@ -120,7 +120,7 @@ export const OpenRow = (props: {
             props.sorted?.button(row);
           }}
         >
-          <span class="shelf-title">{props.todo.title}</span>
+          {(trigger) => <span {...trigger()} class="shelf-title">{props.todo.title}</span>}
         </RowButton>
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
@@ -420,7 +420,7 @@ export const Todos = () => {
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <div class="shelf-done-line">
               <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-                <span class="shelf-title">{done().length}{copy.doneCount}</span>
+                {() => <span class="shelf-title">{done().length}{copy.doneCount}</span>}
               </RowButton>
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
@@ -445,7 +445,7 @@ export const Todos = () => {
                       onKeyDown={(event) => selectionKey(todo, event)}
                       onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
                     >
-                      <span class="shelf-title">{todo.title}</span>
+                      {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
                     </RowButton>
                   }
                 />
