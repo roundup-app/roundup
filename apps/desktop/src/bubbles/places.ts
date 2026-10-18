@@ -73,9 +73,15 @@ export const toggledFill = (place: Place, extent: Extent): Place => {
   return clamped({ ...rest, ...restore }, extent);
 };
 
-/** Where the `index`-th bubble opens: cascaded from the top left, three quarters of the pane wide. */
-export const defaultPlace = (index: number, extent: Extent): Place =>
-  clamped({ x: STEP * (1 + (index % 6)), y: STEP * (1 + (index % 6)), w: extent.width * 0.75, h: extent.height * 0.5, min: false }, extent);
+const INSET = 96;
+
+/** U2742b: outside breathing room is three `--space-6` steps per side, shrinking at the existing minimum. */
+export const defaultPlace = (extent: Extent): Place => {
+  const w = Math.min(extent.width, Math.max(MIN_WIDTH, extent.width - 2 * INSET));
+  const h = Math.min(extent.height, Math.max(MIN_HEIGHT, extent.height - 2 * INSET));
+
+  return { x: (extent.width - w) / 2, y: (extent.height - h) / 2, w, h, min: false };
+};
 
 const placesSchema = v.record(v.string(), v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number(), min: v.boolean(), name: v.optional(v.string()), restore: v.optional(v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() })) }));
 
