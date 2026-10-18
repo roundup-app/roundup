@@ -174,14 +174,15 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
   });
 
   return <button onClick={props.select} type="button" class="overview-entry"
+    aria-label={[props.node.name, props.node.status ? LABELS[props.node.status.kind] : ""].filter(Boolean).join(" ")}
     data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
+    <Tip text={props.node.status ? LABELS[props.node.status.kind] : ""} disabled={!props.node.status}>{(trigger) =>
+      <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={props.node.status?.kind} data-tone={props.node.status?.kind === "error" ? "red" : undefined}>
+        <Show when={props.node.status}>{(status) => <KindGlyph kind={status().kind} />}</Show>
+      </span>
+    }</Tip>
     <Tip text={props.node.name} disabled={!cut()}>{(trigger) =>
       <span {...trigger()} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
     }</Tip>
-    <Show when={props.node.status}>{(status) => <Tip text={LABELS[status().kind]}>{(trigger) =>
-      <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
-        <KindGlyph kind={status().kind} />
-      </span>
-    }</Tip>}</Show>
   </button>;
 };

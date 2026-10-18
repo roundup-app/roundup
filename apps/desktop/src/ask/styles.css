@@ -249,6 +249,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: var(--space-3);
   height: 1lh;
   color: var(--grey);
 }
@@ -257,7 +258,9 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   color: var(--text);
 }
 
+.overview-state .glyph,
 .overview-state .glyph svg {
+  display: block;
   width: var(--space-3);
   height: var(--space-3);
 }
