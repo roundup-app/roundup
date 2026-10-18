@@ -3,6 +3,7 @@ use super::*;
 pub(super) struct State {
     /// Since when an Agent without a Terminal has been `done`.
     pub(super) opened: i64,
+    pub(super) launcher: Launcher,
 }
 
 impl Shared {
@@ -66,7 +67,12 @@ impl Shared {
     /// Every node leaving the module carries its Attempt's Status. During resume the old
     /// Terminal stays visible until acknowledgement, but its ended Status would close the new
     /// Attempt's Message receiver (B36). A node without a run is done after a Daemon reopen.
-    pub(super) fn present(&self, mut node: RailNode, runs: &HashMap<String, Slot>) -> RailNode {
+    pub(super) fn present(
+        &self,
+        mut node: RailNode,
+        runs: &HashMap<String, Slot>,
+        rail: &rail::Rail,
+    ) -> Result<RailNode, RpcError> {
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
             // B36: inheriting the ended run's revision closes Messages on the new Attempt.
@@ -112,6 +118,12 @@ impl Shared {
             None => true,
         };
         node.can_resume &= exited;
+        if node.can_resume
+            && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing)
+            && let Some((id, cwd)) = rail.conversation(&node.id)?
+        {
+            node.overview = self.rail_view.launcher.read_overview(Path::new(&cwd), &id);
+        }
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.inbox = self.events.inbox.fact(&node.id);
@@ -122,23 +134,22 @@ impl Shared {
             .get(&node.id)
             .cloned()
             .unwrap_or_default();
-        node
+        Ok(node)
     }
 
     pub(super) fn node(&self, id: &str) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        Ok(self.present(rail.node(id)?, &runs))
+        self.present(rail.node(id)?, &runs, &rail)
     }
 
     pub(super) fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        Ok(rail
-            .tree()?
+        rail.tree()?
             .into_iter()
-            .map(|node| self.present(node, &runs))
-            .collect())
+            .map(|node| self.present(node, &runs, &rail))
+            .collect()
     }
 }
 
@@ -274,7 +285,7 @@ impl Agents {
                 ));
             }
             self.shared
-                .prompt(&id, &order::steer(&order, None), None, None, false)
+                .prompt(&id, &order::steer(&order, None), None, None, false, None)
                 .await
                 .map_err(|err| match err {
                     SteerError::Refused(reason) => {
@@ -293,7 +304,7 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text, None, None, false).await {
+                if let Err(err) = shared.prompt(&id, &text, None, None, false, None).await {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });

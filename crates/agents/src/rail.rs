@@ -1010,6 +1010,7 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                     .then(|| row.get(13))
                     .transpose()?,
                 inbox: None,
+                overview: None,
             })
         })
         .map_err(sql)?;
