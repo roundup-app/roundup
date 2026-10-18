@@ -1,7 +1,10 @@
 import type { ITheme } from "@xterm/xterm";
 
+/** An emulator theme that always names the two colours the Daemon reports to a program (X17). */
+export type TerminalTheme = ITheme & { background: string; foreground: string };
+
 /** The emulator's colours per scheme, as the values of `tokens.css`'s `--ground`, `--text` and `--selected` in that scheme; `u59_terminal_theme.test.ts` fails when they drift apart. Each ANSI colour is 4.5:1 or better on its scheme's `--ground` as text (U4). */
-export const lightTerminalTheme: ITheme = {
+export const lightTerminalTheme: TerminalTheme = {
   background: "#ffffff",
   foreground: "#1d1d1f",
   cursor: "#1d1d1f",
@@ -25,7 +28,7 @@ export const lightTerminalTheme: ITheme = {
   brightWhite: "#3a3a3c",
 };
 
-export const darkTerminalTheme: ITheme = {
+export const darkTerminalTheme: TerminalTheme = {
   background: "#1c1c1e",
   foreground: "#f5f5f7",
   cursor: "#f5f5f7",
@@ -52,4 +55,4 @@ export const darkTerminalTheme: ITheme = {
 export const DARK_SCHEME = "(prefers-color-scheme: dark)";
 
 /** The theme for the window's colour scheme. */
-export const terminalThemeFor = (dark: boolean): ITheme => (dark ? darkTerminalTheme : lightTerminalTheme);
+export const terminalThemeFor = (dark: boolean): TerminalTheme => (dark ? darkTerminalTheme : lightTerminalTheme);
