@@ -34,7 +34,7 @@ const open = async (readonly = false, text?: string) => {
 
   if (text !== undefined) await browser("eval", `window.__fake.app.rpc('pad.write', ${JSON.stringify({name: "pad-3", text})})`);
 
-  await browser("click", "#shelf-tab-pads");
+  await browser("eval", "(() => { const tab = document.querySelector('#shelf-tab-pads'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); })()");
   await browser("wait", "[data-shelf-row] .pad-name");
   await browser("eval", `document.querySelectorAll('[data-shelf-row] .pad-name')[${readonly ? 2 : 3}].click()`);
   await browser("wait", ".ProseMirror");

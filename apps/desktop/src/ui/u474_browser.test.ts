@@ -219,7 +219,7 @@ const loadAppIcon = async (base: string, seed: string, selector: string) => {
   }
 
   if (seed === "tree-40") {
-    await browser("eval", `document.querySelector('#shelf-tab-todos').click()`);
+    await browser("eval", `document.querySelector('#shelf-tab-todos[aria-expanded=false]')?.click()`);
     await browser("wait", "--fn", `!!document.querySelector('.shelf .todo-row-button')`);
     await browser("eval", `document.querySelector('.shelf .todo-row-button').click()`);
   }

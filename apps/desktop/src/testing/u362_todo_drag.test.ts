@@ -21,9 +21,10 @@ type Checks = Record<string, {status: string; value: unknown}>;
 
 const setup = async (worst = false, origin = "", width = 1280, height = 820) => {
   await page.load(`${origin}/harness.html?seed=tree-40${worst ? '&todos=worst' : ''}`, width, height);
-  await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
+  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
   await page.call(`() => {
-    [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
+    const tab = document.querySelector('#shelf-tab-todos');
+    if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
     document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
   }`);
   await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);

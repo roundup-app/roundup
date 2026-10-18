@@ -28,8 +28,6 @@ The single collection of App-authored labels and parameterised prose, separate f
 | Retry Door | Retry supervisor |
 | End Takeover | Give control back |
 | Take over | Take control |
-| Show Shelf | Show work items |
-| Hide Shelf | Hide work items |
 | Clear without Handoff | Clear without a summary |
 | Clear (prompt submit) | Clear and keep a summary |
 

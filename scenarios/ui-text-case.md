@@ -52,8 +52,6 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 | Retry Door | Retry supervisor | Retry its failed start |
 | End Takeover | Give control back | End Takeover and resume routed delivery |
 | Take over | Take control | Begin Takeover |
-| Show Shelf | Show work items | Open the Shelf |
-| Hide Shelf | Hide work items | Close the Shelf |
 | Clear without Handoff | Clear without a summary | Existing failure fallback, without writing a Handoff |
 | Clear (clear prompt submit only) | Clear and keep a summary | Normal Clear, writing the Handoff first |
 
