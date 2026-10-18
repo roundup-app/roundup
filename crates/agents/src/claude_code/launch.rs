@@ -480,7 +480,9 @@ impl Launcher {
                 rule.as_str().is_some_and(|rule| {
                     let tool = rule.split('(').next().unwrap_or(rule);
                     matches!(tool, "Read" | "Grep" | "Glob" | "Skill" | "ToolSearch")
-                        || brief::door_tools().any(|name| tool == format!("mcp__roundup__{name}"))
+                        || brief::door_tools()
+                            .filter(|name| *name != "terminal_write")
+                            .any(|name| tool == format!("mcp__roundup__{name}"))
                 })
             });
         }
@@ -489,6 +491,7 @@ impl Launcher {
                 self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent);
             if role == Role::Door && mcp {
                 let mut allowed: Vec<Value> = brief::door_tools()
+                    .filter(|name| *name != "terminal_write")
                     .map(|name| json!(format!("mcp__roundup__{name}")))
                     .collect();
                 if let Some(carried) = &carried {

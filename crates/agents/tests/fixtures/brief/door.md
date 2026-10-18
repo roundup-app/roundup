@@ -63,6 +63,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `terminal_search`: search a Terminal's output for a regular expression and get only the matching lines with their offsets.
 - `route_set`: set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set.
 - `terminal_close`: stop a Terminal you or your Reach own and forget it.
+- `terminal_write`: type base64 `data` into a Terminal you or your Reach own.
 - `terminal_resize`: resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed.
 - `terminal_resizeHistory`: read your durable resize outcomes, including Takeover waits and drop reasons.
 - `terminal_kill`: stop the program of a Terminal you or your Reach own.
