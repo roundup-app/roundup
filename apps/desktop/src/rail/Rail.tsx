@@ -392,11 +392,11 @@ export const Rail = () => {
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A held key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { action: CHORDS.find((row) => row.keys === "⌘N")!, capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
+    { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, capture: () => ({ available: canSpawn, invoke: () => setComposing(true) }) },
+    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: () => setComposing(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);

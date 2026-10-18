@@ -78,7 +78,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [selectionMessage, setSelectionMessage] = createSignal(false);
   const [editing, setEditing] = createSignal<string | null>(null);
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
-  const closing = new Set<string>();
+  const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -245,11 +245,11 @@ export const Bubbles = (props: { screens: Screens }) => {
   };
 
   const close = async (id: string): Promise<void> => {
-    if (closing.has(id)) return;
+    if (closing().has(id)) return;
 
     const active = document.activeElement;
     const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
-    closing.add(id);
+    setClosing((ids) => new Set([...ids, id]));
 
     try {
       await app.rpc("terminal.close", { id });
@@ -267,7 +267,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
       setFailure(thrown.message);
     } finally {
-      closing.delete(id);
+      setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
     }
   };
 
@@ -565,7 +565,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const hasFocusedBubble = (focus: Element | null): boolean => {
     const id = focusedId(focus);
 
-    return focus?.isConnected === true && id !== null && shown().some((terminal) => terminal.id === id) && !readOnly() && !closing.has(id);
+    return focus?.isConnected === true && id !== null && shown().some((terminal) => terminal.id === id) && !readOnly() && !closing().has(id);
   };
 
   registerKeys({ kind: "leader" }, [
