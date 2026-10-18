@@ -927,18 +927,28 @@ impl Daemon {
             } else {
                 params["id"].as_str().unwrap_or_default()
             };
-            // Takeover acquisition and ordinary spawn use this same effect/registration order.
-            let _effect = self.child_effects(id).read_owned().await;
-            let mut registration = self.door_first_steers.lock().await;
-            let repair = if method == "message.send" {
-                self.specialist_summary(&conn.actor, &params).await
-            } else {
-                self.specialist_stop(&params).await
-            };
-            match repair {
-                Ok(Some(node)) => self.register_first_steer(&mut registration, &node),
-                Ok(None) => {}
-                Err(err) => eprintln!("rupd: specialist handoff: {}", err.message),
+            let is_specialist = self
+                .specialists
+                .lock()
+                .await
+                .values()
+                .any(|specialist| specialist.id == id);
+            // Ordinary hooks must not wait behind a specialist's spawn registration:
+            // first-input completion can itself depend on those hooks returning.
+            if is_specialist {
+                // Takeover acquisition and ordinary spawn use this same effect/registration order.
+                let _effect = self.child_effects(id).read_owned().await;
+                let mut registration = self.door_first_steers.lock().await;
+                let repair = if method == "message.send" {
+                    self.specialist_summary(&conn.actor, &params).await
+                } else {
+                    self.specialist_stop(&params).await
+                };
+                match repair {
+                    Ok(Some(node)) => self.register_first_steer(&mut registration, &node),
+                    Ok(None) => {}
+                    Err(err) => eprintln!("rupd: specialist handoff: {}", err.message),
+                }
             }
         }
         if method == "takeover.end" && outcome.is_ok() {
