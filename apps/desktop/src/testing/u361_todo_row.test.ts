@@ -16,8 +16,8 @@ beforeAll(async () => {
 afterAll(async () => { await page?.close(); });
 
 const FIXTURE = `async () => {
-  const tab = [...document.querySelectorAll('.shelf [role=tab]')].find(t => t.textContent.startsWith('Todos'));
-  tab.click();
+  const tab = [...document.querySelectorAll('.shelf-tabs [role=tab]')].find(t => t.textContent.startsWith('Todos'));
+  if (tab.getAttribute("aria-expanded") !== "true") tab.click();
   window.__fake.actAs({kind: 'agent', id: 'agent-1', parent: null});
   const rpc = window.__fake.app.rpc;
   const create = (title, blockers = null) => rpc('todo.create', {title, body: null, blockers});
@@ -52,7 +52,7 @@ run("u361 the rendered Todo row", () => {
         await page.until(`() => Boolean(window.__fake) && document.body.textContent.length > 0`);
 
         if (seed !== "first-run") {
-          await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]'))`);
+          await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]'))`);
           await page.call(FIXTURE);
           await page.until(`() => [...document.querySelectorAll('.shelf button')].some(b => /done$/.test(b.textContent.trim()))`);
           await page.call(`() => [...document.querySelectorAll('.shelf button')].find(b => /done$/.test(b.textContent.trim())).click()`);
@@ -76,7 +76,7 @@ run("u361 the rendered Todo row", () => {
       if (seed !== "first-run") it(`u361_a_failed_tick_box_call_unchecks_it_and_keeps_visible_keyboard_focus ${seed} ${scheme} ${width}x${height}`, async () => {
         await page.scheme(scheme);
         await page.load(`/harness.html?seed=${seed}`, width, height);
-        await page.until(`() => Boolean(document.querySelector('.shelf [role=tab]')) && Boolean(window.__fake)`);
+        await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(window.__fake)`);
         await page.call(FIXTURE);
         await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
         // The real keyboard generates the native change event; visit the row controls until its tick box.

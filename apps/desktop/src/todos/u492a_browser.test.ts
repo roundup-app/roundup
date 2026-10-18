@@ -57,10 +57,10 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     expect((await lane.calls("todo.delete")).map(call => call.params)).toEqual([{ id: second }]);
 
     // Tabs and the Home menu of an Agent's own Todo.
-    await lane.browser("click", '.shelf [role="tab"][id="shelf-tab-pads"]');
-    await lane.until("document.querySelector('.shelf [role=\"tab\"][aria-selected=\"true\"]')?.id === 'shelf-tab-pads'");
+    await lane.browser("click", '.shelf-tabs [role="tab"][id="shelf-tab-pads"]');
+    await lane.until("document.querySelector('.shelf-tabs [role=\"tab\"][aria-selected=\"true\"]')?.id === 'shelf-tab-pads'");
     await read(lane, "tabs");
-    await lane.browser("click", '.shelf [role="tab"][id="shelf-tab-todos"]');
+    await lane.browser("click", '.shelf-tabs [role="tab"][id="shelf-tab-todos"]');
 
     const made = await lane.evaluate<number>(`(async () => {
       window.__fake.actAs({ kind: 'agent', id: 'agent-1', parent: null });

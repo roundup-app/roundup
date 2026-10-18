@@ -14,6 +14,7 @@ export const WindowBar = (props: {
   project: string | undefined;
   rail: RailState | undefined;
   children: JSX.Element;
+  shelf?: JSX.Element;
   onFailure: (message: string | null) => void;
 }) => {
   const title = createMemo(() => {
@@ -95,6 +96,7 @@ export const WindowBar = (props: {
         <Tooltip.Trigger asChild={(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />} />
         <Portal><Tooltip.Positioner><Tooltip.Content>{title()}</Tooltip.Content></Tooltip.Positioner></Portal>
       </Tooltip.Root>
+      {props.shelf}
     </div>
   );
 };
