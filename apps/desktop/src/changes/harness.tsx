@@ -30,11 +30,15 @@ export const mountControl = async (changed: () => ChangedFiles | Promise<Changed
 
   connected.rail.select("a");
 
-  const view = render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
-      <WorktreeControl />
-    </ConnectedProjectContext.Provider>
-  ));
+  const view = render(() => {
+    connected.worktrees.watch(() => true);
+
+    return (
+      <ConnectedProjectContext.Provider value={connected}>
+        <WorktreeControl />
+      </ConnectedProjectContext.Provider>
+    );
+  });
 
   const calls = (method: string) => app.calls.filter((call) => call.method === method).length;
 
