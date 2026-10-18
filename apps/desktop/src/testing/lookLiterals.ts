@@ -6,6 +6,8 @@ const RADIUS_PROPERTY = /(?:^|-)radius$/;
 
 const DURATION_PROPERTY = /(?:^|-)(?:duration|delay)$|^(?:transition|animation)$/;
 
+const EASING = /(?:^|[^\w-])ease(?:-in-out|-in|-out)?(?![\w-])|\bcubic-bezier\(/i;
+
 const SHADOW_PROPERTY = /^box-shadow$/;
 
 const FONT_SIZE_PROPERTY = /^font(?:-size)?$/;
@@ -33,6 +35,8 @@ const withoutVars = (value: string): string => value.replace(/var\(--[\w-]+\)/g,
 const isLiteral = (property: string, value: string): boolean => {
   const rest = withoutVars(value);
 
+  if (EASING.test(rest)) return true;
+
   if (property.startsWith("--")) return !UNTIL_SLICE_3.has(property) && (COLOUR_FUNCTION.test(rest) || DURATION.test(rest));
 
   if (COLOUR_FUNCTION.test(rest)) return true;
@@ -52,7 +56,7 @@ const isLiteral = (property: string, value: string): boolean => {
   return false;
 };
 
-// `[;}]` or the end ends a declaration, so the last one in a rule needs no `;`. A custom property is a definition, so it is flagged only when it holds a colour function or a time.
+// `[;}]` or the end ends a declaration, so the last one in a rule needs no `;`. A custom property is a definition, so it is flagged only when it holds a colour function, a time or an easing.
 const DECLARATION = /(?:^|[\s;{])(-{0,2}[a-z][\w-]*)\s*:\s*([^;{}]+)(?=[;}]|$)/gi;
 
 /** Every look-property declaration in `css` that is not a `var(--…)` read, as `"property: value"`. */

@@ -44,6 +44,7 @@
   --radius-control: 6px;
   --radius-drawer: 12px;
 
+  --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-toast: 150ms;
