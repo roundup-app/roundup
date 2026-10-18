@@ -1,3 +1,4 @@
+import { AlertDialog } from "../ui/Dialog";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
@@ -112,19 +113,22 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
 
   const keep = () => {
     setAsking(false);
-    queueMicrotask(() => deleteButton?.focus());
   };
 
   // The confirmation is a layer nested in the Drawer's panel, so Escape reaches it first.
-  let confirmation: HTMLParagraphElement | undefined;
+  let confirmation: HTMLDivElement | undefined;
+  let keepButton: HTMLButtonElement | undefined;
 
-  registerKeys({ kind: "layer", element: () => confirmation, active: asking, modal: false }, [{ chords: ["Escape"], run: keep }]);
+  registerKeys({ kind: "layer", element: () => confirmation, active: () => asking() && !!todo(), modal: true }, []);
 
   return (
     <>
       <div class="todo-detail">
-        <Show when={asking() && todo()}>
-          <p class="todo-delete-confirm" role="group" aria-label={copy.deleteTodoQuestion} ref={confirmation}>{copy.deleteTodoQuestion}{" "}
+        <AlertDialog.Root open={asking() && !!todo()} initialFocusEl={() => keepButton ?? null} finalFocusEl={() => deleteButton ?? null} onOpenChange={({ open }) => { if (!open && !deleting()) keep(); }}>
+          <AlertDialog.Positioner>
+          <AlertDialog.Content class="todo-delete-confirm" ref={(element) => { confirmation = element; }}>
+            <AlertDialog.Title>{copy.deleteTodoQuestion}</AlertDialog.Title>
+            <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
             <button data-button="quiet"
               type="button"
               class="word light"
@@ -144,17 +148,18 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
             <button data-button="quiet"
               type="button"
               class="word light"
-              ref={(button) => queueMicrotask(() => button.focus({ preventScroll: true }))}
+              ref={(button) => { keepButton = button; }}
               onClick={keep}
             >{copy.keep}</button>
-          </p>
-        </Show>
-        <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          </AlertDialog.Content>
+          </AlertDialog.Positioner>
+        </AlertDialog.Root>
+        <Show when={!asking() && failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <Show
             when={todo()}
             fallback={
               <Show when={!removedByMe() && !deleting()}>
-                <ErrorLine message={`#${props.id} was deleted`} />
+                <ErrorLine message={copy.todoDeleted(props.id)} />
               </Show>
             }
           >
