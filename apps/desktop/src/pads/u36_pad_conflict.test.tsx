@@ -38,15 +38,8 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
   // The first test pays the cold import and first render of the Shelf and Drawer (about 0.7 s warm, 5 s on a loaded runner); the rest take about 0.1 s.
   vi.setConfig({ testTimeout: 30_000 });
 
-  // Rule 10: retire u36_the_changed_by_line_is_light from unit coverage: its
-  // class assertion checks appearance, assigned to the rendered design observer.
-  // U36’s conflict-notice behavior remains proved by the following test.
-  it("u36_a_dirty_draft_shows_a_changed_by_line", async () => {
-    await openConflict();
-
-    expect(screen.getByText("Changed by auth-refactor")).toBeTruthy();
-  });
-
+  // Rule 10: u36_typing_more_while_the_line_shows_keeps_the_line_and_blur_sends_no_write
+  // also proves the initial notice; the appearance-only test remains retired to the rendered observer.
   it("u36_a_dirty_draft_blur_sends_no_write", async () => {
     const { calls, field, state } = await openConflict();
 
@@ -102,7 +95,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
       expect(
         app.calls.filter((call) => call.method === "pad.write"),
       ).toEqual([
-        { method: "pad.write", params: { name: "release-checklist", text: "mine, edited" } },
+        { method: "pad.write", params: { name: "release-checklist", text: "mine, edited", expectedRevision: 1 } },
       ]),
     );
     expect(state.pads[0]?.text).toBe("mine, edited");
@@ -133,7 +126,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     await waitFor(() => expect(screen.queryByText(/Changed by/)).toBeNull());
   });
 
-  it("u36_keep_mine_never_overwrites_text_typed_after_a_quick_refocus", async () => {
+  it("p2544d_conflict_choices_preserve_latest_draft", async () => {
     const { app, field } = await openConflict();
     const reply = deferred<Pad>();
     app.handlers["pad.write"] = () => reply.promise;
@@ -145,11 +138,16 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
     fireEvent.focus(field);
     fireEvent.input(field, { target: { value: "mine, edited more" } });
-    reply.resolve(padOf("release-checklist", USER, "mine, edited"));
+    reply.resolve({ ...padOf("release-checklist", USER, "mine, edited"), revision: 2 });
     await reply.promise;
     await new Promise((done) => setTimeout(done, 0));
 
     expect(field.value).toBe("mine, edited more");
+    app.handlers["pad.write"] = ({ text }) => ({ ...padOf("release-checklist", USER, text), revision: 3 });
+    fireEvent.focusOut(field);
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
+      name: "release-checklist", text: "mine, edited more", expectedRevision: 2,
+    }));
   });
 
   it("u36_a_later_agent_change_refreshes_the_field_after_keep_mine_with_no_blur", async () => {
@@ -515,3 +513,87 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     expect(field.value).toBe("mine, edited");
   });
 });
+
+it("p2544d_external_change_pauses_autosave", async () => {
+  const { app, state } = await openShelf([{ ...padOf("notes", USER, "mine"), revision: 3 }]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "draft" } });
+  state.pads = [{ ...padOf("notes", USER, "remote"), revision: 4 }];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await waitForReload(app);
+  await new Promise((done) => setTimeout(done, 550));
+  fireEvent.focusOut(field);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  fireEvent.click(screen.getByText("Keep mine"));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 4 } },
+  ]));
+});
+
+it("p2544d_stale_write_without_event_keeps_draft", async () => {
+  const { render } = await import("@solidjs/testing-library");
+  const { App } = await import("../App");
+  const { fakeEmulators } = await import("../terminal/paneHarness");
+  const { startRealDaemon } = await import("../testing/realDaemonFixture");
+  const { createServedApp } = await import("../testing/realSeam");
+  const real = await startRealDaemon({});
+
+  try {
+    const served = createServedApp(real.base);
+    const calls: { method: string; params: unknown }[] = [];
+
+    // A missed Event is the fault under test; all reads and writes still reach the real Daemon.
+    const app: typeof served = {
+      ...served,
+      subscribe: (listener) => served.subscribe((event) => { if (event.name !== "pad.changed") listener(event); }),
+      rpc: (method, params) => {
+        calls.push({ method, params });
+
+        return served.rpc(method, params);
+      },
+      forProject: () => app,
+    };
+
+    const home = await served.rpc("rail.createWorkstream", { name: "review", parent: null });
+
+    await served.rpc("pad.create", { name: "notes", text: "original" });
+    await served.rpc("pad.move", { name: "notes", home: home.id });
+    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    const { showEverythingInApp } = await import("../testing/showEverything");
+
+    await showEverythingInApp(/review/);
+    fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
+    const field = await openPad("notes");
+
+    await served.rpc("pad.append", { name: "notes", text: " remote" });
+    fireEvent.input(field, { target: { value: "my draft" } });
+    fireEvent.focusOut(field);
+    await screen.findByText("Use theirs");
+    await screen.findByText(/pad notes is at revision 2/);
+    await waitFor(() => expect(calls.filter((call) => call.method === "pad.list").length).toBeGreaterThan(1));
+    expect(field.value).toBe("my draft");
+    expect(calls.filter((call) => call.method === "pad.write")).toEqual([
+      { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 1 } },
+    ]);
+    expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "original remote", revision: 2 }]);
+    await served.rpc("pad.append", { name: "notes", text: " intervening" });
+    fireEvent.click(screen.getByText("Keep mine"));
+    await screen.findByText(/pad notes is at revision 3/);
+    await waitFor(() => expect(calls.filter((call) => call.method === "pad.list")).toHaveLength(3));
+    expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
+      name: "notes", text: "my draft", expectedRevision: 2,
+    });
+    expect(field.value).toBe("my draft");
+    await new Promise((done) => setTimeout(done, 550));
+    expect(calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
+    fireEvent.click(screen.getByText("Use theirs"));
+    await waitFor(() => expect(field.value).toBe("original remote intervening"));
+    fireEvent.input(field, { target: { value: "after choice" } });
+    fireEvent.focusOut(field);
+    await waitFor(async () => expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "after choice", revision: 4 }]));
+    expect(calls.filter((call) => call.method === "pad.read")).toHaveLength(1);
+  } finally {
+    cleanup();
+    await real.stop();
+  }
+}, 180_000);

@@ -1744,3 +1744,30 @@ async fn b53_show_is_forbidden_outside_reach_and_absent_for_an_agent() {
         "terminal.shown was emitted"
     );
 }
+
+#[tokio::test]
+async fn p2544d_mcp_write_preserves_conflict_code() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    shim.call("pad_create", json!({"name": "notes", "text": "original"}))
+        .await;
+    shim.call(
+        "pad_write",
+        json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+    )
+    .await;
+    let stale = shim
+        .call(
+            "pad_write",
+            json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+        )
+        .await;
+    assert_eq!(stale.is_error, Some(true));
+    assert_eq!(text(&stale)["code"], rpc::code::CONFLICT);
+    assert!(
+        text(&stale)["message"]
+            .as_str()
+            .unwrap()
+            .contains("revision 2")
+    );
+}
