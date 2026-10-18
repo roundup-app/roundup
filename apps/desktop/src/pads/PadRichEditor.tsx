@@ -10,7 +10,7 @@ import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
 import { toolbar } from "@milkdown/crepe/feature/toolbar";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
-import { editorViewCtx } from "@milkdown/kit/core";
+import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
 import { Plugin } from "@milkdown/kit/prose/state";
 import { replaceAll } from "@milkdown/kit/utils";
@@ -21,7 +21,8 @@ import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/classic.css";
 
 export type PadEditorHandle = {
-  getText(): string;
+  /** null pauses saving because the edited blocks cannot be mapped to authored source. */
+  getText(): string | null;
   setText(text: string): void;
   focus(): void;
   /** The document equals the one last loaded, whatever Markdown it would serialize to. */
@@ -104,6 +105,10 @@ export default function PadRichEditor(props: {
           { label: copy.headingThree, level: 3 },
         ],
       });
+
+    crepe.editor.config((ctx) => {
+      ctx.update(remarkStringifyOptionsCtx, (options) => ({ ...options, bullet: "-" as const }));
+    });
 
     crepe.editor.use(
       $prose(
@@ -206,7 +211,8 @@ export default function PadRichEditor(props: {
 
       const document = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).state.doc);
       let originalDocument = document();
-      const getText = () => sourceForDocument(original, originalDocument, document(), () => crepe!.getMarkdown());
+
+      const getText = () => crepe!.editor.action((ctx) => sourceForDocument(original, originalDocument, document(), ctx));
 
       ready = true;
       crepe.setReadonly(props.readonly);
