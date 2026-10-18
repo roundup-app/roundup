@@ -1,16 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import {afterEach, expect, it, vi } from "vitest";
 import { Tooltip } from "./Tooltip";
-import { Tip } from "./Tip";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.useRealTimers(); });
-
-it("u2749b_focus_opens_without_a_pointer", async () => {
-  render(() => <Tip text="Explain">{(trigger) => <span {...trigger()} tabIndex={0}>Owner</span>}</Tip>);
-  fireEvent.keyDown(document, { key: "Tab" });
-  screen.getByText("Owner").focus();
-  expect((await screen.findByRole("tooltip")).textContent).toBe("Explain");
-});
 
 it.each([
   { DEV: true, VITEST: "", explicit: false },

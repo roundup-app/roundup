@@ -18,11 +18,9 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
 
   return (
     <Tip text={props.tooltip} class="todo-tooltip" disabled={!props.tooltip}>
-      {(trigger) => {
-        const tip = trigger();
+      {(trigger, focus) => {
 
-        return <button type="button" class="todo-row-button"
-          onFocus={tip.onFocus} onBlur={tip.onBlur} aria-describedby={tip["aria-describedby"]}
+        return <button {...focus} type="button" class="todo-row-button"
           onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
           data-reorderable={props.reorderable ? "" : undefined}
           aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed}

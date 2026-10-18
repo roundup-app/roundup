@@ -128,10 +128,10 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
 
   return (
     <li class="ask-row" data-state={props.part.state}>
-      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>{(trigger) => {
+      <Tip class="ask-tip" text={props.part.text + "\n" + props.where} disabled={!cut()}>{(trigger, focus) => {
         const tip = trigger();
 
-        return <Dynamic component={node() ? "button" : "div"} onClick={open} onFocus={tip.onFocus} onBlur={tip.onBlur} aria-describedby={tip["aria-describedby"]}
+        return <Dynamic {...focus} component={node() ? "button" : "div"} onClick={open}
           ref={(element: HTMLButtonElement | HTMLDivElement) => { button = element instanceof HTMLButtonElement ? element : undefined; }}
           type={node() ? "button" : undefined} class="ask-line" data-feedback="ink" onPointerEnter={measure}>{line(tip)}</Dynamic>;
       }}</Tip>

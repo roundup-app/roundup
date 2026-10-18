@@ -46,7 +46,7 @@ export const Tooltip = {
   Trigger: (props: ArkTooltip.TriggerProps) => {
     const ownership = useContext(Ownership);
 
-    return <ArkTooltip.Trigger {...props} onPointerMove={ownership?.pointer} onPointerOver={ownership?.pointer} onFocus={ownership?.focus} />;
+    return <ArkTooltip.Trigger {...props} onPointerMove={ownership?.pointer} onPointerOver={ownership?.pointer} onFocusIn={ownership?.focus} />;
   },
   Content: (props: ArkTooltip.ContentProps & { chord?: Chord | undefined }) => {
     const [local, rest] = splitProps(props, ["chord", "children", "class"]);
