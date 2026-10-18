@@ -31,7 +31,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
         style: props.hang === false ? { display: "block" } : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" },
       })}>{props.children}</button>} />
       <Show when={props.tooltip !== undefined}>
-        <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{props.tooltip}</Tooltip.Content></Tooltip.Positioner></Portal>
+        <Portal><Tooltip.Positioner style={{ "pointer-events": "none" }}><Tooltip.Content class="todo-tooltip">{props.tooltip}</Tooltip.Content></Tooltip.Positioner></Portal>
       </Show>
     </Tooltip.Root>
   );

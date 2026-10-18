@@ -186,7 +186,7 @@ export const OpenRow = (props: {
                 </>
               )}</For></span>
             </span>} />
-              <Portal><Tooltip.Positioner><Tooltip.Content class="todo-tooltip">{copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}</Tooltip.Content></Tooltip.Positioner></Portal>
+              <Portal><Tooltip.Positioner style={{ "pointer-events": "none" }}><Tooltip.Content class="todo-tooltip">{copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}</Tooltip.Content></Tooltip.Positioner></Portal>
             </Tooltip.Root>
           </Show>
           <Show when={props.nested}>
@@ -410,7 +410,9 @@ export const Todos = () => {
             onSubmit={(title) => void create(title)}
             onClose={(reason) => {
               setTyping(false);
+
               if (reason === "escape") setCreateFailure(null);
+
               if (reason !== "blur") plusButton?.focus();
             }}
           />
