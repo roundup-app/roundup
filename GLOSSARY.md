@@ -499,7 +499,7 @@ The random secret the App gives its attached Daemon on stdin and the webview rea
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
 
 **open_in_editor**:
-The App seam command that opens an absolute directory in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, else Cursor; with none installed it fails `NOT_FOUND` with a message saying so (U429).
+The App seam command that opens an absolute directory, or a file at an optional `line`, in the user's code editor: `ROUNDUP_EDITOR`, else VS Code, Cursor, then Zed; with none installed it fails `NOT_FOUND` with a message saying so (U429, U2539c).
 
 **Extension**:
 A directory with a manifest and one module.
