@@ -26,7 +26,7 @@ struct Shim {
 
 fn start_rup_mcp(socket: &Path, agent: &str) -> Child {
     tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
-        .args(["mcp", agent])
+        .args(if agent.is_empty() { vec!["--as", "ext:test", "mcp"] } else { vec!["mcp", agent] })
         .env("RUPD_SOCKET", socket)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1773,4 +1773,19 @@ async fn p2544d_mcp_write_preserves_conflict_code() {
             .unwrap()
             .contains("revision 2")
     );
+}
+
+#[tokio::test]
+async fn m2706a_actions_name_rail_nodes() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    let node = user.request("rail.createWorkstream", json!({"name":"Research"})).await.unwrap();
+    let shim = spawn_shim(&project.socket, "").await;
+    let reply = shim.call("rail_move", json!({"id":node["id"],"parent":null,"index":0})).await;
+    assert_eq!(reply.is_error, Some(false), "{reply:?}");
+    assert_eq!(reply.content[0].as_text().unwrap().text, "moved Research to Project root");
+    let tree = user.request("rail.tree", ()).await.unwrap();
+    assert_eq!(tree[0]["parent"], Value::Null);
+    assert_eq!(tree[0]["order"], 0);
+    project.daemon.abort();
 }
