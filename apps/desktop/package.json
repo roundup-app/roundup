@@ -16,6 +16,7 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@milkdown/crepe": "^7.22.2",
     "@milkdown/kit": "^7.22.2",
+    "@pierre/diffs": "^1.5.2",
     "@pierre/trees": "1.0.0-beta.6",
     "@radix-ui/colors": "3.0.0",
     "@solid-primitives/scheduled": "^1.5.3",
