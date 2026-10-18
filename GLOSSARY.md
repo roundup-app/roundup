@@ -282,7 +282,7 @@ One of `error | needs-you | blocked | working | idle | done`, most urgent first;
 The one ring-fill mark a row shows for its most urgent Kind: `⊗ ◉ ◌ ◔ ○ ✓`.
 
 **Ink**:
-Bold plus colour, used only for `error` (red) and `needs-you` (amber).
+Colour, never weight, used only for `error` (red) and `needs-you` (amber).
 
 **Chip**:
 An extra label after a name; it never changes the Glyph.

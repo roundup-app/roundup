@@ -240,7 +240,6 @@ export const copy = {
   agents: (value1: CopyValue) => `${value1} agents`,
   rowActions: "Row actions",
   addAgentLabel: "Add Agent",
-  agent: "Agent",
   clear: "Clear",
   clearWorkstream: "Clear Workstream…",
   stop: "Stop",

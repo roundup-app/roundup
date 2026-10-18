@@ -59,7 +59,7 @@
   min-height: var(--space-6);
 }
 
-/* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
+/* U426: an Agent row's hidden actions sit out of flow, take no room and stay out of the Tab order; near the row they claim space before the name can reach them. The line stays one row high. */
 .rail-row .row-icons {
   position: absolute;
   top: 50%;
@@ -68,7 +68,7 @@
   display: flex;
   flex: none;
   gap: 0;
-  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -77,8 +77,14 @@
 .rail-row:focus-within .row-icons {
   position: static;
   transform: none;
-  opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+}
+
+/* U3704: a Workstream row carries states after its name, so its actions keep their room at rest, hidden and out of the Tab order: a name is cut in the same place and a state keeps its x. */
+[data-part="branch-control"].rail-row .row-icons {
+  position: static;
+  transform: none;
 }
 
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
@@ -118,22 +124,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 400;
-  font-size: var(--text-title);
+  font-size: var(--text-row);
+  line-height: 1.15;
 }
 
 [data-part="branch-control"].rail-row .name {
   font-weight: 600;
 }
 
-/* U132, U404: Ink (`needs-you`, `error`) is bold in its tone, the only bold told by tone. */
-.rail-row .name.ink {
-  font-weight: 700;
-}
-
 /* U403: the chevron leads the row; its hit box is 16 px wide and 24 px tall, so the mark sits in the Glyph column and the trunk drops from its centre. */
 .rail-row .line > .rail-chevron {
   width: var(--space-4);
   min-width: var(--space-4);
+}
+
+/* U3704: a Workstream's Status sits after its chevron in the column its Agents' Status takes, one --rail-step in from the chevron. */
+.rail-row .line > .rail-chevron + .glyph {
+  margin-left: calc(var(--rail-step) - var(--space-4) - var(--rail-gap));
 }
 
 /* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
@@ -348,7 +355,7 @@
   min-width: 0;
   min-height: var(--space-6);
   margin-right: 0;
-  font-size: var(--text-title);
+  font-size: var(--text-row);
   font-weight: 400;
   --button-inline: 0;
   --button-lead: 0;
@@ -412,7 +419,7 @@
   display: block;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--text-title);
+  font-size: var(--text-row);
 }
 
 .rail-leaf .shelf-meta {
@@ -434,22 +441,8 @@
   display: none;
 }
 
-.rail-row[data-near="true"] .name {
-  flex: 1 1 0;
-  min-width: var(--space-4);
-}
-
-/* The group supplies its own target spacing; another gap would truncate nested names. */
-.rail-row[data-near="true"] .line {
-  gap: var(--space-1);
-}
-
-.rail-row[data-near="true"] .line > :first-child {
-  margin-right: calc(var(--rail-gap) - var(--space-1));
-}
-
-/* Secondary counts yield to controls without changing the gap before the name. */
-.rail-row[data-near="true"] .line > :is(.fill, .ink-count, .folded-agents, .rail-pads-control) {
+/* U3704: a state stays beside the name; only the Pads control, an action, yields to the row's actions. */
+.rail-row[data-near="true"] .line > .rail-pads-control {
   display: none;
 }
 
@@ -565,7 +558,7 @@
 }
 
 .rail-row input {
-  font-size: var(--text-title);
+  font-size: var(--text-row);
 }
 
 /* U466: the leaf owns the wash so nesting cannot inset its selection bar. */
@@ -615,17 +608,6 @@
 .rail-scroll > .todo-project-root {
   --button-lead: var(--space-4);
   --button-inline: var(--space-4);
-}
-
-/* The trailing Status column yields room to actions without moving the leading mark or name. */
-.rail-row .row-tail > .glyph {
-  width: var(--space-3);
-}
-/* U397: below the supported resize range the label yields, while both targets and marks retain their size. */
-@container rail (width < 220px) {
-  .rail-add .rail-add-label {
-    display: none;
-  }
 }
 
 /* Full-width rows keep their keyboard ring inside the clipping Rail. */

@@ -1,0 +1,356 @@
+{
+ "light-rest": {
+  "rail": [
+   [
+    "backend",
+    "name",
+    "600",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "migrate",
+    "name ink",
+    "400",
+    "rgb(151, 89, 0)"
+   ],
+   [
+    "auth",
+    "name",
+    "600",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "tokens",
+    "name",
+    "400",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "logins",
+    "name ink",
+    "400",
+    "rgb(196, 38, 46)"
+   ]
+  ],
+  "inkWeights": [
+   "tab-mark ink:400",
+   "glyph ink:400",
+   "[object SVGAnimatedString]:400",
+   "name ink:400",
+   "overview-name ink:400",
+   "overview-state ink:400",
+   ":400"
+  ],
+  "centre": [
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "path.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Done",
+   "SPAN.overview-state ink:400:",
+   "SPAN.glyph ink:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Needs-you",
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:"
+  ]
+ },
+ "light-focus-error": {
+  "rail": [
+   [
+    "backend",
+    "name",
+    "600",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "migrate",
+    "name ink",
+    "400",
+    "rgb(151, 89, 0)"
+   ],
+   [
+    "auth",
+    "name",
+    "600",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "tokens",
+    "name",
+    "400",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "logins",
+    "name ink",
+    "400",
+    "rgb(196, 38, 46)"
+   ]
+  ],
+  "inkWeights": [
+   "tab-mark ink:400",
+   "glyph ink:400",
+   "[object SVGAnimatedString]:400",
+   "name ink:400",
+   "overview-name ink:400",
+   "overview-state ink:400",
+   ":400"
+  ],
+  "centre": [
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "path.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Done",
+   "SPAN.overview-state ink:400:",
+   "SPAN.glyph ink:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Needs-you",
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:"
+  ]
+ },
+ "light-focus-needs-you": {
+  "rail": [
+   [
+    "backend",
+    "name",
+    "600",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "migrate",
+    "name ink",
+    "400",
+    "rgb(151, 89, 0)"
+   ],
+   [
+    "auth",
+    "name",
+    "600",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "tokens",
+    "name",
+    "400",
+    "rgb(29, 29, 31)"
+   ],
+   [
+    "logins",
+    "name ink",
+    "400",
+    "rgb(196, 38, 46)"
+   ]
+  ],
+  "inkWeights": [
+   "tab-mark ink:400",
+   "glyph ink:400",
+   "[object SVGAnimatedString]:400",
+   "name ink:400",
+   "overview-name ink:400",
+   "overview-state ink:400",
+   ":400"
+  ],
+  "centre": [
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "path.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Done",
+   "SPAN.overview-state ink:400:",
+   "SPAN.glyph ink:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Needs-you",
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:"
+  ]
+ },
+ "dark-rest": {
+  "rail": [
+   [
+    "backend",
+    "name",
+    "600",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "migrate",
+    "name ink",
+    "400",
+    "rgb(240, 160, 48)"
+   ],
+   [
+    "auth",
+    "name",
+    "600",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "tokens",
+    "name",
+    "400",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "logins",
+    "name ink",
+    "400",
+    "rgb(255, 107, 107)"
+   ]
+  ],
+  "inkWeights": [
+   "tab-mark ink:400",
+   "glyph ink:400",
+   "[object SVGAnimatedString]:400",
+   "name ink:400",
+   "overview-name ink:400",
+   "overview-state ink:400",
+   ":400"
+  ],
+  "centre": [
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "path.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Done",
+   "SPAN.overview-state ink:400:",
+   "SPAN.glyph ink:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Needs-you",
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:"
+  ]
+ },
+ "dark-focus-error": {
+  "rail": [
+   [
+    "backend",
+    "name",
+    "600",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "migrate",
+    "name ink",
+    "400",
+    "rgb(240, 160, 48)"
+   ],
+   [
+    "auth",
+    "name",
+    "600",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "tokens",
+    "name",
+    "400",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "logins",
+    "name ink",
+    "400",
+    "rgb(255, 107, 107)"
+   ]
+  ],
+  "inkWeights": [
+   "tab-mark ink:400",
+   "glyph ink:400",
+   "[object SVGAnimatedString]:400",
+   "name ink:400",
+   "overview-name ink:400",
+   "overview-state ink:400",
+   ":400"
+  ],
+  "centre": [
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "path.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Done",
+   "SPAN.overview-state ink:400:",
+   "SPAN.glyph ink:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Needs-you",
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:"
+  ]
+ },
+ "dark-focus-needs-you": {
+  "rail": [
+   [
+    "backend",
+    "name",
+    "600",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "migrate",
+    "name ink",
+    "400",
+    "rgb(240, 160, 48)"
+   ],
+   [
+    "auth",
+    "name",
+    "600",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "tokens",
+    "name",
+    "400",
+    "rgb(245, 245, 247)"
+   ],
+   [
+    "logins",
+    "name ink",
+    "400",
+    "rgb(255, 107, 107)"
+   ]
+  ],
+  "inkWeights": [
+   "tab-mark ink:400",
+   "glyph ink:400",
+   "[object SVGAnimatedString]:400",
+   "name ink:400",
+   "overview-name ink:400",
+   "overview-state ink:400",
+   ":400"
+  ],
+  "centre": [
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "path.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Done",
+   "SPAN.overview-state ink:400:",
+   "SPAN.glyph ink:400:",
+   "svg.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "circle.[object SVGAnimatedString]:400:",
+   "SPAN.:400:Needs-you",
+   "SPAN.overview-state:400:",
+   "SPAN.glyph:400:"
+  ]
+ }
+}

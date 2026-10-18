@@ -1,0 +1,118 @@
+{
+ "light-hover": {
+  "near": "true",
+  "dotX": 48,
+  "nameX": 72
+ },
+ "light": [
+  {
+   "id": "auth",
+   "dot": {
+    "x": 48,
+    "w": 16
+   },
+   "dotSvg": {
+    "x": 50,
+    "w": 12
+   },
+   "name": {
+    "x": 72,
+    "w": 96.484375
+   },
+   "chevron": {
+    "x": 20,
+    "w": 16
+   }
+  },
+  {
+   "id": "tokens",
+   "dot": {
+    "x": 48,
+    "w": 16
+   },
+   "dotSvg": {
+    "x": 50,
+    "w": 12
+   },
+   "name": {
+    "x": 72,
+    "w": 97.953125
+   },
+   "chevron": null
+  },
+  {
+   "id": "logins",
+   "dot": {
+    "x": 48,
+    "w": 16
+   },
+   "dotSvg": {
+    "x": 50,
+    "w": 12
+   },
+   "name": {
+    "x": 72,
+    "w": 81.0625
+   },
+   "chevron": null
+  }
+ ],
+ "dark-hover": {
+  "near": "true",
+  "dotX": 48,
+  "nameX": 72
+ },
+ "dark": [
+  {
+   "id": "auth",
+   "dot": {
+    "x": 48,
+    "w": 16
+   },
+   "dotSvg": {
+    "x": 50,
+    "w": 12
+   },
+   "name": {
+    "x": 72,
+    "w": 96.484375
+   },
+   "chevron": {
+    "x": 20,
+    "w": 16
+   }
+  },
+  {
+   "id": "tokens",
+   "dot": {
+    "x": 48,
+    "w": 16
+   },
+   "dotSvg": {
+    "x": 50,
+    "w": 12
+   },
+   "name": {
+    "x": 72,
+    "w": 97.953125
+   },
+   "chevron": null
+  },
+  {
+   "id": "logins",
+   "dot": {
+    "x": 48,
+    "w": 16
+   },
+   "dotSvg": {
+    "x": 50,
+    "w": 12
+   },
+   "name": {
+    "x": 72,
+    "w": 81.0625
+   },
+   "chevron": null
+  }
+ ]
+}

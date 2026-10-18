@@ -49,14 +49,14 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   layout(400);
   await mountRail([workstream("w", { name: NAME })]);
 
-  const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add-label")!.closest("button")!;
+  const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add")!;
   hoverRow(NAME);
   await screen.findByRole("tooltip");
   fireEvent.pointerMove(add, { pointerType: "mouse" });
   await waitFor(() => expect(screen.queryByText(NAME, { selector: "[role=tooltip] *, [role=tooltip]" })).toBeNull());
   fireEvent.keyDown(document, { key: "Tab" });
   add.focus();
-  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(`${copy.newAgent}${CHORDS[0]!.keys}`));
+  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(`${copy.addAgentLabel}${CHORDS[0]!.keys}`));
 });
 
 it.each(["hover", "focus"])("u2570a_tooltips_follow_their_chord_%s", async (input) => {

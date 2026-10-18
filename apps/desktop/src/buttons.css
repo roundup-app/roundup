@@ -73,11 +73,11 @@ button {
 }
 
 /* U137: the Add Agent icon and label rest at a stronger grey on the selected wash to keep D5; hover reaches --text. */
-.rail-row[data-selected="true"] button:has(.rail-add-label):not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row[data-selected="true"] button.rail-add:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--ink-rest-selected);
 }
 
-.rail-row[data-selected="true"] button:has(.rail-add-label):hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
+.rail-row[data-selected="true"] button.rail-add:hover:not([aria-disabled="true"], :active, [data-pressed="true"]) {
   color: var(--text);
 }
 

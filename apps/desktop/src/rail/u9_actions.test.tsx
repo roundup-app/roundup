@@ -141,11 +141,11 @@ describe("u9 actions", () => {
 
   it("u9_promote_is_hidden_until_hover_and_never_on_an_agent", async () => {
     await mountRail([workstream("g"), agent("a", "idle", "i")]);
-    const before = screen.queryByText(/^start supervisor$/i);
+    const before = screen.queryByRole("button", { name: /^start supervisor$/i });
 
     fireEvent.mouseEnter(rowOf("a"));
 
-    expect([before, screen.queryByText(/^start supervisor$/i)]).toEqual([null, null]);
+    expect([before, screen.queryByRole("button", { name: /^start supervisor$/i })]).toEqual([null, null]);
   });
 
   it("u9_a_failed_call_shows_one_ink_line_until_the_next_click", async () => {
@@ -319,7 +319,7 @@ it("a24_a_pending_start_keeps_the_rail_interactive_and_the_pane_size", async () 
   const pane = document.querySelector<HTMLElement>(".pane");
   const before = pane?.getAttribute("style") ?? null;
 
-  fireEvent.click(screen.getByText(/^start supervisor$/i));
+  fireEvent.click(screen.getByRole("button", { name: /^start supervisor$/i }));
   await waitFor(() => expect(mounted.rail.doorPending("closed")).toBe(true));
   fireEvent.click(screen.getByText("other"));
   await settled();
