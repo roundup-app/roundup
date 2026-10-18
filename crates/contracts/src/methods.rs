@@ -521,6 +521,7 @@ mod tests {
                 "NOT_RUNNING",
                 "NOT_ACKED",
                 "EVENTS_EXPIRED",
+                "INBOX_UNAVAILABLE",
             ]
         );
     }
