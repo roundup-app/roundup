@@ -46,6 +46,11 @@ impl Model {
                 "--fixtures",
             ])
             .arg(fixture)
+            .arg("--fixtures")
+            .arg(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/e2e/fixtures/rail_rename_note.json"),
+            )
             .stdout(Stdio::null())
             .spawn()
             .expect("pinned aimock starts after pnpm install");
