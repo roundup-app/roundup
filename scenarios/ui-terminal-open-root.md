@@ -1,6 +1,6 @@
 # UI: opening a Terminal with nothing selected but the Project root
 
-Module: `apps/desktop/src/bubbles`. Ids: U524. Terms: Terminal, Bubble, Workstream, Project root (`GLOSSARY.md`). Work Issue: #2226. Journey stage: Intervene (`.agents/data/journey.md`, “What must work”): the user opens a Terminal in one step.
+Module: `apps/desktop/src/bubbles`. Ids: U524. Terms: Terminal, Bubble, Workstream, Project root (`GLOSSARY.md`). Work Issue: #2633 (extends #2226). Journey stage: Intervene (`.agents/data/journey.md`, “What must work”): the user opens a Terminal in one step.
 
 **U524 a Terminal opens from the Project root.** Narrows U469's “Open and missing selection”; #2633 reconciles the empty case with U2571b and extends X12; changes no App seam command or Token. Given an open Project whose selection is the Project root and resolves to no Workstream, then:
 
@@ -9,6 +9,6 @@ Module: `apps/desktop/src/bubbles`. Ids: U524. Terms: Terminal, Bubble, Workstre
 - **Failure recovery.** A rejected open shows U469's failure text; retry succeeds, focuses its Bubble and clears the failure. Asserted by `u524_a_failed_empty_project_open_can_be_retried`.
 - **Moves.** D2, D5 and D6 hold for the Bubble and failure at 1512×950 in light and dark. The design critic judges these Checks (AGENTS.md rule 10).
 
-Tests: the named `u524_` tests in `apps/desktop/src/bubbles`, Vitest with the fake App for calls, focus and status, isolated headless Chromium on the U26 harness for geometry and computed styles. The obsolete no-call empty-Project and selection-message-lifetime clauses are retired by #2633; the named open and retry observers replace them. Retain unaffected U165 and U469 assertions. Policy: progress goes on #2226, not here.
+Tests: the named `u524_` tests in `apps/desktop/src/bubbles`, Vitest with the fake App for calls, focus and status, isolated headless Chromium on the U26 harness for geometry and computed styles. The obsolete no-call empty-Project and selection-message-lifetime clauses are retired by #2633; the named open and retry observers replace them. Retain unaffected U165 and U469 assertions. Policy: progress goes on #2633, not here.
 
 Moves: D2, D5, D6 (`docs/design-system.md`); existing Tokens only.
