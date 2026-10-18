@@ -16,7 +16,7 @@ const loadTrees = () => (library ??= import("@pierre/trees"));
 export const treesLoaded = (): boolean => library !== undefined;
 
 /** U2539b, U2539d: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
-export const ChangedTree = (props: { root: string; files: readonly ChangedFile[] }) => {
+export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]; selected?: string | undefined; onSelect?: (path: string) => void }) => {
   const { app } = useConnectedProject();
   const [failure, setFailure] = createSignal<string | null>(null);
   const byPath = new Map(props.files.map((file) => [file.path, file]));
@@ -36,6 +36,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
     let gone = false;
     let stopScroll: (() => void) | undefined;
     let stopRows: (() => void) | undefined;
+    let restoreFocus = props.selected !== undefined;
 
     void loadTrees().then(({ FileTree }) => {
       const mount = host();
@@ -76,6 +77,12 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
             if (row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
           }
 
+          if (restoreFocus) {
+            const selected = [...shadow.querySelectorAll<HTMLElement>("[data-item-path]")].find(row => row.dataset.itemPath === props.selected);
+
+            if (selected) { restoreFocus = false; selected.focus(); }
+          }
+
           mount.style.setProperty("--worktree-rows", String(tree?.getVisibleCount() ?? 0));
         };
 
@@ -88,7 +95,11 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
         stopRows = () => { observer.disconnect(); unsubscribe(); };
       }
 
-      shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+      if (props.selected) {
+        tree.scrollToPath(props.selected);
+        [...(shadow?.querySelectorAll<HTMLElement>("[data-item-path]") ?? [])].find(row => row.dataset.itemPath === props.selected)?.focus();
+      }
+      else shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
       const scroller = shadow?.querySelector<HTMLElement>("[data-file-tree-virtualized-scroll]");
 
       if (scroller) {
@@ -116,6 +127,12 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
       if (event.key === "Enter") choose(tree?.getFocusedPath() ?? null);
     };
 
+    const onSelect = (event: Event) => {
+      const row = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.itemType === "file");
+
+      if (row?.dataset.itemPath) props.onSelect?.(row.dataset.itemPath);
+    };
+
     const onDoubleClick = (event: MouseEvent) => {
       const row = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.itemType === "file");
 
@@ -124,10 +141,14 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
 
     const element = host();
 
+    element?.addEventListener("click", onSelect);
+    element?.addEventListener("focusin", onSelect);
     element?.addEventListener("keydown", onKeyDown);
     element?.addEventListener("dblclick", onDoubleClick);
     onCleanup(() => {
       gone = true;
+      element?.removeEventListener("click", onSelect);
+      element?.removeEventListener("focusin", onSelect);
       element?.removeEventListener("keydown", onKeyDown);
       element?.removeEventListener("dblclick", onDoubleClick);
       stopScroll?.();
