@@ -124,9 +124,9 @@ const ProjectOverview = () => {
 
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
-  return <section class="project-overview" aria-label="Project overview">
+  return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={rail.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-    <h2 class="overview-heading" data-state="attention">{attention().length === 0 ? "Nothing needs you" : `${attention().length} ${attention().length === 1 ? "needs" : "need"} you`}</h2>
+    <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
     <ul class="overview-list">
       <For each={workstreams()}>{(node) => <li>
         {entry(node)}
@@ -156,7 +156,7 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
   });
 
   return <Tip text={props.node.name} disabled={!cut()}>
-    {(trigger) => <button {...trigger({ type: "button", class: "overview-entry", onClick: props.select })}
+    {(trigger) => <button {...trigger({ onClick: props.select })} type="button" class="overview-entry"
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
       <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
