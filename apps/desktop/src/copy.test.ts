@@ -1,10 +1,18 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { copy } from "./copy";
 import { door, workstream } from "./testing/nodes";
 import { mountRailAndPane } from "./terminal/paneHarness";
 
 afterEach(cleanup);
+
+it("u471_action_labels_describe_the_existing_action_start_supervisor", async () => {
+  const { app, connected } = await mountRailAndPane([workstream("w")]);
+  app.handlers["rail.startDoor"] = () => door("w", "working", "starting");
+  connected.rail.select("w");
+  fireEvent.click((await screen.findAllByRole("button", { name: "Start supervisor" })).find((button) => button.closest(".pane-door"))!);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "rail.startDoor").map((call) => call.params)).toEqual([{ id: "w" }]));
+  expect(connected.rail.selected()).toBe("w");
+});
 
 import { parse } from "@babel/parser";
 import { isNode } from "@babel/types";
@@ -134,8 +142,8 @@ it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () 
   app.handlers["rail.startDoor"] = () => { throw new Error("keep THIS launch failure 🧭"); };
 
   connected.rail.select("w");
-  fireEvent.click(within(document.querySelector<HTMLElement>(".pane-door")!).getByRole("button", { name: copy.start }));
-  const retry = await within(document.querySelector<HTMLElement>(".pane-door")!).findByRole("button", { name: copy.retry });
+  fireEvent.click((await screen.findAllByRole("button", { name: "Start supervisor" })).find((button) => button.closest(".pane-door"))!);
+  const retry = (await screen.findAllByRole("button", { name: "Retry supervisor" })).find((button) => button.closest(".pane-door"))!;
 
   expect(document.body.textContent).toContain("keep THIS launch failure 🧭");
   app.handlers["rail.startDoor"] = () => door("w", "working", "starting");

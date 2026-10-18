@@ -10,7 +10,9 @@ import { mountRailAndPane } from "./paneHarness";
 
 afterEach(cleanup);
 
-const paneStart = () => within(document.querySelector<HTMLElement>(".pane-door")!).getByRole("button", { name: new RegExp(`^(${copy.start}|${copy.retry})$`) });
+const startWords = () => screen.getAllByText(/^(Start|Retry) supervisor$/);
+
+const paneStart = () => startWords().find((word) => word.closest(".pane-door"))!;
 
 const calls = (app: { calls: { method: string; params: unknown }[] }, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);
 
@@ -116,7 +118,7 @@ describe("u143 empty Project", () => {
     };
 
     fireEvent.click(startWorkstream());
-    await screen.findByText(copy.doorDidNotStart);
+    await screen.findByText("Supervisor did not start");
     app.handlers["rail.startDoor"] = () => door("made", "working", "starting");
     fireEvent.click(paneStart());
 
@@ -131,7 +133,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
 
-    expect([await screen.findByText(copy.doorNotStarted), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
+    expect([await screen.findByText("Supervisor not started"), calls(app, "rail.startDoor")]).toEqual([expect.anything(), []]);
   });
 
   it("u143_a_door_that_exited_reads_stopped_with_its_code_and_start_runs_it_once", async () => {
@@ -140,7 +142,7 @@ describe("u143 a selected Workstream whose Door is not running", () => {
 
     connected.rail.select("r");
     app.emit(event({ name: "terminal.exited", data: { id: "t-r", code: 137 } }));
-    await screen.findByText(copy.doorStoppedWithExit("exited 137"));
+    await screen.findByText("Supervisor stopped, exited 137");
     fireEvent.click(paneStart());
 
     await waitFor(() => expect(calls(app, "rail.startDoor")).toEqual([{ id: "r" }]));
@@ -159,11 +161,23 @@ describe("u143 a selected Workstream whose Door is not running", () => {
     app.handlers["rail.startDoor"] = () => new Promise<RailNode>(() => {});
 
     connected.rail.select("r");
-    fireEvent.click(paneStart());
-    await screen.findByText(copy.startingDoor);
+    fireEvent.click(await screen.findByText(/^Start supervisor$/i, { selector: ".pane-door *" }));
+    await screen.findByText("Starting supervisor…");
     fireEvent.click(paneStart());
 
-    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText(copy.doorNotStarted)]).toEqual([1, true, null]);
+    expect([calls(app, "rail.startDoor").length, paneStart().matches('[aria-disabled="true"]'), screen.queryByText("Supervisor not started")]).toEqual([1, true, null]);
+  });
+
+  it("u143_a_failed_start_reads_did_not_start_with_the_message_and_retry", async () => {
+    const { app, connected } = await mountRailAndPane([workstream("r")]);
+    app.handlers["rail.startDoor"] = () => {
+      throw new RpcError(-32003, "launch failed");
+    };
+
+    connected.rail.select("r");
+    fireEvent.click(await screen.findByText(/^Start supervisor$/i, { selector: ".pane-door *" }));
+
+    expect([await screen.findByText("Supervisor did not start"), (await screen.findAllByRole("alert")).map((line) => line.textContent), paneStart().textContent]).toEqual([expect.anything(), ["launch failed", "launch failed"], "Retry supervisor"]);
   });
 });
 
