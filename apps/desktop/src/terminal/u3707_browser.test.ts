@@ -20,12 +20,13 @@ afterAll(async () => { await page?.close(); });
 
 const MODES = [["light", undefined], ["dark", undefined], ["dark", "more"]] as const;
 
-/** Each owned state: the seed, the row to select (null keeps the seed's own selection). */
+/** Each owned state: the seed, the element to click (null keeps the seed's own selection); the Door row's long name is the longest name seeded. */
 const STATES = [
   ["watched-agent", "agents-10", '.rail-row[data-id="agent-1"]'],
   ["door-terminal", "tree-40", '.rail-row[data-id="payments"]'],
   ["door-not-running", "door-stopped", null],
   ["daemon-gone", "daemon-exits", null],
+  ["bubble", "door-stopped", ".terminal-new"],
 ] as const;
 
 const failing = (checks: Checks) => CHECK_IDS.filter((id) => checks[id].status === "fail");
@@ -40,6 +41,8 @@ it("u3707_rendered_checks", async () => {
       if (row) await page.call(`(row) => document.querySelector(row).click()`, row);
 
       await page.until(`() => Boolean(document.querySelector('.pane'))`);
+
+      if (name === "bubble") await page.until(`() => Boolean(document.querySelector('.bubble:not([hidden]) .xterm-screen'))`);
 
       const checks = await page.call<Checks>(`() => window.__checks()`);
       const dir = captureDir("U3707");
