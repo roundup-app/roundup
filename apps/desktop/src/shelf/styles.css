@@ -173,4 +173,6 @@
 }
 .shelf-question-targets { list-style: none; margin: var(--space-2) 0; padding: 0; }
 .shelf-bulk-line[hidden] { display: none; }
-.shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-3); }
+.shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: var(--space-3); }
+
+.shelf-question-words button:last-child { color: var(--text); }
