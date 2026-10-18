@@ -4020,7 +4020,7 @@ async fn h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_an
             client
                 .request(
                     "agent.spawn",
-                    json!({"cwd": project.dir.path(), "prompt": null, "parent": parent}),
+                    json!({"cwd": project.dir.path(), "prompt": "What should this Agent do?", "parent": parent}),
                 )
                 .await
                 .unwrap(),

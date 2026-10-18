@@ -8,7 +8,7 @@ import type { Status } from "@contracts/Status";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createServedApp } from "./realSeam";
+import { createServedApp, spawnPrompted } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
@@ -110,12 +110,8 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       await doorReady(async () => (await tree()).find((node) => node.id === workstream)?.status, () => row(workstream));
 
       for (const [at, kind] of kinds.entries()) {
-        // A press while the last start is still pending calls nothing (U9), so press again until the Agent is in the tree.
-        await waitFor(async () => {
-          if ((await agentsOf(workstream)).length <= at) fireEvent.click(await within(rail.querySelector<HTMLElement>(`[data-id="${workstream}"]`)!).findByLabelText("Add Agent"));
-
-          expect(await agentsOf(workstream)).toHaveLength(at + 1);
-        }, { timeout: 30_000, interval: 1000 });
+        await spawnPrompted(app, real.dir, workstream);
+        await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
 
