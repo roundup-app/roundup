@@ -25,7 +25,7 @@ const open = async (): Promise<void> => {
 it("u2237_fill_and_restore_refit_once", async () => {
   await open();
 
-  const header = () => page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.bubble:not([hidden]) .bubble-state').getBoundingClientRect(); return { x: r.right + 4, y: r.y + r.height / 2 }; }`);
+  const header = () => page.call<{ x: number; y: number }>(`() => { const r = document.querySelector('.bubble:not([hidden]) .bubble-name').getBoundingClientRect(); return { x: r.right + 4, y: r.y + r.height / 2 }; }`);
   const sizes = () => page.call<number>(`() => window.__fake.app.calls.filter((call) => call.method === 'terminal.resize').length`);
   const settle = () => page.call(`() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))`);
 

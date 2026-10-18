@@ -1,5 +1,5 @@
 import { copy as appCopy } from "../copy";
-import { createSignal } from "solid-js";
+import { createEffect, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import { PASTED_IMAGE_TYPES, RpcError } from "../app/seam";
 import type { OutputMessage, OutputSubscription, PastedImage } from "../app/seam";
@@ -31,6 +31,10 @@ export type Screens = {
   paste(id: string, clipboard: Pick<Clipboard, "readText"> & Partial<Pick<Clipboard, "read">>): Promise<void>;
   /** Whether the Terminal has exited. */
   exited(id: string): boolean;
+  /** Whether a plain Terminal has output its user has not viewed since: it arrived while `viewing(id, false)` held, and `viewing(id, true)` clears it. */
+  unseen(id: string): boolean;
+  /** Tells whether the user can see the Terminal now: its Bubble is open and its tab selected. */
+  viewing(id: string, on: boolean): void;
   /** Pastes dropped paths as one shell line fragment (U162); an exited Terminal or Daemon, or no path, takes nothing. */
   pastePaths(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
@@ -58,6 +62,9 @@ type Stream = {
   restoring: boolean;
   lost: boolean;
 };
+
+/** One Terminal's output subscription that exists only to learn that bytes came: the first one ends it. */
+type Watch = { open: boolean; subscription: OutputSubscription | null };
 
 const takeFirst = (stream: Stream): void => {
   const chunk = stream.queue.shift();
@@ -124,6 +131,11 @@ const imageOnClipboard = async (clipboard: Partial<Pick<Clipboard, "read">>): Pr
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, watching: (id: string) => boolean = () => false, refused: () => void = () => {}): Screens => {
   const { app, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
+  const watches = new Map<string, Watch>();
+  /** The offset up to which a Terminal's output was shown, kept when its stream is released. */
+  const shownTo = new Map<string, number>();
+  const viewed = new Set<string>();
+  const [unseenIds, setUnseenIds] = createSignal<ReadonlySet<string>>(new Set());
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
   let failureOrder = 0;
   let disposed = false;
@@ -166,6 +178,90 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
     if (fitted.cols !== holder.shownSize.cols || fitted.rows !== holder.shownSize.rows) resize(id, fitted);
   };
+
+  const markUnseen = (id: string, on: boolean): void => {
+    setUnseenIds((current) => {
+      if (current.has(id) === on) return current;
+
+      const next = new Set(current);
+
+      if (on) next.add(id);
+      else next.delete(id);
+
+      return next;
+    });
+  };
+
+  const stopWatch = async (id: string): Promise<void> => {
+    const watch = watches.get(id);
+
+    if (!watch) return;
+
+    watch.open = false;
+    watches.delete(id);
+
+    try {
+      await watch.subscription?.release();
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      if (!disposed) setFailure(id, "output", `terminal.output: ${thrown.message}`);
+    }
+  };
+
+  /** Bytes the watch missed between the stream's release and its own start (`offset` past `shownTo`) count as unseen too. */
+  const startWatch = (id: string): void => {
+    const watch: Watch = { open: true, subscription: null };
+    const seen = shownTo.get(id);
+
+    watches.set(id, watch);
+
+    void (async () => {
+      try {
+        const subscription = await app.selectOutput(id, () => {
+          if (!watch.open) return;
+
+          markUnseen(id, true);
+          void stopWatch(id);
+        });
+
+        if (!watch.open) {
+          await subscription.release();
+
+          return;
+        }
+
+        watch.subscription = subscription;
+
+        if (seen !== undefined && subscription.offset > seen) {
+          markUnseen(id, true);
+          await stopWatch(id);
+        }
+      } catch (thrown) {
+        if (!(thrown instanceof Error)) throw thrown;
+
+        if (watch.open) setFailure(id, "output", `terminal.output: ${thrown.message}`);
+      }
+    })();
+  };
+
+  /** A plain Terminal no one is streaming gets a watch until it is unseen; a Door's or Agent's Terminal, an exited one and one already unseen get none. */
+  const reconcile = (): void => {
+    const panes = new Set(rail.nodes.flatMap((node) => node.terminal_id === null ? [] : [node.terminal_id]));
+    const wanted = new Set(rail.terminals().filter((terminal) => !panes.has(terminal.id)).map((terminal) => terminal.id));
+
+    for (const id of [...watches.keys()]) {
+      if (!wanted.has(id) || exited(id)) void stopWatch(id);
+    }
+
+    for (const id of wanted) {
+      if (!holders.get(id)?.stream && !watches.has(id) && !unseenIds().has(id) && !exited(id)) startWatch(id);
+    }
+
+    setUnseenIds((current) => [...current].every((id) => wanted.has(id)) ? current : new Set([...current].filter((id) => wanted.has(id))));
+  };
+
+  createEffect(reconcile);
 
   const drain = (id: string, holder: Holder, stream: Stream): void => {
     if (stream.restoring || stream.after === null || !stream.open) return;
@@ -287,6 +383,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       return;
     }
 
+    if (!viewed.has(id)) markUnseen(id, true);
+
     place(stream, message);
     settle(id, holder, stream);
   };
@@ -294,6 +392,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   /** Installs the Terminal's output subscription first, then asks for its screen, so no byte falls between them. */
   const attach = async (id: string, holder: Holder, stream: Stream): Promise<void> => {
     try {
+      if (watches.has(id)) await stopWatch(id);
+
       if (!exited(id)) {
         setFailure(id, "output", null);
 
@@ -327,6 +427,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     const stream = holder.stream;
 
     if (!stream) return;
+
+    if (stream.placed) shownTo.set(id, stream.position);
 
     stream.open = false;
     stream.queue = [];
@@ -509,7 +611,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const hide = (id: string): void => {
     const holder = holders.get(id);
 
-    if (holder) void release(id, holder);
+    if (holder) void release(id, holder).then(reconcile);
   };
 
   return {
@@ -526,6 +628,15 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     paste,
     pastePaths,
     exited,
+    unseen: (id) => unseenIds().has(id),
+    viewing: (id, on) => {
+      if (on) {
+        viewed.add(id);
+        markUnseen(id, false);
+      } else {
+        viewed.delete(id);
+      }
+    },
     failure: (id) => {
       const current = failures();
 
@@ -543,6 +654,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     },
     dispose: () => {
       disposed = true;
+
+      for (const id of [...watches.keys()]) void stopWatch(id);
 
       for (const [id, holder] of holders) {
         void release(id, holder);
