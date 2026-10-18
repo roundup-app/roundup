@@ -300,7 +300,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
       }`);
       const checks = await page.call<Checks>(`() => window.__checks()`);
 
-      expect(checks.D2).toMatchObject({ status: "pass" });
+      for (const id of CHECK_IDS) expect(checks[id], `${id}: ${JSON.stringify(checks[id])}`).toMatchObject({ status: "pass" });
     }, 60_000);
   }
 
