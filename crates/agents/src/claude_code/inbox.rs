@@ -1,7 +1,8 @@
 //! B50, B51: Claude Code's cross-session inbox, the messaging socket each Agent is launched with
 //! (`--messaging-socket-path`). A `note` is one line of NDJSON written to it, after an `auth` line
 //! with the session's `peerToken`; the transcript records it with an `origin` of kind `peer` under the
-//! `msg_id` sent. The wire format is the one probed on the versions in `SUPPORTED`.
+//! `msg_id` sent. The wire format is the one `PEER_PROTOCOL` names: the protocol number Claude Code
+//! lists in its own session file.
 
 use std::io::Write;
 use std::os::unix::net::UnixStream;
@@ -13,15 +14,14 @@ use serde_json::{Value, json};
 
 use super::Launcher;
 
-/// The versions of the installed Claude Code this adapter has probed the messaging socket on.
-const SUPPORTED: [&str; 1] = ["2.1.300"];
+/// The `peerProtocol` a session lists in `<config>/sessions/<pid>.json` when it speaks the wire
+/// format of `inbox_write`; the fixtures of 2.1.300 and 2.1.302 both list it. A session listing
+/// another number, or none, is a `mismatch`.
+const PEER_PROTOCOL: u64 = 1;
 
 /// The permission mode an Agent is launched in, and the `from-mode` a note names: a session whose
 /// mode differs from its sender's holds the note for approval.
 pub(super) const PERMISSION_MODE: &str = "default";
-
-/// How long `claude --version` may take before the version counts as unknown.
-const VERSION_BOUND: Duration = Duration::from_secs(5);
 
 /// How long a write to an Agent's socket may block.
 const WRITE_BOUND: Duration = Duration::from_secs(2);
@@ -75,51 +75,26 @@ fn attribute(name: &str) -> String {
         .collect()
 }
 
+/// A live session's listing: the `peerProtocol` it names and its `peerToken`.
+struct Session {
+    protocol: Option<u64>,
+    token: String,
+}
+
 impl Launcher {
     /// The socket Agent `agent` is launched to make.
     pub fn socket_path(&self, agent: impl std::fmt::Display) -> PathBuf {
         self.socket_dir().join(format!("{agent}.sock"))
     }
 
-    /// The installed Claude Code's version, from `claude --version`; `None` when it does not
-    /// answer in time with a version. A version found once is kept.
-    async fn version(&self) -> Option<String> {
-        self.version
-            .get_or_try_init(|| async { self.ask_version().await.ok_or(()) })
-            .await
-            .ok()
-            .cloned()
-    }
-
-    async fn ask_version(&self) -> Option<String> {
-        // A launcher script finds its install beside itself, so it runs from where a link leads.
-        let bin = self.executable().ok()?.canonicalize().ok()?;
-        let run = tokio::process::Command::new(bin)
-            .arg("--version")
-            .stdin(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .kill_on_drop(true)
-            .output();
-        let out = tokio::time::timeout(VERSION_BOUND, run)
-            .await
-            .ok()?
-            .ok()
-            .filter(|out| out.status.success())?;
-        let text = String::from_utf8(out.stdout).ok()?;
-        let word = text.split_whitespace().next()?;
-        word.split('.')
-            .all(|part| part.parse::<u32>().is_ok())
-            .then(|| word.to_owned())
-    }
-
-    /// The `peerToken` of the live session listening on `socket`: Claude Code lists each session
-    /// in `<config>/sessions/<pid>.json` and keeps its token in a `<pid>.<hash>.key` beside it. A
+    /// The live session listening on `socket`: Claude Code lists each session in
+    /// `<config>/sessions/<pid>.json` and keeps its token in a `<pid>.<hash>.key` beside it. A
     /// session that was killed leaves its files, so only a listed process still running counts.
-    fn peer_token(&self, socket: &Path) -> Option<String> {
+    fn session(&self, socket: &Path) -> Option<Session> {
         let socket = socket.canonicalize().ok()?;
         let sessions = self.conversation_dir.join("sessions");
         let files: Vec<_> = std::fs::read_dir(&sessions).ok()?.flatten().collect();
-        let pid = files.iter().find_map(|file| {
+        let (pid, protocol) = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
             let pid = name.strip_suffix(".json")?;
             let session: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
@@ -128,26 +103,26 @@ impl Launcher {
                 .ok()?;
             let alive = rustix::process::Pid::from_raw(session["pid"].as_i64()?.try_into().ok()?)
                 .is_some_and(|pid| rustix::process::test_kill_process(pid).is_ok());
-            (listening == socket && alive).then(|| pid.to_owned())
+            (listening == socket && alive)
+                .then(|| (pid.to_owned(), session["peerProtocol"].as_u64()))
         })?;
-        files.iter().find_map(|file| {
+        let token = files.iter().find_map(|file| {
             let name = file.file_name().into_string().ok()?;
             name.strip_prefix(&format!("{pid}."))?
                 .strip_suffix(".key")?;
             let key: Value = serde_json::from_slice(&std::fs::read(file.path()).ok()?).ok()?;
             key["peerToken"].as_str().map(str::to_owned)
-        })
+        })?;
+        Some(Session { protocol, token })
     }
 
     /// B51: the state of Agent `agent`'s inbox: `missing` when its session is not listening on
-    /// its socket; `mismatch` when the installed Claude Code has not been probed here.
-    pub async fn inbox_check(&self, agent: &str) -> Inbox {
-        if self.peer_token(&self.socket_path(agent)).is_none() {
-            return Inbox::Missing;
-        }
-        match self.version().await {
-            Some(version) if SUPPORTED.contains(&version.as_str()) => Inbox::Ok,
-            _ => Inbox::Mismatch,
+    /// its socket; `mismatch` when the session lists a `peerProtocol` other than `PEER_PROTOCOL`.
+    pub fn inbox_check(&self, agent: &str) -> Inbox {
+        match self.session(&self.socket_path(agent)) {
+            None => Inbox::Missing,
+            Some(session) if session.protocol == Some(PEER_PROTOCOL) => Inbox::Ok,
+            Some(_) => Inbox::Mismatch,
         }
     }
 
@@ -156,7 +131,7 @@ impl Launcher {
     /// drops a `msg_id` it has taken up.
     pub fn inbox_write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
         let socket = self.socket_path(agent);
-        let token = self.peer_token(&socket).ok_or(Inbox::Missing)?;
+        let token = self.session(&socket).ok_or(Inbox::Missing)?.token;
         let mut stream = UnixStream::connect(&socket).map_err(|_| Inbox::Missing)?;
         stream
             .set_write_timeout(Some(WRITE_BOUND))

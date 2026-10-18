@@ -18,7 +18,7 @@ pub trait NoteInbox: Send + Sync {
 #[async_trait]
 impl NoteInbox for agents::Agents {
     async fn check(&self, agent: &str) -> Inbox {
-        self.inbox_check(agent).await
+        self.inbox_check(agent)
     }
 
     fn write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {

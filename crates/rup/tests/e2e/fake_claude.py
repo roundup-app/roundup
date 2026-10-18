@@ -198,7 +198,7 @@ def listen():
     os.makedirs(sessions, exist_ok=True)
     pid = os.getpid()
     with open(os.path.join(sessions, f"{pid}.json"), "w") as out:
-        json.dump({"pid": pid, "version": "2.1.300", "messagingSocketPath": path}, out)
+        json.dump({"pid": pid, "version": "2.1.300", "peerProtocol": 1, "messagingSocketPath": path}, out)
     with open(os.path.join(sessions, f"{pid}.{token()}.key"), "w") as out:
         json.dump({"peerToken": token()}, out)
     return server
