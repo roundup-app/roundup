@@ -200,6 +200,10 @@
 }
 
 /* P2544a: the library owns block interactions; the Pad supplies its gutter and ink. */
+.pad-rich-editor {
+  --pad-block-radius: 0;
+}
+
 .pad-rich-editor:not(.pad-readonly) .milkdown .ProseMirror {
   margin-left: var(--space-5);
   padding-left: var(--space-6);
@@ -216,7 +220,7 @@
   width: var(--space-5);
   height: var(--space-5);
   padding: var(--space-1);
-  border-radius: 0;
+  border-radius: var(--pad-block-radius);
   background: none;
 }
 
@@ -236,7 +240,7 @@
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu li {
-  border-radius: 0;
+  border-radius: var(--pad-block-radius);
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu .tab-group {
