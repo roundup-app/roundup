@@ -1,7 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
-import { ASK_CLOSE, chordsFor } from "../keys/chords";
+import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
@@ -59,9 +59,10 @@ export const AskBar = () => {
   };
 
   registerKeys({ kind: "app" }, [{
-    chords: chordsFor("⌘/"),
+    action: CHORDS.find((row) => row.keys === "⌘/")!,
     when: () => daemonExit() === null && !over(),
-    run: (press) => { if (!press.repeat) open(); },
+    capture: () => ({ available: () => daemonExit() === null && !over(),
+    invoke: open }),
   }]);
   registerKeys({ kind: "layer", element: () => panel, active: over, modal: true }, [
     { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
