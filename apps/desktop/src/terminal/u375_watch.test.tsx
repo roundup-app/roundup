@@ -10,7 +10,7 @@ const tree = () => [door("workstream", "idle", "idle", { name: "lead" }), agent(
 
 const calls = (app: { calls: { method: string }[] }, prefix: string) => app.calls.filter((call) => call.method.startsWith(prefix)).map((call) => call.method);
 
-const band = () => document.querySelector(".pane-watch");
+const band = () => document.querySelector('.pane-control[data-state="managed"]');
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 
@@ -50,11 +50,12 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.activeElement?.closest("[data-terminal]")).toBeNull();
   });
 
-  it("u375_the_watch_band_names_the_agent_and_offers_take_over", async () => {
+  it("u375_the_overlay_says_managed_and_offers_take_control", async () => {
     await mountWatch();
 
+    expect(screen.getByRole("status").textContent).toContain("Managed");
     expect(screen.getByRole("button", { name: "Take control" }).tagName).toBe("BUTTON");
-    expect(document.querySelector(".pane-takeover")).toBeNull();
+    expect(screen.queryByText("You control")).toBeNull();
   });
 
   it("u375_watch_scrolls_and_copies", async () => {
@@ -108,7 +109,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     const { app, connected, emulators } = await mountWatch();
 
     fireEvent.click(screen.getByRole("button", { name: "Take control" }));
-    await screen.findByText("Control: Typing goes straight to ann");
+    await screen.findByText("You control");
 
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "workstream")!);
     await vi.waitFor(() => expect(connected.rail.selected()).toBe("workstream"));
@@ -117,7 +118,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(connected.takeover.taken()).toBe("a");
     fireEvent.click(screen.getAllByRole("treeitem").find((row) => row.getAttribute("data-id") === "a")!);
 
-    await screen.findByText("Control: Typing goes straight to ann");
+    await screen.findByText("You control");
     expect(calls(app, "takeover.")).toEqual(["takeover.begin"]);
     emulators.get("t-a")!.type(bytes(108));
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
@@ -134,7 +135,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     await vi.waitFor(() => expect(screen.getByRole("alert").textContent).toContain("ann is already taken over"));
     expect(band()).not.toBeNull();
-    expect(document.querySelector(".pane-takeover")).toBeNull();
+    expect(screen.queryByText("You control")).toBeNull();
   });
 
   it("u467_takeover_failure_preserves_the_child_and_shows_the_error", async () => {
