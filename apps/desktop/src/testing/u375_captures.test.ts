@@ -75,8 +75,8 @@ it("u2567c_real_daemon_attention_opens_its_agents_terminal", async () => {
 
   await app.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } });
   await page.load(`${real.base}/harness.html?daemon=1`, 1512, 950);
-  await page.until(`() => Boolean(document.querySelector('.todo-project-root'))`);
-  await page.call(`() => document.querySelector('.todo-project-root').click()`);
+  await page.until(`() => Boolean(document.querySelector('.rail [data-todo-root]'))`);
+  await page.call(`() => document.querySelector('.rail [data-todo-root]').click()`);
   await page.until(`() => [...document.querySelectorAll('.overview-attention .overview-entry')].some((entry) => entry.textContent === 'reviewer' && entry.querySelector('[role=img]')?.getAttribute('aria-label') === 'Needs-you')`);
 
   const names = await page.call<string[][]>(`() => [...document.querySelectorAll('.overview-list > li')].map((entry) => [...entry.querySelectorAll('.overview-entry')].map((button) => [button.querySelector('.overview-name').textContent, button.querySelector('[role=img]')?.getAttribute('aria-label')].filter(Boolean).join(' ')))`);
