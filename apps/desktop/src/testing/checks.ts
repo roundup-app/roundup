@@ -522,9 +522,10 @@ const d8 = (page: Page): Measure => {
       return JSON.stringify([parseColour(colour), lengths]);
     };
 
-    const menuShadow = el.matches(".milkdown-slash-menu") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
+    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
-    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 
