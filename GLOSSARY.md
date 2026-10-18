@@ -96,7 +96,7 @@ What a Door writes when its Workstream is cleared (`workstream.handoff`): what h
 One fresh conversation of a Workstream's Door, counted from 1; a Clear starts the next. The Thread spans all Iterations, and each Message carries its own.
 
 **Home**:
-Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf shows a selected Workstream's own items until the user asks for all (U347).
+Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf follows the Rail selection; a Workstream view lists items with that Home.
 
 **Contract fingerprint**:
 A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
@@ -206,7 +206,7 @@ The tree of Workstreams and Agents. Rail names identify its nodes in prose.
 The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
 
 **Shelf**:
-The full-height Todo and Pad panel at the window's trailing edge, with two tabs, `Todos` and `Pads`, that the user opens and closes. It reserves its width for the centre; below the minimum centre width, it overlays a scrim. An open Drawer reserves width instead. With a Workstream selected it shows that Workstream's own Todos and Pads until the user chooses `all`; otherwise it is Project-wide.
+The full-height Todo and Pad panel at the window's trailing edge, with two tabs, `Todos` and `Pads`, that the user opens and closes. It reserves its width for the centre; below the minimum centre width, it overlays a scrim. An open Drawer reserves width instead. It follows the Rail selection with no filter control: Overview groups every Project item by Workstream and Agent maker, with unassigned items last; a Workstream lists items with that Home, an Agent items it made, and a Terminal its owner’s view. Stopped and done Agents’ items remain included.
 
 **Scrim**:
 The darkened surface over the centre while the Shelf overlays it.
