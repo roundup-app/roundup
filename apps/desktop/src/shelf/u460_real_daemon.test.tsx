@@ -44,11 +44,60 @@ const ownerCall = (owner: string, method: "pad.create" | "pad.write" | "pad.appe
   socket.on("error", (error) => { clearTimeout(timer); socket.destroy(); reject(error); });
 });
 
+let diagStop = () => {};
+
+const diagStart = (real: StartedDaemon) => {
+  const original = globalThis.fetch;
+  const pending = new Map<number, { label: string; at: number }>();
+  let count = 0;
+  let last = Date.now();
+  const note = (message: string) => console.error(`DIAG ${new Date().toISOString().slice(11, 23)} ${message}`);
+
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const id = (count += 1);
+    const label = `${init?.method ?? "GET"} ${String(input).replace(/^https?:\/\/[^/]+/, "")} ${typeof init?.body === "string" ? init.body.slice(0, 90) : ""}`;
+    const at = Date.now();
+
+    pending.set(id, { label, at });
+
+    try {
+      const response = await original(input, init);
+
+      if (Date.now() - at > 1000) note(`fetch#${id} ${label} headers after ${Date.now() - at}ms`);
+
+      return response;
+    } catch (error) {
+      note(`fetch#${id} ${label} THREW after ${Date.now() - at}ms ${String(error)}`);
+      throw error;
+    } finally {
+      pending.delete(id);
+    }
+  }) as typeof fetch;
+  real.daemon.stderr!.on("data", (chunk: Buffer) => note(`rupd ${chunk.toString().trimEnd()}`));
+  real.daemon.once("exit", (code) => note(`rupd exited ${code}`));
+
+  const timer = setInterval(() => {
+    const now = Date.now();
+
+    if (now - last > 1000) note(`loop-lag ${now - last - 250}ms`);
+    last = now;
+    const slow = [...pending].filter(([, call]) => now - call.at > 4000 && !call.label.includes("/events") && !call.label.includes("/output"));
+
+    if (slow.length) note(`pending ${slow.map(([id, call]) => `#${id} ${now - call.at}ms ${call.label}`).join(" | ")}`);
+  }, 250);
+
+  return () => {
+    clearInterval(timer);
+    globalThis.fetch = original;
+  };
+};
+
 beforeAll(async () => {
   real = await startRealDaemon({});
+  diagStop = diagStart(real);
 }, 120_000);
 
-afterAll(async () => { await real?.stop(); });
+afterAll(async () => { diagStop(); await real?.stop(); });
 
 afterEach(cleanup);
 
