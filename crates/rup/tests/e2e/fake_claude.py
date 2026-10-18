@@ -295,7 +295,7 @@ def play_session():
         hook("SessionStart", {"session_id": flag("--resume"), "source": "resume"})
     else:
         hook("SessionStart", {"session_id": "00000000-0000-4000-8000-000000000036", "source": "startup"})
-    # The star title comes after SessionStart, so an Idle child already has its conversation saved.
+    # Idle must follow SessionStart: callers may now resume the saved conversation.
     sys.stdout.write("\033]0;\u2733 claude\007")
     sys.stdout.flush()
     for line in typed_prompts():

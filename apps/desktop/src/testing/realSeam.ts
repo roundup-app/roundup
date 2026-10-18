@@ -170,7 +170,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     zoomWindow: async () => {},
     openTarget: async () => {},
     openInEditor: async () => {
-      throw new RpcError(-32001, "no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR");
+      throw new RpcError(-32001, "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR");
     },
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,

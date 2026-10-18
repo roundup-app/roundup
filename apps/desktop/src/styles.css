@@ -365,6 +365,12 @@ p {
   transition: transform var(--duration-drawer) var(--easing-out), visibility var(--duration-drawer) linear;
 }
 
+/* U2580a: the whole layout settles with a key-driven Drawer, including interrupted slides.
+   The short settling marker covers only the Drawer action; later Shelf actions keep their own motion. */
+.window:has(.drawer[data-settling="true"]) :is(.columns, .shelf, .shelf-scrim) {
+  transition: none;
+}
+
 .drawer > .close {
   position: absolute;
   top: 8px;
@@ -413,10 +419,6 @@ p {
   white-space: pre;
 }
 
-.help-keys {
-  display: inline-block;
-  min-width: 8ch;
-}
 
 /* U2240: the keys ⌘K waits for; it appears and goes in the frame of the key, takes no focus and no pointer events, and has no motion. */
 .leader {
@@ -442,10 +444,6 @@ p {
   white-space: pre;
 }
 
-.leader-keys {
-  display: inline-block;
-  min-width: 2ch;
-}
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
 .project-tab[data-drop]::after,

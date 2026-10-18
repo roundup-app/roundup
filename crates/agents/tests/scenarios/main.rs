@@ -22,5 +22,6 @@ mod runs;
 mod signal;
 mod spawn;
 mod steer;
+mod u2539a_changed_files;
 mod worktree_state;
 mod worktrees;
