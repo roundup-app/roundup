@@ -17,7 +17,7 @@ use contracts::agent::{
     WorktreeState,
 };
 use contracts::decision::{AnswerParams, CaptureParams, Outcome, PermissionParams};
-use contracts::project::{Mcp, ProjectModels, ProjectSettings, Worktrees};
+use contracts::project::{Mcp, PrepareParams, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
@@ -39,6 +39,7 @@ pub use models::mcp_on;
 mod name;
 mod order;
 mod peer;
+mod prepared;
 mod rail;
 mod scan;
 pub mod worktree;
