@@ -322,6 +322,7 @@ mod tests {
         shared.runs().insert(
             group.clone(),
             Slot::Running(Run {
+                yolo: false,
                 startup_context: true,
                 attempt: "1".into(),
                 status_revision: 1,

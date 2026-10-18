@@ -118,6 +118,13 @@ impl Shared {
             None => true,
         };
         node.can_resume &= exited;
+        node.yolo = match runs.get(&node.id) {
+            Some(Slot::Running(run)) => run.yolo,
+            Some(
+                Slot::Resuming { old: Some(old), .. } | Slot::ResumeCleanup { old: Some(old), .. },
+            ) => old.yolo,
+            _ => false,
+        };
         if node.can_resume
             && !matches!(runs.get(&node.id), Some(Slot::Running(run)) if run.closing)
             && let Some((id, cwd)) = rail.conversation(&node.id)?
@@ -154,6 +161,11 @@ impl Shared {
 }
 
 impl Agents {
+    /// Resolve an Agent's current Rail name for prose, preserving storage failures.
+    pub fn rail_name(&self, id: &str) -> Result<String, RpcError> {
+        self.shared.rail().name(id)
+    }
+
     /// B32: run a synchronous input-recording operation against authoritative ownership.
     ///
     /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
@@ -256,8 +268,13 @@ impl Agents {
         };
         if !allowed {
             return Err(RpcError::forbidden(format!(
-                "{} may not set the order of agent {id}",
-                ctx.actor.id
+                "{} may not set the order of {}",
+                if ctx.actor.kind == ActorKind::Agent {
+                    self.rail_name(&ctx.actor.id)?
+                } else {
+                    ctx.actor.id.clone()
+                },
+                self.rail_name(&id)?
             )));
         }
         let node = self.shared.rail().set_order(&id, &order)?;
@@ -656,6 +673,7 @@ mod tests {
         shared.runs().insert(
             id.clone(),
             Slot::Resuming {
+                mode: contracts::agent::ResumeMode::Normal,
                 attempt,
                 since: 0,
                 old: None,

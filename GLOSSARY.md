@@ -139,14 +139,17 @@ One launch of an Agent's program, numbered per Agent from `1` in launch order (A
 **Status revision**:
 The strictly increasing ordinal of published Status transitions within one Attempt, `1` at Starting. A canonical positive decimal string on the wire; absent after reopen. Never stands in for an Attempt or Terminal liveness.
 
+**Resume** (`ResumeParams`, `ResumeMode`):
+Starting an Agent's next Attempt in its saved conversation; an explicit mode first stops a running Attempt. Omitted mode resumes only an exited Agent with normal prompts.
+
+**YOLO** (`yolo`):
+Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
+
 **Conversation overview** (`ConversationOverview`, `RailNode.overview`):
 Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
 **Conversation card** (`ConversationCard`, `ConversationOverview.card`):
 The available intent, shape, facts and outcome rebuilt from assistant card blocks, each key from its newest well-formed value. An empty facts list clears older facts and is omitted from the displayed parts.
-
-**Resume**:
-Starting an exited Agent's next Attempt in its saved conversation.
 
 **Worktree**:
 The git working directory assigned exclusively to one Agent when the Project's `worktrees` setting is on, with its own Agent branch. It is newly created in legacy mode or explicitly enrolled and retained at a stable path in prepared-directory mode (`docs/worktrees.md`).
@@ -198,8 +201,8 @@ One entry of the header strip for an open Project: its name (the folder's until 
 **Tab mark**:
 The small dot just after a Project tab's name: red if an Agent has Kind `error`, else amber if one has `needs-you`, else none (`scenarios/ui-project-tab-box.md`).
 
-**Rail**:
-The tree of Workstreams and Agents.
+**Rail** (`Rail::name`, `Agents::rail_name`):
+The tree of Workstreams and Agents. Rail names identify its nodes in prose.
 
 **Hint line**:
 The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
@@ -308,7 +311,7 @@ One input an Adapter reads about its Agent: a terminal title, a Signal, an exit,
 A structured event the Agent's own tooling pushes (for Claude Code, a hook payload).
 _Avoid_: notification
 
-**Steer**:
+**Steer** (`PromptError`):
 Sending a prompt to a running Agent through the Adapter (`agent.prompt`), never through the user's keyboard.
 _Avoid_: inject, nudge
 

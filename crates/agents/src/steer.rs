@@ -119,7 +119,11 @@ impl Agents {
         id: &str,
         attempt: &str,
     ) -> Result<FirstSteerCompletion, PromptError> {
-        let missing = || PromptError::NotFound { id: id.to_owned() };
+        let name = self.shared.rail().name(id).map_err(PromptError::Rail)?;
+        let missing = || PromptError::NotFound {
+            id: id.to_owned(),
+            name: name.clone(),
+        };
         let mut completion = {
             let runs = self.shared.runs();
             let Some(Slot::Running(run)) = runs.get(id) else {
@@ -161,8 +165,9 @@ impl Agents {
     pub(super) fn may_steer(&self, actor: &Actor, id: &str, verb: &str) -> Result<(), RpcError> {
         if actor.kind == ActorKind::Ext {
             return Err(RpcError::forbidden(format!(
-                "{} may not {verb} agent {id}",
-                actor.id
+                "{} may not {verb} {}",
+                actor.id,
+                self.rail_name(id)?
             )));
         }
         self.shared.guard_reach(actor, id, false)
@@ -236,6 +241,146 @@ mod tests {
     use contracts::{EventData, Kind};
 
     use crate::tests::*;
+    #[tokio::test]
+    async fn a2703a_prompt_storage_failure_stays_an_error() {
+        let watched = Watched::named();
+        rusqlite::Connection::open(watched._dir.path().join("agents.db"))
+            .unwrap()
+            .execute_batch("DROP TABLE nodes")
+            .unwrap();
+        let error = crate::PromptError::from(
+            watched
+                .shared
+                .prompt("7013", "hello", None, None, false, None)
+                .await
+                .unwrap_err(),
+        );
+        assert!(matches!(error, crate::PromptError::Rail(_)));
+        let error = rpc::RpcError::from(error);
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        assert!(
+            !error.message.contains("7013") && !error.message.contains("gone"),
+            "{error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a2703a_interrupt_write_failure_uses_rail_name() {
+        struct Broken;
+        impl std::io::Write for Broken {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("lost write"))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut watched = Watched::named();
+        let _ = (&mut watched.watcher).await;
+        let terminals = std::sync::Arc::new(
+            terminal::Terminals::open(watched._dir.path(), rpc::Bus::new())
+                .unwrap()
+                .with_input_writer(|_| Box::new(Broken)),
+        );
+        let terminal = terminals
+            .spawn(contracts::terminal::SpawnParams {
+                cwd: watched._dir.path().to_string_lossy().into_owned(),
+                command: Some(vec!["sh".into(), "-c".into(), "sleep 30".into()]),
+                env: Default::default(),
+                cols: 80,
+                rows: 24,
+            })
+            .await
+            .unwrap();
+        std::sync::Arc::get_mut(&mut watched.shared)
+            .unwrap()
+            .terminals = terminals.clone();
+        if let Some(crate::Slot::Running(run)) = watched.shared.runs().get_mut("7013") {
+            run.terminal_id = terminal.id.clone();
+        }
+        let error = watched.shared.interrupt("7013", None).await.unwrap_err();
+        assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
+        assert!(
+            error.message.contains("sad") && !error.message.contains("7013"),
+            "{error}"
+        );
+        terminals.kill(&terminal.id).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a2703a_errors_use_rail_names() {
+        for case in [
+            "missing",
+            "ended",
+            "closing",
+            "starting",
+            "idle",
+            "interrupted",
+            "write",
+            "attempt",
+        ] {
+            let watched = Watched::named();
+            let shared = &watched.shared;
+            let mut receiver = None;
+            match case {
+                "missing" => {
+                    shared.runs().remove("7013");
+                }
+                "closing" => {
+                    shared.runs().insert("7013".into(), crate::Slot::Closing);
+                }
+                "starting" => shared.mark_starting("7013", "1".into()),
+                "ended" => {
+                    if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
+                        run.ended = true;
+                    }
+                }
+                "idle" => {
+                    shared
+                        .observe(
+                            contracts::Actor::daemon(),
+                            "7013",
+                            "1",
+                            crate::Observation::Signal(
+                                serde_json::json!({"hook_event_name":"Stop"}),
+                            ),
+                        )
+                        .unwrap();
+                }
+                "interrupted" => {
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    receiver = Some(rx);
+                    if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
+                        run.interrupt = Some(tx);
+                    }
+                }
+                _ => {}
+            }
+            let error = shared
+                .interrupt(
+                    "7013",
+                    if case == "attempt" {
+                        Some("stale")
+                    } else {
+                        None
+                    },
+                )
+                .await
+                .unwrap_err();
+            assert!(
+                error.message.contains("sad") && !error.message.contains("7013"),
+                "{case}: {error}"
+            );
+            drop(receiver);
+        }
+        let watched = Watched::named();
+        let error = watched.shared.interrupt("8013", None).await.unwrap_err();
+        assert!(
+            error.message.contains("an Agent that is gone") && !error.message.contains("8013"),
+            "{error}"
+        );
+    }
+
     #[tokio::test]
     async fn h7_a_close_at_the_hook_timeout_leaves_the_decision_open_and_unanswerable() {
         let (seen, open, kind) = hook_closes_after(4_000).await;

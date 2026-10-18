@@ -129,7 +129,12 @@ impl Launcher {
     /// B50(a), B50(c): sends one line per note over `agent`'s socket. A failure, which may come
     /// after some notes went, names `missing`; sending the batch again is safe, since Claude Code
     /// drops a `msg_id` it has taken up.
-    pub fn inbox_write(&self, agent: &str, notes: &[Entry]) -> Result<(), Inbox> {
+    pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
+        let permission_mode = if yolo {
+            "bypassPermissions"
+        } else {
+            PERMISSION_MODE
+        };
         let socket = self.socket_path(agent);
         let token = self.session(&socket).ok_or(Inbox::Missing)?.token;
         let mut stream = UnixStream::connect(&socket).map_err(|_| Inbox::Missing)?;
@@ -145,7 +150,7 @@ impl Launcher {
                 note.text.clone()
             };
             let content = format!(
-                "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{PERMISSION_MODE}\">\n{text}\n</cross-session-message>",
+                "<cross-session-message from=\"{from}\" from-name=\"{}\" from-mode=\"{permission_mode}\">\n{text}\n</cross-session-message>",
                 attribute(&note.from),
             );
             lines.push(json!({
