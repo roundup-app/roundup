@@ -3,14 +3,13 @@ import { connect } from "node:net";
 import * as v from "valibot";
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import type { StartedDaemon } from "../testing/realDaemonFixture";
-import { showEverythingInApp } from "../testing/showEverything";
 import { showShelfTab } from "../testing/shelfTabs";
 
 let real: StartedDaemon;
@@ -44,6 +43,40 @@ const ownerCall = (owner: string, method: "pad.create" | "pad.write" | "pad.appe
   socket.on("error", (error) => { clearTimeout(timer); socket.destroy(); reject(error); });
 });
 
+// Rail's Ark selection acknowledgement must precede Shelf inputs: a late scope
+// change clears selection in createSelection and resets createBulkDelete.
+const openShelf = async (tab: "Todos" | "Pads", all = false) => {
+  const workstream = await screen.findByRole("treeitem", { name: /bulk-scope/ });
+  fireEvent.click(workstream.querySelector<HTMLElement>('[data-part="branch-control"]') ?? workstream);
+  await waitFor(() => expect(workstream.getAttribute("aria-selected")).toBe("true"));
+  showShelfTab(tab);
+  await waitFor(() => {
+    expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: new RegExp(`^${tab}`) }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel", { name: new RegExp(`^${tab}`) })).toBeTruthy();
+  });
+  const scope = await screen.findByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
+
+  if (all && scope.getAttribute("aria-pressed") === "false") fireEvent.click(scope);
+  await waitFor(() => expect(scope.getAttribute("aria-pressed")).toBe(String(all)));
+};
+
+const selectRow = async (name: string | RegExp) => {
+  const row = await screen.findByRole("button", { name });
+  fireEvent.click(row, { metaKey: true });
+  await waitFor(() => expect(row.getAttribute("aria-pressed")).toBe("true"));
+};
+
+const deleteSelected = async (count: number, noun: "Todos" | "Pads") => {
+  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
+  // BulkDelete.ask queues Keep.focus after freezing its targets. Waiting for
+  // that acknowledgement prevents confirmation from overtaking the question.
+  await waitFor(() => {
+    expect(screen.getByText(`Delete ${count} ${noun}?`)).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
+  });
+  fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
+};
+
 beforeAll(async () => {
   real = await startRealDaemon({});
 }, 120_000);
@@ -63,13 +96,10 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes", async () => {
   const dependent = await app.rpc("todo.create", { title: "dependent", body: null, blockers: [first.id, second.id] });
   await app.rpc("todo.move", { id: dependent.id, home: other.id });
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  fireEvent.click(await screen.findByRole("treeitem", { name: /bulk-scope/ }));
-  showShelfTab("Todos");
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`#${first.id} `) }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${second.id} `) }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  await openShelf("Todos");
+  await selectRow(new RegExp(`#${first.id} `));
+  await selectRow(new RegExp(`#${second.id} `));
+  await deleteSelected(2, "Todos");
   await waitFor(async () => {
     const rows = await app.rpc("todo.list", null);
     expect(rows.find((row) => row.id === dependent.id)?.blockers).toEqual([]);
@@ -85,12 +115,9 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   expect((await ownerCall(owner.id, "pad.create", name, "before")).error).toBeUndefined();
   expect((await ownerCall(owner.id, "pad.write", name, "committed before delete")).error).toBeUndefined();
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  await showEverythingInApp(/bulk-scope/);
-  showShelfTab("Pads");
-  fireEvent.click(await screen.findByRole("button", { name }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete 1" }));
+  await openShelf("Pads", true);
+  await selectRow(name);
+  await deleteSelected(1, "Pads");
   await waitFor(async () => expect((await app.rpc("pad.list", null)).some((row) => row.name === name)).toBe(false));
   expect((await ownerCall(owner.id, "pad.write", name, "after")).error?.code).toBe(-32001);
   expect((await ownerCall(owner.id, "pad.append", name, "after")).error?.code).toBe(-32001);
@@ -125,13 +152,10 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", asyn
   };
 
   render(() => <App app={failedApp} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  fireEvent.click(await screen.findByRole("treeitem", { name: /bulk-scope/ }));
-  showShelfTab("Todos");
-  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`#${first.id} `) }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: new RegExp(`#${second.id} `) }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete 2" }));
+  await openShelf("Todos");
+  await selectRow(new RegExp(`#${first.id} `));
+  await selectRow(new RegExp(`#${second.id} `));
+  await deleteSelected(2, "Todos");
   await screen.findByText(/partial two .*injected unavailable connection/);
   const rows = await app.rpc("todo.list", null);
   expect(rows.find((row) => row.id === dependent.id)).toMatchObject({ blockers: [second.id], blocked: true, home: other.id });
@@ -146,8 +170,7 @@ it("u460_deleted_rows_stay_absent_after_reopening_the_project", async () => {
   expect(todos.map((todo) => todo.title)).toEqual(["dependent", "partial two", "partial dependent"]);
   expect((await app.rpc("pad.list", null)).some((pad) => pad.name.startsWith("bulk-pad-"))).toBe(false);
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
-  fireEvent.click(await screen.findByRole("treeitem", { name: /bulk-scope/ }));
-  showShelfTab("Todos");
+  await openShelf("Todos");
   const row = await screen.findByRole("button", { name: /partial two/ });
   expect(row.getAttribute("aria-pressed")).toBe("false");
   expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
