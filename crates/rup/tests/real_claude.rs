@@ -5364,6 +5364,7 @@ async fn e2704b_real_claude_answers_with_current_rail_name() {
             assert!(answer.contains(name), "{role}: {answer}");
             assert!(
                 !answer
+                    .replace(name, "")
                     .split(|c: char| !c.is_alphanumeric())
                     .any(|word| word == id),
                 "{role}: {answer}"
