@@ -44,7 +44,7 @@ export const Help = () => {
           {(chord) => (
             <p class="help-line">
               <KeyChip keys={chord.keys} />
-              {`  ${chord.what}`}
+              {` ${chord.what}`}
             </p>
           )}
         </For>
