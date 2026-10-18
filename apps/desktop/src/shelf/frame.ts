@@ -1,3 +1,4 @@
+import type { ActivationSource } from "../keys/registry";
 import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
@@ -26,7 +27,7 @@ export type ShelfFrame = {
   animated: Accessor<boolean>;
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
-  toggle: () => void;
+  toggle: (source?: ActivationSource) => void;
   /** The slide ended; a closed Shelf leaves the layout. */
   settle: () => void;
 };
@@ -58,9 +59,9 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     }),
   );
 
-  const toggle = () => {
+  const toggle = (source: ActivationSource = "pointer") => {
     const next = !open();
-    const slides = !reducedMotion();
+    const slides = source !== "key" && !reducedMotion();
 
     setAnimated(slides);
     setOpen(next);
