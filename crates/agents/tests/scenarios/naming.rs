@@ -229,3 +229,110 @@ async fn a44_a_clarification_steer_names_no_agent() {
     f.submit(&node.id, "fix the build").await;
     assert_eq!(f.name_of(&node.id).await, "fix-build");
 }
+
+#[tokio::test]
+async fn a2741a_first_prompt_and_rpc_share_the_committed_name_seam() {
+    let f = Fixture::running("exec sleep 30");
+    f.spawn_named(Some("fix-build"), None).await.unwrap();
+    let node = f.spawn(None, None).await.unwrap();
+    let mut events = f.bus.subscribe();
+    f.submit(&node.id, "fix the build").await;
+    f.call("rail.rename", json!({"id":node.id,"name":"mine"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        crate::common::renames(&mut events),
+        [
+            (node.id.clone(), "fix-build-2".into()),
+            (node.id.clone(), "mine".into())
+        ]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a2741a_unchanged_prompt_names_produce_no_change() {
+    for case in [
+        "no words",
+        "same name",
+        "later prompt",
+        "explicit spawn",
+        "explicit rename",
+        "starting rename",
+        "Door",
+        "Clarification",
+    ] {
+        let f = std::sync::Arc::new(Fixture::running("exec sleep 30"));
+        let barrier = f.workstream("barrier", None).await;
+        let id = match case {
+            "explicit spawn" => f.spawn_named(Some("mine"), None).await.unwrap().id,
+            "starting rename" => {
+                let config = hold_starts(&f);
+                let spawning = {
+                    let f = std::sync::Arc::clone(&f);
+                    tokio::spawn(async move { f.spawn(None, None).await })
+                };
+                let tree = f
+                    .until(|tree| {
+                        tree.iter()
+                            .any(|n| n.kind == contracts::agent::NodeKind::Agent)
+                    })
+                    .await;
+                let id = tree
+                    .iter()
+                    .find(|n| n.kind == contracts::agent::NodeKind::Agent)
+                    .unwrap()
+                    .id
+                    .clone();
+                f.call("rail.rename", json!({"id":id,"name":"mine"}))
+                    .await
+                    .unwrap();
+                release(config).await;
+                spawning.await.unwrap().unwrap();
+                id
+            }
+            "Door" => {
+                f.call("rail.startDoor", json!({"id":barrier}))
+                    .await
+                    .unwrap();
+                barrier.clone()
+            }
+            _ => f.spawn(None, None).await.unwrap().id,
+        };
+        match case {
+            "later prompt" => f.submit(&id, "first name").await,
+            "explicit rename" => {
+                f.call("rail.rename", json!({"id":id,"name":"mine"}))
+                    .await
+                    .unwrap();
+            }
+            _ => {}
+        }
+        // Attach after setup naming; only the guarded prompt belongs to this window.
+        let mut events = f.bus.subscribe();
+        let prompt = match case {
+            "no words" => "please, the...",
+            "same name" => "new agent",
+            "Clarification" => {
+                "What should this Agent do?\n\nFind the intent and elicit what is missing, asking whom `agent_context` names under `ask`. Then record a Work order with `agent_set_order`."
+            }
+            _ => "fix the build",
+        };
+        f.submit(&id, prompt).await;
+        assert!(crate::common::renames(&mut events).is_empty(), "{case}");
+        let mut expected = Vec::new();
+        if matches!(case, "no words" | "Clarification") {
+            f.submit(&id, "fix the build").await;
+            if case == "Clarification" {
+                expected.push((id.clone(), "fix-build".into()));
+            }
+        }
+        f.call(
+            "rail.rename",
+            json!({"id":barrier,"name":"observation-end"}),
+        )
+        .await
+        .unwrap();
+        expected.push((barrier, "observation-end".into()));
+        assert_eq!(crate::common::renames(&mut events), expected, "{case}");
+    }
+}
