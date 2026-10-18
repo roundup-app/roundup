@@ -4,13 +4,13 @@ Terms from the animation vocabulary. The more often a change is seen, the shorte
 
 | Trigger | Term | Duration / easing | Notes |
 |---|---|---|---|
-| Inbox, Todo detail, Pad, history open | Slide in from the right | ~180 ms, ease-out | Exit reverses. The centre narrows with it (U430); the Terminal is fitted once per slide (spatial consistency). |
-| Shelf open, close | Slide in from the trailing edge | ~180 ms, ease-out | Exit reverses. Overlay: never resizes the terminal. A tab switch and a restore are instant. |
-| Toast enter, exit | Fade and 8 px rise | 150 ms, ease-out | Instant under reduced motion. Hover or focus keeps it; it hides itself after 5 s. |
+| Inbox, Todo detail, Pad, history open | Slide in from the right | ~180 ms, `--easing-out` | Exit reverses. The centre narrows with it (U430); the Terminal is fitted once per slide (spatial consistency). |
+| Shelf open, close | Slide in from the trailing edge | ~180 ms, `--easing-out` | Exit reverses. Overlay: never resizes the terminal. A tab switch and a restore are instant. |
+| Toast enter, exit | Fade and 8 px rise | 150 ms, `--easing-out` | Instant under reduced motion. Hover or focus keeps it; it hides itself after 5 s. |
 | Rail live-line text change | Crossfade | ~120 ms | No spinner (purposeful animation). |
 | `working` Glyph arc | Turns | ~1 s (8 × `--duration-crossfade`), linear | `transform` only; ring stays fixed; still under reduced motion. |
 | Status glyph change | none (instant) | 0 | Seen constantly. |
-| Done Agents fold | Accordion / collapse | ~150 ms, ease-out | |
+| Done Agents fold | Accordion / collapse | ~150 ms, `--easing-out` | |
 | New row | Layout animation | ~150 ms | Siblings move; nothing snaps. |
 | Drag in the rail | Drag to reorder | follows pointer | Others shift to make room; thin drop line, its left end sets depth; release is interruptible. |
 | Needs-you arrival | Pulse | one cycle, ~400 ms | Then still. An ambient loop would break the calm rule. |
