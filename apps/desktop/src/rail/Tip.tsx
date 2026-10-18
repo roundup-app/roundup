@@ -6,8 +6,8 @@ import { Tooltip } from "../ui/Tooltip";
 export type TriggerProps = JSX.ButtonHTMLAttributes<HTMLButtonElement>;
 
 /** The shared Tooltip on one control: `children` spreads the trigger props onto the element it renders, so hover and keyboard focus both open `text`. Only a text the control does not show in full needs it; an icon-only button is `IconButton`. */
-export const Tip = (props: { text: string; children: (trigger: (extra?: TriggerProps) => TriggerProps) => JSX.Element }) => (
-  <Tooltip.Root closeOnEscape={false} positioning={{ strategy: "fixed" }}>
+export const Tip = (props: { text: string; disabled?: boolean; children: (trigger: (extra?: TriggerProps) => TriggerProps) => JSX.Element }) => (
+  <Tooltip.Root disabled={props.disabled} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
     <Tooltip.Trigger asChild={(trigger) => props.children(trigger)} />
     <Portal>
       <Tooltip.Positioner>
