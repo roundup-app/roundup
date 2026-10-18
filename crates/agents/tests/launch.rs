@@ -2498,7 +2498,7 @@ fn lc10_no_launch_uses_bare_safe_mode_or_agent() {
 fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
     for mcp in [true, false] {
         let s = setup();
-        s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__*","Read(*)"]}}).to_string());
+        s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
         let argv = s
             .prepare_lean(
                 "7",

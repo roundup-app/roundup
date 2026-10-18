@@ -457,12 +457,7 @@ pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {
         .iter()
         .chain(&DOOR_TOOLS_EXTRA)
         .map(|(name, _)| *name)
-        .filter(|name| {
-            !matches!(
-                *name,
-                "agent_run" | "terminal_spawn" | "terminal_open" | "terminal_write"
-            )
-        })
+        .filter(|name| !matches!(*name, "agent_run" | "terminal_spawn" | "terminal_open"))
 }
 
 fn with_tools(role: Role, mcp: bool) -> String {
