@@ -167,9 +167,10 @@ const colourProperties = ["color", "background-color", "border-top-color", "bord
 const d1 = ({ doc, elements, rules }: Page): Measure => {
   const tokenSheets = new Set([...doc.querySelectorAll<HTMLStyleElement>('style[data-vite-dev-id$="/src/tokens.css"]')].map(el => el.sheet));
 
+  // CSSOM serializes the permitted unitless zero radius as `0px`; keep nonzero radii in the literal scan.
   const found = rules
     .filter((rule) => !tokenSheets.has(rule.parentStyleSheet) && !terminalRule(rule.selectorText))
-    .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{"))).map((literal) => ({ selector: rule.selectorText, literal })));
+    .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{")).replace(/(border(?:-[\w]+)?-radius:\s*)0px\b/g, "$10")).map((literal) => ({ selector: rule.selectorText, literal })));
 
   const inline = elements.flatMap((el) => lookLiterals(inlineStyleCss(`style={{${(el.getAttribute("style") ?? "").split(";").filter(Boolean).map((pair) => pair.replace(/^\s*([^:]+):\s*(.*)$/, '"$1": "$2"')).join(",")}}}`)).map((literal) => ({ selector: selectorOf(el), literal })));
   const all = [...found, ...inline];
@@ -530,9 +531,10 @@ const d8 = (page: Page): Measure => {
       return JSON.stringify([parseColour(colour), lengths]);
     };
 
-    const menuShadow = el.matches(".milkdown-slash-menu") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
+    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
-    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble, .pane-control") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 
