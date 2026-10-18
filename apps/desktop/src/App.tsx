@@ -92,6 +92,12 @@ const Connection = (props: {
     if (mine) props.onConnected(path, mine);
   });
 
+  createEffect(() => {
+    const open = connected();
+
+    if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
+  });
+
   // Refused Agent answers have no Event, so live requests refresh on the App's shared clock.
   createEffect(on(props.now, () => {
     const open = connected();
