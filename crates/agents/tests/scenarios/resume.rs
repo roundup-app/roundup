@@ -1167,3 +1167,25 @@ async fn b32_r16_messages_use_the_authoritative_agents_dependency_for_agent_and_
         drop(terminals);
     }
 }
+
+fn overview_transcript(f: &Fixture, text: &str) -> std::path::PathBuf {
+    let cwd = f.dir.path().canonicalize().unwrap();
+    let project: String = cwd.to_string_lossy().chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+    let path = f.dir.path().join("projects").join(project).join(format!("{CONVERSATION}.jsonl"));
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, text).unwrap();
+    path
+}
+
+#[tokio::test]
+async fn a2681a_closed_node_has_identity_without_history_path() {
+    let f = Fixture::running("sleep 30");
+    let path = overview_transcript(&f, "{\"type\":\"ai-title\",\"aiTitle\":\"A conversation\"}\n");
+    let node = exited_with_conversation(&f, CONVERSATION).await;
+    let tree = f.call("rail.tree", json!({})).await.unwrap();
+    let node = tree.as_array().unwrap().iter().find(|n| n["id"] == node.id).unwrap();
+    assert_eq!(node["overview"], json!({"program": "Claude Code", "id": CONVERSATION, "name": "A conversation"}));
+    assert!(!tree.to_string().contains(path.to_str().unwrap()));
+    assert!(!tree.to_string().contains("aiTitle"));
+}
