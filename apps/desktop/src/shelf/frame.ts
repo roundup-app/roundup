@@ -2,15 +2,19 @@ import type { ActivationSource } from "../keys/registry";
 import { createComputed, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
+import { copy } from "../copy";
 import { storedValue } from "../state/storage";
 
-export type ShelfTab = "todos" | "pads";
+export const SHELF_TABS = [
+  { value: "todos", label: copy.todos, icon: "check" },
+  { value: "pads", label: copy.pads, icon: "order" },
+] as const;
 
-export const SHELF_TABS = ["todos", "pads"] as const satisfies readonly ShelfTab[];
+export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
 const frameSchema = v.object({
   open: v.optional(v.boolean(), true),
-  tab: v.fallback(v.picklist(SHELF_TABS), "todos"),
+  tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
 });
 
 /** U373, U370: what the webview keeps per Project, as U100 keeps layout; a stored tab that is neither tab means `todos`, a missing state means open. */

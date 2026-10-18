@@ -4,7 +4,7 @@ export type Frame = { top: number; bottom: number; barBottom: number };
 
 export type Observation = {
   case: string; width: number; bar: Box; reserved: Box; title: Box; strip: Box; plus: Box;
-  rail: Box; centre: Box; shelf: Box; hide: Box | null; show: Box | null; drawer: Box; close: Box;
+  rail: Box; centre: Box; shelf: Box; drawer: Box; close: Box;
   menu: Box | null;
   centreSurfaces: Box[];
   opening?: Frame[]; closing?: Frame[];

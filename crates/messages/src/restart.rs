@@ -29,7 +29,7 @@ impl Messages {
                 Err(RpcError::conflict("restart first prompt changed"))
             };
         }
-        let nodes = rail_nodes(&self.inner).await?;
+        let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .iter()
             .find(|n| n.id == agent)
@@ -205,7 +205,7 @@ impl Messages {
             .store()?
             .restart(agent, key)?
             .ok_or_else(|| RpcError::conflict("restart not reserved"))?;
-        let nodes = rail_nodes(&self.inner).await?;
+        let nodes = load_rail_nodes(&self.inner).await?;
         let node = nodes
             .iter()
             .find(|n| n.id == agent)

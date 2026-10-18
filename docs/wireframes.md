@@ -391,7 +391,7 @@ Each region is labelled in place with what will live there; there is no tutorial
 10. File-backed Pads live in the Project and are not auto-ignored; flipping back to app-only re-imports.
 11. Rows nest only under Groups and Doors; nesting never silently promotes.
 12. Worktree-per-agent is a per-Project default, off, with no choice at spawn time.
-13. The Shelf shows the selected node's Home and has a one-click view of the whole Project (reverses the earlier project-wide Shelf; `PRINCIPLES.md` P6).
+13. The Shelf follows the Rail selection: Overview groups all Project items by Workstream and maker, with Unassigned last and folded; a Workstream lists its Home’s items, an Agent its own, and a Terminal its owner’s view (U2744a; `PRINCIPLES.md` P6). There is no filter control.
 
 
 ## Accepted product direction: Workstreams, Doors and Sketches
