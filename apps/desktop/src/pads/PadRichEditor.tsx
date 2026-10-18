@@ -65,16 +65,18 @@ export default function PadRichEditor(props: {
   onMount(() => {
     if (!host || !menuHost) throw new Error(copy.padEditorHostIsMissing);
 
+    // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
+    const blockConfig = {
+      blockHandle: { getOffset: () => 0 },
+      slashMenu: { root: menuHost },
+    } as BlockEditFeatureConfig;
+
     crepe = new CrepeBuilder({
       root: host,
       defaultValue: props.text,
     })
       .setReadonly(props.readonly)
-      // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
-      .addFeature(blockEdit, {
-        blockHandle: { getOffset: () => 0 },
-        slashMenu: { root: menuHost },
-      } as BlockEditFeatureConfig)
+      .addFeature(blockEdit, blockConfig)
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(placeholder)
