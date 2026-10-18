@@ -194,7 +194,6 @@ p.ink[role="alert"] {
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: var(--flat-radius);
   background: transparent;
   color: var(--text);
   font: inherit;
