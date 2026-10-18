@@ -73,21 +73,24 @@ describe("u137 one module measures the checks", () => {
 
       for (const check of Object.values(checks)) {
         expect(["pass", "fail"]).toContain(check.status);
-        expect(check).toHaveProperty("value");
+        expect(check.value).not.toBeUndefined();
         expect(check.selector).toEqual(expect.any(String));
       }
     });
   });
 
-  it("u137_a_stylesheet_with_a_literal_colour_makes_d1_fail", () => {
+  it.each([
+    ["color", "#ff00ff", "rgb(255, 0, 255)"],
+    ["border-radius", "1px", "1px"],
+  ])("u137_a_stylesheet_with_a_literal_%s_makes_d1_fail", (property, value, serialized) => {
     document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
     document.body.innerHTML = "<p class='rail-row'>x</p>";
-    addSheet(".rail-row { color: #ff00ff; }");
+    addSheet(`.rail-row { ${property}: ${value}; }`);
 
     const d1 = runChecks().D1;
 
     expect(d1.status).toBe("fail");
-    expect(d1.value).toEqual(["color: rgb(255, 0, 255)"]);
+    expect(d1.value).toEqual([`${property}: ${serialized}`]);
     expect(d1.selector).toBe(".rail-row");
   });
 
@@ -131,21 +134,6 @@ describe("u137 one module measures the checks", () => {
     expect(checks.D10.status).toBe("fail");
   });
 
-  it("u137_the_result_parses_under_the_checks_json_shape_delta_reads", async () => {
-    await withStylesheets(async () => {
-      mountSeed();
-      // SAFETY: the test reads each entry as the `checks.json` shape and asserts it below.
-      const parsed = JSON.parse(JSON.stringify(runChecks())) as Record<string, { status: string; value: unknown; selector: string }>;
-
-      for (const id of CHECK_IDS) {
-        const entry = parsed[id]!;
-
-        expect(["pass", "fail"]).toContain(entry.status);
-        expect(entry.value).not.toBeUndefined();
-      }
-    });
-  });
-
   it("u137_reading_the_page_changes_nothing_the_user_sees", async () => {
     await withStylesheets(async () => {
       mountSeed();
@@ -157,6 +145,35 @@ describe("u137 one module measures the checks", () => {
 
       expect([document.body.innerHTML, document.head.innerHTML, String(document.activeElement === row)]).toEqual(before);
     });
+  });
+});
+
+describe("u131 D2 KeyChip spacing", () => {
+  it.each([
+    ["kbd", "", "padding-left: 5px"],
+    ["span", "key-chip", "padding-left: 5px"],
+    ...["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"].map((property) => ["p", "", `${property}: 5px`]),
+    ...["margin-top", "margin-right", "margin-bottom", "margin-left", "row-gap", "column-gap"].map((property) => ["kbd", "key-chip", `padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); ${property}: 5px`]),
+    ...["padding-left: 4px", "padding-right: 8px", "padding-top: 4px", "padding-bottom: 5px", "padding-left: 6px"].map((padding) => ["kbd", "key-chip", `padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); ${padding}`]),
+  ])("u131_rejects_nonconforming_spacing_on_%s_%s_%s", (tag, className, spacing) => {
+    document.body.innerHTML = `<${tag} class="${className}">x</${tag}>`;
+    addSheet(`:root { --key-chip-padding: 5px; } ${tag} { font-size: 13px; ${spacing}; }`);
+
+    expect(runChecks().D2.status).toBe("fail");
+  });
+
+  it.each(["", "--key-chip-padding: 6px;"])("u131_requires_the_specified_chip_token_%s", (token) => {
+    document.body.innerHTML = '<kbd class="key-chip">⌘</kbd>';
+    addSheet(`:root { ${token} } .key-chip { font-size: 13px; padding: 0 5px; }`);
+
+    expect(runChecks().D2.status).toBe("fail");
+  });
+
+  it("u131_accepts_the_u2541_key_chip_side_padding_token", () => {
+    document.body.innerHTML = '<kbd class="key-chip">⌘</kbd>';
+    addSheet(":root { --key-chip-padding: 5px; } .key-chip { font-size: 13px; padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); }");
+
+    expect(runChecks().D2).toEqual({ status: "pass", value: [], selector: "" });
   });
 });
 
@@ -176,24 +193,24 @@ rendered("u137 rendered focus marks", () => {
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
-  it("u137_floating_menu_shadow_keeps_unrelated_shadow_rejection", async () => {
+  it.each(["milkdown-slash-menu", "pane-control"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
 
-      const observed = await page.call<string[]>(`() => {
-        document.body.innerHTML = '<div class="milkdown-slash-menu" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+      const observed = await page.call<string[]>(`(surface) => {
+        document.body.innerHTML = '<div class="${surface}" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
         document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
         statuses.push(window.__checks().D8.status);
         document.querySelector('.content').style.boxShadow = 'none';
-        document.querySelector('.milkdown-slash-menu p').style.boxShadow = '0 2px 5px red';
+        document.querySelector('.' + surface + ' p').style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
-        document.querySelector('.milkdown-slash-menu p').style.boxShadow = 'none';
-        document.querySelector('.milkdown-slash-menu').style.boxShadow = '0 2px 5px red';
+        document.querySelector('.' + surface + ' p').style.boxShadow = 'none';
+        document.querySelector('.' + surface).style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
         return statuses;
-      }`);
+      }`, surface);
 
       expect(observed, scheme).toEqual(["pass", "fail", "fail", "fail"]);
     }
@@ -289,6 +306,27 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     }, 60_000);
   }
 
+  for (const scheme of ["light", "dark"] as const) for (const contrast of [undefined, "more"] as const) {
+    it(`u131_accepts_token_backed_chip_padding_in_${scheme}_${contrast ?? "normal"}`, async () => {
+      await page.scheme(scheme, contrast);
+      await load("agents-10");
+      await page.call(`() => {
+        const tokens = document.head.appendChild(document.createElement('style'));
+        tokens.dataset.viteDevId = '/src/tokens.css';
+        tokens.textContent = ':root { --key-chip-padding: 5px; }';
+        const sheet = document.head.appendChild(document.createElement('style'));
+        sheet.textContent = 'kbd.key-chip { padding-top: 0; padding-right: var(--key-chip-padding); padding-bottom: 0; padding-left: var(--key-chip-padding); font-size: var(--text-small); font-family: var(--font-ui); }';
+        const chip = document.createElement('kbd');
+        chip.className = 'key-chip';
+        chip.textContent = '⌘';
+        document.querySelector('.pane-screen').appendChild(chip);
+      }`);
+      const checks = await page.call<Checks>(`() => window.__checks()`);
+
+      for (const id of CHECK_IDS) expect(checks[id], `${id}: ${JSON.stringify(checks[id])}`).toMatchObject({ status: "pass" });
+    }, 60_000);
+  }
+
   it("u135_d10_holds_at_1280_by_800", async () => {
     await page.scheme("dark");
     await load("door-stopped");
@@ -296,7 +334,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
     expect(checks.D10.value).toMatchObject({ viewport: "1280x800", scheme: "dark" });
-    expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
+    expect(checks.D10, JSON.stringify(checks)).toMatchObject({ status: "pass" });
   }, 60_000);
 
   for (const seed of ["daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
