@@ -11,9 +11,10 @@ import padsCss from "../pads/styles.css?inline";
 import railCss from "../rail/styles.css?inline";
 import terminalCss from "../terminal/styles.css?inline";
 import rowButtonCss from "../todos/rowButton.styles.css?inline";
+import bubblesCss from "../bubbles/styles.css?inline";
 import stripCss from "../header/strip.styles.css?inline";
 
-const SHEETS = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n");
+const SHEETS = [tokenCss, appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n");
 
 const cssFor = (settings: Setting[]) => underSettings(SHEETS, settings);
 
@@ -37,7 +38,7 @@ const mount = async (settings: Setting[]) => {
   tokens.dataset.viteDevId = "/src/tokens.css";
   tokens.textContent = underSettings(tokenCss, settings);
   sheet = document.head.appendChild(document.createElement("style"));
-  sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss].join("\n"), settings);
+  sheet.textContent = underSettings([appCss, inkCss, padsCss, railCss, terminalCss, rowButtonCss, stripCss, bubblesCss].join("\n"), settings);
   matchMedia = window.matchMedia;
 
   const feature = { dark: "prefers-color-scheme: dark", "more-contrast": "prefers-contrast: more", "reduced-transparency": "prefers-reduced-transparency: reduce", "reduced-motion": "prefers-reduced-motion: reduce" };
@@ -63,8 +64,18 @@ describe("u135 schemes", () => {
     const rules = [...(sheet?.sheet?.cssRules ?? [])].filter((rule): rule is CSSStyleRule => "selectorText" in rule);
     const none = rules.filter((rule) => rule.style.getPropertyValue("backdrop-filter") === "none");
 
-    expect(none.map((rule) => rule.selectorText.replace(/\s+/g, ""))).toContain("*,*::before,*::after");
-    expect(cssFor([])).not.toMatch(/backdrop-filter:\s*(?!none)/);
+    expect(none.map((rule) => rule.selectorText.replace(/\s+/g, ""))).toContain("*,*::before,*::after,*::backdrop");
+    const defaults = document.createElement("style");
+    defaults.textContent = cssFor([]);
+    document.head.appendChild(defaults);
+
+    const filters = [...(defaults.sheet?.cssRules ?? [])].filter((rule): rule is CSSStyleRule => "selectorText" in rule)
+      .filter((rule) => rule.style.getPropertyValue("backdrop-filter") && rule.style.getPropertyValue("backdrop-filter") !== "none");
+
+    expect(filters.map((rule) => [rule.selectorText, rule.style.getPropertyValue("backdrop-filter")])).toEqual([
+      [".bubble-frame:has(.bubble:focus-within)::backdrop", "blur(var(--blur-bubble-backdrop))"],
+    ]);
+    defaults.remove();
   });
 
   it("u135_reduced_motion_makes_every_duration_but_the_instant_changes_0s", async () => {
