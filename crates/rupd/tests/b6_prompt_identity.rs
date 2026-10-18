@@ -7013,5 +7013,17 @@ async fn a2693a_an_unauthorized_mode_change_stops_nothing() {
         .unwrap();
     assert_eq!(after["attempt"], victim["attempt"]);
     assert_eq!(after["terminal_id"], victim["terminal_id"]);
+    let terminals = run
+        .user
+        .request("terminal.list", Value::Null)
+        .await
+        .unwrap();
+    assert!(
+        terminals
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["id"] == victim["terminal_id"] && t["running"] == true)
+    );
     run.finish().await;
 }

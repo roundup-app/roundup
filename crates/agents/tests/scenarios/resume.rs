@@ -1275,6 +1275,7 @@ async fn a2693a_running_and_exited_targets_continue_once_in_each_mode() {
                 assert_eq!(resumed.worktree, node.worktree);
                 assert_ne!(resumed.terminal_id, node.terminal_id);
                 let terminals = f.terminals.list();
+                assert_eq!(terminals.len(), 2, "exactly one next launch");
                 assert_eq!(terminals.iter().filter(|t| t.running).count(), 1);
                 assert!(
                     !terminals
@@ -1310,6 +1311,7 @@ async fn a2693a_every_normal_launch_clears_yolo() {
             exited_with_conversation(&f, CONVERSATION).await
         };
         let yolo = resume_in_mode(&f, &node, Some("yolo")).await;
+        until_resumed(&f).await;
         f.call("agent.stop", json!({"id":node.id})).await.unwrap();
         std::fs::remove_file(f.dir.path().join("argv.txt")).unwrap();
         let normal = if mode == Some("door") {
@@ -1504,6 +1506,19 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
     f.session_start(&node.id, CONVERSATION, "startup")
         .await
         .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while f
+            .terminals
+            .snapshot(node.terminal_id.as_deref().unwrap())
+            .unwrap()
+            .after
+            == 0
+        {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
     let mut exit = f
         .terminals
         .subscribe(node.terminal_id.as_deref().unwrap())
