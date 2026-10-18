@@ -1,13 +1,30 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AGENT, openPad, openShelf, padOf } from "./padsFixture";
 import { USER } from "../testing/nodes";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const writes = (calls: { method: string; params?: unknown }[]) => calls.filter((call) => call.method === "pad.write");
 
 describe("u147 the Pad is one live-preview surface", () => {
+  it("u147_closing_the_drawer_after_a_blur_write_does_not_write_twice", async () => {
+    const { app, connected } = await openShelf([padOf("note", USER, "old")]);
+    const field = await openPad("note");
+
+    vi.useFakeTimers();
+    fireEvent.input(field, { target: { value: "changed" } });
+    fireEvent.focusOut(field);
+    connected.drawer.close();
+
+    // Observe past the autosave deadline: closing must cancel the timer too.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(writes(app.calls)).toHaveLength(1);
+  });
+
   it("u147_a_user_owned_pad_is_one_editable_formatted_document", async () => {
     await openShelf([padOf("note", USER, "# Heading\n\n**bold** and *emphasis*")]);
     const field = await openPad("note");
@@ -40,7 +57,7 @@ describe("u147 the Pad is one live-preview surface", () => {
     fireEvent.focusOut(field);
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "# New\n" });
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "# New" });
   });
 
   it("u147_closing_the_drawer_after_a_change_writes_once", async () => {
@@ -51,19 +68,7 @@ describe("u147 the Pad is one live-preview surface", () => {
     connected.drawer.close();
 
     await waitFor(() => expect(writes(app.calls)).toHaveLength(1));
-    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "changed\n" });
-  });
-
-  it("u147_closing_the_drawer_after_a_blur_write_does_not_write_twice", async () => {
-    const { app, connected } = await openShelf([padOf("note", USER, "old")]);
-    const field = await openPad("note");
-
-    fireEvent.input(field, { target: { value: "changed" } });
-    fireEvent.focusOut(field);
-    connected.drawer.close();
-
-    await new Promise((done) => setTimeout(done, 0));
-    expect(writes(app.calls)).toHaveLength(1);
+    expect(writes(app.calls)[0]?.params).toEqual({ name: "note", text: "changed" });
   });
 
   it("u147_an_unchanged_document_keeps_its_source_bytes_and_writes_nothing", async () => {

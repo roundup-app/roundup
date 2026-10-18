@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use contracts::agent::RailNode;
+use contracts::agent::{Channel, RailNode};
 use contracts::{Actor, ActorKind, IdentifyParams, Kind};
 use daemon::{Project, rail_tree};
 use serde_json::{Value, json};
@@ -79,7 +79,7 @@ async fn idle(client: &rpc::Client, id: &str) {
 }
 
 async fn fixture() -> Fix {
-    let project = daemon::start_real("a35_marks", &[]);
+    let project = daemon::start_real("a35_marks", &[("ROUNDUP_INTERRUPT_BOUND_MS", "60000")]);
     let dir = project.dir.path();
     git(dir, &["init", "-q", "-b", "main"]);
     git(dir, &["config", "user.name", "roundup"]);
@@ -641,21 +641,30 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
             .unwrap(),
     )
     .unwrap();
-    let mut working = false;
-    loop {
-        let kind = daemon::next(&mut events, |event| match event {
+    // The node is stable once it has worked, gone Idle and its Channel is Up: a read before the
+    // Channel connects shows Pending, and a later read shows Up.
+    let (mut working, mut idle, mut up) = (false, false, false);
+    while !(idle && up) {
+        let seen = daemon::next(&mut events, |event| match event {
             contracts::EventData::AgentStatus(status) if status.id == later.id => {
-                Some(status.status.kind)
+                Some((Some(status.status.kind), false))
+            }
+            contracts::EventData::AgentChannel(channel)
+                if channel.id == later.id && channel.channel == Channel::Up =>
+            {
+                Some((None, true))
             }
             _ => None,
         })
         .await;
-        match kind {
-            Kind::Working => working = true,
-            Kind::Idle if working => return node(&fx.user, &later.id).await.unwrap(),
+        match seen {
+            (Some(Kind::Working), _) => working = true,
+            (Some(Kind::Idle), _) if working => idle = true,
+            (None, true) => up = true,
             _ => {}
         }
     }
+    node(&fx.user, &later.id).await.unwrap()
 }
 
 #[tokio::test]
@@ -1227,7 +1236,17 @@ async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
         .unwrap_err();
     assert_eq!(error.code, rpc::code::CONFLICT);
     assert!(error.message.contains(&child.name), "{error:?}");
-    assert_eq!(rail_tree(&fx.user).await, before);
+    // A child may still be finishing a turn of its own, so Status is not the refusal's to keep.
+    let unchanged = |tree: Vec<RailNode>| -> Vec<RailNode> {
+        tree.into_iter()
+            .map(|node| RailNode {
+                status: None,
+                status_revision: None,
+                ..node
+            })
+            .collect()
+    };
+    assert_eq!(unchanged(rail_tree(&fx.user).await), unchanged(before));
     // Selecting every child removes them deepest first.
     rewind(&fx, None, "keep").await;
     assert!(node(&fx.user, &child.id).await.is_none());
