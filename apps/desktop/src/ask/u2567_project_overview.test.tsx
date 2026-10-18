@@ -11,14 +11,23 @@ it("u2567a_entries_follow_rail_order_with_door_status", async () => {
 
   const overview = screen.getByRole("region", { name: "Project overview" });
 
-  expect(within(overview).getAllByRole("button").map((button) => button.textContent)).toEqual(["a", "bWorking"]);
+  expect(within(overview).getAllByRole("button")).toEqual([
+    within(overview).getByRole("button", { name: "a" }),
+    within(overview).getByRole("button", { name: "b Working" }),
+  ]);
+  expect(within(overview).getByRole("img", { name: "Working" })).toBeDefined();
 });
 
 const overview = () => screen.getByRole("region", { name: "Project overview" });
 
 const buttons = () => within(overview()).getAllByRole("button");
 
-const names = () => buttons().map((button) => button.textContent);
+const expectNames = (names: string[]) => {
+  expect(buttons()).toHaveLength(names.length);
+  names.forEach((name, index) => {
+    expect(within(overview()).getAllByRole("button", { name })).toContain(buttons()[index]);
+  });
+};
 
 const tree = (): RailNode[] => [
   door("a", "error", "failed"),
@@ -32,14 +41,16 @@ it("u2567a_attention_lines_sit_under_the_right_workstream", async () => {
   const { connected } = await mountAskBar([], null, tree());
   connected.rail.toggleCollapsed("b");
 
-  expect([...overview().querySelectorAll(".overview-list > li")].map((item) => item.textContent)).toEqual(["aErroraError", "bWorkingwaitingNeeds-you"]);
+  const entries = overview().querySelectorAll<HTMLElement>(".overview-list > li");
+  expect(within(entries[0]!).getAllByRole("button", { name: "a Error" })).toHaveLength(2);
+  expect(within(entries[1]!).getByRole("button", { name: "waiting Needs-you" })).toBeDefined();
   expect(within(overview()).getByRole("heading").textContent).toBe("2 need you");
 });
 
 it("u2567a_root_agents_need_attention_without_workstreams", async () => {
   await mountAskBar([], null, [agent("parent", "working", "busy"), agent("waiting", "needs-you", "permission", { parent: "parent" })]);
 
-  expect(names()).toEqual(["waitingNeeds-you"]);
+  expectNames(["waiting Needs-you"]);
   expect(within(overview()).getByRole("heading").textContent).toBe("1 needs you");
   expect(input()).not.toBeNull();
 });
@@ -50,7 +61,7 @@ it("u2567a_attention_is_error_first_then_oldest_since", async () => {
     agent("old", "needs-you", "permission", { parent: "a", status: { kind: "needs-you", label: "permission", since: 10 } }),
     agent("error", "error", "failed", { parent: "a", status: { kind: "error", label: "failed", since: 30 } })]);
 
-  expect(names()).toEqual(["a", "errorError", "oldNeeds-you", "newNeeds-you"]);
+  expectNames(["a", "error Error", "old Needs-you", "new Needs-you"]);
 });
 
 it("u2567a_nothing_needs_you", async () => {
@@ -63,7 +74,7 @@ it("u2567b_a_status_event_moves_the_line_and_the_count", async () => {
   app.emit(event({ name: "agent.status", data: { id: "waiting", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40 } } }));
   await connected.rail.settled();
 
-  expect(names()).toEqual(["aError", "aError", "bWorking"]);
+  expectNames(["a Error", "a Error", "b Working"]);
   expect(within(overview()).getByRole("heading").textContent).toBe("1 needs you");
 });
 
@@ -73,7 +84,7 @@ it("u2567b_create_and_remove_follow_the_tree", async () => {
   app.emit(event({ name: "rail.changed" }));
   await connected.rail.settled();
 
-  expect(names()).toEqual(["new", "bNeeds-you", "bNeeds-you"]);
+  expectNames(["new", "b Needs-you", "b Needs-you"]);
   expect(within(overview()).getByRole("heading").textContent).toBe("1 needs you");
 });
 
@@ -160,7 +171,7 @@ it("u2567d_a_failed_refetch_keeps_the_list_and_shows_the_error", async () => {
   await connected.rail.refresh();
 
   expect(within(overview()).getByRole("alert").textContent).toContain("offline");
-  expect(names()).toEqual(["aError", "aError", "bWorking", "waitingNeeds-you"]);
+  expectNames(["a Error", "a Error", "b Working", "waiting Needs-you"]);
   expect(input()).not.toBeNull();
 
   app.handlers["rail.tree"] = () => tree();
