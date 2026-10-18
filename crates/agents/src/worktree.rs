@@ -8,7 +8,7 @@ use std::io::{Read, Write};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
-use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 use std::time::{Duration, Instant};
 
 use contracts::agent::WorktreeState;
@@ -48,6 +48,10 @@ pub struct Git {
     /// after it, so every command the wrapper does not fake still reaches the real `git`.
     path: OsString,
     lock: Arc<Mutex<()>>,
+    /// G2542: canonical paths of enrolled directories; removal and recovery retain them.
+    enrolled: Arc<RwLock<Vec<PathBuf>>>,
+    /// G2542c: directories a preparation is running in.
+    busy: Arc<Mutex<Vec<PathBuf>>>,
     deadline: Option<Instant>,
 }
 
@@ -60,6 +64,8 @@ impl Git {
         Self {
             path: path.into(),
             lock: Arc::new(Mutex::new(())),
+            enrolled: Arc::new(RwLock::new(Vec::new())),
+            busy: Arc::new(Mutex::new(Vec::new())),
             deadline: None,
         }
     }
@@ -293,6 +299,9 @@ impl Git {
     }
 
     pub fn recover(&self, project: &Path, plan: &Provision) -> Result<(), RpcError> {
+        if self.is_enrolled(&plan.worktree.path) {
+            return self.recover_prepared(project, plan);
+        }
         let branch_ref = format!("refs/heads/{}", plan.worktree.branch);
         let branch = self.reference(project, &branch_ref)?;
         let owner = self.reference(project, &plan.owner)?;
@@ -585,6 +594,9 @@ impl Git {
     /// G5: delete the Worktree's directory and branch whatever their state; a directory already
     /// gone is not an error, and only git's record of it is removed.
     pub fn discard(&self, project: &Path, worktree: &Worktree) -> Result<(), RpcError> {
+        if self.is_enrolled(&worktree.path) {
+            return self.discard_prepared(project, worktree);
+        }
         let reference = format!("refs/heads/{}", worktree.branch);
         let path = canonical_path(&worktree.path);
         let registered = self
@@ -656,6 +668,11 @@ impl Git {
             for worktree in worktrees {
                 self.require_landed(project, worktree)?;
                 let tip = self.reference(project, &format!("refs/heads/{}", worktree.branch))?;
+                // G2542d: an enrolled directory is never moved aside; only its branch goes.
+                if self.is_enrolled(&worktree.path) {
+                    removal.entries.push((worktree.clone(), tip, None));
+                    continue;
+                }
                 let backup = if worktree.path.try_exists().map_err(failed)? {
                     let reference = format!("refs/heads/{}", worktree.branch);
                     let path = canonical_path(&worktree.path);
@@ -715,6 +732,9 @@ impl Git {
         self.require_landed(project, worktree)?;
         if self.reference(project, &reference)?.as_deref() != expected {
             return Err(failed("Worktree branch changed during removal"));
+        }
+        if self.is_enrolled(&worktree.path) {
+            return self.release_prepared(project, worktree, expected);
         }
         let path = canonical_path(&worktree.path);
         let registered = self
@@ -787,6 +807,11 @@ impl Removal {
                     }
                 }
                 let Some(backup) = backup.as_ref() else {
+                    if let Some(tip) = tip
+                        && git.is_enrolled(&worktree.path)
+                    {
+                        git.reattach_prepared(worktree, tip)?;
+                    }
                     return Ok(());
                 };
                 let saved = backup.path().join("worktree");
@@ -1004,6 +1029,9 @@ pub fn map_cwd(project: &Path, cwd: &Path, worktree_path: &Path) -> Option<PathB
     let relative = cwd.strip_prefix(project).ok()?;
     Some(worktree_path.join(relative))
 }
+
+#[path = "worktree_prepared.rs"]
+mod prepared;
 
 #[cfg(test)]
 #[path = "../tests/scenarios/g9.rs"]
