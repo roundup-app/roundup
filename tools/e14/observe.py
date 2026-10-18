@@ -51,7 +51,30 @@ def rust_rows(path):
         rows.append(dict(id=f"{suite}::{name}", start=start, end=start + float(case.attrib["time"]) * 1000, real=real))
     if len(rows) != int(report.attrib["tests"]):
         raise ValueError("incomplete Rust lifecycle report")
+    executions = [json.loads(p.read_text()) for p in (path.parent / "rust-events").glob("*.json")]
+    if len(executions) != len(rows) or {r["id"] for r in executions} != {r["id"] for r in rows}:
+        raise ValueError("missing or duplicate Rust execution intervals")
+    by_id = {r["id"]: r for r in executions}
+    for row in rows:
+        execution = by_id[row["id"]]
+        if execution["exit_code"] != 0:
+            raise ValueError(f"failed Rust execution: {row['id']}")
+        row.update(start=execution["start"], end=execution["end"])
     return rows
+
+
+def nextest_config(root, output, profile):
+    config = output / "nextest.toml"
+    events = output / "rust-events"
+    events.mkdir()
+    wrapper = str(Path(__file__).with_name("rust-wrapper.py").resolve())
+    config.write_text('experimental = ["wrapper-scripts"]\n' +
+        (root / ".config/nextest.toml").read_text() +
+        f'\n[profile.{profile}.junit]\npath = {json.dumps(str(output / "junit.xml"))}\n' +
+        '[scripts.wrapper.e14]\ncommand = ' + json.dumps([sys.executable, wrapper]) +
+        '\ntarget-runner = "within-wrapper"\n' +
+        f'[[profile.{profile}.scripts]]\nfilter = "all()"\nrun-wrapper = "e14"\n')
+    return config
 
 
 def web_rows(path):
@@ -120,18 +143,18 @@ def run(args):
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if subprocess.check_output(["git", "status", "--porcelain"], text=True).strip():
         raise ValueError("measurement requires a clean checkout and output outside the repository")
-    observer = {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in ("observe.py", "reporter.mjs.in", "requirements.txt", "rust-suites.json")}
+    observer = {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in ("observe.py", "reporter.mjs.in", "requirements.txt", "rust-suites.json", "rust-wrapper.py")}
     cache = {"description": args.cache_state, "paths": {}}
     for name in ("target/debug", "node_modules/.pnpm", "node_modules/@anthropic-ai/claude-code"):
         path = root / name
         cache["paths"][name] = {"exists": path.exists(), "mtime_ns": path.stat().st_mtime_ns if path.exists() else None}
     locks = {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in ("Cargo.lock", "pnpm-lock.yaml")}
     env = os.environ.copy()
+    env["E14_RUST_EVENTS"] = str(output / "rust-events")
     env["E14_LIFECYCLE"] = str(output / "web.json")
     if args.lane.startswith("rust"):
         profile = "ci" + args.lane[4:]
-        config = output / "nextest.toml"
-        config.write_text((root / ".config/nextest.toml").read_text() + f'\n[profile.{profile}.junit]\npath = {json.dumps(str(output / "junit.xml"))}\n')
+        config = nextest_config(root, output, profile)
         command = ["python3", "loop/app-data.py", "just", "test-rust-since", args.base, "--profile", profile, "--test-threads", "4", "--config-file", str(config)]
     else:
         reporter = output / "reporter.mjs"

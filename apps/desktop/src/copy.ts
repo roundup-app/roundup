@@ -126,7 +126,6 @@ export const copy = {
   limit: "1 limit",
   limits: (value1: CopyValue) => `${value1} limits`,
   clarifying: (value1: CopyValue) => `Clarifying: ${value1}`,
-  defaultQuestion: "What should this Agent do?",
   hasExitedAndCannotBeResumed: (value1: CopyValue) => `${value1} has exited and cannot be resumed`,
   openOwner: "Open owner",
   ownerName: (value1: CopyValue) => `Open owner: ${value1}`,

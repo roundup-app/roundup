@@ -21,6 +21,12 @@ class E14(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "5 overlapping"):
             observer.overlap(rows + [dict(id="b21", start=1100, end=1900, real=True)])
 
+    def test_e14_precise_intervals_only_touch_at_equal_timestamps(self):
+        rows = [dict(id=str(i), start=1000, end=2000, real=True) for i in range(4)]
+        self.assertEqual(observer.overlap(rows + [dict(id="b21", start=2000, end=3000, real=True)]), 4)
+        with self.assertRaisesRegex(ValueError, "5 overlapping"):
+            observer.overlap(rows + [dict(id="b21", start=1999.5, end=3000, real=True)])
+
     def test_e14_missing_lifecycle_or_memory_fails_visibly(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -71,6 +77,25 @@ class E14(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "web module failed"):
                 observer.web_rows(report)
 
+    def test_e14_rust_overlap_uses_precise_execution_intervals(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            report = directory / "junit.xml"
+            report.write_text('<testsuites tests="5">' + ''.join(
+                f'<testcase classname="rup::real_claude" name="case{i}" timestamp="2026-10-18T00:00:00.000+00:00" time="0.001"/>'
+                for i in range(5)) + '</testsuites>')
+            traces = directory / "rust-events"
+            traces.mkdir()
+            start = 1792281600000
+            for i in range(5):
+                (traces / f"{i}.json").write_text(json.dumps(dict(
+                    id=f"rup::real_claude::case{i}", start=start + i * 0.1,
+                    end=start + (i + 1) * 0.1, exit_code=0)))
+            self.assertEqual(observer.overlap(observer.rust_rows(report)), 1)
+            (traces / "4.json").unlink()
+            with self.assertRaisesRegex(ValueError, "execution intervals"):
+                observer.rust_rows(report)
+
     def test_e14_nextest_report_keeps_b21_lifecycle(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -81,15 +106,26 @@ class E14(unittest.TestCase):
             (directory / "src/lib.rs").write_text("")
             (directory / "tests" / f"{binary}.rs").write_text(f'#[test] fn {prefix}observer_fixture() {{ std::thread::sleep(std::time::Duration::from_millis(10)); }}')
             report = directory / "junit.xml"
-            config = directory / "nextest.toml"
-            config.write_text('[profile.ci1.junit]\npath=' + json.dumps(str(report)) + '\n')
-            result = subprocess.run(["cargo", "nextest", "run", "--manifest-path", str(directory / "Cargo.toml"), "--config-file", str(config), "--profile", "ci1"], capture_output=True, text=True, timeout=60)
+            (directory / ".config").mkdir()
+            (directory / ".config/nextest.toml").write_text("")
+            config = observer.nextest_config(directory, directory, "ci1")
+            result = subprocess.run(["cargo", "nextest", "run", "--manifest-path", str(directory / "Cargo.toml"), "--config-file", str(config), "--profile", "ci1"], env=dict(os.environ, E14_RUST_EVENTS=str(directory / "rust-events")), capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             rows = observer.rust_rows(report)
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["id"], observer.RUST_SUITES["required_test_prefix"] + "observer_fixture")
             self.assertTrue(rows[0]["real"])
             self.assertGreater(rows[0]["end"], rows[0]["start"])
+            # The same wrapper must execute the real command when it fails too.
+            (directory / "tests" / f"{binary}.rs").write_text(f'#[test] fn {prefix}observer_fixture() {{ panic!("expected failure"); }}')
+            for trace in (directory / "rust-events").iterdir():
+                trace.unlink()
+            failed = subprocess.run(["cargo", "nextest", "run", "--manifest-path", str(directory / "Cargo.toml"), "--config-file", str(config), "--profile", "ci1"], env=dict(os.environ, E14_RUST_EVENTS=str(directory / "rust-events")), capture_output=True, text=True, timeout=60)
+            self.assertEqual(failed.returncode, 100, failed.stdout + failed.stderr)
+            execution = json.loads(next((directory / "rust-events").iterdir()).read_text())
+            self.assertNotEqual(execution["exit_code"], 0)
+            with self.assertRaisesRegex(ValueError, "failed or retried Rust test"):
+                observer.rust_rows(report)
 
     def test_e14_memory_collector_finishes_only_after_stop(self):
         with tempfile.TemporaryDirectory() as temporary:
