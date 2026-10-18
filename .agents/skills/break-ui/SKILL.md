@@ -82,11 +82,11 @@ Fixed at the bottom-center of the viewport, out of the component's way. Small, n
 
 View the worst case and look for each failure signature below. Check it:
 
-- at the component's **real container width** (a sidebar list is not a full-page list), inside the one viewport, 1512×950 (`.agents/data/journey.md`); no other window width is tried;
+- at the component's **real container width** (a sidebar list is not a full-page list), then at **320px** and at the **widest** layout it supports;
 - with **browser zoom at 200%** (or root font size raised), because text grows and boxes don't;
 - in **dark mode** and **RTL** (`dir="rtl"` on a wrapper) if the product supports either.
 
-If browser tooling is available, screenshot both states at 1512×950 and compare. If it isn't, reason from the CSS and say which findings you verified visually and which you inferred.
+If browser tooling is available, screenshot both states at each width and compare. If it isn't, reason from the CSS and say which findings you verified visually and which you inferred.
 
 #### Failure signatures
 
@@ -122,9 +122,9 @@ Every long string forces this choice. Make it per field, not globally:
 - **Truncate at the end** for secondary metadata where the start carries the meaning: role, description, last message preview. Always pair with a way to see the full value.
 - **Truncate in the middle** when items differ at the *end*: file names (`Q3-report…v12-final.pdf`), emails sharing a long domain, paths, hashes. End-truncation makes them identical.
 - **Clamp** (`line-clamp: 2`) for multi-line previews in cards, so card heights stay predictable.
-- **Never truncate** numbers, amounts, dates, or anything the user compares. Give them the workstream.
+- **Never truncate** numbers, amounts, dates, or anything the user compares. Give them the room.
 
-**Completion criterion:** every catalog row that applies has been tried, every environment above has been checked, and every break has a signature, a cause, and a fix.
+**Completion criterion:** every catalog row that applies has been tried, every width and environment above has been checked, and every break has a signature, a cause, and a fix.
 
 ### Phase 5 — Report and stop
 
@@ -144,7 +144,7 @@ One row per break, worst first. Severity: **Broken** (content unreadable, action
 
 | # | Severity | Field | Worst-case value | What happens | Fix |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Broken | `email` | `bartholomew.fitzgerald@northwind-industries-holdings.example.com` | Pushes the ••• menu off the row; menu unreachable | `min-width: 0` on text column, `overflow-wrap: anywhere` on email, `flex-shrink: 0` on menu |
+| 1 | Broken | `email` | `bartholomew.fitzgerald@northwind-industries-holdings.example.com` | Pushes the ••• menu off the row; menu unreachable at 400px | `min-width: 0` on text column, `overflow-wrap: anywhere` on email, `flex-shrink: 0` on menu |
 | 2 | Ugly | avatar | name with long email | Avatar squishes to a 28×56 pill | `flex-shrink: 0` on avatar |
 | 3 | Ugly | `count` | 1 | "1 members" | `Intl.PluralRules` |
 | 4 | Fragile | `name` | — | No max length in schema or form | Add a limit in both, matching |
