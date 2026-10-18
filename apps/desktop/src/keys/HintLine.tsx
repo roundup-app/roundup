@@ -1,3 +1,4 @@
+import { KeyChip } from "./KeyChip";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
@@ -7,7 +8,13 @@ import { useConnectedProject } from "../state/connectedProject";
 const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | null => {
   const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(":scope > .pane-watch") != null;
 
-  return !focus || focus.closest(".help, .switcher, .drawer, [role=dialog], [data-bubble]") ? null
+  return !focus || focus.closest(".help") ? null
+    : focus.closest(".switcher") ? "switcher"
+    : focus.closest(".pad-rich-editor, [contenteditable=true]") ? "editor"
+    : focus.closest(".pad-body") ? "pad"
+    : focus.closest(".drawer") ? "drawer"
+    : focus.closest("[role=dialog]") ? null
+    : focus.closest("[data-bubble]") ? "bubble"
     : focus.closest('[role="tree"]') ? "rail"
     : inWatchedPane ? "agent"
     : null;
@@ -86,7 +93,7 @@ export const HintLine = () => {
 
   return (
     <p class="hint-line" ref={line} data-place={place() ?? undefined}>
-      <For each={hints()}>{(hint) => <span class="hint"><span class="hint-keys">{hint.keys}</span> {hint.label}</span>}</For>
+      <For each={hints()}>{(hint) => <span class="hint"><KeyChip keys={hint.keys} /> {hint.label}</span>}</For>
     </p>
   );
 };

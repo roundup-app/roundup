@@ -1,0 +1,94 @@
+{
+  "D1": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D10": {
+    "selector": "",
+    "status": "fail",
+    "value": {
+      "contrast": "no-preference",
+      "failing": [
+        "D2"
+      ],
+      "scheme": "light",
+      "viewport": "1512x950"
+    }
+  },
+  "D11": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D12": {
+    "selector": "div.shelf-row[data-id=\"1\"]",
+    "status": "pass",
+    "value": 0
+  },
+  "D13": {
+    "selector": "",
+    "status": "pass",
+    "value": 0
+  },
+  "D14": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 4
+    }
+  },
+  "D16": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D2": {
+    "selector": "kbd.key-chip",
+    "status": "fail",
+    "value": {
+      "padding-right": "5px"
+    }
+  },
+  "D3": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D4": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 32
+    }
+  },
+  "D5": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D6": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "targets": 155
+    }
+  },
+  "D7": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "targets": 155
+    }
+  },
+  "D8": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D9": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  }
+}
