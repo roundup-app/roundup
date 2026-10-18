@@ -38,19 +38,23 @@ export const mountRail = async (
   const [now, setNow] = createSignal(NOW);
   const connected = await connectProject(app, { name: "p", path: "/p" }, reducedMotion, now, daemonExit);
 
-  render(() => (
-    <ConnectedProjectContext.Provider value={connected}>
-      <AttentionKey />
-      <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
-      <Rail />
-      <Show when={neighbors.pane}>
-        <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
-      </Show>
-      <Show when={neighbors.drawer}>
-        <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
-      </Show>
-    </ConnectedProjectContext.Provider>
-  ));
+  render(() => {
+    connected.worktrees.watch(() => true);
+
+    return (
+      <ConnectedProjectContext.Provider value={connected}>
+        <AttentionKey />
+        <DockBadge app={app} rails={() => [connected.rail.nodes]} onFailure={() => {}} />
+        <Rail />
+        <Show when={neighbors.pane}>
+          <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
+        </Show>
+        <Show when={neighbors.drawer}>
+          <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
+        </Show>
+      </ConnectedProjectContext.Provider>
+    );
+  });
 
   return { app, rail: connected.rail, connected, setNow };
 };
