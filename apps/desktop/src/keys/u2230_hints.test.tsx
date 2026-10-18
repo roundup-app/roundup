@@ -82,7 +82,7 @@ const toRail = async (watching = true) => {
 
 const toPane = async () => {
   fireEvent.click(rowOf("b"));
-  await waitFor(() => expect(document.querySelector(".pane-watch")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull());
   document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
