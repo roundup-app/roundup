@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { agent, door, event, terminal, workstream } from "../testing/nodes";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { copy } from "../copy";
 import { input, mountAskBar, press } from "./askFixture";
 
 afterEach(cleanup);
@@ -120,7 +121,7 @@ it("u2567c_a_stopped_door_is_selected_but_not_started", async () => {
   app.calls.length = 0;
   fireEvent.click(within(overview()).getByRole("button", { name: "stopped" }));
 
-  expect(await screen.findByRole("button", { name: "Start supervisor" })).toBeDefined();
+  expect(await screen.findByRole("button", { name: copy.start })).toBeDefined();
   expect(connected.rail.selected()).toBe("stopped");
   expect(app.calls).toEqual([]);
   expect(app.outputSubscriptions).toEqual([]);
