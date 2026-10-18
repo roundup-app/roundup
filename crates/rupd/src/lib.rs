@@ -48,6 +48,8 @@ pub struct Daemon {
     /// B6: spawn publication and its Door-owned first Steer are registered together.
     door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
     held_actions: resize::HeldActions,
+    /// LC12–LC13: lookup and replacement share one claim, including while a summary is pending.
+    specialists: tokio::sync::Mutex<HashMap<(String, String), Specialist>>,
     /// B6: Takeover acquisition excludes in-flight Door effects on this child.
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
@@ -90,6 +92,224 @@ type Waiter = (
     Arc<agents::Agents>,
     Arc<todos::Todos>,
 );
+
+struct Specialist {
+    id: String,
+    actor: Actor,
+    params: contracts::agent::SpawnParams,
+    handoff: Option<SpecialistHandoff>,
+}
+
+enum SpecialistHandoff {
+    Awaiting(u32),
+    Ready(String),
+}
+
+impl Daemon {
+    async fn spawn_specialist(&self, actor: &Actor, params: Value) -> Result<Value, RpcError> {
+        let typed: contracts::agent::SpawnParams = rpc::params(params.clone())?;
+        if actor.kind != ActorKind::Agent || typed.scout != Some(true) {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "specialist requires an Agent's scout: true start",
+            ));
+        }
+        let name = typed.specialist.clone().expect("specialist spawn");
+        if name.trim().is_empty() {
+            return Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "specialist name must not be empty",
+            ));
+        }
+        let mut specialists = self.specialists.lock().await;
+        let nodes = self.rail().await?;
+        let mut at = nodes.iter().find(|node| node.id == actor.id);
+        let workstream = loop {
+            let node = at.ok_or_else(|| {
+                RpcError::new(code::INVALID_PARAMS, "a specialist needs a Workstream")
+            })?;
+            if node.kind == contracts::agent::NodeKind::Workstream {
+                break node.id.clone();
+            }
+            at = node
+                .parent
+                .as_ref()
+                .and_then(|parent| nodes.iter().find(|n| &n.id == parent));
+        };
+        specialists.retain(|_, specialist| {
+            nodes.iter().any(|n| {
+                n.id == specialist.id
+                    && (matches!(specialist.handoff, Some(SpecialistHandoff::Ready(_)))
+                        || (n.terminal_id.is_some()
+                            && n.status
+                                .as_ref()
+                                .is_some_and(|s| s.kind != contracts::Kind::Done)))
+            })
+        });
+        let key = (workstream, name);
+        if let Some(specialist) = specialists.get_mut(&key)
+            && let Some(node) = nodes.iter().find(|n| n.id == specialist.id)
+        {
+            // A failed replacement start retains its summary and retries without another request.
+            if node.terminal_id.is_none()
+                && matches!(specialist.handoff, Some(SpecialistHandoff::Ready(_)))
+            {
+                return self.replace_specialist(specialist).await;
+            }
+            return rpc::reply(node);
+        }
+        let node = self
+            .agents
+            .call(&self.ctx(actor.clone()), "agent.spawn", params.clone())
+            .await?;
+        specialists.insert(
+            key,
+            Specialist {
+                id: node["id"].as_str().expect("spawn id").to_owned(),
+                actor: actor.clone(),
+                params: typed,
+                handoff: None,
+            },
+        );
+        Ok(node)
+    }
+}
+
+impl Daemon {
+    fn register_first_steer(&self, first_steers: &mut HashMap<String, String>, node: &Value) {
+        if let (Some(id), Some(attempt)) = (node["id"].as_str(), node["attempt"].as_str()) {
+            first_steers.insert(id.to_owned(), attempt.to_owned());
+            let first_steers = Arc::clone(&self.door_first_steers);
+            let agents = Arc::clone(&self.agents);
+            let (id, attempt) = (id.to_owned(), attempt.to_owned());
+            tokio::spawn(async move {
+                if agents.first_steer_completion(&id, &attempt).await.is_ok() {
+                    let mut first_steers = first_steers.lock().await;
+                    if first_steers.get(&id) == Some(&attempt) {
+                        first_steers.remove(&id);
+                    }
+                }
+            });
+        }
+    }
+
+    async fn specialist_stop(&self, params: &Value) -> Result<Option<Value>, RpcError> {
+        let signal: contracts::agent::SignalParams = rpc::params(params.clone())?;
+        if signal.payload["hook_event_name"] != "Stop" {
+            return Ok(None);
+        }
+        let id = signal.id.as_str();
+        let mut specialists = self.specialists.lock().await;
+        let Some(specialist) = specialists.values_mut().find(|s| s.id == id) else {
+            return Ok(None);
+        };
+        let nodes = self.rail().await?;
+        if !nodes.iter().any(|n| {
+            n.id == id
+                && n.attempt.as_deref() == Some(signal.attempt.as_str())
+                && n.terminal_id.is_some()
+        }) {
+            return Ok(None);
+        }
+        match specialist.handoff {
+            Some(SpecialistHandoff::Awaiting(_)) => return Ok(None),
+            Some(SpecialistHandoff::Ready(_)) => {
+                return self.replace_specialist(specialist).await.map(Some);
+            }
+            None => {}
+        }
+        let payload = signal.payload;
+        let size =
+            tokio::task::spawn_blocking(move || agents::claude_code::context_tokens(&payload))
+                .await
+                .map_err(RpcError::internal)??;
+        if size.is_none_or(|size| size < 160_000) {
+            return Ok(None);
+        }
+        let message = self.modules["message"].call(&self.ctx(specialist.actor.clone()), "message.send", json!({
+            "to": id, "kind":"note", "body": "Your context reached 160k tokens. Send a handoff summary of at most 600 bytes to your parent with message_send, using replyTo to answer this Message. Retain findings and unfinished work; a replacement specialist will continue."
+        })).await?;
+        let message: contracts::message::Message =
+            serde_json::from_value(message).map_err(RpcError::internal)?;
+        specialist.handoff = Some(SpecialistHandoff::Awaiting(message.id));
+        Ok(None)
+    }
+
+    async fn specialist_summary(
+        &self,
+        actor: &Actor,
+        params: &Value,
+    ) -> Result<Option<Value>, RpcError> {
+        if actor.kind != ActorKind::Agent {
+            return Ok(None);
+        }
+        let sent: contracts::message::SendParams = rpc::params(params.clone())?;
+        let mut specialists = self.specialists.lock().await;
+        let Some(specialist) = specialists.values_mut().find(|s| s.id == actor.id) else {
+            return Ok(None);
+        };
+        let Some(SpecialistHandoff::Awaiting(request)) = specialist.handoff else {
+            return Ok(None);
+        };
+        if sent.reply_to != Some(request)
+            || sent.to != specialist.actor.id
+            || sent.kind != contracts::message::MessageKind::Note
+        {
+            return Ok(None);
+        }
+        if sent.body.is_empty() || sent.body.len() > 600 {
+            return Ok(None);
+        }
+        specialist.handoff = Some(SpecialistHandoff::Ready(sent.body));
+        self.replace_specialist(specialist).await.map(Some)
+    }
+
+    async fn replace_specialist(&self, specialist: &mut Specialist) -> Result<Value, RpcError> {
+        let Some(SpecialistHandoff::Ready(summary)) = &specialist.handoff else {
+            return Err(RpcError::conflict("specialist summary is pending"));
+        };
+        if self
+            .sender
+            .get()
+            .is_some_and(|messages| messages.takeover_active(&specialist.id))
+        {
+            return Err(RpcError::conflict(
+                "specialist replacement waits for Takeover to end",
+            ));
+        }
+        let mut params = specialist.params.clone();
+        if params.order.is_none() {
+            params.order = Some(contracts::agent::Order::Work {
+                title: Some("Continue specialist reading".into()),
+                ask: "Continue the standing specialist's reading".into(),
+                done: Some("Report findings to the parent".into()),
+                limits: vec!["Read and search only".into()],
+            });
+        }
+        params.prompt = Some(format!(
+            "{}\n\n## Handoff from the previous specialist\n\n{summary}",
+            params.prompt.as_deref().unwrap_or_default()
+        ));
+        self.agents
+            .call(
+                &self.ctx(Actor::daemon()),
+                "agent.stop",
+                json!({"id":specialist.id}),
+            )
+            .await?;
+        let node = self
+            .agents
+            .call(
+                &self.ctx(specialist.actor.clone()),
+                "agent.spawn",
+                serde_json::to_value(params).map_err(RpcError::internal)?,
+            )
+            .await?;
+        specialist.id = node["id"].as_str().expect("spawn id").to_owned();
+        specialist.handoff = None;
+        Ok(node)
+    }
+}
 
 /// Per-connection state.
 #[derive(Clone)]
@@ -196,6 +416,7 @@ impl Daemon {
             door_first_steers: Default::default(),
             child_effects: Default::default(),
             held_actions: resize::HeldActions::open(dir)?,
+            specialists: Default::default(),
             touches,
             bus: bus.clone(),
             project: std::path::absolute(project).unwrap_or_else(|_| project.to_path_buf()),
@@ -690,9 +911,46 @@ impl Daemon {
                 return self.remove_workstream(&conn.actor, &id).await;
             }
         }
-        let outcome = module
-            .call(&self.ctx(conn.actor.clone()), method, params.clone())
-            .await;
+        let outcome = if method == "agent.spawn" && params["specialist"].is_string() {
+            self.spawn_specialist(&conn.actor, params.clone()).await
+        } else {
+            module
+                .call(&self.ctx(conn.actor.clone()), method, params.clone())
+                .await
+        };
+        if outcome.is_ok()
+            && (method == "message.send"
+                || (method == "agent.signal" && params["payload"]["hook_event_name"] == "Stop"))
+        {
+            let id = if method == "message.send" {
+                conn.actor.id.as_str()
+            } else {
+                params["id"].as_str().unwrap_or_default()
+            };
+            let is_specialist = self
+                .specialists
+                .lock()
+                .await
+                .values()
+                .any(|specialist| specialist.id == id);
+            // Ordinary hooks must not wait behind a specialist's spawn registration:
+            // first-input completion can itself depend on those hooks returning.
+            if is_specialist {
+                // Takeover acquisition and ordinary spawn use this same effect/registration order.
+                let _effect = self.child_effects(id).read_owned().await;
+                let mut registration = self.door_first_steers.lock().await;
+                let repair = if method == "message.send" {
+                    self.specialist_summary(&conn.actor, &params).await
+                } else {
+                    self.specialist_stop(&params).await
+                };
+                match repair {
+                    Ok(Some(node)) => self.register_first_steer(&mut registration, &node),
+                    Ok(None) => {}
+                    Err(err) => eprintln!("rupd: specialist handoff: {}", err.message),
+                }
+            }
+        }
         if method == "takeover.end" && outcome.is_ok() {
             let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
             // Message release can await an already-recorded prompt. A new Takeover must
@@ -706,21 +964,8 @@ impl Daemon {
                 self.release_actions(&agent).await?;
             }
         }
-        if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome)
-            && let (Some(id), Some(attempt)) = (node["id"].as_str(), node["attempt"].as_str())
-        {
-            first_steers.insert(id.to_owned(), attempt.to_owned());
-            let first_steers = Arc::clone(&self.door_first_steers);
-            let agents = Arc::clone(&self.agents);
-            let (id, attempt) = (id.to_owned(), attempt.to_owned());
-            tokio::spawn(async move {
-                if agents.first_steer_completion(&id, &attempt).await.is_ok() {
-                    let mut first_steers = first_steers.lock().await;
-                    if first_steers.get(&id) == Some(&attempt) {
-                        first_steers.remove(&id);
-                    }
-                }
-            });
+        if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome) {
+            self.register_first_steer(first_steers, node);
         }
         if matches!(method, "todo.create" | "pad.create") && conn.actor.kind == ActorKind::Agent {
             return self.home_in_workstream(method, &conn.actor, outcome?).await;
