@@ -334,6 +334,8 @@ export const Bubbles = (props: { screens: Screens }) => {
       return null;
     } finally {
       setOpening(false);
+
+      if (failure() !== null && shown().length === 0) document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
     }
   };
 

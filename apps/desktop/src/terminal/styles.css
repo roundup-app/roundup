@@ -58,7 +58,7 @@
 }
 
 /* U524: a Terminal opened from the Project root replaces the placeholder. */
-[data-root-terminal] .pane .pane-empty:not(.pane-door) {
+[data-root-terminal] .pane .pane-empty {
   display: none;
 }
 
