@@ -240,10 +240,6 @@ async fn x14_output_subscription_lifetime() {
         .unwrap();
     let mut stream = terminals.subscribe_output(&owned.id).unwrap();
     terminals.close(&owned.id).await.unwrap();
-    assert!(
-        tokio::time::timeout(PATIENCE, stream.next())
-            .await
-            .expect("a closed Terminal ends its streams")
-            .is_none()
-    );
+    // Output already queued before the close may still arrive; the stream must then end.
+    drain(&mut stream).await;
 }
