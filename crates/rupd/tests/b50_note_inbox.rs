@@ -277,15 +277,34 @@ impl Run {
     }
 
     async fn note(&self, body: &str) -> u32 {
+        self.try_note(body).await.unwrap()
+    }
+
+    /// The sender's `message.send` of a note to the Agent, as the MCP tool and `rup` make it.
+    async fn try_note(&self, body: &str) -> Result<u32, rpc::RpcError> {
         let sent = self
             .sender
             .request(
                 "message.send",
                 json!({"to":self.child,"kind":"note","body":body}),
             )
+            .await?;
+        Ok(sent["id"].as_u64().unwrap() as u32)
+    }
+
+    /// A note the Agent's inbox cannot take: the sender hears `INBOX_UNAVAILABLE`, and the record
+    /// is the note, held. Returns the sender's error and the note's id.
+    async fn refused_note(&self, body: &str) -> (rpc::RpcError, u32) {
+        let err = self.try_note(body).await.unwrap_err();
+        let listed = self
+            .user
+            .request("message.list", json!({"to":self.child}))
             .await
             .unwrap();
-        sent["id"].as_u64().unwrap() as u32
+        let id = listed.as_array().unwrap().last().unwrap()["id"]
+            .as_u64()
+            .unwrap() as u32;
+        (err, id)
     }
 
     /// The Agent works, then is idle again: one `idle` edge.
@@ -449,7 +468,7 @@ async fn b51_a_session_not_listening_holds_the_note_with_zero_terminal_writes() 
 #[tokio::test]
 async fn b51_an_unprobed_peer_protocol_is_a_mismatch() {
     let run = Run::start_on(99).await;
-    let id = run.note("hello").await;
+    let (_, id) = run.refused_note("hello").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
     })
@@ -558,7 +577,7 @@ async fn b52_thirty_idle_edges_with_a_session_not_listening_hold_once_and_type_n
 #[tokio::test]
 async fn b52_a_restart_with_a_held_inbox_note_keeps_it_held() {
     let mut run = Run::start_on(99).await;
-    let id = run.note("keep").await;
+    let (_, id) = run.refused_note("keep").await;
     until("held", async || {
         (run.status(id).await.0 == "held").then_some(())
     })
@@ -624,4 +643,50 @@ impl Run {
         self.attempt = node["attempt"].clone();
         self.ready().await;
     }
+}
+
+#[tokio::test]
+async fn b51_the_sender_of_a_note_to_a_mismatched_inbox_hears_it_and_the_note_is_held() {
+    let mut run = Run::start_on(99).await;
+    let (err, id) = run.refused_note("hello").await;
+    assert_eq!(err.code, rpc::code::INBOX_UNAVAILABLE);
+    assert_eq!(
+        err.message,
+        "notes held: Claude Code changed its message format"
+    );
+    assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
+    assert_eq!(run.seen().await.1, Vec::<u32>::new());
+}
+
+#[tokio::test]
+async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
+    let run = Run::start().await;
+    let first = run.note("same").await;
+    until("taken up", async || {
+        (run.entries() == [format!("rup-{first}")]).then_some(())
+    })
+    .await;
+    let err = run.try_note("same").await.unwrap_err();
+    assert_eq!(err.code, rpc::code::CONFLICT);
+    assert_eq!(
+        err.message,
+        "same text as your last note; Claude Code drops repeats"
+    );
+    let listed = run
+        .user
+        .request("message.list", json!({"to":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 1, "no second record");
+    // Another text, and the same text once another note came between, are taken up.
+    let other = run.note("other").await;
+    let again = run.note("same").await;
+    until("taken up", async || {
+        (run.entries().len() == 3).then_some(())
+    })
+    .await;
+    assert_eq!(
+        run.entries(),
+        [first, other, again].map(|id| format!("rup-{id}"))
+    );
 }

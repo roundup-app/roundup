@@ -1,3 +1,5 @@
+import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
+
 type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
@@ -251,9 +253,22 @@ export const copy = {
   branch: "Branch",
   base: "Base",
   worktreeState: "State",
+  worktreeCi: "CI",
+  worktreePr: "PR",
+  worktreeCiUnavailable: "CI unavailable",
+  worktreePrUnavailable: "PR unavailable",
+  worktreeCiText: (state: WorktreeCiState, stale: boolean, label = false) => {
+    const value = { passed: "Passed", failed: "Failed", running: "Running", "no-ci": "No CI", conflicts: "Conflicts", error: "Error", unknown: "Unknown" }[state];
+
+    return `${label && state !== "no-ci" ? `CI ${value.toLowerCase()}` : value}${stale ? ", stale" : ""}`;
+  },
+  worktreeCiChip: (state: WorktreeCiState) => ({ passed: "✓ CI", failed: "✗ CI", running: "… CI", "no-ci": "— CI", conflicts: "! CI", error: "⚠ CI", unknown: "? CI" }[state]),
+  worktreeStale: ", stale",
+  worktreePrText: (number: number, stale: boolean) => `#${number}${stale ? ", stale" : ""}`,
+  worktreePrState: (number: number, stale: boolean) => `PR #${number}${stale ? ", stale" : ""}`,
   worktreeUnavailableMark: "—",
   worktreeUnavailable: "Worktree state unavailable",
-  worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead`,
+  worktreeAhead: (ahead: number) => `${ahead.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 })}↑`,
   worktreeAheadState: (ahead: number) => `${ahead.toLocaleString("en-US")} ahead of Base`,
   worktreeStateText: (ahead: number, behind: number, dirty: boolean) => `${ahead} ahead, ${behind} behind${dirty ? ", dirty" : ""}`,
   noChanges: "No changes",

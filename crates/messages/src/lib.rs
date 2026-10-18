@@ -280,7 +280,30 @@ impl Messages {
     }
 
     async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Value, RpcError> {
-        reply(&self.send_message(ctx, p, false).await?)
+        // B51(f), B51(g): the sender of a note to an Agent hears at once when it will not arrive.
+        let note = inbox::is_note_send(ctx, &p);
+        if note {
+            self.refuse_repeat(ctx, &p).await?;
+        }
+        let message = self.send_message(ctx, p, false).await?;
+        if note {
+            inbox::refuse_mismatch(&self.inner, &message).await?;
+        }
+        reply(&message)
+    }
+
+    /// B51(g): Claude Code drops a note whose text and sender equal those of the one it took up
+    /// last, so such a send is refused and no Message is made.
+    async fn refuse_repeat(&self, ctx: &Ctx, p: &SendParams) -> Result<(), RpcError> {
+        // A receiver that cannot be found is the send's own error to give.
+        let Ok(Some(receiver)) = self.resolve_receiver(&p.to).await else {
+            return Ok(());
+        };
+        let last = self.store()?.last_note(&p.to, binding(&receiver).0)?;
+        if last.is_some_and(|last| last.from == ctx.actor && last.body == p.body) {
+            return Err(RpcError::conflict(inbox::REPEAT));
+        }
+        Ok(())
     }
 
     /// `message.send`. `merge` makes the Message the merge of the two oldest pushed digests to
@@ -2252,11 +2275,11 @@ mod tests {
     async fn b1_a_receiver_at_the_bound_of_32_is_conflict() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(dir.path(), vec![agent_node("b", Kind::Working)]);
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2302,11 +2325,11 @@ mod tests {
         )
         .await
         .unwrap();
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2331,11 +2354,11 @@ mod tests {
             dir.path(),
             vec![agent_node("b", Kind::Idle), agent_node("c", Kind::Idle)],
         );
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2357,11 +2380,11 @@ mod tests {
     async fn b1_a_rejected_call_at_the_bound_changes_nothing() {
         let dir = tempfile::tempdir().unwrap();
         let mut h = Harness::new(dir.path(), vec![agent_node("b", Kind::Working)]);
-        for _ in 0..32 {
+        for n in 0..32 {
             h.call_as(
                 agent("a"),
                 "message.send",
-                json!({"to": "b", "kind": "note", "body": "hi"}),
+                json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
             )
             .await
             .unwrap();
@@ -2997,12 +3020,12 @@ mod tests {
                 bus: bus.clone(),
                 touches: Arc::clone(&touches),
             };
-            for _ in 0..31 {
+            for n in 0..31 {
                 messages
                     .call(
                         &make_ctx(agent("a")),
                         "message.send",
-                        json!({"to": "b", "kind": "note", "body": "hi"}),
+                        json!({"to": "b", "kind": "note", "body": format!("hi {n}")}),
                     )
                     .await
                     .unwrap();
