@@ -23,7 +23,7 @@ export const Tip = (props: {
   <Tooltip.Root ids={props.ids} anchor={props.anchor} disabled={props.disabled || (props.cut ? !props.cut() : false)} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
     <Tooltip.Trigger asChild={(trigger) => props.children(trigger, focusProps(trigger()))} />
     <Portal>
-      <Tooltip.Positioner>
+      <Tooltip.Positioner style={{ "pointer-events": "none" }}>
         <Tooltip.Content class={props.class ?? (props.content !== undefined ? "ink-tip" : undefined)} chord={props.chord}>{props.content ?? props.text}</Tooltip.Content>
       </Tooltip.Positioner>
     </Portal>
