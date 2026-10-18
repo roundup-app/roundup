@@ -346,7 +346,7 @@ pub struct RailNode {
 }
 
 /// B51: the outcome of checking an Agent's Claude inbox: `ok`, `missing` (absent or not writable)
-/// or `mismatch` (present, in a format the adapter holds no fixture for).
+/// or `mismatch` (present, listing a messaging protocol the adapter does not speak).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "agent/")]

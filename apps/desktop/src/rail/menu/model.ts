@@ -119,6 +119,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (current) void resume(current.node.id);
   };
 
+  const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
+
   /** U350: the same word as the former Thread header's, only for a Workstream and not while its clear is pending. */
   const isClearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
 
@@ -207,8 +209,10 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     isClearable,
     isRunning,
     chooseResume,
+    requestResume: (node: RailNode) => void resume(node.id),
+    isResumable,
     canStop: (current: MenuState) => isRunning(current.node, current.exit),
-    canResume: (current: MenuState) => current.node.can_resume && !isRunning(current.node, current.exit),
+    canResume: (current: MenuState) => isResumable(current.node, current.exit),
   };
 };
 

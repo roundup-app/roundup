@@ -22,10 +22,11 @@ Tests (`u426_`, Vitest against the fake App, in `apps/desktop/src/rail/`). Obser
 
 Tests (`u427_`, Vitest against the fake App, in `apps/desktop/src/rail/`). The U191, U392 and U163 clauses and tests that name the inside line change in the same PR. Observer: as U426, plus `artifacts/ux/U427/`. Moves: D1, D2, D5, D6.
 
-**U428 an Agent row's icons: stop, open folder, open in editor.** Narrows U56, U404 and U427; changes no Daemon method and no Token. Given a Door or Subagent row, then:
-- **Stop.** The first icon is `aria-label` `Stop`, `title` `Stop`. It runs the menu's stop path and its confirm rule (`rail/menu/model.ts`, `needsConfirmation`) as one function the menu and the icon share, not a second copy: a `working`, `needs-you` or `blocked` Agent asks to confirm first, any other running Agent stops at once. It is absent while the Agent is not running (resume stays in the menu). Asserted in `u428_stop_confirms_a_working_agent_as_the_menu_does`, `u428_stop_stops_an_idle_agent_at_once`, `u428_the_icon_and_the_menu_share_one_stop_path`, `u428_no_stop_icon_on_a_stopped_agent`.
-- **Open folder.** The second icon calls `open_target {kind: "path", path}` with the Agent's Worktree path (`RailNode.worktree.path`) when it has one, else the Project folder. Asserted in `u428_open_folder_prefers_the_worktree` and `u428_open_folder_falls_back_to_the_project_folder`.
-- **Open in editor.** The third icon sends the same directory to U429's command. Asserted in `u428_open_in_editor_sends_the_same_directory`.
+**U428 an Agent row's icons: stop or resume, open folder, open in editor.** Narrows U56, U404 and U427; changes no Daemon method and no Token. Given a Door or Subagent row, then:
+- **Stop.** The first icon is `aria-label` `Stop`, `title` `Stop`. It runs the menu's stop path and its confirm rule (`rail/menu/model.ts`, `needsConfirmation`) as one function the menu and the icon share, not a second copy: a `working`, `needs-you` or `blocked` Agent asks to confirm first, any other running Agent stops at once. It is absent while the Agent is not running. Asserted in `u428_stop_confirms_a_working_agent_as_the_menu_does`, `u428_stop_stops_an_idle_agent_at_once`, `u428_the_icon_and_the_menu_share_one_stop_path`, `u428_no_stop_icon_on_a_stopped_agent`.
+- **Resume.** An Agent that is not running and has `can_resume` shows `Resume` (`aria-label` and `title`) in Stop's slot; clicking it calls `agent.resume {id}` once through the menu's resume path. Other stopped Agents show neither. Asserted in `u428_resume_replaces_stop_on_a_resumable_stopped_agent`.
+- **Open folder.** The icon after them calls `open_target {kind: "path", path}` with the Agent's Worktree path (`RailNode.worktree.path`) when it has one, else the Project folder. Asserted in `u428_open_folder_prefers_the_worktree` and `u428_open_folder_falls_back_to_the_project_folder`.
+- **Open in editor.** The last icon sends the same directory to U429's command. Asserted in `u428_open_in_editor_sends_the_same_directory`.
 
 Tests (`u428_`, Vitest against the fake App, in `apps/desktop/src/rail/`). Observer: as U426, plus `artifacts/ux/U428/`. Moves: D1, D2, D5, D6.
 
