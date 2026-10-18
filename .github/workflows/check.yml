@@ -12,8 +12,9 @@ on:
     branches: [main]
 
 # L82: a newer push cancels an older run, on a PR and on `main` alike: only the newest `main` commit's run goes on.
+# A push to `main` has its own group per commit, so a merge never cancels the run of the commit before it.
 concurrency:
-  group: check-${{ github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref }}
+  group: check-${{ github.event_name == 'push' && format('push-{0}', github.sha) || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
   cancel-in-progress: true
 
 # L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
