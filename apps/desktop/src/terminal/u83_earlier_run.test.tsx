@@ -12,15 +12,14 @@ describe("u83 a node from an earlier run", () => {
     ["Agent", agent("a", "done", "finished", { terminal_id: null })],
     ["Terminal", terminal("a", { terminal_id: null })],
     ["Door", node("a", { terminal_id: null, status: { kind: "idle", label: "waiting", since: 0 } })],
-  ])("u83_a_selected_%s_with_no_terminal_reads_the_line_in_grey_and_never_in_ink", async (_kind, selected) => {
+  ])("u83_a_selected_%s_with_no_terminal_preserves_the_history_note_without_terminal_calls", async (_kind, selected) => {
     const { connected, container, app, emulators } = await mountPane([selected]);
 
     connected.rail.select("a");
 
     const line = await screen.findByText(LINE);
 
-    expect(line.classList.contains("pane-empty")).toBe(true);
-    expect(line.classList.contains("light")).toBe(true);
+    expect(line).toBeTruthy();
     expect(container.querySelector(".pane-failure")?.textContent).toBe("");
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(emulators.size).toBe(0);

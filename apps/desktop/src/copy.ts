@@ -237,6 +237,8 @@ export const copy = {
   separator: " · ",
   retryDoor: "Retry supervisor",
   startDoor: "Start supervisor",
+  start: "Start",
+  agentStopped: "Agent stopped",
   agents: (value1: CopyValue) => `${value1} agents`,
   rowActions: "Row actions",
   addAgentLabel: "Add Agent",

@@ -31,7 +31,7 @@ const load = async (width = 1280) => {
 const fail = async () => {
   await page.call(`() => {
     window.__fake.failNext(-32003, 'U464 call refused');
-    [...document.querySelectorAll('button')].find(el => el.textContent.includes('Start supervisor')).click();
+    document.querySelector('.pane-door button').click();
   }`);
   await page.until(`() => document.querySelector('p.ink[role=alert]')?.getAttribute('aria-label') === 'U464 call refused'`);
 };
