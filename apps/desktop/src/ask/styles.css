@@ -121,6 +121,12 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   white-space: nowrap;
 }
 
+.ask-tip {
+  max-width: min(var(--centre-min-width), calc(100vw - 2 * var(--space-4)));
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .ask-back {
   grid-column: 1 / -1;
   display: flex;
