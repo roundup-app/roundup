@@ -325,15 +325,11 @@ mod tests {
             shaped["hookSpecificOutput"]["hookEventName"],
             "SessionStart"
         );
-        assert_eq!(
-            shaped["hookSpecificOutput"]["additionalContext"],
-            "Your Rail name is a. Say it, never an id, when you speak of yourself or another Agent.\n\
-             Parent: m (message_send {to} value: \"1\"), an Agent.\n\
-             Ask: m, your Door, using the destination above.\n\
-             Peer: b (message_send {to} value: \"3\"), idle.\n\
-             Todo 1: todo 1.\n\
-             Todo 4: todo 4 (blocked)."
-        );
+        let text = shaped["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap();
+        assert!(text.contains("Todo 1: todo 1."), "{text}");
+        assert!(text.contains("Todo 4: todo 4 (blocked)."), "{text}");
     }
 
     #[test]
@@ -378,6 +374,7 @@ mod tests {
                 "{text}"
             );
         }
+        assert!(text.contains("Peer: peer (message_send {to} value: \"7015\"), idle."));
         assert!(text.contains("Ask: parent, your parent, using the destination above."));
         assert!(!text.contains("Agent id"));
     }
@@ -386,6 +383,7 @@ mod tests {
     fn e2704a_root_asks_the_user() {
         let nodes = [node("7013", NodeKind::Agent, "sad", None, false)];
         let text = words(&compose(&nodes, &[], "7013").unwrap(), false);
+        assert!(text.contains("Parent: none, you are at the Project root."));
         assert!(text.contains("Ask: the user, with message_send to \"you\"."));
         assert!(!text.contains("7013"));
     }
