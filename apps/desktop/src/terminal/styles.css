@@ -189,9 +189,12 @@
   padding: 0;
   border: 0;
   background: var(--hairline);
-  --button-hover: var(--accent);
   pointer-events: auto;
   cursor: pointer;
+}
+
+.turn-gutter:hover:not([aria-disabled="true"]) {
+  background: var(--accent);
 }
 
 .centre-stack {

@@ -1,10 +1,9 @@
-/* The five button kinds (docs/design-system.md, "Click targets"; U170, U171). Every `button` takes its look from here and from no other stylesheet: a component sets layout and, through the `--button-*` hooks below, a rest surface, a hover surface, an inline pad and a radius. */
+/* The five button kinds (docs/design-system.md, "Click targets"; U170, U171). Every `button` takes its look from here and from no other stylesheet: a component sets layout and, through the `--button-*` hooks below, a rest surface, an inline pad and a radius. */
 
 /* Any button, including the buttons inside a row (a Rail or Shelf row, a Todo's title), which U172 draws and which take no `data-button`: plain text on no surface. */
 button {
-  /* The hooks a component or a kind may set: the surfaces at rest and hover, the inline pad, the leading pad and the radius. */
+  /* The hooks a component or a kind may set: the surface at rest, the inline pad, the leading pad and the radius. */
   --button-surface: transparent;
-  --button-hover: var(--hover);
   --button-inline: 0;
   --button-lead: var(--button-inline);
   --button-radius: var(--radius-control);
@@ -91,10 +90,6 @@ button {
   color: var(--red);
 }
 
-button:hover:not([aria-disabled="true"]):not(:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not(:where(.tab-name-button, .todo-project-root))) {
-  background-color: var(--button-hover);
-}
-
 [data-button="quiet"]:hover:not([aria-disabled="true"]),
 [data-button="row-action"]:hover:not([aria-disabled="true"]),
 [data-button="icon"]:hover:not([aria-disabled="true"]),
@@ -103,16 +98,10 @@ button:hover:not([aria-disabled="true"]):not(:where([data-button="quiet"], [data
 }
 
 /* Takes effect at `pointerdown` and is instant: a press answers at once (U133). */
-button:active:not([aria-disabled="true"]),
-button[data-pressed="true"]:not([aria-disabled="true"]) {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
-/* Ghost, icon and disclosure buttons answer with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
-:where([data-button="quiet"], [data-button="add"], [data-button="row-action"], [data-button="icon"]):not(.tab-name-button, .todo-project-root):is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
-  background-color: var(--button-surface);
+/* Every button answers with ink only: no fill, box or padding on hover, and a press dims the ink (U510). */
+button:is(:active, [data-pressed="true"]):not([aria-disabled="true"]) {
   color: var(--ink-pressed);
+  transition-duration: 0s;
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
@@ -193,16 +182,6 @@ button[aria-disabled="true"] {
   background-position: left top;
   background-size: 2px 100%, auto;
   background-repeat: no-repeat;
-}
-
-.todo-project-root[aria-pressed="true"]:hover {
-  background-color: transparent;
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
-}
-
-.todo-project-root[aria-pressed="true"]:active {
-  background-color: transparent;
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
 }
 
 .todo-project-root[data-todo-drop]:not([aria-pressed="true"]) {
