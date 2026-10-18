@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { copy } from "../copy";
+import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -22,6 +23,7 @@ export const AskBar = () => {
   const [over, setOver] = createSignal(false);
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [dismissed, setDismissed] = createSignal(false);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
@@ -37,7 +39,7 @@ export const AskBar = () => {
   const matching = createMemo(() => {
     const typed = mentionOf(text());
 
-    return typed === null ? [] : names().filter((item) => item.label.toLowerCase().includes(typed.toLowerCase()));
+    return dismissed() || typed === null ? [] : names().filter((item) => item.label.toLowerCase().includes(typed.toLowerCase()));
   });
 
   createEffect(() => {
@@ -66,7 +68,7 @@ export const AskBar = () => {
   }]);
   registerKeys({ kind: "layer", element: () => panel, active: over, modal: true }, [
     { chords: chordsFor("⌘/"), run: (press) => { if (!press.repeat) close(true); } },
-    { chords: ASK_CLOSE, run: () => close(true) },
+    { chords: ASK_CLOSE, run: () => { if (matching().length > 0) setDismissed(true); else close(true); } },
   ]);
 
   const send = (): void => {
@@ -90,6 +92,14 @@ export const AskBar = () => {
   };
 
   const onKey = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && matching().length > 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      setDismissed(true);
+
+      return;
+    }
+
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
 
     event.preventDefault();
@@ -106,7 +116,7 @@ export const AskBar = () => {
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={(element: HTMLTextAreaElement) => { field = element; }}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
-            onInput={(event) => setText(event.currentTarget.value)} onKey={onKey} />
+            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -127,7 +137,12 @@ const ProjectOverview = () => {
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
     <Show when={rail.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-    <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
+    <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
+      <Icon name="check" />
+      <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
+    </div>}>
+      <h2 class="overview-heading" data-state="attention">{copy.projectAttention(attention().length)}</h2>
+    </Show>
     <ul class="overview-list">
       <For each={workstreams()}>{(node) => <li>
         {entry(node)}
@@ -156,12 +171,12 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     onCleanup(() => observer.disconnect());
   });
 
-  return <Tip text={props.node.name} disabled={!cut()}>
+  return <Tip text={[cut() ? props.node.name : "", props.node.status ? LABELS[props.node.status.kind] : ""].filter(Boolean).join(" ")} disabled={!cut() && !props.node.status}>
     {(trigger) => <button {...trigger({ onClick: props.select })} type="button" class="overview-entry"
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
       <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
-        <KindGlyph kind={status().kind} decorative /><span>{LABELS[status().kind]}</span>
+        <KindGlyph kind={status().kind} />
       </span>}</Show>
     </button>}
   </Tip>;
