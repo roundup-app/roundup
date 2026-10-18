@@ -135,6 +135,7 @@ export const copy = {
   deletePad: (value1: CopyValue) => `Delete ${value1}?  `,
   ownsItYouMayDeleteAnyPad: (value1: CopyValue) => `${value1} owns it; you may delete any Pad  `,
   padSaved: "Saved",
+  padChanged: "Pad changed",
   padSourceMappingFailed: "Pad could not be saved: edited blocks could not be matched to the original source.",
   unsavedChangesAreLost: "Unsaved changes are lost  ",
   keep: "Keep",

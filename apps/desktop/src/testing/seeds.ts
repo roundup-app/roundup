@@ -438,7 +438,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
-  const controls = installDaemon(app, nodes, now, name === "tree-40", name === "bubbles");
+  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict", name === "bubbles");
   app.opened.project = name === "first-run" ? null : PROJECT;
 
   if (name === "tabs-8") {
