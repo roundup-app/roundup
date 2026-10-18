@@ -162,11 +162,11 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     onCleanup(() => observer.disconnect());
   });
 
-  return <Tip text={props.node.name} disabled={!cut()}>
+  return <Tip text={[cut() ? props.node.name : "", props.node.status ? LABELS[props.node.status.kind] : ""].filter(Boolean).join(" ")} disabled={!cut() && !props.node.status}>
     {(trigger) => <button {...trigger({ onClick: props.select })} type="button" class="overview-entry"
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
       <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} title={LABELS[status().kind]} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
+      <Show when={props.node.status}>{(status) => <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={status().kind} data-tone={status().kind === "error" ? "red" : undefined}>
         <KindGlyph kind={status().kind} />
       </span>}</Show>
     </button>}
