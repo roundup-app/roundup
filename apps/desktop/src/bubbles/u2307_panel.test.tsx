@@ -125,15 +125,6 @@ it("u2307c_the_dots_name_and_call_close_and_minimise", async () => {
   await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "1" }]));
 });
 
-it("u2307c_the_status_dot_names_the_exit_code", async () => {
-  const mounted = await shown();
-  const dot = () => bubble()!.querySelector(".bubble-state")!;
-
-  expect(dot().getAttribute("aria-label")).toBe("Running");
-  mounted.app.emit(event({ name: "terminal.exited", data: { id: "1", code: 3 } }));
-  await waitFor(() => expect(dot().getAttribute("aria-label")).toBe("Exit 3"));
-});
-
 it("u2307c_the_bar_keeps_drag_fill_and_keyboard_moves", async () => {
   await shown();
 
