@@ -472,7 +472,6 @@ async fn a2741a_delayed_consumer_keeps_each_committed_name() {
         "sad-3"
     );
 
-    let f = std::sync::Arc::new(f);
     let gate = std::sync::Arc::new(tokio::sync::Barrier::new(2));
     let mut calls = Vec::new();
     for name in ["concurrent-a", "concurrent-b"] {
