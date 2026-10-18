@@ -4,12 +4,12 @@
 five nextest profiles, four Rust test threads, seven Vitest shards, package tests,
 contract freshness check, Chromium fault observer and all configured reporters.
 The temporary nextest configuration copies the checkout's entire configuration
-and adds only JUnit output. The temporary web configuration adds one reporter.
+and adds JUnit output plus a Nextest run-wrapper for precise timestamps. The temporary web configuration adds one reporter.
 No dependency pin, group, filter or scheduler changes.
 
 ```text
 full lane command
-  ├── nextest JUnit / Vitest worker diagnostics → lifecycle.json
+  ├── nextest execution wrapper + JUnit / Vitest worker diagnostics → lifecycle.json
   ├── psutil whole-runner samples             → memory.jsonl
   └── commit, cache state, runner, command     → lane.json
 baseline + head (all 12 lanes each)            → compare → report
@@ -81,8 +81,11 @@ Local runs require an explicit cache preparation description instead.
 A failed command returns its failure status and preserves raw reports. Missing
 reports, missing timestamps, incomplete memory coverage, retries, failed tests,
 partial selections, missing lanes, mixed commits, non-equivalent runner images,
-or a fifth overlapping real-Claude test fail visibly. Nextest's per-test start
-plus elapsed duration and Vitest's public worker diagnostics define half-open
+or a fifth overlapping real-Claude test fail visibly. The Nextest wrapper brackets the unchanged test command with wall-clock
+timestamps; JUnit verifies its result and complete test identity set. Missing,
+failed or duplicate wrapper records fail. JUnit rounds timestamps and durations
+to milliseconds and can falsely report a fifth overlapping test at a handoff;
+no tolerance is subtracted from actual overlaps. Wrapper intervals and Vitest's public worker diagnostics define half-open
 intervals; an end and a start at the same time do not overlap. All tests in the
 real-Claude Rust binaries (including **B21**) are conservatively counted; web
 files referencing model fixtures or `realModel` are counted. Skipped tests have
@@ -106,8 +109,12 @@ lanes and absent/incomplete evidence. They are not benchmark measurements.
 
 - **Selected:** nextest's [JUnit reporter](https://nexte.st/docs/machine-readable/junit/),
   maintained in [0.9.148, 2026-10-07](https://github.com/nextest-rs/nextest/releases/tag/cargo-nextest-0.9.148),
-  supplies worker timestamps and durations. Its libtest JSON alternative does
-  not offer the same documented per-test wall-clock timestamp contract.
+  supplies complete test identities and results. Its millisecond precision is
+  insufficient for exact overlap at handoffs. The same maintained release
+  supports [run-wrapper scripts](https://nexte.st/docs/configuration/wrapper-scripts/),
+  selected to record precise intervals around the unchanged command. The
+  libtest JSON alternative has no per-test wall-clock timestamp contract; its
+  buffered events cannot supply execution timestamps. No custom scheduler is added.
 - **Selected:** Vitest's [public diagnostics](https://vitest.dev/api/advanced/test-case.html#diagnostic),
   maintained in [5.0.3, 2026-09-30](https://github.com/vitest-dev/vitest/releases/tag/v5.0.3),
   supplies per-test start and duration. Its built-in JSON reporter exports only
