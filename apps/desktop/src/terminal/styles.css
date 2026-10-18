@@ -28,9 +28,11 @@
 }
 
 .pane-screen {
+  box-sizing: border-box;
   height: 100%;
-  /* U514, U2340d: the inset the Turn strips live in, inside the clip box; the centre has none of its own. */
+  /* U514, U2340d: the inset the Turn strips live in, inside the clip box; the top takes the same inset as the sides; the centre has none of its own. */
   padding-inline: var(--space-2);
+  padding-block-start: var(--space-2);
   /* U371, U430: keep the old Terminal columns clipped through a reserved slide.
      A transient horizontal scrollbar would cost one row and send a second resize. */
   overflow: clip;
@@ -115,8 +117,9 @@
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-4);
+  padding: 0 var(--space-2);
+  font-size: var(--text-caption);
   color: var(--text);
   background-color: var(--sunken);
   border-radius: var(--radius-drawer);
