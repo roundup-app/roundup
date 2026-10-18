@@ -1,5 +1,5 @@
 import { registerKeys } from "./keys/registry";
-import { leaderChord } from "./keys/chords";
+import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
 import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
@@ -266,7 +266,14 @@ export const App = (props: {
   const shelfFocus = shelfKeys({ frame, shelf: shelfElement });
 
   onCleanup(shelfFocus.stop);
-  registerKeys({ kind: "leader" }, [{ chords: leaderChord("S"), run: () => shelfFocus.toggle("key") }]);
+  registerKeys({ kind: "leader" }, [{ action: LEADER.find((row) => row.keys === "S")!, capture: () => {
+    const wasOpen = frame.open();
+
+    return {
+      available: () => shelfElement() != null,
+      invoke: () => { if (frame.open() === wasOpen) shelfFocus.toggle("key"); },
+    };
+  } }]);
 
   const emulators = () => props.createEmulator ?? createXtermEmulators();
 
