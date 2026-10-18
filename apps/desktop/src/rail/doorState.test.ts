@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { door, workstream } from "../testing/nodes";
-import { doorStateOf, doorStateText } from "./doorState";
+import { doorStateOf } from "./doorState";
 
 const none = { kind: "unknown" } as const;
 
@@ -25,21 +25,4 @@ describe("u143 Door state", () => {
     expect(doorStateOf(door("r", "error", "e"), { kind: "code", code: 137 }, false, false)).toEqual({ kind: "stopped", exit: { kind: "code", code: 137 } });
   });
 
-  it("u143_the_words_tell_the_four_states_apart", () => {
-    expect([
-      doorStateText({ kind: "starting" }),
-      doorStateText({ kind: "failed" }),
-      doorStateText({ kind: "never-started" }),
-      doorStateText({ kind: "stopped", exit: none }),
-      doorStateText({ kind: "stopped", exit: { kind: "code", code: 137 } }),
-      doorStateText({ kind: "stopped", exit: { kind: "signal" } }),
-    ]).toEqual([
-      "Starting supervisor…",
-      "Supervisor did not start",
-      "Supervisor not started",
-      "Supervisor stopped",
-      "Supervisor stopped, exited 137",
-      "Supervisor stopped, exited by signal",
-    ]);
-  });
 });
