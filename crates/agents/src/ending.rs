@@ -331,16 +331,25 @@ pub(super) async fn kill_or_already_gone(
     terminal_id: &str,
 ) -> Result<(), RpcError> {
     let mut exit = terminals.subscribe(terminal_id).ok();
-    if let Some(exit) = exit.as_mut()
-        && exit_through_claude_code(terminals, terminal_id, exit).await
+    let ended = if let Some(exit) = exit.as_mut() {
+        exit_through_claude_code(terminals, terminal_id, exit).await
+    } else {
+        false
+    };
+    if !ended {
+        match kill.kill(terminal_id).await {
+            Err(err) if err.code != code::NOT_FOUND => return Err(err),
+            _ => {}
+        }
+    }
+    // A reaped program can precede the reader's TerminalExited publication.
+    // Resume cleanup needs that publication before it can confirm the Terminal stopped.
+    if let Some(mut exit) = exit
+        && terminals
+            .list()
+            .iter()
+            .any(|t| t.id == terminal_id && t.running)
     {
-        return Ok(());
-    }
-    match kill.kill(terminal_id).await {
-        Err(err) if err.code != code::NOT_FOUND => return Err(err),
-        _ => {}
-    }
-    if let Some(mut exit) = exit {
         let _ = tokio::time::timeout(KILL_WAIT_BOUND, wait_for_exit(&mut exit)).await;
     }
     Ok(())
@@ -443,6 +452,7 @@ pub(super) enum Ending {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
 
     use contracts::EventData;
     use contracts::terminal::{ExitedEvent, SpawnParams, TitleEvent};
@@ -579,19 +589,46 @@ mod tests {
     async fn a7_stop_types_claude_codes_exit_keys_and_sends_no_kill() {
         let dir = tempfile::tempdir().unwrap();
         let typed = dir.path().join("typed");
-        let terminals = Terminals::open(dir.path(), Bus::new()).unwrap();
+        let (arrived, held) = tokio::sync::oneshot::channel();
+        let arrived = std::sync::Mutex::new(Some(arrived));
+        let (release, released) = std::sync::mpsc::channel();
+        let released = std::sync::Mutex::new(released);
+        let terminals = Arc::new(
+            Terminals::open(dir.path(), Bus::new())
+                .unwrap()
+                .with_exit_hold(move || {
+                    arrived.lock().unwrap().take().unwrap().send(()).unwrap();
+                    released.lock().unwrap().recv().unwrap();
+                }),
+        );
         let spawned = spawn_raw(
             &terminals,
             dir.path(),
             &format!("head -c 3 > {}", typed.display()),
         )
         .await;
-        let kill = RecordedKill(typed.clone(), Default::default());
+        let kill = Arc::new(RecordedKill(typed.clone(), Default::default()));
+        let mut stopping = {
+            let terminals = Arc::clone(&terminals);
+            let kill = Arc::clone(&kill);
+            let id = spawned.id.clone();
+            tokio::spawn(async move {
+                crate::ending::kill_or_already_gone(&*kill, &terminals, &id).await
+            })
+        };
+        held.await.unwrap();
+        // Hold Terminal publication after process exit: cleanup must still await its event.
+        let premature = tokio::time::timeout(crate::KILL_WAIT_BOUND / 2, &mut stopping).await;
+        release.send(()).unwrap();
+        assert!(premature.is_err(), "stop returned before Terminal exit");
+        stopping.await.unwrap().unwrap();
 
-        crate::ending::kill_or_already_gone(&kill, &terminals, &spawned.id)
-            .await
-            .unwrap();
-
+        assert!(
+            !terminals
+                .list()
+                .iter()
+                .any(|t| t.id == spawned.id && t.running)
+        );
         assert_eq!(std::fs::read(&typed).unwrap(), b"\x03\x03\x03");
         assert!(kill.1.lock().unwrap().is_empty(), "no kill was needed");
     }
