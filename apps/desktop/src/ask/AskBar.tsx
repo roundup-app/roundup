@@ -22,6 +22,7 @@ export const AskBar = () => {
   const [over, setOver] = createSignal(false);
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [dismissed, setDismissed] = createSignal(false);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
   let field: HTMLTextAreaElement | undefined;
@@ -37,7 +38,7 @@ export const AskBar = () => {
   const matching = createMemo(() => {
     const typed = mentionOf(text());
 
-    return typed === null ? [] : names().filter((item) => item.label.toLowerCase().includes(typed.toLowerCase()));
+    return dismissed() || typed === null ? [] : names().filter((item) => item.label.toLowerCase().includes(typed.toLowerCase()));
   });
 
   createEffect(() => {
@@ -90,6 +91,14 @@ export const AskBar = () => {
   };
 
   const onKey = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && matching().length > 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      setDismissed(true);
+
+      return;
+    }
+
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
 
     event.preventDefault();
@@ -106,7 +115,7 @@ export const AskBar = () => {
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={(element: HTMLTextAreaElement) => { field = element; }}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
-            onInput={(event) => setText(event.currentTarget.value)} onKey={onKey} />
+            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
