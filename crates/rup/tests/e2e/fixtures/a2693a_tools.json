@@ -1,0 +1,97 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A2693 normal tool"
+      },
+      "response": {
+        "content": "{\"title\":\"Permission modes\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_a2693_0"
+      },
+      "response": {
+        "content": "A2693 tool settled"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 normal tool",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_a2693_0",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch a2693-effect\", \"description\": \"Observe permission mode\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A2693 yolo tool"
+      },
+      "response": {
+        "content": "{\"title\":\"Permission modes\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_a2693_1"
+      },
+      "response": {
+        "content": "A2693 tool settled"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 yolo tool",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_a2693_1",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch a2693-effect\", \"description\": \"Observe permission mode\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "<session>\nFollow this instruction: A2693 restarted tool"
+      },
+      "response": {
+        "content": "{\"title\":\"Permission modes\"}"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_a2693_2"
+      },
+      "response": {
+        "content": "A2693 tool settled"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "A2693 restarted tool",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_a2693_2",
+            "name": "Bash",
+            "arguments": "{\"command\": \"touch a2693-effect\", \"description\": \"Observe permission mode\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
