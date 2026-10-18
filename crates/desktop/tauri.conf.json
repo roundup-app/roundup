@@ -6,7 +6,7 @@
     "frontendDist": "../../apps/desktop/dist"
   },
   "app": {
-    "windows": [{ "title": "roundup", "width": 1280, "minWidth": 1280, "maximized": true, "titleBarStyle": "Overlay", "hiddenTitle": true }],
+    "windows": [{ "title": "roundup", "width": 1280, "minWidth": 1280, "titleBarStyle": "Overlay", "hiddenTitle": true }],
     "security": {
       "assetProtocol": { "enable": true, "scope": ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.heic", "**/*.PNG", "**/*.JPG", "**/*.JPEG", "**/*.GIF", "**/*.WEBP", "**/*.HEIC"] }
     }
