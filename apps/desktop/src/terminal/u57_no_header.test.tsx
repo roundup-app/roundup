@@ -46,7 +46,7 @@ describe("u57 no pane header", () => {
     connected.rail.select("a");
     app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "a", status: { kind: "needs-you", label: "asks", since: 0 } } }));
 
-    expect(container.querySelector(".pane")?.textContent).toBe(`${container.querySelector(".order-line")?.textContent}t-a`);
+    expect(container.querySelector(".pane")?.textContent).toBe(`${container.querySelector(".order-line")?.textContent ?? ""}t-a`);
     expect(callsTo(app, "terminal.resize")).toHaveLength(1);
   });
 });
