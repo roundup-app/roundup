@@ -756,7 +756,7 @@
   white-space: nowrap;
 }
 /* Drop optional detail before squeezing the Agent's readable name. */
-@container (width < 16rem) {
+@container rail (width <= 360px) {
   .worktree-chip[data-state="pr"] {
     display: none;
   }
