@@ -128,7 +128,8 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   await wait("!document.querySelector('[data-clear-prompt]')");
   await browser("click", "#shelf-tab-todos");
   await wait("document.querySelector('.shelf').dataset.open === 'true'");
-  await clickText("Show all Workstreams");
+  await browser("click", "[data-todo-root]");
+  await wait("!document.querySelector('.rail-row[data-selected=true]')");
   await wait("Boolean(document.querySelector('.shelf [data-id=\"2\"] .todo-row-button'))");
   await browser("click", '.shelf [data-id="2"] .todo-row-button');
   await wait("Boolean(document.querySelector('.drawer')) && document.body.textContent.includes('body text')");

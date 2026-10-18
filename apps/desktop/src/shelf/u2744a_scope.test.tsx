@@ -1,12 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
-import { node, workstream, event, USER } from "../testing/nodes";
+import { node, workstream, event, info, USER } from "../testing/nodes";
 import { todoHandlers, padHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Shelf, ProjectShelfTabs, createShelfTabs } from "./Shelf";
 import { createShelfFrame } from "./frame";
+import { Switcher } from "../switcher/Switcher";
+import { leaderKey } from "../keys/leaderFixture";
 import { Tabs } from "../ui/Tabs";
 
 afterEach(cleanup);
@@ -27,6 +29,7 @@ const mount = async () => {
 
   const pads = { pads: store.todos.map(t => ({ name: `pad-${t.id}`, owner: t.creator, home: t.home, text: "", revision: 1, updated_at: 0 })), history: [] };
   app.handlers["rail.tree"] = () => tree;
+  app.handlers["terminal.list"] = () => [info("shell-w", { owner: "w", title: "work shell" }), info("shell-root", { owner: "/p", title: "root shell" })];
   Object.assign(app.handlers, todoHandlers(store, data => app.emit(event(data))), padHandlers(pads, data => app.emit(event(data))));
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   await connected.rail.settled();
@@ -34,7 +37,7 @@ const mount = async () => {
     const frame = createShelfFrame(() => null, () => true, () => {});
     const tabs = createShelfTabs(frame);
 
-    return <ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs}><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} /></Tabs.RootProvider></ConnectedProjectContext.Provider>;
+    return <ConnectedProjectContext.Provider value={connected}><Tabs.RootProvider value={tabs}><ProjectShelfTabs frame={frame} onToggle={() => {}} /><Shelf open={() => true} /><Switcher onFailure={() => {}} onOpen={() => {}} /></Tabs.RootProvider></ConnectedProjectContext.Provider>;
   });
 
   return { app, connected, store, pads, tree };
@@ -206,4 +209,19 @@ it.each([[null, null], ["w", "w"], ["a", "w"], ["r", null]] as const)("u2744a_sh
   fireEvent.keyDown(name, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1));
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual(home ? [{ name: "new-pad", home }] : []));
+});
+
+
+it.each([["work shell", "w", [1, 6, 8, 12, 2], 6], ["root shell", null, [1, 6, 8, 12, 2, 5, 3, 7, 4, 9, 10], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
+  const { connected } = await mount();
+  connected.rail.select("a");
+  leaderKey("KeyK");
+  const field = await screen.findByRole("combobox");
+  fireEvent.input(field, { target: { value: title } });
+  await screen.findByRole("option", { name: new RegExp(title) });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(connected.rail.selected()).toBe(owner));
+  await waitFor(() => expect(ids()).toEqual(expected));
+  await tab("Pads");
+  await waitFor(() => expect(names()).toHaveLength(padCount));
 });

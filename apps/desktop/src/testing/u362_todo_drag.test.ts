@@ -25,10 +25,9 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
+    document.querySelector('[data-todo-root]').click();
   }`);
-  await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
-  await page.call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
+  await page.until(`() => !document.querySelector('.rail-row[data-selected="true"]')`);
   await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
 };
 
@@ -99,7 +98,7 @@ run('u362 rendered Todo drag', () => {
       const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
       const home = await page.call<string>(`() => document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').dataset.id`);
       const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
-      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
+      const to = await point('[data-todo-root]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call<string>(`() => document.querySelector('[data-todo-drop]')?.dataset.id`)).toBe(home);
@@ -173,7 +172,7 @@ run('u362 rendered move failure', () => {
         await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
       }`);
       const from = await point('.shelf .todo-row-button');
-      const to = await point('[data-part="branch"][aria-expanded] > .rail-row');
+      const to = await point('[data-todo-root]');
       await page.pointer('down', from.x, from.y);
       await page.pointer('move', to.x, to.y);
       expect(await page.call(`() => Boolean(document.querySelector('[data-todo-drop]'))`)).toBe(true);
