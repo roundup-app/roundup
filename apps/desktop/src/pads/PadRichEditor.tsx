@@ -4,6 +4,7 @@ import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
+import type { BlockEditFeatureConfig } from "@milkdown/crepe/feature/block-edit";
 import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
@@ -69,10 +70,11 @@ export default function PadRichEditor(props: {
       defaultValue: props.text,
     })
       .setReadonly(props.readonly)
+      // SAFETY: Crepe recursively partials HTMLElement in its root type; the supported root is a real DOM element.
       .addFeature(blockEdit, {
         blockHandle: { getOffset: () => 0 },
         slashMenu: { root: menuHost },
-      })
+      } as BlockEditFeatureConfig)
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(placeholder)
