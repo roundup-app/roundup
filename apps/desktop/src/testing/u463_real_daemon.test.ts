@@ -138,7 +138,7 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     await browser("eval", "window.__firstRun.cancelNextChoice()");
     await activate('[aria-label="Centre"] button');
     // The chooser's null result creates no asynchronous RPC work (state/projects.ts choose).
-    expect((await browser("eval", "document.querySelectorAll('[role=tab]').length")).result).toBe(0);
+    expect((await browser("eval", "document.querySelectorAll('.project-tab [role=tab]').length")).result).toBe(0);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await wait(`document.body.textContent.includes('Open a folder to start')`);

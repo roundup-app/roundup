@@ -74,7 +74,8 @@ export const createBulkDelete = <Id,>(props: {
 
     if (deleteButton?.isConnected) return deleteButton;
 
-    return host?.mount()?.closest<HTMLElement>(".shelf")?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null;
+    return document.querySelector<HTMLElement>('.shelf button:not([disabled]), .shelf [tabindex="0"], .shelf input:not([disabled])')
+      ?? document.querySelector<HTMLElement>('.shelf-tabs [role="tab"][aria-selected="true"]');
   };
 
   const cancel = () => {
@@ -143,6 +144,12 @@ export const createBulkDelete = <Id,>(props: {
   registerKeys({ kind: "region", element: () => host?.mount()?.closest<HTMLElement>(".shelf") ?? undefined }, [{
     chords: ["Escape"],
     when: (event) => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")),
+    run: key,
+  }]);
+
+  registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined }, [{
+    chords: ["Escape"],
+    when: () => props.selected().length > 0,
     run: key,
   }]);
 

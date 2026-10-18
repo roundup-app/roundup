@@ -156,7 +156,7 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
                         browser("wait", ".shelf button[aria-pressed]")
                         browser("eval", "[...document.querySelectorAll('.shelf button')].find(e=>e.textContent==='all').click()")
                     if kind == "Pad":
-                        browser("eval", "[...document.querySelectorAll('.shelf [role=tab]')].find(e=>e.textContent.includes('Pads')).click()")
+                        browser("eval", "[...document.querySelectorAll('.shelf-tabs [role=tab]')].find(e=>e.textContent.includes('Pads')).click()")
                         browser("wait", ".shelf .pad-name")
                     browser("wait", ".shelf .pad-name" if kind == "Pad" else ".shelf .todo-row-button")
                     script = observer.replace("SEED", json.dumps(seed))

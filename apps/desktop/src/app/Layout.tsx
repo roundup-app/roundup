@@ -20,7 +20,6 @@ export const Layout = (props: {
    * header/ consumes that context's List and Trigger without creating another Root.
    */
   tabs?: JSX.HTMLAttributes<HTMLDivElement>;
-  contentActions?: JSX.Element;
   rail: JSX.Element;
   centre: JSX.Element;
   shelf: JSX.Element;
@@ -88,7 +87,6 @@ export const Layout = (props: {
   <div {...binding("root")} class="window" data-layout-root="" ref={(element) => { windowElement = element; props.widths?.attach(element); }} style={props.widths?.style()} data-shelf={placement().open ? "open" : "closed"} data-shelf-mode={mode()} data-shelf-shown={placement().shown} data-shelf-animated={placement().animated}>
     <header class="header">{props.header}</header>
     <div {...props.tabs} style={{ display: "grid", "grid-area": "2 / 1", "min-height": "0", "min-width": "0" }}>
-    <div class="content-actions">{props.contentActions}</div>
     <div class="columns" style={{ "grid-area": "1 / 1" }} onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "width") setShelfSliding(false); }}>
       <section {...binding("rail")} class="rail" data-layout-panel="rail" aria-label={copy.rail}>
         {props.rail}

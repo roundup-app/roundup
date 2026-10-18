@@ -21,7 +21,8 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await browser("set", "viewport", "1280", "800");
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
     await browser("wait", ".shelf-tabs");
-    await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Todos')).click(); return true; })()`);
+    await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-todos');
+        if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()`);
     await settle();
     await evaluate(`(async () => {
       const fake = window.__fake;
