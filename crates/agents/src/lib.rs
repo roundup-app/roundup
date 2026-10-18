@@ -317,7 +317,8 @@ enum Slot {
     Running(Run),
     /// A failed Resume retains its Terminal until cleanup is confirmed or explicitly stopped.
     ResumeCleanup {
-        yolo: bool,
+        /// Keep the last acknowledged Run until cleanup or explicit Stop restores it.
+        old: Option<Box<Run>>,
         attempt: String,
         terminal_id: String,
         pending: bool,
