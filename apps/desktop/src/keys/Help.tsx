@@ -1,3 +1,4 @@
+import { KeyChip } from "./KeyChip";
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import { HELP_KEYS, HELP_ROWS } from "./chords";
@@ -42,16 +43,16 @@ export const Help = () => {
         <For each={HELP_ROWS}>
           {(chord) => (
             <p class="help-line">
-              <span class="help-keys">{chord.keys}</span>
+              <KeyChip keys={chord.keys} />
               {`  ${chord.what}`}
             </p>
           )}
         </For>
         <section class="help-shelf" aria-label={copy.shelfKeys}>
-        <p><span class="help-keys">{copy.previousNextKeys}</span>{copy.focusThePreviousNextShelfRow}</p>
-        <p><span class="help-keys">{copy.enter}</span>{copy.toggleTheFocusedShelfRowSelection}</p>
-        <p><span class="help-keys">{copy.rangeKeys}</span>{copy.selectARangeOfShelfRows}</p>
-        <p><span class="help-keys">{copy.esc}</span>{copy.deleteSelectedShelfRowsCancelSelection}</p>
+        <p><KeyChip keys={copy.previousNextKeys} />{copy.focusThePreviousNextShelfRow}</p>
+        <p><KeyChip keys={copy.enter} />{copy.toggleTheFocusedShelfRowSelection}</p>
+        <p><KeyChip keys={copy.rangeKeys} />{copy.selectARangeOfShelfRows}</p>
+        <p><KeyChip keys={copy.esc} />{copy.deleteSelectedShelfRowsCancelSelection}</p>
         </section>
       </Dialog.Content>
     </Dialog.Root>

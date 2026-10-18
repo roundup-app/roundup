@@ -1,0 +1,24 @@
+/* U2541: a chip has no control behaviour or motion. */
+.key-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  vertical-align: top;
+}
+.key-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--space-4);
+  padding: 0 var(--key-chip-padding);
+  border: none;
+  border-radius: var(--radius-chip);
+  font-family: var(--font-ui);
+  font-size: var(--text-small);
+  font-weight: 500;
+  line-height: var(--space-4);
+  color: var(--text);
+  background: var(--key-chip-fill);
+}
+.help-line, .help-shelf, .leader-line { color: var(--grey); }

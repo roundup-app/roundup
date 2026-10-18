@@ -83,7 +83,7 @@
   scrollbar-width: none;
 }
 
-/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: secondary text only, no box, never in the way of a click. Hints that do not fit whole are hidden from the end. */
+/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: grey labels beside key chips, never in the way of a click. Hints that do not fit whole are hidden from the end. */
 .hint[hidden] {
   display: none;
 }

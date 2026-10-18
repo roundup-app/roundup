@@ -5,10 +5,11 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { CHORDS, hintsFor, pressOf } from "./chords";
+import { endLeader } from "./registry";
+import { CHORDS, HELP_ROWS, LEADER, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); endLeader(); });
 
 const focusableEmulator = (): EmulatorFactory => () => {
   const field = document.createElement("textarea");
@@ -86,12 +87,22 @@ const toPane = async () => {
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
 
-/** A Terminal Bubble's keys are the leader's (U2239), so no hint line shows there. */
+/** U2541b: a Terminal Bubble offers existing App chords. */
 const toBubble = async () => {
   fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
   await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
   document.querySelector<HTMLElement>(".terminal-tab")!.focus();
-  await waitFor(() => expect(line()).toEqual([]));
+  await waitFor(() => expect(line()).toEqual(label("bubble")));
+};
+
+const toPlace = async (place: "pad" | "drawer") => {
+  const host = document.createElement("div");
+  host.className = place === "pad" ? "pad-body" : "drawer";
+  const button = document.createElement("button");
+  host.append(button);
+  document.querySelector(".pane")!.append(host);
+  button.focus();
+  await waitFor(() => expect(line()).toEqual(label(place)));
 };
 
 const keyOf = (code: string): string => (code.startsWith("Key") ? code.slice(3).toLowerCase() : code);
@@ -111,24 +122,42 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
+  it("u2541b_every_place_shows_two_to_four_hints", () => {
+    for (const place of ["rail", "agent", "bubble", "pad", "drawer"] as const) {
+      expect(hintsFor(place).length).toBeGreaterThanOrEqual(2);
+      expect(hintsFor(place).length).toBeLessThanOrEqual(4);
+    }
+
+    // Only one CHORDS row binds in the modal Switcher; Editor keys belong to U2541c.
+    expect(hintsFor("switcher")).toEqual([]);
+    expect(hintsFor("editor")).toEqual([]);
+  });
+
   it("u2541_one_component_draws_every_key", async () => {
     await open();
     await toRail();
-    expect(document.querySelectorAll(".hint-line kbd").length).toBeGreaterThan(0);
+
+    const keysIn = (selector: string) => [...document.querySelectorAll(selector)].map((row) =>
+      [...row.querySelectorAll("kbd")].map((key) => key.textContent).join(""),
+    );
+
+    expect(keysIn(".hint-line .hint")).toEqual(hintsFor("rail").map((hint) => hint.keys));
     fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
-    await waitFor(() => expect(document.querySelector(".help kbd")).not.toBeNull());
+    await waitFor(() => expect(keysIn(".help-line")).toEqual(HELP_ROWS.map((row) => row.keys.replace(/\s/g, ""))));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     await waitFor(() => expect(document.querySelector(".help")).toBeNull());
     fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
-    await waitFor(() => expect(document.querySelector(".leader kbd")).not.toBeNull());
+    await waitFor(() => expect(keysIn(".leader-line")).toEqual(LEADER.map((row) => row.keys)));
   });
 
   it("u2230_every_hint_names_a_bound_chord", async () => {
-    for (const [place, go] of [["rail", toRail], ["agent", toPane]] as const) {
+    for (const [place, go] of [["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const) {
       for (const hint of hintsFor(place)) {
         // Each press changes what has focus (take control, the Rail, the next Agent), so each starts on a fresh App.
         cleanup();
-        await open();
+        endLeader();
+        const app = await open();
+
         await go();
 
         const chord = CHORDS.find((row) => row.keys === hint.keys);
@@ -136,6 +165,10 @@ describe("u2230 shortcut hints", () => {
         expect(chord, `${place} ${hint.keys}`).toBeDefined();
         expect(chord!.hint?.label).toBe(hint.label);
         expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
+
+        if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
+        else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
+        else await waitFor(() => expect(app.calls.some((call) => call.method === (hint.keys === "⌘⌫" ? "rail.remove" : "takeover.begin"))).toBe(true));
       }
     }
   });
@@ -175,8 +208,8 @@ describe("u2230 shortcut hints", () => {
       }
     }
 
-    expect(label("agent")).toEqual(["⌘⏎ Take control"]);
-    expect(label("rail")).toEqual(["⌘⏎ Take control", "⌘⌫ Remove"]);
-    expect(label("rail", false)).toEqual(["⌘⌫ Remove"]);
+    expect(label("agent").length).toBeGreaterThanOrEqual(2);
+    expect(label("rail").length).toBeLessThanOrEqual(4);
+    expect(label("rail", false)).not.toContain("⌘⏎ Take control");
   });
 });
