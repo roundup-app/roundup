@@ -49,7 +49,7 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
   };
 
   return (
-    <Popover.Root open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) setOpen(true); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }} autoFocus>
+    <Popover.Root open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) setOpen(true); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
       <Popover.Trigger asChild={(trigger) => (
         <button {...trigger()} ref={setControl} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : setOpen(true))}>
           <Icon name="branch" />
@@ -60,9 +60,9 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
         <Popover.Content class="worktree-panel" aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
-            <dd>{props.worktree.branch}</dd>
+            <dd title={props.worktree.branch}>{props.worktree.branch}</dd>
             <dt>{copy.base}</dt>
-            <dd>{props.worktree.base}</dd>
+            <dd title={props.worktree.base}>{props.worktree.base}</dd>
             <Show when={stateOf(read())}>
               {(state) => (
                 <>

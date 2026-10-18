@@ -54,6 +54,8 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
         },
       });
       tree.render({ containerWrapper: mount });
+      // Ark cannot discover tabbable rows inside Pierre’s shadow root; enter its roving row after render.
+      mount.querySelector("file-tree-container")?.shadowRoot?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
     });
 
     const onKeyDown = (event: KeyboardEvent) => {
