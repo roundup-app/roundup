@@ -2553,3 +2553,14 @@ fn lc13_the_brief_sizes_a_job_under_160k() {
         assert!(text.contains(token), "{token}");
     }
 }
+
+#[test]
+fn a2703a_brief_teaches_rail_names() {
+    let s = setup();
+    for role in [Role::Door, Role::Agent] {
+        let text = brief(&s, "7013", role);
+        assert!(text.contains("Your Rail name and where you stand are in the Context you get at start"));
+        assert!(text.contains("Refer to yourself and other Agents by Rail name, never by id"));
+        assert!(!text.contains("7013") && !text.contains("the id never changes"));
+    }
+}
