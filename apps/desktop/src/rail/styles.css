@@ -59,25 +59,19 @@
   min-height: var(--space-6);
 }
 
-/* U426: transparent actions stay tabbable out of flow; near the row they claim space before the name can reach them. The line stays one row high. */
+/* U426, U3704: the actions keep their room at rest, hidden and out of the tab order, so a name is cut at the same place at rest and near the row and a state keeps its x. */
 .rail-row .row-icons {
-  position: absolute;
-  top: 50%;
-  right: var(--space-4);
-  transform: translateY(-50%);
   display: flex;
   flex: none;
   gap: 0;
-  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
 .rail-row[data-near="true"] .row-icons,
 .rail-row:hover .row-icons,
 .rail-row:focus-within .row-icons {
-  position: static;
-  transform: none;
-  opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 
@@ -118,7 +112,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 400;
-  font-size: var(--text-title);
+  font-size: var(--text-row);
+  line-height: 1.15;
 }
 
 [data-part="branch-control"].rail-row .name {
@@ -434,27 +429,6 @@
   display: none;
 }
 
-.rail-row[data-near="true"] .name {
-  flex: 0 1 auto;
-  min-width: var(--space-4);
-  font-size: var(--text-row);
-  line-height: 1;
-}
-
-/* The group supplies its own target spacing; another gap would truncate nested names. */
-.rail-row[data-near="true"] .line {
-  gap: var(--space-1);
-}
-
-.rail-row[data-near="true"] .line > :is(:first-child, .rail-chevron + .glyph) {
-  margin-right: calc(var(--rail-gap) - var(--space-1));
-}
-
-/* The near gap is --space-1 (the actions' own spacing), so a state keeps its rest distance from the name. */
-.rail-row[data-near="true"] .line > :is(.ink-count, .folded-agents) {
-  margin-left: calc(var(--rail-gap) - var(--space-1));
-}
-
 /* U3704: a state stays beside the name; only the Pads control, an action, yields to the row's actions. */
 .rail-row[data-near="true"] .line > .rail-pads-control {
   display: none;
@@ -572,7 +546,7 @@
 }
 
 .rail-row input {
-  font-size: var(--text-title);
+  font-size: var(--text-row);
 }
 
 /* U466: the leaf owns the wash so nesting cannot inset its selection bar. */

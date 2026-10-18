@@ -143,7 +143,7 @@ export const RailRowView = (props: {
   };
 
   /** U172: the Door action is whole; the row's states stay beside the name (U3704) and the name gives way. */
-  const showsAction = () => near() && workstream() && props.exit !== null;
+  const showsAction = () => workstream() && props.exit !== null;
 
   const needsYouShown = () => workstream() && !props.row.collapsed && props.needsYou > 0;
 

@@ -77,6 +77,7 @@ describe("u378 a Workstream row adds an Agent with one button", () => {
   it("u378_the_add_is_keyboard_complete", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () => agent("fresh", "idle", "starting");
+    fireEvent.mouseEnter(rowOf("g"));
     const add = screen.getByRole("button", { name: "Add Agent" });
 
     expect(add.tagName).toBe("BUTTON");
