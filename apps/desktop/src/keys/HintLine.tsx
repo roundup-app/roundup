@@ -3,9 +3,12 @@ import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
 import { useConnectedProject } from "../state/connectedProject";
 
+/** The pane's state mark while an Agent is Managed (U375). */
+const MANAGED = '.pane-control[data-state="managed"]';
+
 /** Where keyboard focus sits, for the hint line: `null` anywhere that has no hints, a modal layer such as Help included (U2230a). */
 const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | null => {
-  const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(":scope > .pane-watch") != null;
+  const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(MANAGED) != null;
 
   return !focus || focus.closest(".help, .switcher, .drawer, [role=dialog], [data-bubble]") ? null
     : focus.closest('[role="tree"]') ? "rail"
@@ -27,7 +30,7 @@ export const HintLine = () => {
 
   const place = createMemo(() => placeAt(focus(), selectedIsAgent()));
 
-  const watching = () => selectedIsAgent() && document.querySelector(".pane > .pane-watch") != null;
+  const watching = () => selectedIsAgent() && document.querySelector(`.pane ${MANAGED}`) != null;
 
   const hints = () => {
     const at = place();
@@ -72,10 +75,10 @@ export const HintLine = () => {
     document.addEventListener("focusout", sync);
     sync();
 
-    const pane = document.querySelector(".pane");
+    const panes = document.querySelectorAll(".pane, .pane-body");
     const observer = new MutationObserver(() => setWatched((count) => count + 1));
 
-    if (pane) observer.observe(pane, { childList: true });
+    for (const pane of panes) observer.observe(pane, { childList: true });
 
     onCleanup(() => {
       document.removeEventListener("focusin", sync);

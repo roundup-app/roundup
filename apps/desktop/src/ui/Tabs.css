@@ -9,7 +9,6 @@
 
 .app-tabs-trigger[data-selected] {
   --button-surface: var(--selected);
-  --button-hover: var(--selected-hover);
 }
 
 .app-tabs-content {

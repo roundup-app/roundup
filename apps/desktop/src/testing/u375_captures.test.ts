@@ -30,7 +30,7 @@ afterAll(async () => {
 run("u375 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 120_000 });
 
-  it("u375_a_subagent_shows_the_watch_band_and_then_the_takeover_band_at_both_widths", async () => {
+  it("u375_a_subagent_shows_managed_and_then_you_control", async () => {
     const app = createServedApp(real.base);
 
     await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
@@ -41,7 +41,7 @@ run("u375 on the real Daemon", () => {
     await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
     await page.until(`() => [...document.querySelectorAll("*")].some((each) => each.children.length === 0 && each.textContent.trim() === ${JSON.stringify(sub.name)})`, 30_000);
     await page.call(`(name) => [...document.querySelectorAll("*")].filter((each) => each.children.length === 0 && each.textContent.trim() === name).at(-1).click()`, sub.name);
-    await page.until(`() => /Watching .*: Read-only/.test(document.body.textContent)`, 30_000);
+    await page.until(`() => /Managed/.test(document.body.textContent)`, 30_000);
 
     const terminal = sub.terminal_id!;
     const received = async () => (await app.rpc("terminal.snapshot", { id: terminal })).after;
@@ -53,7 +53,7 @@ run("u375 on the real Daemon", () => {
     expect(await received()).toBe(before);
 
     await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim().startsWith("Take control")).click()`);
-    await page.until(`() => /Control: Typing goes straight to/.test(document.body.textContent)`, 30_000);
+    await page.until(`() => /You control/.test(document.body.textContent)`, 30_000);
     expect(await page.call<boolean>(`() => !/read-only/.test(document.body.textContent)`)).toBe(true);
 
     const watched = await received();

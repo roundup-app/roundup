@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 import { USER } from "../testing/nodes";
@@ -23,6 +23,14 @@ describe("u19 create", () => {
     expect(await screen.findByLabelText("Pad name")).toBeTruthy();
   });
 
+  it("u19_the_name_field_is_a_row_after_the_last_pad", async () => {
+    await openShelf([padOf("notes", USER)]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
+
+    expect(screen.getByText("notes").compareDocumentPosition(await screen.findByLabelText("Pad name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("u19_escape_closes_the_name_field_and_calls_nothing", async () => {
     const { calls } = await openShelf([]);
     fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
@@ -35,22 +43,23 @@ describe("u19 create", () => {
       screen.queryByLabelText("Pad name"),
       calls().includes("pad.create"),
     ]).toEqual([null, false]);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Pad" }));
   });
 
-  it("u19_enter_calls_pad_create_with_the_name_and_closes_the_field", async () => {
+  it("u19_enter_calls_pad_create_with_the_name_and_leaves_a_fresh_focused_field", async () => {
     const { app } = await openShelf([]);
     app.handlers["pad.create"] = ({ name }) => padOf(name, USER);
 
-    await typeName("notes");
-    await screen.findByRole("button", { name: "Add Pad" });
+    const field = await typeName("notes");
 
-    expect(app.calls.filter((call) => call.method === "pad.create")).toEqual([
+    await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.create")).toEqual([
       { method: "pad.create", params: { name: "notes", text: null } },
-    ]);
-    expect(screen.queryByLabelText("Pad name")).toBeNull();
+    ]));
+    expect(field).toHaveProperty("value", "");
+    expect(document.activeElement).toBe(field);
   });
 
-  it("u19_a_conflict_shows_the_message_in_place_of_the_field", async () => {
+  it("u19_a_conflict_shows_the_message_and_keeps_the_field", async () => {
     const { app } = await openShelf([]);
     app.handlers["pad.create"] = () => {
       throw new RpcError(CONFLICT, "pad notes exists");
@@ -61,10 +70,10 @@ describe("u19 create", () => {
     expect((await screen.findByText(/exists/)).textContent).toBe(
       "pad notes exists",
     );
-    expect(screen.queryByLabelText("Pad name")).toBeNull();
+    expect(screen.getByLabelText("Pad name")).toBeTruthy();
   });
 
-  it("u19_invalid_params_shows_the_message_in_place_of_the_field", async () => {
+  it("u19_invalid_params_shows_the_message_and_keeps_the_field", async () => {
     const { app } = await openShelf([]);
     app.handlers["pad.create"] = () => {
       throw new RpcError(-32602, "name must not contain /");
@@ -75,7 +84,7 @@ describe("u19 create", () => {
     expect((await screen.findByText(/must not contain/)).textContent).toBe(
       "name must not contain /",
     );
-    expect(screen.queryByLabelText("Pad name")).toBeNull();
+    expect(screen.getByLabelText("Pad name")).toBeTruthy();
   });
 
   it("u19_clicking_plus_again_replaces_the_message_with_a_fresh_field", async () => {
