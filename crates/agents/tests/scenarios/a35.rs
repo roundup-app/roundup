@@ -246,7 +246,7 @@ pub(super) async fn resumes_copy(door: bool) {
         );
         if door {
             let at = args.iter().position(|&arg| arg == "--tools").unwrap();
-            assert_eq!(args[at + 1], "Read,Grep,Glob,ToolSearch");
+            assert_eq!(args[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
         }
     }
     until_file(&f.dir.path().join("ready")).await;
