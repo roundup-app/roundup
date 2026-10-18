@@ -73,21 +73,24 @@ describe("u137 one module measures the checks", () => {
 
       for (const check of Object.values(checks)) {
         expect(["pass", "fail"]).toContain(check.status);
-        expect(check).toHaveProperty("value");
+        expect(check.value).not.toBeUndefined();
         expect(check.selector).toEqual(expect.any(String));
       }
     });
   });
 
-  it("u137_a_stylesheet_with_a_literal_colour_makes_d1_fail", () => {
+  it.each([
+    ["color", "#ff00ff", "rgb(255, 0, 255)"],
+    ["border-radius", "1px", "1px"],
+  ])("u137_a_stylesheet_with_a_literal_%s_makes_d1_fail", (property, value, serialized) => {
     document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
     document.body.innerHTML = "<p class='rail-row'>x</p>";
-    addSheet(".rail-row { color: #ff00ff; }");
+    addSheet(`.rail-row { ${property}: ${value}; }`);
 
     const d1 = runChecks().D1;
 
     expect(d1.status).toBe("fail");
-    expect(d1.value).toEqual(["color: rgb(255, 0, 255)"]);
+    expect(d1.value).toEqual([`${property}: ${serialized}`]);
     expect(d1.selector).toBe(".rail-row");
   });
 
@@ -129,21 +132,6 @@ describe("u137 one module measures the checks", () => {
     }
 
     expect(checks.D10.status).toBe("fail");
-  });
-
-  it("u137_the_result_parses_under_the_checks_json_shape_delta_reads", async () => {
-    await withStylesheets(async () => {
-      mountSeed();
-      // SAFETY: the test reads each entry as the `checks.json` shape and asserts it below.
-      const parsed = JSON.parse(JSON.stringify(runChecks())) as Record<string, { status: string; value: unknown; selector: string }>;
-
-      for (const id of CHECK_IDS) {
-        const entry = parsed[id]!;
-
-        expect(["pass", "fail"]).toContain(entry.status);
-        expect(entry.value).not.toBeUndefined();
-      }
-    });
   });
 
   it("u137_reading_the_page_changes_nothing_the_user_sees", async () => {
