@@ -156,6 +156,21 @@ export const App = (props: {
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
 }) => {
+  const clearBrowserSelection = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+
+    window.getSelection()?.removeAllRanges();
+    const editing = document.activeElement;
+
+    if ((editing instanceof HTMLInputElement || editing instanceof HTMLTextAreaElement)
+      && editing !== event.target && editing.selectionStart !== null) {
+      editing.setSelectionRange(editing.selectionEnd, editing.selectionEnd);
+    }
+  };
+
+  window.addEventListener("pointerdown", clearBrowserSelection, true);
+  onCleanup(() => window.removeEventListener("pointerdown", clearBrowserSelection, true));
+
   const projects = createProjectsState(props.app);
   const tabsId = createUniqueId();
   const now = createNow(props.clock);
