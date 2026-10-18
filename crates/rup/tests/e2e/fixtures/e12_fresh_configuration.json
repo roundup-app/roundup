@@ -1,0 +1,8 @@
+{
+  "fixtures": [
+    {
+      "match": {"userMessage": "E12 fresh profile first prompt", "hasToolResult": false},
+      "response": {"content": "E12 first prompt accepted"}
+    }
+  ]
+}
