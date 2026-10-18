@@ -15,10 +15,10 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] = TREE) => {
   const app = createFakeApp();
 
-  app.handlers["rail.tree"] = () => TREE;
+  app.handlers["rail.tree"] = () => tree;
   app.handlers["ask.list"] = () => asks;
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
