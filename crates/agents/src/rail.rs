@@ -982,6 +982,7 @@ fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
                 // R16/#1365: 40 per-row conversation queries cost 209 µs in the release
                 // profile. Load availability here; presentation gates it on the live Attempt.
                 can_resume: row.get(14)?,
+                yolo: false,
                 channel: None,
                 stray: Vec::new(),
                 work,

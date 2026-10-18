@@ -470,9 +470,9 @@ fn offered_tools() -> Vec<Offered> {
             "agent.prompt",
             "Send a prompt to an Agent in your Reach as the user would. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
         ),
-        offered::<agent::NodeId>(
+        offered::<agent::ResumeParams>(
             "agent.resume",
-            "Resume a stopped Agent in your Reach from its saved conversation.",
+            "Continue a saved conversation in your Reach. An explicit normal or yolo mode stops a running Agent or Door first; omitted mode requires an exited Agent.",
         ),
         offered::<agent::NodeId>(
             "agent.discard",

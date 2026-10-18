@@ -79,9 +79,9 @@ impl Module for Agents {
                 reply(&door)
             }
             "agent.resume" => {
-                let NodeId { id } = params(value)?;
+                let contracts::agent::ResumeParams { id, mode } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, false)?;
-                let node = self.resume(ctx, &id).await?;
+                let node = self.resume(ctx, &id, mode).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&node)
             }

@@ -139,8 +139,11 @@ One launch of an Agent's program, numbered per Agent from `1` in launch order (A
 **Status revision**:
 The strictly increasing ordinal of published Status transitions within one Attempt, `1` at Starting. A canonical positive decimal string on the wire; absent after reopen. Never stands in for an Attempt or Terminal liveness.
 
-**Resume**:
-Starting an exited Agent's next Attempt in its saved conversation.
+**Resume** (`ResumeParams`, `ResumeMode`):
+Starting an Agent's next Attempt in its saved conversation; an explicit mode first stops a running Attempt. Omitted mode resumes only an exited Agent with normal prompts.
+
+**YOLO** (`yolo`):
+Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
 
 **Worktree**:
 The git working directory assigned exclusively to one Agent when the Project's `worktrees` setting is on, with its own Agent branch. It is newly created in legacy mode or explicitly enrolled and retained at a stable path in prepared-directory mode (`docs/worktrees.md`).
