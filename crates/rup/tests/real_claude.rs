@@ -133,10 +133,21 @@ async fn e12_a_fresh_configuration_accepts_the_first_prompt() {
         )
         .await
         .unwrap();
-    until_async("Claude accepts the pasted first prompt", || async {
-        screen().await.contains(prompt).then_some(())
+    let mut last_screen = String::new();
+    let accepted = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            last_screen = screen().await;
+            if last_screen.contains(prompt) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
     })
     .await;
+    assert!(
+        accepted.is_ok(),
+        "Claude did not accept the pasted first prompt; terminal snapshot: {last_screen:?}"
+    );
     client
         .request(
             "terminal.write",
