@@ -17,7 +17,7 @@ describe("u392 the Agent add is an icon button", () => {
 
     const buttons = [...document.querySelectorAll<HTMLElement>("[aria-label='Add Agent']")];
 
-    expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["quiet", "Add Agent", "Agent", "g"]]);
+    expect(buttons.map((button) => [button.dataset.button, button.getAttribute("aria-label"), button.textContent?.trim(), button.closest("[role=treeitem]")?.getAttribute("data-id")])).toEqual([["icon", "Add Agent", "", "g"]]);
 
   });
 
@@ -38,7 +38,7 @@ describe("u392 the Agent add is an icon button", () => {
     button.focus();
     expect(document.activeElement).toBe(button);
     expect(button.tagName).toBe("BUTTON");
-    expect(button.getAttribute("data-button")).toBe("quiet");
+    expect(button.getAttribute("data-button")).toBe("icon");
   });
 
   it("u392_no_button_in_the_rail_names_a_terminal", async () => {

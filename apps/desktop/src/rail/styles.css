@@ -598,13 +598,6 @@
   --button-inline: var(--space-4);
 }
 
-/* U397: below the supported resize range the label yields, while both targets and marks retain their size. */
-@container rail (width < 220px) {
-  .rail-add .rail-add-label {
-    display: none;
-  }
-}
-
 /* Full-width rows keep their keyboard ring inside the clipping Rail. */
 .rail-tree .app-tree .rail-row:focus-visible {
   outline-offset: calc(-1 * var(--space-1));
