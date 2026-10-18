@@ -30,6 +30,7 @@ fn u2556a_supported_json_and_rejected_shapes() {
         envelope(json!([{"checks":{"status":"passed","source":"pr","stale":"false"}}])),
         envelope(json!([{"checks":{"status":"passed","source":"review","stale":false}}])),
         envelope(json!([{"pr":{"number":0}}])), envelope(json!([{"pr":{"number":-1}}])),
+        envelope(json!([{"pr":{"number":9_007_199_254_740_992_u64}}])),
         envelope(json!([{"pr":{"number":1.2}}])), envelope(json!([{"pr":{"number":"12"}}])),
         br#"{"schema":2,"repo":{},"collected":{"ci":true,"summary":false},"items":[{"pr":{"number":18446744073709551616}}]}"#.to_vec(),
         vec![b' '; usize::try_from(LIMIT + 1).unwrap()],
@@ -139,6 +140,7 @@ fn identity(project: &Path) -> Identity {
         agent: "agent-1".into(),
         path: project.to_owned(),
         branch: "main".into(),
+        base: "main".into(),
     }
 }
 fn row(project: &Path) -> Value {
@@ -304,7 +306,7 @@ fn u2556b_failures_preserve_local_state() {
 
 #[test]
 fn u2556b_late_results_do_not_cross_identity() {
-    for mutation in ["remove", "branch", "path"] {
+    for mutation in ["remove", "branch", "path", "base"] {
         let (dir, _bus, shared) = super::super::store::tests::shared_over_temp_dir(Arc::new(|| 0));
         let node = shared
             .rail()
@@ -332,6 +334,10 @@ fn u2556b_late_results_do_not_cross_identity() {
                     .into_owned();
                 shared.rail().set_worktree(&node.id, &record).unwrap();
             }
+            "base" => {
+                record.base = "replacement".into();
+                shared.rail().set_worktree(&node.id, &record).unwrap();
+            }
             _ => unreachable!(),
         }
         publish(
@@ -349,7 +355,7 @@ fn u2556b_late_results_do_not_cross_identity() {
             Instant::now(),
         );
         assert!(
-            agents.worktree_facts(&node.id).is_none(),
+            agents.worktree_facts(&node.id, &record).is_none(),
             "late reply crossed {mutation}"
         );
     }
@@ -606,4 +612,113 @@ fn u2556b_configured_git_merge_driver_prevents_collection() {
     assert!(result.unwrap_err().contains("merge driver"));
     assert!(!repo.path().join("SENTINEL-driver").exists());
     assert!(!repo.path().join("SENTINEL-collector").exists());
+}
+
+#[tokio::test]
+async fn u2556a_base_state_is_authoritative_with_optional_wire_facts() {
+    let repo = repository();
+    let (_data, _bus, mut shared) =
+        super::super::store::tests::shared_over_temp_dir(Arc::new(|| 0));
+    Arc::get_mut(&mut shared).unwrap().project_dir = repo.path().to_owned();
+    git(repo.path(), &["branch", "base"]);
+    git(repo.path(), &["branch", "upstream"]);
+    git(
+        repo.path(),
+        &["branch", "--set-upstream-to=upstream", "main"],
+    );
+    std::fs::write(repo.path().join("committed"), "ahead").unwrap();
+    git(repo.path(), &["add", "committed"]);
+    git(repo.path(), &["commit", "-m", "ahead"]);
+    // Base differs from both default and upstream, and has its own commit.
+    let base_dir = tempfile::tempdir().unwrap();
+    git(
+        repo.path(),
+        &["worktree", "add", base_dir.path().to_str().unwrap(), "base"],
+    );
+    std::fs::write(base_dir.path().join("base-file"), "behind").unwrap();
+    git(base_dir.path(), &["add", "base-file"]);
+    git(base_dir.path(), &["commit", "-m", "behind"]);
+    let node = shared
+        .rail()
+        .insert(contracts::agent::NodeKind::Agent, "fixture", None, None)
+        .unwrap();
+    shared
+        .rail()
+        .set_worktree(
+            &node.id,
+            &contracts::agent::Worktree {
+                path: repo.path().to_string_lossy().into_owned(),
+                branch: "main".into(),
+                base: "base".into(),
+            },
+        )
+        .unwrap();
+    // Keep background admission closed: this test controls the collector completion seam.
+    for lane in &mut shared.worktrunk.state.lock().unwrap().lanes {
+        lane.since = Some(Instant::now());
+    }
+    let agents = super::super::store::tests::owner_agents(shared.clone(), _data.path());
+    let ids = identities(&shared).unwrap();
+    let recorded = parse(&envelope(json!([row(repo.path())]))).unwrap();
+    let results = BTreeMap::from([(ids[0].clone(), recorded.items[0].facts())]);
+    publish(
+        &shared.worktrunk.state,
+        true,
+        Ok(results),
+        ids.clone(),
+        &shared.worktrunk.cancelled,
+        Instant::now(),
+    );
+    let wire = |state| serde_json::to_value(state).unwrap();
+    assert_eq!(
+        wire(agents.worktree_state(&node.id).await.unwrap()),
+        json!({
+            "ahead":1,"behind":1,"dirty":false,"ci":{"state":"passed","stale":false},"pr":{"number":23,"stale":false}
+        })
+    );
+    std::fs::create_dir(repo.path().join(".roundup")).unwrap();
+    std::fs::write(repo.path().join(".roundup/only"), "internal").unwrap();
+    assert!(!agents.worktree_state(&node.id).await.unwrap().dirty);
+    for (name, staged) in [
+        ("tracked", false),
+        ("committed", true),
+        ("untracked", false),
+    ] {
+        std::fs::write(repo.path().join(name), "changed").unwrap();
+        if staged {
+            git(repo.path(), &["add", name]);
+        }
+        assert!(agents.worktree_state(&node.id).await.unwrap().dirty);
+        if name == "untracked" {
+            std::fs::remove_file(repo.path().join(name)).unwrap();
+        } else {
+            git(repo.path(), &["restore", "--staged", "--worktree", name]);
+        }
+    }
+    publish(
+        &shared.worktrunk.state,
+        true,
+        Err("offline".into()),
+        ids.clone(),
+        &shared.worktrunk.cancelled,
+        Instant::now(),
+    );
+    assert_eq!(
+        wire(agents.worktree_state(&node.id).await.unwrap()),
+        json!({
+            "ahead":1,"behind":1,"dirty":false,"ci":{"state":"passed","stale":true},"pr":{"number":23,"stale":true}
+        })
+    );
+    publish(
+        &shared.worktrunk.state,
+        true,
+        Ok(BTreeMap::new()),
+        ids,
+        &shared.worktrunk.cancelled,
+        Instant::now(),
+    );
+    assert_eq!(
+        wire(agents.worktree_state(&node.id).await.unwrap()),
+        json!({"ahead":1,"behind":1,"dirty":false})
+    );
 }
