@@ -90,7 +90,8 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
         for (const title of ${JSON.stringify(titles)}) made.push(await rpc('todo.create', { title, body: null, blockers: null }));
         await rpc('todo.setBlockers', { id: made[2].id, blockers: [made[0].id] });
         window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
-        [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Todos')).click();
+        const tab = document.querySelector('#shelf-tab-todos');
+        if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
         return true;
       })()`);
       await until("document.querySelectorAll('.shelf .todo-row').length >= " + titles.length);
