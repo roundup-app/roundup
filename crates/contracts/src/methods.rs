@@ -131,6 +131,11 @@ pub const METHODS: &[Method] = &[
     m("agent.interrupt", "agent_NodeId", "null | agent_HeldAction"),
     m("agent.worktreeState", "agent_NodeId", "agent_WorktreeState"),
     m("agent.changedFiles", "agent_NodeId", "agent_ChangedFiles"),
+    m(
+        "agent.compareFile",
+        "agent_CompareFileParams",
+        "agent_FileComparison",
+    ),
     m("agent.land", "agent_NodeId", "agent_Landed"),
     m("agent.discard", "agent_NodeId", "null"),
     m("agent.context", "agent_NodeId", "agent_Context"),

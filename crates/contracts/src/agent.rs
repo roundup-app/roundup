@@ -123,6 +123,39 @@ pub struct ChangedFiles {
     pub files: Vec<ChangedFile>,
 }
 
+/// Select one relative path in an Agent's Worktree (U2540a).
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct CompareFileParams {
+    pub id: String,
+    pub path: String,
+}
+
+/// Exact present bytes use SHA-256 revisions; an absent side uses `absent`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+#[ts(export, export_to = "agent/")]
+pub enum FileContent {
+    Absent { revision: String },
+    Text { revision: String, text: String },
+    Binary { revision: String },
+}
+
+/// Merge-base versus current disk content, never the index (U2540a).
+/// Each side is capped at 4 MiB; oversized or special files fail explicitly.
+/// Status is null when no change remains against the merge base.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "agent/")]
+pub struct FileComparison {
+    pub base: String,
+    pub old_path: String,
+    pub new_path: String,
+    pub status: Option<ChangedStatus>,
+    pub old: FileContent,
+    pub new: FileContent,
+}
+
 /// What `agent.land` returns (G4): the commit the Base points at after Landing.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
