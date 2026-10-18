@@ -14,7 +14,10 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
     let project = daemon::start_real("e14_launch_resume", &[]);
     let client = project.client().await;
     let model = project.model.as_ref().unwrap();
-    for door in [false, true] {
+    for (door, selected, effort, expected) in [
+        (false, "sonnet", "low", "claude-sonnet-5-5"),
+        (true, "opus", "high", "claude-opus-5-5"),
+    ] {
         let node = if door {
             let workstream = client
                 .request(
@@ -26,12 +29,12 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
             client
                 .request(
                     "rail.startDoor",
-                    json!({"id": workstream["id"], "model": "opus", "effort": "high"}),
+                    json!({"id": workstream["id"], "model": selected, "effort": effort}),
                 )
                 .await
                 .unwrap()
         } else {
-            client.request("agent.spawn", json!({"cwd": project.dir.path(), "prompt": "E14 remember the cobalt otter", "model": "opus", "effort": "high"})).await.unwrap()
+            client.request("agent.spawn", json!({"cwd": project.dir.path(), "prompt": "E14 remember the cobalt otter", "model": selected, "effort": effort})).await.unwrap()
         };
         let id = node["id"].as_str().unwrap();
         let initial = if door {
@@ -40,12 +43,30 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
             "E14 remember the cobalt otter"
         };
         turn_done(model, &client, id, initial).await;
+        let first = model
+            .journal()
+            .into_iter()
+            .rev()
+            .find(|entry| {
+                !entry["body"]["tools"].is_null()
+                    && user_texts(entry).iter().any(|text| text.contains(initial))
+            })
+            .expect("initial work request");
+        assert_eq!(first["body"]["model"], expected);
+        assert_eq!(first["body"]["output_config"]["effort"], effort);
         client
             .request("agent.stop", json!({"id": id}))
             .await
             .unwrap();
         client
-            .request("agent.resume", json!({"id": id}))
+            .request(
+                if door {
+                    "rail.startDoor"
+                } else {
+                    "agent.resume"
+                },
+                json!({"id": id}),
+            )
             .await
             .unwrap();
         let followup = if door {
@@ -67,8 +88,8 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
             .rev()
             .find(|entry| user_texts(entry).iter().any(|text| text.contains(followup)))
             .unwrap();
-        assert_eq!(resumed["body"]["model"], "claude-opus-4-6");
-        assert_eq!(resumed["body"]["output_config"]["effort"], "high");
+        assert_eq!(resumed["body"]["model"], expected);
+        assert_eq!(resumed["body"]["output_config"]["effort"], effort);
         assert!(
             user_texts(resumed)
                 .iter()
