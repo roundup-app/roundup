@@ -33,7 +33,7 @@ it("u492_hover_focus_restart_full_duration", async () => {
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it("u492_configurable_provider_lifecycle", async () => {
+it.each([["key", 0], ["pointer", 1]] as const)("u492_configurable_provider_lifecycle_%s", async (source, detail) => {
   vi.useFakeTimers();
   const activate = vi.fn();
   const toast = createToast({ limit: 3, newestFirst: true, onActivate: activate });
@@ -42,9 +42,9 @@ it("u492_configurable_provider_lifecycle", async () => {
   toast.show({ id: "a", name: "Updated", content: "Changed" });
   await vi.advanceTimersToNextFrame();
   expect(screen.getAllByRole("button")).toHaveLength(1);
-  fireEvent.click(screen.getByRole("button", { name: "Updated Changed" }));
+  fireEvent.click(screen.getByRole("button", { name: "Updated Changed" }), { detail });
   await vi.advanceTimersByTimeAsync(200);
-  expect(activate).toHaveBeenCalledExactlyOnceWith("a");
+  expect(activate).toHaveBeenCalledExactlyOnceWith("a", source);
   expect(screen.queryByText("Updated")).toBeNull();
 });
 
