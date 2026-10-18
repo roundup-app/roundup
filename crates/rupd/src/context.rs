@@ -336,10 +336,10 @@ mod tests {
     }
 
     #[test]
-    fn e9_the_context_text_starts_with_the_id_line() {
+    fn e9_the_context_text_starts_with_the_name_line() {
         let context = compose(&rail(), &[], "6").unwrap();
 
-        assert!(words(&context, false).starts_with("Your Agent id is 6. It never changes.\n"));
+        assert!(words(&context, false).starts_with("Your Rail name is c. Say it, never an id, when you speak of yourself or another Agent.\n"));
     }
 
     #[test]
@@ -356,5 +356,32 @@ mod tests {
              Peers: none.\n\
              Todos: none open."
         );
+    }
+    #[test]
+    fn e2704a_destinations_follow_names_once() {
+        let nodes = [
+            node("7013", NodeKind::Agent, "sad", Some("7014"), false),
+            node("7014", NodeKind::Agent, "parent", None, false),
+            node("7015", NodeKind::Agent, "peer", Some("7014"), false),
+        ];
+        let text = words(&compose(&nodes, &[], "7013").unwrap(), false);
+        assert!(!text.contains("7013"), "{text}");
+        for (name, id) in [("parent", "7014"), ("peer", "7015")] {
+            assert_eq!(text.matches(id).count(), 1, "{text}");
+            assert!(
+                text.contains(&format!("{name} (message_send {{to}} value: \"{id}\")")),
+                "{text}"
+            );
+        }
+        assert!(text.contains("Ask: parent, your parent, using the destination above."));
+        assert!(!text.contains("Agent id"));
+    }
+
+    #[test]
+    fn e2704a_root_asks_the_user() {
+        let nodes = [node("7013", NodeKind::Agent, "sad", None, false)];
+        let text = words(&compose(&nodes, &[], "7013").unwrap(), false);
+        assert!(text.contains("Ask: the user, with message_send to \"you\"."));
+        assert!(!text.contains("7013"));
     }
 }
