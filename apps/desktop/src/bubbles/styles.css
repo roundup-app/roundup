@@ -115,13 +115,6 @@
   font-size: var(--text-body);
 }
 
-.bubble-state {
-  grid-column: 3;
-  justify-self: start;
-  margin-inline-start: var(--space-2);
-  cursor: default;
-}
-
 /* The fit leaves under one cell spare; the body paints it as the Terminal's ground. FitAddon always takes xterm's 14 px scrollbar from the width, so the host is that much wider than the body, which clips it: the grid then ends within a cell of the inset. */
 .bubble-body {
   flex: 1;
@@ -189,6 +182,21 @@
 .terminal-tab [data-state] {
   cursor: default;
   flex: none;
+}
+
+/* A plain Terminal's shell has no state roundup can read; output the user has not seen is one quiet dot, never the accent, amber or red. */
+.terminal-tab-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-3);
+}
+
+.terminal-tab-unseen {
+  color: var(--grey);
+  font-size: var(--text-caption);
+  line-height: 1;
 }
 
 .terminal-tab-name {

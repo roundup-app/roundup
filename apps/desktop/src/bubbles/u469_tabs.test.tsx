@@ -180,7 +180,7 @@ it("u469_exit_updates_the_tab_and_keeps_the_last_screen", async () => {
   const body = document.querySelector('.bubble[data-bubble="2"] .bubble-body');
 
   mounted.app.emit(event({name:"terminal.exited",data:{id:"2",code:3}}));
-  await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="2"] [aria-label="Exit 3"]')).not.toBeNull());
+  await waitFor(() => expect(mounted.connected.rail.terminalExit("2")).toEqual({ kind: "code", code: 3 }));
   expect(document.querySelector('.bubble[data-bubble="2"] .bubble-body')).toBe(body);
   expect(document.querySelectorAll('.terminal-tab')).toHaveLength(2);
 });
