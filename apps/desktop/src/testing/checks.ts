@@ -523,7 +523,7 @@ const d8 = (page: Page): Measure => {
 
     const menuShadow = el.matches(".milkdown-slash-menu") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
-    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble, .pane-control") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 
