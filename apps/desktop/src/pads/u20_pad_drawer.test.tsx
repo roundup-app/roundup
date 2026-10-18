@@ -8,6 +8,7 @@ import {
   padOf,
   RpcError,
   waitForReload,
+  writeAdopted,
 } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
@@ -522,4 +523,27 @@ it("p2544b_a_conflict_removes_saved_and_stops_the_pause", async () => {
   expect(screen.queryByRole("status")).toBeNull();
   expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(1);
   expect(field.value).toBe("dirty");
+});
+
+it("p2544b_an_external_change_during_save_still_requires_a_choice", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  app.handlers["pad.write"] = () => reply.promise;
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.focusOut(field);
+  state.pads = [padOf("notes", USER, "agent append")];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await screen.findByText(/Changed by/);
+  reply.resolve(padOf("notes", USER, "draft\n"));
+  // The visible response is the app's acknowledgement; its conflict must remain unresolved.
+  await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  await reply.promise;
+  // rpc's async unwrap, then PadBody's acknowledgement (padsFixture.writeAdopted).
+  await writeAdopted();
+  expect(screen.queryByText(/Changed by/)).not.toBeNull();
+  expect(field.value).toBe("draft");
+  app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
+  fireEvent.click(screen.getByText("Keep mine"));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(2));
 });

@@ -146,7 +146,7 @@ const PadBody = (props: {
       const text = finalDraft ?? currentDraft();
       due = false;
 
-      if (text === origin()) return;
+      if (text === origin() && !resolveConflict) return;
 
       sent = text;
       setSaved(false);
@@ -254,10 +254,7 @@ const PadBody = (props: {
     void write(true);
   };
 
-  const useTheirs = () => {
-    setSaved(false);
-    settle(pad());
-  };
+  const useTheirs = () => settle(pad());
 
   return (
     <div class="pad-body">
