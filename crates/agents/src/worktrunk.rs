@@ -1,6 +1,6 @@
 //! Optional Project-owned worktrunk enrichment; never a source of Base-relative git state.
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{Read, Seek};
+use std::io::Read;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -132,7 +132,7 @@ struct Cached {
 }
 #[derive(Default)]
 struct Lane {
-    started: Option<Instant>,
+    since: Option<Instant>,
     running: bool,
 }
 #[derive(Default)]
@@ -205,12 +205,12 @@ impl Collector {
         let interval = if full { FULL_INTERVAL } else { LOCAL_INTERVAL };
         if lane.running
             || lane
-                .started
+                .since
                 .is_some_and(|start| now.duration_since(start) < interval)
         {
             return false;
         }
-        lane.started = Some(now);
+        lane.since = Some(now);
         lane.running = true;
         true
     }
@@ -266,7 +266,11 @@ fn publish(
     now: Instant,
 ) {
     let mut state = state.lock().expect("worktrunk cache poisoned");
-    state.lanes[usize::from(full)].running = false;
+    let lane = &mut state.lanes[usize::from(full)];
+    lane.running = false;
+    // Git preflight can delay the actual spawn. Cooling down from completion
+    // also bounds process start spacing, rather than only request admission.
+    lane.since = Some(now);
     if cancelled.load(Ordering::Acquire) {
         state.facts.clear();
         return;
@@ -453,33 +457,30 @@ fn execute_until(
     if full {
         command.arg("--full");
     }
-    // Reuse Git::output's isolated group/file strategy: inherited pipes cannot
-    // keep a finished parent alive, and cancellation always reaps the direct child.
-    let mut stdout = tempfile::tempfile().map_err(|err| err.to_string())?;
+    // Reuse Git::output's owned process group. A nonblocking pipe caps memory
+    // without an unbounded temporary file or a descendant holding EOF hostage.
     let mut child = command
-        .stdout(stdout.try_clone().map_err(|err| err.to_string())?)
+        .stdout(Stdio::piped())
         .process_group(0)
         .spawn()
         .map_err(|err| err.to_string())?;
-    let result = loop {
-        if cancelled.load(Ordering::Acquire) {
-            break Err("Project closed".into());
+    let mut stdout = child.stdout.take().expect("piped collector stdout");
+    let mut bytes = Vec::new();
+    let configured = rustix::fs::fcntl_setfl(&stdout, rustix::fs::OFlags::NONBLOCK)
+        .map_err(|err| err.to_string());
+    let result = configured.and_then(|()| {
+        loop {
+            if let Err(err) = drain(&mut stdout, &mut bytes, cancelled, deadline) {
+                break Err(err);
+            }
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => break Ok(()),
+                Ok(Some(status)) => break Err(format!("worktrunk exited {status}")),
+                Err(err) => break Err(err.to_string()),
+                Ok(None) => std::thread::sleep(Duration::from_millis(5)),
+            }
         }
-        if Instant::now() >= deadline {
-            break Err("worktrunk timed out".into());
-        }
-        match stdout.metadata() {
-            Ok(meta) if meta.len() > LIMIT => break Err("worktrunk stdout exceeded 8 MiB".into()),
-            Err(err) => break Err(err.to_string()),
-            _ => {}
-        }
-        match child.try_wait() {
-            Ok(Some(status)) if status.success() => break Ok(()),
-            Ok(Some(status)) => break Err(format!("worktrunk exited {status}")),
-            Err(err) => break Err(err.to_string()),
-            Ok(None) => std::thread::sleep(Duration::from_millis(5)),
-        }
-    };
+    });
     if let Some(pid) = i32::try_from(child.id())
         .ok()
         .and_then(rustix::process::Pid::from_raw)
@@ -491,16 +492,37 @@ fn execute_until(
     let reaped = child.wait().map_err(|err| err.to_string());
     result?;
     reaped?;
-    stdout.rewind().map_err(|err| err.to_string())?;
-    let mut bytes = Vec::new();
-    stdout
-        .take(LIMIT + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|err| err.to_string())?;
-    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > LIMIT {
-        return Err("worktrunk stdout exceeded 8 MiB".into());
-    }
+    drain(&mut stdout, &mut bytes, cancelled, deadline)?;
     Ok(bytes)
+}
+
+fn drain(
+    stdout: &mut std::process::ChildStdout,
+    bytes: &mut Vec<u8>,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> Result<(), String> {
+    let mut buffer = [0; 8192];
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err("Project closed".into());
+        }
+        if Instant::now() >= deadline {
+            return Err("worktrunk timed out".into());
+        }
+        match stdout.read(&mut buffer) {
+            Ok(0) => return Ok(()),
+            Ok(count) => {
+                if u64::try_from(bytes.len() + count).unwrap_or(u64::MAX) > LIMIT {
+                    return Err("worktrunk stdout exceeded 8 MiB".into());
+                }
+                bytes.extend_from_slice(&buffer[..count]);
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(err) => return Err(err.to_string()),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -508,9 +530,12 @@ mod tests;
 
 impl super::Agents {
     // #2558 owns exposing this tested internal seam with the additive contract.
-    #[expect(
-        dead_code,
-        reason = "#2628 keeps enrichment crate-private until #2558 changes every caller"
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "#2628 keeps enrichment crate-private until #2558 changes every caller"
+        )
     )]
     pub(crate) fn worktree_facts(&self, id: &str) -> Option<Facts> {
         let record = self.shared.node(id).ok()?.worktree?;

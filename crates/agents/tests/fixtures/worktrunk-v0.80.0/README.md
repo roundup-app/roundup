@@ -62,7 +62,8 @@ Reuse: worktrunk is selected for its existing combined git/forge collector.
 [gitoxide](https://github.com/GitoxideLabs/gitoxide/releases/tag/gix-utils-v0.5.1)
 remains maintained (release 2026-10-11), but supplies no combined worktrunk
 CI/PR schema: replacing wt with it would require the new forge client this Issue
-excludes. Existing agents `Git::registered_worktrees`, Tokio, tempfile and rustix
-supply git ownership, background work, output files and group termination.
+excludes. Existing agents `Git::registered_worktrees`, Tokio and rustix supply git
+ownership, background work, nonblocking pipes and group termination; tempfile
+isolates the release observer.
 Neither candidate supplies roundup's Rail identity or Project admission/cache
 policy; the crate-private adapter owns those.

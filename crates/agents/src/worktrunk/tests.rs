@@ -227,13 +227,14 @@ fn u2556b_refresh_is_bounded_and_coalesced() {
         assert!(!collector.admit(true, start + FULL_INTERVAL));
     }
     let cancelled = AtomicBool::new(false);
+    let completed = start + Duration::from_secs(2);
     publish(
         &collector.state,
         false,
         Err("failed".into()),
         vec![],
         &cancelled,
-        start,
+        completed,
     );
     publish(
         &collector.state,
@@ -241,12 +242,12 @@ fn u2556b_refresh_is_bounded_and_coalesced() {
         Err("failed".into()),
         vec![],
         &cancelled,
-        start,
+        completed,
     );
-    assert!(!collector.admit(false, start + LOCAL_INTERVAL - Duration::from_nanos(1)));
-    assert!(collector.admit(false, start + LOCAL_INTERVAL));
-    assert!(!collector.admit(true, start + FULL_INTERVAL - Duration::from_nanos(1)));
-    assert!(collector.admit(true, start + FULL_INTERVAL));
+    assert!(!collector.admit(false, completed + LOCAL_INTERVAL - Duration::from_nanos(1)));
+    assert!(collector.admit(false, completed + LOCAL_INTERVAL));
+    assert!(!collector.admit(true, completed + FULL_INTERVAL - Duration::from_nanos(1)));
+    assert!(collector.admit(true, completed + FULL_INTERVAL));
 }
 
 #[test]
@@ -257,7 +258,7 @@ fn u2556b_failures_preserve_local_state() {
     let id = identity(repo.path());
     let cancelled = AtomicBool::new(false);
     let facts = Facts {
-        ci: Some(("passed".into(), true)),
+        ci: Some(("passed".into(), false)),
         pr: Some((4, false)),
     };
     publish(
@@ -270,8 +271,11 @@ fn u2556b_failures_preserve_local_state() {
     );
     assert_eq!(collector.facts(&id, start), Some(facts));
     assert_eq!(
-        collector.facts(&id, start + FULL_INTERVAL).unwrap().pr,
-        Some((4, true))
+        collector.facts(&id, start + FULL_INTERVAL).unwrap(),
+        Facts {
+            ci: Some(("passed".into(), true)),
+            pr: Some((4, true))
+        }
     );
     publish(
         &collector.state,
@@ -391,8 +395,17 @@ fn u2556b_cancellation_kills_and_reaps_the_process_group() {
         let pid: i32 = raw.parse().unwrap();
         // A killed descendant can briefly be an init-owned zombie on Linux.
         // It cannot keep executing or retain the collector's output handles.
-        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"));
-        assert!(stat.is_err() || stat.unwrap().split_whitespace().nth(2) == Some("Z"));
+        loop {
+            let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"));
+            if stat.is_err() || stat.unwrap().split_whitespace().nth(2) == Some("Z") {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "descendant survived group cancellation"
+            );
+            std::thread::yield_now();
+        }
     }
 }
 
@@ -538,18 +551,13 @@ async fn u2556b_117_worktrees_share_collectors_without_blocking_git_and_close_ca
         tokio::task::yield_now().await;
     }
     let read_start = Instant::now();
-    let state = shared
-        .git
-        .bounded()
-        .state(
-            project,
-            &super::super::worktree::Worktree {
-                path: project.to_owned(),
-                branch: "main".into(),
-                base: "main".into(),
-            },
-        )
-        .unwrap();
+    let state = {
+        let agents = super::super::store::tests::owner_agents(shared.clone(), _data.path());
+        agents
+            .worktree_state(&identities(&shared).unwrap()[0].agent)
+            .await
+            .unwrap()
+    };
     let read_time = read_start.elapsed();
     assert_eq!((state.ahead, state.behind, state.dirty), (0, 0, false));
     assert!(shared.worktrunk.state.lock().unwrap().lanes[1].running);
