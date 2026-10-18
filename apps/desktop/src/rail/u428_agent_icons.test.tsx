@@ -54,7 +54,7 @@ describe("u428 an Agent row's icons", () => {
 
   it("u428_resume_replaces_stop_on_a_resumable_stopped_agent", async () => {
     const { app } = await mountRail([agent("a", "done", "done", { can_resume: true })], [exitedTerminal("a", 0)]);
-    app.handlers["agent.resume"] = () => null;
+    app.handlers["agent.resume"] = () => agent("a", "working", "busy");
 
     expect(icon("a", "Stop")).toBeUndefined();
     fireEvent.click(icon("a", "Resume")!);
