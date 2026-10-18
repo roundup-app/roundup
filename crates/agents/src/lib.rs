@@ -111,6 +111,7 @@ fn waiting_on(status: &Status, wait: Option<u32>) -> Status {
 
 struct Shared {
     git: worktree::Git,
+    worktrunk: worktrunk::Collector,
     project_dir: PathBuf,
     rail: Mutex<rail::Rail>,
     /// A node is marked `Starting`, and unmarked on failure, in the same Rail critical section
@@ -438,6 +439,7 @@ mod spawn;
 mod steer;
 mod store;
 mod worktree_wiring;
+mod worktrunk;
 
 use door::{Scan, scan_interval_from_env};
 use ending::{Ending, RailPublication};
