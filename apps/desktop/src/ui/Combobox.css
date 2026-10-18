@@ -44,3 +44,9 @@
   padding: var(--space-2) var(--space-3);
   color: var(--grey);
 }
+
+.app-combobox-group-label {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--grey);
+  font-size: var(--text-caption);
+}

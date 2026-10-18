@@ -5,6 +5,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
+import { CHORDS } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { Sortable, type SortableMove } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
@@ -391,17 +392,13 @@ export const Rail = () => {
 
   /** U32, U33: `⌘N` adds an Agent or returns to the open field; `⇧⌘N` opens the field. A held key acts once. U31, U56, U358: the row menu and `⌘⌫` act on a focused row only; the keys of a control inside a row are its own. */
   registerKeys({ kind: "app" }, [
-    { chords: ["Meta+n"], run: (press) => {
-      if (press.repeat) return;
-
+    { action: CHORDS.find((row) => row.keys === "⌘N")!, match: "key", capture: () => ({ available: () => composing() || canSpawn(), invoke: () => {
       if (composing()) field()?.focus();
-      else if (canSpawn()) spawnAgent();
-    } },
-    { chords: ["Shift+Meta+n"], run: (press) => {
-      if (!press.repeat && canSpawn()) setComposing(true);
-    } },
+      else spawnAgent();
+    } }) },
+    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: () => setComposing(true) }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
-    { chords: ["Meta+Backspace"], when: (press) => focusedRowId(press) !== undefined, run: (press) => removeSelected(press.repeat) },
+    { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
   /** Restoring must not scroll before the window has placed focus (U100). */
