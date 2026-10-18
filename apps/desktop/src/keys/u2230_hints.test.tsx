@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
+import { showShelfTab } from "../testing/shelfTabs";
+import { padHandlers } from "../testing/stores";
 import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
@@ -53,6 +55,7 @@ const open = async () => {
     door("w", "idle", "idle", { name: "lead" }),
     ...["a", "b", "c"].map((id) => agent(id, "idle", "x", { parent: "w" })),
   ];
+  Object.assign(app.handlers, padHandlers({ pads: [{ name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
@@ -96,12 +99,19 @@ const toBubble = async () => {
 };
 
 const toPlace = async (place: "pad" | "drawer") => {
-  const host = document.createElement("div");
-  host.className = place === "pad" ? "pad-body" : "drawer";
-  const button = document.createElement("button");
-  host.append(button);
-  document.querySelector(".pane")!.append(host);
-  button.focus();
+  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
+  document.querySelector<HTMLElement>('[data-id="w"]')!.focus();
+
+  if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
+    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
+    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "s", code: "KeyS" });
+  }
+
+  showShelfTab("Pads");
+  fireEvent.click(await screen.findByRole("button", { name: "notes" }));
+  const selector = place === "pad" ? ".pad-body button" : ".drawer .close";
+  await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
+  document.querySelector<HTMLElement>(selector)!.focus();
   await waitFor(() => expect(line()).toEqual(label(place)));
 };
 
@@ -144,6 +154,9 @@ describe("u2230 shortcut hints", () => {
     expect(keysIn(".hint-line .hint")).toEqual(hintsFor("rail").map((hint) => hint.keys));
     fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
     await waitFor(() => expect(keysIn(".help-line")).toEqual(HELP_ROWS.map((row) => row.keys.replace(/\s/g, ""))));
+    expect([...document.querySelectorAll(".help-shelf p")].map((row) =>
+      [...row.querySelectorAll("kbd")].map((key) => key.textContent),
+    )).toEqual([["↑", "↓"], ["⌘", "Enter"], ["⇧", "↑", "⇧", "↓"], ["⌫", "Esc"]]);
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     await waitFor(() => expect(document.querySelector(".help")).toBeNull());
     fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });

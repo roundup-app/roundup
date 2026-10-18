@@ -99,6 +99,7 @@ export const copy = {
   leaderShortMinimise: "Minimise",
   leaderShortClose: "Close",
   leaderShortShelf: "Work items",
+  openKeyCommands: "Open key commands",
   leaderWaitsForAKey: "Wait for one more key",
   switchToARowByName: "Switch to a row by name",
   takeControlInTheSwitcher: "Take control, in the switcher",
