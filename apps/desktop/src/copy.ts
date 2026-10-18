@@ -86,7 +86,6 @@ export const copy = {
   plusTerminal: "+ Terminal",
   terminals: "Terminals",
   closeTerminal: (value1: CopyValue) => `Close ${value1}`,
-  selectAWorkstreamFirst: "Select a Workstream first",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
   closeTheBubble: "Close the Bubble",
   endTheTakeover: "Give control back",

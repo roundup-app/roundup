@@ -75,7 +75,6 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [layer, setLayer] = createSignal<HTMLElement>();
   const [bar, setBar] = createSignal<HTMLElement>();
   const [origin, setOrigin] = createSignal({ left: 0, top: 0 });
-  const [selectionMessage, setSelectionMessage] = createSignal(false);
   const [editing, setEditing] = createSignal<string | null>(null);
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
@@ -90,8 +89,8 @@ export const Bubbles = (props: { screens: Screens }) => {
   // U524: the Terminal opened from the Project root stays shown while the selection stays there.
   const [fromRoot, setFromRoot] = createSignal<string | null>(null);
 
-  const shown = createMemo(() => rail.selected() === null && fromRoot() !== null
-    ? rail.terminals().filter((terminal) => terminal.id === fromRoot())
+  const shown = createMemo(() => rail.selected() === null
+    ? rail.terminals().filter((terminal) => terminal.owner === path || terminal.id === fromRoot())
     : shownFor(rail.terminals(), rail.nodes, rail.selected()));
 
   // U524: the pane placeholder gives way while a Terminal opened from the root is shown.
@@ -100,7 +99,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (!stack) return;
 
-    stack.toggleAttribute("data-root-terminal", fromRoot() !== null && shown().length > 0);
+    stack.toggleAttribute("data-root-terminal", rail.selected() === null && shown().length > 0);
     onCleanup(() => stack.removeAttribute("data-root-terminal"));
   });
 
@@ -133,8 +132,6 @@ export const Bubbles = (props: { screens: Screens }) => {
     setPlaces(next);
     persistPlaces(next);
   });
-
-  createEffect(on(() => [rail.selected(), rail.nodes.some(isWorkstream)] as const, () => setSelectionMessage(false), { defer: true }));
 
   const setPlace = (id: string, place: Place): void => {
     const next = { ...places(), [id]: place };
@@ -317,14 +314,6 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     if (opening() || readOnly()) return null;
 
-    if (workstream === null) {
-      setSelectionMessage(true);
-      setFailure(null);
-      document.querySelector<HTMLElement>(".rail-actions [data-button='add']")?.focus();
-
-      return null;
-    }
-
     setOpening(true);
 
     try {
@@ -335,7 +324,6 @@ export const Bubbles = (props: { screens: Screens }) => {
       setFailure(null);
       await rail.refresh({ terminals: true });
       show(opened.terminal_id);
-      setSelectionMessage(false);
 
       return opened.terminal_id;
     } catch (thrown) {
@@ -346,6 +334,8 @@ export const Bubbles = (props: { screens: Screens }) => {
       return null;
     } finally {
       setOpening(false);
+
+      if (failure() !== null && shown().length === 0) document.querySelector<HTMLElement>(".terminal-new")?.focus({ preventScroll: true });
     }
   };
 
@@ -871,7 +861,6 @@ export const Bubbles = (props: { screens: Screens }) => {
           <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
         </div>
       </Portal>}</Show>
-      <Show when={selectionMessage() ? bar() : undefined}>{(host) => <Portal mount={host()} ref={(element) => element.classList.add("terminal-note-host")}><span class="terminal-note" role="status">{copy.selectAWorkstreamFirst}</span></Portal>}</Show>
       <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
     </div>
   );

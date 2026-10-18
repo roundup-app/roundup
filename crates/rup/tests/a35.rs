@@ -1786,6 +1786,9 @@ async fn m16_a_door_can_perform_each_user_action_on_a_child() {
                 .contains("\"behavior\":\"allow\""),
             "{result}"
         );
+        // The tool result precedes the end of the Door's model turn. A new note during
+        // that exchange can be consumed with its result instead of starting the next turn.
+        idle(&fx.user, &fx.ws).await;
         let ask = json!({"name": "ask_user", "arguments": {"question": "Proceed?",
             "answers": [{"label": "Yes", "description": "Continue"}]}});
         let calls = [("tools/call", ask)];

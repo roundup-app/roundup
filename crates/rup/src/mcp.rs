@@ -541,7 +541,7 @@ fn offered_tools() -> Vec<Offered> {
         offered::<terminal::OpenParams>(
             "terminal.open",
             concat!(
-                "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; the answer holds its `terminal_id`.",
+                "Start a login shell in a Terminal owned by a Workstream that is yours or in your Reach; `workstream` is required for Agents. The answer holds its `terminal_id`.",
                 bubble_rule!()
             ),
         ),

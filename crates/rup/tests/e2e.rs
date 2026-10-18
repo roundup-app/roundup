@@ -3073,62 +3073,55 @@ async fn m9_the_brief_names_exactly_the_tools_offered() {
     }
 }
 
-/// X12: the Terminals belong to the Daemon, so a connection ending closes nothing and a new one lists them again.
-#[tokio::test]
-async fn x12_a_connection_ending_closes_nothing() {
-    let project = start(&[("SHELL", "/bin/sh")]);
-    let client = project.client().await;
-    let workstream = client
-        .request(
-            "rail.createWorkstream",
-            json!({"name": "w", "parent": null}),
-        )
-        .await
-        .unwrap();
-    let opened = client
-        .request("terminal.open", json!({"workstream": workstream["id"]}))
-        .await
-        .unwrap();
-    let id = opened["terminal_id"].as_str().unwrap().to_owned();
-
-    drop(client);
-    let client = project.client().await;
-
-    let listed = client.request("terminal.list", Value::Null).await.unwrap();
-    let listed = listed.as_array().unwrap();
-    assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0]["id"], id.as_str());
-    assert_eq!(listed[0]["running"], true);
-    assert_eq!(listed[0]["owner"], workstream["id"]);
-}
-
 /// X11, X12: a Terminal the user opens is a bubble's, not a Rail node: it is written to, read back
 /// and closed, and a connection ending closes nothing.
 #[tokio::test]
 async fn x12_a_real_daemon_opens_writes_reads_back_and_closes_a_terminal() {
+    for project_owned in [false, true] {
+        x12_open_write_close(project_owned).await;
+    }
+}
+
+async fn x12_open_write_close(project_owned: bool) {
     use base64::Engine as _;
     let project = start(&[("SHELL", "/bin/sh")]);
     let client = project.client().await;
-    let workstream = client
-        .request(
-            "rail.createWorkstream",
-            json!({"name": "w", "parent": null}),
-        )
-        .await
-        .unwrap();
+    let owner = if project_owned {
+        Value::Null
+    } else {
+        client
+            .request(
+                "rail.createWorkstream",
+                json!({"name": "w", "parent": null}),
+            )
+            .await
+            .unwrap()["id"]
+            .clone()
+    };
     let before = rail_tree(&client).await;
     let opened = client
-        .request("terminal.open", json!({"workstream": workstream["id"]}))
+        .request("terminal.open", json!({"workstream": owner}))
         .await
         .unwrap();
     let id = opened["terminal_id"].as_str().unwrap().to_owned();
     assert_eq!(rail_tree(&client).await, before);
     let listed = client.request("terminal.list", Value::Null).await.unwrap();
-    assert_eq!(listed[0]["owner"], workstream["id"]);
+    assert_eq!(
+        listed[0]["owner"],
+        if project_owned {
+            json!(project.dir.path().to_string_lossy())
+        } else {
+            owner
+        }
+    );
 
     // X12: a connection ending closes nothing.
     drop(client);
     let client = project.client().await;
+    assert_eq!(
+        client.request("terminal.list", Value::Null).await.unwrap(),
+        listed
+    );
     let data = base64::engine::general_purpose::STANDARD.encode("echo $((20 + 22))\n");
     client
         .request("terminal.write", json!({"id": id, "data": data}))
@@ -3165,6 +3158,62 @@ async fn x12_a_real_daemon_opens_writes_reads_back_and_closes_a_terminal() {
             .unwrap()
             .iter()
             .all(|t| t["id"] != id.as_str())
+    );
+}
+
+#[tokio::test]
+async fn x12_an_agent_cannot_open_a_project_terminal() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let agent = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    for params in [json!({}), json!({"workstream": null})] {
+        let error = agent.request("terminal.open", params).await.unwrap_err();
+        assert_eq!(error.code, rpc::code::FORBIDDEN);
+    }
+    let listed = user.request("terminal.list", Value::Null).await.unwrap();
+    assert!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t["owner"] != json!(project.dir.path().to_string_lossy()))
+    );
+}
+
+#[tokio::test]
+async fn x12_an_agent_cannot_access_a_project_terminal() {
+    let project = start(&[]);
+    let user = project.client().await;
+    let rail = rail(&project, &user).await;
+    let agent = client_as(&project, actor(ActorKind::Agent, &rail.a)).await;
+    let opened = user.request("terminal.open", json!({})).await.unwrap();
+    for method in [
+        "terminal.screen",
+        "terminal.close",
+        "terminal.kill",
+        "terminal.show",
+        "terminal.write",
+        "terminal.resize",
+        "terminal.read",
+        "terminal.search",
+        "terminal.snapshot",
+    ] {
+        let error = agent
+            .request(method, json!({"id": opened["terminal_id"], "data": "eA==", "cols": 80, "rows": 24, "reader": rail.a, "pattern": "x"}))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, rpc::code::FORBIDDEN, "{method}");
+    }
+    let listed = user.request("terminal.list", Value::Null).await.unwrap();
+    assert_eq!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["owner"] == json!(project.dir.path().to_string_lossy()))
+            .count(),
+        1
     );
 }
 
