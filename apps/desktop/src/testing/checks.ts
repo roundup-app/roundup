@@ -167,9 +167,10 @@ const colourProperties = ["color", "background-color", "border-top-color", "bord
 const d1 = ({ doc, elements, rules }: Page): Measure => {
   const tokenSheets = new Set([...doc.querySelectorAll<HTMLStyleElement>('style[data-vite-dev-id$="/src/tokens.css"]')].map(el => el.sheet));
 
+  // CSSOM serializes the permitted unitless zero radius as `0px`; keep nonzero radii in the literal scan.
   const found = rules
     .filter((rule) => !tokenSheets.has(rule.parentStyleSheet) && !terminalRule(rule.selectorText))
-    .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{"))).map((literal) => ({ selector: rule.selectorText, literal })));
+    .flatMap((rule) => lookLiterals(rule.cssText.slice(rule.cssText.indexOf("{")).replace(/(border(?:-[\w]+)?-radius:\s*)0px\b/g, "$10")).map((literal) => ({ selector: rule.selectorText, literal })));
 
   const inline = elements.flatMap((el) => lookLiterals(inlineStyleCss(`style={{${(el.getAttribute("style") ?? "").split(";").filter(Boolean).map((pair) => pair.replace(/^\s*([^:]+):\s*(.*)$/, '"$1": "$2"')).join(",")}}}`)).map((literal) => ({ selector: selectorOf(el), literal })));
   const all = [...found, ...inline];
@@ -183,7 +184,7 @@ const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) =>
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
 };
 
-// D2: font sizes are type steps and margin, padding and gap are space steps.
+// D2: type and space steps, with only U2541’s Token-backed KeyChip side padding excepted.
 const d2 = (page: Page): Measure =>
   offender(page, (el, style) => {
     if (inTerminal(el)) return null;
@@ -192,10 +193,19 @@ const d2 = (page: Page): Measure =>
 
     if (size !== null && !TYPE_STEPS.has(size)) return { fontSize: style.fontSize };
 
+    const chip = el.matches("kbd.key-chip");
+    const chipPadding = px(page.token("key-chip-padding") ?? "");
+
     for (const property of ["margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left", "row-gap", "column-gap"]) {
       const value = px(page.resolve(style.getPropertyValue(property)));
 
-      if (value !== null && !SPACE_STEPS.has(value)) return { [property]: style.getPropertyValue(property) };
+      // D1 checks declaration provenance; D2 checks the rendered Token value and
+      // the complete chip padding so an on-scale but nonconforming chip also fails.
+      const chipSide = chip && (property === "padding-left" || property === "padding-right");
+      const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
+      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0 : value === null || SPACE_STEPS.has(value);
+
+      if (!conforms) return { [property]: style.getPropertyValue(property) };
     }
 
     return null;
@@ -521,9 +531,10 @@ const d8 = (page: Page): Measure => {
       return JSON.stringify([parseColour(colour), lengths]);
     };
 
-    const menuShadow = el.matches(".milkdown-slash-menu") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
+    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
-    if (shadow && shadow !== "none" && !menuShadow && !el.matches("aside, aside *, .bubble, .pane-control") && el.tagName !== "ASIDE") return { boxShadow: shadow };
+    if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
     const backdrop = (node: Element) => (page.style(node).getPropertyValue("backdrop-filter") || "none") !== "none";
 

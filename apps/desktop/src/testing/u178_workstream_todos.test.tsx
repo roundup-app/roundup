@@ -48,9 +48,14 @@ it("u178_this_one_lists_the_todo_an_agent_made_in_the_workstream", async () => {
     expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain("ship d");
   }, { timeout: 90_000 });
 
-  const todo = (await app.rpc("todo.list", null)).find((candidate) => candidate.title === "ship d")!;
+  // Creation is visible before home_in_workstream finishes assigning the Home.
+  const todo = await waitFor(async () => {
+    const found = (await app.rpc("todo.list", null)).find((candidate) => candidate.title === "ship d")!;
 
-  expect(todo.home).toBe(made.parent);
+    expect(found.home).toBe(made.parent);
+
+    return found;
+  });
 
   fireEvent.click(rail.querySelector(`[data-id="${made.parent}"] .name`) ?? rail);
   await screen.findByRole("button", { name: "Show all Workstreams" });
