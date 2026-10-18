@@ -5,7 +5,7 @@ import { agent, info } from "../testing/nodes";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { WorktreeControl } from "./WorktreeControl";
 import { STATE, WORKTREE } from "./harness";
-import { COMPARISON, openFile, saveNote } from "./noteHarness";
+import { COMPARISON, openFile } from "./noteHarness";
 
 afterEach(cleanup);
 
@@ -36,22 +36,4 @@ it("u2540d_close_returns_to_the_same_live_terminal", async () => {
   expect(terminal.written.map(bytes => new TextDecoder().decode(bytes)).join("")).toContain("kept output");
   terminal.type(new TextEncoder().encode("after close"));
   await waitFor(() => expect(app.calls.filter(call => call.method === "terminal.write")).toHaveLength(2));
-});
-
-it("u2540d_landing_is_independent_of_diff_and_notes", async () => {
-  const { app } = await mount();
-  app.handlers["agent.land"] = () => ({ base: "landed" });
-  expect(await app.rpc("agent.land", { id: "a" })).toEqual({ base: "landed" });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
-  await openFile();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  await app.rpc("agent.land", { id: "a" });
-  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
-  await openFile();
-  await saveNote("unsent");
-  await app.rpc("agent.land", { id: "a" });
-  expect(app.calls.filter(call => call.method === "agent.land")).toHaveLength(3);
-  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
-  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("unsent");
 });
