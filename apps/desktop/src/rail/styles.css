@@ -59,8 +59,12 @@
   min-height: var(--space-6);
 }
 
-/* U426, U3704: the actions keep their room at rest, hidden and out of the tab order, so a name is cut at the same place at rest and near the row and a state keeps its x. */
+/* U426: an Agent row's hidden actions sit out of flow, take no room and stay out of the Tab order; near the row they claim space before the name can reach them. The line stays one row high. */
 .rail-row .row-icons {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  transform: translateY(-50%);
   display: flex;
   flex: none;
   gap: 0;
@@ -71,8 +75,16 @@
 .rail-row[data-near="true"] .row-icons,
 .rail-row:hover .row-icons,
 .rail-row:focus-within .row-icons {
+  position: static;
+  transform: none;
   visibility: visible;
   pointer-events: auto;
+}
+
+/* U3704: a Workstream row carries states after its name, so its actions keep their room at rest, hidden and out of the Tab order: a name is cut in the same place and a state keeps its x. */
+[data-part="branch-control"].rail-row .row-icons {
+  position: static;
+  transform: none;
 }
 
 /* U172: a Workstream row opens a block, told from the one above by space and one hairline in the middle of it; the first one has neither. A line, not a border, so the row stays 32 px (U448). */
