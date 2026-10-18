@@ -58,6 +58,8 @@ export type FakeApp = AppSeam & {
   openFailure: RpcError | null;
   /** Every path `open_in_editor` was called with, in order; `editorFailure` is what it rejects with. */
   editorOpened: string[];
+  /** The same calls with their `line`. */
+  editorCalls: { path: string; line?: number }[];
   editorFailure: RpcError | null;
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
@@ -104,6 +106,7 @@ export const createFakeApp = (): FakeApp => {
     openedTargets: [],
     openFailure: null,
     editorOpened: [],
+    editorCalls: [],
     editorFailure: null,
     savedImages: [],
     saveImageFailure: null,
@@ -279,10 +282,11 @@ export const createFakeApp = (): FakeApp => {
 
       app.openedTargets.push(target);
     },
-    openInEditor: async (path) => {
+    openInEditor: async (path, line) => {
       if (app.editorFailure) throw app.editorFailure;
 
       app.editorOpened.push(path);
+      app.editorCalls.push(line === undefined ? { path } : { path, line });
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;

@@ -188,3 +188,19 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately; the selected name and × retain the Enter press through keyup or blur via the shared button pressed hook. Overflow uses unselected-tab values; the strip's edge caps keep their opaque rest surface and answer with ink only; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
 
 The light header stays on root sunken. Borders carry ≥3:1 against the header and adjacent tab; selection uses a lighter ground and full ink, without a selected/header contrast threshold. Dark selected rest, hover and press stay no brighter than the corresponding selected Rail wash. Painted name buttons and rename fields carry exactly `--space-1` on both inline edges. The tab minimum includes those two insets outside U382’s eight-character text floor and the existing close target; the remaining box geometry belongs to U440.
+
+
+### U2541 shortcut key chips
+
+Hint line, Help and leader keys use the shared `KeyChip`, a plain `kbd` per symbol.
+Labels remain `--grey`; chips use `--text`, `--font-ui`, `--text-small`, weight 500,
+no border and a `--space-4` (16 px) height.
+
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--key-chip-fill` | `rgba(0, 0, 0, 0.06)` | `rgba(255, 255, 255, 0.08)` |
+| `--radius-chip` | `4px` | same |
+| `--key-chip-padding` | `5px` | same |
+
+Increased contrast retains the fill and promotes labels to text. Whole hints drop from
+the end when space runs out (U2230b). Keys have no motion (D6).

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use contracts::agent::RailNode;
+use contracts::agent::{Channel, RailNode};
 use contracts::{Actor, ActorKind, IdentifyParams, Kind};
 use daemon::{Project, rail_tree};
 use serde_json::{Value, json};
@@ -642,15 +642,28 @@ async fn spawn_later(fx: &Fix, parent: &str) -> RailNode {
     )
     .unwrap();
     // O2: with neither prompt nor order the Agent is Steered nothing, so its SessionStart is its `idle`.
-    daemon::next(&mut events, |event| match event {
-        contracts::EventData::AgentStatus(status)
-            if status.id == later.id && status.status.kind == Kind::Idle =>
-        {
-            Some(())
+    // The node is stable once it is Idle and its Channel is Up: a read before the Channel connects
+    // shows Pending, and a later read shows Up.
+    let (mut idle, mut up) = (false, false);
+    while !(idle && up) {
+        let seen = daemon::next(&mut events, |event| match event {
+            contracts::EventData::AgentStatus(status) if status.id == later.id => {
+                Some((Some(status.status.kind), false))
+            }
+            contracts::EventData::AgentChannel(channel)
+                if channel.id == later.id && channel.channel == Channel::Up =>
+            {
+                Some((None, true))
+            }
+            _ => None,
+        })
+        .await;
+        match seen {
+            (Some(Kind::Idle), _) => idle = true,
+            (None, true) => up = true,
+            _ => {}
         }
-        _ => None,
-    })
-    .await;
+    }
     node(&fx.user, &later.id).await.unwrap()
 }
 
@@ -1223,7 +1236,17 @@ async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
         .unwrap_err();
     assert_eq!(error.code, rpc::code::CONFLICT);
     assert!(error.message.contains(&child.name), "{error:?}");
-    assert_eq!(rail_tree(&fx.user).await, before);
+    // A child may still be finishing a turn of its own, so Status is not the refusal's to keep.
+    let unchanged = |tree: Vec<RailNode>| -> Vec<RailNode> {
+        tree.into_iter()
+            .map(|node| RailNode {
+                status: None,
+                status_revision: None,
+                ..node
+            })
+            .collect()
+    };
+    assert_eq!(unchanged(rail_tree(&fx.user).await), unchanged(before));
     // Selecting every child removes them deepest first.
     rewind(&fx, None, "keep").await;
     assert!(node(&fx.user, &child.id).await.is_none());
@@ -1959,7 +1982,11 @@ async fn m16_door_calls_cannot_bypass_a_child_takeover() {
         let replies = door_calls(
             &fx,
             &[
-                ("agent_prompt", json!({"id": child, "text": "after mark"})),
+                // Keep the released prompt in flight until the queued interrupt runs.
+                (
+                    "agent_prompt",
+                    json!({"id": child, "text": "m16 slow turn"}),
+                ),
                 ("agent_interrupt", json!({"id": child})),
                 (
                     "terminal_write",

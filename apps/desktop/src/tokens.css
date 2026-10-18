@@ -40,6 +40,9 @@
   --shelf-width: 320px;
   --centre-min-width: 388px;
 
+  --radius-chip: 4px;
+  --key-chip-padding: 5px;
+  --key-chip-fill: rgba(0, 0, 0, 0.06);
   --radius-row: 6px;
   --radius-control: 6px;
   --radius-drawer: 12px;
@@ -77,6 +80,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --ground: #1c1c1e;
+    --key-chip-fill: rgba(255, 255, 255, 0.08);
     --sunken: #141416;
     --hover: rgba(255, 255, 255, 0.06);
     --selected: rgba(255, 255, 255, 0.1);
@@ -108,7 +112,7 @@
   }
 }
 
-/* U510: a pressed ghost button dims its ink. */
-button {
+/* U510: ghost buttons and shadow-root tree rows dim their pressed ink. */
+button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
 }
