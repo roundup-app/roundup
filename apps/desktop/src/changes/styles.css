@@ -93,7 +93,7 @@
 .diff-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 .diff-reader { flex: none; display: flex; flex-direction: column; gap: var(--space-2); min-height: 0; }
 .diff-path { margin: 0; overflow-wrap: anywhere; }
-.diff-content { max-height: min(40vh, calc(var(--space-6) * 12)); flex: none; overflow: auto; min-height: 0; }
+.diff-content { overflow-anchor: none; max-height: min(40vh, calc(var(--space-6) * 12)); flex: none; overflow: auto; min-height: 0; }
 .note-form { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .note-form label { display: flex; flex-direction: column; gap: var(--space-1); }
 .note-form input { width: calc(var(--space-6) * 3); }
@@ -120,7 +120,7 @@
 .note-form .app-tabs-content { padding-inline: 0; }
 .note-form textarea { border: 0; border-radius: 0; padding: var(--space-2); font: inherit; color: var(--text); background: var(--ground); }
 .note-form textarea:focus-visible { outline: 0; background-image: linear-gradient(var(--accent), var(--accent)); background-size: var(--space-1) calc(100% - var(--space-4)); background-position: left var(--space-2); background-repeat: no-repeat; }
-.note-batch .note-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font-family: var(--font-mono); }
+.note-batch .note-path { max-width: calc(var(--space-6) * 12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; font-family: var(--font-mono); }
 .note-batch li { padding-inline-end: var(--space-3); }
 
 .note-form > p { flex: 1; }

@@ -64,6 +64,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
         return module;
       }));
+
       const { createTwoFilesPatch, structuredPatch, formatPatch } = await import("diff");
 
       if (!current) return;
@@ -72,7 +73,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       const container = document.createElement("diffs-container");
       mount.append(container);
       const virtualizer = new Virtualizer();
-      virtualizer.setup(mount);
 
       const view = new VirtualizedFileDiff<Note>({
         onLineNumberClick: ({ lineNumber, annotationSide, event }) => {
@@ -112,7 +112,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
       if (!fileDiff) throw new Error(copy.comparisonRenderFailed);
 
+      virtualizer.setup(mount);
       view.render({ lineAnnotations: annotations.map(note => ({ side: note.side === "old" ? "deletions" : "additions", lineNumber: note.end, metadata: note })), fileContainer: container, fileDiff });
+      requestAnimationFrame(() => { if (current) virtualizer.scrollTo({ top: 0 }); });
       view.setSelectedLines({ side: selection().side === "old" ? "deletions" : "additions", start: selection().start, end: selection().end });
       dispose = () => { view.cleanUp(); virtualizer.cleanUp(); container.remove(); };
     }).then(error => { if (current && error) setFailure(error); });
@@ -123,7 +125,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     <header class="diff-header">
       <div class="diff-identity">
         <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
-        <p class="diff-selection" role="status">{copy.selectedLines(selection().side, selection().start, selection().end)}</p>
+        <Show when={read()?.status && read()?.old.kind !== "binary" && read()?.new.kind !== "binary"}><p class="diff-selection" role="status">{copy.selectedLines(selection().side, selection().start, selection().end)}</p></Show>
       </div>
       <div class="diff-actions">
         <Show when={read()}>{value => <>
