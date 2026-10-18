@@ -149,7 +149,7 @@ The git working directory assigned exclusively to one Agent when the Project's `
 A Worktree the user enrolled with `project.setPrepared`: it keeps its path and ignored dependency files across assignments, is parked on a detached commit when released, and is assigned to one Agent only after the Project's readiness command exits 0 (G2542a). A failed or uncertain assignment leaves it unavailable until `project.prepareDirectory` succeeds.
 
 **Worktree state**:
-How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`).
+How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`). Its optional forge facts are `WorktreeCi` (`WorktreeCiState` and staleness) and `WorktreePr` (positive PR number and staleness); neither changes these local facts.
 
 **Changed file**:
 A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).

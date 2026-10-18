@@ -719,15 +719,17 @@
 }
 
 /* U2556c: reserve actions so hover and selection never move Worktree state. */
-.worktree-ahead {
+.worktree-chip {
   flex: none;
+  max-width: 100%;
+  white-space: nowrap;
   cursor: default;
   color: var(--grey);
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 
-.rail-row[data-selected="true"] .worktree-ahead {
+.rail-row[data-selected="true"] .worktree-chip {
   color: var(--text);
 }
 
@@ -737,10 +739,42 @@
   align-items: center;
   min-width: 0;
   gap: var(--space-2);
+  container-type: inline-size;
 }
 .rail-row .row-name-state .name {
   flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
+}
+.worktree-chips {
+  display: flex;
+  flex: none;
+  max-width: 100%;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+/* Drop optional detail before squeezing the Agent's readable name. */
+@container rail (width <= 360px) {
+  .worktree-chip[data-state="pr"] {
+    display: none;
+  }
+}
+@container (width < 12rem) {
+  .worktree-stale,
+  .worktree-chip[data-state="ahead"] {
+    display: none;
+  }
+}
+@container (width < 6rem) {
+  .worktree-chips {
+    display: none;
+  }
+}
+.worktree-chip[data-stale="true"],
+.rail-row[data-selected="true"] .worktree-chip[data-stale="true"] {
+  color: var(--grey);
 }
 .rail-row:has(.row-name-state) .row-icons {
   position: static;

@@ -12,7 +12,7 @@ afterEach(() => disposals.splice(0).forEach((dispose) => dispose()));
 
 const worktree = { path: "/p/a", branch: "topic", base: "base" };
 
-const facts = { ahead: 7, behind: 2, dirty: true };
+const facts: WorktreeState = { ahead: 7, behind: 2, dirty: true, ci: { state: "failed", stale: true }, pr: { number: 42, stale: true } };
 
 it("u2556d_both_views_share_facts_and_identity", async () => {
   const app = createFakeApp();

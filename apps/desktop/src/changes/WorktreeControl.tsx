@@ -73,6 +73,10 @@ const Panel = (props: { id: string; worktree: Worktree }) => {
                 <>
                   <dt>{copy.worktreeState}</dt>
                   <dd>{copy.worktreeStateText(state().ahead, state().behind, state().dirty)}</dd>
+                  <dt>{copy.worktreeCi}</dt>
+                  <dd><Show when={state().ci} fallback={copy.worktreeCiUnavailable}>{(ci) => copy.worktreeCiText(ci().state, ci().stale)}</Show></dd>
+                  <dt>{copy.worktreePr}</dt>
+                  <dd><Show when={state().pr} fallback={copy.worktreePrUnavailable}>{(pr) => copy.worktreePrText(pr().number, pr().stale)}</Show></dd>
                 </>
               )}
             </Show>
