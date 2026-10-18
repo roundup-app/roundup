@@ -30,7 +30,17 @@
   width: 100%;
   margin: var(--space-2) 0;
 }
-.todo-delete-confirm { font-family: var(--font-ui); }
+.todo-delete-confirm.app-dialog {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0;
+  background: transparent;
+  border-radius: inherit;
+  box-shadow: none;
+  font-family: var(--font-ui);
+}
 
 .todo-dependencies { display: flex; flex-direction: column; gap: var(--space-2); }
 

@@ -50,7 +50,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   const key = (id: Id, event: KeyboardEvent) => {
     if (event.ctrlKey || event.altKey) return;
 
-    if (event.key === "Enter" && event.metaKey && !event.shiftKey) {
+    if ((event.key === " " || (event.key === "Enter" && event.metaKey)) && !event.shiftKey) {
       event.preventDefault();
 
       if (!event.repeat) toggle(id);

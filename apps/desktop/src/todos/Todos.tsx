@@ -1,8 +1,8 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
+import { IconButton } from "../ui/IconButton";
 import { Tooltip } from "../ui/Tooltip";
 import { Portal } from "solid-js/web";
 import { createNear } from "../ink/near";
-import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { createBulkDelete } from "../shelf/BulkDelete";
 import { isTodoOfRunning } from "../rail/pads/owned";
@@ -58,7 +58,6 @@ export const OpenRow = (props: {
   pressed?: boolean;
   selectionActive?: boolean;
   onPick?: (todo: Todo, event: MouseEvent) => void;
-  onSelect?: (todo: Todo) => void;
   onSelectionKey?: (todo: Todo, event: KeyboardEvent) => void;
   /** U153: the row whose Drawer is open. */
   selected?: boolean;
@@ -122,9 +121,8 @@ export const OpenRow = (props: {
         >
           <span class="shelf-title">{props.todo.title}</span>
         </RowButton>
-        <Show when={!props.nested && (props.sorted || props.onSelect)}>
+        <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
-            <Show when={props.onSelect}><IconButton aria-label={copy.selectTodo} aria-pressed={props.pressed === true} onClick={() => props.onSelect?.(props.todo)}><Icon name="check" /></IconButton></Show>
             <Show when={props.sorted}>
               <IconButton aria-label={copy.moveUp} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
               <IconButton aria-label={copy.moveDown} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
@@ -216,7 +214,7 @@ export const Todos = () => {
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
     selectedWorkstream() !== null ? scope.showAll() || todo.home === selectedWorkstream() : isTodoOfRunning(todo, connected.rail.nodes)));
 
-  const target = (todo: Todo) => ({ id: todo.id, label: `${todo.title} #${todo.id}` });
+  const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
   const bulk = createBulkDelete({
     selected: selection.selected,
@@ -381,7 +379,6 @@ export const Todos = () => {
               pressed={selection.selected().includes(todo.id)}
               selectionActive={selection.selected().length > 0}
               onPick={(item, event) => !bulk.pending() && selection.click(item.id, event, () => show(item))}
-              onSelect={(item) => { if (!bulk.pending()) selection.toggle(item.id); }}
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
