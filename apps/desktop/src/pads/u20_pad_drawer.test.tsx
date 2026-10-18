@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
   deferred,
@@ -8,11 +8,15 @@ import {
   padOf,
   RpcError,
   waitForReload,
+  writeAdopted,
 } from "./padsFixture";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const edit = (field: HTMLTextAreaElement, value: string) => {
   fireEvent.focus(field);
@@ -68,33 +72,6 @@ describe("u20 open and edit", () => {
       false,
       null,
     ]);
-  });
-
-  it("u20_leaving_the_field_calls_pad_write_once_when_the_text_changed", async () => {
-    const { app } = await openShelf([padOf("release-checklist", USER, "old")]);
-    const field = await openPad("release-checklist");
-
-    edit(field, "new");
-    await waitFor(() => expect(field.value).toBe("new"));
-
-    expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-      {
-        method: "pad.write",
-        params: { name: "release-checklist", text: "new\n" },
-      },
-    ]);
-  });
-
-  it("u20_leaving_the_field_with_unchanged_text_calls_nothing", async () => {
-    const { calls } = await openShelf([
-      padOf("release-checklist", USER, "same"),
-    ]);
-
-    const field = await openPad("release-checklist");
-
-    edit(field, "same");
-
-    expect(calls()).not.toContain("pad.write");
   });
 
   it("u20_pad_changed_for_the_open_pad_calls_pad_list_not_pad_read_and_refreshes_its_text", async () => {
@@ -244,27 +221,6 @@ describe("u20 open and edit", () => {
     ]);
   });
 
-  it("u20_a_change_skipped_while_editing_refreshes_on_blur_when_nothing_was_typed", async () => {
-    const { app, state } = await openShelf([
-      padOf("release-checklist", USER, "mine"),
-    ]);
-
-    const field = await openPad("release-checklist");
-    fireEvent.focus(field);
-    state.pads = [padOf("release-checklist", USER, "mine plus")];
-    app.emit({
-      actor: AGENT,
-      name: "pad.changed",
-      data: { name: "release-checklist" },
-    });
-    await waitForReload(app);
-
-    fireEvent.focusOut(field);
-
-    await waitFor(() => expect(field.value).toBe("mine plus"));
-    expect(app.calls.some((call) => call.method === "pad.write")).toBe(false);
-  });
-
   it("u20_clicking_in_and_out_without_typing_never_sends_the_text_the_user_was_shown", async () => {
     const { app, state } = await openShelf([
       padOf("release-checklist", USER, "mine"),
@@ -383,4 +339,276 @@ describe("u20 open and edit", () => {
       "only the owner",
     );
   });
+});
+
+it("p2544b_pause_coalesces_latest_draft", async () => {
+  const { app } = await openShelf([padOf("notes", USER, "original")]);
+  const field = await openPad("notes");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "first" } });
+  // PadBody's 500 ms pause is the behavior under test.
+  await vi.advanceTimersByTimeAsync(499);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  fireEvent.input(field, { target: { value: "latest" } });
+  await vi.advanceTimersByTimeAsync(499);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "latest\n" } },
+  ]);
+});
+
+it("p2544b_unchanged_or_undone_draft_does_not_autosave", async () => {
+  const { app } = await openShelf([padOf("notes", USER, "original")]);
+  const field = await openPad("notes");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "edited" } });
+  fireEvent.input(field, { target: { value: "original" } });
+  // Observation window: neither an undone draft nor a later idle pause may write.
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+});
+
+it("p2544b_blur_close_and_menu_focus", async () => {
+  const { app, connected } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  app.handlers["pad.write"] = () => reply.promise;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "draft" } });
+  const menu = document.createElement("button");
+  menu.className = "pad-rich-editor";
+  document.body.append(menu);
+  fireEvent.focusOut(field, { relatedTarget: menu });
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+  fireEvent.focusOut(field);
+  connected.drawer.close();
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "draft\n" } },
+  ]);
+  menu.remove();
+  reply.resolve(padOf("notes", USER, "draft\n"));
+});
+
+it("p2544b_inflight_edits_are_not_lost", async () => {
+  const { app, connected } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  const later = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = () => ++writes === 1 ? reply.promise : later.promise;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "first" } });
+  await vi.advanceTimersByTimeAsync(500);
+  fireEvent.input(field, { target: { value: "newest" } });
+  await vi.advanceTimersByTimeAsync(500);
+  expect(writes).toBe(1);
+  const caret = field.querySelector(".ProseMirror p")?.firstChild;
+
+  if (!caret) throw new Error("Edited paragraph is missing");
+
+  document.getSelection()?.collapse(caret, 3);
+  reply.resolve(padOf("notes", USER, "first\n"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(field.value).toBe("newest");
+  expect(document.getSelection()?.anchorNode).toBe(caret);
+  expect(document.getSelection()?.anchorOffset).toBe(3);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "first\n" } },
+    { method: "pad.write", params: { name: "notes", text: "newest\n" } },
+  ]);
+  connected.drawer.close();
+  later.resolve(padOf("notes", USER, "newest\n"));
+  await vi.advanceTimersByTimeAsync(0);
+});
+
+it("p2544b_saved_means_current_draft_acknowledged", async () => {
+  const { app } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  const later = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = () => ++writes === 1 ? reply.promise : later.promise;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "first" } });
+  await vi.advanceTimersByTimeAsync(500);
+  expect(screen.queryByRole("status")).toBeNull();
+  fireEvent.input(field, { target: { value: "latest" } });
+  reply.resolve(padOf("notes", USER, "first\n"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.queryByRole("status")).toBeNull();
+  await vi.advanceTimersByTimeAsync(500);
+  later.resolve(padOf("notes", USER, "latest\n"));
+  await vi.advanceTimersByTimeAsync(0);
+  const status = screen.getByRole("status");
+  expect(status.getAttribute("data-state")).toBe("saved");
+  expect(status.hasAttribute("tabindex")).toBe(false);
+  fireEvent.input(field, { target: { value: "another" } });
+  expect(screen.queryByRole("status")).toBeNull();
+});
+
+it("p2544b_failure_preserves_draft_and_retry", async () => {
+  const { app } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  app.handlers["pad.write"] = () => reply.promise;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "draft" } });
+  await vi.advanceTimersByTimeAsync(500);
+  reply.reject(new RpcError(-32000, "save refused"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(field.value).toBe("draft");
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toContain("save refused");
+  app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
+  fireEvent.focusOut(field);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(2);
+  expect(screen.getByRole("status").getAttribute("data-state")).toBe("saved");
+});
+
+it("p2544b_save_lifetime_is_pad_scoped", async () => {
+  const { app, connected } = await openShelf([padOf("notes", USER, "old"), padOf("other", USER, "untouched")]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "draft" } });
+  connected.drawer.close();
+  await openPad("other");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  // Observation window after the old Drawer unmounts.
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "draft\n" } },
+  ]);
+});
+
+it("p2544b_deletion_cancels_a_queued_save", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "draft" } });
+  state.pads = [];
+  app.emit({ actor: USER, name: "pad.deleted", data: { name: "notes" } });
+  await screen.findByText(/was deleted/);
+  fireEvent.focusOut(field);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
+});
+
+it("p2544b_close_retains_the_latest_draft_behind_an_inflight_write", async () => {
+  const { app, connected } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "first" } });
+  await vi.advanceTimersByTimeAsync(500);
+  fireEvent.input(field, { target: { value: "last before close" } });
+  connected.drawer.close();
+  expect(writes).toBe(1);
+  reply.resolve(padOf("notes", USER, "first\n"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "first\n" } },
+    { method: "pad.write", params: { name: "notes", text: "last before close\n" } },
+  ]);
+});
+
+it("p2544b_a_conflict_removes_saved_and_stops_the_pause", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "first" } });
+  fireEvent.focusOut(field);
+  await screen.findByRole("status");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fireEvent.input(field, { target: { value: "dirty" } });
+  state.pads = [padOf("notes", USER, "agent append")];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await screen.findByText(/Changed by/);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(1);
+  expect(field.value).toBe("dirty");
+});
+
+it("p2544b_an_external_change_during_save_still_requires_a_choice", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  app.handlers["pad.write"] = () => reply.promise;
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.focusOut(field);
+  state.pads = [padOf("notes", USER, "agent append")];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await screen.findByText(/Changed by/);
+  reply.resolve(padOf("notes", USER, "draft\n"));
+  // The visible response is the app's acknowledgement; its conflict must remain unresolved.
+  await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  await reply.promise;
+  // rpc's async unwrap, then PadBody's acknowledgement (padsFixture.writeAdopted).
+  await writeAdopted();
+  expect(screen.queryByText(/Changed by/)).not.toBeNull();
+  expect(field.value).toBe("draft");
+  app.handlers["pad.write"] = ({ text }) => padOf("notes", USER, text);
+  fireEvent.click(screen.getByText("Keep mine"));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toHaveLength(2));
+});
+
+it("p2544b_project_switch_cannot_write_into_the_new_connection", async () => {
+  const previous = await openShelf([padOf("notes", USER, "old project")]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "previous project draft" } });
+  cleanup();
+  const next = await openShelf([padOf("notes", USER, "new project")]);
+  const newField = await openPad("notes");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  // Observation window after disposing the old Project's Drawer.
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(previous.app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "previous project draft\n" } },
+  ]);
+  expect(next.calls()).not.toContain("pad.write");
+  expect(newField.value).toBe("new project");
+});
+
+it("p2544b_keep_mine_waits_for_the_active_save", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.focusOut(field);
+  state.pads = [padOf("notes", USER, "agent append")];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "notes" } });
+  await screen.findByText(/Changed by/);
+  fireEvent.click(screen.getByText("Keep mine"));
+  expect(writes).toBe(1);
+  reply.resolve(padOf("notes", USER, "draft\n"));
+  await waitFor(() => expect(writes).toBe(2));
+  expect(screen.queryByText(/Changed by/)).toBeNull();
+});
+
+it("p2544b_a_save_echo_cannot_replace_an_inflight_undo", async () => {
+  const { app, state } = await openShelf([padOf("notes", USER, "old")]);
+  const field = await openPad("notes");
+  const reply = deferred<Pad>();
+  let writes = 0;
+  app.handlers["pad.write"] = ({ text }) => ++writes === 1 ? reply.promise : padOf("notes", USER, text);
+  fireEvent.input(field, { target: { value: "first" } });
+  fireEvent.focusOut(field);
+  fireEvent.input(field, { target: { value: "old" } });
+  state.pads = [padOf("notes", USER, "first\n")];
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
+  await waitForReload(app);
+  expect(field.value).toBe("old");
+  reply.resolve(padOf("notes", USER, "first\n"));
+  await reply.promise;
+  await writeAdopted();
+  fireEvent.focusOut(field);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
+    { method: "pad.write", params: { name: "notes", text: "first\n" } },
+    { method: "pad.write", params: { name: "notes", text: "old" } },
+  ]));
 });
