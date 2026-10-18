@@ -15,14 +15,14 @@ describe("u491a Shelf questions and navigation", () => {
 
   afterAll(async () => { await lane?.close(); });
 
-  /** Selects the first two Todos with Space on the rows and opens the question with the bar's Delete. */
+  /** Selects the first two Todos with Cmd+Enter on the rows and opens the question with the bar's Delete. */
   const ask = async () => {
     const [one, two] = await rows(lane);
 
     await lane.browser("focus", `.shelf [data-todo="${one}"] .todo-row-button`);
-    await lane.browser("press", "Space");
+    await lane.browser("press", "Meta+Enter");
     await lane.browser("focus", `.shelf [data-todo="${two}"] .todo-row-button`);
-    await lane.browser("press", "Space");
+    await lane.browser("press", "Meta+Enter");
     await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('2 selected')");
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until("!!document.querySelector('[role=\"alertdialog\"]')");
@@ -96,7 +96,7 @@ describe("u491a Shelf questions and navigation", () => {
 
   it("u491a_bulk_question_focus", async () => {
     await ask();
-    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=\"alertdialog\"] li')].map(item => item.textContent)")).toHaveLength(2);
+    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('.shelf-question-targets > *')].map(item => item.textContent)")).toHaveLength(2);
     expect(await lane.evaluate<string>("document.querySelector('[role=\"alertdialog\"]').getAttribute('aria-labelledby') !== null ? document.activeElement.textContent : ''")).toBe("Keep");
 
     for (let press = 0; press < 4; press++) {
@@ -172,7 +172,7 @@ describe("u491a Shelf questions and navigation", () => {
     await lane.resetCalls();
     await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
     await lane.until("!!document.querySelector('[role=\"alertdialog\"]')");
-    expect(await lane.evaluate<number>("document.querySelectorAll('[role=\"alertdialog\"] li').length")).toBe(2);
+    expect(await lane.evaluate<number>("document.querySelectorAll('.shelf-question-targets > *').length")).toBe(2);
     await lane.evaluate("(() => { window.__fake.failNext(-32001, 'pad denied'); return true; })()");
     await lane.browser("click", '[role="alertdialog"] .shelf-question-words button:last-child');
     await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('pad denied')");
@@ -187,10 +187,10 @@ describe("u491a Shelf questions and navigation", () => {
 
     await lane.resetCalls();
     await lane.browser("focus", ".shelf-add");
-    await lane.tabTo(`Select@${one}`);
-    await lane.browser("press", "Space");
-    await lane.tabTo(`Select@${two}`);
-    await lane.browser("press", "Enter");
+    await lane.tabTo(await lane.evaluate<string>(`document.querySelector('.shelf [data-id="${one}"] .todo-row-button').getAttribute('aria-label') + '@${one}'`));
+    await lane.browser("press", "Meta+Enter");
+    await lane.tabTo(await lane.evaluate<string>(`document.querySelector('.shelf [data-id="${two}"] .todo-row-button').getAttribute('aria-label') + '@${two}'`));
+    await lane.browser("press", "Meta+Enter");
     await lane.tabTo("Delete 2");
     await lane.browser("press", "Enter");
     await lane.until("!!document.querySelector('[role=\"alertdialog\"]')");
