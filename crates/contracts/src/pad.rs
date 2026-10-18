@@ -35,12 +35,15 @@ pub struct PadName {
     pub name: String,
 }
 
-/// Rewrite the whole text. Owner only.
+/// Rewrite the whole text. Owner only. A supplied `expectedRevision` must match atomically or fail with CONFLICT naming the current Revision.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "pad/")]
 pub struct WriteParams {
     pub name: String,
     pub text: String,
+    #[serde(default, rename = "expectedRevision")]
+    #[ts(type = "number | null", rename = "expectedRevision", optional)]
+    pub expected_revision: Option<u64>,
 }
 
 /// Add to the end. Anyone; counts as a write in Provenance.

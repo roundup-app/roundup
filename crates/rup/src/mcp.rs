@@ -393,7 +393,10 @@ fn offered_tools() -> Vec<Offered> {
         offered::<pad::CreateParams>("pad.create", "Create a Pad you own."),
         offered::<pad::PadName>("pad.read", "Read one Pad."),
         offered_without_params("pad.list", "List every Pad."),
-        offered::<pad::WriteParams>("pad.write", "Rewrite a Pad's whole text. Owner only."),
+        offered::<pad::WriteParams>(
+            "pad.write",
+            "Rewrite a Pad's whole text. Owner only. Optional expectedRevision refuses a stale write with CONFLICT.",
+        ),
         offered::<pad::AppendParams>("pad.append", "Add text to the end of any Pad."),
         offered::<pad::AppendSectionParams>(
             "pad.appendSection",
