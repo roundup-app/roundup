@@ -1469,3 +1469,47 @@ async fn p15_a_pad_stored_before_revisions_reads_revision_1() {
 
     assert_eq!(pad["revision"], 1);
 }
+
+#[tokio::test]
+async fn p2544d_write_revision_guard() {
+    for files in [false, true] {
+        let rig = Rig::new();
+        rig.create("notes", "original").await;
+        rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
+            .await;
+        let a = agent("a");
+        rig.ok(
+            &a,
+            "pad.write",
+            json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+        )
+        .await;
+        let before = rig.ok(&a, "pad.list", json!({})).await;
+        let touches = rig.touches.history("pad:notes").unwrap();
+        let mut events = rig.bus.subscribe();
+        let error = rig
+            .fail(
+                &a,
+                "pad.write",
+                json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+            )
+            .await;
+        assert_eq!(error.code, code::CONFLICT);
+        assert!(error.message.contains("revision 2"));
+        assert_eq!(rig.ok(&a, "pad.list", json!({})).await, before);
+        assert_eq!(
+            rig.touches.history("pad:notes").unwrap().len(),
+            touches.len()
+        );
+        assert!(events.try_recv().is_err());
+        if files {
+            assert_eq!(rig.file_text("notes.md"), "winner");
+            assert_eq!(
+                std::fs::read_dir(rig.dir.path().join("pads"))
+                    .unwrap()
+                    .count(),
+                1
+            );
+        }
+    }
+}
