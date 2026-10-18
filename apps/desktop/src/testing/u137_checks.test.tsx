@@ -164,24 +164,24 @@ rendered("u137 rendered focus marks", () => {
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
-  it("u137_floating_menu_shadow_keeps_unrelated_shadow_rejection", async () => {
+  it.each(["milkdown-slash-menu", "pane-control"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
 
-      const observed = await page.call<string[]>(`() => {
-        document.body.innerHTML = '<div class="milkdown-slash-menu" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+      const observed = await page.call<string[]>(`(surface) => {
+        document.body.innerHTML = '<div class="${surface}" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
         document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
         statuses.push(window.__checks().D8.status);
         document.querySelector('.content').style.boxShadow = 'none';
-        document.querySelector('.milkdown-slash-menu p').style.boxShadow = '0 2px 5px red';
+        document.querySelector('.' + surface + ' p').style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
-        document.querySelector('.milkdown-slash-menu p').style.boxShadow = 'none';
-        document.querySelector('.milkdown-slash-menu').style.boxShadow = '0 2px 5px red';
+        document.querySelector('.' + surface + ' p').style.boxShadow = 'none';
+        document.querySelector('.' + surface).style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
         return statuses;
-      }`);
+      }`, surface);
 
       expect(observed, scheme).toEqual(["pass", "fail", "fail", "fail"]);
     }
