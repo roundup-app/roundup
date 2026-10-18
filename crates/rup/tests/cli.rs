@@ -1116,18 +1116,44 @@ async fn i2706a_plain_output_uses_current_rail_names() {
             vec!["agent", "digest"],
             vec!["decision", "list"],
         ] {
-            let shown = run.rup(&args).await;
+            let caller = if args == ["agent", "context"] {
+                &fx.child
+            } else {
+                &fx.door
+            };
+            let shown = on(&fx.served.socket())
+                .acting_as(Some(caller))
+                .rup(&args)
+                .await;
             assert_eq!(code(&shown), 0, "{}", err(&shown));
             assert!(out(&shown).ends_with('\n'));
-            if args == ["decision", "list"] {
-                let item: Value = serde_json::from_str(out(&shown).trim()).unwrap();
-                assert_eq!(item["agent_name"], child);
-            } else {
-                assert!(
-                    out(&shown).contains(door) || out(&shown).contains(child),
-                    "{}",
-                    out(&shown)
-                );
+            let items: Vec<Value> = out(&shown)
+                .lines()
+                .map(|line| serde_json::from_str(line).unwrap())
+                .collect();
+            match args.as_slice() {
+                ["rail", "tree"] => {
+                    let node = items.iter().find(|node| node["id"] == fx.child).unwrap();
+                    assert_eq!(node["name"], child);
+                    assert_eq!(node["parent_name"], door);
+                }
+                ["agent", "context"] => {
+                    assert_eq!(items[0]["self"]["id"], fx.child);
+                    assert_eq!(items[0]["self"]["name"], child);
+                    assert_eq!(items[0]["parent"]["name"], door);
+                    assert_eq!(items[0]["ask"]["name"], door);
+                }
+                ["agent", "digest"] => assert!(
+                    items[0]["children"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|entry| entry["name"] == child)
+                ),
+                _ => {
+                    assert_eq!(items[0]["agent"], fx.child);
+                    assert_eq!(items[0]["agent_name"], child);
+                }
             }
         }
     }

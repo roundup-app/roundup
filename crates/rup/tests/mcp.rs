@@ -1970,14 +1970,16 @@ async fn m2706a_non_agent_identifiers_keep_their_meaning() {
         deleted.content[0].as_text().unwrap().text,
         format!("deleted Todo {}", todo["id"])
     );
-    let tree = fx.user.request("rail.tree", ()).await.unwrap();
-    let terminal = tree
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|node| node["id"] == fx.child)
+    let terminal = fx
+        .user
+        .request("terminal.open", json!({"workstream":fx.door}))
+        .await
         .unwrap()["terminal_id"]
         .clone();
+    assert_ne!(
+        terminal, fx.door,
+        "Terminal and owner identities must differ in this fixture"
+    );
     let shown = door.call("terminal_show", json!({"id":terminal})).await;
     assert_eq!(
         shown.content[0].as_text().unwrap().text,
