@@ -198,3 +198,110 @@
   --color-on-surface: var(--text);
   --font-family: var(--font-ui);
 }
+
+/* P2544a: the library owns block interactions; the Pad supplies its gutter and ink. */
+.pad-rich-editor:not(.pad-readonly) .milkdown .ProseMirror {
+  margin-left: var(--space-5);
+  padding-left: var(--space-6);
+}
+
+.pad-rich-editor .milkdown .milkdown-block-handle {
+  gap: 0;
+  transition: none;
+}
+
+.pad-rich-editor .milkdown .milkdown-block-handle .operation-item,
+.pad-rich-editor .milkdown .milkdown-block-handle .operation-item:hover,
+.pad-rich-editor .milkdown .milkdown-block-handle .operation-item.active {
+  width: var(--space-5);
+  height: var(--space-5);
+  padding: var(--space-1);
+  border-radius: 0;
+  background: none;
+}
+
+.pad-rich-editor .milkdown .milkdown-block-handle .operation-item svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.pad-rich-editor .milkdown .milkdown-block-handle .operation-item:hover svg,
+.pad-rich-editor .milkdown .milkdown-block-handle .operation-item.active svg {
+  fill: var(--text);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu {
+  border-radius: var(--radius-drawer);
+  box-shadow: var(--shadow-drawer);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu li {
+  border-radius: 0;
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group {
+  padding: var(--space-2);
+  border-color: var(--hairline);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul {
+  padding: 0;
+  gap: var(--space-2);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li {
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  color: var(--grey);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li.selected,
+.pad-rich-editor .milkdown .milkdown-slash-menu .tab-group ul li:hover {
+  color: var(--text);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups {
+  padding: 0 var(--space-2) var(--space-2);
+  max-height: calc(var(--space-6) * 10);
+  scroll-behavior: auto;
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group h6 {
+  padding: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li {
+  padding: var(--space-2);
+  gap: var(--space-3);
+  min-width: calc(var(--space-6) * 6);
+  background: none;
+  color: var(--grey);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.hover,
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li.active {
+  color: var(--text);
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  fill: currentcolor;
+  color: inherit;
+}
+
+.pad-rich-editor .milkdown .milkdown-slash-menu .menu-groups .menu-group li > span {
+  font-size: var(--text-body);
+}
+
+.pad-block-menu {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pad-block-menu .milkdown-slash-menu {
+  pointer-events: auto;
+}

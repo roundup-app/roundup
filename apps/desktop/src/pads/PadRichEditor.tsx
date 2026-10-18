@@ -1,7 +1,9 @@
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
+import { blockEdit } from "@milkdown/crepe/feature/block-edit";
 import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
@@ -49,6 +51,7 @@ export default function PadRichEditor(props: {
   onReady: (editor: PadEditorHandle) => void;
 }) {
   let host: HTMLDivElement | undefined;
+  let menuHost: HTMLDivElement | undefined;
   let crepe: CrepeBuilder | undefined;
   let created: ReturnType<CrepeBuilder["create"]> | undefined;
   let original = props.text;
@@ -59,13 +62,17 @@ export default function PadRichEditor(props: {
   const [failure, setFailure] = createSignal<string | null>(null);
 
   onMount(() => {
-    if (!host) throw new Error(copy.padEditorHostIsMissing);
+    if (!host || !menuHost) throw new Error(copy.padEditorHostIsMissing);
 
     crepe = new CrepeBuilder({
       root: host,
       defaultValue: props.text,
     })
       .setReadonly(props.readonly)
+      .addFeature(blockEdit, {
+        blockHandle: { getOffset: () => 0 },
+        slashMenu: { root: menuHost },
+      })
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(placeholder)
@@ -202,14 +209,21 @@ export default function PadRichEditor(props: {
   });
 
   return (
-    <div
-      class="pad-editor pad-rich-editor"
-      classList={{ "pad-readonly": props.readonly }}
-      onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-      <Show when={failure()}>
-        {(message) => <p role="alert" class="pad-editor-failure"><KindGlyph kind="error" decorative /> {message()}</p>}
-      </Show>
-      <div ref={(element) => (host = element)} />
-    </div>
+    <>
+      <Portal>
+        <div class="pad-rich-editor pad-block-menu">
+          <div class="milkdown" ref={(element) => (menuHost = element)} />
+        </div>
+      </Portal>
+      <div
+        class="pad-editor pad-rich-editor"
+        classList={{ "pad-readonly": props.readonly }}
+        onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
+        <Show when={failure()}>
+          {(message) => <p role="alert" class="pad-editor-failure"><KindGlyph kind="error" decorative /> {message()}</p>}
+        </Show>
+        <div ref={(element) => (host = element)} />
+      </div>
+    </>
   );
 }
