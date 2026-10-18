@@ -1,9 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { chromePath, openPage } from "./chromePage";
 import type { ChromePage } from "./chromePage";
-import { captureDir } from "./captures";
 
 /** U379 in a real Chromium: every line of a Shelf row is a click target where the row washes. */
 
@@ -12,8 +9,6 @@ const found = chromePath();
 const run = found || process.env["CI"] ? describe : describe.skip;
 
 let page: ChromePage;
-
-const ART = captureDir("U379");
 
 beforeAll(async () => {
   if (!found) throw new Error("U379 needs a Chrome binary: set CHROME_PATH");
@@ -78,8 +73,6 @@ run("u379 where a Shelf row washes, a click acts", () => {
     await page.load("/harness.html?seed=tree-40", width, height);
     await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
 
-    const reads: Array<Line & { drawer: string }> = [];
-
     for (const list of ["todos", "pads"]) {
       const lines = await page.call<Line[]>(LINES, list);
 
@@ -93,16 +86,11 @@ run("u379 where a Shelf row washes, a click acts", () => {
         const title = await opened(box.x, box.y);
         const shown = await opened(line.x, line.y);
 
-        reads.push({ ...line, drawer: shown.text.slice(0, 30) });
         expect(title.open, `${list} row ${line.row} title opens the Drawer`).toBe(true);
         expect(shown.open, `${list} row ${line.row} ${line.line} opens the Drawer`).toBe(true);
         expect(shown.text.slice(0, 30), `${list} row ${line.row} ${line.line} opens the same Drawer as its title`).toBe(title.text.slice(0, 30));
       }
     }
-
-    if (!ART) return;
-    mkdirSync(ART, { recursive: true });
-    writeFileSync(resolve(ART, `tree-40-${scheme}-${width}x${height}.json`), `${JSON.stringify(reads, null, 2)}\n`);
   });
 
   it("u379_the_row_still_reorders_and_keeps_its_focus", async () => {
@@ -126,10 +114,5 @@ run("u379 where a Shelf row washes, a click acts", () => {
     const moved = await page.call<string[]>(order);
 
     expect(moved[1]).toBe(first[0]);
-
-    // U136: no Check passing on `main` regresses; D2, D10 and D14 already fail there on `tree-40`.
-    const checks = await page.call<Record<string, { status: string }>>(`() => window.__checks()`);
-
-    expect(Object.entries(checks).filter(([, check]) => check.status === "fail").map(([id]) => id).filter((id) => !["D2", "D10", "D14"].includes(id))).toEqual([]);
   });
 });

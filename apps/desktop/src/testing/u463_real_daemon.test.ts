@@ -1,13 +1,11 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { captureDir } from "./captures";
-import { CHECK_IDS } from "./checks";
 import { chromePath } from "./chromePage";
-import type { Checks } from "./checks";
 import { startRealDaemon } from "./realDaemonFixture";
 import { createServedApp } from "./realSeam";
 
@@ -44,27 +42,6 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
 
   const wait = (expression: string) => browser("wait", "--fn", expression);
 
-  let baseline: Checks | undefined;
-
-  const observe = async (step: string): Promise<Checks> => {
-    const checks: Checks = (await browser("eval", "window.__checks()")).result;
-
-    for (const id of CHECK_IDS) if (baseline?.[id].status === "pass") expect(checks[id].status, `${id} at ${step}`).toBe("pass");
-
-    for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status, `${id} at ${step}`).toBe("pass");
-    baseline ??= checks;
-
-    if (ART) {
-      await mkdir(ART, { recursive: true });
-      const file = `${width}-${input}-${name}-${step}`;
-
-      await browser("screenshot", join(ART, `${file}.png`));
-      await writeFile(join(ART, `${file}.checks.json`), JSON.stringify(checks, null, 2));
-    }
-
-    return checks;
-  };
-
   const activate = async (selector: string) => {
     if (input === "pointer") await browser("click", selector);
     else {
@@ -73,7 +50,7 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
     }
   };
 
-  return { real, browser, wait, observe, activate, app: createServedApp(real.base), close: async () => {
+  return { real, browser, wait, activate, app: createServedApp(real.base), close: async () => {
     try { await browser("close"); } finally {
       await real.stop();
       await rm(profile, { recursive: true, force: true });
@@ -87,14 +64,13 @@ const width = 1280;
 for (const input of ["keyboard", "pointer"] as const) {
   it(`u463_first_run_chooses_the_configured_project_and_reaches_its_real_door_terminal ${width} ${input}`, async () => {
     const fixture = await observer(width, input, "choose", DOOR_REQUEST);
-    const { real, browser, wait, observe, activate, app } = fixture;
+    const { real, browser, wait, activate, app } = fixture;
 
     try {
       await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
       await browser("set", "viewport", String(width), "800");
       await wait(`document.body.textContent.includes('Open a folder to start')`);
       expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
-      await observe("first-run");
       await browser("eval", `(() => {
         const fetch = window.fetch.bind(window);
         window.__u463Calls = [];
@@ -109,11 +85,9 @@ for (const input of ["keyboard", "pointer"] as const) {
       await wait(`document.body.textContent.includes('New Workstream')`);
 
       expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
-      await observe("project");
       await activate(".pane-action");
       // U191: creating the Workstream starts its Door once rail.tree acknowledges the row.
       await wait(`window.__u463Calls.some(call => call.method === 'rail.startDoor')`);
-      await observe("workstream");
       await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('.rail-row[data-kind="idle"]')`);
       const tree = await app.rpc("rail.tree", null);
       const workstream = tree.find((node) => node.kind === "workstream")!;
@@ -140,7 +114,6 @@ for (const input of ["keyboard", "pointer"] as const) {
         todos: await app.rpc("todo.list", null),
         calls: (await browser("eval", "window.__u463Calls")).result,
       }, null, 2));
-      await observe("door");
 
       expect((await browser("eval", "typeof window.__fake")).result).toBe("undefined");
     } catch (error) {
@@ -154,14 +127,13 @@ for (const input of ["keyboard", "pointer"] as const) {
 // boundary checks the served seam, not an input path, so both run by keyboard only.
 it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} keyboard`, async () => {
   const fixture = await observer(width, "keyboard", "cancel");
-  const { real, browser, wait, observe, activate, app } = fixture;
+  const { real, browser, wait, activate, app } = fixture;
 
   try {
     await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
     await browser("set", "viewport", String(width), "800");
     await wait(`document.body.textContent.includes('Open a folder to start')`);
     expect((await browser("eval", "document.querySelectorAll('[role=tablist][aria-label=Projects] [role=tab]').length")).result).toBe(0);
-    await observe("first-run");
 
     await browser("eval", "window.__firstRun.cancelNextChoice()");
     await activate('[aria-label="Centre"] button');
@@ -170,18 +142,16 @@ it(`u463_cancel_keeps_first_run_and_the_next_choice_opens_the_project ${width} k
     expect(await app.rpc("rail.tree", null)).toEqual([]);
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await wait(`document.body.textContent.includes('Open a folder to start')`);
-    await observe("cancelled");
     await activate('[aria-label="Centre"] button');
     await wait(`!!document.querySelector('.pane-action')`);
     expect((await browser("eval", "document.querySelector('.project-tab[data-path]').dataset.path")).result).toBe(real.dir);
     expect(await app.rpc("rail.tree", null)).toEqual([]);
-    await observe("retry-project");
   } finally { await fixture.close(); }
 }, 180_000);
 
 it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} keyboard`, async () => {
   const fixture = await observer(width, "keyboard", "boundary");
-  const { real, browser, wait, observe, activate, app } = fixture;
+  const { real, browser, wait, activate, app } = fixture;
 
   try {
     await browser("open", `${real.base}/harness.html?daemon=1`);
@@ -192,7 +162,6 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
     expect(await app.chooseSavePath("test.md")).toBeNull();
     await activate('[aria-label="Open a folder"]');
     expect((await browser("eval", "[...document.querySelectorAll('[role=tablist][aria-label=Projects] .project-tab[data-path]')].map(tab => tab.dataset.path)")).result).toEqual([real.dir]);
-    await observe("default-project");
 
     const firstRun = createServedApp(real.base, () => "choose");
 

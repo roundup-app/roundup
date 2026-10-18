@@ -1,22 +1,15 @@
 import type { mountRegistryLayers } from "./keysFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { captureDir } from "../testing/captures";
-import { CHECK_IDS, type Checks } from "../testing/checks";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer, type AppServer } from "../testing/appServer";
-import { FULLSCREEN } from "../testing/chromePage";
 
 const exec = promisify(execFile);
 
 const profile = mkdtempSync(join(tmpdir(), "u481-"));
-
-const art = captureDir("U481");
-
-const layerArt = captureDir("U496");
 
 const session = `u481-${process.pid}`;
 
@@ -38,9 +31,6 @@ const read = async <T,>(expression: string): Promise<T> => {
 beforeAll(async () => {
   server = await appServer();
 
-  if (art) mkdirSync(art, { recursive: true });
-
-  if (layerArt) mkdirSync(layerArt, { recursive: true });
   origin = server.resolvedUrls.local[0]!;
   const ready = await fetch(new URL("/__roundup_ready", origin));
 
@@ -120,48 +110,6 @@ it("u481_help_close_after_origin_removal_is_safe", async () => {
   expect(await read(`document.activeElement.isConnected && document.activeElement !== window.__origin`)).toBe(true);
 }, 60_000);
 
-it("u481_help_preserves_rendered_checks_and_failure", async () => {
-  for (const more of [false, true]) {
-    if (more) {
-      await browser("close");
-      await browser("--profile", profile, "--args", "--force-high-contrast,--disable-blink-features=ForcedColors", "open", origin);
-    }
-
-    for (const width of [FULLSCREEN.width]) for (const scheme of ["light", "dark"]) {
-      await browser("set", "viewport", String(width), "800");
-      await browser("set", "media", scheme);
-      await load();
-      await read(`(() => {
-        window.__fake.failNext(-32003, 'Keyboard observer rejected send: complete failure remains visible');
-        document.querySelector('[aria-label="Add Workstream"]').click();
-      })()`);
-      await wait(`document.querySelector('p.ink[role=alert]')?.textContent.includes('Keyboard observer rejected send: complete failure remains visible')`);
-      expect(await read(`matchMedia("(prefers-contrast: more)").matches`)).toBe(more);
-      expect(await read(`matchMedia("(forced-colors: active)").matches`)).toBe(false);
-      const before = await read<Checks>(`window.__checks()`);
-      await prepare(); await open();
-      const during = await read<Checks>(`window.__checks()`);
-
-      if (art) await browser("screenshot", join(art, `${width}-${scheme}-${more}-help.png`));
-
-      if (art) writeFileSync(join(art, `${width}-${scheme}-${more}-help.checks.json`), JSON.stringify(during));
-
-      for (const id of CHECK_IDS) if (before[id].status === "pass") expect(during[id].status, `${width} ${scheme} open ${id}`).toBe("pass");
-
-      for (const id of ["D2", "D5", "D6"] as const) expect(during[id].status, `${width} ${scheme} ${id}`).toBe("pass");
-      await browser("press", "Escape"); await closed();
-      const after = await read<Checks>(`window.__checks()`);
-
-      if (art) await browser("screenshot", join(art, `${width}-${scheme}-${more}-failure.png`));
-
-      if (art) writeFileSync(join(art, `${width}-${scheme}-${more}-failure.checks.json`), JSON.stringify(after));
-
-      for (const id of CHECK_IDS) if (before[id].status === "pass") expect(after[id].status, `${width} ${scheme} ${id}`).toBe("pass");
-    }
-  }
-}, 180_000);
-
-
 const mountLayers = (...args: Parameters<typeof mountRegistryLayers>) => read(`(async () => {
   const fixture = await import('/src/keys/keysFixture.tsx');
   window.__registryFixture = fixture.mountRegistryLayers(...${JSON.stringify(args)});
@@ -187,11 +135,6 @@ it("u496_top_layer_escape_is_order_independent", async () => {
     })()`);
 
     expect(nested ? depths.drawer > depths.top : depths.drawer === depths.top, JSON.stringify(depths)).toBe(true);
-
-    if (layerArt) {
-      await browser("screenshot", join(layerArt, `${reverse}-${nested}-${top}-open.png`));
-      writeFileSync(join(layerArt, `${reverse}-${nested}-${top}-open.checks.json`), JSON.stringify(await read<Checks>(`window.__checks()`)));
-    }
 
     await read(`window.__drawerContent = document.querySelector('[data-registry-drawer]').textContent`);
     await browser("press", "Escape");

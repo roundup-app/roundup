@@ -24,3 +24,13 @@ it("u515_browser_several_agents_open_a_menu_by_keyboard", async () => {
   await wait("window.__calls.length === 1");
   expect(await read<string>("window.__calls[0].to")).toBe("a");
 }, 90_000);
+
+it("u3705_browser_focus_opens_the_no_agent_tooltip", async () => {
+  await load("?agents=0");
+  await browser("click", ".turn-gutter:first-of-type");
+  await wait("!!document.querySelector('.send-to-agent')");
+  await browser("focus", ".send-to-agent-note");
+  await browser("press", "Tab");
+  await wait("document.activeElement?.classList.contains('send-to-agent-action')");
+  await wait("document.querySelector('[role=tooltip]')?.textContent === 'No running agent'");
+}, 90_000);

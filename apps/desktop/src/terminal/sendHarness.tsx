@@ -42,8 +42,13 @@ export const mountSend = async (others: RailNode[], answer: (params: Params) => 
   return { app, connected, emulator: made.get("t-sh")!, calls: () => sent, chimes, ...view };
 };
 
-export const pressShortcut = (view: { container: HTMLElement }) =>
-  view.container.querySelector("[data-terminal]")!.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "a", code: "KeyA", metaKey: true, shiftKey: true }));
+export const pressShortcut = (view: { container: HTMLElement }) => {
+  const target = view.container.querySelector<HTMLElement>("[data-terminal]")!;
+
+  target.focus();
+
+  return target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "a", code: "KeyA", metaKey: true, shiftKey: true }));
+};
 
 export const control = () => screen.queryByRole("button", { name: "Send to agent" });
 

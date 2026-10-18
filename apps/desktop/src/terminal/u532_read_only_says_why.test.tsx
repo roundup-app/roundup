@@ -19,12 +19,12 @@ const watchedPane = async () => {
 
 describe("u532 typing into a watched input says why nothing was sent", () => {
   it("u532_a_key_in_a_watched_pane_writes_nothing_and_the_band_says_why", async () => {
-    const { app, connected } = await watchedPane();
+    const { app, connected, emulators } = await watchedPane();
 
     expect(band()).toBe("Watching Ann: Read-only");
 
-    for (const key of ["h", "Enter", "Backspace", "ArrowUp"]) {
-      press(key);
+    for (const bytes of ["h", "\r", "\x7f", "\x1b[A"]) {
+      emulators.made.get("t-ann")!.type(new TextEncoder().encode(bytes));
       expect(band()).toBe("Read-only. ⌘⏎ takes control");
     }
 
@@ -35,14 +35,15 @@ describe("u532 typing into a watched input says why nothing was sent", () => {
   });
 
   it("u532_the_band_reverts_when_focus_leaves_or_the_takeover_begins", async () => {
-    await watchedPane();
+    const { emulators } = await watchedPane();
+    const type = () => emulators.made.get("t-ann")!.type(new TextEncoder().encode("h"));
 
-    press("h");
+    type();
     document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!.focus();
     await waitFor(() => expect(band()).toBe("Watching Ann: Read-only"));
 
     document.querySelector<HTMLElement>(".pane-screen [tabindex]")!.focus();
-    press("h");
+    type();
     expect(band()).toBe("Read-only. ⌘⏎ takes control");
     press("Enter", { metaKey: true });
     await waitFor(() => expect(document.querySelector(".pane-takeover")?.textContent).toContain("Control: Typing goes straight to Ann"));

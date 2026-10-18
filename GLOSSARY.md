@@ -143,10 +143,13 @@ The strictly increasing ordinal of published Status transitions within one Attem
 Starting an exited Agent's next Attempt in its saved conversation.
 
 **Worktree**:
-The git worktree roundup makes for one Agent when the Project's `worktrees` setting is on: its own directory, branch and working directory (`docs/worktrees.md`).
+The git working directory assigned exclusively to one Agent when the Project's `worktrees` setting is on, with its own Agent branch. It is newly created in legacy mode or explicitly enrolled and retained at a stable path in prepared-directory mode (`docs/worktrees.md`).
 
 **Worktree state**:
 How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`).
+
+**Changed file**:
+A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).
 
 **Base**:
 The branch checked out in the Project when the Agent spawned; the Agent's branch starts there.
@@ -158,7 +161,7 @@ The memory, CPU and disk an Agent uses, sampled only when `project.resources` is
 Rebasing an Agent's branch onto its Base, running the Project's check, then fast-forwarding the Base (`agent.land`, which returns `Landed`: the Base's new commit).
 
 **Discard**:
-Deliberately dropping an Agent with its Worktree and branch whatever their state (`agent.discard`); `rail.remove` refuses instead when work would be lost.
+Deliberately dropping an Agent and its branch whatever their state (`agent.discard`); `rail.remove` refuses instead when work would be lost. A legacy Worktree is deleted; an enrolled Worktree retains its directory and ignored files.
 
 ### The App
 
@@ -341,7 +344,7 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
 **Claude inbox**:
-Claude Code's own mailbox for a message from another Claude Code instance, which the adapter writes a `note` to instead of typing it (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+Claude Code's own messaging socket for a message from another Claude Code instance, which the adapter sends a `note` over instead of typing it (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.

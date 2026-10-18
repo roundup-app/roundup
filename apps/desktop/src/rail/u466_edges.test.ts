@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
-import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
 
@@ -54,8 +53,6 @@ const page = {
     return reply.data.result;
   },
 };
-
-const art = captureDir("U466");
 
 beforeAll(async () => {
   server = await createServer({ cacheDir: join(profile, "vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
@@ -109,9 +106,4 @@ it("u466_failure_text_stays_visible_on_the_densest_seed", async () => {
   await page.call(`() => {window.__fake.app.editorFailure=new Error('no code editor found');document.querySelector('.rail-row [aria-label="Open in editor"]').click();}`);
   await page.until("() => Boolean(document.querySelector('.rail > .ink'))");
   expect(await page.call<string>("() => document.querySelector('.rail > .ink').textContent")).toContain("no code editor found");
-
-  if(art) {
-    await browser("screenshot",join(art,"failure.png"));
-    writeFileSync(join(art,"failure.checks.json"),JSON.stringify(await page.call("() => window.__checks()")));
-  }
 },60_000);
