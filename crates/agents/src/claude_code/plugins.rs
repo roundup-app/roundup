@@ -234,6 +234,16 @@ impl Runtime {
     }
 }
 
+/// LC13: whether the pinned bundle holds the `hope` skill the Door's Brief names.
+pub fn has_intent() -> bool {
+    source().is_ok_and(|source| {
+        source
+            .assets
+            .iter()
+            .any(|asset| asset.path == "hope/skills/intent/SKILL.md")
+    })
+}
+
 fn checksum(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
@@ -276,11 +286,6 @@ fn source() -> Result<Source, Error> {
         if manifest.name != name || manifest.version != version {
             return Err(Error::Integrity(path));
         }
-    }
-    // LC13: the Door's Brief names this skill.
-    let intent = "hope/skills/intent/SKILL.md";
-    if !paths.contains(&intent.to_owned()) {
-        return Err(Error::Integrity(intent.into()));
     }
     Ok(source)
 }

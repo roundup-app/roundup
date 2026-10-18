@@ -103,6 +103,10 @@ struct Carried {
     login: Map<String, Value>,
 }
 
+/// LC13: the one line a Door shows when its bundle lacks the `intent` skill.
+pub const INTENT_MISSING: &str =
+    "roundup: hope's intent skill is missing; this Door runs without it.";
+
 /// F4: what the shim for a vendor program prints on stderr before it exits 1.
 const SHIM_MESSAGE: &str = "roundup: start an agent with agent_spawn (a Door) or ask the user";
 
@@ -148,6 +152,8 @@ pub struct Launcher {
     home: Option<PathBuf>,
     /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
     user_tool_search: bool,
+    /// LC13: the bundled `hope` holds the skill a Door's Brief names; false only for a bundle without it.
+    intent: bool,
     plugins: Arc<OnceCell<Delivery>>,
     /// The installed Claude Code's version, once `claude --version` has answered (B51).
     pub(super) version: Arc<OnceCell<String>>,
@@ -278,10 +284,19 @@ impl Launcher {
             rup,
             home,
             user_tool_search: false,
+            intent: plugins::has_intent(),
             plugins: Arc::new(OnceCell::new()),
             version: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
         }
+    }
+
+    /// LC13: this Launcher for a bundle without `hope`'s `intent` skill. The pinned bundle holds
+    /// it, so this is how a Door's start without it is reached.
+    #[must_use]
+    pub fn without_intent_skill(mut self) -> Self {
+        self.intent = false;
+        self
     }
 
     pub fn from_env() -> Result<Self, OpenError> {
@@ -455,9 +470,10 @@ impl Launcher {
             None => extras::Delivery::default(),
         };
         let carried = lean.as_ref().map(|_| self.user_carried());
+        let missing_intent = role == Role::Door && !self.intent;
         replace_file(
             &settings,
-            &self.settings_json(id, attempt, &path, mcp, carried.as_ref()),
+            &self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent),
         )
         .map_err(RpcError::internal)?;
         let mut servers = Map::new();
@@ -482,6 +498,9 @@ impl Launcher {
         }
         let brief_file = brief_path(&dir, id);
         let mut brief = brief::text(role, mcp);
+        if missing_intent {
+            brief = brief::without_intent(&brief);
+        }
         if lean.is_some() && profile(role).global_instructions {
             self.append_global_instructions(&mut brief);
         }
@@ -578,7 +597,9 @@ impl Launcher {
         if lean.is_some() {
             env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".to_owned(), "1".to_owned());
         }
+        let missing = role == Role::Door && !self.intent;
         let bundled = match &lean {
+            _ if missing => &[][..],
             // LC6: an Agent the user started keeps every bundled plugin.
             None => profile(Role::Agent).bundled_plugins,
             Some(lean) => profile(if lean.scout { Role::Scout } else { role }).bundled_plugins,
@@ -747,6 +768,7 @@ impl Launcher {
         path: &OsStr,
         mcp: bool,
         carried: Option<&Carried>,
+        missing_intent: bool,
     ) -> Value {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
@@ -782,6 +804,13 @@ impl Launcher {
         let mut settings = json!({ "hooks": hooks });
         if mcp {
             settings["permissions"] = json!({ "allow": ["mcp__roundup__*"] });
+        }
+        // LC13: Claude Code's status line keeps the one line on screen for the whole session.
+        if missing_intent {
+            settings["statusLine"] = json!({
+                "type": "command",
+                "command": format!("printf %s {}", shell_quote(INTENT_MISSING)),
+            });
         }
         // LC2: the user's permission rules follow roundup's, a rule once.
         if let Some(Carried { allow, deny, login }) = carried {

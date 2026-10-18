@@ -2254,6 +2254,61 @@ async fn lc5_only_the_door_among_lean_children_gets_hope() {
 }
 
 #[tokio::test]
+async fn lc13_a_door_without_the_intent_skill_starts_and_says_so() {
+    let s = setup();
+    let launcher = plugin_launcher(&s).without_intent_skill();
+    let (argv, _) = launcher
+        .launch_on(
+            folders(&s.dir),
+            "7",
+            "1",
+            &s.cwd,
+            None,
+            Role::Door,
+            &Default::default(),
+        )
+        .await
+        .expect("a missing skill never fails the start");
+    let status_line = |argv: &[String]| {
+        read(Path::new(Setup::after(argv, "--settings").unwrap()))["statusLine"]["command"]
+            .as_str()
+            .map(str::to_owned)
+    };
+    let shown = std::process::Command::new("sh")
+        .args(["-c", &status_line(&argv).unwrap()])
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8(shown.stdout).unwrap(),
+        agents::claude_code::INTENT_MISSING
+    );
+    let names: Vec<_> = argv
+        .windows(2)
+        .filter(|pair| pair[0] == "--plugin-dir")
+        .map(|pair| read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone())
+        .collect();
+    assert_eq!(json!(names), json!(["roundup-question"]));
+    let brief =
+        std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
+            .unwrap();
+    assert!(!brief.contains("hope:intent"));
+    // Only a Door says so; a worker's start is the same.
+    let (worker, _) = launcher
+        .launch_on(
+            folders(&s.dir),
+            "8",
+            "1",
+            &s.cwd,
+            None,
+            Role::Agent,
+            &lean_pair(false, Extras::default()),
+        )
+        .await
+        .unwrap();
+    assert_eq!(status_line(&worker), None);
+}
+
+#[tokio::test]
 async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     let s = setup();
     s.user_file("settings.json", r#"{"permissions":{"allow":["Read(x)"]}}"#);
