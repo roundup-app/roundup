@@ -419,10 +419,6 @@ p {
   white-space: pre;
 }
 
-.help-keys {
-  display: inline-block;
-  min-width: 8ch;
-}
 
 /* U2240: the keys ⌘K waits for; it appears and goes in the frame of the key, takes no focus and no pointer events, and has no motion. */
 .leader {
@@ -448,10 +444,6 @@ p {
   white-space: pre;
 }
 
-.leader-keys {
-  display: inline-block;
-  min-width: 2ch;
-}
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
 .project-tab[data-drop]::after,
