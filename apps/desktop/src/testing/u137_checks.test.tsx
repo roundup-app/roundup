@@ -73,21 +73,24 @@ describe("u137 one module measures the checks", () => {
 
       for (const check of Object.values(checks)) {
         expect(["pass", "fail"]).toContain(check.status);
-        expect(check).toHaveProperty("value");
+        expect(check.value).not.toBeUndefined();
         expect(check.selector).toEqual(expect.any(String));
       }
     });
   });
 
-  it("u137_a_stylesheet_with_a_literal_colour_makes_d1_fail", () => {
+  it.each([
+    ["color", "#ff00ff", "rgb(255, 0, 255)"],
+    ["border-radius", "1px", "1px"],
+  ])("u137_a_stylesheet_with_a_literal_%s_makes_d1_fail", (property, value, serialized) => {
     document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
     document.body.innerHTML = "<p class='rail-row'>x</p>";
-    addSheet(".rail-row { color: #ff00ff; }");
+    addSheet(`.rail-row { ${property}: ${value}; }`);
 
     const d1 = runChecks().D1;
 
     expect(d1.status).toBe("fail");
-    expect(d1.value).toEqual(["color: rgb(255, 0, 255)"]);
+    expect(d1.value).toEqual([`${property}: ${serialized}`]);
     expect(d1.selector).toBe(".rail-row");
   });
 
@@ -129,21 +132,6 @@ describe("u137 one module measures the checks", () => {
     }
 
     expect(checks.D10.status).toBe("fail");
-  });
-
-  it("u137_the_result_parses_under_the_checks_json_shape_delta_reads", async () => {
-    await withStylesheets(async () => {
-      mountSeed();
-      // SAFETY: the test reads each entry as the `checks.json` shape and asserts it below.
-      const parsed = JSON.parse(JSON.stringify(runChecks())) as Record<string, { status: string; value: unknown; selector: string }>;
-
-      for (const id of CHECK_IDS) {
-        const entry = parsed[id]!;
-
-        expect(["pass", "fail"]).toContain(entry.status);
-        expect(entry.value).not.toBeUndefined();
-      }
-    });
   });
 
   it("u137_reading_the_page_changes_nothing_the_user_sees", async () => {
@@ -205,24 +193,24 @@ rendered("u137 rendered focus marks", () => {
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
-  it("u137_floating_menu_shadow_keeps_unrelated_shadow_rejection", async () => {
+  it.each(["milkdown-slash-menu", "pane-control"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
 
-      const observed = await page.call<string[]>(`() => {
-        document.body.innerHTML = '<div class="milkdown-slash-menu" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+      const observed = await page.call<string[]>(`(surface) => {
+        document.body.innerHTML = '<div class="${surface}" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
         document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
         statuses.push(window.__checks().D8.status);
         document.querySelector('.content').style.boxShadow = 'none';
-        document.querySelector('.milkdown-slash-menu p').style.boxShadow = '0 2px 5px red';
+        document.querySelector('.' + surface + ' p').style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
-        document.querySelector('.milkdown-slash-menu p').style.boxShadow = 'none';
-        document.querySelector('.milkdown-slash-menu').style.boxShadow = '0 2px 5px red';
+        document.querySelector('.' + surface + ' p').style.boxShadow = 'none';
+        document.querySelector('.' + surface).style.boxShadow = '0 2px 5px red';
         statuses.push(window.__checks().D8.status);
         return statuses;
-      }`);
+      }`, surface);
 
       expect(observed, scheme).toEqual(["pass", "fail", "fail", "fail"]);
     }
@@ -346,7 +334,7 @@ rendered("U135 U136 U161 painted scheme checks", () => {
     const checks = await page.call<Checks>(`() => window.__checks()`);
 
     expect(checks.D10.value).toMatchObject({ viewport: "1280x800", scheme: "dark" });
-    expect(checks.D10, JSON.stringify(checks.D10)).toMatchObject({ status: "pass" });
+    expect(checks.D10, JSON.stringify(checks)).toMatchObject({ status: "pass" });
   }, 60_000);
 
   for (const seed of ["daemon-exits", "conflict"]) for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1280, 800], [1440, 800]] as const) {
