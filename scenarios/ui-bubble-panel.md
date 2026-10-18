@@ -28,12 +28,12 @@ Tests: `u2307a_` in Vitest (`apps/desktop/src/bubbles/`) and one real-browser te
 
 Tests: `u2307b_` as named. Moves: D2, D8.
 
-**U2307c the bar is a macOS panel bar.** Amends U164's header (its text `Minimise` and `Close`, and its state words `Running` and `Exit <code>`) and U523's header controls. The state words become a dot and the `Exit <code>` text moves to the dot's accessible name. Given a shown bubble, then:
+**U2307c the bar is a macOS panel bar.** Amends U164's header (its text `Minimise` and `Close`, and its state words `Running` and `Exit <code>`, which U3704 later removes) and U523's header controls. The state words become a dot (later removed). Given a shown bubble, then:
 
 - **Dots.** At the left, in this order, a close dot then a minimise dot: small circles of ink only, no box, no outline, no hover or press fill (U510: hover moves the ink, press dims it). Close calls `terminal.close` once (U164); minimise folds the bubble (U164). Each is a native button with an accessible name (`Close`, `Minimise` from `copy.ts`), Tab reaches it and it shows the shared focus ring (U31, U133).
-- **Title.** The Terminal's name (U164, renamed in place as U511a says) sits on the bar. After the title sits a status dot: `--accent` ink while running and `--grey` once exited, with the accessible name `Running` or `Exit <code>`.
+- **Title.** The Terminal's name (U164, renamed in place as U511a says) sits on the bar. No status follows it (U3704: a plain Terminal shows no state).
 - **Unchanged.** The header is still the drag handle, a double-click on its empty space still fills and restores (U2237), and the arrow keys on the focused header still move and resize it (U164). Test: `u2307c_the_bar_keeps_drag_fill_and_keyboard_moves`.
 
-Test: `u2307c_the_bar_has_close_then_minimise_dots_and_a_status_dot_named_by_state` (Chromium, `u2307c_browser.test.ts`: the buttons' order and the status dot's accessible name), `u2307c_the_dots_name_and_call_close_and_minimise`, `u2307c_the_status_dot_names_the_exit_code`. Moves: D2, D5, D6, D8.
+Test: `u2307c_the_bar_has_close_then_minimise_dots` (Chromium, `u2307c_browser.test.ts`: the buttons' order), `u2307c_the_dots_name_and_call_close_and_minimise`. Moves: D2, D5, D6, D8.
 
 Narrowing summary, for the review run: U164's header bullet and its minimise bullet, U523's header controls, and `docs/design-system.md`'s bubble sentence (the bar). The implementation run rewrites each sentence it names as it ships. Retire the U164 and U523 assertions that read the header's `Minimise` or `Close` text or the `Running` and `Exit` words in `apps/desktop/src/bubbles/u164_bubbles.test.tsx` and `u523_panel.test.ts`; the U2307c tests prove their then-clauses.
