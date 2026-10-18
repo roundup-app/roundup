@@ -34,6 +34,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
     let tree: InstanceType<Awaited<ReturnType<typeof loadTrees>>["FileTree"]> | undefined;
     let gone = false;
     let stopScroll: (() => void) | undefined;
+    let stopRows: (() => void) | undefined;
 
     void loadTrees().then(({ FileTree }) => {
       const mount = host();
@@ -43,6 +44,8 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
       tree = new FileTree({
         paths: props.files.map((file) => file.path),
         initialExpansion: "open",
+        itemHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24,
+        stickyFolders: false,
         icons: { set: "minimal", colored: false },
         // The library defines its palette on :host, inside its shadow root.
         // Keep the overrides there too so inheritance cannot restore its defaults.
@@ -57,6 +60,32 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
       tree.render({ containerWrapper: mount });
       // Ark cannot discover tabbable rows inside Pierre’s shadow root; enter its roving row after render.
       const shadow = mount.querySelector("file-tree-container")?.shadowRoot;
+
+      if (shadow) {
+        // Virtualization replaces rows; restore accessible names on every rendered batch.
+        const describeRows = () => {
+          for (const row of shadow.querySelectorAll<HTMLElement>('[data-item-type="file"]')) {
+            const file = byPath.get(row.dataset.itemPath ?? "");
+
+            if (!file) continue;
+
+            const detail = file.from ? `, ${file.from} → ${file.path}` : file.status === "deleted" ? ", unavailable in editor" : "";
+            const label = `${file.path}, ${statusText[file.status]}${detail}`;
+
+            if (row.getAttribute("aria-label") !== label) row.setAttribute("aria-label", label);
+          }
+
+          mount.style.height = `min(calc(var(--space-6) * 8), calc(var(--space-5) * ${tree?.getVisibleCount() ?? 0}))`;
+        };
+
+        const observer = new MutationObserver(describeRows);
+
+        observer.observe(shadow, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-label", "data-item-path"] });
+        describeRows();
+        const unsubscribe = tree.subscribe(describeRows);
+
+        stopRows = () => { observer.disconnect(); unsubscribe(); };
+      }
 
       shadow?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
       const scroller = shadow?.querySelector<HTMLElement>("[data-file-tree-virtualized-scroll]");
@@ -101,6 +130,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
       element?.removeEventListener("keydown", onKeyDown);
       element?.removeEventListener("dblclick", onDoubleClick);
       stopScroll?.();
+      stopRows?.();
       tree?.cleanUp();
     });
   });

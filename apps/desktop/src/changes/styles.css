@@ -81,3 +81,10 @@
 .worktree-tree::after { bottom: 0; transform: scaleY(-1); }
 .worktree-tree[data-clipped-top]::before,
 .worktree-tree[data-clipped-bottom]::after { opacity: 1; }
+
+/* Failures remain readable in the panel, including multi-line git diagnostics. */
+.worktree-panel p.ink[role="alert"] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+}
