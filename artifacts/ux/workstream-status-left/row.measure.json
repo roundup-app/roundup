@@ -1,9 +1,10 @@
 {
+ "light-padsFound": 2,
  "light-backend": {
   "rest": {
-   "id": "backend",
-   "near": "false",
+   "sel": ".rail-row[data-id=\"backend\"]",
    "rowH": 32,
+   "near": "false",
    "dot": {
     "l": 48,
     "r": 64,
@@ -24,56 +25,24 @@
     "t": 106,
     "b": 122
    },
-   "stateClass": "ink-count",
+   "stateLeft": 117.171875,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 102,
     "b": 126
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "hidden",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   },
   "hover": {
-   "id": "backend",
-   "near": "true",
+   "sel": ".rail-row[data-id=\"backend\"]",
    "rowH": 32,
+   "near": "true",
    "dot": {
     "l": 48,
     "r": 64,
@@ -94,58 +63,26 @@
     "t": 106,
     "b": 122
    },
-   "stateClass": "ink-count",
+   "stateLeft": 117.171875,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 102,
     "b": 126
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "visible",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   }
  },
  "light-auth": {
   "rest": {
-   "id": "auth",
-   "near": "false",
+   "sel": ".rail-row[data-id=\"auth\"]",
    "rowH": 32,
+   "near": "false",
    "dot": {
     "l": 76,
     "r": 92,
@@ -161,56 +98,24 @@
    "nameCentreY": 158,
    "dotCentreY": 158,
    "state": null,
-   "stateClass": null,
+   "stateLeft": null,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 146,
     "b": 170
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "hidden",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   },
   "hover": {
-   "id": "auth",
-   "near": "true",
+   "sel": ".rail-row[data-id=\"auth\"]",
    "rowH": 32,
+   "near": "true",
    "dot": {
     "l": 76,
     "r": 92,
@@ -226,58 +131,75 @@
    "nameCentreY": 158,
    "dotCentreY": 158,
    "state": null,
-   "stateClass": null,
+   "stateLeft": null,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 146,
     "b": 170
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "visible",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   }
  },
+ "light-pad": {
+  "rest": {
+   "sel": ".rail-leaf .rail-pad",
+   "rowH": 32,
+   "near": null,
+   "dot": null,
+   "name": {
+    "l": 100,
+    "r": 136,
+    "t": 309.5,
+    "b": 326.5
+   },
+   "nameCentreY": 318,
+   "dotCentreY": null,
+   "state": null,
+   "stateLeft": null,
+   "icons": null,
+   "iconsVisibility": null,
+   "fontSize": "14px",
+   "lineHeight": "normal",
+   "nameClientH": 17,
+   "nameScrollH": 17,
+   "nameCut": false
+  },
+  "hover": {
+   "sel": ".rail-leaf .rail-pad",
+   "rowH": 32,
+   "near": null,
+   "dot": null,
+   "name": {
+    "l": 100,
+    "r": 136,
+    "t": 309.5,
+    "b": 326.5
+   },
+   "nameCentreY": 318,
+   "dotCentreY": null,
+   "state": null,
+   "stateLeft": null,
+   "icons": null,
+   "iconsVisibility": null,
+   "fontSize": "14px",
+   "lineHeight": "normal",
+   "nameClientH": 17,
+   "nameScrollH": 17,
+   "nameCut": false
+  }
+ },
+ "dark-padsFound": 2,
  "dark-backend": {
   "rest": {
-   "id": "backend",
-   "near": "false",
+   "sel": ".rail-row[data-id=\"backend\"]",
    "rowH": 32,
+   "near": "false",
    "dot": {
     "l": 48,
     "r": 64,
@@ -298,56 +220,24 @@
     "t": 106,
     "b": 122
    },
-   "stateClass": "ink-count",
+   "stateLeft": 117.171875,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 102,
     "b": 126
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "hidden",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   },
   "hover": {
-   "id": "backend",
-   "near": "true",
+   "sel": ".rail-row[data-id=\"backend\"]",
    "rowH": 32,
+   "near": "true",
    "dot": {
     "l": 48,
     "r": 64,
@@ -368,58 +258,26 @@
     "t": 106,
     "b": 122
    },
-   "stateClass": "ink-count",
+   "stateLeft": 117.171875,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 102,
     "b": 126
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "visible",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   }
  },
  "dark-auth": {
   "rest": {
-   "id": "auth",
-   "near": "false",
+   "sel": ".rail-row[data-id=\"auth\"]",
    "rowH": 32,
+   "near": "false",
    "dot": {
     "l": 76,
     "r": 92,
@@ -435,56 +293,24 @@
    "nameCentreY": 158,
    "dotCentreY": 158,
    "state": null,
-   "stateClass": null,
+   "stateLeft": null,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 146,
     "b": 170
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "hidden",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
   },
   "hover": {
-   "id": "auth",
-   "near": "true",
+   "sel": ".rail-row[data-id=\"auth\"]",
    "rowH": 32,
+   "near": "true",
    "dot": {
     "l": 76,
     "r": 92,
@@ -500,51 +326,67 @@
    "nameCentreY": 158,
    "dotCentreY": 158,
    "state": null,
-   "stateClass": null,
+   "stateLeft": null,
    "icons": {
     "l": 164.171875,
     "r": 271,
     "t": 146,
     "b": 170
    },
-   "kids": [
-    [
-     "Add Agent",
-     "static",
-     "flex",
-     50.828125
-    ],
-    [
-     "Start supervisor",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Clear Workstream…",
-     "static",
-     "flex",
-     24
-    ],
-    [
-     "Open folder",
-     "absolute",
-     "flex",
-     24
-    ],
-    [
-     "Open in editor",
-     "absolute",
-     "flex",
-     24
-    ]
-   ],
    "iconsVisibility": "visible",
    "fontSize": "14px",
    "lineHeight": "16.1px",
    "nameClientH": 16,
    "nameScrollH": 16,
-   "nameClipped": true
+   "nameCut": true
+  }
+ },
+ "dark-pad": {
+  "rest": {
+   "sel": ".rail-leaf .rail-pad",
+   "rowH": 32,
+   "near": null,
+   "dot": null,
+   "name": {
+    "l": 100,
+    "r": 136,
+    "t": 309.5,
+    "b": 326.5
+   },
+   "nameCentreY": 318,
+   "dotCentreY": null,
+   "state": null,
+   "stateLeft": null,
+   "icons": null,
+   "iconsVisibility": null,
+   "fontSize": "14px",
+   "lineHeight": "normal",
+   "nameClientH": 17,
+   "nameScrollH": 17,
+   "nameCut": false
+  },
+  "hover": {
+   "sel": ".rail-leaf .rail-pad",
+   "rowH": 32,
+   "near": null,
+   "dot": null,
+   "name": {
+    "l": 100,
+    "r": 136,
+    "t": 309.5,
+    "b": 326.5
+   },
+   "nameCentreY": 318,
+   "dotCentreY": null,
+   "state": null,
+   "stateLeft": null,
+   "icons": null,
+   "iconsVisibility": null,
+   "fontSize": "14px",
+   "lineHeight": "normal",
+   "nameClientH": 17,
+   "nameScrollH": 17,
+   "nameCut": false
   }
  }
 }
