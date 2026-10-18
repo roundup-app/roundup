@@ -221,3 +221,41 @@ async fn u2539a_no_worktree_and_missing_worktree_fail_as_g3_does() {
         err.message
     );
 }
+
+#[tokio::test]
+async fn u2540a_compares_each_status_against_the_same_base() {
+    let f = Fixture::in_git_project("sleep 30", Git::from_env());
+    write(f.dir.path(), "edit.txt", "old\n");
+    write(f.dir.path(), "gone.txt", "gone\n");
+    write(f.dir.path(), "old.txt", "rename body\n");
+    commit_all(f.dir.path(), "seed");
+    let base = git(f.dir.path(), &["rev-parse", "HEAD"]).trim().to_owned();
+    let (id, path) = on(&f).await;
+    write(&path, "committed.txt", "committed\n");
+    commit_all(&path, "commit");
+    git(&path, &["mv", "old.txt", "new.txt"]);
+    write(&path, "added.txt", "staged\n");
+    git(&path, &["add", "added.txt"]);
+    write(&path, "added.txt", "current\n");
+    write(&path, "edit.txt", "new\n");
+    write(&path, "loose.txt", "loose\n");
+    std::fs::remove_file(path.join("gone.txt")).unwrap();
+    for (name, old, new, status) in [
+        ("edit.txt", "old\n", "new\n", "modified"),
+        ("gone.txt", "gone\n", "", "deleted"),
+        ("new.txt", "rename body\n", "rename body\n", "renamed"),
+        ("added.txt", "", "current\n", "added"),
+        ("committed.txt", "", "committed\n", "added"),
+        ("loose.txt", "", "loose\n", "untracked"),
+    ] {
+        let result = f.call("agent.compareFile", json!({"id": id, "path": name})).await.unwrap();
+        assert_eq!(result["base"], base);
+        assert_eq!(result["status"], status);
+        assert_eq!(result["old"]["text"].as_str().unwrap_or(""), old);
+        assert_eq!(result["new"]["text"].as_str().unwrap_or(""), new);
+        assert!(result["old"]["revision"].is_string());
+        assert!(result["new"]["revision"].is_string());
+        assert_eq!(result["newPath"], name);
+        assert_eq!(result["oldPath"], if name == "new.txt" { "old.txt" } else { name });
+    }
+}
