@@ -28,6 +28,7 @@ P5 says "a dropped or rejected Agent leaves no worktree and no branch". The user
 | `project.setWorktrees` | `{on, check}` | `null` |
 | `project.get` | `null` | `{worktrees: {on, check}}` |
 | `agent.worktreeState` | `{id}` | `{ahead, behind, dirty}` |
+| `agent.changedFiles` | `{id}` | `{files: [{path, status, line, from?}]}` (U2539a) |
 | `agent.land` | `{id}` | `{base}` |
 | `agent.discard` | `{id}` | `null` |
 

@@ -313,7 +313,9 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 49] = [
+const NO_TOOL: [&str; 50] = [
+    // U2539b: the panel's changed files; an Agent reads its own diff with git.
+    "agent.changedFiles",
     // A40, P9: each carries a Steer from the user.
     "ask.send",
     "ask.list",
