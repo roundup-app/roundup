@@ -19,16 +19,17 @@ impl Store {
         })
         .expect("serializable placement");
         db.execute(
-            "UPDATE ask_parts SET state='waiting', placement=? WHERE state='placing'",
+            "UPDATE ask_parts SET state='waiting', placement=? WHERE state='placing' AND json_extract(placement,'$.kind') != 'routed'",
             [placement],
         )?;
+        db.execute("UPDATE ask_parts SET state='failed',reason='roundup restarted before delivering this' WHERE state='placing' AND json_extract(placement,'$.kind')='routed'", [])?;
         Ok(Self(db))
     }
 
     pub(super) fn list(&self) -> Result<Vec<Ask>, RpcError> {
         let mut stmt = self
             .0
-            .prepare("SELECT id, text, at FROM asks ORDER BY seq DESC")
+            .prepare("SELECT asks.id, text, at, submission FROM asks LEFT JOIN ask_submissions ON ask=asks.id ORDER BY seq DESC")
             .map_err(sql)?;
         let rows = stmt
             .query_map([], |row| {
@@ -36,6 +37,7 @@ impl Store {
                     id: row.get(0)?,
                     text: row.get(1)?,
                     at: row.get(2)?,
+                    submission: row.get(3)?,
                     parts: vec![],
                 })
             })
@@ -77,18 +79,19 @@ impl Store {
     }
 
     pub(super) fn next_placing(&self) -> Result<Option<Ask>, RpcError> {
-        let id: Option<String> = self.0.query_row("SELECT asks.id FROM asks JOIN ask_parts ON ask_parts.ask=asks.id WHERE state='placing' AND json_extract(placement,'$.kind')='unclear' ORDER BY asks.seq LIMIT 1", [], |row|row.get(0)).optional().map_err(sql)?;
+        let id: Option<String> = self.0.query_row("SELECT asks.id FROM asks JOIN ask_parts ON ask_parts.ask=asks.id WHERE state='placing' AND json_extract(placement,'$.kind') IN ('unclear','routed') ORDER BY asks.seq LIMIT 1", [], |row|row.get(0)).optional().map_err(sql)?;
         id.map(|id| self.get(&id)).transpose()
     }
 
     pub(super) fn get(&self, id: &str) -> Result<Ask, RpcError> {
         let mut ask = self
             .0
-            .query_row("SELECT id,text,at FROM asks WHERE id=?", [id], |row| {
+            .query_row("SELECT asks.id,text,at,submission FROM asks LEFT JOIN ask_submissions ON ask=asks.id WHERE asks.id=?", [id], |row| {
                 Ok(Ask {
                     id: row.get(0)?,
                     text: row.get(1)?,
                     at: row.get(2)?,
+                    submission: row.get(3)?,
                     parts: vec![],
                 })
             })
@@ -99,7 +102,40 @@ impl Store {
         Ok(ask)
     }
 
-    pub(super) fn insert(&mut self, text: String, at: i64) -> Result<Ask, RpcError> {
+    pub(super) fn replay(
+        &self,
+        submission: &str,
+        text: &str,
+        workstream: Option<&str>,
+    ) -> Result<Option<Ask>, RpcError> {
+        let stored: Option<(String, Option<String>)> = self
+            .0
+            .query_row(
+                "SELECT ask,workstream FROM ask_submissions WHERE submission=?",
+                [submission],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(sql)?;
+        let Some((id, target)) = stored else {
+            return Ok(None);
+        };
+        let ask = self.get(&id)?;
+        if ask.text != text || target.as_deref() != workstream {
+            return Err(RpcError::conflict(
+                "Ask submission identity already holds different work",
+            ));
+        }
+        Ok(Some(ask))
+    }
+
+    pub(super) fn insert(
+        &mut self,
+        text: String,
+        at: i64,
+        submission: Option<String>,
+        workstream: Option<String>,
+    ) -> Result<Ask, RpcError> {
         let tx = self.0.transaction().map_err(sql)?;
         let id: String = tx
             .query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))
@@ -109,12 +145,22 @@ impl Store {
             params![id, text, at],
         )
         .map_err(sql)?;
+        if let Some(submission) = &submission {
+            tx.execute(
+                "INSERT INTO ask_submissions (submission,ask,workstream) VALUES (?,?,?)",
+                params![submission, id, workstream],
+            )
+            .map_err(sql)?;
+        }
         let part = Part {
             text: text.clone(),
-            placement: Place::Unclear {
-                question: String::new(),
-                candidates: vec![],
-            },
+            placement: workstream.map_or_else(
+                || Place::Unclear {
+                    question: String::new(),
+                    candidates: vec![],
+                },
+                |workstream| Place::Routed { workstream },
+            ),
             state: State::Placing,
             reason: None,
         };
@@ -124,6 +170,7 @@ impl Store {
             id,
             text,
             at,
+            submission,
             parts: vec![part],
         })
     }

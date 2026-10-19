@@ -2,19 +2,30 @@ import { batch, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
-import type { AppSeam } from "../app/seam";
+import { INTERNAL_CODE, RpcError, type AppSeam } from "../app/seam";
+import type { SendParams } from "@contracts/ask/SendParams";
 import type { Events } from "../app/events";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
 export type AskEntry = { key: string; text: string; parts: readonly AskPart[]; pending: boolean };
+
+/** A captured revision identity is echoed even when replies arrive out of order. */
+export type AskSubmission = SendParams & { submission: string };
+
+export type AskOutcome =
+  | { kind: "acknowledged"; submission: string; ask: Ask }
+  | { kind: "refused"; submission: string; error: RpcError }
+  | { kind: "unknown"; submission: string; message: string };
 
 export type AsksState = {
   /** Newest first; an Ask still being sent comes before every other. */
   entries(): readonly AskEntry[];
   /** Fetches `ask.list` once; later changes arrive as `ask.changed`. */
   load(): void;
-  /** U504: the entry shows before the call returns. Resolves with the failure message, or `null` once the Daemon holds the Ask. */
-  send(text: string): Promise<string | null>;
+  /** U504: optimistic entry appears before intake settles. Acknowledgement means durable intake, not delivery. */
+  send(request: AskSubmission): Promise<AskOutcome>;
+  /** Read-only authoritative acceptance lookup. Absence cannot prove refusal of an in-flight request. */
+  reconcile(submission: string): Promise<AskOutcome>;
   /** U506: `ask.pick` for one part; resolves with the failure message or `null`. */
   pick(id: string, part: number, target: Target): Promise<string | null>;
   picking(id: string, part: number): boolean;
@@ -33,7 +44,6 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   const [pickFailures, setPickFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [failure, setFailure] = createSignal<string | null>(null);
   let loaded = false;
-  let counter = 0;
 
   const upsert = (ask: Ask): void => {
     setAsks((all) => [ask, ...all.filter((each) => each.id !== ask.id)].sort((a, b) => Number(b.at) - Number(a.at)));
@@ -78,22 +88,47 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
       });
     },
 
-    send: async (text) => {
-      const key = `sending-${++counter}`;
-
-      setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all]);
+    send: async (request) => {
+      // Copy before awaiting: later editor mutations cannot change this submission.
+      const captured = { ...request };
+      const { text, submission } = captured;
+      const key = submission;
+      setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all.filter(entry => entry.key !== key)]);
       setFailure(null);
 
-      const result = await call(() => app.rpc("ask.send", { text }));
+      try {
+        const ask = await app.rpc("ask.send", captured);
+        upsert(ask);
 
-      batch(() => {
+        return { kind: "acknowledged", submission, ask };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setFailure(message);
+
+        // INTERNAL and UNKNOWN_OUTCOME can follow committed intake; neither proves refusal.
+        if (error instanceof RpcError && error.code !== INTERNAL_CODE && error.code !== -32004) return { kind: "refused", submission, error };
+
+        return { kind: "unknown", submission, message };
+      } finally {
         setPending((all) => all.filter((entry) => entry.key !== key));
+      }
+    },
 
-        if (result.ok) upsert(result.value);
-        else setFailure(result.message);
-      });
+    reconcile: async (submission) => {
+      try {
+        const records = await app.rpc("ask.list", null);
+        const ask = records.find(ask => ask.submission === submission);
 
-      return result.ok ? null : result.message;
+        if (ask) {
+          upsert(ask);
+
+          return { kind: "acknowledged", submission, ask };
+        }
+
+        return { kind: "unknown", submission, message: "No intake acknowledgement is available" };
+      } catch (error) {
+        return { kind: "unknown", submission, message: error instanceof Error ? error.message : String(error) };
+      }
     },
 
     pick: async (id, part, target) => {

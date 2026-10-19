@@ -414,6 +414,7 @@ export const copy = {
   askNewWorkstream: "New Workstream",
   askDrop: "Drop",
   askNotSent: "Not sent: ",
+  askUnknown: "Send status unknown: ",
   switcherActions: "Actions",
   switcherLabel: "Switch to",
   switcherPlaceholder: "Name",
