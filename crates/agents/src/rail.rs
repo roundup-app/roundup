@@ -21,6 +21,12 @@ pub struct Rail {
     db: Connection,
 }
 
+pub(super) struct ClosedPreparation {
+    pub source: String,
+    pub agent: String,
+    pub copy: Option<Vec<u8>>,
+}
+
 // R16 attribution (#1901, r16/owner-transaction): a fresh WAL reader's lock/unlock
 // syscalls dominate the owner step. A schema-only peer lets SQLite share its local
 // read lock. It must never supply owner facts: the authoritative query stays fresh.
@@ -145,6 +151,218 @@ impl Rail {
             owner_reads: OwnerReads::open(path),
             db,
         })
+    }
+
+    /// Reserve both identities in one transaction. Until publication, ordinary Rail reads and
+    /// mutations cannot address them. A second preparer must await/reconcile the first one.
+    pub(super) fn reserve_closed(
+        &mut self,
+        source: &str,
+        title: &str,
+    ) -> Result<(String, String), RpcError> {
+        self.closed_recovery_ready(None)?;
+        let tx = self.db.transaction().map_err(sql)?;
+        if tx
+            .query_row(
+                "SELECT 1 FROM closed_sources WHERE source=?",
+                [source],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(sql)?
+            .is_some()
+        {
+            return Err(RpcError::conflict("source already reserved or imported"));
+        }
+        // Insert source and nodes in the same transaction: even interruption between writes
+        // cannot expose an untracked node or lose a reserved identity.
+        tx.execute(
+            "INSERT INTO nodes(kind,name,ord) VALUES('workstream',?,0)",
+            [title],
+        )
+        .map_err(sql)?;
+        let workstream = tx.last_insert_rowid();
+        tx.execute(
+            "INSERT INTO nodes(kind,name,parent,ord) VALUES('agent',?,?,0)",
+            params![title, workstream],
+        )
+        .map_err(sql)?;
+        let agent = tx.last_insert_rowid();
+        tx.execute(
+            "INSERT INTO closed_sources(source,workstream,agent) VALUES(?,?,?)",
+            params![source, workstream, agent],
+        )
+        .map_err(sql)?;
+        tx.commit().map_err(sql)?;
+        Ok((workstream.to_string(), agent.to_string()))
+    }
+
+    pub(super) fn closed_source(
+        &self,
+        source: &str,
+    ) -> Result<Option<(String, String, bool)>, RpcError> {
+        self.db
+            .query_row(
+                "SELECT workstream,agent,published FROM closed_sources WHERE source=?",
+                [source],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?.to_string(),
+                        row.get::<_, i64>(1)?.to_string(),
+                        row.get(2)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(sql)
+    }
+
+    pub(super) fn closed_copy(&mut self, source: &str, copy: &[u8]) -> Result<(), RpcError> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE closed_sources SET copy=? WHERE source=? AND published=0 AND copy IS NULL",
+                params![copy, source],
+            )
+            .map_err(sql)?;
+        if changed != 1 {
+            return Err(RpcError::conflict(
+                "source is no longer preparing a continuation",
+            ));
+        }
+        Ok(())
+    }
+
+    /// The only visibility transition. Continuation and Worktree readiness enter the same
+    /// commit as the source tombstone. Ownership proofs remain until post-commit release.
+    pub(super) fn publish_closed(&mut self, source: &str) -> Result<(), RpcError> {
+        let tx = self.db.transaction().map_err(sql)?;
+        let (workstream, agent, published): (i64, i64, bool) = tx
+            .query_row(
+                "SELECT workstream,agent,published FROM closed_sources WHERE source=?",
+                [source],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .map_err(sql)?;
+        if published {
+            return Ok(());
+        }
+        let complete: bool = tx.query_row(
+            "SELECT conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL
+                AND attempt=0 AND terminal_id IS NULL
+                AND (worktree_path IS NULL OR worktree_state='ready')
+                AND EXISTS (SELECT 1 FROM closed_sources WHERE source=?2 AND copy IS NOT NULL AND refusal IS NULL)
+             FROM nodes WHERE id=?1", params![agent,source], |r|r.get(0)
+        ).map_err(sql)?;
+        if !complete {
+            return Err(RpcError::conflict(
+                "closed Agent continuation or Worktree is not ready",
+            ));
+        }
+        let order: i64 = tx.query_row("SELECT count(*) FROM nodes WHERE parent IS NULL AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND workstream=nodes.id)",[],|r|r.get(0)).map_err(sql)?;
+        tx.execute(
+            "UPDATE nodes SET ord=? WHERE id=?",
+            params![order, workstream],
+        )
+        .map_err(sql)?;
+        tx.execute(
+            "UPDATE closed_sources SET published=1,refusal=NULL WHERE source=?",
+            [source],
+        )
+        .map_err(sql)?;
+        tx.commit().map_err(sql)
+    }
+
+    pub(super) fn closed_copies(&self) -> Result<Vec<(String, Vec<u8>)>, RpcError> {
+        self.db
+            .prepare(
+                "SELECT source,copy FROM closed_sources WHERE published=1 AND copy IS NOT NULL",
+            )
+            .map_err(sql)?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .map_err(sql)?
+            .collect::<Result<_, _>>()
+            .map_err(sql)
+    }
+
+    pub(super) fn release_closed_copy(&mut self, source: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE closed_sources SET copy=NULL WHERE source=? AND published=1",
+                [source],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    pub(super) fn unfinished_closed(&self) -> Result<Vec<ClosedPreparation>, RpcError> {
+        self.db
+            .prepare("SELECT source,agent,copy FROM closed_sources WHERE published=0")
+            .map_err(sql)?
+            .query_map([], |r| {
+                Ok(ClosedPreparation {
+                    source: r.get(0)?,
+                    agent: r.get::<_, i64>(1)?.to_string(),
+                    copy: r.get(2)?,
+                })
+            })
+            .map_err(sql)?
+            .collect::<Result<_, _>>()
+            .map_err(sql)
+    }
+
+    pub(super) fn forget_closed(&mut self, source: &str) -> Result<(), RpcError> {
+        let tx = self.db.transaction().map_err(sql)?;
+        tx.execute("DELETE FROM nodes WHERE id IN (SELECT agent FROM closed_sources WHERE source=? AND published=0)",[source]).map_err(sql)?;
+        tx.execute("DELETE FROM nodes WHERE id IN (SELECT workstream FROM closed_sources WHERE source=? AND published=0)",[source]).map_err(sql)?;
+        tx.execute(
+            "DELETE FROM closed_sources WHERE source=? AND published=0",
+            [source],
+        )
+        .map_err(sql)?;
+        tx.commit().map_err(sql)
+    }
+
+    pub(super) fn refuse_closed(&mut self, source: &str, cause: &str) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE closed_sources SET refusal=? WHERE source=? AND published=0",
+                params![cause, source],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    pub(super) fn closed_recovery_ready(&self, preparing: Option<&str>) -> Result<(), RpcError> {
+        let cause: Option<String> = self
+            .db
+            .query_row(
+                "SELECT refusal FROM closed_sources WHERE refusal IS NOT NULL LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(sql)?;
+        if let Some(cause) = cause {
+            return Err(RpcError::conflict(format!(
+                "closed publication recovery refused: {cause}"
+            )));
+        }
+        let pending: Option<String> = self.db.query_row(
+            "SELECT source FROM closed_sources WHERE published=0 AND (?1 IS NULL OR CAST(agent AS TEXT)!=?1) LIMIT 1",
+            [preparing], |row|row.get(0)
+        ).optional().map_err(sql)?;
+        if pending.is_some() {
+            return Err(RpcError::conflict(
+                "closed publication is pending reconciliation",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Resource holders may address reserved nodes; user-facing Rail callers cannot.
+    pub(super) fn resource_node(&self, id: &str) -> Result<RailNode, RpcError> {
+        find(&load_nodes(&self.db, true)?, id).cloned()
     }
 
     /// Receiver identity and persisted Attempt, without loading Rail presentation fields.
@@ -536,7 +754,7 @@ impl Rail {
     pub fn name(&self, id: &str) -> Result<String, RpcError> {
         self.db
             .query_row(
-                "SELECT name FROM nodes WHERE id = ?1 AND CAST(id AS TEXT) = ?1",
+                "SELECT name FROM nodes WHERE id = ?1 AND CAST(id AS TEXT) = ?1 AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (agent=nodes.id OR workstream=nodes.id))",
                 [id],
                 |row| row.get(0),
             )
@@ -710,6 +928,7 @@ impl Rail {
         id: &str,
         plan: &super::worktree::Provision,
     ) -> Result<bool, RpcError> {
+        self.closed_recovery_ready(Some(id))?;
         let path = plan.worktree.path.to_string_lossy();
         let changed = self
             .db
@@ -816,7 +1035,7 @@ impl Rail {
         &self,
     ) -> Result<Vec<(RailNode, Option<super::worktree::Provision>, bool)>, RpcError> {
         let mut records = Vec::new();
-        for node in self.tree()? {
+        for node in load_nodes(&self.db, true)? {
             let (state, owner, commit): (Option<String>, Option<String>, Option<String>) = self
                 .db
                 .query_row(
@@ -906,7 +1125,8 @@ impl Rail {
         let found: (Option<String>, Option<String>) = self
             .db
             .query_row(
-                "SELECT conversation_id, conversation_cwd FROM nodes WHERE id = ?",
+                "SELECT conversation_id, conversation_cwd FROM nodes WHERE id = ?
+                    AND NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0 AND (workstream=nodes.id OR agent=nodes.id))",
                 [id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -969,15 +1189,21 @@ fn kind_name(kind: NodeKind) -> &'static str {
 }
 
 fn load(db: &Connection) -> Result<Vec<RailNode>, RpcError> {
+    load_nodes(db, false)
+}
+
+fn load_nodes(db: &Connection, include_preparation: bool) -> Result<Vec<RailNode>, RpcError> {
     let mut query = db
         .prepare(
             "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL FROM nodes",
+                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL FROM nodes
+                WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
+                    AND (workstream=nodes.id OR agent=nodes.id))",
         )
         .map_err(sql)?;
     let rows = query
-        .query_map([], |row| {
+        .query_map([include_preparation], |row| {
             let kind = match row.get::<_, String>(1)?.as_str() {
                 "group" | "workstream" => NodeKind::Workstream,
                 _ => NodeKind::Agent,
@@ -1151,6 +1377,50 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let rail = Rail::open(&dir.path().join("agents.db")).unwrap();
         (dir, rail)
+    }
+
+    #[test]
+    fn u2875c_each_reservation_write_rolls_back_without_a_partial_rail_entry() {
+        for failure in [
+            "CREATE TRIGGER fail AFTER INSERT ON nodes WHEN NEW.kind='workstream' BEGIN SELECT RAISE(ABORT,'interrupted Workstream write'); END;",
+            "CREATE TRIGGER fail AFTER INSERT ON nodes WHEN NEW.kind='agent' BEGIN SELECT RAISE(ABORT,'interrupted Agent write'); END;",
+            "CREATE TRIGGER fail AFTER INSERT ON closed_sources BEGIN SELECT RAISE(ABORT,'interrupted source write'); END;",
+        ] {
+            let (dir, mut rail) = rail();
+            rail.db.execute_batch(failure).unwrap();
+            assert!(rail.reserve_closed("failed", "hidden").is_err());
+            assert!(rail.tree().unwrap().is_empty());
+            drop(rail);
+            let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
+            assert!(rail.tree().unwrap().is_empty());
+            assert!(rail.closed_source("failed").unwrap().is_none());
+            rail.db.execute_batch("DROP TRIGGER fail").unwrap();
+            rail.reserve_closed("failed", "retry").unwrap();
+        }
+    }
+
+    #[test]
+    fn u2875c_final_commit_failure_keeps_both_nodes_unpublished() {
+        let (dir, mut rail) = rail();
+        let (workstream, agent) = rail.reserve_closed("failed", "hidden").unwrap();
+        rail.closed_copy("failed", b"opaque ownership").unwrap();
+        rail.save_conversation(&agent, "retained", "/project")
+            .unwrap();
+        // A deferred FK failure happens at COMMIT, after every publication statement ran.
+        rail.db.execute_batch("PRAGMA foreign_keys=ON;
+            CREATE TABLE commit_guard (source TEXT REFERENCES closed_sources(source) DEFERRABLE INITIALLY DEFERRED);
+            CREATE TRIGGER fail AFTER UPDATE OF published ON closed_sources WHEN NEW.published=1
+            BEGIN INSERT INTO commit_guard VALUES('absent'); END;").unwrap();
+        assert!(rail.publish_closed("failed").is_err());
+        assert!(rail.tree().unwrap().is_empty());
+        assert!(rail.node(&workstream).is_err());
+        assert!(rail.has_conversation(&agent).is_err());
+        drop(rail);
+        let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
+        assert!(rail.tree().unwrap().is_empty());
+        rail.db.execute_batch("DROP TRIGGER fail").unwrap();
+        rail.publish_closed("failed").unwrap();
+        assert_eq!(rail.tree().unwrap().len(), 2);
     }
 
     #[test]
