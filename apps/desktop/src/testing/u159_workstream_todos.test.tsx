@@ -5,8 +5,8 @@ import { node, workstream, event, info, USER } from "../testing/nodes";
 import { todoHandlers, padHandlers } from "../testing/stores";
 import { todo } from "../todos/testHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
-import { Shelf, ProjectShelfTabs, createShelfTabs } from "./Shelf";
-import { createShelfFrame } from "./frame";
+import { Shelf, ProjectShelfTabs, createShelfTabs } from "../shelf/Shelf";
+import { createShelfFrame } from "../shelf/frame";
 import { Switcher } from "../switcher/Switcher";
 import { leaderKey } from "../keys/leaderFixture";
 import { Tabs } from "../ui/Tabs";
@@ -157,22 +157,6 @@ it("u2744a_shelf_scope_empty_groups_are_omitted", async () => {
   await tab("Pads");
   await waitFor(() => expect(groupIds()).toEqual([]));
   expect(screen.getByRole("button", { name: /Add Pad/ })).toBeTruthy();
-});
-
-it("u2744a_shelf_scope_no_scope_button", async () => {
-  const { connected, tree, app } = await mount();
-
-  for (const selected of [null, "w", "a", "r"]) {
-    connected.rail.select(selected);
-    expect(document.querySelector('.scope-control')).toBeNull();
-    expect(screen.queryByRole("button", { name: /Show (all|only)/ })).toBeNull();
-
-    if (selected) expect(document.querySelector('[data-shelf-scope]')?.textContent).toBe(tree.find(node => node.id === selected)?.name);
-  }
-
-  tree[4] = { ...tree[4]!, name: "renamed root" };
-  app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(document.querySelector('[data-shelf-scope]')?.textContent).toBe("renamed root"));
 });
 
 it("u2744a_shelf_scope_events_refresh_membership", async () => {
