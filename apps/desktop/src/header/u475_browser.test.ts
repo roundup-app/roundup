@@ -142,4 +142,8 @@ it("u2773a_header_pointer_switch_keeps_caret", async () => {
   await browser("click", '[data-path="/Users/you/project-number-8"] [role="tab"]');
   await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
   expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd]; })()`)).toEqual(["retained project name", 21, 21]);
+  await browser("press", "Escape");
+  await browser("click", '[data-path="/Users/you/project-number-8"] [aria-label^="Recover unfinished work"]');
+  await browser("wait", "--fn", `!!document.querySelector('[role="dialog"]')`);
+  expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe("retained project name");
 }, 60_000);
