@@ -15,7 +15,7 @@ let loads: unknown[] = [];
 const fake: CanvasApi = {
   // The skeleton expands to full elements.
   convertToExcalidrawElements: (skeleton, options) => (loads.push(options), skeleton).map((element, index) => ({ id: String(element.id ?? `e${index}`), version: 1 })),
-  restoreElements: (stored) => (loads.push("restored"), stored).map((element) => ({ id: String(element.id), version: 1 })),
+  restoreElements: (stored) => (loads.push("restored"), stored).map((element) => ({ id: String(element.id), version: element.version ?? 1 })),
   Excalidraw: (next) => {
     props = next;
 
@@ -50,15 +50,7 @@ const block = `\`\`\`excalidraw\n${scene}\n\`\`\`\n`;
 const writes = (calls: { method: string; params?: unknown }[]) => calls.filter((call) => call.method === "pad.write");
 
 describe("u149 a Drawing renders and edits in the Pad", () => {
-  it("u149_the_fixture_renders_inline_on_a_canvas", async () => {
-    await openShelf([padOf("note", AGENT, `intro\n\n${block}`)]);
-    await openPad("note");
-
-    await screen.findByTestId("canvas");
-    expect(screen.getByTestId("canvas").textContent).toBe("3 elements");
-    expect(document.querySelector(".visual-drawing")).not.toBeNull();
-  });
-
+  // Rule 10: the fake-only render/count proof is retired; u149_a_stored_drawing_renders_in_the_open_drawer_and_reads_back_byte_exact covers opening a stored block through App/Daemon.
   it("u149_an_agent_owned_drawing_is_read_only", async () => {
     await openShelf([padOf("note", AGENT, block)]);
 
@@ -87,6 +79,7 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     await new Promise((done) => setTimeout(done, 0));
     expect(writes(app.calls)).toHaveLength(0);
     expect(state.pads[0]?.text).toBe(source);
+    expect(connected.drafts.list()).toEqual([]);
   });
 
   it("u149_a_moved_shape_writes_the_serialized_scene_once_and_nothing_else_changes", async () => {
@@ -246,4 +239,30 @@ describe("u149 a Drawing renders and edits in the Pad", () => {
     expect(screen.getByRole("textbox", { name: "Pad body" }).getAttribute("contenteditable")).toBe("true");
     expect(field.readOnly).toBe(false);
   });
+});
+
+it("u2773a_pads_drawing_restores_exact_work_without_resuming_autosave", async () => {
+  const source = `before\n\n${block}\nafter\n`;
+  const { app, connected, state } = await openShelf([padOf("drawing-draft", USER, source)]);
+  await openPad("drawing-draft");
+  const host = (await screen.findByTestId("canvas")).closest(".visual-drawing")!;
+  fireEvent.pointerDown(host);
+  const [first, ...rest] = current().initialData.elements;
+  const moved = [{ ...first!, version: 2, type: "rectangle" }, { ...rest[0]!, type: "text" }, { ...rest[1]!, type: "arrow" }];
+  current().onChange(moved);
+  expect(loads).toHaveLength(1);
+  const retained = connected.drafts.list().at(-1)!;
+  expect(retained.value.base).toBe(source);
+  expect(retained.value.source).toBe('before\n\n```excalidraw\n{"type":"excalidraw","version":2,"elements":[{"id":"a","version":2,"type":"rectangle"},{"id":"t","version":1,"type":"text"},{"id":"e2","version":1,"type":"arrow"}]}\n```\n\nafter\n');
+  state.pads = [{ ...state.pads[0]!, text: "external", revision: 2 }];
+  app.emit({ actor: AGENT, name: "pad.changed", data: { name: "drawing-draft" } });
+  await screen.findByText(/Changed by/);
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByTestId("canvas")).toBeNull());
+  await openPad("drawing-draft");
+  await screen.findByTestId("canvas");
+  expect(current().initialData.elements[0]?.version).toBe(2);
+  expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+  expect(writes(app.calls)).toEqual([]);
+  expect(connected.drafts.list().at(-1)?.value).toEqual(retained.value);
 });
