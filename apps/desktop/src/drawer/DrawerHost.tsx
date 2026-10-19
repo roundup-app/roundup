@@ -208,7 +208,7 @@ const DraftRecovery = () => {
         </li>}</Show>}</For>
       </ul>
       <Show when={shown()}>{(draft) => <section class="draft-detail" aria-label={draft().revision}>
-        <h3>{copy.inspectedRevision(identity(draft().destination.surface, draft().destination.object), draft().revision)}</h3>
+        <h3>{copy.inspectedRevision(identity(draft().destination.surface, draft().destination.object), current().has(draft().revision) ? copy.currentDraft : copy.draftStatus[draft().status])}</h3>
         <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
         <Show when={availability(draft().destination.surface, draft().destination.object)}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
         <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
