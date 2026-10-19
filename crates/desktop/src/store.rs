@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+use rpc::RpcError;
 use serde::{Deserialize, Serialize};
 
 const FILE: &str = "projects.json";
@@ -57,16 +58,35 @@ impl Store {
         self.with(|saved| saved.open = paths);
     }
 
-    /// `None` removes the stored name, so the Project is named after its folder again.
-    pub fn set_name(&self, path: &str, name: Option<String>) {
-        self.with(|saved| match name {
-            Some(name) => {
-                saved.names.insert(path.to_owned(), name);
+    /// `None` removes the stored name. A captured base is compared under the same lock as the
+    /// write, so a stale editor cannot replace a name accepted after its last read.
+    pub fn set_name(
+        &self,
+        path: &str,
+        name: Option<String>,
+        base: Option<&str>,
+        fallback: &str,
+    ) -> Result<String, RpcError> {
+        self.with(|saved| {
+            let current = saved
+                .names
+                .get(path)
+                .map(String::as_str)
+                .unwrap_or(fallback);
+            if base.is_some_and(|base| base != current) {
+                return Err(RpcError::conflict("Project name changed"));
             }
-            None => {
-                saved.names.remove(path);
+            let result = name.clone().unwrap_or_else(|| fallback.to_owned());
+            match name {
+                Some(name) => {
+                    saved.names.insert(path.to_owned(), name);
+                }
+                None => {
+                    saved.names.remove(path);
+                }
             }
-        });
+            Ok(result)
+        })
     }
 
     fn with<T>(&self, change: impl FnOnce(&mut Saved) -> T) -> T {
