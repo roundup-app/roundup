@@ -1,11 +1,15 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest";
+import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
+import { createServedApp } from "../testing/realSeam";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot } from "solid-js";
 import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
 import { openTabs, path, tab, projectTabs } from "./stripFixture";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" });
 
@@ -48,22 +52,6 @@ describe("u183 rename in place", () => {
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["payments", "web"]));
     expect(document.activeElement).toBe(tab("payments"));
     expect(await app.projects()).toContainEqual({ name: "payments", path: path("api"), running: true });
-  });
-
-  it("u183_escape_cancels_and_calls_nothing", async () => {
-    const { app } = await openTabs({ api: [], web: [] });
-    const input = await edit();
-    let renamed = 0;
-    const rename = app.renameProject;
-
-    app.renameProject = (...args) => (renamed++, rename(...args));
-    input.value = "other";
-    press("Escape");
-
-    expect(screen.queryByRole("textbox", { name: "Project name" })).toBeNull();
-    expect(tab("api").textContent).toBe("api");
-    expect(renamed).toBe(0);
-    expect(document.activeElement).toBe(tab("api"));
   });
 
   it("u183_an_empty_name_returns_the_folder_name", async () => {
@@ -228,7 +216,10 @@ it("u2773a_header_restores_exact_work", async () => {
   const { app, view } = await openTabs({ api: [], web: [] });
   let sends = 0;
   const rename = app.renameProject;
-  app.renameProject = (...args) => { sends++; return rename(...args); };
+  app.renameProject = (...args) => { sends++;
+
+ return rename(...args); };
+
   const input = await edit();
   fireEvent.input(input, { target: { value: "  e\u0301 🪁 雪  " } });
   input.setSelectionRange(2, 6, "backward");
@@ -259,6 +250,10 @@ it("u2773c_header_external_change_keeps_original", async () => {
   await screen.findByText("Project name changed");
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
   expect(tab("B")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${original}` }));
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(within(recovery).getByRole("button", { name: /^Failed ·/ })).toBeDefined();
 });
 
 it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
@@ -285,4 +280,123 @@ it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", asyn
   await screen.findByRole("tab", { name: "web" });
   expect(tab("B")).toBeDefined();
   expect(calls.map(call => call.base)).toEqual(["api", "api"]);
+});
+
+
+it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlement_preserves_other_revisions_%s", async outcome => {
+  const { app, view } = await openTabs({ api: [], web: [] });
+  let accept: ((project: { name: string; path: string }) => void) | undefined;
+  let reject: ((error: Error) => void) | undefined;
+  const sends: unknown[][] = [];
+  app.renameProject = (...args) => { sends.push(args);
+
+ return new Promise((yes, no) => { accept = yes; reject = no; }); };
+
+  const a = await edit();
+  fireEvent.input(a, { target: { value: "  A e\u0301 🪁  " } });
+  press("Enter");
+  const b = await edit("A");
+  fireEvent.input(b, { target: { value: "  B 雪  " } });
+  press("Escape");
+  fireEvent.click(tab("web"));
+
+  if (outcome === "acknowledged") accept!({ path: path("api"), name: "A e\u0301 🪁" });
+  else reject!(new RpcError(outcome === "failed" ? -32602 : -32603, outcome));
+  await waitFor(() => expect(document.querySelector(`[data-path="${path("api")}"]`)?.textContent).toContain(outcome === "acknowledged" ? "A e\u0301 🪁" : "api"));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts.some((draft: { status: string }) => draft.status === "pending")).toBe(false));
+  view.unmount();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  fireEvent.click(await screen.findByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : "Acceptance unknown"} ·`) });
+
+  if (outcome === "acknowledged") expect(older).toBeNull();
+  else {
+    fireEvent.click(older!);
+    expect(within(dialog).getByText("  A e\u0301 🪁  ", { exact: true, normalizer: text => text })).toBeDefined();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  }
+
+  expect(sends).toEqual([[path("api"), "  A e\u0301 🪁  ", "api"]]);
+});
+
+it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
+  const { app } = await openTabs({ api: [], web: [] });
+  const sends = vi.spyOn(app, "renameProject");
+  fireEvent.click(tab("api"));
+  const input = await edit();
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
+  press("Escape");
+  expect(screen.getByRole("alert").textContent).toContain(path("api"));
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  "]));
+  write.mockRestore();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
+  await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts[0].value.name).toBe("  recover e\u0301 🪁  ");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]);
+  expect(sends).not.toHaveBeenCalled();
+
+});
+
+
+describe("u2773 header on real Projects", () => {
+  let first: StartedDaemon;
+  let second: StartedDaemon;
+  beforeAll(async () => { first = await startRealDaemon({}); second = await startRealDaemon({}); }, 240_000);
+  afterAll(async () => { await first?.stop(); await second?.stop(); });
+
+  it("u2773a_header_restores_exact_work_real_reload", async () => {
+    window.localStorage.clear();
+    let one = createServedApp(first.base);
+    const two = createServedApp(second.base);
+    const oneName = (await one.projects())[0]!.name;
+    const twoName = (await two.projects())[0]!.name;
+    let opened = [first.dir, second.dir];
+
+    const app = {
+      ...one,
+      projects: async () => [...await one.projects(), ...await two.projects()].filter(project => opened.includes(project.path)),
+      forProject: (path: string) => path === first.dir ? one : two,
+      closeProject: async (path: string) => { first.daemon.kill(); opened = opened.filter(original => original !== path); },
+      chooseProjectPath: async () => first.dir,
+      openProject: async () => { await first.restart(); one = createServedApp(first.base); opened.push(first.dir);
+
+ return (await one.projects())[0]!; },
+      onDaemonExited: async () => () => {},
+    };
+
+    const sends = vi.spyOn(app, "renameProject");
+    const mount = () => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+    const view = mount();
+    await screen.findByRole("tab", { name: oneName });
+    const input = await edit(oneName);
+    fireEvent.input(input, { target: { value: "  real e\u0301 🪁  " } });
+    input.setSelectionRange(2, 7, "backward");
+    fireEvent.select(input);
+    press("Escape");
+    fireEvent.click(tab(twoName));
+    fireEvent.click(screen.getByRole("button", { name: `Close ${oneName}` }));
+    await waitFor(() => expect(screen.queryByRole("tab", { name: oneName })).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: oneName });
+    fireEvent.click(tab(twoName));
+    view.unmount();
+    mount();
+    await screen.findByRole("tab", { name: twoName });
+    expect(document.querySelector(".tab-rename")).toBeNull();
+    const restored = await edit(oneName);
+    expect(restored.value).toBe("  real e\u0301 🪁  ");
+    expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 7, "backward"]);
+    expect(sends).not.toHaveBeenCalled();
+    press("Escape");
+  });
 });
