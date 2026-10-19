@@ -11,15 +11,15 @@
   --trees-border-radius-override: 0;
   --trees-font-family-override: var(--font-ui);
   --trees-font-size-override: var(--text-small);
-  --trees-focus-ring-color-override: var(--accent);
-  --trees-focus-ring-width-override: 2px;
+  --trees-focus-ring-color-override: var(--keyboard-ring-color);
+  --trees-focus-ring-width-override: var(--keyboard-ring-width);
   --trees-focus-ring-offset-override: 1px;
   --trees-search-fg-override: var(--text);
   --trees-search-bg-override: var(--sunken);
   --trees-scrollbar-thumb-override: var(--grey);
   --trees-selected-fg-override: var(--text);
   --trees-selected-bg-override: var(--selected);
-  --trees-selected-focused-border-color-override: var(--accent);
+  --trees-selected-focused-border-color-override: var(--keyboard-ring-color);
   --trees-file-icon-color: var(--grey);
   --trees-icon-gray: var(--grey);
   --trees-icon-red: var(--grey);
@@ -72,9 +72,9 @@
 
 /* Keep the keyboard ring inside the clipped viewport; pointer selection uses the wash. */
 [data-type="item"]::before { display: none; }
-[data-type="item"]:focus-visible::before {
+[data-type="item"]:focus::before {
   display: block;
-  outline-offset: calc(-1 * var(--space-1));
+  outline-offset: var(--keyboard-ring-tree-offset);
 }
 :host {
   --trees-padding-inline-override: 0;

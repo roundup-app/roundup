@@ -87,7 +87,6 @@
 }
 
 .order-field textarea:focus-visible {
-  outline-width: 0;
   background-image: linear-gradient(var(--accent), var(--accent));
   background-repeat: no-repeat;
   background-position: bottom;
