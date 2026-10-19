@@ -119,3 +119,21 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
   expect(clipboard).toHaveBeenCalledWith(secret);
 });
+
+
+it("u2773a_terminal_selection_restores_exact_work_shared_unobserved_source", async () => {
+  const drafts = createProjectDrafts();
+  drafts(FIRST.path).edit({ surface: "terminal_selection", object: "original-terminal", recipient: "original-agent" }, { note: "  unverified 🧭\n" }, null, "ordinary");
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+  const rpc = app.rpc;
+  vi.spyOn(app, "rpc").mockImplementation((method, params) => {
+    if (method === "terminal.list") return Promise.reject(new Error("Terminal observation failed"));
+
+    return rpc(method, params);
+  });
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  expect(await screen.findByText("Original availability not verified")).toBeTruthy();
+  expect(screen.queryByText("Original object unavailable")).toBeNull();
+});

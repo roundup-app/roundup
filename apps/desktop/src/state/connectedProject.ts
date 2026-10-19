@@ -69,6 +69,10 @@ export type ConnectedProject = {
   project: Project;
   /** App-owned across surface disposal and connection replacement; keyed by original path. */
   drafts: ReturnType<typeof draftStorage>;
+  /** Surface owners pass their captured Terminal id, never a name, recipient or vendor payload.
+   * Independent of editor lifetime; unknown connection state must not assert liveness.
+   */
+  terminalAvailability: (id: string) => "available" | "unavailable" | "unverified";
   app: AppSeam;
   events: Events;
   rail: RailState;
@@ -106,7 +110,19 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
+  const terminalsObserved = rail.failure() === null;
+
+  const terminalAvailability: ConnectedProject["terminalAvailability"] = (id) => {
+    if (daemonExit() || rail.terminalExit(id)) return "unavailable";
+
+    if (!terminalsObserved || rail.failure()) return "unverified";
+
+    const terminal = rail.terminals().find((each) => each.id === id);
+
+    return terminal?.running ? "available" : "unavailable";
+  };
+
+  return { project, drafts, terminalAvailability, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
