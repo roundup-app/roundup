@@ -14,8 +14,8 @@ import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import type { Node as DocumentNode } from "@milkdown/kit/prose/model";
-import { Plugin } from "@milkdown/kit/prose/state";
-import { replaceAll } from "@milkdown/kit/utils";
+import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
+import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
 import { visualKinds } from "./visualKinds";
@@ -27,6 +27,12 @@ export type PadEditorHandle = {
   getText(): string | null;
   setText(text: string): void;
   focus(): void;
+  snapshot(): { source: string; text: string; document: string; trailingCaret: boolean };
+  /** Restores a native document without changing its source baseline or focus; false means invalid data. */
+  restoreDocument(document: string, trailingCaret: boolean): boolean;
+  /** Endpoints are ProseMirror document positions; restoration changes no focus. */
+  selection(): { start: number; end: number; direction: "forward" | "backward" | "none" };
+  restoreSelection(selection: { start: number; end: number; direction: "forward" | "backward" | "none" }): void;
   /** The document equals the one last loaded, whatever Markdown it would serialize to. */
   unchanged(): boolean;
 };
@@ -53,6 +59,7 @@ export default function PadRichEditor(props: {
   onText: (text: string) => void;
   onBlur: (next: EventTarget | null) => void;
   onReady: (editor: PadEditorHandle) => void;
+  onSelection?: () => void;
 }) {
   const menuId = createUniqueId();
   let menuObserver: MutationObserver | undefined;
@@ -129,6 +136,7 @@ export default function PadRichEditor(props: {
             view: () => ({
               update: (view, previous) => {
                 if (!applying && !closed && !view.state.doc.eq(previous.doc)) props.onChange();
+                else if (!applying && !closed && !view.state.selection.eq(previous.selection)) props.onSelection?.();
               },
             }),
           }),
@@ -249,6 +257,55 @@ export default function PadRichEditor(props: {
             applying = false;
           }
         },
+        snapshot: () => ({
+          source: original,
+          text: crepe!.editor.action(getMarkdown()),
+          document: JSON.stringify(document().toJSON()),
+          trailingCaret: Boolean(document().lastChild && caretNodes.has(document().lastChild!)),
+        }),
+        restoreDocument: (json, trailingCaret) => crepe!.editor.action(ctx => {
+          const view = ctx.get(editorViewCtx);
+          let next: DocumentNode;
+
+          try {
+            const value: unknown = JSON.parse(json);
+            next = view.state.schema.nodeFromJSON(value);
+            next.check();
+
+            if (next.type !== view.state.schema.topNodeType) return false;
+          } catch {
+            return false;
+          }
+
+          applying = true;
+
+          try {
+            view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, next.content));
+
+            if (trailingCaret && view.state.doc.lastChild?.content.size === 0) caretNodes.add(view.state.doc.lastChild);
+          } finally {
+            applying = false;
+          }
+
+          return true;
+        }),
+        selection: () => crepe!.editor.action(ctx => {
+          const { anchor, head, from, to } = ctx.get(editorViewCtx).state.selection;
+
+          return { start: from, end: to, direction: anchor === head ? "none" : anchor < head ? "forward" : "backward" };
+        }),
+        restoreSelection: (selection) => crepe!.editor.action(ctx => {
+          const view = ctx.get(editorViewCtx);
+          const start = Math.min(selection.start, view.state.doc.content.size);
+          const end = Math.min(selection.end, view.state.doc.content.size);
+          applying = true;
+
+          try {
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.direction === "backward" ? end : start, selection.direction === "backward" ? start : end)));
+          } finally {
+            applying = false;
+          }
+        }),
         focus: () => field.focus(),
         unchanged: () => document().eq(originalDocument),
       });

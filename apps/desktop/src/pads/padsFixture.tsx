@@ -7,6 +7,8 @@ import { RpcError } from "../app/seam";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
+import { TextSelection } from "@milkdown/kit/prose/state";
+import { editorViewCtx } from "@milkdown/kit/core";
 import { Editor } from "@milkdown/kit/core";
 import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { padHandlers } from "../testing/stores";
@@ -63,7 +65,8 @@ export const deferred = <T,>(): Deferred<T> => {
 };
 
 /** The Shelf and the Drawer over a fake Daemon whose Pads are `state.pads`, with `AGENT` off the Rail unless `onRail`; `state.history` answers `provenance.history`. */
-export const openShelf = async (pads: Pad[], onRail = false) => {
+export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false, project = "/p") => {
+  if (!keepDrafts) localStorage.removeItem(`roundup:drafts:${project}`);
   const history: Touch[] = [];
   const state: PadStore = { pads, history };
   const app = createFakeApp();
@@ -91,7 +94,7 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
 
   const connected = await connectProject(
     app,
-    { name: "p", path: "/p" },
+    { name: "p", path: project },
     () => false,
     () => 0,
   );
@@ -158,6 +161,17 @@ export const openPad = async (name: string) => {
       set: (text: string) => editor.action(replaceAll(text)),
     },
     readOnly: { configurable: true, get: () => surface.getAttribute("contenteditable") !== "true" },
+    selectionStart: { configurable: true, get: () => editor.action(ctx => ctx.get(editorViewCtx).state.selection.from) },
+    selectionEnd: { configurable: true, get: () => editor.action(ctx => ctx.get(editorViewCtx).state.selection.to) },
+    selectionDirection: { configurable: true, get: () => editor.action(ctx => {
+      const { anchor, head } = ctx.get(editorViewCtx).state.selection;
+
+      return anchor === head ? "none" : anchor < head ? "forward" : "backward";
+    }) },
+    setSelectionRange: { configurable: true, value: (start: number, end: number, direction: string) => editor.action(ctx => {
+      const view = ctx.get(editorViewCtx);
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, direction === "backward" ? end : start, direction === "backward" ? start : end)));
+    }) },
   });
 
   // SAFETY: the root has the value and readOnly accessors installed above; input writes still dispatch real ProseMirror transactions.
