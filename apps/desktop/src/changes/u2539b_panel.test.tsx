@@ -101,3 +101,22 @@ describe("U2539b", () => {
     await waitFor(() => expect(host.shadowRoot!.activeElement).toBe(stops[0]));
   });
 });
+
+it("u2773a_changes_reopen_exposes_files_while_facts_are_pending", async () => {
+  const { app, calls } = await mountControl();
+  fireEvent.click(control());
+  await waitFor(() => expect(rows()).toHaveLength(5));
+  fireEvent.click(control());
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
+
+  let finish!: (state: typeof STATE) => void;
+  app.handlers["agent.worktreeState"] = () => new Promise(resolve => { finish = resolve; });
+  fireEvent.click(control());
+
+  try {
+    await waitFor(() => expect(rows()).toHaveLength(5));
+    expect(screen.getByRole("button", { name: "View diff" })).toBeTruthy();
+    expect(calls("agent.changedFiles")).toBe(2);
+    expect(calls("message.send")).toBe(0);
+  } finally { finish(STATE); }
+});
