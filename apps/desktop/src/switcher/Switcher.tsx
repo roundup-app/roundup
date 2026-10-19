@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { debounce } from "@solid-primitives/scheduled";
 import * as v from "valibot";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -37,6 +38,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const restored = v.safeParse(v.string(), current()?.value.query);
   const [text, setText] = createSignal(restored.success ? restored.output : "");
+  const [copied, setCopied] = createSignal(false);
+  const clearCopied = debounce(() => setCopied(false), 2000);
   const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let restoring = false;
@@ -79,6 +82,21 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   onCleanup(() => { if (open()) retain(); });
+
+  const recover = (action: () => void): void => {
+    const selection = input ? [input.selectionStart, input.selectionEnd, input.selectionDirection ?? "none"] as const : null;
+
+    action();
+
+    if (retentionProblem()) return;
+    // Let removal of the pressed button finish before returning the native caret.
+    queueMicrotask(() => {
+      if (!open() || !input?.isConnected) return;
+      input.focus();
+
+      if (selection) input.setSelectionRange(...selection);
+    });
+  };
 
   const close = (restore: boolean): void => {
     retain();
@@ -173,7 +191,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           element.addEventListener("select", retain);
           element.addEventListener("keyup", retain);
           element.addEventListener("pointerup", retain);
-          element.addEventListener("blur", retain);
+          element.addEventListener("blur", (event) => {
+            // A recovery action must run before blur can retry storage and remove its target.
+            if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher-recovery")) return;
+            retain();
+          });
         }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value, false)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
@@ -194,14 +216,22 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
         <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert">
           <p>{copy.switcherRetentionFailure(problem().operation, project.name)}</p>
           <div class="switcher-recovery-actions">
-          <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => setCopyFailure(null), () => setCopyFailure(copy.switcherCopyFailure)); }}>{copy.copyQuery}</button>
-          <button data-button="quiet" onClick={() => { drafts.retry(); }}>{copy.retryStorage}</button>
-          <button data-button="quiet" onClick={() => {
+          <Show when={text() !== ""}>
+          <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => {
+            setCopyFailure(null);
+            setCopied(true);
+            clearCopied();
+          }, () => { setCopied(false); setCopyFailure(copy.switcherCopyFailure); }); }}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+          </Show>
+          <button data-button="quiet" onClick={() => recover(() => { drafts.retry(); })}>{copy.retryStorage}</button>
+          <Show when={text() !== ""}>
+          <button data-button="quiet" onClick={() => recover(() => {
             const draft = current();
 
             if (draft) drafts.discard(draft.revision);
             setText("");
-          }}>{copy.discardQuery}</button>
+          })}>{copy.discardQuery}</button>
+          </Show>
           </div>
           <Show when={copyFailure()}><p>{copyFailure()}</p></Show>
         </div>}</Show>
