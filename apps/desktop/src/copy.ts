@@ -23,7 +23,7 @@ export const copy = {
   submittingNotes: "Submitting notes…",
   notesRestoreFailed: (project: string) => `Could not restore Changes drafts for ${project}. Stored work is unchanged; copy it before discarding the affected record. New edits remain in memory until recovery.`,
   notesRetentionFailed: (project: string, operation: string, cause: string) => `Changes drafts for ${project} could not be ${operation === "restore" ? "restored" : "retained across reload"}: ${cause === "capacity" ? "the Project's 10 MiB retention limit was reached" : cause === "changed" ? "stored drafts changed in another window" : cause === "invalid" ? "stored data is invalid or incompatible" : cause === "unreadable" ? "storage could not be read" : "storage refused a write"}. Work remains in memory; newer work may not survive reload. Copy, retry storage, or discard a selected draft.`,
-  notesNotSent: "No send started before the reload. Notes retained; send only when ready.",
+  notesNoBaseline: "Acceptance is unknown: the original Message history could not be retained. Copy or discard this snapshot; a retry could duplicate an accepted send.",
   recoverNotes: "Recover Changes drafts",
   resumeNote: "Resume note",
   discardDraft: "Discard this draft",

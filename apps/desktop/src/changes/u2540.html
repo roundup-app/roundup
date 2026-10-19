@@ -19,6 +19,14 @@ const { app } = controls;
 // Fixture runs are independent; ?restore explicitly exercises a reload of the same drafts.
 if (!new URLSearchParams(location.search).has("restore")) localStorage.removeItem(`roundup:drafts:${app.opened.project.path}`);
 
+if (new URLSearchParams(location.search).has("retention")) {
+  const write = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(key, value) {
+    if (key === `roundup:drafts:${app.opened.project.path}`) throw new Error("Storage refused Changes drafts");
+    return write.call(this, key, value);
+  };
+}
+
 const original = app.handlers["rail.tree"];
 
 const worktree = { branch: "roundup/agent-1", base: "main", path: "/p/.roundup/agent-1" };

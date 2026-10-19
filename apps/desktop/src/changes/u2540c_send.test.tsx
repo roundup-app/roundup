@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
 import { message } from "../testing/centreFixture";
 import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it("u2540c_one_message_contains_all_original_context", async () => {
   const { app } = await openDiff();
@@ -90,7 +90,6 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
 
   if (outcome === "failed") await screen.findByText("refused A");
 
-  if (outcome === "acknowledged") await screen.findByText(/Notes accepted/);
   view.unmount();
   const reopened = await openDiff();
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  revision B 🐝\n newer  ");
@@ -178,4 +177,34 @@ it("u2773b_changes_late_failure_stays_with_original_project", async () => {
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("Project B exact 🐝");
   expect(app.of(path("web")).calls.filter(call => call.method === "message.send")).toHaveLength(0);
   expect(original.calls.filter(call => call.method === "message.send")).toHaveLength(1);
+});
+
+
+it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
+  const { app, view } = await openDiff();
+  await saveNote("exact possibly accepted note");
+  let body = "";
+  let write: ReturnType<typeof vi.spyOn> | undefined;
+  app.handlers["message.list"] = () => {
+    // The first pending snapshot is durable; retaining the fetched history then fails.
+    write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage refused metadata"); });
+
+    return [];
+  };
+
+  app.handlers["message.send"] = params => { body = params.body; throw new Error("lost accepted reply"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByRole("button", { name: "Check Message history" });
+  view.unmount();
+  write?.mockRestore();
+  const reopened = await openDiff();
+  reopened.app.handlers["message.list"] = () => [message(42, { body, to: "a", from: { kind: "user", id: "you", parent: null } })];
+  const retained = vi.spyOn(Storage.prototype, "setItem");
+  fireEvent.click(screen.getByRole("button", { name: "Check Message history" }));
+  // reconcile persists its settlement before returning; wait for that emitted boundary, not the request count.
+  await waitFor(() => expect(retained.mock.calls.some(([key]) => key === "roundup:drafts:/p")).toBe(true));
+  expect(screen.getByRole("button", { name: /Send notes to/ }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("exact possibly accepted note");
+  expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });

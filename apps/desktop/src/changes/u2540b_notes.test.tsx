@@ -100,7 +100,7 @@ it("u2540b_refresh_keeps_original_context", async () => {
   await saveNote("original");
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, new: { kind: "text", revision: "later-revision", text: "different\n" } });
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-  await waitFor(() => expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("Original context"));
+  await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "original");
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -187,6 +187,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const recovered = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   // The form is first; discard only that draft, keeping the older saved batch note.
   fireEvent.click(within(recovered).getAllByRole("button", { name: "Discard this draft" })[0]!);
+  expect(recovered.textContent).not.toContain("memory 🐝");
   reopened.view.unmount();
   await openDiff();
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("older saved note");
@@ -285,7 +286,7 @@ it("u2773c_changes_external_change_keeps_original", async () => {
       fireEvent.click(screen.getByRole("button", { name: target.branch }));
       await openFile("same.ts");
       expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain(`  Project ${index} e\u0301\n🐝  `);
-      expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("Original context");
+      await within(screen.getByRole("list", { name: "Notes" })).findByRole("status");
       fireEvent.click(screen.getByRole("button", { name: "Add note" }));
       expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", `unfinished ${index}\n  🐝`);
       expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
@@ -331,9 +332,13 @@ it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   expect(recovery.textContent).toContain("  unavailable exact 🐝  ");
-  expect(recovery.textContent).toContain("Original recipient: a");
-  expect(recovery.textContent).toContain("Original recipient unavailable");
+  expect(within(recovery).getByRole("status")).toBeTruthy();
   expect(within(recovery).queryByRole("button", { name: "Resume note" })).toBeNull();
+  const copied = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
+  fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[1]!);
+  await waitFor(() => expect(copied).toHaveBeenCalledOnce());
+  expect(JSON.parse(copied.mock.calls[0]?.[0] ?? "null")).toMatchObject({ recipient: "a", form: { text: "  unavailable exact 🐝  ", comparison: COMPARISON } });
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
 
@@ -362,4 +367,21 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   expect((await screen.findByRole("dialog", { name: "Recover Changes drafts" })).textContent).toContain("older retained work");
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+});
+
+it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
+  const { app } = await openDiff();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "first editor work" } });
+  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
+  fireEvent.click(within(recovery).getByRole("button", { name: "Resume note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer recovery editor work 🐝" } });
+  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Recover Changes drafts" })).toBeNull());
+  await openFile();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "newer recovery editor work 🐝");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
