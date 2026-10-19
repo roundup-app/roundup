@@ -134,6 +134,7 @@ export const RailRowView = (props: {
   /** Whether Ark's tree walks this row as a branch (a Workstream, or a row with rows of its own below it) or as a leaf. */
   branch: boolean;
   onToggle: () => void;
+  onEditing?: (editing: boolean) => void;
   onRename: (name: string) => Promise<void>;
   onFailure: (message: string) => void;
   onStartDoor: () => void;
@@ -157,6 +158,8 @@ export const RailRowView = (props: {
 
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
+  createEffect(() => props.onEditing?.(editing()));
+  onCleanup(() => { if (editing()) props.onEditing?.(false); });
   const pads = createAgentPads(() => props.row.node);
 
   const workstream = () => isWorkstream(props.row.node);
@@ -218,6 +221,7 @@ export const RailRowView = (props: {
     "data-selected": props.selected ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
     "data-near": near(),
+    "data-editing": editing(),
     "data-kind": kind() ?? undefined,
     "data-lifted": props.lifted,
     style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
