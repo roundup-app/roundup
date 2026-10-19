@@ -1,4 +1,4 @@
-import { fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { askingWith, card, gate, mountApp, rpcCalls, select } from "./decisionsFixture";
@@ -189,4 +189,9 @@ it("u2773a_decisions_restores_exact_work", async () => {
   await selectedIs(1);
   expect([note().selectionStart, note().selectionEnd, note().selectionDirection]).toEqual([2, 5, "backward"]);
   expect(calls(app)).toEqual([]);
+  cleanup();
+  const reloaded = await open();
+  await waitFor(() => expect(note()?.value).toBe("  e\u0301 👩🏽‍💻 keep me  "));
+  expect(selected()).toBe(1);
+  expect(calls(reloaded.app)).toEqual([]);
 });
