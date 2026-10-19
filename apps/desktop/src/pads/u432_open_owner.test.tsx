@@ -21,7 +21,7 @@ const openOwned = async (over: { exited?: boolean; resumable?: boolean; beginFai
 
   app.handlers["rail.tree"] = () => withScopeRow([{ ...running(), can_resume: over.resumable ?? false }]);
   app.handlers["terminal.list"] = () =>
-    live ? [] : [{ id: "t-owner", cwd: "/p", title: null, program: "claude", running: false, exit_code: 0, owner: OWNER }];
+    live ? [] : [{ id: "t-owner", incarnation: "fixture-owner", cwd: "/p", title: null, program: "claude", running: false, exit_code: 0, owner: OWNER }];
   app.handlers["agent.resume"] = () => {
     live = true;
 
