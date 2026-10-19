@@ -120,3 +120,21 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
   expect(clipboard).toHaveBeenCalledWith(secret);
 });
+
+it.each(["loading", "failed", "creation"])("u2773c_pads_external_change_keeps_original_%s_unverified", async (state) => {
+  const drafts = createProjectDrafts();
+  drafts(FIRST.path).edit({ surface: "pads", object: state === "creation" ? "new-pad" : "original-incarnation", recipient: null }, state === "creation" ? { name: "proposed name", source: "new work" } : { originalName: "original name", source: "exact work", base: "original base" }, null, "ordinary");
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+
+  if (state === "loading") app.handlers["pad.list"] = () => new Promise(() => {});
+
+  if (state === "failed") app.handlers["pad.list"] = async () => { throw new Error("list unavailable"); };
+
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  const recovery = await screen.findByRole("region", { name: "Unfinished work" });
+  expect(within(recovery).getByRole("status").dataset.state).toBe("unverified");
+  expect(within(recovery).getByText(state === "creation" ? "new work" : "exact work")).toBeTruthy();
+  expect(app.calls.filter(({ method }) => method.startsWith("pad.") && method !== "pad.list")).toEqual([]);
+});
