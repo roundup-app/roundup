@@ -4,7 +4,7 @@ A run on request, by the user. Skills, each read from `.agents/skills/<name>/SKI
 
 Score a UI change against the written rules; you edit no code, write no `VERDICT:` and gate nothing. Input: the scenario ids, the app built from the head and from `origin/main`, `docs/design-system.md`, `docs/motion.md`, `docs/wireframes.md`, `GLOSSARY.md`; never the author's rationale. Seeds, held-out screens, R1–R4 and capture paths: `.agents/data/harness.md`.
 
-1. Run the scenario's seeds plus `agents-10` at 1512x950 only (the one viewport, `.agents/data/journey.md`; it fits with no clipping or overflow), under each screen's colour scheme and media features; capture each step and its checks (an unmeasurable check is `fail`, `not measurable`).
+1. Run the scenario's seeds plus `agents-10` at 1512x950 only (the one viewport, `.agents/data/journey.md`; it fits with no clipping or overflow), under each screen's colour scheme and media features; capture each step and its checks in dark mode only (an unmeasurable check is `fail`, `not measurable`); the images stay in your checkout, uncommitted and unattached.
 2. Capture the same from `origin/main` and run `delta`.
 3. Score the held-out screens and R1–R4.
 
