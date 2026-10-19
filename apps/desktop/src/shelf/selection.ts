@@ -30,8 +30,14 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
     anchor = id;
   };
 
+  const visibleOrder = () => ids().filter(id => {
+    const row = rows.get(id);
+
+    return row && !row.closest("[hidden]");
+  }).sort((a, b) => rows.get(a)!.compareDocumentPosition(rows.get(b)!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+
   const range = (id: Id) => {
-    const order = ids();
+    const order = visibleOrder();
     const start = anchor === undefined ? -1 : order.indexOf(anchor);
     const end = order.indexOf(id);
     setSelected(start < 0 ? [id] : [...new Set(order.slice(Math.min(start, end), Math.max(start, end) + 1))]);
@@ -60,7 +66,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
 
     if (event.metaKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
     event.preventDefault();
-    const order = ids();
+    const order = visibleOrder();
     const next = order[order.indexOf(id) + (event.key === "ArrowUp" ? -1 : 1)];
 
     if (next === undefined) return;

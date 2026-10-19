@@ -35,20 +35,22 @@ const nested: List = {
   },
 };
 
-/** The Shelf's `todos` list of the `tree-40` harness, every Todo shown. */
+/** The Shelf's unassigned group in Overview, expanded for ordering. */
 const shelf: List = {
   name: "the Shelf's Todos",
-  rows: ".shelf .todo-list .todo-row-button",
+  rows: '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button',
   setup: async () => {
     await page.load("/harness.html?seed=tree-40", 1280, 820);
     await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
     await page.call(`() => {
       const tab = document.querySelector('#shelf-tab-todos');
       if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-      document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
+      document.querySelector('[data-todo-root]').click();
     }`);
-    await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
-    await page.call(`() => document.querySelector('[data-todo-root]').click()`);
+    await page.call(`() => {
+      document.querySelector('[data-todo-root]').click();
+      document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
+    }`);
     await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);
   },
 };

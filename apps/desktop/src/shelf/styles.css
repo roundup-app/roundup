@@ -178,6 +178,6 @@
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
-.shelf-groups [data-part="branch"] { cursor: auto; }
-.shelf-groups [data-part="branch-content"] { padding-inline-start: var(--space-2); }
+.shelf-groups [data-part="branch"] { cursor: pointer; }
+.shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
 .shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }

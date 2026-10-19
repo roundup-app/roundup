@@ -16,7 +16,6 @@ import type { PadStore, TodoStore } from "../../testing/stores";
 import { Todos } from "../../todos/Todos";
 import { todo } from "../../todos/testHarness";
 import { Rail } from "../Rail";
-import { rowOf } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -65,7 +64,7 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
     await mount(TREE, [todo(2, { home: "w1", creator: by("a1") }), todo(3, { home: "w1", creator: by("a2") })], [padOf("n", by("a1"))]);
 
     const named = async (row: string, name: string) => {
-      const button = await waitFor(() => within(rowOf(row)).getByRole("button", { name }));
+      const button = await waitFor(() => within(document.querySelector(`.rail-row[data-id="${row}"]`)!).getByRole("button", { name }));
 
       fireEvent.keyDown(document, { key: "Tab" });
       button.focus();
@@ -74,14 +73,14 @@ describe("u178 this one lists every open Todo of the Workstream", () => {
       await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
     };
 
-    await named("auth", "2 pads and todos");
-    await named("docs", "1 todos");
+    await named("a1", "2 pads and todos");
+    await named("a2", "1 todos");
   });
 
   it("u178_a_pads_only_control_is_named_pads", async () => {
     await mount(TREE, [], [padOf("n", by("a1"))]);
 
-    const button = await waitFor(() => within(rowOf("auth")).getByRole("button", { name: "1 pads" }));
+    const button = await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: "1 pads" }));
 
     fireEvent.keyDown(document, { key: "Tab" });
     button.focus();
