@@ -172,7 +172,7 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     const before = geometry();
 
     fireEvent.dblClick(header());
-    expect(geometry()).toEqual({ x: 0, y: 0, w: 800, h: 600 });
+    expect(geometry()).toEqual({ x: 16, y: 16, w: 768, h: 568 });
     expect(placesStorage("/p").read()["2"]?.restore).toEqual(before);
   });
 
@@ -195,9 +195,9 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     fireEvent.dblClick(header());
     await drag("e", -20, 0);
     expect(placesStorage("/p").read()["2"]?.restore).toEqual(before);
-    expect(geometry().w).toBe(760);
+    expect(geometry().w).toBe(728);
 
-    const place: Place = { x: 0, y: 0, w: 800, h: 600, min: false, restore: { x: 5, y: 5, w: 300, h: 200 } };
+    const place: Place = { x: 16, y: 16, w: 768, h: 568, min: false, restore: { x: 5, y: 5, w: 300, h: 200 } };
 
     expect(toggledFill(place, { width: 800, height: 600 })).toEqual({ x: 5, y: 5, w: 300, h: 200, min: false });
   });
@@ -207,7 +207,7 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     fireEvent.dblClick(header());
     cleanup();
     await shown();
-    expect(geometry()).toEqual({ x: 0, y: 0, w: 800, h: 600 });
+    expect(geometry()).toEqual({ x: 16, y: 16, w: 768, h: 568 });
     expect(placesStorage("/p").read()["2"]?.restore).toBeDefined();
   });
 
