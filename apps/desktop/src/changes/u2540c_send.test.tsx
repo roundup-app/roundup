@@ -103,7 +103,7 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 
   if (outcome !== "acknowledged") {
-    fireEvent.click(screen.getByRole("button", { name: "Discard this submitted snapshot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard this submission" }));
     expect(recovery.textContent).not.toContain("revision A");
     expect(recovery.textContent).toContain("revision B");
     reopened.view.unmount();

@@ -242,7 +242,19 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     },
     invalid: () => { invalidCount();
 
-      return records().filter(draft => invalid.has(draft.revision)); },
+      return records().filter(draft => invalid.has(draft.revision)).map(draft => {
+        let preview: (Note | NoteFormDraft)[] = [];
+
+        try {
+          const row = v.nullable(v.union([noteSchema, formSchema]));
+          const rows = v.fallback(v.array(v.fallback(row, null)), []);
+          const result = v.parse(v.looseObject({ notes: rows, forms: rows }), parse(String(draft.value.data)));
+
+          preview = [...result.notes, ...result.forms].filter(value => value !== null);
+        } catch { /* Copy preserves even records without readable note fields. */ }
+
+        return { ...draft, preview };
+      }); },
     discardInvalid: (revision: string) => {
       invalid.delete(revision);
       setInvalidCount(invalid.size);

@@ -19,7 +19,7 @@ import "./styles.css";
 type Read = { failure: null; changed: ChangedFiles } | { failure: string } | null;
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
-const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void }) => {
+const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void; recover: () => void }) => {
   const { app, worktrees } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
@@ -75,7 +75,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
       <Popover.Positioner>
         <Popover.Content class="worktree-panel" data-diff={diff() || undefined} aria-label={copy.worktree} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
           <Show when={!diff()}><div class="diff-actions"><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div></Show>
-          <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { setEditing(undefined); setDiff(false); }} onClose={close} />}>
+          <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { setEditing(undefined); setDiff(false); }} onClose={close} recover={props.recover} />}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
             <Tip text={props.worktree.branch}>{(trigger) => <dd {...trigger()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.branch}</dd>}</Tip>
@@ -106,7 +106,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               return <><ChangedTree root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
             }}
           </Show>
-        <NoteBatch id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
+        <NoteBatch recover={props.recover} id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
           </Show>
         </Popover.Content>
       </Popover.Positioner>
@@ -118,6 +118,10 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 export const WorktreeControl = () => {
   const { rail, app, project, drafts } = useConnectedProject();
   const notes = notesFor(app, project.path, drafts);
+  const names = new Map<string, string>();
+
+  createEffect(() => { for (const node of rail.nodes) names.set(node.id, node.name); });
+
   const [recoveryOpen, setRecoveryOpen] = createSignal(false);
 
   const selected: Accessor<{ id: string; name: string; worktree: Worktree } | null> = createMemo(
@@ -130,5 +134,5 @@ export const WorktreeControl = () => {
     { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
-  return <><Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
+  return <><Show when={selected()} keyed>{(each) => <Panel recover={() => setRecoveryOpen(true)} id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery name={id => rail.nodes.find(node => node.id === id)?.name ?? names.get(id) ?? copy.unavailableAgent} notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
 };
