@@ -83,7 +83,7 @@ describe("u132 colour and Kind", () => {
     // retaining the blocked Glyph and the done fold's summary Glyph.
     for (const row of shelfRowBoxes) {
       const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
-      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("blocked ");
+      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("Blocked ");
 
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(box ? blocked ? 1 : 0 : 1);
 

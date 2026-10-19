@@ -172,3 +172,12 @@
 .shelf-question-words button:last-child { color: var(--text); }
 
 .shelf-tab[data-open="false"] { color: var(--grey); }
+
+/* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
+.shelf-bar { justify-content: flex-start; color: var(--grey); font-size: var(--text-caption); overflow-wrap: anywhere; height: auto; min-height: var(--header-height); }
+.shelf-groups.app-tree { padding: 0; }
+.shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
+.shelf-groups [data-part="branch"] { cursor: pointer; }
+.shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
+.shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }
