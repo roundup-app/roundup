@@ -52,6 +52,12 @@ import type { Decision as decision_Decision } from "./decision/Decision";
 import type { PermissionOutput as decision_PermissionOutput } from "./decision/PermissionOutput";
 import type { PermissionParams as decision_PermissionParams } from "./decision/PermissionParams";
 import type { PromptIdentity as decision_PromptIdentity } from "./decision/PromptIdentity";
+import type { Deliverable as deliverable_Deliverable } from "./deliverable/Deliverable";
+import type { DeliverableId as deliverable_DeliverableId } from "./deliverable/DeliverableId";
+import type { ListParams as deliverable_ListParams } from "./deliverable/ListParams";
+import type { MoveParams as deliverable_MoveParams } from "./deliverable/MoveParams";
+import type { PublishParams as deliverable_PublishParams } from "./deliverable/PublishParams";
+import type { Resolution as deliverable_Resolution } from "./deliverable/Resolution";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
 import type { MessageId as message_MessageId } from "./message/MessageId";
@@ -113,6 +119,12 @@ import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPla
 import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 
 export type RpcMethods = {
+  "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
+  "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
+  "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
+  "deliverable.resolve": { params: deliverable_DeliverableId; result: deliverable_Resolution };
+  "deliverable.move": { params: deliverable_MoveParams; result: deliverable_Deliverable };
+  "deliverable.remove": { params: deliverable_DeliverableId; result: null };
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
