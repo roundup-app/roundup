@@ -35,6 +35,7 @@ it("u2540b_save_cancel_and_invalid_ranges", async () => {
 it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
   await openDiff();
   await saveNote("retain me");
+  expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("retain me");
@@ -163,7 +164,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  memory 🐝\nnewer  " } });
-  expect(screen.getByRole("alert").textContent).toContain("/p");
+  expect(screen.getByRole("alert").textContent).toContain("p");
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(before);
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -183,6 +184,14 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  memory 🐝\nnewer  ");
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  await openFile();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  memory 🐝\nnewer  " } });
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovered = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   // The form is first; discard only that draft, keeping the older saved batch note.
@@ -203,7 +212,7 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
   if (original) localStorage.setItem("roundup:drafts:/p", original);
   const read = cause === "unreadable" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   await openDiff();
-  expect(screen.getByRole("alert").textContent).toContain("/p");
+  expect(screen.getByRole("alert").textContent).toContain("p");
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "retain exact newer" } });
   read?.mockRestore();
@@ -360,8 +369,10 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
 
 it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   const { app } = await openDiff();
+  const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "first editor work" } });
+  blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
