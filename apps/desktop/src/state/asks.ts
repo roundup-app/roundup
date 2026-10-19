@@ -5,6 +5,7 @@ import type { Target } from "@contracts/ask/Target";
 import { RpcError, type AppSeam } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
 import type { Events } from "../app/events";
+import { copy } from "../copy";
 
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
 export type AskEntry = { key: string; text: string; parts: readonly AskPart[]; pending: boolean };
@@ -125,7 +126,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
           return { kind: "acknowledged", submission, ask };
         }
 
-        return { kind: "unknown", submission, message: "No intake acknowledgement is available" };
+        return { kind: "unknown", submission, message: copy.askNoAcknowledgement };
       } catch (error) {
         return { kind: "unknown", submission, message: error instanceof Error ? error.message : String(error) };
       }

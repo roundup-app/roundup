@@ -415,6 +415,7 @@ export const copy = {
   askDrop: "Drop",
   askNotSent: "Not sent: ",
   askUnknown: "Send status unknown: ",
+  askNoAcknowledgement: "No intake acknowledgement is available",
   switcherActions: "Actions",
   switcherLabel: "Switch to",
   switcherPlaceholder: "Name",
