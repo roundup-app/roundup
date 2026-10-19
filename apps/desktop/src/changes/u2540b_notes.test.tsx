@@ -319,6 +319,29 @@ it("u2773c_changes_external_change_keeps_original", async () => {
 }, 180_000);
 
 
+it("u2773c_changes_worktree_loss_and_return_keep_original_form", async () => {
+  const { app, connected } = await openDiff();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  original Worktree e\u0301\n🐝  " } });
+  expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
+  app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: null })];
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "a")?.worktree).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  expect(recovery.textContent).toContain("  original Worktree e\u0301\n🐝  ");
+  expect(within(recovery).queryByRole("button", { name: "Resume note" })).toBeNull();
+  fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE })];
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  await openFile();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  original Worktree e\u0301\n🐝  ");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+});
+
 it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   const { app, connected } = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
