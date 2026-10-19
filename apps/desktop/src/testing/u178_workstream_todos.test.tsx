@@ -481,7 +481,7 @@ it("u2773b_todos_acknowledgement_consumes_only_submitted_revision_once", async (
 }, 60_000);
 
 
-it("u2773b_todos_browser_discard_closes_current_editor_without_delivery", async () => {
+it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () => {
   const browser = browserFor(`u2773-discard-${crypto.randomUUID()}`);
   const app = createServedApp(one.base);
   const original = await app.rpc("todo.create", { title: "discard by pointer", body: "keep this base", blockers: null });
@@ -495,6 +495,7 @@ it("u2773b_todos_browser_discard_closes_current_editor_without_delivery", async 
     await browser("wait", ".drawer [data-change]");
     await browser("dblclick", ".todo-detail-body p");
     await browser("fill", '[aria-label="Body"]', "  discard editor 🧪  ");
+    await browser("eval", `document.querySelector('.drawer [aria-label="Body"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
     await browser("click", ".drawer .todo-draft-actions button:last-child");
     const recovered = await browser("eval", `JSON.stringify({field: Boolean(document.querySelector('.drawer [aria-label="Body"]')), drafts: JSON.parse(localStorage.getItem(${JSON.stringify(`roundup:drafts:${one.dir}`)})).drafts.length})`);
 
