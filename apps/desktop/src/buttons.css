@@ -218,6 +218,3 @@ button[aria-disabled="true"] {
   --button-inline: var(--space-1);
 }
 
-.switcher-recovery-actions [data-button="quiet"]:focus-visible {
-  border-radius: var(--radius-control);
-}
