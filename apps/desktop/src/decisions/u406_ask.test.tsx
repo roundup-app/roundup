@@ -37,6 +37,39 @@ const press = (target: Element, key: string) => fireEvent.keyDown(target, { key 
 const calls = (app: Awaited<ReturnType<typeof open>>["app"]) => rpcCalls(app, "decision.answer");
 
 describe("u406 the Card for ask_user", () => {
+  it("u2773a_multiline_arrows_keep_the_chosen_answer", async () => {
+    await open();
+    fireEvent.input(note(), { target: { value: "first line\nsecond line\nthird line" } });
+    note().setSelectionRange(17, 17);
+
+    for (const key of ["ArrowUp", "ArrowDown"]) {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      note().dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+      await selectedIs(0);
+    }
+  });
+
+  it("u406_alt_arrow_selects_an_answer_while_editing_a_note", async () => {
+    await open();
+    fireEvent.input(note(), { target: { value: "first line\nsecond line" } });
+    fireEvent.keyDown(note(), { key: "ArrowDown", altKey: true });
+    await selectedIs(1);
+  });
+
+  it("u2773a_note_edits_keep_prompt_authority_without_recapturing", async () => {
+    const { app } = await open();
+    fireEvent.input(note(), { target: { value: "first" } });
+    await waitFor(() => expect(rpcCalls(app, "decision.capture")).toHaveLength(2));
+
+    for (const text of ["first line", "first line\nsecond", "first line\nsecond line"]) {
+      fireEvent.input(note(), { target: { value: text } });
+      await selectedIs(0);
+    }
+
+    expect(rpcCalls(app, "decision.capture")).toHaveLength(2);
+  });
+
   it("u2773a_decisions_restores_exact_work", async () => {
     await open();
     const exact = "  first é\nsecond 👩🏽‍💻  ";
@@ -70,6 +103,12 @@ describe("u406 the Card for ask_user", () => {
       await lane.browser("fill", "textarea.app-listbox-note", "  first é");
       await lane.browser("press", "Shift+Enter");
       await lane.browser("keyboard", "inserttext", "second 👩🏽‍💻  ");
+      await lane.evaluate("(() => { const field=document.querySelector('textarea.app-listbox-note'); field.setSelectionRange(field.value.length,field.value.length); field.focus(); return true; })()");
+      const choice = await lane.evaluate("document.querySelector('.ask-note textarea').placeholder");
+      await lane.browser("press", "ArrowUp");
+      expect(await lane.evaluate("document.querySelector('.ask-note textarea').selectionStart")).toBeLessThan(12);
+      expect(await lane.evaluate("document.querySelector('.ask-note textarea').placeholder")).toBe(choice);
+      await lane.capture("U2773-decisions", "multiline-arrows");
       await lane.evaluate("(() => { const field=document.querySelector('textarea.app-listbox-note'); field.setSelectionRange(2,7,'backward'); field.dispatchEvent(new Event('select',{bubbles:true})); return true; })()");
       await lane.browser("click", '.rail-row[data-id="agent-3"]');
       await lane.until("!!document.querySelector('.rail-row[data-id=\"agent-3\"][aria-selected=true]')");
@@ -110,6 +149,7 @@ describe("u406 the Card for ask_user", () => {
     await selectedIs(1);
     expect(calls(restored.app)).toEqual([]);
 
+    select("beta");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
@@ -140,6 +180,7 @@ describe("u406 the Card for ask_user", () => {
     expect(note().value).toBe("");
     fireEvent.input(note(), { target: { value: "replacement draft" } });
     expect(replacement.drafts("/p").list()).toEqual([saved, expect.objectContaining({ value: { daemon: "new-daemon", agent: "a", attempt: "new-attempt", decision: "d1", choice: three[0]!.label, note: "replacement draft" } })]);
+    select("beta");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
     fireEvent.click(within(recovery).getByRole("button", { name: new RegExp(saved.revision) }));
@@ -165,6 +206,7 @@ describe("u406 the Card for ask_user", () => {
     select("beta");
     select("alpha");
     await waitFor(() => expect(note().value).toBe(exact));
+    select("beta");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
     expect(within(recovery).getByRole("alert").textContent).toContain("/p");
@@ -180,6 +222,7 @@ describe("u406 the Card for ask_user", () => {
     cleanup();
     const fresh = await open();
     expect(note().value).toBe(exact);
+    select("beta");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
     expect(fresh.drafts("/p").list()).toEqual([]);
@@ -198,6 +241,7 @@ describe("u406 the Card for ask_user", () => {
     const fresh = await open();
     expect(fresh.drafts("/p").problem()?.operation).toBe("restore");
     fireEvent.input(note(), { target: { value: "  recoverable é\n👩🏽‍💻  " } });
+    select("beta");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
     expect(within(recovery).getByRole("alert").textContent).toContain("Decision");

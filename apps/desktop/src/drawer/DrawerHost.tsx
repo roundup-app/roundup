@@ -136,7 +136,17 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
-  const records = () => connected.drafts.recoverable().filter((draft) => !draft.destination.surface.startsWith("rail-"));
+  const records = () => connected.drafts.recoverable().filter((draft) => {
+    if (draft.destination.surface.startsWith("rail-")) return false;
+
+    const visible = connected.decisions.of(connected.rail.selected());
+
+    return !(draft.destination.surface === "decisions" && draft.status === "draft"
+      && visible?.answerable && visible.id === draft.value.decision
+      && draft.revision === connected.drafts.list().filter((entry) => entry.destination.surface === "decisions" && entry.destination.object === draft.destination.object && entry.status === "draft").at(-1)?.revision
+      && connected.decisions.availability({ daemon: String(draft.value.daemon), agent: String(draft.value.agent), attempt: String(draft.value.attempt), decision: String(draft.value.decision) }) === "available");
+  });
+
   const problem = () => connected.drafts.problem()?.destination?.surface.startsWith("rail-") ? null : connected.drafts.problem();
 
   return <Show when={records().length || problem()}>

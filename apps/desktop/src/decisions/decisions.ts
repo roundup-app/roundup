@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { createResource, createSignal, onCleanup } from "solid-js";
+import { createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { AnswerParams } from "@contracts/decision/AnswerParams";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
@@ -60,9 +60,13 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   // The resource belongs to this connection. App-run resolvers use only the inspected facts,
   // so replacing a connection cannot revive its old captures or overwrite a newer read.
+  const requestedIds = createMemo(() => [...new Set(drafts.list()
+    .filter((draft) => draft.destination.surface === "decisions")
+    .map((draft) => String(draft.value.decision)))].sort(), undefined, { equals: (before, after) => before.length === after.length && before.every((id, at) => id === after[at]) });
+
   const [authority] = createResource(() => ({
     open: decisions(), observed: observed(), failure: listFailure(), exited: daemonExit(),
-    requested: new Set(drafts.list().filter((draft) => draft.destination.surface === "decisions").map((draft) => String(draft.value.decision))),
+    requested: new Set(requestedIds()),
   }), async (facts) => {
     const captures = new Map<string, PromptIdentity | "unavailable" | "unverified">();
 
