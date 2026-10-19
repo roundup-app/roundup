@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import * as v from "valibot";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
@@ -20,10 +21,26 @@ const focusTarget = (): void => {
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { rail, takeover, project } = useConnectedProject();
+  const { rail, takeover, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
-  const [text, setText] = createSignal("");
+
+  const destination = { surface: "switcher", object: project.path, recipient: null };
+
+  const current = () => drafts.list().filter((draft) => draft.destination.surface === destination.surface
+    && draft.destination.object === destination.object && draft.destination.recipient === null).at(-1);
+
+  const retentionProblem = createMemo(() => {
+    const problem = drafts.problem();
+
+    return problem && (problem.destination === null || problem.destination.surface === destination.surface) ? problem : null;
+  });
+
+  const restored = v.safeParse(v.string(), current()?.value.query);
+  const [text, setText] = createSignal(restored.success ? restored.output : "");
+  const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
+  let restoring = false;
+  let savedSelection = current()?.selection ?? null;
   let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
   let returnTo: Element | null = null;
@@ -48,7 +65,23 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     if (!list.some((entry) => entry.value === highlighted())) setHighlighted(list[0]?.value ?? null);
   });
 
+  const retain = (): void => {
+    if (!open() || restoring) return;
+
+    const previous = current();
+
+    const selection = input ? {
+      start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none",
+    } : previous?.selection ?? null;
+
+    if ((!previous && text() === "") || (previous?.value.query === text() && JSON.stringify(previous.selection) === JSON.stringify(selection))) return;
+    drafts.edit(destination, { query: text() }, selection, "ordinary");
+  };
+
+  onCleanup(() => { if (open()) retain(); });
+
   const close = (restore: boolean): void => {
+    retain();
     setOpen(false);
 
     if (restore) {
@@ -105,7 +138,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     setOpening({ selected: rail.selected(), actions: captureActions(returnTo) });
     props.onOpen();
     afterOpen = document.activeElement;
-    setText("");
+    savedSelection = current()?.selection ?? null;
+    restoring = true;
     setOpen(true);
   };
 
@@ -117,8 +151,30 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   return (
     <Show when={open()}>
-      <section class="switcher" ref={(element) => { panel = element; queueMicrotask(() => input?.focus()); }}>
-        <Combobox.Root inputValue={text()} inputRef={(element) => { input = element; }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={setText}
+      <section class="switcher" ref={(element) => {
+        panel = element;
+        queueMicrotask(() => {
+          input?.focus();
+          // Restore after Ark's initial-focus frame; a dismissed opening must not touch the next field.
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (!element.isConnected || !restoring || !open()) return;
+
+            const selection = savedSelection;
+
+            if (selection) input?.setSelectionRange(selection.start, selection.end, selection.direction);
+            restoring = false;
+          }));
+        });
+      }}>
+        <Combobox.Root inputValue={text()} inputRef={(element) => {
+          input = element;
+          // Ark also reports programmatic clears on Escape/selection; only native edits replace recovery text.
+          element.addEventListener("input", () => { restoring = false; setText(element.value); retain(); });
+          element.addEventListener("select", retain);
+          element.addEventListener("keyup", retain);
+          element.addEventListener("pointerup", retain);
+          element.addEventListener("blur", retain);
+        }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
           onSelect={(value) => chooseValue(value, false)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
@@ -135,6 +191,18 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
             </>;
           }} />
+        <Show when={retentionProblem()}>{(problem) => <div role="alert">
+          <p>{problem().operation === "restore" ? "Could not restore unfinished input" : "Could not retain unfinished input across reload"} in {project.name}: switcher query. Keep this Project open to recover your work.</p>
+          <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => setCopyFailure(null), () => setCopyFailure("Could not copy query. Select the text and copy again.")); }}>Copy query</button>
+          <button data-button="quiet" onClick={() => { drafts.retry(); }}>Retry storage</button>
+          <button data-button="quiet" onClick={() => {
+            const draft = current();
+
+            if (draft) drafts.discard(draft.revision);
+            setText("");
+          }}>Discard query</button>
+          <Show when={copyFailure()}><p>{copyFailure()}</p></Show>
+        </div>}</Show>
       </section>
     </Show>
   );

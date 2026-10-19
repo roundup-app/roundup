@@ -1,4 +1,15 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { execFile } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { chromePath } from "../testing/chromePage";
+import { App } from "../App";
+import { startRealDaemon } from "../testing/realDaemonFixture";
+import { createServedApp } from "../testing/realSeam";
+import { fakeEmulators } from "../terminal/paneHarness";
+import type { AppSeam } from "../app/seam";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
@@ -146,7 +157,7 @@ it("u2773a_queries_restores_exact_work", async () => {
   const calls = app.calls.length;
   openSwitcher();
   await waitFor(() => expect(field()?.value).toBe(exact));
-  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
+  await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]));
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
 
@@ -160,6 +171,184 @@ it("u2773a_queries_restores_exact_work", async () => {
   expect(field()).toBeNull();
   openSwitcher();
   await waitFor(() => expect(field()?.value).toBe(exact));
-  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
+  await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]));
   expect(reopened.app.calls.length).toBe(reopenedCalls);
 });
+
+
+it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draft_%s", async (failure) => {
+  const key = "roundup:drafts:/p";
+  const exact = "  e\u0301 🧭 東京  ";
+  const writeText = vi.fn(async (_text: string) => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+  if (failure === "invalid") localStorage.setItem(key, "{broken");
+
+  const read = failure === "read" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
+  const { app } = await mountSwitcher();
+  const write = failure === "write" ? vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); }) : null;
+  const calls = app.calls.length;
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  type(exact);
+  expect(await screen.findByRole("alert")).toBeDefined();
+  expect(field()!.value).toBe(exact);
+  fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(exact));
+
+  if (failure === "invalid") expect(localStorage.getItem(key)).toBe("{broken");
+
+  read?.mockRestore();
+  write?.mockRestore();
+
+  if (failure === "invalid") localStorage.removeItem(key);
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(JSON.parse(localStorage.getItem(key)!).drafts.at(-1).value.query).toBe(exact);
+  expect(field()!.value).toBe(exact);
+  expect(app.calls.length).toBe(calls);
+
+  const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+  type("newer query");
+  await screen.findByRole("alert");
+  refuse.mockRestore();
+  fireEvent.click(screen.getByRole("button", { name: "Discard query" }));
+  expect(field()!.value).toBe("");
+  expect(JSON.parse(localStorage.getItem(key)!).drafts).toEqual([]);
+  expect(app.calls.length).toBe(calls);
+});
+
+
+it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", async () => {
+  const first = await startRealDaemon({});
+  const second = await startRealDaemon({});
+
+  try {
+    const served = [createServedApp(first.base), createServedApp(second.base)];
+    const projects = [(await served[0]!.projects())[0]!, (await served[1]!.projects())[0]!];
+
+    const identities = await Promise.all(served.map((app) => app.rpc("rail.createWorkstream", { name: "same name", parent: null })));
+    const mutations: string[] = [];
+
+    const apps = served.map((app): AppSeam => ({ ...app, rpc: (method, params) => {
+      if (!["rail.tree", "terminal.list", "daemon.ping", "worktree.status", "decision.list", "events.subscribe", "terminal.scheme"].includes(method)) mutations.push(method);
+
+      return app.rpc(method, params);
+    } }));
+
+    const app: AppSeam = { ...apps[0]!, projects: async () => projects, forProject: (path) => apps[path === first.dir ? 0 : 1]! };
+    const mount = () => render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+
+    const chooseProject = async (path: string) => {
+      await waitFor(() => expect(document.querySelector(`.project-tab[data-path="${path}"]`)).not.toBeNull());
+      fireEvent.click(document.querySelector(`.project-tab[data-path="${path}"] [role="tab"]`)!);
+      await waitFor(() => expect(document.querySelector(`.project-tab[data-path="${path}"] [role="tab"]`)?.getAttribute("aria-selected")).toBe("true"));
+      await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${identities[path === first.dir ? 0 : 1]!.id}"]`)).not.toBeNull());
+    };
+
+    mount();
+    await chooseProject(first.dir);
+    openSwitcher();
+    await waitFor(() => expect(field()).not.toBeNull());
+    type("  first e\u0301 🧭 東京  ");
+    field()!.setSelectionRange(2, 8, "backward");
+    press("Escape", {}, field()!);
+    await chooseProject(second.dir);
+    openSwitcher();
+    await waitFor(() => expect(field()?.value).toBe(""));
+    type(" second 🧭 ");
+    press("Escape", {}, field()!);
+    await served[0]!.rpc("rail.rename", { id: identities[0]!.id, name: "incoming rename" });
+    await chooseProject(first.dir);
+    openSwitcher();
+    await waitFor(() => expect(field()?.value).toBe("  first e\u0301 🧭 東京  "));
+    await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 8, "backward"]));
+    press("Escape", {}, field()!);
+    mutations.length = 0;
+    cleanup();
+    mount();
+    await chooseProject(second.dir);
+    expect(field()).toBeNull();
+    openSwitcher();
+    await waitFor(() => expect(field()?.value).toBe(" second 🧭 "));
+    expect(mutations.filter((method) => !method.endsWith(".list") && !method.endsWith(".get") && !method.endsWith(".count"))).toEqual([]);
+  } finally {
+    cleanup();
+    await second.stop();
+    await first.stop();
+  }
+}, 180_000);
+
+
+it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => {
+  const real = await startRealDaemon({}, true);
+  const profile = await mkdtemp(join(tmpdir(), "u2773-queries-"));
+  const config = join(profile, "config.json");
+  await writeFile(config, "{}");
+
+  const executable = chromePath();
+
+  if (!executable) throw new Error("Query observer requires isolated Chromium");
+
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+
+  const browser = async (...args: string[]) => {
+    const { stdout } = await promisify(execFile)("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", `queries-${process.pid}`, "--profile", profile, "--json", ...args], { env, timeout: 60_000 });
+    const reply = JSON.parse(stdout);
+
+    expect(reply.success, stdout).toBe(true);
+
+    return reply.data;
+  };
+
+  const open = () => browser("eval", `(() => {
+    for (const event of [{ key: 'k', code: 'KeyK', metaKey: true }, { key: 'k', code: 'KeyK' }])
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { ...event, bubbles: true, cancelable: true }));
+  })()`);
+
+  try {
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("set", "viewport", "1512", "950");
+    await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
+    await open();
+    await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
+    await browser("eval", "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+    await browser("eval", `(() => {
+      const input = document.querySelector('.switcher input');
+      input.value = '  é 🧭 東京  ';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.setSelectionRange(2, 9, 'backward');
+      input.dispatchEvent(new Event('select'));
+    })()`);
+    await browser("reload");
+    await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
+    expect((await browser("eval", "!!document.querySelector('.switcher')")).result).toBe(false);
+    await browser("eval", `window.__queryCalls = []; const originalFetch = window.fetch.bind(window); window.fetch = (url, init) => { if (String(url).endsWith('/rpc')) window.__queryCalls.push(JSON.parse(init.body).method); return originalFetch(url, init); };`);
+    await open();
+    await browser("wait", "--fn", "document.querySelector('.switcher input')?.value === '  é 🧭 東京  ' && document.querySelector('.switcher input').selectionStart === 2");
+    expect((await browser("eval", "(() => { const input = document.querySelector('.switcher input'); return [input.selectionStart, input.selectionEnd, input.selectionDirection, document.activeElement === input, window.__queryCalls]; })()")).result).toEqual([2, 9, "backward", true, []]);
+
+    await browser("open", `${real.base}/harness.html?seed=tree-40`);
+    await browser("wait", "--fn", "!!document.querySelector('.project-tab')");
+    await open();
+    await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
+    console.info("U2773 queries baseline Checks", (await browser("eval", "window.__checks()")).result);
+    await browser("screenshot", join(tmpdir(), "u2773-queries-before.png"));
+    await browser("eval", `(() => {
+      const write = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) { if (key.startsWith('roundup:drafts:')) throw new Error('full'); return write.call(this, key, value); };
+      const input = document.querySelector('.switcher input');
+      input.value = '  é 🧭 東京  ';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await browser("wait", "--fn", "!!document.querySelector('.switcher [role=alert]')");
+    console.info("U2773 queries retention failure Checks", (await browser("eval", "window.__checks()")).result);
+    await browser("screenshot", join(tmpdir(), "u2773-queries-after.png"));
+  } finally {
+    await browser("close");
+    await real.stop();
+    await rm(profile, { recursive: true, force: true });
+  }
+}, 180_000);
