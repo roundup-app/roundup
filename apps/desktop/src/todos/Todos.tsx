@@ -12,6 +12,9 @@ import { TickBox } from "./TickBox";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
+import * as v from "valibot";
+import { untrack } from "solid-js";
+import { TodoDraftRecovery } from "./EditableText";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -21,7 +24,7 @@ import { homeNameOf } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
-import { failureOf } from "./failureOf";
+import { failureOf, outcomeOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
@@ -299,20 +302,41 @@ export const Todos = () => {
     );
   });
 
-  // The entry row empties itself before this runs, so a second Enter cannot create the Todo twice.
+  const [creationHome, setCreationHome] = createSignal<string | null>(null);
+  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationHome() });
+
+  const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
+    && draft.destination.object === "new" && draft.destination.recipient === creationHome() && draft.status === "draft");
+
+  const retainCreation = (field: HTMLInputElement) => {
+    const previous = creation();
+    const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
+
+    if ((!previous && field.value === "") || (previous?.value.title === field.value && JSON.stringify(previous.selection) === JSON.stringify(caret))) return;
+
+    connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary");
+  };
+
+  // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
   const create = async (title: string) => {
     setCreateFailure(null);
 
-    const home = selectedWorkstream();
+    const draft = creation();
 
-    // U347: a Todo added while a Workstream is selected goes to that Workstream, so `this one` shows it.
-    setCreateFailure(
-      await failureOf(async () => {
-        const made = await connected.app.rpc("todo.create", { title, body: null, blockers: null });
+    if (!draft || !connected.drafts.submit(draft.revision)) return;
+    const home = creationHome();
 
-        if (home !== null) await connected.app.rpc("todo.move", { id: made.id, home });
-      }),
-    );
+    try {
+      const made = await connected.app.rpc("todo.create", { title, body: null, blockers: null });
+      // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
+      connected.drafts.settle(draft.revision, "acknowledged");
+
+      if (home !== null) await connected.app.rpc("todo.move", { id: made.id, home });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      connected.drafts.settle(draft.revision, outcomeOf(error));
+      setCreateFailure(error.message);
+    }
   };
 
   // U153: a row is selected while the Drawer it opened is the one open.
@@ -343,8 +367,23 @@ export const Todos = () => {
         aria-label={copy.addTodo}
         class="shelf-add"
         ref={(button) => (plusButton = button)}
-        onClick={() => {
+        onClick={(event) => {
+          if (typing()) {
+            event.currentTarget.parentElement?.querySelector<HTMLInputElement>(".entry-field")?.focus();
+
+            return;
+          }
+
           setCreateFailure(null);
+          setCreationHome(selectedWorkstream());
+          const draft = creation();
+
+          if (draft && !v.safeParse(v.string(), draft.value.title).success) {
+            setCreateFailure(copy.draftRetention(connected.project.path, copy.draftSurface("todos"), "invalid"));
+
+            return;
+          }
+
           setTyping(true);
         }}
       >
@@ -422,6 +461,13 @@ export const Todos = () => {
             class="todo-inset"
             label={copy.newTodoTitle}
             placeholder={copy.newTodoPlaceholder}
+            initial={untrack(() => {
+              const draft = creation();
+              const title = v.safeParse(v.string(), draft?.value.title);
+
+              return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
+            })}
+            onEdit={retainCreation}
             onSubmit={(title) => void create(title)}
             onClose={(reason) => {
               setTyping(false);
@@ -445,6 +491,16 @@ export const Todos = () => {
           </ShelfRow>
 
         </div>
+      </Show>
+      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
+        if (creation()?.revision === revision) setTyping(false);
+      }} />
+      <Show when={todos.isLoaded()}>
+        <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
+          && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
+          <ErrorLine message={copy.todoDeleted(Number(object))} />
+          <TodoDraftRecovery object={object} />
+        </div>}</For>
       </Show>
       <bulk.Bar />
     </section>
