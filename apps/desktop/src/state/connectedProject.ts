@@ -51,6 +51,7 @@ export const createProjectDrafts = () => {
 
         return storage.problem();
       },
+      validate: (...args) => refresh(storage.validate(...args)),
       edit: (...args) => refresh(storage.edit(...args)),
       submit: (...args) => refresh(storage.submit(...args)),
       settle: (...args) => refresh(storage.settle(...args)),
