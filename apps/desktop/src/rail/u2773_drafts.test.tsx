@@ -1,7 +1,9 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { DraftRecoveryEntry } from "../drawer/DrawerHost";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -342,4 +344,29 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
     expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ }).value).toBe(" exact\ne\u0301 😀 ");
     expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
   } finally { vi.unstubAllGlobals(); }
+});
+
+
+it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", async () => {
+  const { connected, app } = await mountRail([]);
+  render(() => <ConnectedProjectContext.Provider value={connected}><DraftRecoveryEntry /></ConnectedProjectContext.Provider>);
+  open();
+  fireEvent.input(field(), { target: { value: " exact\n😀 " } });
+  fireEvent.keyDown(field(), { key: "Escape" });
+  const revision = connected.drafts.list()[0]!;
+  expect(revision.value.text).toBe(" exact\n😀 ");
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  connected.drafts.discard(revision.revision);
+  expect(screen.queryByLabelText("Recovered rail draft")).toBeNull();
+  open();
+  fireEvent.input(field(), { target: { value: "new work" } });
+  fireEvent.keyDown(field(), { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Discard this revision", hidden: true }));
+  expect(connected.drafts.list()).toEqual([]);
+  expect(connected.drafts.problem()).toBeNull();
+  expect(railCallsTo(app, "agent.spawn")).toEqual([]);
+  cleanup();
+  await mountRail([]);
+  open();
+  expect(field().value).toBe("");
 });
