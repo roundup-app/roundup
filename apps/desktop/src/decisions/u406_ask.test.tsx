@@ -1,4 +1,4 @@
-import { fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { askingWith, card, gate, mountApp, rpcCalls, select } from "./decisionsFixture";
@@ -36,6 +36,26 @@ const press = (target: Element, key: string) => fireEvent.keyDown(target, { key 
 const calls = (app: Awaited<ReturnType<typeof open>>["app"]) => rpcCalls(app, "decision.answer");
 
 describe("u406 the Card for ask_user", () => {
+  it("u2773a_decisions_restores_exact_work", async () => {
+    await open();
+    const exact = "  first é\nsecond 👩🏽‍💻  ";
+    fireEvent.click(rows()[1]!);
+    await selectedIs(1);
+    fireEvent.input(note(), { target: { value: exact } });
+    note().setSelectionRange(2, 7, "backward");
+    fireEvent.select(note());
+    select("beta");
+    select("alpha");
+    await waitFor(() => expect(note().value).toBe(exact));
+    await selectedIs(1);
+    expect([note().selectionStart, note().selectionEnd, note().selectionDirection]).toEqual([2, 7, "backward"]);
+    cleanup();
+    const { app } = await open();
+    await waitFor(() => expect(note().value).toBe(exact));
+    await selectedIs(1);
+    expect(calls(app)).toEqual([]);
+  });
+
   it("u406_title_and_rows", async () => {
     await open();
 
