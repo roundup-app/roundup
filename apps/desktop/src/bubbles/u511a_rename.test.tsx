@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { event, info } from "../testing/nodes";
 import { bubbleCalls, bubbleChord, mountBubbles, TERMINALS } from "./bubblesFixture";
@@ -54,7 +54,7 @@ it("u511a_enter_commits_once", async () => {
   fireEvent.keyDown(field()!, { key: "Enter" });
   fireEvent.blur(field() ?? document.body);
   await waitFor(() => expect(field()).toBeNull());
-  expect(writes.mock.calls.filter(([, value]) => String(value).includes("build"))).toHaveLength(1);
+  expect(writes.mock.calls.filter(([key]) => key === "roundup:bubble-places:/p")).toHaveLength(1);
   writes.mockRestore();
 });
 
@@ -241,4 +241,92 @@ it("u2773a_bubbles_restores_exact_work", async () => {
   expect(field()!.value).toBe(text);
   expect(bubbleCalls(restored.app, "terminal.write")).toEqual([]);
   expect(tab("1")!.getAttribute("aria-label")).toBe("cargo test");
+});
+
+
+it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
+  const mounted = await mountBubbles();
+  const write = Storage.prototype.setItem;
+
+  const blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (key === "roundup:bubble-places:/p") throw new Error("name write refused");
+
+    return write.call(this, key, value);
+  });
+
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "  failed A 雪  " } });
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByText("Failed")).toBeDefined();
+  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
+  blocked.mockRestore();
+  fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "  newer B 🫧  " } });
+  fireEvent.keyDown(field()!, { key: "Escape" });
+  expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"], ["  newer B 🫧  ", "draft"]]);
+  await waitFor(() => expect(tab("2")).not.toBeNull());
+  await edit("2");
+  expect(field()!.value).toBe("  newer B 🫧  ");
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(tab("2")!.getAttribute("aria-label")).toBe("newer B 🫧"));
+  expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"]]);
+  expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
+  cleanup();
+  const reloaded = await mountBubbles();
+  expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  failed A 雪  "]);
+});
+
+it("u2773c_bubbles_external_change_keeps_original", async () => {
+  const mounted = await mountBubbles();
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "  original e\u0301 🫧  " } });
+  mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, title: "external" } : terminal));
+  mounted.app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(mounted.connected.rail.terminals().find(terminal => terminal.id === "2")!.title).toBe("external"));
+  expect(field()!.value).toBe("  original e\u0301 🫧  ");
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByText(/original name changed/)).toBeDefined();
+  expect(tab("2")!.getAttribute("aria-label")).toBe("external");
+  mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, incarnation: "replacement" } : terminal));
+  mounted.app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(within(recovery).getByText("Original object unavailable")).toBeDefined());
+  expect(mounted.connected.drafts.list()[0]!.destination).toEqual({ surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" });
+  expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  await edit("2");
+  expect(field()!.value).toBe("zsh");
+  fireEvent.keyDown(field()!, { key: "Escape" });
+});
+
+it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
+  const mounted = await mountBubbles();
+  const write = Storage.prototype.setItem;
+
+  const blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (key.startsWith("roundup:drafts:")) throw new Error("draft storage refused");
+
+    return write.call(this, key, value);
+  });
+
+  const text = "  recover e\u0301 🪁  ";
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: text } });
+  fireEvent.keyDown(field()!, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByRole("alert").textContent).toContain("/p · Terminal name: Could not store unfinished work for reload.");
+  const clipboard = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  fireEvent.click(within(recovery).getByRole("button", { name: "Copy name" }));
+  await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith(text));
+  blocked.mockRestore();
+  fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
+  expect(JSON.parse(window.localStorage.getItem("roundup:drafts:/p")!).drafts[0].value.name).toBe(text);
+  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
+  fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+  expect(mounted.connected.drafts.list()).toEqual([]);
+  expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });
