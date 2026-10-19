@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
@@ -76,11 +77,18 @@ it("u2773h_current_revision_is_distinct", async () => {
   window.localStorage.clear();
 });
 
-it("u2773h_invalid_storage_preserves_recoverable_work", async () => {
-  const bytes = '{"version":999,"drafts":broken';
+it.each(["envelope", "surface"])("u2773h_invalid_storage_preserves_recoverable_work_%s", async (kind) => {
+  const incompatible = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: null }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
+  const bytes = kind === "surface" ? JSON.stringify({ version: 1, drafts: [incompatible] }, null, 2) : '{"version":999,"drafts":broken';
   window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, bytes);
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);
+
+  if (kind === "surface") {
+    holder.validate("todos", v.object({ title: v.string() }));
+    holder.discard(incompatible.revision);
+  }
+
   const other = holder.edit({ surface: "todos", object: "other-original", recipient: null }, { title: "  independent 🧭\n" }, null, "ordinary").draft;
   const saved = holder.edit({ surface: "orders", object: "original", recipient: "original" }, { ask: "  memory 🧭\n" }, null, "ordinary").draft;
   const app = createFakeApp();
@@ -89,17 +97,22 @@ it("u2773h_invalid_storage_preserves_recoverable_work", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   const alert = await screen.findByRole("alert");
   expect(alert.textContent).toContain(FIRST.path);
-  expect(alert.textContent).toContain("Order");
+  expect(alert.textContent).toContain(kind === "surface" ? "Todo" : "Order");
   const clipboard = vi.fn(async (_text: string) => {});
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  const focus = document.activeElement;
+
   fireEvent.click(screen.getByRole("button", { name: "Copy ask" }));
   expect(clipboard).toHaveBeenCalledWith("  memory 🧭\n");
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   expect(holder.list()).toEqual([other, saved]);
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(holder.list()).toEqual([other]);
+  expect(document.activeElement).toBe(focus);
   expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
   expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
+
+  if (kind === "surface") expect(holder.problem()).toEqual({ project: FIRST.path, destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" });
   window.localStorage.clear();
 });
 
@@ -118,4 +131,34 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
   fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
   expect(clipboard).toHaveBeenCalledWith(secret);
+});
+
+
+it("u2773a_terminal_selection_restores_exact_work_shared_unregistered_owner", async () => {
+  const drafts = createProjectDrafts();
+  drafts(FIRST.path).edit({ surface: "terminal_selection", object: "original-terminal", recipient: "original-agent" }, { note: "  unverified 🧭\n" }, null, "ordinary");
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  expect(await screen.findByText("Original availability not verified")).toBeTruthy();
+  expect(screen.queryByText("Original object unavailable")).toBeNull();
+});
+
+it.each(["loading", "failed", "creation"])("u2773c_pads_external_change_keeps_original_%s_unverified", async (state) => {
+  const drafts = createProjectDrafts();
+  drafts(FIRST.path).edit({ surface: "pads", object: state === "creation" ? "new-pad" : "original-incarnation", recipient: null }, state === "creation" ? { name: "proposed name", source: "new work" } : { originalName: "original name", source: "exact work", base: "original base" }, null, "ordinary");
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+
+  if (state === "loading") app.handlers["pad.list"] = () => new Promise(() => {});
+
+  if (state === "failed") app.handlers["pad.list"] = async () => { throw new Error("list unavailable"); };
+
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  const recovery = await screen.findByRole("region", { name: "Unfinished work" });
+  expect(within(recovery).getByRole("status").dataset.state).toBe("unverified");
+  expect(within(recovery).getByText(state === "creation" ? "new work" : "exact work")).toBeTruthy();
+  expect(app.calls.filter(({ method }) => method.startsWith("pad.") && method !== "pad.list")).toEqual([]);
 });

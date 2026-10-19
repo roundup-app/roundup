@@ -228,8 +228,14 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 63] = [
+const TOOL_METHODS: [&str; 69] = [
     "agent.wake",
+    "deliverable.publish",
+    "deliverable.list",
+    "deliverable.get",
+    "deliverable.resolve",
+    "deliverable.move",
+    "deliverable.remove",
     "todo.create",
     "todo.get",
     "todo.list",
@@ -1142,7 +1148,7 @@ async fn u149_a_drawing_written_through_the_tools_is_stored_byte_exact() {
 }
 
 #[tokio::test]
-async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
+async fn o4_agent_set_order_fills_its_own_id_and_retains_the_captured_order() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("fake.sock");
     let mut requests = fake_daemon(
@@ -1158,13 +1164,18 @@ async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
     assert!(schema["properties"].get("order").is_some(), "{schema}");
 
     let order = json!({"kind": "work", "ask": "fix it", "limits": ["push"], "id": "other"});
-    shim.call("agent_set_order", json!({ "order": order }))
-        .await;
+    let captured = json!({"order":null});
+    shim.call(
+        "agent_set_order",
+        json!({ "order": order, "captured": captured }),
+    )
+    .await;
 
     while let Some(request) = requests.recv().await {
         if request["method"] == "agent.setOrder" {
             assert_eq!(request["params"]["id"], "a1");
             assert_eq!(request["params"]["order"]["ask"], "fix it");
+            assert_eq!(request["params"]["captured"], captured);
             return;
         }
     }
@@ -1338,6 +1349,10 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
         }
         let (args, expected) = match method.name {
             "todo.delete" => (json!({"id":42}), "deleted Todo 42"),
+            "deliverable.remove" => (
+                json!({"project":"project-a","id":"published-42"}),
+                "removed publication published-42",
+            ),
             "pad.delete" => (json!({"name":"notes"}), "deleted Pad notes"),
             "pad.export" => (
                 json!({"name":"notes","path":"/tmp/notes.md"}),

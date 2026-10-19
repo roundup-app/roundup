@@ -35,6 +35,7 @@ impl Daemon {
                 let mut events = todos.remove_workstream(db, &home, removal)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
                 events.extend(pad_events);
+                db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=?1 AND removed=0",[&home]).map_err(RpcError::internal)?;
                 // Touch rows use the same transaction: a rejected removal leaves no write
                 // record, even if earlier Todo, Pad or Agent steps succeeded.
                 let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
