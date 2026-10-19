@@ -54,7 +54,7 @@ async fn dv2_source_incarnation_survives_edits_owner_home_and_restart() {
         .request("rail.createWorkstream", json!({"name":"home"}))
         .await
         .unwrap();
-    client
+    let created = client
         .request("pad.create", json!({"name":"notes", "text":"one"}))
         .await
         .unwrap();
@@ -90,6 +90,17 @@ async fn dv2_source_incarnation_survives_edits_owner_home_and_restart() {
     snapshot.commit().unwrap();
     project.restart(&[]);
     let current = source(&db, "notes").unwrap().unwrap();
+    let client = project.client().await;
+    let read = client
+        .request("pad.read", json!({"name":"NOTES"}))
+        .await
+        .unwrap();
+    assert_eq!(read["incarnation"], created["incarnation"]);
+    assert_eq!(read["incarnation"], first.incarnation.to_string());
+    assert_eq!(
+        client.request("pad.list", json!(null)).await.unwrap()[0],
+        read
+    );
     assert_eq!(current.incarnation, first.incarnation);
     assert_eq!(current.pad.text, "two!");
     assert_eq!(current.pad.revision, 3);
@@ -183,4 +194,128 @@ async fn dv2_preexisting_project_pads_gain_durable_source_incarnations() {
     assert_eq!(first.pad.revision, 1);
     project.restart(&[]);
     assert_eq!(source(&db, "EXISTING").unwrap(), Some(first));
+}
+
+#[tokio::test]
+async fn u2773c_pads_external_change_keeps_original() {
+    for replacement_after_restart in [None, Some(false), Some(true)] {
+        let mut project = daemon::start(&[]);
+        let client = project.client().await;
+        client
+            .request("pad.create", json!({"name":"Notes", "text":"original"}))
+            .await
+            .unwrap();
+        client
+            .request("pad.setStorage", json!({"files":true}))
+            .await
+            .unwrap();
+        // This is the recovery read: deletion/recreation happens after it and before save.
+        let original = client
+            .request("pad.read", json!({"name":"NOTES"}))
+            .await
+            .unwrap();
+        client
+            .request("pad.delete", json!({"name":"notes"}))
+            .await
+            .unwrap();
+        let replacement = if replacement_after_restart.is_some() {
+            Some(
+                client
+                    .request(
+                        "pad.create",
+                        json!({"name":"notes", "text":"  replacement\n👋 é  "}),
+                    )
+                    .await
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+        if replacement_after_restart == Some(true) {
+            project.restart(&[]);
+        }
+        let client = project.client().await;
+        let before = client.request("pad.list", json!(null)).await.unwrap();
+        let touches = client
+            .request("provenance.history", json!({"item":"pad:notes"}))
+            .await
+            .unwrap();
+        let mut events = project.subscribed().await;
+        let error = client.request("pad.write", json!({"name":"NOTES", "text":"old recovered draft", "expectedIncarnation":original["incarnation"], "expectedRevision":original["revision"]})).await.unwrap_err();
+        assert_eq!(
+            error.code,
+            if replacement.is_some() {
+                rpc::code::CONFLICT
+            } else {
+                rpc::code::NOT_FOUND
+            }
+        );
+        if let Some(replacement) = replacement {
+            assert_ne!(original["incarnation"], replacement["incarnation"]);
+            assert_eq!(original["revision"], replacement["revision"]);
+        }
+        assert_eq!(
+            client.request("pad.list", json!(null)).await.unwrap(),
+            before
+        );
+        let mirror = project.data_dir().join("pads/notes.md");
+        if replacement_after_restart.is_some() {
+            assert_eq!(
+                std::fs::read_to_string(mirror).unwrap(),
+                "  replacement\n👋 é  "
+            );
+        } else {
+            assert!(!mirror.exists());
+        }
+        assert_eq!(
+            client
+                .request("provenance.history", json!({"item":"pad:notes"}))
+                .await
+                .unwrap(),
+            touches
+        );
+        // An accepted marker bounds the Event stream without a quiet-time sleep.
+        client
+            .request("pad.create", json!({"name":"marker"}))
+            .await
+            .unwrap();
+        let event = tokio::time::timeout(std::time::Duration::from_secs(5), events.next_event())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            matches!(event.data, contracts::EventData::PadChanged(ref pad) if pad.name == "marker"),
+            "refused write emitted an Event: {event:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn u2773a_pads_incarnation_is_scoped_to_original_project() {
+    let one = daemon::start(&[]);
+    let two = daemon::start(&[]);
+    let a = one.client().await;
+    let b = two.client().await;
+    let first = a
+        .request("pad.create", json!({"name":"notes", "text":"one"}))
+        .await
+        .unwrap();
+    let second = b
+        .request("pad.create", json!({"name":"notes", "text":"two"}))
+        .await
+        .unwrap();
+    // Each Project owns its own incarnation namespace, so the Project must be retained too.
+    a.request("pad.write", json!({"name":"notes", "text":"one changed", "expectedIncarnation":first["incarnation"], "expectedRevision":first["revision"]})).await.unwrap();
+    assert_eq!(
+        b.request("pad.read", json!({"name":"notes"}))
+            .await
+            .unwrap(),
+        second
+    );
+    let current = a
+        .request("pad.read", json!({"name":"notes"}))
+        .await
+        .unwrap();
+    assert_eq!(current["text"], "one changed");
+    assert_eq!(current["incarnation"], first["incarnation"]);
 }
