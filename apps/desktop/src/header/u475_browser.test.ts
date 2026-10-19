@@ -101,3 +101,30 @@ it("u475_close_failure_is_visible", async () => {
   expect(await read<string>(`document.querySelector('.project-tab').dataset.path`)).toBe(path);
   expect(await read<boolean>(`[...document.querySelectorAll('*')].some(el => el.textContent === 'could not stop rupd' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')`)).toBe(true);
 }, 60_000);
+
+it("u2773a_header_restores_exact_work_browser", async () => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("wait", "--fn", `!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
+  await browser("eval", `localStorage.clear()`);
+  await browser("reload");
+  await browser("wait", "--fn", `!!document.querySelector('.tab-name')`);
+  await browser("screenshot", "/tmp/header-before.png");
+  await browser("eval", `document.querySelector('.tab-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+  await browser("wait", "--fn", `!!document.querySelector('.tab-rename')`);
+  await browser("eval", `(() => { const field = document.querySelector('.tab-rename'); field.value = '  é 🪁 雪  '; field.dispatchEvent(new Event('input', {bubbles:true})); field.setSelectionRange(2, 6, 'backward'); field.dispatchEvent(new Event('select', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); })()`);
+  await browser("reload");
+  await browser("wait", "--fn", `!!document.querySelector('.tab-name')`);
+  await browser("eval", `document.querySelector('.tab-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+  await browser("wait", "--fn", `!!document.querySelector('.tab-rename')`);
+  expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection, document.activeElement === field]; })()`)).toEqual(['  é 🪁 雪  ', 2, 6, 'backward', true]);
+  await browser("eval", `(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; const field = document.querySelector('.tab-rename'); field.value = '  newer 雪  '; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); })()`);
+  await browser("wait", "--fn", `!!document.querySelector('.header-retention')`);
+  await browser("screenshot", "/tmp/header-retention-failure.png");
+  await browser("eval", `document.querySelector('[aria-label^="Recover unfinished work ·"]').click()`);
+  await browser("wait", "--fn", `!!document.querySelector('[role="dialog"]')`);
+  expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe('  newer 雪  ');
+  await browser("screenshot", "/tmp/header-recovery.png");
+  await browser("eval", `window.__u2773Checks = window.__checks()`);
+  console.log("U2773 rendered observer", await read<string>("JSON.stringify(window.__u2773Checks)"));
+}, 120_000);

@@ -1,24 +1,31 @@
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
-import { createMemo, createSignal, onMount, Show } from "solid-js";
+import * as v from "valibot";
+import { ProjectDraftsContext } from "../state/connectedProject";
+import { Portal } from "solid-js/web";
+import { createEffect, createMemo, createSignal, on, onMount, Show, For, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
+import { Dialog } from "../ui/Dialog";
 import { Tip } from "../ui/Tip";
 import { registerKeys } from "../keys/registry";
 import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
-const RenameField = (props: { name: string; onDone: (saved: string | null, refocus: boolean) => void }) => {
+const RenameField = (props: { name: string; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
   let field: HTMLInputElement | undefined;
   let finished = false;
+  let changed = false;
 
   const finish = (saved: string | null, refocus: boolean) => {
     if (finished) return;
     finished = true;
+
+    if (field) props.onEdit(field);
     props.onDone(saved, refocus);
   };
 
@@ -26,10 +33,17 @@ const RenameField = (props: { name: string; onDone: (saved: string | null, refoc
     { chords: ["Enter"], when: (press) => !press.isComposing, run: () => finish(field?.value ?? "", true) },
     { chords: ["Escape"], when: (press) => !press.isComposing, run: () => finish(null, true) },
   ]);
-  onMount(() => { field?.focus(); field?.select(); });
+  onMount(() => {
+    field?.focus();
+
+    if (props.selection) field?.setSelectionRange(props.selection.start, props.selection.end, props.selection.direction);
+    else field?.select();
+  });
 
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
-    onBlur={() => finish(field?.value ?? "", false)} />;
+    onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
+    onSelect={event => { if (!finished) props.onEdit(event.currentTarget); }}
+    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.selection && !changed) ? null : field?.value ?? "", false)} />;
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
@@ -48,10 +62,63 @@ export const ProjectTab = (props: {
   let button: HTMLButtonElement | undefined;
   const mark = () => markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
+  const authority = useContext(ProjectDraftsContext);
+  const drafts = authority?.(props.tab.path);
+  const schema = v.strictObject({ name: v.string(), base: v.string() });
+  drafts?.validate("header", schema);
+  drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
+  const destination = { surface: "header", object: props.tab.path, recipient: null };
+  const records = () => drafts?.list().filter(draft => draft.destination.surface === "header" && draft.destination.object === props.tab.path) ?? [];
+  const current = () => records().filter(draft => draft.status === "draft").at(-1);
+  const [recovering, recover] = createSignal(false);
+  const [inspected, inspect] = createSignal<string>();
+  const [copyFailure, failCopy] = createSignal<string | null>(null);
+  const shown = () => records().find(draft => draft.revision === inspected()) ?? current() ?? records().at(-1);
+
+  const problem = () => {
+    const failure = drafts?.problem();
+
+    return failure?.destination && failure.destination.surface !== "header" ? null : failure;
+  };
+
+  let panel: HTMLDivElement | undefined;
+  registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
+
+  const copyName = async () => {
+    const draft = shown();
+
+    if (!draft) return;
+    const parsed = v.safeParse(schema, draft.value);
+
+    if (!parsed.success) return;
+
+    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
+    catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); }
+  };
+
   let base: string | undefined;
+  let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
+  let initialName = "";
+  let revision: string | undefined;
+
+  const capture = (field: HTMLInputElement) => {
+    const previous = records().find(draft => draft.revision === revision);
+    const selection = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
+
+    if (previous?.value.name === field.value && JSON.stringify(previous.selection) === JSON.stringify(selection)) return;
+    revision = drafts?.edit(destination, { name: field.value, base: base ?? "" }, selection, "ordinary").draft.revision;
+  };
+
+  createEffect(on(() => props.selected, selected => { if (!selected) setEditing(null); }));
 
   const edit = () => {
-    base = props.tab.base;
+    const recovered = current() ?? records().filter(draft => draft.status === "failed").at(-1);
+    const parsed = recovered && v.safeParse(schema, recovered.value);
+    const value = parsed && parsed.success ? parsed.output : null;
+    base = value?.base ?? props.tab.base;
+    initialName = value?.name ?? props.tab.name;
+    restoredSelection = value ? recovered!.selection : null;
+    revision = value ? recovered!.revision : undefined;
     setEditing(wrap?.offsetWidth ?? 0);
   };
 
@@ -65,12 +132,19 @@ export const ProjectTab = (props: {
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
       onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}>
-      <Show when={editing() === null} fallback={<RenameField name={props.tab.name} onDone={(saved, refocus) => {
+      <Show when={editing() === null} fallback={<RenameField name={initialName} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
         setEditing(null);
 
         if (refocus) button?.focus();
 
-        if (saved !== null) props.onRename(saved, base);
+        if (saved !== null) {
+          const submitted = revision;
+
+          if (submitted) drafts?.submit(submitted);
+          void props.onRename(saved, base).then(outcome => {
+            if (submitted) drafts?.settle(submitted, outcome.status);
+          });
+        }
       }} />}>
         <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show></>}>
           {(tooltip) =>
@@ -90,5 +164,30 @@ export const ProjectTab = (props: {
         <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
       </Show>
     </FlatTab>
+    <Show when={records().length || problem()}>
+      <Tip text={problem() ? copy.draftRetention(props.tab.path, copy.draftSurface("header"), problem()!.cause) : copy.unfinishedWork}>{trigger => <IconButton {...trigger()} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.path)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
+    </Show>
+    <Show when={props.selected && problem()}>{failure => <Portal><aside class="header-retention" role="alert">
+      <p>{copy.draftRetention(props.tab.path, copy.draftSurface("header"), failure().cause)}</p>
+      <button type="button" data-button="quiet" onClick={() => recover(true)}>{copy.recoverDrafts}</button>
+    </aside></Portal>}</Show>
+    <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
+      <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
+        <Dialog.Title>{copy.unfinishedWork}</Dialog.Title>
+        <Dialog.Description>{props.tab.path}</Dialog.Description>
+        <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(props.tab.path, copy.draftSurface("header"), failure().cause)}</p>}</Show>
+        <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
+        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{draft => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} · {draft.revision}</button>}</For>
+        <Show when={shown()}>{draft => <>
+          <p>{draft().destination.object}</p>
+          <Show when={draft().value.base !== props.tab.base}><p role="status">{copy.originalUnverified}</p></Show>
+          <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
+          <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyField("name")}</button>
+          <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></div>
+        </>}</Show>
+        <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button>
+        <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
+      </Dialog.Content></Dialog.Positioner></Portal>
+    </Dialog.Root>
   </>}</Tabs.Context>;
 };
