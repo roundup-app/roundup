@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createServedApp } from "../testing/realSeam";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
+import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
 
@@ -179,4 +180,39 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   await within(catalogue).findByRole("button", { name: new RegExp(`^Open Failure Pad ·`) });
   expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Cached file ·") })).toBeNull();
   expect(within(catalogue).queryByRole("button", { name: new RegExp("^Open Failure link ·") })).toBeNull();
+});
+
+
+it("u2773b_lost_ask_acknowledgement_reconciles_after_daemon_restart_without_duplicate_intake", async () => {
+  const app = createServedApp(real.base);
+  const original = await app.rpc("rail.createWorkstream", { name: "Captured", parent: null });
+  await app.rpc("rail.rename", { id: original.id, name: "Renamed" });
+  const replacement = await app.rpc("rail.createWorkstream", { name: "Captured", parent: null });
+  const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
+  const rpc = app.rpc;
+  let sends = 0;
+  app.rpc = async (method, params) => {
+    const result = await rpc(method, params);
+
+    if (method === "ask.send") {
+      sends += 1;
+      throw new RpcError(-32004, "response lost after intake");
+    }
+
+    return result;
+  };
+
+  const outcome = await connected.asks.send(" exact 🌿\n ", { submission: "lost-response", workstream: original.id });
+  expect(outcome.kind).toBe("unknown");
+  await real.restart();
+  const accepted = await connected.asks.reconcile("lost-response");
+  expect(accepted).toMatchObject({ text: " exact 🌿\n ", submission: "lost-response", workstream: original.id });
+  expect(sends).toBe(1);
+  app.rpc = rpc;
+  const replay = await connected.asks.send(" exact 🌿\n ", { submission: "lost-response", workstream: original.id });
+  expect(replay.kind).toBe("acknowledged");
+
+  if (replay.kind === "acknowledged") expect(replay.ask.id).toBe(accepted!.id);
+  expect((await app.rpc("ask.list", null)).filter(ask => ask.submission === "lost-response")).toHaveLength(1);
+  expect((await app.rpc("rail.tree", null)).find(node => node.id === replacement.id)?.terminal_id).toBeNull();
 });

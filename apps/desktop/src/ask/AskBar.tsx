@@ -87,10 +87,10 @@ export const AskBar = () => {
 
     setText("");
     setFailure(null);
-    void asks.send(value).then((message) => {
-      if (message === null) return;
+    void asks.send(value).then((outcome) => {
+      if (outcome.kind === "acknowledged") return;
 
-      setFailure(copy.askNotSent + message);
+      setFailure((outcome.kind === "refused" ? copy.askNotSent : copy.askUnknown) + outcome.error.message);
       setText((now) => (now === "" ? value : now));
     });
   };

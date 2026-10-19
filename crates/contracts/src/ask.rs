@@ -8,6 +8,12 @@ pub struct Ask {
     pub id: String,
     pub text: String,
     pub at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub submission: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub workstream: Option<String>,
     pub parts: Vec<AskPart>,
 }
 
@@ -57,6 +63,12 @@ pub enum State {
 #[ts(export, export_to = "ask/")]
 pub struct SendParams {
     pub text: String,
+    // Stable identity of one submitted revision; equal replay returns its original Ask.
+    #[ts(optional)]
+    pub submission: Option<String>,
+    // Captured destination. Text is verbatim content, with no name resolution.
+    #[ts(optional)]
+    pub workstream: Option<String>,
 }
 
 #[derive(Deserialize, TS)]

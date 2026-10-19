@@ -664,6 +664,10 @@ The matching spellings of one displayed Help chord.
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
 One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
+**Ask submission** (`submission`, `AskOutcome`):
+One caller-identified exact Ask revision and captured Workstream, retained across replay.
+Its intake outcome is acknowledged, refused or unknown; equal text alone never identifies it.
+
 **Ask part** (`AskPart`, `ask::State`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 

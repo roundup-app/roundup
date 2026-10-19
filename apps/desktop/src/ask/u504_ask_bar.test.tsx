@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Ask } from "@contracts/ask/Ask";
+import { RpcError } from "../app/seam";
 import { ask, input, mountAskBar, press, rowTexts } from "./askFixture";
 
 afterEach(cleanup);
@@ -49,7 +50,7 @@ describe("u504 the Ask bar", () => {
     expect(enter.defaultPrevented).toBe(true);
     expect(input()!.value).toBe("");
     expect(rowTexts()).toEqual(["fix the login bug |  | Placing"]);
-    expect(sent(app)).toEqual([{ text: "fix the login bug" }]);
+    expect(sent(app)).toEqual([expect.objectContaining({ text: "fix the login bug", submission: expect.any(String) })]);
 
     answer(ask("a1", 1, [{ text: "fix the login bug", placement: { kind: "routed", workstream: "ops" }, state: "queued" }]));
     await waitFor(() => expect(rowTexts()).toEqual(["fix the login bug | ops | Queued for the supervisor"]));
@@ -120,4 +121,42 @@ describe("u504 the Ask bar", () => {
     expect(sent(app)).toEqual([]);
     expect(input()!.value).toBe("one");
   });
+});
+
+
+it("u2773b_ask_outcomes_keep_their_submission_identity_out_of_order", async () => {
+  const { app, connected } = await mountAskBar();
+  let accept!: (value: Ask) => void;
+  let refuse!: (error: Error) => void;
+  app.handlers["ask.send"] = (params) => params.submission === "a"
+    ? new Promise<Ask>((resolve) => { accept = resolve; })
+    : new Promise<Ask>((_, reject) => { refuse = reject; });
+  const a = connected.asks.send(" exact 🌿\n ", { submission: "a", workstream: "ops" });
+  const b = connected.asks.send("newer", { submission: "b" });
+  const error = new RpcError(-32003, "conflict");
+  refuse(error);
+  expect(await b).toEqual({ kind: "refused", submission: "b", error });
+  const accepted = { ...ask("accepted", 1, [], " exact 🌿\n "), submission: "a", workstream: "ops" };
+  accept(accepted);
+  expect(await a).toEqual({ kind: "acknowledged", submission: "a", ask: accepted });
+  expect(sent(app)).toEqual([
+    { text: " exact 🌿\n ", submission: "a", workstream: "ops" },
+    { text: "newer", submission: "b" },
+  ]);
+});
+
+it.each([new RpcError(-32004, "connection lost"), new RpcError(-32603, "timeout"), new Error("disconnected")])("u2773b_ask_transport_loss_remains_unknown", async (error) => {
+  const { app, connected } = await mountAskBar();
+  app.handlers["ask.send"] = () => Promise.reject(error);
+  expect(await connected.asks.send("exact", { submission: "a" })).toEqual({ kind: "unknown", submission: "a", error });
+  expect(await connected.asks.reconcile("a")).toBeNull();
+  expect(sent(app)).toHaveLength(1);
+});
+
+it("u2773b_ask_reconciliation_reads_acceptance_without_sending", async () => {
+  const { app, connected } = await mountAskBar();
+  const accepted = { ...ask("accepted", 1, [], "same"), submission: "a" };
+  app.handlers["ask.list"] = () => [accepted, { ...ask("other", 2, [], "same"), submission: "b" }];
+  expect(await connected.asks.reconcile("a")).toEqual(accepted);
+  expect(sent(app)).toEqual([]);
 });
