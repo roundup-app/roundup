@@ -330,7 +330,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
   press("Escape");
-  expect(screen.getByRole("alert").textContent).toContain(path("api"));
+  expect(screen.getByRole("status", { name: `Project name · ${path("api")}` }).textContent).toContain(path("api"));
   fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];
@@ -412,7 +412,7 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
   const input = await edit();
   fireEvent.input(input, { target: { value: "  memory 雪  " } });
   press("Escape");
-  expect(screen.getByRole("alert").textContent).toContain("invalid");
+  expect(screen.getByRole("status", { name: `Project name · ${path("api")}` }).textContent).toContain("invalid");
   expect(window.localStorage.getItem(key)).toBe(original);
   fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
@@ -420,4 +420,18 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   expect(window.localStorage.getItem(key)).toBe(original);
   expect(within(dialog).getByRole("alert").textContent).toContain("invalid");
+});
+
+it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
+  const { app } = renderTabs({ api: [], web: [] });
+  window.localStorage.setItem(`roundup:drafts:${path("api")}`, JSON.stringify({ version: 1, drafts: [{ revision: "legacy-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: "  legacy 雪  " }, selection: null, status: "draft", policy: "ordinary" }] }));
+  const sends = vi.spyOn(app, "renameProject");
+  await screen.findByRole("tab", { name: "api" });
+  const input = await edit();
+  expect(input.value).toBe("  legacy 雪  ");
+  press("Enter");
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(within(dialog).getByRole("status").textContent).toContain("original name changed");
+  expect(sends).not.toHaveBeenCalled();
 });

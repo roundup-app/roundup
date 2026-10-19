@@ -16,7 +16,7 @@ import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
-const RenameField = (props: { name: string; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
+const RenameField = (props: { name: string; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
   let field: HTMLInputElement | undefined;
   let finished = false;
   let changed = false;
@@ -43,7 +43,7 @@ const RenameField = (props: { name: string; selection: { start: number; end: num
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished) props.onEdit(event.currentTarget); }}
-    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.selection && !changed) ? null : field?.value ?? "", false)} />;
+    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.recovered && !changed) ? null : field?.value ?? "", false)} />;
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
@@ -64,7 +64,7 @@ export const ProjectTab = (props: {
   const parts = createMemo(() => nameParts(props.tab.name));
   const authority = useContext(ProjectDraftsContext);
   const drafts = authority?.(props.tab.path);
-  const schema = v.strictObject({ name: v.string(), base: v.string() });
+  const schema = v.strictObject({ name: v.string(), base: v.optional(v.string()) });
   drafts?.validate("header", schema);
   drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
   const destination = { surface: "header", object: props.tab.path, recipient: null };
@@ -78,7 +78,7 @@ export const ProjectTab = (props: {
   const problem = () => {
     const failure = drafts?.problem();
 
-    return failure?.destination && failure.destination.surface !== "header" ? null : failure;
+    return (failure?.destination && failure.destination.surface !== "header") || (!failure?.destination && records().length === 0) ? null : failure;
   };
 
   let panel: HTMLDivElement | undefined;
@@ -99,6 +99,7 @@ export const ProjectTab = (props: {
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
   let initialName = "";
+  let recovered = false;
   let revision: string | undefined;
 
   const capture = (field: HTMLInputElement) => {
@@ -106,19 +107,22 @@ export const ProjectTab = (props: {
     const selection = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
 
     if (previous?.value.name === field.value && JSON.stringify(previous.selection) === JSON.stringify(selection)) return;
-    revision = drafts?.edit(destination, { name: field.value, base: base ?? "" }, selection, "ordinary").draft.revision;
+    const value = base === undefined ? { name: field.value } : { name: field.value, base };
+    revision = drafts?.edit(destination, value, selection, "ordinary").draft.revision;
   };
 
   createEffect(on(() => props.selected, selected => { if (!selected) setEditing(null); }));
 
   const edit = () => {
-    const recovered = current() ?? records().filter(draft => draft.status === "failed").at(-1);
-    const parsed = recovered && v.safeParse(schema, recovered.value);
+    const retained = current() ?? records().filter(draft => draft.status === "failed").at(-1);
+    const parsed = retained && v.safeParse(schema, retained.value);
     const value = parsed && parsed.success ? parsed.output : null;
-    base = value?.base ?? props.tab.base;
+    // Older shared recovery records had no captured base: keep them copy/discard-only.
+    base = value ? value.base : props.tab.base;
     initialName = value?.name ?? props.tab.name;
-    restoredSelection = value ? recovered!.selection : null;
-    revision = value ? recovered!.revision : undefined;
+    recovered = value !== null;
+    restoredSelection = value ? retained!.selection : null;
+    revision = value ? retained!.revision : undefined;
     setEditing(wrap?.offsetWidth ?? 0);
   };
 
@@ -132,10 +136,16 @@ export const ProjectTab = (props: {
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
       onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}>
-      <Show when={editing() === null} fallback={<RenameField name={initialName} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
+      <Show when={editing() === null} fallback={<RenameField name={initialName} recovered={recovered} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
         setEditing(null);
 
         if (refocus) button?.focus();
+
+        if (saved !== null && base === undefined) {
+          recover(true);
+
+          return;
+        }
 
         if (saved !== null) {
           const submitted = revision;
@@ -167,9 +177,9 @@ export const ProjectTab = (props: {
     <Show when={records().length || problem()}>
       <Tip text={problem() ? copy.draftRetention(props.tab.path, copy.draftSurface("header"), problem()!.cause) : copy.unfinishedWork}>{trigger => <IconButton {...trigger()} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.path)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
     </Show>
-    <Show when={props.selected && problem()}>{failure => <Portal><aside class="header-retention" role="alert">
+    <Show when={props.selected && problem()}>{failure => <Portal><aside class="header-retention" role="status" aria-label={copy.draftIdentity(copy.draftSurface("header"), props.tab.path)}>
       <p>{copy.draftRetention(props.tab.path, copy.draftSurface("header"), failure().cause)}</p>
-      <button type="button" data-button="quiet" onClick={() => recover(true)}>{copy.recoverDrafts}</button>
+      <button type="button" data-button="quiet" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.draftSurface("header"), props.tab.path)} onClick={() => recover(true)}>{copy.recoverDrafts}</button>
     </aside></Portal>}</Show>
     <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
