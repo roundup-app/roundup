@@ -55,7 +55,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
   const [reopening, setReopening] = createSignal(false);
 
   let renameRevision = 0;
-  const renames = new Map<string, { committed: Project; acknowledged: number; pending: Map<number, string> }>();
+  const renames = new Map<string, { committed: Project; acknowledged: number; remaining: number; pending: Map<number, string> }>();
 
   const update = (path: string, change: (tab: OpenTab) => OpenTab) => setTabs((all) => all.map((tab) => (tab.project.path === path ? change(tab) : tab)));
 
@@ -182,8 +182,9 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
 
       if (!before) return { ...submission, status: "failed", error: "Project is no longer open" };
 
-      const holder = renames.get(path) ?? { committed: before, acknowledged: 0, pending: new Map<number, string>() };
+      const holder = renames.get(path) ?? { committed: before, acknowledged: 0, remaining: 0, pending: new Map<number, string>() };
       renames.set(path, holder);
+      holder.remaining++;
       holder.pending.set(submission.revision, name.trim() || folderOf(path));
 
       const showName = () => {
@@ -233,7 +234,9 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
 
         return { ...submission, status: "unknown", error: error.message };
       } finally {
-        if (holder.pending.size === 0) renames.delete(path);
+        holder.remaining--;
+
+        if (holder.remaining === 0) renames.delete(path);
       }
     },
   };

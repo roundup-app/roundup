@@ -35,7 +35,7 @@ export const Strip = (props: {
   onSelect: (path: string) => void;
   /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
   onMark: (path: string) => void;
-  onRename: (path: string, name: string) => ReturnType<ProjectsState["rename"]> | void;
+  onRename: (path: string, name: string) => ReturnType<ProjectsState["rename"]>;
   onClose: (path: string) => void;
   onChoose: () => void;
 }) => {

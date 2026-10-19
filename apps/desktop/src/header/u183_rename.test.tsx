@@ -180,13 +180,30 @@ it.each<[boolean, RpcError]>([
   expect(await unavailable).toMatchObject({ status: "unknown", path: path("api"), name: "D" });
   expect(reads).toBe(2);
   expect(state.tabs().find(tab => tab.project.path === path("api"))?.project.name).toBe("C");
+  let finishRead: (projects: Awaited<ReturnType<typeof app.projects>>) => void = () => {};
+
+  app.projects = () => new Promise(resolve => { reads++; finishRead = resolve; });
+  const reconciling = rename(path("api"), "E");
+  calls[5]!.reject(unknownError);
+  await waitFor(() => expect(reads).toBe(3));
+  app.projects = async () => [{ path: path("api"), name: "F", running: true }];
+  const laterUnknown = rename(path("api"), "F");
+  calls[6]!.reject(unknownError);
+  expect(await laterUnknown).toMatchObject({ status: "unknown", name: "F" });
+  const latest = rename(path("api"), "G");
+  calls[7]!.accept({ path: path("api"), name: "G" });
+  expect(await latest).toMatchObject({ status: "acknowledged", name: "G" });
+  finishRead([{ path: path("api"), name: "E", running: true }]);
+  expect(await reconciling).toMatchObject({ status: "unknown", name: "E" });
+  expect(state.tabs().find(tab => tab.project.path === path("api"))?.project.name).toBe("G");
   dispose();
-  expect(calls.map(({ path, name }) => [path, name])).toEqual([[path("api"), " A 雪 "], [path("api"), "B"], [path("api"), "refused"], [path("api"), "C"], [path("api"), "D"]]);
+  expect(calls.map(({ path, name }) => [path, name])).toEqual([[path("api"), " A 雪 "], [path("api"), "B"], [path("api"), "refused"], [path("api"), "C"], [path("api"), "D"], [path("api"), "E"], [path("api"), "F"], [path("api"), "G"]]);
 });
 
 
 it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => {
   const { app } = await openTabs({ api: [], web: [] });
+  fireEvent.click(tab("api"));
   const replies: { accept: (project: { path: string; name: string }) => void; reject: (error: Error) => void }[] = [];
   app.renameProject = () => new Promise((accept, reject) => { replies.push({ accept, reject }); });
   const a = await edit();
