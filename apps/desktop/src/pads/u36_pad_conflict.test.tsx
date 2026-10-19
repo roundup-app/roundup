@@ -573,3 +573,18 @@ it("p2544d_failed_conflict_reload_surfaces_reload_failure", async () => {
   expect(field.value).toBe("draft");
 
 });
+
+it("u2773a_pads_restores_exact_work", async () => {
+  const { connected, app } = await openShelf([padOf("retained", USER, "  original\n\n")]);
+  const field = await openPad("retained");
+  fireEvent.input(field, { target: { value: "unfinished 🌱 é\nsecond" } });
+  const record = connected.drafts.list().find(draft => draft.destination.surface === "pads");
+  expect(record?.value).toMatchObject({ originalName: "retained", source: "unfinished 🌱 é\nsecond", base: "  original\n\n" });
+  connected.drawer.close("keyboard");
+  const before = app.calls.filter(call => call.method === "pad.write").length;
+  const reopened = await openPad("retained");
+  expect(reopened.value).toBe("unfinished 🌱 é\nsecond");
+  fireEvent.focusOut(reopened);
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
+  expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+});
