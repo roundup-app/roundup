@@ -171,7 +171,7 @@ export const App = (props: {
 
     // Editing keys keep focus in the field, so they must not change its ring mid-entry.
     if (event.isComposing || (editing && !event.metaKey && !event.ctrlKey
-      && event.key !== "Tab" && event.key !== "Escape")) return;
+      && event.key !== "Tab" && event.key !== "Escape" && event.key !== "Meta" && event.key !== "Control")) return;
     document.documentElement.dataset.keyboardFocus = "true";
   };
 
