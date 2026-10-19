@@ -12,6 +12,8 @@ import { bodyOf, NOTE_MAX } from "./excerpt";
 import type { Screens } from "./screens";
 import type { TurnFacts } from "./turns";
 
+const availability = { available: "available", unavailable: "unavailable", unverified: "unverified" } as const;
+
 const form = v.strictObject({
   note: v.string(), excerpt: v.string(), source: v.string(), terminal: v.string(),
   attempt: v.nullable(v.string()), command: v.nullable(v.string()), cwd: v.nullable(v.string()),
@@ -42,14 +44,14 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
   drafts.registerRecovery("terminal_selection", (draft, facts) => {
     const parsed = v.safeParse(form, draft.value);
 
-    if (!parsed.success) return "unverified";
+    if (!parsed.success) return availability.unverified;
     const value = parsed.output;
 
-    if (facts.daemonExit() || facts.rail.terminalExit(value.terminal)) return "unavailable";
+    if (facts.daemonExit() || facts.rail.terminalExit(value.terminal)) return availability.unavailable;
 
-    if (facts.rail.failure()) return "unverified";
+    if (facts.rail.failure()) return availability.unverified;
 
-    if (draft.destination.recipient !== null && !facts.rail.nodes.some((node) => node.id === draft.destination.recipient)) return "unavailable";
+    if (draft.destination.recipient !== null && !facts.rail.nodes.some((node) => node.id === draft.destination.recipient)) return availability.unavailable;
     const source = facts.rail.nodes.find((node) => node.id === value.source);
     const terminal = facts.rail.terminals().find((each) => each.id === value.terminal);
 
@@ -71,7 +73,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     const original = parsed.success ? parsed.output : null;
 
     if (!id || !at || !selected() || (!original && !source)) return null;
-    const facts = capture?.facts ?? screens.emulatorFor(id).selectionFacts();
+    const facts = capture ? capture.facts : screens.emulatorFor(id).selectionFacts();
 
     const saved = drafts.edit({ surface: "terminal_selection", object: previous?.destination.object ?? crypto.randomUUID(), recipient }, {
       note: note(), excerpt: capture?.text ?? text(), source: original?.source ?? source!.id, terminal: original?.terminal ?? id, attempt: original ? original.attempt : source!.attempt,
@@ -157,7 +159,8 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
 
   const send = async (to: Receiver): Promise<boolean> => {
     const id = terminalId();
-    const body = id === null ? null : bodyOf(note(), held()?.text ?? text(), held()?.facts ?? screens.emulatorFor(id).selectionFacts());
+    const capture = held();
+    const body = id === null ? null : bodyOf(note(), capture?.text ?? text(), capture ? capture.facts : screens.emulatorFor(id).selectionFacts());
 
     if (body === null) {
       setError(copy.nothingSelected);
@@ -242,6 +245,14 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     });
   });
 
+  const hold = () => {
+    const id = terminalId();
+
+    if (id !== null && !held() && text() !== "") setHeld({ text: text(), facts: screens.emulatorFor(id).selectionFacts(), anchor: anchor() });
+
+    if (!current()) retain();
+  };
+
   return {
     receivers,
     selected,
@@ -284,13 +295,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     },
     error,
     anchor: () => held()?.anchor ?? anchor(),
-    hold: () => {
-      const id = terminalId();
-
-      if (id !== null && !held() && text() !== "") setHeld({ text: text(), facts: screens.emulatorFor(id).selectionFacts(), anchor: anchor() });
-
-      if (!current()) retain();
-    },
+    hold,
     /** The control shows by the selection once the pointer is up and the user has not sent or dismissed it. */
     open: () => selected() && !selecting() && !dismissed() && (held()?.anchor ?? anchor()) !== null,
     pointer: setSelecting,
@@ -301,6 +306,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     openNote: () => {
       if (!selected()) return;
 
+      hold();
       setDismissed(false);
       setFocusNote((count) => count + 1);
     },
