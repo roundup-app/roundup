@@ -498,6 +498,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const separate = drafts(second.dir).edit(destination, { source: "other Project" }, null, "ordinary").draft;
     const write = Storage.prototype.setItem;
 
+
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
       if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
       write.call(this, key, value);
@@ -593,6 +594,7 @@ describe("u2773 Project draft integration on real Projects", () => {
 
     const write = Storage.prototype.setItem;
 
+
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
       if (kind === "write" && key.startsWith("roundup:drafts:")) throw new Error("disk full");
 
@@ -684,7 +686,9 @@ describe("u2773 Project draft integration on real Projects", () => {
     const bound = app.forProject(first.dir);
     const agent = await bound.rpc("rail.startDoor", { id: original.id });
     const signal = () => { void bound.rpc("agent.permission", { id: agent.id, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } }).catch(() => undefined); };
+
     signal();
+
     await waitFor(async () => expect(await bound.rpc("decision.list", null)).toHaveLength(1));
     const decision = (await bound.rpc("decision.list", null))[0]!;
     const prompt = await bound.rpc("decision.capture", { id: decision.id });
@@ -693,14 +697,24 @@ describe("u2773 Project draft integration on real Projects", () => {
     const a = holder.edit(destination, { ...prompt, choice: "allow", note: "older exact\n" }, null, "ordinary").draft;
     holder.submit(a.revision);
     holder.settle(a.revision, "failed");
+    const write = Storage.prototype.setItem;
+
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
+
+      write.call(this, key, value);
+    });
+
     const b = holder.edit(destination, { ...prompt, choice: "deny", note: exact }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
     mount();
     const recovery = await openRecovery();
     await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
     expect(document.querySelector(".decision-card")).toBeNull();
+
     if (retirement === "answered") await bound.rpc("decision.answer", { id: decision.id, identity: prompt, answer: "deny", proof: PROOF });
     else if (retirement === "dismissed") await bound.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "Stop" } });
     else signal();
+
     expect((await bound.rpc("rail.tree", null)).find((node) => node.id === agent.id)?.attempt).toBe(agent.attempt);
     await within(recovery).findByText("Original object unavailable");
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
@@ -712,6 +726,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
     const inspect = screen.getByRole("button", { name: new RegExp(a.revision) });
     inspect.focus();
+    writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     expect(document.activeElement).toBe(inspect);
     fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
@@ -988,6 +1003,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const before = window.localStorage.getItem(`roundup:drafts:${first.dir}`);
     const write = Storage.prototype.setItem;
 
+
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
       if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
       write.call(this, key, value);
@@ -1035,6 +1051,7 @@ describe("u2773 Project draft integration on real Projects", () => {
 
     holder.settle(a.revision, status);
     const write = Storage.prototype.setItem;
+
 
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
       if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
