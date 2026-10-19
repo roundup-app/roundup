@@ -136,7 +136,23 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
-  const records = () => connected.drafts.recoverable().filter((draft) => !draft.destination.surface.startsWith("rail-"));
+  const visibleDecision = createMemo(() => connected.decisions.of(connected.rail.selected()));
+
+  const currentDecisions = createMemo(() => new Map(connected.drafts.list()
+    .filter((draft) => draft.destination.surface === "decisions" && draft.status === "draft")
+    .map((draft) => [draft.destination.object, draft.revision])));
+
+  const records = () => connected.drafts.recoverable().filter((draft) => {
+    if (draft.destination.surface.startsWith("rail-")) return false;
+
+    const visible = visibleDecision();
+
+    return !(draft.destination.surface === "decisions" && draft.status === "draft"
+      && visible?.answerable && visible.id === draft.value.decision
+      && draft.revision === currentDecisions().get(draft.destination.object)
+      && connected.decisions.availability({ daemon: String(draft.value.daemon), agent: String(draft.value.agent), attempt: String(draft.value.attempt), decision: String(draft.value.decision) }) === "available");
+  });
+
   const problem = () => connected.drafts.problem()?.destination?.surface.startsWith("rail-") ? null : connected.drafts.problem();
 
   return <Show when={records().length || problem()}>

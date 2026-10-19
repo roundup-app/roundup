@@ -114,3 +114,14 @@
 .window[data-shelf="open"][data-shelf-mode="overlay"]:not(:has(.drawer[data-open="true"])) .decision-card > p.ink[role="alert"] {
   max-width: max(var(--measure), calc(100% - var(--shelf-span)));
 }
+
+.ask-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.decision-list-failure > [role="alert"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

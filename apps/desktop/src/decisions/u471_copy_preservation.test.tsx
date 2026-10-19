@@ -31,7 +31,7 @@ describe("u471 Decisions use sentence case", () => {
   it("u471_previous_copy_assertions_are_preserved_agent_question_text_stays_as_written", async () => {
     await mountApp([askingWith("d1", "a", "keep lowercase?", [{ label: "keep v1 (recommended)", description: "leave it alone", preview: "lowercase preview" }])]);
     select("alpha");
-    await waitFor(() => expect(card()).not.toBeNull());
+    await waitFor(() => expect(card()?.querySelector("textarea")).toBeTruthy());
 
     const view = within(card()!);
 
