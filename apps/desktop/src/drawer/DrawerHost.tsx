@@ -204,7 +204,7 @@ const DraftRecovery = () => {
 
   const identity = (draft: ReturnType<typeof drafts.list>[number]) => {
     const { surface, object } = draft.destination;
-    const node = surface === "terminal_selection" ? undefined : rail.nodes.find((node) => node.id === object);
+    const node = rail.nodes.find((node) => node.id === (surface === "terminal_selection" ? draft.value.source : object));
 
     const name = surface === "pads" ? draft.value.originalName
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
@@ -212,6 +212,10 @@ const DraftRecovery = () => {
 
     return copy.draftIdentity(copy.draftSurface(surface === "rail" && node ? node.kind : surface), name ? String(name) : copy.originalDraftObject);
   };
+
+  const fields = (draft: ReturnType<typeof drafts.list>[number]) => draft.destination.surface === "terminal_selection"
+    ? ["note", "excerpt", "command", "cwd", "exit"].filter((field) => draft.value[field] !== null && draft.value[field] !== undefined)
+    : Object.keys(draft.value);
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
@@ -231,13 +235,13 @@ const DraftRecovery = () => {
         <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
         <Show when={availability(draft())}>{(text) => <p role="status" data-state={text() === copy.originalUnavailable ? "unavailable" : "unverified"}>{text()}</p>}</Show>
         <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
-        <For each={Object.keys(draft().value)}>{(field) => <div>
+        <For each={fields(draft())}>{(field) => <div>
           <h3>{copy.draftField(field)}</h3>
           <Show when={draft().policy === "ordinary"}><pre class="draft-value">{fieldText(draft(), field)}</pre></Show>
 
         </div>}</For>
         <div class="draft-actions">
-        <For each={Object.keys(draft().value)}>{(field) => <button data-button="quiet" type="button" onClick={() => void copyText(fieldText(draft(), field))}>{copy.copyField(copy.draftField(field).toLowerCase())}</button>}</For>
+        <For each={fields(draft())}>{(field) => <button data-button="quiet" type="button" onClick={() => void copyText(fieldText(draft(), field))}>{copy.copyField(field === "excerpt" ? copy.draftField(field) : copy.draftField(field).toLowerCase())}</button>}</For>
         <button data-button="quiet" type="button" onClick={() => drafts.discard(draft().revision)}>{copy.discardRevision}</button></div>
       </section>}</Show>
     </Show>

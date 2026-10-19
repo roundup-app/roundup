@@ -4,7 +4,7 @@ import { CHORDS } from "../keys/chords";
 import { agent, workstream } from "../testing/nodes";
 import { control, fireEvent, mountSend, pressShortcut, screen, waitFor } from "./sendHarness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); window.localStorage.clear(); });
 
 const AGENTS = [agent("a", "idle", "waiting"), agent("b", "working", "busy")];
 
