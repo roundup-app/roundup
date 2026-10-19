@@ -668,3 +668,15 @@ An Ask's text and its context: the five newest earlier Asks' parts and destinati
 
 **Placement call** (`PlacementCall`, `Agents::placement_call`):
 The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.
+
+**Deliverable** (user label: Made):
+A deliberately published Project result with a never-reused identity, authenticated maker, retained maker name, Home, title and publication time. Its target is one retained file or Pad revision, or an exact current external URL. Removing its maker does not remove it; explicit user removal cannot be replayed away.
+
+**Publication target** (`PublicationTarget`):
+The selected file, expected Pad incarnation and Revision or current external URL in a deliberate publication request. Its key belongs to the authenticated maker and Project; equal replay returns the same Deliverable and conflicting replay refuses.
+
+**Published target** (`PublishedTarget`, `ExternalAvailability`):
+The retained target identity of a Deliverable: local bytes with length and SHA-256, a Pad source incarnation and Revision, or an exact external URL whose availability is not checked.
+
+**Resolution** (`Resolution`, `UnavailableCause`):
+The exact retained target or an explicit cause preventing its use. Missing or corrupt revisions and revoked access never authorize substitution by a current path, title or same-named Pad.
