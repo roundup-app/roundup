@@ -6,7 +6,7 @@ import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createBulkDelete } from "../shelf/BulkDelete";
-import { isTodoOfRunning } from "../rail/pads/owned";
+
 import { createSelection } from "../shelf/selection";
 import { TickBox } from "./TickBox";
 import { Icon } from "../ink/Icon";
@@ -25,7 +25,8 @@ import { failureOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
-import { useShelfScope } from "./shelfScope";
+import { shelfScope } from "../shelf/scope";
+import { Groups } from "../shelf/Groups";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
@@ -202,16 +203,15 @@ export const Todos = () => {
   const [typing, setTyping] = createSignal(false);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const [unfolded, setUnfolded] = createSignal(false);
-  const scope = useShelfScope(connected);
-  const selectedWorkstream = scope.workstream;
-  const thisWorkstream = createMemo(() => selectedWorkstream() !== null && !scope.showAll());
+  const scope = shelfScope(connected);
+  const selectedWorkstream = scope.home;
 
   const open = shownTodos(connected, todos);
 
-  const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => `${connected.rail.selected()}:${scope.showAll()}`);
+  const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => connected.rail.selected() ?? "overview");
 
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
-    selectedWorkstream() !== null ? scope.showAll() || todo.home === selectedWorkstream() : isTodoOfRunning(todo, connected.rail.nodes)));
+    scope.includes(todo.home, todo.creator)));
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
@@ -219,7 +219,7 @@ export const Todos = () => {
     selected: selection.selected,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
     done: () => done().map(target),
-    context: () => `${connected.rail.selected()}:${scope.showAll()}`,
+    context: () => connected.rail.selected() ?? "overview",
     noun: copy.todos,
     replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     remove: (id) => failureOf(() => connected.app.rpc("todo.delete", { id })),
@@ -238,8 +238,6 @@ export const Todos = () => {
   };
 
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
-  const noneRunning = createMemo(() => selectedWorkstream() === null && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
-  const noneInWorkstream = createMemo(() => thisWorkstream() && todos.isLoaded() && todos.all().length > 0 && open().length === 0 && todos.failure() === null);
 
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
@@ -358,17 +356,10 @@ export const Todos = () => {
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
-      <Show when={noneRunning()}>
-        <p>{copy.noTodosFromRunningAgents}</p>
-      </Show>
-      <Show when={noneInWorkstream()}>
-        <p>{copy.noTodosInThisWorkstream}{" "}
-          <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>{copy.showAll}</button>
-        </p>
-      </Show>
-      <Show when={open().length > 0}>
-        <Sortable.Root class="todo-list shelf-list" plain ids={open().map((todo) => String(todo.id))} onOrderChange={sorted.order} external={sorted.external}>
-        <For each={open()}>
+      <Show when={open().length + done().length > 0}>
+        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => <>
+        <Sortable.Root class="todo-list shelf-list" plain ids={items().filter(todo => !todo.done).map((todo) => String(todo.id))} onOrderChange={sorted.order} external={sorted.external}>
+        <For each={items().filter(todo => !todo.done)}>
           {(todo, at) => (
             <Sortable.Item id={String(todo.id)} index={at()} pressable>
               {(parts) => (
@@ -382,7 +373,7 @@ export const Todos = () => {
               known={todos.byId()}
               onOpen={show}
               onComplete={complete}
-              sorted={sorted.row(todo.id, parts)}
+              sorted={sorted.row(todo.id, parts, () => items().filter(todo => !todo.done).map(todo => todo.id))}
               registerRow={(id, row) => {
                 selection.register(id, row);
 
@@ -395,6 +386,34 @@ export const Todos = () => {
           )}
         </For>
         </Sortable.Root>
+        <Show when={unfolded()}>
+            <For each={items().filter(todo => todo.done)}>
+              {(todo) => (
+                <ShelfRow
+                  glyph={<TickBox todo={todo} />}
+                  class="todo-row todo-inset"
+                  data-id={todo.id}
+                  data-todo={todo.id}
+                  data-selected={selection.selected().includes(todo.id) ? "true" : undefined}
+                  head={
+                    <RowButton
+                      hang={false}
+                      label={copy.todoRow(KIND_LABEL[kindOf(todo)], todo.id, todo.title)}
+                      tooltip={todo.title}
+                      pressed={selection.selected().includes(todo.id)}
+                      selectionActive={selection.selected().length > 0}
+                      ref={(row) => selection.register(todo.id, row)}
+                      onKeyDown={(event) => selectionKey(todo, event)}
+                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
+                    >
+                      {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
+                    </RowButton>
+                  }
+                />
+              )}
+            </For>
+        </Show>
+        </>}</Groups>
       </Show>
       <Show when={typing()}>
         <div class="shelf-list">
@@ -424,33 +443,7 @@ export const Todos = () => {
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
           </ShelfRow>
-          <Show when={unfolded()}>
-            <For each={done()}>
-              {(todo) => (
-                <ShelfRow
-                  glyph={<TickBox todo={todo} />}
-                  class="todo-row todo-inset"
-                  data-id={todo.id}
-                  data-todo={todo.id}
-                  data-selected={selection.selected().includes(todo.id) ? "true" : undefined}
-                  head={
-                    <RowButton
-                      hang={false}
-                      label={copy.todoRow(KIND_LABEL[kindOf(todo)], todo.id, todo.title)}
-                      tooltip={todo.title}
-                      pressed={selection.selected().includes(todo.id)}
-                      selectionActive={selection.selected().length > 0}
-                      ref={(row) => selection.register(todo.id, row)}
-                      onKeyDown={(event) => selectionKey(todo, event)}
-                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
-                    >
-                      {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
-                    </RowButton>
-                  }
-                />
-              )}
-            </For>
-          </Show>
+
         </div>
       </Show>
       <bulk.Bar />

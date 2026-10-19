@@ -25,10 +25,10 @@ const setup = async (worst = false, origin = "", width = 1280, height = 820) => 
   await page.call(`() => {
     const tab = document.querySelector('#shelf-tab-todos');
     if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('[data-part="branch"][aria-expanded] > .rail-row').click();
+    document.querySelector('[data-todo-root]').click();
   }`);
-  await page.until(`() => Boolean(document.querySelector('.shelf button[aria-pressed]'))`);
-  await page.call(`() => document.querySelector('.scope-control[aria-pressed="false"]').click()`);
+  await page.until(`() => !document.querySelector('.rail-row[data-selected="true"]')`);
+  await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click()`);
   await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
 };
 
@@ -110,6 +110,7 @@ run('u362 rendered Todo drag', () => {
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').length`)).toBe(0);
       const movedHome = await page.call<string>(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id);
       expect(movedHome).toBe(home);
+      await page.until(`() => document.querySelector('.shelf [data-todo="${id}"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === '${home}' `);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
       await page.pointer('down', back.x, back.y);

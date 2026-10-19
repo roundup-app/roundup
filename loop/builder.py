@@ -294,9 +294,15 @@ def stream(command, prompt, events, env, account, rights=RUN_RIGHTS):
                     event = json.loads(line)
                 except ValueError:
                     event = {}
-                content = event.get('message', {}).get('content', [])
+                if not isinstance(event, dict):
+                    event = {}
+                message, item = event.get('message', {}), event.get('item', {})
+                content = message.get('content', []) if isinstance(message, dict) else []
                 kinds = [part.get('type', '') for part in content] if isinstance(content, list) else []
-                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), *kinds, flush=True)
+                print(event.get('type', 'not an event'), item.get('type', '') if isinstance(item, dict) else '', *kinds,
+                      flush=True)
+                if event.get('type') == 'error' and isinstance(message, str):  # why Codex failed; no tool output
+                    print(f'::error::{message}', flush=True)
     finally:
         if rights is not None:
             subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
@@ -346,6 +352,21 @@ def codex_home(login, home):
     return home
 
 
+def strict(schema):
+    """The JSON Schema `schema` as OpenAI's structured outputs read it: every object closed and all its properties
+    required, every enum typed."""
+    if isinstance(schema, list):
+        return [strict(part) for part in schema]
+    if not isinstance(schema, dict):
+        return schema
+    schema = {key: strict(value) for key, value in schema.items()}
+    if 'enum' in schema and 'type' not in schema:
+        schema = {'type': 'string', **schema}
+    if isinstance(schema.get('properties'), dict):
+        schema = {**schema, 'required': list(schema['properties']), 'additionalProperties': False}
+    return schema
+
+
 def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS):
     """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
     Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
@@ -358,7 +379,7 @@ def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS):
     command = ['codex', 'exec', '--json', '--model', model, '--sandbox', 'danger-full-access',
                '--output-last-message', str(answer)]
     if schema is not None:
-        (home / 'schema.json').write_text(schema)
+        (home / 'schema.json').write_text(json.dumps(strict(json.loads(schema)), separators=(',', ':')))
         command += ['--output-schema', str(home / 'schema.json')]
     code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT, rights)
     if schema is not None and answer.is_file():
