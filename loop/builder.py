@@ -32,14 +32,19 @@ SCREEN_TRIES = 2
 # Identity Federation instead of the Max token. The workflows pass the repository variables as the JSON `CLAUDE_API_VARS`
 # (empty when it is unset); `API_VARS` are the ones Claude Code needs. GitHub's identity token lives about five minutes, so
 # a run's file is rewritten every `API_REFRESH` seconds. `--max-budget-usd` caps a call in dollars: a build or fix run
-# `BUILD_BUDGET`; a screen (Haiku, three turns, no tools) `SCREEN_BUDGET`; a review (Sonnet, 60 turns) and a design
-# critic (Opus, 80 turns) hold the model and turns of their claude-code-action runs in `READ_ONLY`.
+# `BUILD_BUDGET`; a screen (Haiku, three turns, no tools) `SCREEN_BUDGET`; a review and a design critic hold their model,
+# turns, budget and `--effort` in `READ_ONLY` (the critic on Sonnet here, Opus on the Max token). The value of `CLAUDE_API`
+# is the count of build and fix slots, which `slot_count` reads in place of `CODEX_RUNS`; a PR gets `API_ATTEMPTS` fix runs
+# in place of `ATTEMPTS`.
 API_VARS = ('ANTHROPIC_FEDERATION_RULE_ID', 'ANTHROPIC_ORGANIZATION_ID', 'ANTHROPIC_SERVICE_ACCOUNT_ID', 'ANTHROPIC_WORKSPACE_ID')
 API_AUDIENCE = 'https://api.anthropic.com'
 API_REFRESH = 60
 BUILD_BUDGET = 3
 SCREEN_BUDGET = 0.25
-READ_ONLY = {'review': ('claude-sonnet-5-5', 60, 1.5), 'critic': ('claude-opus-5-5', 80, 3)}
+READ_ONLY = {'review': ('claude-sonnet-5-5', 60, 1.5, 'medium'), 'critic': ('claude-sonnet-5-5', 80, 3, 'high')}
+BUILD_EFFORT = 'medium'
+SCREEN_EFFORT = 'low'
+API_ATTEMPTS = 2
 READ_ONLY_TOOLS = 'Bash,Read,Glob,Grep,Skill'
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
@@ -155,7 +160,7 @@ def left_off(issue):
         return ''
     findings = [c['body'] for marker in ('VERDICT:', 'CRITIC:') for c in orders.marked(pr, marker)[-1:]]
     return '\n\n'.join([
-        f"Continue PR #{pr}, do not start over: it used its {ATTEMPTS} fix runs and was closed unmerged ({closed['url']}). "
+        f"Continue PR #{pr}, do not start over: it used its {fix_attempts()} fix runs and was closed unmerged ({closed['url']}). "
         f"Instead of starting from `origin/main`, create the branch named above from its head: `git fetch origin "
         f"pull/{pr}/head && git switch -c <that branch> FETCH_HEAD && git merge origin/main`, keeping the behaviour of both "
         f"sides. Its last verdicts follow; meet each finding, keep the work that stands, and name PR #{pr} in your PR body.",
@@ -201,7 +206,7 @@ def screen(ask):
                 with claude_env() as env:
                     out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
                                           '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA),
-                                          *capped(SCREEN_BUDGET)],
+                                          *api_flags(SCREEN_BUDGET, SCREEN_EFFORT)],
                                          input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
                                          timeout=300, check=True, env=env)
                 result = json.loads(out.stdout)
@@ -346,9 +351,24 @@ def switched():
     return bool(os.environ.get('CLAUDE_API_VARS'))
 
 
-def capped(budget):
-    """The `claude` flags that cap a call at `budget` dollars: none on the Max token, which bills no dollars."""
-    return ['--max-budget-usd', str(budget)] if switched() else []
+def api_flags(budget, effort):
+    """The `claude` flags that cap a call at `budget` dollars and set its `effort`: none on the Max token."""
+    return ['--max-budget-usd', str(budget), '--effort', effort] if switched() else []
+
+
+def slot_count():
+    """The build and fix slots: `CLAUDE_API` when set, which must be a positive integer, else `CODEX_RUNS`."""
+    given = os.environ.get('CLAUDE_API', '')
+    if not given:
+        return int(os.environ['CODEX_RUNS'])
+    if not (given.isdigit() and int(given) > 0):
+        raise SystemExit(f'::error::CLAUDE_API must be the positive number of build and fix slots, not {given!r}')
+    return int(given)
+
+
+def fix_attempts():
+    """The fix runs a PR gets."""
+    return API_ATTEMPTS if switched() else ATTEMPTS
 
 
 @contextlib.contextmanager
@@ -406,9 +426,9 @@ def log_cost(label, cost):
                 out.write(f'- {line}\n')
 
 
-def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET, flags=('--dangerously-skip-permissions',)):
+def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET, effort=BUILD_EFFORT, flags=('--dangerously-skip-permissions',)):
     """L23: run `prompt` on Claude Code's `model` in this checkout, signed in with the Max token in
-    `CLAUDE_CODE_OAUTH_TOKEN` or, with `CLAUDE_API` set, on API credit capped at `budget` dollars (`claude_env`), answering
+    `CLAUDE_CODE_OAUTH_TOKEN` or, with `CLAUDE_API` set, on API credit capped at `budget` dollars at `effort` (`claude_env`), answering
     the JSON Schema `schema` unless it is None. `flags` are the permission flags; `rights` is as `stream` reads it.
     Appends the step output `execution_file`, its event lines, before the run starts, then `structured_output` when it
     answered. Returns its exit code."""
@@ -417,7 +437,7 @@ def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET
     events = home / 'events.jsonl'
     with open(output, 'a') as out:
         out.write(f'execution_file={events}\n')
-    command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose', *flags, *capped(budget)]
+    command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose', *flags, *api_flags(budget, effort)]
     if schema is not None:
         command += ['--json-schema', schema]
     with claude_env() as env:
@@ -967,7 +987,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
                                   orders.created(criticisms[-1]['created_at']) > answered):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
-    if len(attempts) >= ATTEMPTS and not plumbing:
+    if len(attempts) >= fix_attempts() and not plumbing:
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [c['body'] for c in {'review': verdicts, 'critic': criticisms}.get(cause, [])][-1:]
@@ -983,7 +1003,7 @@ def exhaust(current, attempts, verdicts, cause):
     pr, branch = current['number'], current['headRefName']
     match = LINKED.search(current['body'] or '')
     if not match:
-        flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
+        flag(pr, f'{fix_attempts()} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
     issue = int(match[1])
     if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
@@ -1006,12 +1026,12 @@ def exhaust(current, attempts, verdicts, cause):
         subjects = [c['messageHeadline'] for c in commits if since < orders.created(c['committedDate']) <= ended_at]
         lines.append(f"- `{cause_ran}` ({reason(cause_ran, ended_at)}): " + ('; '.join(subjects) or 'no commit'))
         since = ended_at
-    comment(issue, f'<!-- fix-exhausted #{pr} -->\nPR #{pr} ({current["url"]}) used its {ATTEMPTS} fix runs and was closed '
+    comment(issue, f'<!-- fix-exhausted #{pr} -->\nPR #{pr} ({current["url"]}) used its {fix_attempts()} fix runs and was closed '
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
                    + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nThe next build run continues from that head.')
-    strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
+    strike(issue, f'PR #{pr} used its {fix_attempts()} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
 
@@ -1190,11 +1210,11 @@ def main(args):
         case ['engine-read-only', schema]:
             return engine(sys.stdin.read(), schema, os.environ['GITHUB_OUTPUT'], rights=None)
         case ['claude-read-only', who, schema] if who in READ_ONLY:
-            model, turns, budget = READ_ONLY[who]
-            return claude(sys.stdin.read(), model, schema, os.environ['GITHUB_OUTPUT'], rights=None, budget=budget,
+            model, turns, budget, effort = READ_ONLY[who]
+            return claude(sys.stdin.read(), model, schema, os.environ['GITHUB_OUTPUT'], rights=None, budget=budget, effort=effort,
                           flags=('--max-turns', str(turns), '--allowedTools', READ_ONLY_TOOLS))
-        case ['pick', most] if most.isdigit():
-            pick(int(most))
+        case ['pick']:
+            pick(slot_count())
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
@@ -1207,7 +1227,7 @@ def main(args):
         case ['restore-merge-loss']:
             return 0 if restore_merge_loss() else 1
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
-            if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
+            if codex_slots(slot_count(), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
                       'repair this PR still needs.', file=sys.stderr)
                 return 3
@@ -1224,7 +1244,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',

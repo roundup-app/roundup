@@ -364,6 +364,7 @@ class Engine(unittest.TestCase):
                                              ACTIONS_ID_TOKEN_REQUEST_URL=None))
         self.assertIn('/identity-token', claude['env']['ANTHROPIC_IDENTITY_TOKEN_FILE'])
         self.assertEqual(claude['args'][claude['args'].index('--max-budget-usd') + 1], '3')
+        self.assertEqual(claude['args'][claude['args'].index('--effort') + 1], 'medium')
         for broken, why in ((dict(CLAUDE_API_VARS=json.dumps({**self.API, 'ANTHROPIC_WORKSPACE_ID': ''})), 'ANTHROPIC_WORKSPACE_ID'),
                             (dict(switch, CLAUDE_CODE_OAUTH_TOKEN='max'), 'CLAUDE_CODE_OAUTH_TOKEN')):
             with self.subTest(why=why), tempfile.TemporaryDirectory() as path:
@@ -371,6 +372,15 @@ class Engine(unittest.TestCase):
                     self.run_engine(path, 8, env={**switch, **broken})
                 self.assertIn(why, str(stop.exception))
                 self.assertFalse(Path(path, 'seen-claude').exists())
+
+    def test_l23_claude_api_sets_the_slots_and_must_be_a_positive_number(self):
+        with patch.dict(os.environ, CODEX_RUNS='0', CLAUDE_API='4'):
+            self.assertEqual(builder.slot_count(), 4)
+        for bad in ('0', 'yes', '-1'):
+            with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=bad), self.assertRaises(SystemExit):
+                builder.slot_count()
+        with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=''):
+            self.assertEqual(builder.slot_count(), 2)
 
     def test_l23_a_read_only_codex_run_asks_the_app_for_no_token_and_keeps_the_jobs_own(self):
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, GH_TOKEN='read'):

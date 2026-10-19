@@ -1,7 +1,7 @@
 name: build
 run-name: Build ready work Issues
 
-# L23: one-shot build runs. Build jobs and fix runs share the slots the repository variable `CODEX_RUNS` sets, whichever engine runs.
+# L23: one-shot build runs. Build jobs and fix runs share the slots the repository variable `CODEX_RUNS` sets, or `CLAUDE_API` when it is set, whichever engine runs.
 # `pick` starts the fix runs open Builder PRs need, then fills the slots left with ready work Issues. Each Issue runs build-issue.yml, whose own `after` starts the next pick as soon as
 # that Issue's model did work, so the slots work as a pool rather than a batch.
 # claude-code-action rejects push events, so a merge starts the build once `check` ends on `main`. The user's or a loop
@@ -54,8 +54,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CODEX_RUNS: ${{ vars.CODEX_RUNS }}
+          CLAUDE_API: ${{ vars.CLAUDE_API }}
         run: |
-          rows=$(python3 loop/builder.py pick "$CODEX_RUNS" 2>"$RUNNER_TEMP/pick.err") || { cat "$RUNNER_TEMP/pick.err" >&2; exit 1; }
+          rows=$(python3 loop/builder.py pick 2>"$RUNNER_TEMP/pick.err") || { cat "$RUNNER_TEMP/pick.err" >&2; exit 1; }
           # L96: a stuck invalid order shows on the run.
           tee -a "$GITHUB_STEP_SUMMARY" <"$RUNNER_TEMP/pick.err" >&2
           echo "rows=$rows" >>"$GITHUB_OUTPUT"

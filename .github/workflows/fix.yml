@@ -4,7 +4,7 @@ run-name: "${{ format('Fix PR #{0}: {1}', inputs.pr || github.event.workflow_run
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
 # draft its run left unfinished. A conflict only in generated files is resolved by a script with no model run, and so is a `rules` failure only on `rules.sh merge-loss` (L120), by restoring main's
 # version of each file it lists. A PR gets
-# three fix runs that worked; the fourth cause closes the PR, deletes its branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
+# three fix runs that worked (two with `CLAUDE_API` set); the fourth cause closes the PR, deletes its branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
 # A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
 # A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
 # does a plumbing cause (a conflict, a `rules` failure about PR shape): it gets a run with no comment, up to six per PR.
@@ -73,6 +73,8 @@ jobs:
           HEAD: ${{ inputs.head || github.event.workflow_run.head_sha }}
           CAUSE: ${{ inputs.cause || (github.event.workflow_run.name == 'loop' && 'rules' || 'check') }}
           CODEX_RUNS: ${{ vars.CODEX_RUNS }}
+          CLAUDE_API: ${{ vars.CLAUDE_API }}
+          CLAUDE_API_VARS: ${{ vars.CLAUDE_API != '' && toJSON(vars) || '' }}
         run: |
           code=0
           python3 loop/builder.py fix-task "$PR" "$HEAD" "$CAUSE" >"$RUNNER_TEMP/task.md" || code=$?
