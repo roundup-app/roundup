@@ -26,3 +26,5 @@ ROUNDUP_CAPTURES=DV5 pnpm exec vitest run src/ask/dv5_rendered.test.ts
 For a baseline, also set `ROUNDUP_BASELINE_ROOT` to a main checkout's `apps/desktop` directory with dependencies installed.
 
 Critic repair: Refresh is a quiet word button; each full row opens its recorded identity and retains the shared selected ground with `aria-current` after refusal. Hover and focus expose the full target in the shared tooltip without changing row height. State has its own ink line; publication time disambiguates accessible names, and the shared tooltip holds the full target and file hash. The Made heading aligns with the overview. Selected panes use the existing Ark-backed Popover, with one catalogue scroll owner and space above the hint line.
+
+Continuation of #2852: when a row shows an open failure, its target tooltip is disabled (and an already open tooltip closes). Refreshed captures show the selected row and unobscured cause in light and dark at 1512×950; all measured Checks still pass.
