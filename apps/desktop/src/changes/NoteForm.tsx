@@ -57,7 +57,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
       });
     }} /></label>
     <p role="status">{props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines}</p>
-    <Show when={restored}><p role="status">{copy.originalContext}</p></Show>
+    <Show when={comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision}><p role="status">{copy.originalContextStatus}</p></Show>
     <div class="diff-actions"><button type="button" data-button="quiet" onClick={props.close}>{copy.cancel}</button><button type="submit" data-button="quiet" disabled={!valid()}>{copy.save}</button></div>
   </form>;
 };
