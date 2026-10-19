@@ -181,6 +181,7 @@ describe("u54 keyboard help", () => {
     question(rowOf("a"));
     await waitFor(() => expect(help()).not.toBeNull());
 
+    await waitFor(() => expect(document.activeElement).toBe(help()));
     expect(await boundPresses(document.activeElement!)).toEqual([]);
     expect(app.calls.length).toBe(calls);
     expect(help()).not.toBeNull();
