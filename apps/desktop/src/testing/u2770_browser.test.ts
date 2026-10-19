@@ -61,11 +61,13 @@ it("u2770_pointer_and_keyboard_focus", async () => {
       await lane.until(focused(".ask-input"));
       expect(await ring()).toBe("none");
       await lane.capture("pointer-no-ring", "ask-click");
+
       for (const key of ["a", "ArrowLeft", "Backspace"]) {
         await lane.browser("press", key);
         expect(await lane.evaluate<boolean>(focused(".ask-input"))).toBe(true);
         expect(await ring()).toBe("none");
       }
+
       await lane.capture("pointer-no-ring", "ask-typing");
       await lane.browser("press", "Tab");
       await lane.until(`!(${focused(".ask-input")})`);
