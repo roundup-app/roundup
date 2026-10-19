@@ -1066,40 +1066,63 @@ async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
 }
 
 #[tokio::test]
-async fn u2773b_submission_replay_is_durable_and_conflicts_refuse() {
+async fn u2773b_submission_replay_survives_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let request = json!({"text":" exact 🌿\n ","submission":"revision-a"});
+    let first = {
+        let h = Harness::open(dir.path());
+        h.asks
+            .call(&h.ctx, "ask.send", request.clone())
+            .await
+            .unwrap()
+    };
+    let h = Harness::open(dir.path());
+    let replay = h.asks.call(&h.ctx, "ask.send", request).await.unwrap();
+    assert_eq!(first["id"], replay["id"]);
+    assert_eq!(replay["submission"], "revision-a");
+    assert_eq!(replay["text"], " exact 🌿\n ");
+    assert_eq!(h.list().await.as_array().unwrap().len(), 1);
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn u2773b_conflicting_submission_refuses() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::open(dir.path());
-    let request = json!({"text":" exact 🌿\n ","submission":"revision-a"});
-    let first = h
-        .asks
-        .call(&h.ctx, "ask.send", request.clone())
+    h.asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"original","submission":"a"}),
+        )
         .await
         .unwrap();
-    let replay = h
-        .asks
-        .call(&h.ctx, "ask.send", request.clone())
-        .await
-        .unwrap();
-    assert_eq!(first["id"], replay["id"]);
-    assert_eq!(first["submission"], "revision-a");
     let err = h
         .asks
         .call(
             &h.ctx,
             "ask.send",
-            json!({"text":"changed","submission":"revision-a"}),
+            json!({"text":"changed","submission":"a"}),
         )
         .await
         .unwrap_err();
     assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(h.list().await[0]["text"], "original");
     assert_eq!(h.list().await.as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn u2773b_equal_text_can_be_two_intentional_submissions() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let first = h
+        .asks
+        .call(&h.ctx, "ask.send", json!({"text":"same","submission":"a"}))
+        .await
+        .unwrap();
     let other = h
         .asks
-        .call(
-            &h.ctx,
-            "ask.send",
-            json!({"text":" exact 🌿\n ","submission":"revision-b"}),
-        )
+        .call(&h.ctx, "ask.send", json!({"text":"same","submission":"b"}))
         .await
         .unwrap();
     assert_ne!(first["id"], other["id"]);
@@ -1237,4 +1260,43 @@ async fn u2773a_removal_between_intake_and_placement_retains_original_work() {
         f.terminals.list().is_empty(),
         "replacement {replacement} receives no bytes"
     );
+}
+
+#[tokio::test]
+async fn u2773b_submission_cannot_be_replayed_to_another_destination() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let first = h
+        .agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":"First"}))
+        .await
+        .unwrap();
+    let second = h
+        .agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":"Second"}))
+        .await
+        .unwrap();
+    h.asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"exact","submission":"a","workstream":first["id"]}),
+        )
+        .await
+        .unwrap();
+    let err = h
+        .asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"exact","submission":"a","workstream":second["id"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(
+        h.list().await[0]["parts"][0]["placement"]["workstream"],
+        first["id"]
+    );
+    assert_eq!(h.list().await.as_array().unwrap().len(), 1);
 }

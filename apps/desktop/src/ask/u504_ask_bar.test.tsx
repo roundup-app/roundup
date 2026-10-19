@@ -164,3 +164,25 @@ it("u2773b_reconciliation_reads_acceptance_without_sending", async () => {
   expect((await connected.asks.reconcile("a")).kind).toBe("unknown");
   expect(sent(app)).toEqual([{ text: "same", submission: "a" }]);
 });
+
+
+it("u2773b_ask_outcomes_keep_their_submission_identity_out_of_order", async () => {
+  const { app, connected } = await mountAskBar();
+  let accept!: (value: Ask) => void;
+  let refuse!: (error: Error) => void;
+  app.handlers["ask.send"] = (params) => params.submission === "a"
+    ? new Promise<Ask>((resolve) => { accept = resolve; })
+    : new Promise<Ask>((_, reject) => { refuse = reject; });
+  const a = connected.asks.send({ text: " exact 🌿\n ", submission: "a", workstream: "ops" });
+  const b = connected.asks.send({ text: "newer", submission: "b" });
+  const error = new RpcError(-32003, "conflict");
+  refuse(error);
+  expect(await b).toEqual({ kind: "refused", submission: "b", error });
+  const accepted = { ...ask("accepted", 1, [], " exact 🌿\n "), submission: "a" };
+  accept(accepted);
+  expect(await a).toEqual({ kind: "acknowledged", submission: "a", ask: accepted });
+  expect(sent(app)).toEqual([
+    { text: " exact 🌿\n ", submission: "a", workstream: "ops" },
+    { text: "newer", submission: "b" },
+  ]);
+});
