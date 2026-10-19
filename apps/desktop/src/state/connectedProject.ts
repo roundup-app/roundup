@@ -19,14 +19,33 @@ import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
 import type { RailState } from "./rail";
 
+type Drafts = ReturnType<typeof draftStorage>;
+
+type Draft = ReturnType<Drafts["list"]>[number];
+
+type Availability = "available" | "unavailable" | "unverified";
+
+type Recovery = (draft: Draft, facts: {
+  rail: Pick<RailState, "nodes" | "terminals" | "terminalExit" | "failure">;
+  daemonExit: Accessor<DaemonExit | null>;
+}) => Availability;
+
+type ProjectDrafts = Drafts & {
+  /** Surface-owned identity extraction, installed independently of the original editor.
+   * App-run lifetime; facts come from the inspected connection, never a captured old one.
+   */
+  registerRecovery(surface: string, resolve: Recovery): void;
+  availability(draft: Draft, facts: Parameters<Recovery>[1]): Availability;
+};
+
 /** App-run ownership, keyed by the original path, survives connection/editor teardown.
  * Surface owners use connected.drafts for complete forms and captured submission revisions;
  * never construct another draftStorage for a connected Project. No operation delivers work.
  */
 export const createProjectDrafts = () => {
-  const projects = new Map<string, ReturnType<typeof draftStorage>>();
+  const projects = new Map<string, ProjectDrafts>();
 
-  return (path: string): ReturnType<typeof draftStorage> => {
+  return (path: string): ProjectDrafts => {
     const existing = projects.get(path);
 
     if (existing) return existing;
@@ -40,7 +59,18 @@ export const createProjectDrafts = () => {
       return result;
     };
 
-    const holder: ReturnType<typeof draftStorage> = {
+    const recovery = new Map<string, Recovery>();
+
+    const holder: ProjectDrafts = {
+      registerRecovery: (surface, resolve) => {
+        recovery.set(surface, resolve);
+        refresh(undefined);
+      },
+      availability: (draft, facts) => {
+        revision();
+
+        return recovery.get(draft.destination.surface)?.(draft, facts) ?? "unverified";
+      },
       list: () => {
         revision();
 
@@ -69,7 +99,7 @@ export const createProjectDrafts = () => {
 export type ConnectedProject = {
   project: Project;
   /** App-owned across surface disposal and connection replacement; keyed by original path. */
-  drafts: ReturnType<typeof draftStorage>;
+  drafts: ProjectDrafts;
   app: AppSeam;
   events: Events;
   rail: RailState;
