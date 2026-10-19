@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo } from "../todos/testHarness";
 import { USER } from "../testing/nodes";
-import { useShelfScope } from "../todos/shelfScope";
 
 afterEach(cleanup);
 
@@ -23,7 +22,7 @@ it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
   fireEvent.click(screen.getByRole("button", { name: "1 done" }));
   expect(screen.queryByText("1 selected")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
-  useShelfScope(connected).setShowAll(false);
+  connected.rail.select("scope-row");
   await waitFor(() => expect(screen.queryByText("1 selected")).toBeNull());
 });
 

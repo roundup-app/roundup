@@ -5,8 +5,8 @@ import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-j
 import type { Accessor, JSX } from "solid-js";
 import { useTabs } from "@ark-ui/solid/tabs";
 import { Tabs } from "../ui/Tabs";
-import { ScopeControl } from "./ScopeControl";
-import { useShelfScope } from "../todos/shelfScope";
+
+import { shelfScope } from "./scope";
 import { ShelfActions } from "./BulkDelete";
 import { SectionHead } from "../ink/SectionHead";
 import { Pads } from "../pads/Pads";
@@ -106,17 +106,15 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
   );
 };
 
-/** U373: the open tab's list and optional scope control; the tabs live in the window bar. */
+/** U373/U2744a: the open list follows Rail selection; the tabs live in the window bar. */
 export const Shelf = (props: { open: Accessor<boolean> }) => {
   const [actions, setActions] = createSignal<HTMLDivElement>();
   const connected = useConnectedProject();
-  const scope = useShelfScope(connected);
+  const scope = shelfScope(connected);
 
   return (
     <>
-      <Show when={scope.workstream()}>
-        <div class="shelf-bar"><ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} /></div>
-      </Show>
+      <div class="shelf-bar" data-shelf-scope>{scope.label()}</div>
       <ShelfActions.Provider value={{ mount: actions, open: props.open }}>
       <ScrollShadow>
         <For each={SHELF_TABS}>

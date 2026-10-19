@@ -47,12 +47,6 @@ const tabNamed = (name: string) => tabs().find((tab) => tab.textContent!.startsW
 const chord = (init: KeyboardEventInit = {}, target: Element | Document = document.body) =>
   leaderKey("KeyS", init, target);
 
-const selectRow = (id: string) => {
-  fireEvent.click(document.querySelector(`[data-id="${id}"]`)!);
-};
-
-const scopeButton = () => within(shelf()).queryByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
-
 const probe = (role: string, attributes: Record<string, string> = {}) => {
   const element = document.body.appendChild(document.createElement("div"));
 
@@ -64,41 +58,6 @@ const probe = (role: string, attributes: Record<string, string> = {}) => {
   return element;
 };
 
-describe("u368 the control is absent unless a Workstream is selected", () => {
-  it("u368_absent_with_an_agent_or_terminal_selected", async () => {
-    await mountApp();
-
-    selectRow("backend");
-    expect(await within(shelf()).findByRole("button", { name: "Show all Workstreams" })).toBeTruthy();
-
-    for (const id of ["migrate"]) {
-      selectRow(id);
-      await waitFor(() => expect(document.querySelector(`[data-id="${id}"]`)!.getAttribute("aria-selected")).toBe("true"));
-      expect(scopeButton(), id).toBeNull();
-    }
-  });
-
-  it("u368_this_one_narrows_to_the_selected_workstreams_todos", async () => {
-    const controls = await mountApp();
-
-    await controls.app.rpc("rail.createWorkstream", { name: "elsewhere", parent: null });
-    selectRow("backend");
-
-    const toggle = await within(shelf()).findByRole("button", { name: "Show all Workstreams" });
-
-    fireEvent.click(toggle);
-    const wide = shelf().querySelectorAll("[data-todo]").length;
-
-    fireEvent.click(toggle);
-    const homed = shelf().querySelectorAll("[data-todo]").length;
-
-    // The seed's Todos belong to the Agent `tokens` under `auth`, so `backend` is not their Home: the list narrows.
-    expect(wide).toBeGreaterThan(0);
-    expect(homed).toBeLessThan(wide);
-    fireEvent.click(toggle);
-    expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(wide);
-  });
-});
 
 describe("u370 the chord and esc", () => {
   it("u370_leader_s_toggles_from_a_terminal_and_never_reaches_it", async () => {
