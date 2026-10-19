@@ -49,7 +49,9 @@
   --button-inline: var(--space-1);
   display: grid;
   /* U443: the dot follows the name's last character; U382’s floor lives on the tab’s min-width, not on a padded name column. */
-  grid-template-columns: minmax(0, max-content) var(--space-2);
+  grid-template-columns: minmax(0, max-content);
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
   justify-content: start;
   flex: 1 1 auto;
   gap: var(--space-1);
@@ -205,4 +207,45 @@
   text-overflow: clip;
   text-align: center;
   color: var(--text);
+}
+
+.header-recovery {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - var(--space-5) * 2);
+  z-index: 2;
+  max-width: calc(var(--space-5) * 20);
+  max-height: calc(100% - var(--space-5) * 2);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow: auto;
+  height: fit-content;
+  white-space: normal;
+}
+
+.tab-actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.project-tab[data-unfinished="true"] .tab-actions {
+  margin-left: var(--space-3);
+}
+
+.tab-recover { visibility: hidden; }
+.tab-recover[data-visible="true"] { visibility: visible; }
+
+.header-recovery.draft-recovery [data-part="title"] {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.project-tab[data-unfinished="true"][data-selected="true"] {
+  /* Keep the 8ch name and its mark clear of both action targets and their gap. */
+  min-width: calc(8ch + 3 * var(--space-5) + 5 * var(--space-1) + var(--space-3) + 2 * var(--rule));
 }

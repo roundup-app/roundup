@@ -4704,3 +4704,161 @@ async fn u2773b_lost_intake_reply_reconciles_after_restart_without_another_effec
         before
     );
 }
+
+/// A shell that records every start and raw input byte independently of identity reads.
+fn terminal_identity_fixture() -> tempfile::TempDir {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = tempfile::tempdir().unwrap();
+    let shell = fixture.path().join("shell");
+    std::fs::write(fixture.path().join("writes"), "").unwrap();
+    std::fs::write(&shell, format!(
+        "#!/bin/sh\nstty -icanon -echo\nprintf 'start\\n' >> '{}'\nprintf '\\033]2;same name\\007vendor-editor-sentinel\\n'\ncat >> '{}'\n",
+        fixture.path().join("starts").display(), fixture.path().join("writes").display()
+    )).unwrap();
+    std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+    fixture
+}
+
+/// The title observation acknowledges that the shell has started and enabled raw input.
+async fn terminal_identity_facts(client: &rpc::Client) -> Value {
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let listed = client.request("terminal.list", Value::Null).await.unwrap();
+            if listed[0]["title"] == "same name" {
+                break listed[0].clone();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn u2773a_terminal_identity_survives_reconnect_without_effects() {
+    let fixture = terminal_identity_fixture();
+    let shell = fixture.path().join("shell");
+    let env = [
+        ("SHELL", shell.to_str().unwrap()),
+        ("IDENTITY_SECRET", "credential-sentinel"),
+    ];
+    let projects = [start(&env), start(&env)];
+    let mut identities = Vec::new();
+    for current in &projects {
+        let client = current.client().await;
+        let home = client
+            .request("rail.createWorkstream", json!({"name":"same home"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        client
+            .request("terminal.open", json!({"workstream":home}))
+            .await
+            .unwrap();
+        let facts = terminal_identity_facts(&client).await;
+        let identity = facts["incarnation"]
+            .as_str()
+            .expect("public Terminal incarnation")
+            .to_owned();
+        assert!(!identity.is_empty());
+        let mut keys: Vec<_> = facts
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "cwd",
+                "exit_code",
+                "id",
+                "incarnation",
+                "owner",
+                "program",
+                "running",
+                "title"
+            ]
+        );
+        let serialized = serde_json::to_string(&facts).unwrap();
+        assert!(!serialized.contains(&"0".repeat(64))); // The harness's attached authentication Proof.
+        assert!(!serialized.contains("vendor-editor-sentinel"));
+        assert!(!serialized.contains("credential-sentinel"));
+        assert_eq!(
+            client.request("terminal.list", Value::Null).await.unwrap(),
+            json!([facts])
+        );
+        drop(client);
+        let reconnected = current.client().await;
+        assert_eq!(
+            reconnected
+                .request("terminal.list", Value::Null)
+                .await
+                .unwrap(),
+            json!([facts])
+        );
+        identities.push(identity);
+    }
+    assert_ne!(identities[0], identities[1]);
+    assert_eq!(
+        std::fs::read_to_string(fixture.path().join("starts")).unwrap(),
+        "start\nstart\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(fixture.path().join("writes")).unwrap(),
+        ""
+    );
+}
+
+#[tokio::test]
+async fn u2773c_terminal_identity_distinguishes_replacement() {
+    let fixture = terminal_identity_fixture();
+    let shell = fixture.path().join("shell");
+    let env = [("SHELL", shell.to_str().unwrap())];
+    let mut project = start(&env);
+    let client = project.client().await;
+    let owner = client
+        .request("rail.createWorkstream", json!({"name":"same home"}))
+        .await
+        .unwrap()["id"]
+        .clone();
+    client
+        .request("terminal.open", json!({"workstream":owner}))
+        .await
+        .unwrap();
+    let original = terminal_identity_facts(&client).await;
+    project.restart(&env);
+    let client = project.client().await;
+    assert_eq!(
+        client.request("terminal.list", Value::Null).await.unwrap(),
+        json!([])
+    );
+    assert_eq!(
+        std::fs::read_to_string(fixture.path().join("starts")).unwrap(),
+        "start\n"
+    );
+    client
+        .request("terminal.open", json!({"workstream":owner}))
+        .await
+        .unwrap();
+    let replacement = terminal_identity_facts(&client).await;
+    assert!(
+        !original["incarnation"]
+            .as_str()
+            .expect("public Terminal incarnation")
+            .is_empty()
+    );
+    assert_ne!(replacement["incarnation"], original["incarnation"]);
+    for key in ["id", "owner", "title", "program", "cwd"] {
+        assert_eq!(replacement[key], original[key], "{key}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(fixture.path().join("starts")).unwrap(),
+        "start\nstart\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(fixture.path().join("writes")).unwrap(),
+        ""
+    );
+}
