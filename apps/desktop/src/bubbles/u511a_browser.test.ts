@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { waitFor } from "@testing-library/dom";
 import { appServer, type AppServer } from "../testing/appServer";
-import { startRealDaemon } from "../testing/realDaemonFixture";
+import { withProjectPair } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 
 const exec = promisify(execFile);
@@ -79,10 +79,7 @@ it("u511a_keyboard_context_menu_renames_and_click_away_commits_without_swallowin
 }, 90_000);
 
 it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", async () => {
-  const first = await startRealDaemon({}, true);
-  const second = await startRealDaemon({}, true);
-
-  try {
+  await withProjectPair(async (first, second) => {
     const app = createServedApp(first.base);
     const other = createServedApp(second.base);
     const opened = await app.rpc("terminal.open", { workstream: null });
@@ -145,8 +142,5 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
 
     await browser("screenshot", "/tmp/u2773-bubbles-storage-failure.png");
     process.stdout.write(`${JSON.stringify({ denseBefore, denseAfter })}\n`);
-  } finally {
-    await first.stop();
-    await second.stop();
-  }
+  });
 }, 240_000);
