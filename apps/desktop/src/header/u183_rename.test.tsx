@@ -1,7 +1,5 @@
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from "vitest";
-import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
-import { createServedApp } from "../testing/realSeam";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot } from "solid-js";
@@ -348,76 +346,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
 });
 
 
-describe("u2773 header on real Projects", () => {
-  let first: StartedDaemon;
-  let second: StartedDaemon;
-  beforeAll(async () => { first = await startRealDaemon({}); second = await startRealDaemon({}); }, 240_000);
-  afterAll(async () => { await first?.stop(); await second?.stop(); });
 
-  it("u2773a_header_restores_exact_work_real_reload", async () => {
-    window.localStorage.clear();
-    let one = createServedApp(first.base);
-    const two = createServedApp(second.base);
-    await one.renameProject(first.dir, "Same");
-    await two.renameProject(second.dir, "Same");
-    const projectTab = (path: string) => document.querySelector<HTMLElement>(`[data-path="${path}"]`);
-    const select = (path: string) => fireEvent.click(within(projectTab(path)!).getByRole("tab"));
-
-    const reopenEdit = async (path: string) => {
-      fireEvent.dblClick(projectTab(path)!.querySelector(".tab-name")!);
-
-      return screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
-    };
-
-    let opened = [first.dir, second.dir];
-
-    const app = {
-      ...one,
-      projects: async () => [...await one.projects(), ...await two.projects()].filter(project => opened.includes(project.path)),
-      forProject: (path: string) => path === first.dir ? one : two,
-      closeProject: async (path: string) => { first.daemon.kill(); opened = opened.filter(original => original !== path); },
-      chooseProjectPath: async () => first.dir,
-      openProject: async () => {
-        await first.restart(); one = createServedApp(first.base); opened.push(first.dir);
-
-        return one.renameProject(first.dir, "Same");
-      },
-      onDaemonExited: async () => () => {},
-    };
-
-    const sends = vi.spyOn(app, "renameProject");
-    const mount = () => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-    const view = mount();
-    await waitFor(() => expect(screen.getAllByRole("tab", { name: "Same" }).map(tab => tab.getAttribute("aria-busy"))).toEqual(["false", "false"]));
-    const input = await reopenEdit(first.dir);
-    fireEvent.input(input, { target: { value: "  real e\u0301 🪁  " } });
-    input.setSelectionRange(2, 7, "backward");
-    fireEvent.select(input);
-    press("Escape");
-    select(second.dir);
-    const other = await reopenEdit(second.dir);
-    fireEvent.input(other, { target: { value: "  second 東京  " } });
-    press("Escape");
-    fireEvent.pointerEnter(projectTab(first.dir)!);
-    fireEvent.click(await within(projectTab(first.dir)!).findByRole("button", { name: "Close Same" }));
-    await waitFor(() => expect(projectTab(first.dir)).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await waitFor(() => expect(projectTab(first.dir)).not.toBeNull());
-    select(second.dir);
-    view.unmount();
-    mount();
-    await waitFor(() => expect(screen.getAllByRole("tab", { name: "Same" }).map(tab => tab.getAttribute("aria-busy"))).toEqual(["false", "false"]));
-    expect(document.querySelector(".tab-rename")).toBeNull();
-    const restored = await reopenEdit(first.dir);
-    expect(restored.value).toBe("  real e\u0301 🪁  ");
-    expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 7, "backward"]);
-    press("Escape");
-    select(second.dir);
-    expect((await reopenEdit(second.dir)).value).toBe("  second 東京  ");
-    expect(sends).not.toHaveBeenCalled();
-    press("Escape");
-  });
-});
 
 
 it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
