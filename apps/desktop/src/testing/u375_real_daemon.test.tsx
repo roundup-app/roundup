@@ -186,6 +186,7 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
     await browser("screenshot", join(tmpdir(), "u2773-queries-before.png"));
     await browser("eval", `(() => {
       const write = Storage.prototype.setItem;
+      window.__queryStorageWrite = write;
       Storage.prototype.setItem = function(key, value) { if (key.startsWith('roundup:drafts:')) throw new Error('full'); return write.call(this, key, value); };
       const input = document.querySelector('.switcher input');
       input.value = '  é 🧭 東京  ';
@@ -194,6 +195,19 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
     await browser("wait", "--fn", "!!document.querySelector('.switcher [role=alert]')");
     console.info("U2773 queries retention failure Checks", (await browser("eval", "window.__checks()")).result);
     await browser("screenshot", join(tmpdir(), "u2773-queries-after.png"));
+    const calls = (await browser("eval", "window.__fake.app.calls.length")).result;
+    await browser("eval", `(() => {
+      Storage.prototype.setItem = window.__queryStorageWrite;
+      const input = document.querySelector('.switcher input');
+      input.setSelectionRange(2, 9, 'backward');
+      [...document.querySelectorAll('.switcher button')].find(button => button.textContent === 'Try again').focus();
+    })()`);
+    await browser("press", "Enter");
+    await browser("wait", "--fn", "!document.querySelector('.switcher [role=alert]') && document.activeElement === document.querySelector('.switcher input')");
+    expect((await browser("eval", `(() => {
+      const input = document.querySelector('.switcher input');
+      return [input.value, input.selectionStart, input.selectionEnd, input.selectionDirection, window.__fake.app.calls.length];
+    })()`)).result).toEqual(["  é 🧭 東京  ", 2, 9, "backward", calls]);
   } finally {
     await browser("close");
     await real.stop();
