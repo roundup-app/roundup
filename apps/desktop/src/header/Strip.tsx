@@ -172,8 +172,12 @@ export const Strip = (props: {
   onMount(() => {
     if (typeof ResizeObserver === "undefined" || !list) return;
 
-    observer = new ResizeObserver(() => {
-      unrevealed = props.active;
+    observer = new ResizeObserver((entries) => {
+      // Edge slots resize the list while browsing hidden tabs; only a resized
+      // selected tab needs revealing again to keep its recovery action reachable.
+      const active = props.active;
+
+      if (active && entries.some((entry) => entry.target === elements.get(active))) unrevealed = active;
       measure();
     });
 
