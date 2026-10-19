@@ -166,9 +166,8 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  memory 🐝\nnewer  " } });
   expect(screen.getByRole("alert").textContent).toContain("p");
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(before);
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  fireEvent.click(screen.getByRole("button", { name: "Review recovery options" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   const copyText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copyText } });
