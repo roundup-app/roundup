@@ -4,6 +4,8 @@ import { copy } from "../copy";
 export type StripTab = {
   path: string;
   name: string;
+  /** Last authoritative name, distinct from an optimistic display name. */
+  base?: string | undefined;
   /** `daemon exited <code>` once the Project's Daemon ended (U185). */
   exitText: string | null;
   needsYou: number;

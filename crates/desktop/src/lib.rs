@@ -126,8 +126,9 @@ fn rename_project(
     state: State<'_, AppState>,
     path: String,
     name: String,
+    base: Option<String>,
 ) -> Result<Project, RpcError> {
-    state.rename_project(&path, &name)
+    state.rename_project(&path, &name, base.as_deref())
 }
 
 #[tauri::command]
