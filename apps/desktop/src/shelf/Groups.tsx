@@ -32,7 +32,7 @@ export const Groups = <T,>(props: { items: Accessor<readonly T[]>; home: (item: 
 
     return <TreeView.NodeProvider node={entry(group())} indexPath={path()}>
       <TreeView.Branch data-shelf-group={id}>
-        <TreeView.BranchControl class="shelf-group-control">
+        <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
           <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
           <TreeView.BranchText>{group().name}</TreeView.BranchText>
         </TreeView.BranchControl>

@@ -19,5 +19,5 @@ export const showEverythingInApp = async (_name = /backend/): Promise<void> => {
   fireEvent.click(document.querySelector('[data-todo-root]')!);
   showShelfTab("Todos");
 
-  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')) fireEvent.click(control);
+  for (const control of document.querySelectorAll<HTMLElement>('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')) if (control.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(control);
 };

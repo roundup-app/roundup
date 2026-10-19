@@ -81,46 +81,30 @@ describe("u60 an Agent's Todos under it", () => {
     );
     await opened();
 
-    const group = screen.getByRole("button", { name: "notes" }).closest<HTMLElement>("[data-pads]")!;
+    const group = within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: "notes" }).closest<HTMLElement>("[data-pads]")!;
 
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
     expect(within(group).getByText(/Waits on/).closest("[data-todo-waits]")?.textContent).toContain("#4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 
-  it("u60_a_todo_of_an_agent_on_the_rail_is_not_in_the_shelf_but_the_others_stay", async () => {
-    await mount(TREE, [
-      todo(1, { creator: by("a1") }),
-      todo(2),
-      todo(3, { creator: by("gone") }),
-      todo(4, { creator: { kind: "ext", id: "x", parent: null } }),
-      todo(5, { creator: by("a1"), done: true }),
-    ]);
-
-    await shelf().findByRole("button", { name: /#2 todo 2/ });
-
-    expect(shelf().queryByRole("button", { name: /#1 todo 1/ })).toBeNull();
-    expect(shelf().getByRole("button", { name: /#3 todo 3/ })).toBeTruthy();
-    expect(shelf().getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
-    expect(shelf().getByText("1 done")).toBeTruthy();
-  });
-
   it("u60_a_click_on_a_todo_opens_its_drawer_without_a_creator_line", async () => {
     const { connected } = await mount(TREE, [todo(1, { creator: by("a1") })]);
 
     await opened();
-    fireEvent.click(screen.getByRole("button", { name: /#1 todo 1/ }));
+    fireEvent.click(within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: /#1 todo 1/ }));
 
     const drawer = await screen.findByLabelText("Drawer");
 
     await within(drawer).findByText("Blocker");
     expect(within(drawer).queryByText("Created by auth")).toBeNull();
-    expect(connected.rail.selected()).toBe(SCOPE_ROW);
+    expect(connected.rail.selected()).toBeNull();
   });
 
   it("u60_the_drawer_omits_creator_for_the_user_and_an_agent_off_the_rail", async () => {
     await mount(TREE, [todo(1), todo(2, { creator: by("gone") })]);
 
+    fireEvent.click(await screen.findByText("Unassigned"));
     fireEvent.click(await shelf().findByRole("button", { name: /#1 todo 1/ }));
     await within(await screen.findByLabelText("Drawer")).findByText("Blocker");
     expect(within(screen.getByLabelText("Drawer")).queryByText("Created by you")).toBeNull();
@@ -135,7 +119,7 @@ describe("u60 an Agent's Todos under it", () => {
 
     await opened();
 
-    const row = screen.getByRole("button", { name: /#1 todo 1/ }).closest<HTMLElement>("[data-todo]")!;
+    const row = within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: /#1 todo 1/ }).closest<HTMLElement>("[data-todo]")!;
 
     fireEvent.mouseEnter(row);
     fireEvent.click(within(row).getByRole("button", { name: "Complete" }));

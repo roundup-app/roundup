@@ -104,10 +104,13 @@ export const openShelf = async (pads: Pad[], onRail = false) => {
     </ConnectedProjectContext.Provider>
   ));
 
-  if (pads.length) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelectorAll("[data-shelf-row]")).toHaveLength(pads.length));
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
-  if (disclosure) fireEvent.click(disclosure);
+  if (disclosure) {
+    fireEvent.click(disclosure);
+    await waitFor(() => expect(disclosure.nextElementSibling?.hasAttribute("hidden")).toBe(false));
+  }
 
   return {
     app,

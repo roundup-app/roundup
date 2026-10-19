@@ -110,6 +110,7 @@ run('u362 rendered Todo drag', () => {
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').length`)).toBe(0);
       const movedHome = await page.call<string>(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id);
       expect(movedHome).toBe(home);
+      await page.until(`() => document.querySelector('.shelf [data-todo="${id}"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === '${home}' `);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
       await page.pointer('down', back.x, back.y);
