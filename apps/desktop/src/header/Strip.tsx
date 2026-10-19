@@ -49,6 +49,7 @@ export const Strip = (props: {
   const [cutEnd, setCutEnd] = createSignal(0);
   const elements = new Map<string, HTMLElement>();
   let list: HTMLDivElement | undefined;
+  let observer: ResizeObserver | undefined;
   const [closeOpener, setCloseOpener] = createSignal<HTMLElement>();
 
   const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
@@ -171,14 +172,15 @@ export const Strip = (props: {
   onMount(() => {
     if (typeof ResizeObserver === "undefined" || !list) return;
 
-    const observer = new ResizeObserver(() => {
+    observer = new ResizeObserver(() => {
       unrevealed = props.active;
       measure();
     });
 
     observer.observe(list);
+
     for (const element of elements.values()) observer.observe(element);
-    onCleanup(() => observer.disconnect());
+    onCleanup(() => observer?.disconnect());
   });
 
   // U186: leader `⇧J` marks the next Project that needs you, or this one; the webview takes it wherever focus is.
@@ -236,7 +238,11 @@ export const Strip = (props: {
                   closeFocus={!asking() && closeOpener()?.closest(".project-tab")?.getAttribute("data-path") === path}
                   ref={(element) => {
                     elements.set(path, element);
-                    onCleanup(() => elements.delete(path));
+                    observer?.observe(element);
+                    onCleanup(() => {
+                      observer?.unobserve(element);
+                      elements.delete(path);
+                    });
                   }}
                   onMark={() => props.onMark(path)}
                   onRename={(name, base) => props.onRename(path, name, base)}
