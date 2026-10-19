@@ -166,23 +166,53 @@ it("u2773b_reconciliation_reads_acceptance_without_sending", async () => {
 });
 
 
-it("u2773b_ask_outcomes_keep_their_submission_identity_out_of_order", async () => {
-  const { app, connected } = await mountAskBar();
-  let accept!: (value: Ask) => void;
-  let refuse!: (error: Error) => void;
-  app.handlers["ask.send"] = (params) => params.submission === "a"
-    ? new Promise<Ask>((resolve) => { accept = resolve; })
-    : new Promise<Ask>((_, reject) => { refuse = reject; });
-  const a = connected.asks.send({ text: " exact 🌿\n ", submission: "a", workstream: "ops" });
-  const b = connected.asks.send({ text: "newer", submission: "b" });
-  const error = new RpcError(-32003, "conflict");
-  refuse(error);
-  expect(await b).toEqual({ kind: "refused", submission: "b", error });
-  const accepted = { ...ask("accepted", 1, [], " exact 🌿\n "), submission: "a" };
-  accept(accepted);
-  expect(await a).toEqual({ kind: "acknowledged", submission: "a", ask: accepted });
-  expect(sent(app)).toEqual([
-    { text: " exact 🌿\n ", submission: "a", workstream: "ops" },
-    { text: "newer", submission: "b" },
-  ]);
+it("u2773a_ask_restores_exact_work", async () => {
+  const first = await mountAskBar();
+  const exact = "  e\u0301 🌿\nsecond line  ";
+  type(exact);
+  input()!.setSelectionRange(2, 6, "backward");
+  fireEvent.select(input()!);
+  first.connected.rail.select("ann");
+  expect(input()).toBeNull();
+  press("/", { metaKey: true }, document.querySelector(".outside")!);
+  await waitFor(() => expect(input()!.value).toBe(exact));
+  expect([input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([2, 6, "backward"]);
+  const path = first.connected.project.path;
+  first.unmount();
+  const other = await mountAskBar();
+  expect(input()!.value).toBe("");
+  type("other Project");
+  other.unmount();
+  const reopened = await mountAskBar([], null, undefined, false, path);
+  expect(input()!.value).toBe(exact);
+  expect([input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([2, 6, "backward"]);
+  expect(sent(first.app)).toEqual([]);
+  expect(sent(other.app)).toEqual([]);
+  expect(sent(reopened.app)).toEqual([]);
+});
+
+it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_preserves_other_revisions_%s", async (outcome) => {
+  const first = await mountAskBar();
+  let accept!: (ask: Ask) => void;
+  let reject!: (error: Error) => void;
+  first.app.handlers["ask.send"] = () => new Promise<Ask>((resolve, fail) => { accept = resolve; reject = fail; });
+  type("  A 🌿\n ");
+  press("Enter", {}, input()!);
+  type("  B e\u0301\n ");
+  if (outcome === "acknowledged") accept(ask("accepted", 1, []));
+  else reject(outcome === "refused" ? new RpcError(-32003, "refused") : new Error("lost reply"));
+  await waitFor(() => expect(first.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  expect(input()!.value).toBe("  B e\u0301\n ");
+  expect(first.connected.drafts.list().map(draft => [draft.value.text, draft.status])).toEqual(outcome === "acknowledged"
+    ? [["  B e\u0301\n ", "draft"]] : [["  A 🌿\n ", outcome === "refused" ? "failed" : "unknown"], ["  B e\u0301\n ", "draft"]]);
+  const path = first.connected.project.path;
+  first.unmount();
+  const reopened = await mountAskBar([], null, undefined, false, path);
+  expect(input()!.value).toBe("  B e\u0301\n ");
+  expect(sent(reopened.app)).toEqual([]);
+  const older = reopened.connected.drafts.list().find(draft => draft.status !== "draft");
+  if (older) reopened.connected.drafts.discard(older.revision);
+  reopened.unmount();
+  const again = await mountAskBar([], null, undefined, false, path);
+  expect(again.connected.drafts.list().map(draft => draft.value.text)).toEqual(["  B e\u0301\n "]);
 });
