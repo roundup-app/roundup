@@ -116,9 +116,17 @@ class Permissions(unittest.TestCase):
             self.assertIn("builder: 'true'", source, workflow)
             step = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
             self.assertIn('CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}', step, workflow)
-            self.assertIn('CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}', step, workflow)
+            self.assertIn("CLAUDE_CODE_OAUTH_TOKEN: ${{ vars.CLAUDE_API == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}", step, workflow)
             self.assertIn(f'python3 "{loop}/builder.py" engine', step, workflow)
             self.assertNotIn('github.token', step, workflow)
+
+    def test_l23_with_claude_api_no_step_receives_the_max_token_and_no_claude_code_action_runs(self):
+        for workflow in ('build-issue', 'fix', 'review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            for use in re.findall(r'^ *CLAUDE_CODE_OAUTH_TOKEN:.*$', source, re.M):
+                self.assertIn("vars.CLAUDE_API == '' &&", use, workflow)
+            for action in re.findall(r'(?:^|\n)      - id: claude\n        if: ([^\n]*)', source):
+                self.assertIn("vars.CLAUDE_API == ''", action, workflow)
 
     def test_l82_the_engine_waits_for_the_generated_conflict_script(self):
         source = (ROOT / '.github/workflows/fix.yml').read_text()
@@ -144,7 +152,7 @@ class Permissions(unittest.TestCase):
         self.assertNotIn('additional_permissions:', inputs)
         source = (ROOT / '.github/workflows/review.yml').read_text()
         job = source.split('  review-run:', 1)[1].split('    steps:', 1)[0]
-        self.assertNotIn(': write', job)
+        self.assertNotIn(': write', job.replace('id-token: write', ''))  # the API-credit identity token, hidden from the model
 
     def test_l24_the_review_run_runs_on_sonnet(self):
         self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
@@ -154,7 +162,7 @@ class Permissions(unittest.TestCase):
         self.assertIn('git restore --source=origin/main --worktree -- docs/design-system.md', source)
         self.assertIn('--model claude-opus-5-5\n', action_inputs('critic'))
         job = source.split('  critic-run:', 1)[1].split('    steps:', 1)[0]
-        self.assertNotIn(': write', job)
+        self.assertNotIn(': write', job.replace('id-token: write', ''))
         self.assertIn('github_token: ${{ github.token }}', action_inputs('critic'))
 
 

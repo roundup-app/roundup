@@ -70,8 +70,12 @@ jobs:
       pull-requests: read
       issues: read
       actions: read
+      id-token: write
     outputs:
       ran: ${{ steps.ran.outputs.ran }}
+    env:
+      # L23: the repository variables the switch `CLAUDE_API` needs, when it is set (`loop/builder.py` `claude_env`).
+      CLAUDE_API_VARS: ${{ vars.CLAUDE_API != '' && toJSON(vars) || '' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -83,7 +87,7 @@ jobs:
           git show origin/main:loop/review-checkout.sh | bash
           cp -R loop "$RUNNER_TEMP/loop"
       - id: claude
-        if: vars.CODEX_ONLY == ''
+        if: vars.CODEX_ONLY == '' && vars.CLAUDE_API == ''
         uses: anthropics/claude-code-action@v1
         with:
           prompt: ${{ needs.task.outputs.prompt }}
@@ -95,23 +99,30 @@ jobs:
             --max-turns 60
             --allowedTools Bash,Read,Glob,Grep,Skill
             --json-schema '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
-      # CODEX_ONLY: the same prompt and schema on Codex, signed in with the ChatGPT login, holding the job's read token only.
+      # CODEX_ONLY, without CLAUDE_API: the same prompt and schema on Codex, signed in with the ChatGPT login, holding the job's read token only.
       - name: Install Codex
-        if: vars.CODEX_ONLY != ''
+        if: vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
         run: npm install -g @openai/codex@0.161.0
       - id: codex
-        if: vars.CODEX_ONLY != ''
+        if: vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
         env:
           CODEX_ONLY: ${{ vars.CODEX_ONLY }}
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
           GH_TOKEN: ${{ github.token }}
           PROMPT: ${{ needs.task.outputs.prompt }}
         run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/loop/builder.py" engine-read-only '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
+      # CLAUDE_API: the same prompt and schema on Claude Code over API credit, holding the job's read token only.
+      - id: api
+        if: vars.CLAUDE_API != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROMPT: ${{ needs.task.outputs.prompt }}
+        run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/loop/builder.py" claude-read-only review '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
       # The answer travels as an artifact: a job output holding a model answer is dropped when it matches a secret's mask.
       - name: Keep the answer
         if: always()
         env:
-          ANSWER: ${{ steps.claude.outputs.structured_output || steps.codex.outputs.structured_output }}
+          ANSWER: ${{ steps.claude.outputs.structured_output || steps.codex.outputs.structured_output || steps.api.outputs.structured_output }}
         run: printf '%s' "$ANSWER" >"$RUNNER_TEMP/answer.txt"
       - uses: actions/upload-artifact@v6
         if: always()
@@ -122,7 +133,7 @@ jobs:
       - id: ran
         if: always()
         env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file || steps.codex.outputs.execution_file }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file || steps.codex.outputs.execution_file || steps.api.outputs.execution_file }}
         run: |
           ran=false
           if python3 "$RUNNER_TEMP/loop/builder.py" worked "$EXECUTION_FILE"; then ran=true; fi
