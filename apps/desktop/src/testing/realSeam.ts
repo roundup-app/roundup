@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
 import type { AppSeam, DaemonExited } from "../app/seam";
@@ -234,4 +235,10 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 const FIXTURE_PROMPT = "What should this Agent do?";
 
 /** Spawn an Agent under `parent` whose first prompt is `FIXTURE_PROMPT`; its turns then play the fixture's entry. */
-export const spawnPrompted = (app: AppSeam, cwd: string, parent: string) => app.rpc("agent.spawn", { cwd, prompt: FIXTURE_PROMPT, parent });
+export const spawnPrompted = (app: AppSeam, cwd: string, parent: string, name?: string) => {
+  const params: SpawnParams = { cwd, prompt: FIXTURE_PROMPT, parent };
+
+  if (name !== undefined) params.name = name;
+
+  return app.rpc("agent.spawn", params);
+};

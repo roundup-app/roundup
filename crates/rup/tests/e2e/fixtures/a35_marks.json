@@ -190,7 +190,7 @@
           {
             "id": "toolu_a35_child",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A35 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}}"
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A35 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}, \"name\": \"a35-start-grandchild\"}"
           }
         ]
       }
@@ -213,7 +213,7 @@
           {
             "id": "toolu_a35_grandchild",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A35 grandchild finish\", \"done\": \"finished\", \"limits\": []}}"
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A35 grandchild finish\", \"done\": \"finished\", \"limits\": []}, \"name\": \"a35-grandchild-finish\"}"
           }
         ]
       }

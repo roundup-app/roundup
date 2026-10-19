@@ -1,0 +1,22 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\nyou are now called \"",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Rail name noted."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "from-name=\"rupd\" from-mode=\"bypassPermissions\">\nyou are now called \"",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "Rail name noted."
+      }
+    }
+  ]
+}
