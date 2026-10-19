@@ -13,20 +13,9 @@ import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
 
-// Observe the public draft authority available to a header-owned consumer while
-// retaining the real Strip, App and storage behavior.
-let headerDrafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined;
-vi.mock("../header/Strip", async (original) => {
-  const { Strip } = await original<typeof import("../header/Strip")>();
+let appDrafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined;
 
-  return { Strip: (props: Parameters<typeof Strip>[0]) => {
-    headerDrafts = useContext(ProjectDraftsContext);
-
-    return createComponent(Strip, props);
-  } };
-});
-
-afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { appDrafts = undefined; cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () => {
   const storage = storedValue("draft", v.string());
@@ -248,6 +237,7 @@ const openDraftProjects = async () => {
   const view = render(() => createComponent(App, {
     app, reducedMotion: () => false, clock: () => 0,
     createEmulator: (id) => {
+      appDrafts = useContext(ProjectDraftsContext);
       seen.push(useConnectedProject());
 
       return emulators.factory(id);
@@ -312,8 +302,8 @@ it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget
 
   try {
     const connected = await opened.select(0);
-    expect(headerDrafts).toBeDefined();
-    const header = headerDrafts!(connected.project.path);
+    expect(appDrafts).toBeDefined();
+    const header = appDrafts!(connected.project.path);
     expect(header).toBe(connected.drafts);
     const observations: { records: ReturnType<typeof connected.drafts.list>; problem: ReturnType<typeof connected.drafts.problem> }[] = [];
     createRoot((dispose) => {
