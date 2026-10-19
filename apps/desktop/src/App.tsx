@@ -2,7 +2,7 @@ import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -166,6 +166,8 @@ export const App = (props: {
   drafts?: ReturnType<typeof createProjectDrafts>;
 }) => {
   const clearBrowserSelection = (event: MouseEvent) => {
+    document.documentElement.dataset.keyboardFocus = "false";
+
     if (event.button !== 0) return;
 
     window.getSelection()?.removeAllRanges();
@@ -177,8 +179,15 @@ export const App = (props: {
     }
   };
 
-  window.addEventListener("pointerdown", clearBrowserSelection, true);
-  onCleanup(() => window.removeEventListener("pointerdown", clearBrowserSelection, true));
+  onMount(() => {
+    // Start keyboard-visible for native accessibility focus arriving before any page input.
+    document.documentElement.dataset.keyboardFocus = "true";
+    window.addEventListener("pointerdown", clearBrowserSelection, true);
+  });
+  onCleanup(() => {
+    window.removeEventListener("pointerdown", clearBrowserSelection, true);
+    delete document.documentElement.dataset.keyboardFocus;
+  });
 
   const projects = createProjectsState(props.app);
   const drafts = props.drafts ?? createProjectDrafts();

@@ -34,11 +34,6 @@
   color: var(--grey);
 }
 
-/* Focus is the caret alone: no box wraps the field inside the panel (the Thread composer's rule, U353). */
-.switcher .app-combobox-input:focus-visible {
-  outline-width: 0;
-}
-
 .centre-stack {
   position: relative;
 }

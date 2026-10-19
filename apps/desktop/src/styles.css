@@ -18,11 +18,21 @@ p {
   margin: 0;
 }
 
-/* Click targets (docs/design-system.md, "Click targets"; U133): the one focus ring every stylesheet defers to. Buttons are drawn in buttons.css. */
+/* U2770: last input owns the ring, including scripted focus and shadow-root consumers. */
+:root {
+  --keyboard-ring: none;
+  --keyboard-ring-tree-offset: calc(-1 * var(--space-1));
+  --keyboard-ring-width: 0px;
+  --keyboard-ring-color: transparent;
+}
+:root[data-keyboard-focus="true"] {
+  --keyboard-ring: 2px solid var(--accent);
+  --keyboard-ring-width: 2px;
+  --keyboard-ring-color: var(--accent);
+}
+:focus,
 :focus-visible {
-  outline-width: 2px;
-  outline-style: solid;
-  outline-color: var(--accent);
+  outline: var(--keyboard-ring);
   outline-offset: 1px;
 }
 
@@ -148,7 +158,7 @@ p {
 }
 
 .resize-edge:hover::before,
-.resize-edge:focus-visible::before {
+:root[data-keyboard-focus="true"] .resize-edge:focus::before {
   opacity: 1;
 }
 
@@ -516,4 +526,60 @@ code {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* Focus geometry and text-caret exceptions share the same authority (U2770). */
+.todo-tick:focus {
+  outline: none;
+}
+
+.todo-tick:focus::before {
+  outline: var(--keyboard-ring);
+  outline-width: var(--keyboard-ring-width);
+  outline-offset: 2px;
+}
+
+/* Keyboard focus only, inside the bar's box so no ring is clipped. */
+[data-flat-tab] button:focus,
+[data-flat-add]:focus {
+  outline-offset: -2px;
+}
+
+.app-select-list:focus {
+  outline: none;
+}
+
+.app-listbox:focus {
+  outline-offset: -2px;
+}
+
+.terminal-tab-editor [data-part="input"]:focus {
+  outline-offset: -2px;
+}
+
+/* The shared focus ring (styles.css) is deliberately off here: the user chose the caret alone for this field. */
+.entry-row .entry-field:focus {
+  outline: none;
+}
+
+.spawn-prompt-field:focus {
+  outline-width: 0;
+}
+
+/* Full-width rows keep their keyboard ring inside the clipping Rail. */
+.rail-tree .app-tree .rail-row:focus {
+  outline-offset: calc(-1 * var(--space-1));
+}
+
+.note-form textarea:focus {
+  outline: none;
+}
+
+/* Focus is the caret alone: no box wraps the field inside the panel (the Thread composer's rule, U353). */
+.switcher .app-combobox-input:focus {
+  outline-width: 0;
+}
+
+.order-field textarea:focus {
+  outline-width: 0;
 }
