@@ -26,7 +26,7 @@ const lines = (change: Change): string[] => {
 };
 
 /** History loads only here; its first response captures this opening's unread boundary. */
-export const TodoHistory = (props: { id: number }) => {
+export const TodoHistory = (props: { id: number; onCapture?: (change: Change | undefined) => void }) => {
   const { app, events, drawer } = useConnectedProject();
   const content = drawer.content();
   const [history, setHistory] = createSignal<History | null>(null);
@@ -46,6 +46,7 @@ export const TodoHistory = (props: { id: number }) => {
       const fetched = await app.rpc("todo.getHistory", { id });
 
       if (!alive || mine !== latest || id !== props.id || drawer.content() !== content) return;
+      props.onCapture?.(fetched.changes.at(-1));
       const opening = history() === null;
 
       if (boundary === undefined) boundary = fetched.unread;

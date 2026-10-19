@@ -5,6 +5,7 @@ import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
+import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -12,8 +13,8 @@ import { TickBox } from "./TickBox";
 import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
-import { EditableText } from "./EditableText";
-import { failureOf } from "./failureOf";
+import { EditableText, TodoDraftRecovery } from "./EditableText";
+import { failureOf, outcomeOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
@@ -26,8 +27,9 @@ const TodoLine = (props: { todo: Todo }) => (
 
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
-  const { app, drawer } = useConnectedProject();
+  const { app, drawer, drafts } = useConnectedProject();
 
+  const [captured, setCaptured] = createSignal<Change>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [offering, setOffering] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
@@ -85,15 +87,58 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
 
   const blockerBase = () => answered() ?? todo();
 
-  const changeBlockers = (next: (blockers: number[]) => number[]) => {
-    const pick = () =>
-      attempt(async () => {
-        const base = blockerBase();
+  const changeBlockers = (action: "add" | "remove", blocker: number) => {
+    const base = blockerBase();
 
-        if (!base) return;
+    if (!base) return;
+    const capture = captured();
+    const original = capture?.after ?? base;
 
-        setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers: next(base.blockers) }));
-      });
+    const next = (blockers: number[]) => action === "add"
+      ? [...new Set([...blockers, blocker])] : blockers.filter(id => id !== blocker);
+
+    // Each queued choice owns its revision, even while its History read is outstanding.
+    const destination = { surface: "todos", object: String(props.id), recipient: `blockers:${crypto.randomUUID()}` };
+
+    const origin = { originalTitle: original.title, originalBody: original.body, originalDone: original.done,
+      originalBlockers: original.blockers.map(String), originalChange: capture?.seq ?? null, action, blocker };
+
+    const waiting = drafts.edit(destination, { ...origin, title: original.title, body: original.body, done: original.done,
+      blockers: next(original.blockers).map(String), baseBlockers: original.blockers.map(String), expected_change: capture?.seq ?? null }, null, "ordinary").draft;
+
+    const pick = async () => {
+      // A queued add/remove composes with the preceding accepted pick, using one Values/sequence pair.
+      let change: Change | undefined;
+      const readFailure = await failureOf(async () => { change = (await app.rpc("todo.getHistory", { id: props.id })).changes.at(-1); });
+
+      // Discarding a choice before its read returns never authorizes a later mutation.
+      if (!drafts.list().some(draft => draft.revision === waiting.revision)) return;
+
+      if (readFailure !== null || !change) {
+        drafts.submit(waiting.revision);
+        drafts.settle(waiting.revision, "failed");
+        setFailure(readFailure ?? copy.originalUnverified);
+
+        return;
+      }
+
+      const blockers = next(change.after.blockers);
+
+      const draft = drafts.edit(destination, { ...origin, title: change.after.title, body: change.after.body,
+        done: change.after.done, blockers: blockers.map(String), baseBlockers: change.after.blockers.map(String), expected_change: change.seq }, null, "ordinary").draft;
+
+      drafts.submit(draft.revision);
+
+      try {
+        setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers, expected_change: change.seq }));
+        drafts.settle(draft.revision, "acknowledged");
+        setFailure(null);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+        drafts.settle(draft.revision, outcomeOf(error));
+        setFailure(error.message);
+      }
+    };
 
     // A bug that rejects one pick is reported, and the picks behind it still run.
     picks = picks.then(pick, (bug) => {
@@ -103,12 +148,12 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     });
   };
 
-  const addBlocker = (blocker: number) => changeBlockers((blockers) => [...blockers, blocker]);
+  const addBlocker = (blocker: number) => changeBlockers("add", blocker);
 
   /** U152: the other blockers stay, in order. */
   const removeBlocker = (blocker: number) => {
     removing = true;
-    changeBlockers((blockers) => blockers.filter((id) => id !== blocker));
+    changeBlockers("remove", blocker);
   };
 
   const keep = () => {
@@ -168,18 +213,20 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                 <div class="todo-detail-title" ref={(element) => { titleRow = element; }}>
                   <TickBox todo={{ ...current(), done: completed() || current().done }} onComplete={complete} />
                   <EditableText
+                    todo={current()}
+                    captured={captured}
                     name="title"
                     multiline={false}
-                    value={current().title}
-                    commit={(title) => attempt(() => app.rpc("todo.update", { id: props.id, title, body: null }))}
+                    commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
                   />
                 </div>
                 <div class="todo-detail-body">
                 <EditableText
+                  todo={current()}
+                  captured={captured}
                   name="body"
                   multiline
-                  value={current().body}
-                  commit={(body) => attempt(() => app.rpc("todo.update", { id: props.id, title: null, body }))}
+                  commit={async (body, expected_change) => { await app.rpc("todo.update", { id: props.id, title: null, body, expected_change }); }}
                 />
                 </div>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
@@ -220,11 +267,12 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                     )}
                   </For>
                 </Show>
-                <TodoHistory id={props.id} />
+                <TodoHistory id={props.id} onCapture={setCaptured} />
               </>
             )}
           </Show>
       </div>
+      <TodoDraftRecovery object={String(props.id)} active inDrawer />
       <Show when={todo()}>
         <IconButton class="todo-delete" aria-label={copy.deleteTodo}
           ref={(button) => { deleteButton = button; }}
