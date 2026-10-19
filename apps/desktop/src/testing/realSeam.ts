@@ -2,7 +2,7 @@ import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
-import type { AppSeam, DaemonExited } from "../app/seam";
+import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
 const outcomeSchema = v.union([
   v.object({ result: v.unknown() }),
@@ -23,6 +23,7 @@ const frameSchema = v.union([
  * U463 opts into first-run with a choice callback; it can only choose the configured Project or cancel.
  */
 export const createServedApp = (base: string, choice?: () => "choose" | "cancel"): AppSeam => {
+  const page = typeof window === "undefined" ? undefined : window;
   let projectOpened = choice === undefined;
   const exits = new Set<(exit: DaemonExited) => void>();
   let exited: DaemonExited | null = null;
@@ -69,64 +70,87 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
   const selectOutput: AppSeam["selectOutput"] = (id, listener) =>
     reach(async () => {
       let released = false;
+      let suspended = false;
       let controller = new AbortController();
+      let position: number | undefined;
 
-      const open = async (): Promise<{ body: ReadableStream<Uint8Array>; offset: number }> => {
-        controller = new AbortController();
-
-        const response = await fetch(`${base}/__daemon/output?terminal=${encodeURIComponent(id)}`, { signal: controller.signal });
-
-        if (!response.ok || !response.body) {
-          const failure = v.safeParse(v.object({ error: v.object({ code: v.number(), message: v.string() }) }), await response.json().catch(() => null));
-
-          throw failure.success ? new RpcError(failure.output.error.code, failure.output.error.message) : new RpcError(INTERNAL_CODE, `terminal output answered ${response.status}`);
-        }
-
-        return { body: response.body, offset: Number(response.headers.get("x-output-after")) };
+      const hide = () => {
+        suspended = true;
+        controller.abort();
       };
 
-      // The relay fails a stream it cannot continue exactly (a gap, an overlarge frame); a fresh selection resumes it and the listener hears what was skipped.
-      const pump = async (current: { body: ReadableStream<Uint8Array>; offset: number }): Promise<void> => {
-        let position = current.offset;
+      const show = () => {
+        if (!suspended || released) return;
+
+        suspended = false;
+        void start();
+      };
+
+      const release = async () => {
+        released = true;
+        controller.abort();
+        page?.removeEventListener("pagehide", hide);
+        page?.removeEventListener("pageshow", show);
+      };
+
+      let ready: (value: OutputSubscription) => void;
+      let fail: (error: RpcError) => void;
+
+      const selected = new Promise<OutputSubscription>((resolve, reject) => {
+        ready = resolve;
+        fail = reject;
+      });
+
+      const start = async (): Promise<void> => {
+        const current = new AbortController();
+        controller = current;
+        let streaming = false;
 
         try {
-          const reader = current.body.getReader();
+          const response = await fetch(`${base}/__daemon/output?terminal=${encodeURIComponent(id)}`, { signal: current.signal });
+
+          if (!response.ok || !response.body) {
+            const failure = v.safeParse(v.object({ error: v.object({ code: v.number(), message: v.string() }) }), await response.json().catch(() => null));
+
+            throw failure.success ? new RpcError(failure.output.error.code, failure.output.error.message) : new RpcError(INTERNAL_CODE, `terminal output answered ${response.status}`);
+          }
+
+          if (current.signal.aborted) return;
+
+          streaming = true;
+          const offset = Number(response.headers.get("x-output-after"));
+
+          if (position !== undefined) listener({ gap: { from: position, to: offset } });
+          position = offset;
+          ready({ offset, release });
+          const reader = response.body.getReader();
 
           for (;;) {
             const { value, done } = await reader.read();
 
-            if (done || released) return;
+            if (done || current.signal.aborted) return;
 
             position += value.length;
             listener(value);
           }
-        } catch {
-          if (released) return;
+        } catch (error) {
+          if (current.signal.aborted) return;
 
-          try {
-            const next = await open();
-
-            if (released) return;
-
-            listener({ gap: { from: position, to: next.offset } });
-            await pump(next);
-          } catch {
-            // The Daemon is gone or the Terminal has exited: the stream ends and the Project's exit says why.
+          if (!streaming) {
+            await release();
+            fail(error instanceof RpcError ? error : new RpcError(INTERNAL_CODE, error instanceof Error ? error.message : String(error)));
+          } else {
+            // A relay gap requires a fresh selection; its offset tells the listener what was skipped.
+            void start();
           }
         }
       };
 
-      const first = await open();
+      page?.addEventListener("pagehide", hide);
+      page?.addEventListener("pageshow", show);
+      void start();
 
-      void pump(first);
-
-      return {
-        offset: first.offset,
-        release: async () => {
-          released = true;
-          controller.abort();
-        },
-      };
+      return selected;
     });
 
   const app: AppSeam = {
@@ -188,15 +212,40 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
       reach(
         () =>
           new Promise<void>((ready, fail) => {
-            void (async () => {
+            let suspended = false;
+            let controller = new AbortController();
+
+            const hide = () => {
+              suspended = true;
+              controller.abort();
+            };
+
+            const show = () => {
+              if (!suspended || exited) return;
+
+              suspended = false;
+              void start();
+            };
+
+            const stop = () => {
+              page?.removeEventListener("pagehide", hide);
+              page?.removeEventListener("pageshow", show);
+            };
+
+            const start = async () => {
+              const current = new AbortController();
+              controller = current;
+
               try {
-                const response = await fetch(`${base}/__daemon/events`);
+                const response = await fetch(`${base}/__daemon/events`, { signal: current.signal });
                 const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
                 let pending = "";
                 let subscribed = false;
 
                 for (;;) {
                   const { value, done } = await reader.read();
+
+                  if (current.signal.aborted) return;
 
                   if (done) break;
                   pending += value;
@@ -216,13 +265,22 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
                   }
                 }
 
+                stop();
+
                 if (!subscribed) fail(new RpcError(INTERNAL_CODE, "the Daemon closed before the subscription"));
                 void exit(null);
               } catch (error) {
+                if (current.signal.aborted) return;
+
+                stop();
                 fail(error);
                 void exit(null);
               }
-            })();
+            };
+
+            page?.addEventListener("pagehide", hide);
+            page?.addEventListener("pageshow", show);
+            void start();
           }),
       ),
     imageUrl: (path) => `file://${path}`,
