@@ -125,6 +125,8 @@ class Permissions(unittest.TestCase):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
             for use in re.findall(r'^ *CLAUDE_CODE_OAUTH_TOKEN:.*$', source, re.M):
                 self.assertIn("vars.CLAUDE_API == '' &&", use, workflow)
+            for key in re.findall(r'^ *ANTHROPIC_API_KEY:.*$', source, re.M):
+                self.assertTrue("vars.CLAUDE_API != '' &&" in key or workflow in ('review', 'critic'), workflow)
             for action in re.findall(r'(?:^|\n)      - id: claude\n        if: ([^\n]*)', source):
                 self.assertIn("vars.CLAUDE_API == ''", action, workflow)
 
@@ -152,7 +154,7 @@ class Permissions(unittest.TestCase):
         self.assertNotIn('additional_permissions:', inputs)
         source = (ROOT / '.github/workflows/review.yml').read_text()
         job = source.split('  review-run:', 1)[1].split('    steps:', 1)[0]
-        self.assertNotIn(': write', job.replace('id-token: write', ''))  # the API-credit identity token, hidden from the model
+        self.assertNotIn(': write', job)
 
     def test_l24_the_review_run_runs_on_sonnet(self):
         self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
@@ -162,7 +164,7 @@ class Permissions(unittest.TestCase):
         self.assertIn('git restore --source=origin/main --worktree -- docs/design-system.md', source)
         self.assertIn('--model claude-opus-5-5\n', action_inputs('critic'))
         job = source.split('  critic-run:', 1)[1].split('    steps:', 1)[0]
-        self.assertNotIn(': write', job.replace('id-token: write', ''))
+        self.assertNotIn(': write', job)
         self.assertIn('github_token: ${{ github.token }}', action_inputs('critic'))
 
 
