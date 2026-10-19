@@ -105,3 +105,84 @@ async fn t15_list_and_rail_do_not_load_history() {
             .is_err()
     );
 }
+
+#[tokio::test]
+async fn u2773c_todo_stale_base_is_refused() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let other = project.client().await;
+    other
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"user","id":"other","parent":null}}),
+        )
+        .await
+        .unwrap();
+    client
+        .request("todo.create", json!({"title":"A","body":"original"}))
+        .await
+        .unwrap();
+    let captured = client
+        .request("todo.getHistory", json!({"id":1}))
+        .await
+        .unwrap()["changes"][0]["seq"]
+        .clone();
+    other
+        .request(
+            "todo.update",
+            json!({"id":1,"title":"B","body":"another Actor"}),
+        )
+        .await
+        .unwrap();
+    let committed = client.request("todo.get", json!({"id":1})).await.unwrap();
+    let history = client
+        .request("todo.getHistory", json!({"id":1}))
+        .await
+        .unwrap();
+    let touches = client
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    let mut events = project.subscribed().await;
+    let error = client
+        .request(
+            "todo.update",
+            json!({"id":1,"title":"stale","body":"lost update","expected_change":captured}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::CONFLICT);
+    assert_eq!(
+        client
+            .request("todo.getHistory", json!({"id":1}))
+            .await
+            .unwrap(),
+        history
+    );
+    assert_eq!(
+        client
+            .request("provenance.history", json!({"item":"todo:1"}))
+            .await
+            .unwrap(),
+        touches
+    );
+    assert_eq!(
+        client.request("todo.get", json!({"id":1})).await.unwrap(),
+        committed
+    );
+    // A subsequent write is an event-stream barrier, so absence needs no timing guess.
+    let marker = client
+        .request("todo.create", json!({"title":"barrier"}))
+        .await
+        .unwrap();
+    daemon::next(&mut events, |event| match event {
+        contracts::EventData::TodoCreated(todo)
+            if u64::from(todo.id) == marker["id"].as_u64().unwrap() =>
+        {
+            Some(())
+        }
+        contracts::EventData::TodoUpdated(_) => panic!("refused write emitted a success event"),
+        _ => None,
+    })
+    .await;
+}
