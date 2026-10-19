@@ -190,7 +190,7 @@ describe("u20 open and edit", () => {
 
     await waitFor(() => expect(state.pads[0]?.text).toBe("typed"));
     expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-      { method: "pad.write", params: { name: "auth-notes", text: "typed", expectedRevision: 1 } },
+      { method: "pad.write", params: { name: "auth-notes", text: "typed", expectedRevision: 1, expectedIncarnation: "fixture-auth-notes" } },
     ]);
   });
 
@@ -327,7 +327,7 @@ it("p2544b_pause_coalesces_latest_draft", async () => {
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
   await vi.advanceTimersByTimeAsync(1);
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "latest", expectedRevision: 1 } },
+    { method: "pad.write", params: { name: "notes", text: "latest", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
   ]);
 });
 
@@ -358,7 +358,7 @@ it("p2544b_blur_close_and_menu_focus", async () => {
   connected.drawer.close();
   await vi.advanceTimersByTimeAsync(1000);
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 1 } },
+    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
   ]);
   menu.remove();
   reply.resolve(padOf("notes", USER, "draft"));
@@ -388,8 +388,8 @@ it("p2544b_inflight_edits_are_not_lost", async () => {
   expect(document.getSelection()?.anchorNode).toBe(caret);
   expect(document.getSelection()?.anchorOffset).toBe(3);
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "first", expectedRevision: 1 } },
-    { method: "pad.write", params: { name: "notes", text: "newest", expectedRevision: 2 } },
+    { method: "pad.write", params: { name: "notes", text: "first", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
+    { method: "pad.write", params: { name: "notes", text: "newest", expectedRevision: 2, expectedIncarnation: "fixture-notes" } },
   ]);
   connected.drawer.close();
   later.resolve(padOf("notes", USER, "newest"));
@@ -451,7 +451,7 @@ it("p2544b_save_lifetime_is_pad_scoped", async () => {
   // Observation window after the old Drawer unmounts.
   await vi.advanceTimersByTimeAsync(1000);
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 1 } },
+    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
   ]);
 });
 
@@ -483,8 +483,8 @@ it("p2544b_close_retains_the_latest_draft_behind_an_inflight_write", async () =>
   reply.resolve(padOf("notes", USER, "first"));
   await vi.advanceTimersByTimeAsync(0);
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "first", expectedRevision: 1 } },
-    { method: "pad.write", params: { name: "notes", text: "last before close", expectedRevision: 1 } },
+    { method: "pad.write", params: { name: "notes", text: "first", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
+    { method: "pad.write", params: { name: "notes", text: "last before close", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
   ]);
 });
 
@@ -539,7 +539,7 @@ it("p2544b_project_switch_cannot_write_into_the_new_connection", async () => {
   // Observation window after disposing the old Project's Drawer.
   await vi.advanceTimersByTimeAsync(1000);
   expect(previous.app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "previous project draft", expectedRevision: 1 } },
+    { method: "pad.write", params: { name: "notes", text: "previous project draft", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
   ]);
   expect(next.calls()).not.toContain("pad.write");
   expect(newField.value).toBe("new project");
@@ -581,13 +581,13 @@ it("p2544b_a_save_echo_cannot_replace_an_inflight_undo", async () => {
   await writeAdopted();
   fireEvent.focusOut(field);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "first", expectedRevision: 1 } },
-    { method: "pad.write", params: { name: "notes", text: "old", expectedRevision: 1 } },
+    { method: "pad.write", params: { name: "notes", text: "first", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
+    { method: "pad.write", params: { name: "notes", text: "old", expectedRevision: 1, expectedIncarnation: "fixture-notes" } },
   ]));
 });
 
 it("p2544c_ambiguous_mapping_never_writes_or_acknowledges_the_draft", async () => {
-  const { app, state } = await openShelf([padOf("notes", USER, "[ref]: https://example.com\n")]);
+  const { app, state, connected } = await openShelf([padOf("notes", USER, "[ref]: https://example.com\n")]);
   const field = await openPad("notes");
 
   vi.useFakeTimers();
@@ -600,4 +600,35 @@ it("p2544c_ambiguous_mapping_never_writes_or_acknowledges_the_draft", async () =
   expect(field.value).toBe("draft retained");
   expect(screen.queryByRole("status")).toBeNull();
   expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+  vi.useRealTimers();
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  cleanup();
+  const restored = await openShelf([padOf("notes", USER, "[ref]: https://example.com\n")], false, true);
+  const reopened = await openPad("notes");
+  expect(reopened.value).toBe("draft retained");
+  expect(connected.drafts.list().at(-1)?.value.base).toBe("[ref]: https://example.com\n");
+  fireEvent.focusOut(reopened);
+  expect([...app.calls, ...restored.app.calls].filter(call => call.method === "pad.write")).toEqual([]);
+});
+
+it.each([
+  ["native root", '{"type":"paragraph","content":[{"type":"text","text":"draft retained"}]}'],
+  ["invalid JSON", ""],
+])("u2773e_invalid_editor_snapshot_preserves_stored_revision_%s", async (_kind, document) => {
+  const { app } = await openShelf([padOf("notes", USER, "[ref]: https://example.com\n")]);
+  const field = await openPad("notes");
+  fireEvent.input(field, { target: { value: "draft retained" } });
+  cleanup();
+  const stored = JSON.parse(localStorage.getItem("roundup:drafts:/p")!);
+  stored.drafts[0].value.document = document;
+  const raw = JSON.stringify(stored);
+  localStorage.setItem("roundup:drafts:/p", raw);
+  const restored = await openShelf([padOf("notes", USER, "[ref]: https://example.com\n")], false, true);
+  const reopened = await openPad("notes");
+  await screen.findAllByRole("alert");
+  expect(reopened.readOnly).toBe(true);
+  expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
+  expect(restored.connected.drafts.list()[0]?.value.source).toBe("draft retained\n");
+  expect([...app.calls, ...restored.app.calls].filter(call => call.method === "pad.write")).toEqual([]);
 });

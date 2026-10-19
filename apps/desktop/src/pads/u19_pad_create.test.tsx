@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
-import { CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -15,14 +15,7 @@ const typeName = async (name: string) => {
 };
 
 describe("u19 create", () => {
-  it("u19_clicking_plus_opens_an_inline_name_field", async () => {
-    await openShelf([]);
-
-    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
-
-    expect(await screen.findByLabelText("Pad name")).toBeTruthy();
-  });
-
+  // Rule 10: u19_the_name_field_is_a_row_after_the_last_pad also proves plus opens the field.
   it("u19_the_name_field_is_a_row_after_the_last_pad", async () => {
     await openShelf([padOf("notes", USER)]);
 
@@ -105,4 +98,78 @@ describe("u19 create", () => {
       ].map(Boolean),
     ).toEqual([true, false]);
   });
+});
+
+it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_creation_settlement_preserves_other_revisions_%s", async (outcome) => {
+  const { app, connected } = await openShelf([]);
+  const { deferred } = await import("./padsFixture");
+  const reply = deferred<ReturnType<typeof padOf>>();
+  app.handlers["pad.create"] = () => reply.promise;
+  const field = await typeName("  earlier é 🪁  ");
+  fireEvent.input(field, { target: { value: "  newer 🌱  " } });
+
+  if (outcome === "acknowledged") reply.resolve(padOf("earlier", USER));
+  else reply.reject(outcome === "failed" ? new RpcError(-32602, "refused") : new Error("disconnected"));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  const records = connected.drafts.list();
+  expect(records.at(-1)?.value.name).toBe("  newer 🌱  ");
+  expect(field.value).toBe("  newer 🌱  ");
+
+  if (outcome === "acknowledged") expect(records).toHaveLength(1);
+  else expect(records.map(draft => [draft.value.name, draft.status])).toEqual([["  earlier é 🪁  ", outcome], ["  newer 🌱  ", "draft"]]);
+  fireEvent.keyDown(field, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("  newer 🌱  ");
+  expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
+});
+
+it("u2773a_pads_creation_restores_exact_work", async () => {
+  const { app, connected } = await openShelf([]);
+  connected.rail.select(AGENT.id);
+  fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  const field = screen.getByLabelText<HTMLInputElement>("Pad name");
+  fireEvent.input(field, { target: { value: "  exact é 🪁  " } });
+  field.setSelectionRange(2, 7, "backward");
+  fireEvent.select(field);
+  expect(connected.drafts.list().at(-1)?.value).toEqual({ name: "  exact é 🪁  ", home: AGENT.id });
+  fireEvent.keyDown(field, { key: "Escape" });
+  cleanup();
+  const restored = await openShelf([], false, true);
+  fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  const reopened = screen.getByLabelText<HTMLInputElement>("Pad name");
+  await waitFor(() => expect(document.activeElement).toBe(reopened));
+  expect([reopened.value, reopened.selectionStart, reopened.selectionEnd, reopened.selectionDirection]).toEqual(["  exact é 🪁  ", 2, 7, "backward"]);
+  expect(restored.connected.drafts.list().at(-1)?.value.home).toBe(AGENT.id);
+  expect([...app.calls, ...restored.app.calls].filter(call => call.method === "pad.create")).toEqual([]);
+});
+
+
+it("u2773e_recovery_actions_keep_surface_draft", async () => {
+  const { app, connected } = await openShelf([]);
+  app.handlers["pad.create"] = () => { throw new RpcError(-32602, "refused"); };
+
+  const field = await typeName("earlier");
+  await waitFor(() => expect(connected.drafts.list()[0]?.status).toBe("failed"));
+  const older = connected.drafts.list()[0]!;
+  const raw = localStorage.getItem("roundup:drafts:/p");
+  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+
+  try {
+    fireEvent.input(field, { target: { value: "  recoverable é 🪁  " } });
+    const clipboard = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy name" }));
+    expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
+    expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);
+    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    expect(connected.drafts.list()).toEqual([older]);
+    expect(field.value).toBe("");
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(connected.drafts.problem()).toBeNull();
+    expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts).toEqual([older]);
+    expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1);
+  } finally {
+    writes.mockRestore();
+  }
 });
