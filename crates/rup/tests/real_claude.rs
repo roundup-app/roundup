@@ -1796,8 +1796,12 @@ async fn a41_a_leading_slash_runs_the_skill() {
     next(&mut client, |event| matches!(event, EventData::AskChanged { ask: changed } if changed.id == ask["id"].as_str().unwrap() && changed.parts[0].state == contracts::ask::State::Typed).then_some(())).await;
     tokio::time::timeout(Duration::from_secs(15), next(&mut client, |event| matches!(event, EventData::AgentStatus(status) if status.id == id && status.status.kind == Kind::Idle).then_some(()))).await.unwrap_or_else(|_| panic!("{:?}",project.model.as_ref().unwrap().journal()));
     let journal = project.model.as_ref().unwrap().journal();
-    let text = serde_json::to_string(&journal).unwrap();
-    assert!(text.contains("A41_SKILL_MARKER"), "{text}");
+    assert!(
+        journal.iter().any(|entry| entry["body"]["messages"]
+            .to_string()
+            .contains("A41_SKILL_MARKER")),
+        "{journal:#?}"
+    );
     assert!(
         journal.iter().all(|entry| entry["response"]["status"]
             .as_i64()
