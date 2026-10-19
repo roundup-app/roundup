@@ -272,7 +272,7 @@ else:
 
 
 class Engine(unittest.TestCase):
-    def run_engine(self, path, item, claude_mode='works', codex_mode='works', login=Codex.LOGIN):
+    def run_engine(self, path, item, claude_mode='works', codex_mode='works', login=Codex.LOGIN, env=None, rights=builder.RUN_RIGHTS):
         """`builder.engine` for the work item `item` with fake `claude`, `codex` and `gh` on PATH: the step outputs and
         what each engine saw."""
         bin = Path(path, 'bin')
@@ -287,11 +287,11 @@ class Engine(unittest.TestCase):
         with patch.dict(os.environ, CODEX_AUTH=login, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode, CODEX_MODE=codex_mode,
                         ISSUE=str(item),
                         RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
-                        PATH=f"{bin}:{os.environ['PATH']}"), \
-                patch.object(builder, 'app_token', return_value='fresh'), redirect_stdout(io.StringIO()) as log, \
-                redirect_stderr(io.StringIO()):
-            builder.engine('Build U1.', '{"type":"object"}', output)
-        self.log = log.getvalue()
+                        PATH=f"{bin}:{os.environ['PATH']}", **(env or {})), \
+                patch.object(builder, 'app_token', return_value='fresh') as self.token, redirect_stdout(io.StringIO()) as log, \
+                redirect_stderr(io.StringIO()) as errors:
+            self.code = builder.engine('Build U1.', '{"type":"object"}', output, rights)
+        self.log, self.errors = log.getvalue(), errors.getvalue()
         seen = lambda name: json.loads(Path(path, name).read_text()) if Path(path, name).exists() else None
         return output.read_text(), seen('seen-claude'), seen('seen')
 
@@ -318,6 +318,19 @@ class Engine(unittest.TestCase):
         self.assertIn('::error::Codex did not start: CODEX_AUTH holds no ChatGPT login', self.log)
         self.assertIn('{"ask": "from claude"}', output)
         self.assertIsNone(codex)
+
+    def test_l23_with_codex_only_a_codex_run_that_did_no_work_fails_and_claude_code_never_starts(self):
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 8, codex_mode='limit', env=dict(CODEX_ONLY='1'))
+        self.assertIsNone(claude)
+        self.assertNotEqual(self.code, 0)
+        self.assertIn('::error::Codex did no work and CODEX_ONLY forbids Claude Code', self.errors)
+
+    def test_l23_a_read_only_codex_run_asks_the_app_for_no_token_and_keeps_the_jobs_own(self):
+        with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, GH_TOKEN='read'):
+            output, claude, codex = self.run_engine(path, 8, rights=None)
+        self.token.assert_not_called()
+        self.assertEqual((codex['env']['GH_TOKEN'], codex['env']['GIT_AUTHOR_NAME']), ('read', None))
 
 
 def invalid_row(number, **changes):
@@ -578,6 +591,19 @@ class Built(unittest.TestCase):
                 self.assertTrue(given.endswith('## Ask\n\nCheck it?\n'))
         with patch.object(builder.subprocess, 'run', side_effect=builder.subprocess.CalledProcessError(1, 'claude')):
             self.assertIsNone(builder.screen('Check it?'))
+
+    def test_l79_with_codex_only_codex_screens_the_ask_and_claude_is_never_called(self):
+        verdict = dict(verdict='mac', reason='why', preview='Run it.')
+
+        def codex(argv, **kwargs):
+            Path(argv[argv.index('--output-last-message') + 1]).write_text(json.dumps(verdict))
+
+        with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, CODEX_ONLY='1', RUNNER_TEMP=path,
+                                                               CODEX_AUTH=Codex.LOGIN), \
+                patch.object(builder.subprocess, 'run', side_effect=codex) as run, redirect_stdout(io.StringIO()):
+            self.assertEqual(builder.screen('Check it?'), verdict)
+        argv = run.call_args.args[0]
+        self.assertEqual((argv[0], argv[argv.index('--model') + 1]), ('codex', builder.CODEX_MODEL))
 
     def test_l79_an_empty_verdict_never_asks_the_user_and_the_run_summary_says_so(self):
         ask = 'Should the Rail hide archived Agents?'
