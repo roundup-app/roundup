@@ -375,7 +375,7 @@ def fix_attempts():
 def claude_env():
     """The environment for a `claude` process: `os.environ`, or with `CLAUDE_API` set the federation variables and a file
     of the job's identity token for `API_AUDIENCE`, rewritten every `API_REFRESH` seconds while the block runs, with the
-    Max token, the token request and `CLAUDE_API_VARS` left out. Exits with an error annotation when a federation variable is
+    Max token (even empty, which Claude Code reads as a login that came first), the token request and `CLAUDE_API_VARS` left out. Exits with an error annotation when a federation variable is
     missing or a step still holds the Max token."""
     if not switched():
         yield os.environ
@@ -408,7 +408,7 @@ def claude_env():
         thread = threading.Thread(target=refresh, daemon=True)
         thread.start()
         try:
-            hidden = ('CLAUDE_API_VARS', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')
+            hidden = ('CLAUDE_API_VARS', 'CLAUDE_CODE_OAUTH_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')
             yield {**{name: value for name, value in os.environ.items() if name not in hidden},
                    **{name: given[name] for name in API_VARS}, 'ANTHROPIC_IDENTITY_TOKEN_FILE': str(token)}
         finally:
@@ -424,6 +424,17 @@ def log_cost(label, cost):
         if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
             with open(summary, 'a') as out:
                 out.write(f'- {line}\n')
+
+
+def say_why(events):
+    """Annotate as an error what a Claude Code run that used no tool said: the text of its assistant messages and the
+    `subtype`, `is_error`, `result` and `errors` of its result event, each cut to 1000 characters. No token is in them: the
+    log of `stream` prints only event kinds, so an authentication failure shows nowhere else."""
+    said = [part.get('text', '') for event in events if event.get('type') == 'assistant'
+            for part in event.get('message', {}).get('content', []) if part.get('type') == 'text']
+    result = next((event for event in reversed(events) if event.get('type') == 'result'), {})
+    why = {key: result.get(key) for key in ('subtype', 'is_error', 'result', 'errors')}
+    print(f"::error::Claude Code did no work. It said {' | '.join(said)[:1000]!r}; its result: {str(why)[:1000]}", flush=True)
 
 
 def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET, effort=BUILD_EFFORT, flags=('--dangerously-skip-permissions',)):
@@ -442,7 +453,10 @@ def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET
         command += ['--json-schema', schema]
     with claude_env() as env:
         code = stream(command, prompt, events, env, CLAUDE_ACCOUNT, rights)
-    results = [event for event in map(json.loads, events.read_text().splitlines()) if event.get('type') == 'result']
+    seen = list(map(json.loads, events.read_text().splitlines()))
+    results = [event for event in seen if event.get('type') == 'result']
+    if not any(map(tool_use, seen)):
+        say_why(seen)
     log_cost(model, results[-1].get('total_cost_usd') if results else None)
     if schema is not None and results and isinstance(results[-1].get('structured_output'), dict):
         answer_out(output, json.dumps(results[-1]['structured_output']))
