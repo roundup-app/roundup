@@ -2,15 +2,10 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 type CopyValue = string | number | undefined;
 
+const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
+
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
-  retainedRailSummary: (surface: string, target: string, status: string) => `${surface} · ${target} · ${status}`,
-  retainedRailInput: "Retained rail input",
-  railDestinationUnavailable: "The original destination is unavailable. Copy or discard the retained task.",
-  railNameConflict: "The original name changed. Your edit is retained; copy or discard it in the rail.",
-  railRetentionFailed: (project: string, surfaces: readonly string[]) => `${project}: ${surfaces.length ? surfaces.join(", ") : "Task, Name and Clear reason"} input could not be retained across reload.`,
-  retryRetention: "Retry retention",
-  discardRevision: "Discard this revision",
   context: "Context",
   contextUse: (used: number, limit: number) => `Context ${new Intl.NumberFormat("en", { notation: "compact" }).format(used)} / ${new Intl.NumberFormat("en", { notation: "compact" }).format(limit)}`,
   cardIntent: "Intent",
@@ -178,6 +173,20 @@ export const copy = {
   notDone: "Not done",
   fullOrderOf: (value1: CopyValue) => `Full order of ${value1}`,
   prompt: "Prompt",
+  railDraftTaskTarget: (name: string, id: string) => `Task for ${name} (${id})`,
+  railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
+  railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
+  railDraftBase: (name: string) => `Original name: ${name}`,
+  railDraftDestination: (project: string, recipient: string) => `${project} · ${recipient}`,
+  railDrafts: "Unfinished rail work",
+  railDraftConflict: "The original name changed. Your edit is retained; copy or discard it before renaming again.",
+  railDraftUnavailable: "The original target is unavailable. Copy or discard this draft.",
+  railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? "Rail drafts"} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
+  railDraftRetry: "Retry storage",
+  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Rail edit"} · ${object} · ${status}`,
+  railDraftRecovered: "Recovered rail draft",
+  railDraftCopy: "Copy draft",
+  railDraftDiscard: "Discard this revision",
   task: "Task",
   taskHint: "What should the Agent do?",
   orderOf: (value1: CopyValue) => `Order of ${value1}`,

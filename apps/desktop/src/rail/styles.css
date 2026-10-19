@@ -172,7 +172,18 @@
 .rail-row input {
   flex: 1;
   min-width: 0;
+  min-height: var(--space-6);
+  box-sizing: border-box;
+  padding: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
   font: inherit;
+}
+
+.rail-name-error {
+  flex: none;
+  cursor: default;
 }
 
 .spawn-prompt-field {
@@ -782,14 +793,52 @@
 }
 
 .rail-recovery {
-  flex: none;
-  max-height: calc(12 * var(--space-5));
+  padding: var(--space-2);
+  max-height: var(--pad-menu-max-height);
   overflow: auto;
+}
+
+.rail-recovery p,
+.rail-recovery summary {
   overflow-wrap: anywhere;
 }
 
-.rail-recovery-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
+.rail-recovery textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rail-recovery summary {
+  min-height: var(--space-6);
+  cursor: pointer;
+}
+
+.rail-recovery summary:hover {
+  color: var(--accent);
+}
+
+.rail-recovery summary:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.rail-recovery summary:active {
+  color: var(--text);
+  transition-duration: 0s;
+}
+
+.rail-recovery textarea {
+  padding: var(--space-1);
+  appearance: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text);
+  background: var(--ground);
+}
+
+.rail-task-target {
+  margin: var(--space-1) var(--space-3);
+  color: var(--grey);
+  overflow-wrap: anywhere;
 }

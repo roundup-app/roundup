@@ -28,7 +28,8 @@ import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
-import { clearingOf, railDraftsFor } from "./clear";
+import { clearingOf } from "./clear";
+import { draftsOf } from "./persist/storage";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -43,32 +44,65 @@ export const Rail = () => {
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
-  const menu = createRailMenu(app, rail, setFailure, connected.events);
+  const retained = draftsOf(connected.events, project.path);
+  // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
+  const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
+  const menu = createRailMenu(app, rail, setFailure, connected.events, project.path);
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
 
-    return node !== null && clearingOf(app, connected.events, node.id).phase() !== "closed" ? node : null;
+    return node !== null && clearingOf(app, connected.events, node.id, project.path).phase() !== "closed" ? node : null;
   });
 
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
-  /** U2227: the typed task, kept per Project across Esc until it is emptied or a spawn from the field succeeds. */
-  const drafts = railDraftsFor(connected.events, project.path);
-  const task = () => drafts.list().filter((draft) => draft.destination.surface === "rail-task").at(-1);
+  const [taskDestination, setTaskDestination] = createSignal<string | null>(null);
+  const task = () => retained.records().filter((entry) => entry.destination.surface === "rail-task").at(-1);
 
-  const draft = () => v.parse(v.optional(v.string(), ""), task()?.value.text);
+  const draft = () => {
+    const text = task()?.value.text;
 
-  const keepDraft = (text: string, selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null = null) => {
-    const previous = task();
-    drafts.edit(previous?.destination ?? { surface: "rail-task", object: parent() ?? "", recipient: runningDoor() }, { text }, selection, "ordinary");
+    return v.is(v.string(), text) ? text : "";
   };
 
-  const endCompose = (revision?: string) => {
-    if (revision && task() && task()?.revision !== revision) return;
-    setComposing(false);
+  const taskParent = () => {
+    const saved = task();
+
+    if (!saved) return taskDestination();
+
+    if (v.is(v.nullable(v.string()), saved.value.parent)) return saved.value.parent;
+
+    return saved.destination.object === "" || saved.destination.object === project.path ? null : saved.destination.object;
   };
+
+  const keepDraft = (text: string, selection = task()?.selection ?? null) => {
+    const under = taskParent();
+    const action = taskAction();
+
+    return retained.edit(
+      task()?.destination ?? { surface: "rail-task", object: under ?? project.path, recipient: action === "note" ? under : null },
+      { text, parent: under, model: null, effort: null, action }, selection, "ordinary",
+    );
+  };
+
+  const taskAction = () => {
+    const saved = task();
+
+    if (saved) return v.is(v.picklist(["note", "spawn"]), saved.value.action) ? saved.value.action : saved.destination.recipient === null ? "spawn" : "note";
+
+    const original = rail.nodes.find((node) => node.id === taskDestination());
+
+    return original !== undefined && doorStateOf(original, rail.exitOf(original), rail.doorPending(original.id), rail.doorFailure(original.id) !== null) === null ? "note" : "spawn";
+  };
+
+  const openCompose = () => {
+    if (!composing()) setTaskDestination(parent());
+    setComposing(true);
+  };
+
+  const endCompose = () => setComposing(false);
 
   const rows = createMemo(() => layoutRail(rail.nodes, { collapsed: collapsed(), unfolded: unfolded(), now: now() }));
 
@@ -298,24 +332,15 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent(), revision?: string) =>
+  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
     guarded(async () => {
       const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
-      let spawned;
-
-      try {
-        spawned = await app.rpc("agent.spawn", params);
-
-        if (revision) drafts.settle(revision, "acknowledged");
-      } catch (error) {
-        if (revision) drafts.settle(revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
-        throw error;
-      }
+      const spawned = await app.rpc("agent.spawn", params);
 
       setWanted(spawned.id);
 
-      if (composing()) endCompose(revision);
+      if (composing()) endCompose();
     });
 
   const spawnAgent = () => spawnAgentWith(null);
@@ -369,41 +394,43 @@ export const Rail = () => {
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
   const [asking, setAsking] = createSignal(false);
 
-  /** O11: the running Door of the selected Workstream, whose Message carries a typed prompt; `null` at the Project root or with no running Door (O13). */
-  const runningDoor = (): string | null => {
-    const id = parent();
-    const door = rail.nodes.find((node) => node.id === id);
-
-    return door !== undefined && doorStateOf(door, rail.exitOf(door), rail.doorPending(door.id), rail.doorFailure(door.id) !== null) === null ? door.id : null;
-  };
-
   const submitPrompt = (prompt: string | null) => {
-    const current = task();
+    const snapshot = task() ?? keepDraft(draft());
 
-    if (current?.status === "pending" || current?.status === "unknown") return;
-    const target = current?.destination;
+    if (snapshot.status === "pending" || snapshot.status === "unknown") return;
+    const originalParent = taskParent();
+    const action = taskAction();
 
-    if (target?.object && !rail.nodes.some((node) => node.id === target.object)) {
-      setFailure(copy.railDestinationUnavailable);
+    if (originalParent !== null && !rail.nodes.some((node) => node.id === originalParent && node.kind === "workstream")) {
+      setFailure(copy.railDraftUnavailable);
 
       return;
     }
 
-    const revision = current?.revision;
+    const revision = retained.submit(snapshot.revision);
 
-    if (revision) drafts.submit(revision);
-    const door = prompt === null ? null : target ? target.recipient : runningDoor();
-
-    if (prompt === null || door === null) return spawnAgentWith(prompt, target ? target.object || null : parent(), revision);
+    if (!revision) return;
+    const original = rail.nodes.find((node) => node.id === originalParent);
+    const door = prompt !== null && action === "note" ? snapshot.destination.recipient ?? original?.id ?? null : null;
     const slow = setTimeout(() => setAsking(true), 500);
     guarded(async () => {
-      try {
-        await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
+      let spawned: string | null = null;
 
-        if (revision) drafts.settle(revision, "acknowledged");
-        endCompose(revision);
+      try {
+        if (door !== null) await app.rpc("message.send", { to: door, kind: "note", body: prompt!, replyTo: null });
+        else {
+          spawned = (await app.rpc("agent.spawn", { cwd: project.path, prompt, parent: originalParent, model: null, effort: null })).id;
+        }
+
+        const latest = task()?.revision === revision.revision;
+        retained.settle(revision.revision, "acknowledged");
+
+        if (latest) {
+          if (spawned !== null) setWanted(spawned);
+          endCompose();
+        }
       } catch (error) {
-        if (revision) drafts.settle(revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        retained.settle(revision.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
         throw error;
       } finally {
         clearTimeout(slow);
@@ -431,7 +458,7 @@ export const Rail = () => {
       if (composing()) field()?.focus();
       else spawnAgent();
     } }) },
-    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: () => setComposing(true) }) },
+    { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: openCompose }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
@@ -495,6 +522,9 @@ export const Rail = () => {
     >
       <SectionHead icon="messages" label={copy.workstreamsHead} />
       <Show when={composing()}>
+        <Show when={task() && taskParent() !== parent()}>
+          <p class="rail-task-target" role="status">{copy.railDraftTaskTarget(rail.nodes.find((node) => node.id === taskParent())?.name ?? project.name, taskParent() ?? project.path)}</p>
+        </Show>
         <SpawnPromptField
           ref={setField}
           value={draft()}
@@ -549,6 +579,10 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
+                          onFailure={setFailure}
+                          onRename={async (name) => {
+                            await app.rpc("rail.rename", { id: view().node.id, name });
+                          }}
                           onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
@@ -588,21 +622,55 @@ export const Rail = () => {
       </Sortable.Root>
     </TreeView.Root>
     </div>
-      <div class="rail-recovery">
-      <Show when={drafts.problem()}>
-        <p role="alert" class="ink" data-tone="red" data-kind="error">{copy.railRetentionFailed(project.name, [...new Set(drafts.list().map((saved) => saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task))])} <button data-button="quiet" onClick={() => drafts.retry()}>{copy.retryRetention}</button></p>
+      <Show when={retained.records().some((entry) => entry.destination.surface.startsWith("rail-") && entry.status === "unknown")}>
+        <p class="rail-task-target" role="status">{copy.railDraftUnknown(project.name)}</p>
       </Show>
-      <For each={drafts.list()}>{(saved) => <Show when={drafts.problem() || saved.destination.surface === "rail-name" || saved.status !== "draft" || (saved.destination.object !== "" && !rail.nodes.some((node) => node.id === saved.destination.object))}>
-        <div class="light" data-state={saved.status}>
-          <p>{copy.retainedRailSummary(saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task, saved.destination.object || project.name, saved.status)}</p>
-          <Show when={saved.destination.surface !== "rail-task" || saved.revision !== task()?.revision || !composing()}>
-            <textarea class="spawn-prompt-field" aria-label={copy.retainedRailInput} readOnly value={String(saved.value.text ?? "")} />
-          </Show>
-          <span class="rail-recovery-actions"><button data-button="quiet" onClick={() => void attempt(() => navigator.clipboard.writeText(String(saved.value.text ?? "")))}>{copy.copy}</button>
-          <button data-button="quiet" onClick={() => drafts.discard(saved.revision)}>{copy.discardRevision}</button></span>
-        </div>
-      </Show>}</For>
-      </div>
+      <Show when={retained.problem()}>{(problem) => <>
+        <ErrorLine message={copy.railDraftRetention(project.path, problem().destination?.surface ?? "rail", problem().operation)} />
+        <button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button>
+      </>}</Show>
+      <Show when={retained.records().some((entry) => entry.destination.surface.startsWith("rail-"))}>
+        <details class="rail-recovery">
+          <summary>{copy.railDrafts}</summary>
+          <For each={retained.records().filter((entry) => entry.destination.surface.startsWith("rail-")).map((entry) => entry.revision).reverse()}>{(revision) => (
+            <Show when={revisions().get(revision)}>{(entry) => {
+              const text = () => {
+                const value = entry().value.text;
+
+                return v.is(v.string(), value) ? value : "";
+              };
+
+              const base = () => {
+                const value = entry().value.base;
+
+                return v.is(v.string(), value) ? value : null;
+              };
+
+              return (
+                <details>
+                  <summary>{copy.railDraftRecovery(entry().destination.surface, entry().destination.object, entry().status)}</summary>
+                  <Show when={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object)}>
+                    <p role="status">{copy.railDraftUnavailable}</p>
+                  </Show>
+                  <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
+                  <p>{copy.railDraftDestination(project.path, entry().destination.recipient ?? (entry().destination.object === "" || entry().destination.object === project.path ? copy.overview : entry().destination.object))}</p>
+                  <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
+                  <Show when={entry().destination.surface === "rail-clear"}><p>{entry().value.withoutHandoff === true ? copy.clearWithoutHandoff : copy.clearWithHandoff}</p></Show>
+                  <Show when={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base)}><p role="status">{copy.railDraftConflict}</p></Show>
+                  <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
+                  <button data-button="quiet" onClick={() => { void attempt(() => navigator.clipboard.writeText(text())); }}>{copy.railDraftCopy}</button>
+                  <button data-button="quiet" onClick={() => {
+                    const current = task()?.revision === entry().revision;
+                    retained.discard(entry().revision);
+
+                    if (current && !task()) setTaskDestination(parent());
+                  }}>{copy.railDraftDiscard}</button>
+                </details>
+              );
+            }}</Show>
+          )}</For>
+        </details>
+      </Show>
       <Show when={asking()}>
         <p class="light">{copy.askingTheDoor}</p>
       </Show>
@@ -622,7 +690,7 @@ export const Rail = () => {
                 }}
                 class="rail-menu rail-clear" role="dialog" aria-label={copy.clearName(node().name)}
               >
-                <ClearPrompt node={node()} />
+                <ClearPrompt node={node()} onHide={menu.hideClear} />
               </div>
             )}
           </Show>

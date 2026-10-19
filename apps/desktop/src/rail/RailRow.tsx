@@ -1,10 +1,8 @@
 import * as v from "valibot";
-import { railDraftsFor } from "./clear";
-import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "../copy";
-import { createEffect, createSignal, For, onCleanup, Show, untrack, type JSX } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
@@ -20,6 +18,8 @@ import { Trunks } from "./Trunks";
 import type { NodeRow } from "./layout";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
+import { draftsOf } from "./persist/storage";
 import { RowIcons } from "./RowIcons";
 import type { RowActions } from "./RowIcons";
 
@@ -29,59 +29,80 @@ type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 /** U403: a folded Workstream shows at most this many Agent Glyphs before its count. */
 const FOLDED_GLYPHS = 5;
 
-const NameField = (props: { node: RailNode; onCancel: () => void }) => {
-  const { events, project, app } = useConnectedProject();
-  const drafts = railDraftsFor(events, project.path);
-  const original = untrack(() => ({ id: props.node.id, name: props.node.name }));
-  const saved = () => drafts.list().filter((draft) => draft.destination.surface === "rail-name" && draft.destination.object === original.id).at(-1);
+const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: () => void }) => {
+  const { project, events } = useConnectedProject();
+  const drafts = draftsOf(events, project.path);
+  const destination = { surface: "rail-name", object: props.node.id, recipient: null };
+  const current = () => drafts.records().filter((entry) => entry.destination.surface === destination.surface && entry.destination.object === destination.object).at(-1);
 
-  const text = () => v.parse(v.optional(v.string(), original.name), saved()?.value.text);
+  const value = () => {
+    const text = current()?.value.text;
 
-  const [failure, setFailure] = createSignal<string | null>(null);
-  const keep = (field: HTMLInputElement) => drafts.edit({ surface: "rail-name", object: original.id, recipient: null }, { text: field.value, base: saved()?.value.base ?? original.name }, { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" }, "ordinary");
-  const conflict = () => saved() && saved()?.value.base !== props.node.name;
+    return v.is(v.string(), text) ? text : props.node.name;
+  };
+
+  const edit = (field: HTMLInputElement) => drafts.edit(current()?.destination ?? destination,
+    { text: field.value, base: current()?.value.base ?? props.node.name },
+    { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" }, "ordinary");
+
+  const conflict = () => current() !== undefined && current()?.status !== "pending" && current()?.value.base !== props.node.name;
+
+  const commit = async (field: HTMLInputElement) => {
+    if (conflict()) return;
+    const snapshot = current() ?? edit(field);
+    const name = value().trim();
+
+    if (name === "") {
+      props.onCancel();
+
+      return;
+    }
+
+    const submitted = drafts.submit(snapshot.revision);
+
+    if (!submitted) return;
+
+    try {
+      await props.onCommit(name);
+      const latest = current()?.revision === submitted.revision;
+      drafts.settle(submitted.revision, "acknowledged");
+
+      if (latest) props.onCancel();
+    } catch (error) {
+      drafts.settle(submitted.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+
+      if (!(error instanceof Error)) throw error;
+      props.onFailure(error.message);
+    }
+  };
 
   return <>
-  <input
-    aria-label={copy.name}
-    value={text()}
-    ref={(field) => queueMicrotask(() => {
-      field.focus();
-      const selection = saved()?.selection;
+    <input
+      type="text"
+      aria-label={copy.name}
+      aria-invalid={conflict() || current()?.status === "failed" ? true : undefined}
+      value={value()}
+      ref={(field) => queueMicrotask(() => {
+        field.focus();
+        const selection = current()?.selection;
 
-      if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
-      else field.select();
-    })}
-    onInput={(event) => keep(event.currentTarget)}
-    onSelect={(event) => { if (saved()?.status === "draft") keep(event.currentTarget); }}
-    onKeyDown={(key) => {
-      if (key.key === "Enter") {
-        key.preventDefault();
+        if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
+        else field.select();
+      })}
+      onInput={(event) => edit(event.currentTarget)}
+      onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") edit(event.currentTarget); }}
+      onKeyDown={(key) => {
+        if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
 
-        if (conflict() || saved()?.status === "pending" || saved()?.status === "unknown") return;
-        const name = key.currentTarget.value.trim();
-
-        if (name === "") return props.onCancel();
-        const revision = saved()?.revision;
-
-        if (!revision) return props.onCancel();
-        drafts.submit(revision);
-        void app.rpc("rail.rename", { id: original.id, name }).then(() => {
-          drafts.settle(revision, "acknowledged");
-
-          if (!saved()) props.onCancel();
-        }, (error) => {
-          drafts.settle(revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
-          setFailure(error instanceof Error ? error.message : String(error));
-        });
-      }
-
-      if (key.key === "Escape") props.onCancel();
-    }}
-    onBlur={props.onCancel}
-  />
-  <Show when={conflict()}><span role="alert">{copy.railNameConflict}</span></Show>
-  <Show when={failure()}>{(message) => <span role="alert">{message()}</span>}</Show>
+        if (key.key === "Escape") props.onCancel();
+      }}
+      onBlur={props.onCancel}
+    />
+    <Show when={conflict()}>
+      <Tip text={copy.railDraftConflict}>
+        {(trigger) => <span {...trigger()} class="ink rail-name-error" data-tone="red" data-kind="error" role="alert" tabIndex={-1} aria-label={copy.railDraftConflict}><Icon name="x" /></span>}
+      </Tip>
+    </Show>
   </>;
 };
 
@@ -113,6 +134,8 @@ export const RailRowView = (props: {
   /** Whether Ark's tree walks this row as a branch (a Workstream, or a row with rows of its own below it) or as a leaf. */
   branch: boolean;
   onToggle: () => void;
+  onRename: (name: string) => Promise<void>;
+  onFailure: (message: string) => void;
   onStartDoor: () => void;
   doorPending: boolean;
   doorFailure: string | null;
@@ -223,6 +246,8 @@ export const RailRowView = (props: {
     >
       <NameField
         node={props.row.node}
+        onCommit={props.onRename}
+        onFailure={props.onFailure}
         onCancel={() => setEditing(false)}
       />
     </Show>
