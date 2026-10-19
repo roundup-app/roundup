@@ -33,7 +33,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, project: string) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -121,13 +121,19 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
 
-  /** U350: the same word as the former Thread header's, only for a Workstream and not while its clear is pending. */
-  const isClearable = (node: RailNode) => node.kind === "workstream" && clearingOf(app, events, node.id).phase() === "closed";
-
-  const canClear = (current: MenuState) => isClearable(current.node);
-
   /** U350: the Workstream whose reason prompt the Rail shows, opened from its row menu or its clear icon. */
   const [clearTarget, setClearTarget] = createSignal<RailNode | null>(null);
+
+  /** U350: the same word as the former Thread header's, only for a Workstream and not while its clear is pending. */
+  const isClearable = (node: RailNode) => {
+    if (node.kind !== "workstream") return false;
+
+    const phase = clearingOf(app, events, node.id, project).phase();
+
+    return phase !== "pending" && (phase === "closed" || clearTarget()?.id !== node.id);
+  };
+
+  const canClear = (current: MenuState) => isClearable(current.node);
 
   const chooseClear = () => {
     const current = state();
@@ -142,7 +148,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (!isClearable(node)) return;
 
     setClearTarget(node);
-    clearingOf(app, events, node.id).open();
+    clearingOf(app, events, node.id, project).open();
   };
 
   const chooseRemove = () => {
@@ -203,6 +209,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     chooseClear,
     canClear,
     clearTarget,
+    hideClear: () => setClearTarget(null),
     requestRemove,
     requestStop,
     requestClear,

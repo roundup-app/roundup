@@ -14,9 +14,9 @@ const fit = (field: HTMLTextAreaElement) => {
 
 export const SpawnPromptField = (props: {
   value: string;
-  onInput: (text: string) => void;
-  selection?: { start: number; end: number; direction: "forward" | "backward" | "none" } | null;
-  onSelection?: (selection: { start: number; end: number; direction: "forward" | "backward" | "none" }) => void;
+  selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null;
+  onSelection: (selection: { start: number; end: number; direction: "forward" | "backward" | "none" }) => void;
+  onInput: (text: string, selection: { start: number; end: number; direction: "forward" | "backward" | "none" }) => void;
   onSubmit: (prompt: string | null) => void;
   onCancel: () => void;
   ref: (field: HTMLTextAreaElement) => void;
@@ -31,16 +31,16 @@ export const SpawnPromptField = (props: {
       queueMicrotask(() => {
         field.focus();
         const selection = props.selection;
-        field.setSelectionRange(selection?.start ?? field.value.length, selection?.end ?? field.value.length, selection?.direction);
+        field.setSelectionRange(selection?.start ?? field.value.length, selection?.end ?? field.value.length, selection?.direction ?? "none");
         fit(field);
       });
       props.ref(field);
     }}
-    onSelect={(event) => props.onSelection?.({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd, direction: event.currentTarget.selectionDirection })}
     onInput={(typed) => {
       fit(typed.currentTarget);
-      props.onInput(typed.currentTarget.value);
+      props.onInput(typed.currentTarget.value, { start: typed.currentTarget.selectionStart, end: typed.currentTarget.selectionEnd, direction: typed.currentTarget.selectionDirection });
     }}
+    onSelect={(event) => { if (event.currentTarget.isConnected) props.onSelection({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd, direction: event.currentTarget.selectionDirection }); }}
     onKeyDown={(press) => {
       if (press.key === "Enter" && !press.shiftKey && !press.isComposing) {
         press.preventDefault();

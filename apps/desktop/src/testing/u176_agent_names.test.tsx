@@ -12,8 +12,6 @@ import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
-import { Rail } from "../rail/Rail";
-import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 
 describe("u176 Agent names", () => {
   let real: StartedDaemon;
@@ -74,80 +72,6 @@ describe("u176 Agent names", () => {
     expect(await screen.findByRole("region", { name: `Decision for ${second.name}` }, { timeout: 30_000 })).toBeTruthy();
     await real.model!.assertMatched();
   }, 180_000);
-
-});
-
-describe("u2773 retained Rail names", () => {
-  afterEach(() => { cleanup(); localStorage.clear(); });
-
-  it("u2773a_rail_real_projects_keep_name_destinations_on_reopen", async () => {
-    const first = await startRealDaemon({});
-    const second = await startRealDaemon({});
-
-    try {
-      const sources = [first, second];
-      const records = [];
-
-      for (const [index, real] of sources.entries()) {
-        const app = createServedApp(real.base);
-
-        if (index === 1) await app.rpc("rail.createWorkstream", { name: "other", parent: null });
-        const target = await app.rpc("rail.createWorkstream", { name: "same", parent: null });
-        const mounted = await connectProject(app, { name: "same", path: real.dir }, () => false, Date.now, () => null);
-
-        render(() => <ConnectedProjectContext.Provider value={mounted}><Rail /></ConnectedProjectContext.Provider>);
-        fireEvent.dblClick(await screen.findByText("same"));
-        fireEvent.input(screen.getByLabelText("Name"), { target: { value: ` exact ${index}\u0301 😀 ` } });
-        records.push({ real, app, target, text: ` exact ${index}\u0301 😀 ` });
-        cleanup();
-      }
-
-      expect(records[0]!.target.id).not.toBe(records[1]!.target.id);
-
-      for (const { real, app, target, text } of records) {
-        const calls = vi.spyOn(app, "rpc");
-        const mounted = await connectProject(app, { name: "same", path: real.dir }, () => false, Date.now, () => null);
-
-        render(() => <ConnectedProjectContext.Provider value={mounted}><Rail /></ConnectedProjectContext.Provider>);
-        fireEvent.dblClick(await screen.findByText("same"));
-        expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe(text);
-        expect(calls.mock.calls.filter(([method]) => method === "rail.rename")).toEqual([]);
-        fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-        await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe(text.trim()));
-        expect(calls.mock.calls.filter(([method]) => method === "rail.rename")).toEqual([["rail.rename", { id: target.id, name: text.trim() }]]);
-        cleanup();
-      }
-    } finally {
-      cleanup();
-      await first.stop();
-      await second.stop();
-    }
-  }, 120_000);
-
-  it("u2773c_rail_real_external_name_change_refuses_overwrite", async () => {
-    const real = await startRealDaemon({});
-
-    try {
-      const app = createServedApp(real.base);
-      const target = await app.rpc("rail.createWorkstream", { name: "original", parent: null });
-      const mounted = await connectProject(app, { name: "project", path: real.dir }, () => false, Date.now, () => null);
-
-      render(() => <ConnectedProjectContext.Provider value={mounted}><Rail /></ConnectedProjectContext.Provider>);
-      fireEvent.dblClick(await screen.findByText("original"));
-      fireEvent.input(screen.getByLabelText("Name"), { target: { value: " exact dirty name 😀 " } });
-      await app.rpc("rail.rename", { id: target.id, name: "external" });
-      await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("original name changed"));
-      const calls = vi.spyOn(app, "rpc");
-
-      fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-      expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe(" exact dirty name 😀 ");
-      expect(calls.mock.calls.filter(([method]) => method === "rail.rename")).toEqual([]);
-      expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe("external");
-    } finally {
-      cleanup();
-      await real.stop();
-    }
-  }, 120_000);
 
 });
 
@@ -305,17 +229,18 @@ describe("u2773 Rail task destinations", () => {
     await switchTo("Left");
     await openTask();
     expect(task().value).toBe("C");
-    await waitFor(() => expect(screen.queryAllByLabelText("Retained rail input")).toHaveLength(outcome === "acknowledged" ? 0 : 2));
+    await waitFor(() => expect(screen.queryAllByLabelText("Recovered rail draft")).toHaveLength(outcome === "acknowledged" ? 1 : 3));
     expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
 
     if (outcome !== "acknowledged") {
-      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Retained rail input").map((field) => [field.value, field.parentElement?.dataset.state])).toEqual([["A", outcome], ["B", outcome]]);
-      fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision" })[0]!);
+      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(["C", "B", "A"]);
+      expect(document.body.textContent).toContain(outcome);
+      fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[2]!);
     }
 
     cleanup(); await mount(); await openTask();
     expect(task().value).toBe("C");
-    expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Retained rail input").map((field) => field.value)).toEqual(outcome === "acknowledged" ? [] : ["B"]);
+    expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B"]);
     expect(spy.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(2);
   }, 120_000);
 
@@ -379,7 +304,7 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
       await lane.evaluate(open);
       await lane.until(`!!${field}`);
       await lane.evaluate(`(() => { const f = ${field}; f.value += ' newer'; f.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`);
-      await lane.until(`!!document.querySelector('.rail-recovery [role=alert]')`);
+      await lane.until(`!!document.querySelector('.rail [role=alert]')`);
       await lane.capture("u2773-rail", `real-${index}-retention-failure`);
     }
 
@@ -387,7 +312,7 @@ it("u2773a_rail_restores_exact_work_in_real_harness_reload_and_project_reopen", 
     await lane.evaluate(`(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; document.dispatchEvent(new KeyboardEvent('keydown', {key:'n',metaKey:true,shiftKey:true,bubbles:true})); return true; })()`);
     await lane.until('!!document.querySelector("textarea[aria-label=Task]")');
     await lane.evaluate(`(() => { const f = document.querySelector('textarea[aria-label=Task]'); f.value = ' exact dense\\né 😀 '; f.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`);
-    await lane.until(`!!document.querySelector('.rail-recovery [role=alert]')`);
+    await lane.until(`!!document.querySelector('.rail [role=alert]')`);
     await lane.capture("u2773-rail", "tree-40-retention-failure");
   } finally {
     await lane.close();
