@@ -4,8 +4,9 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
-  draftSurface: (surface: string) => ({ rail: "Project item", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer" })[surface] ?? "Unfinished work",
+  draftSurface: (surface: string) => ({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" })[surface] ?? "Unfinished work",
   draftField: (field: string) => ({ name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
+  originalDraftObject: "Original object",
   inspectedRevision: (identity: string, revision: string) => `${identity} · Revision ${revision}`,
   inspectDraft: "Inspect",
   draftIdentity: (...parts: string[]) => parts.join(" · "),

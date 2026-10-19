@@ -186,10 +186,12 @@ const DraftRecovery = () => {
 
   const identity = (surface: string, object: string) => {
     const node = rail.nodes.find((node) => node.id === object);
+
     const name = surface === "pads" ? pads.pads().find((pad) => pad.name === object)?.name
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
-      : node?.name;
-    return copy.draftIdentity(surface === "rail" && node ? copy.nodeKind[node.kind] : copy.draftSurface(surface), name ?? copy.originalUnavailable);
+      : surface === "header" && object === project.path ? project.name : node?.name;
+
+    return copy.draftIdentity(copy.draftSurface(surface === "rail" && node ? node.kind : surface), name ?? copy.originalDraftObject);
   };
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
@@ -200,8 +202,8 @@ const DraftRecovery = () => {
     <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">
         <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li data-current={current().has(revision)} data-revision={revision}>
-          <div class="draft-destination"><Tip text={copy.draftIdentity(identity(draft().destination.surface, draft().destination.object), draft().destination.object)}>{(trigger) => <span {...trigger()} class="draft-name">{identity(draft().destination.surface, draft().destination.object)} <span class="draft-object">{draft().destination.object}</span></span>}</Tip>
-          <span class="draft-status" data-state={draft().status} data-kind={draft().status === "failed" ? "error" : undefined}><Show when={draft().status !== "draft"} fallback={<Icon name="edit" />}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} /></Show>{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
+          <div class="draft-destination"><Show when={draft().status === "draft"}><Icon name="edit" /></Show><Tip text={copy.draftIdentity(identity(draft().destination.surface, draft().destination.object), draft().destination.object)}>{(trigger) => <span {...trigger()} class="draft-name">{identity(draft().destination.surface, draft().destination.object)} <span class="draft-object">{draft().destination.object}</span></span>}</Tip>
+          <span class="draft-status" data-state={draft().status} data-kind={draft().status === "failed" ? "error" : undefined}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : "blocked"} label={copy.draftStatus[draft().status]} />{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
           <button data-button="quiet" type="button" aria-label={copy.draftIdentity(copy.inspectDraft, copy.draftSurface(draft().destination.surface), draft().destination.object, revision)} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{copy.inspectDraft}</button>
         </li>}</Show>}</For>
       </ul>
