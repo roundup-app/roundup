@@ -16,8 +16,8 @@ import type { createSendSelection } from "./sendSelection";
  */
 export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection>; focusTerminal: () => void }) => {
   const control = props.send;
-  const copyNote = copy.copyField(copy.text.toLowerCase());
-  const copyExcerpt = copy.copyField(copy.draftField("source").toLowerCase());
+  const copyNote = copy.copyField(copy.draftField("note").toLowerCase());
+  const copyExcerpt = copy.copyField(copy.draftField("excerpt"));
   const [choosing, setChoosingNow] = createSignal(false);
 
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
@@ -28,6 +28,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
   };
 
   let input: HTMLInputElement | undefined;
+  let panel: HTMLDivElement | undefined;
 
   createEffect(on(control.focusNote, (count) => {
     // A closing menu hands the keyboard back to where it came from a frame later; the note takes it after that.
@@ -81,7 +82,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
     <Popover.Root open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
       <Show when={control.open()}><Portal>
         <Popover.Positioner>
-          <Popover.Content class="send-to-agent" aria-label={copy.sendToAgent} onPointerDown={() => control.hold()}>
+          <Popover.Content ref={panel} class="send-to-agent" aria-label={copy.sendToAgent} onPointerDown={() => control.hold()}>
             <input
               ref={input}
               class="send-to-agent-note"
@@ -107,7 +108,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
                 {(trigger) => button(trigger({ onClick: activate }))}
               </Tip>
             }>
-              <Menu.Root open={choosing()} highlightedValue={highlighted()} onHighlightChange={(change) => setHighlighted(change.highlightedValue)} onOpenChange={(change) => setChoosing(change.open)} onSelect={(chosen) => {
+              <Menu.Root positioning={{ placement: "right-start", getAnchorRect: () => panel?.getBoundingClientRect() ?? null }} open={choosing()} highlightedValue={highlighted()} onHighlightChange={(change) => setHighlighted(change.highlightedValue)} onOpenChange={(change) => setChoosing(change.open)} onSelect={(chosen) => {
                 const to = control.receivers().find((receiver) => receiver.id === chosen.value);
 
                 setChoosing(false);
@@ -128,11 +129,13 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
             </Show>
             <Show when={control.problem()}>{(message) => <>
               <ErrorLine message={message()} />
+              <div class="send-to-agent-recovery">
               <button data-button="quiet" type="button" onClick={() => void control.copy("note")}>{copyNote}</button>
               <button data-button="quiet" type="button" onClick={() => void control.copy("excerpt")}>{copyExcerpt}</button>
               <button data-button="quiet" type="button" onClick={() => control.retry()}>{copy.storageRetry}</button>
+              </div>
             </>}</Show>
-            <button data-button="quiet" type="button" onClick={() => control.discard()}>{copy.discardRevision}</button>
+            <Show when={control.hasDraft()}><button data-button="quiet" type="button" onClick={() => control.discard()}>{copy.discardNote}</button></Show>
             <Show when={control.error()}>{(message) => <ErrorLine message={message()} />}</Show>
           </Popover.Content>
         </Popover.Positioner>

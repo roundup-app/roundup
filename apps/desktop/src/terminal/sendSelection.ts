@@ -62,7 +62,8 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
   const current = createMemo(() => drafts.list().find((draft) => draft.revision === revision()));
   const [caret, setCaret] = createSignal<{ start: number; end: number; direction: "forward" | "backward" | "none" } | null>(null);
 
-  const retain = (recipient = current()?.destination.recipient ?? (receivers().length === 1 ? receivers()[0]!.id : null)) => batch(() => {
+  const retain = (recipient = current()?.destination.recipient ?? (receivers().length === 1 ? receivers()[0]!.id : null), submitting = false) => batch(() => {
+    if (!note() && !current() && !submitting) return null;
     const id = terminalId();
     const source = rail.nodes.find((node) => node.terminal_id === id);
     const capture = held();
@@ -182,7 +183,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
       return false;
     }
 
-    const saved = existing?.destination.recipient === to.id ? existing : retain(to.id);
+    const saved = existing?.destination.recipient === to.id ? existing : retain(to.id, true);
 
     if (!saved || drafts.availability(saved, connected) !== "available") {
       setError(copy.originalUnavailable);
@@ -262,6 +263,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
       retain();
     },
     caret,
+    hasDraft: () => !!current() || note().length > 0,
     selection: (start: number, end: number, direction: "forward" | "backward" | "none") => {
       const before = caret();
 
@@ -283,7 +285,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
 
       if (!failure || (failure.destination && failure.destination.surface !== "terminal_selection")) return null;
 
-      return copy.draftRetention(failure.project, failure.destination ? copy.draftSurface(failure.destination.surface) : copy.allDraftSurfaces, failure.cause);
+      return copy.selectionRetentionFailure(connected.project.name);
     },
     retry: () => drafts.retry(),
     copy: async (field: "note" | "excerpt") => {
