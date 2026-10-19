@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-runtime-typeof -- draftStorage parses the scalar/string-array union; recovery must copy string members verbatim. */
 import { useConnectedProject } from "../state/connectedProject";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
@@ -142,10 +141,23 @@ const DraftRecovery = () => {
   const { drafts, project, rail } = useConnectedProject();
   const [selected, select] = createSignal<string | null>(null);
   const [failure, failed] = createSignal<string | null>(null);
-  const current = () => drafts.list().filter((draft) => draft.status === "draft").reverse();
-  const revisions = createMemo(() => [...current(), ...drafts.list().filter((draft) => draft.status !== "draft").reverse()]);
+  const records = createMemo(() => drafts.list());
+
+  // External recovery can retain two unsubmitted revisions for one destination.
+  // Only its newest unsubmitted revision is current; inspection never promotes another.
+  const current = createMemo(() => new Set(new Map(records().filter((draft) => draft.status === "draft")
+    .map((draft) => [JSON.stringify([draft.destination.surface, draft.destination.object, draft.destination.recipient]), draft.revision])).values()));
+
+  const revisions = createMemo(() => [...records()].reverse().sort((a, b) => Number(current().has(b.revision)) - Number(current().has(a.revision))));
   const byRevision = createMemo(() => new Map(revisions().map((draft) => [draft.revision, draft])));
   const shown = () => byRevision().get(selected() ?? "") ?? revisions()[0];
+
+  const fieldText = (draft: ReturnType<typeof drafts.list>[number], field: string): string => {
+    const value = draft.value[field];
+
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- draftStorage parsed this scalar/string-array union; string members must be copied verbatim.
+    return typeof value === "string" ? value : JSON.stringify(value);
+  };
 
   const copyText = async (text: string) => {
     try {
@@ -165,23 +177,24 @@ const DraftRecovery = () => {
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
     <p class="draft-identity">{project.path}</p>
-    <Show when={drafts.problem()}>{(problem) => <p role="alert">{copy.draftRetention(project.path, problem().destination?.surface ?? ([...new Set(drafts.list().map((draft) => draft.destination.surface))].join(", ") || copy.allDraftSurfaces), problem().cause)}</p>}</Show>
+    <Show when={drafts.problem()}>{(problem) => <p role="alert">{copy.draftRetention(project.path, problem().destination?.surface ?? (copy.draftSurfaces([...new Set(drafts.list().map((draft) => draft.destination.surface))]) || copy.allDraftSurfaces), problem().cause)}</p>}</Show>
     <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
     <Show when={failure()}>{(text) => <p role="alert">{text()}</p>}</Show>
     <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">
-        <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li>
-          <span class="draft-status" data-state={draft().status}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} />{draft().status === "draft" ? copy.currentDraft : copy.earlierRevision} · {copy.draftStatus[draft().status]}</span>
-          <button data-button="quiet" type="button" aria-label={`${draft().destination.surface} · ${draft().destination.object} · ${revision}`} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{draft().destination.surface} · {draft().destination.object}</button>
+        <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li data-current={current().has(revision)} data-revision={revision}>
+          <div class="draft-destination"><span>{copy.draftIdentity(draft().destination.surface, draft().destination.object)}</span>
+          <span class="draft-status" data-state={draft().status}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} />{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
+          <button data-button="quiet" type="button" aria-label={copy.draftIdentity(copy.inspectDraft, draft().destination.surface, draft().destination.object, revision)} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{copy.inspectDraft}</button>
         </li>}</Show>}</For>
       </ul>
       <Show when={shown()}>{(draft) => <section aria-label={draft().revision}>
-        <p class="draft-identity">{draft().destination.surface} · {draft().destination.object} · {draft().destination.recipient}</p>
+        <p class="draft-identity">{copy.draftIdentity(draft().destination.surface, draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
         <Show when={availability(draft().destination.surface, draft().destination.object)}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
         <For each={Object.keys(draft().value)}>{(field) => <div>
           <h3>{field}</h3>
-          <pre class="draft-value">{typeof draft().value[field] === "string" ? String(draft().value[field]) : JSON.stringify(draft().value[field])}</pre>
-          <button data-button="quiet" type="button" onClick={() => void copyText(typeof draft().value[field] === "string" ? String(draft().value[field]) : JSON.stringify(draft().value[field]))}>{copy.copyField(field)}</button>
+          <pre class="draft-value">{fieldText(draft(), field)}</pre>
+          <button data-button="quiet" type="button" onClick={() => void copyText(fieldText(draft(), field))}>{copy.copyField(field)}</button>
         </div>}</For>
         <button data-button="quiet" type="button" onClick={() => drafts.discard(draft().revision)}>{copy.discardRevision}</button>
       </section>}</Show>
