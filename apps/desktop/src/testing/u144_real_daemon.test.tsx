@@ -380,12 +380,25 @@ describe("u2773 Project draft integration on real Projects", () => {
   afterAll(async () => { await first?.stop(); await second?.stop(); });
   afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
 
+  // Fixture surface owner: its format and identity extraction stay outside shared recovery.
+  const recoverSelections = () => drafts(first.dir).registerRecovery("terminal_selection", (draft, { rail, daemonExit }) => {
+    if (daemonExit() || rail.terminalExit(draft.destination.object)) return "unavailable";
+
+    if (rail.failure()) return "unverified";
+
+    const source = rail.nodes.find((node) => node.id === draft.value.source);
+    const terminal = rail.terminals().find((each) => each.id === draft.destination.object);
+
+    return source?.attempt === draft.value.attempt && source?.terminal_id === draft.destination.object && terminal?.running ? "available" : "unavailable";
+  });
+
   let seed = 0;
 
   const setup = async () => {
     seed++;
     window.localStorage.clear();
     drafts = createProjectDrafts();
+    recoverSelections();
     const served = createServedApp(first.base);
     original = await served.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
     replacement = await served.rpc("rail.createWorkstream", { name: `replacement ${seed}`, parent: null });
@@ -583,7 +596,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const liveReplacement = await bound.rpc("rail.startDoor", { id: replacement.id });
     const holder = drafts(first.dir);
     const destination = { surface: "terminal_selection", object: terminal, recipient: source.id };
-    const a = holder.edit(destination, { note: "older exact\n", excerpt: exact }, null, "ordinary").draft;
+    const a = holder.edit(destination, { note: "older exact\n", excerpt: exact, source: source.id, attempt: source.attempt }, null, "ordinary").draft;
     holder.submit(a.revision);
     const status = ending === "exit" ? "failed" : "unknown";
 
@@ -596,7 +609,7 @@ describe("u2773 Project draft integration on real Projects", () => {
       write.call(this, key, value);
     });
 
-    const b = holder.edit(destination, { note: exact, excerpt: " captured 🧭\n" }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+    const b = holder.edit(destination, { note: exact, excerpt: " captured 🧭\n", source: source.id, attempt: source.attempt }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
     mount();
     await screen.findByRole("region", { name: "Rail" });
     await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
@@ -612,6 +625,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(screen.queryByText("Original object unavailable")).toBeNull();
     expect(screen.queryByText("Original availability not verified")).toBeNull();
     inspect.focus();
+    recoverSelections();
+    expect(document.activeElement).toBe(inspect);
     calls.forEach((spy) => spy.mockClear());
 
     if (ending === "exit") await bound.rpc("terminal.kill", { id: terminal });
@@ -653,10 +668,11 @@ describe("u2773 Project draft integration on real Projects", () => {
     const bound = app.forProject(first.dir);
     const source = await bound.rpc("rail.startDoor", { id: original.id });
     const terminal = source.terminal_id!;
-    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: terminal, recipient: source.id }, { note: exact, excerpt: " captured source\n" }, null, "ordinary").draft;
+    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: terminal, recipient: source.id }, { note: exact, excerpt: " captured source\n", source: source.id, attempt: source.attempt }, null, "ordinary").draft;
     await bound.rpc("terminal.kill", { id: terminal });
     window.localStorage.setItem(`roundup:rail:${first.dir}`, JSON.stringify({ selected: source.id, collapsed: [] }));
     drafts = createProjectDrafts();
+    recoverSelections();
     const emulators = fakeEmulators();
     const outside = document.createElement("input");
     document.body.append(outside);
@@ -675,6 +691,28 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(methods.filter((method) => method === "terminal.write" || method === "terminal.spawn" || method === "rail.startDoor")).toEqual([]);
     noDelivery();
     outside.remove();
+  }, 60_000);
+
+
+  it("u2773a_terminal_selection_restores_exact_work_shared_reused_terminal_id", async () => {
+    await setup();
+    await first.restart();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: source.terminal_id!, recipient: source.id }, { note: exact, source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    await first.restart();
+    await bound.rpc("rail.rename", { id: replacement.id, name: source.name });
+    const liveReplacement = await bound.rpc("rail.startDoor", { id: replacement.id });
+    expect(liveReplacement.terminal_id).toBe(source.terminal_id);
+    calls.forEach((spy) => spy.mockClear());
+    mount();
+    await openRecovery();
+    expect(await screen.findByText("Original object unavailable")).toBeTruthy();
+    expect(screen.getByText(`${source.terminal_id} · ${source.id}`)).toBeTruthy();
+    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect(drafts(first.dir).list()).toEqual([saved]);
+    expect((await bound.rpc("terminal.list", null)).find((each) => each.id === liveReplacement.terminal_id)?.running).toBe(true);
+    noDelivery();
   }, 60_000);
 
 });
