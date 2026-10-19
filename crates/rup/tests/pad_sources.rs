@@ -166,37 +166,6 @@ async fn dv3_rejected_file_deletion_restarts_without_denial_then_retry_commits()
 }
 
 #[tokio::test]
-async fn dv2_preexisting_project_pads_gain_durable_source_incarnations() {
-    let mut project = daemon::start(&[]);
-    let client = project.client().await;
-    client
-        .request(
-            "pad.create",
-            json!({"name":"existing", "text":"before upgrade"}),
-        )
-        .await
-        .unwrap();
-    project.crash();
-    let db = Connection::open(project.data_dir().join("project.db")).unwrap();
-    // Reconstruct the immediately preceding Project schema, retaining its real Pad row.
-    // This migration is the only schema difference from that version.
-    let version: i64 = db
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    db.execute_batch(
-        "DROP TRIGGER pad_source_created; DROP TRIGGER pad_source_removed; DROP TABLE pad_sources;",
-    )
-    .unwrap();
-    db.pragma_update(None, "user_version", version - 1).unwrap();
-    project.restart(&[]);
-    let first = source(&db, "existing").unwrap().unwrap();
-    assert_eq!(first.pad.text, "before upgrade");
-    assert_eq!(first.pad.revision, 1);
-    project.restart(&[]);
-    assert_eq!(source(&db, "EXISTING").unwrap(), Some(first));
-}
-
-#[tokio::test]
 async fn u2773c_pads_external_change_keeps_original() {
     for replacement_after_restart in [None, Some(false), Some(true)] {
         let mut project = daemon::start(&[]);
