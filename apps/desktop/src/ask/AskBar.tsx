@@ -42,6 +42,12 @@ export const AskBar = () => {
   });
   const records = () => drafts.list().filter(draft => draft.destination.surface === "ask" && draft.destination.object === "ask-bar");
 
+  const problem = () => {
+    const found = drafts.problem();
+
+    return !connected.drawer.content() && (!found?.destination || found.destination.surface === "ask") ? found : null;
+  };
+
   const current = () => {
     const latest = records().at(-1);
 
@@ -195,9 +201,9 @@ export const AskBar = () => {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure()?.message ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-        <Show when={drafts.problem()}>{problem => <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />}</Show>
-        <Show when={drafts.problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-        <Show when={drafts.problem() || records().some(draft => draft.status !== "draft")}><DraftRecoveryEntry /></Show>
+        <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />}</Show>
+        <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+        <Show when={!connected.drawer.content() && (problem() || records().some(draft => draft.status !== "draft"))}><DraftRecoveryEntry /></Show>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => <button type="button" data-button="quiet" onClick={() => {
           void asks.reconcile(revision).then(outcome => {
             drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);

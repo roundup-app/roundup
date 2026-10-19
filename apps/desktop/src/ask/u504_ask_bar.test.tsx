@@ -173,6 +173,8 @@ it("u2773a_ask_restores_exact_work", async () => {
   type(exact);
   input()!.setSelectionRange(2, 6, "backward");
   fireEvent.select(input()!);
+  first.app.emit(event({ name: "ask.changed", data: { ask: ask("incoming", 1, [], "incoming work") } }));
+  expect(input()!.value).toBe(exact);
   first.connected.rail.select("ann");
   expect(input()).toBeNull();
   press("/", { metaKey: true }, document.querySelector(".outside")!);
@@ -186,6 +188,7 @@ it("u2773a_ask_restores_exact_work", async () => {
   other.unmount();
   const reopened = await mountAskBar([], null, undefined, false, path);
   expect(input()!.value).toBe(exact);
+  expect(document.activeElement).not.toBe(input());
   expect([input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([2, 6, "backward"]);
   expect(sent(first.app)).toEqual([]);
   expect(sent(other.app)).toEqual([]);
@@ -214,7 +217,11 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   expect(sent(reopened.app)).toEqual([]);
   const older = reopened.connected.drafts.list().find(draft => draft.status !== "draft");
 
-  if (older) reopened.connected.drafts.discard(older.revision);
+  if (older) {
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+  }
+
   reopened.unmount();
   const again = await mountAskBar([], null, undefined, false, path);
   expect(again.connected.drafts.list().map(draft => draft.value.text)).toEqual(["  B e\u0301\n "]);
