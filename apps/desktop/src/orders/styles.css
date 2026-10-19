@@ -104,6 +104,7 @@
 
 .order-edit-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
   --button-inline: var(--space-2);
 }
@@ -164,3 +165,18 @@
 .overview-context meter::-moz-meter-bar { background: var(--grey); }
 .order-overview :where(p, ul) { margin: var(--space-2) 0; }
 .order-overview ul { padding-inline-start: var(--space-5); }
+
+.order-edit-conflict {
+  margin: 0;
+  color: var(--grey);
+  overflow-wrap: anywhere;
+}
+
+.order-edit-retention {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.order-edit-retention p { margin: 0; }
