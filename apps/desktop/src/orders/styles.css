@@ -104,6 +104,7 @@
 
 .order-edit-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
   --button-inline: var(--space-2);
 }
