@@ -44,33 +44,16 @@ const signature = (elements: readonly CanvasElement[]) => elements.map((element)
 /** U149: an Excalidraw scene on a canvas, editable unless the Pad is read-only. */
 export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, readonly, replace }) => {
   let root: ReturnType<typeof createRoot> | undefined;
-  let pending: string | undefined;
-  let pointerDown = false;
   // Loading may touch versions; only the user's own gesture counts as an edit.
   let touched = false;
 
-  const flush = () => {
-    if (pending === undefined) return;
-    const next = pending;
-
-    pending = undefined;
-    replace(next);
-  };
-
-  const up = () => {
-    pointerDown = false;
-    flush();
-  };
-
   const down = () => {
-    pointerDown = true;
     touched = true;
   };
 
   host.classList.add("visual-drawing");
   host.addEventListener("pointerdown", down);
   host.addEventListener("keydown", () => (touched = true));
-  window.addEventListener("pointerup", up);
 
   try {
     const skeleton = parse(text);
@@ -95,9 +78,9 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
 
           if (signature(current) === last) return;
           last = signature(current);
-          pending = JSON.stringify({ type: "excalidraw", version: 2, elements: current.filter((element) => !element.isDeleted) });
-
-          if (!pointerDown) flush();
+          // Visual slots preserve their own widget on this transaction; capture every scene
+          // immediately so navigation or reload during a gesture cannot lose it.
+          replace(JSON.stringify({ type: "excalidraw", version: 2, elements: current.filter((element) => !element.isDeleted) }));
         },
       }),
     );
@@ -113,8 +96,6 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   }
 
   return () => {
-    pending = undefined;
-    window.removeEventListener("pointerup", up);
     // Unmounting during React's own render pass throws; defer it.
     queueMicrotask(() => root?.unmount());
   };
