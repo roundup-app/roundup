@@ -169,10 +169,10 @@ async fn n2_a_folder_that_is_not_a_repository_gets_no_roundup_folder() {
 }
 
 #[tokio::test]
-async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
+async fn dv2_retained_revision_n2_with_worktrees_on_only_the_worktree_folders_appear() {
     let dir = repository();
     let before = listing(dir.path());
-    let project = open(dir, tempfile::tempdir().unwrap());
+    let mut project = open(dir, tempfile::tempdir().unwrap());
     project
         .client()
         .await
@@ -221,6 +221,25 @@ async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
         .unwrap();
     let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     let before = pads::source(&db, "notes").unwrap().unwrap();
+    let maker = project.client().await;
+    maker
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":ids[0],"parent":null}}),
+        )
+        .await
+        .unwrap();
+    let pad=maker.request("deliverable.publish",json!({"key":"pad-retained","title":"Result","target":{"kind":"pad","name":"notes","incarnation":before.pad.incarnation,"revision":before.pad.revision}})).await.unwrap();
+    let file=maker.request("deliverable.publish",json!({"key":"file-retained","title":"Result","target":{"kind":"file","path":"README.md"}})).await.unwrap();
+    maker
+        .request(
+            "pad.write",
+            json!({"name":"notes","text":"body revision two"}),
+        )
+        .await
+        .unwrap();
+    let before = pads::source(&db, "notes").unwrap().unwrap();
+
     client
         .request("agent.stop", json!({"id":ids[0]}))
         .await
@@ -243,6 +262,27 @@ async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
     assert_eq!(
         pads::source_state(&db, before.incarnation).unwrap(),
         pads::PadSourceState::Live(before)
+    );
+    project.restart(&[]);
+    let client = project.client().await;
+    for (record, expected) in [(pad, "body"), (file, "hello\n")] {
+        let id = json!({"project":record["project"],"id":record["id"]});
+        assert_eq!(
+            client.request("deliverable.get", id.clone()).await.unwrap()["maker"]["id"],
+            ids[0]
+        );
+        let result = client.request("deliverable.resolve", id).await.unwrap();
+        assert_eq!(
+            std::fs::read_to_string(result["path"].as_str().unwrap()).unwrap(),
+            expected
+        );
+    }
+    assert_eq!(
+        client
+            .request("pad.read", json!({"name":"notes"}))
+            .await
+            .unwrap()["text"],
+        "body revision two"
     );
 }
 
@@ -693,4 +733,54 @@ async fn n1_fallback_uses_a_nested_temporary_home() {
     assert_reaped(pid);
     drop(run);
     assert!(!path.exists());
+}
+
+#[tokio::test]
+async fn dv2_preexisting_project_pads_gain_durable_source_incarnations() {
+    let mut project = daemon::start(&[]);
+    let client = project.client().await;
+    let original = client
+        .request(
+            "pad.create",
+            json!({"name":"existing", "text":"before upgrade"}),
+        )
+        .await
+        .unwrap();
+    project.crash();
+    let path = project.data_dir().join("project.db");
+    for name in ["project.db", "project.db-wal", "project.db-shm"] {
+        match std::fs::remove_file(project.data_dir().join(name)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => panic!("remove current fixture database: {error}"),
+        }
+    }
+    let db = rusqlite::Connection::open(path).unwrap();
+    // Pin historical Project version 12, before source incarnations. New migrations must
+    // not turn this fixture into a different predecessor or replay already-created tables.
+    let historical = [
+        include_str!("../../rupd/migrations/001/up.sql"),
+        include_str!("../../agents/migrations/003/up.sql"),
+        include_str!("../../rupd/migrations/003/up.sql"),
+        include_str!("../../agents/migrations/004/up.sql"),
+        include_str!("../../rupd/migrations/005/up.sql"),
+        include_str!("../../pads/migrations/002/up.sql"),
+        include_str!("../../rupd/migrations/006/up.sql"),
+        include_str!("../../agents/migrations/005/up.sql"),
+        include_str!("../../messages/migrations/002/up.sql"),
+        include_str!("../../messages/migrations/003/up.sql"),
+        include_str!("../../rupd/migrations/project/0001-prepared.sql"),
+        include_str!("../../rupd/migrations/project/0002-message-sender-names.sql"),
+    ];
+    for sql in historical {
+        db.execute_batch(sql).unwrap();
+    }
+    db.execute("INSERT INTO pads(key,name,owner,text,updated_at,home,revision) VALUES ('existing','existing',?1,?2,?3,NULL,1)",rusqlite::params![original["owner"].to_string(),original["text"].as_str().unwrap(),original["updated_at"].as_i64().unwrap()]).unwrap();
+    db.pragma_update(None, "user_version", 12).unwrap();
+    project.restart(&[]);
+    let first = pads::source(&db, "existing").unwrap().unwrap();
+    assert_eq!(first.pad.text, "before upgrade");
+    assert_eq!(first.pad.revision, 1);
+    project.restart(&[]);
+    assert_eq!(pads::source(&db, "EXISTING").unwrap(), Some(first));
 }
