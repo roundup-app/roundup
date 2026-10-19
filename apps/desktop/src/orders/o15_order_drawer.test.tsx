@@ -177,6 +177,28 @@ it("u2773a_orders_restores_exact_work_after_escape", async () => {
   expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 3, 9, "backward"]);
 });
 
+it("u2773a_orders_agent_switch_keeps_recipient", async () => {
+  const sent: object[] = [];
+  await openDrawer(full, { handlers: {
+    "rail.tree": () => [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full }), door("r", "working", "editing", { name: "harbor" })],
+    "agent.setOrder": (params) => { sent.push(params);
+
+ return {}; },
+  } });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  alpha original 🧭\n" } });
+  select("beta");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of beta" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(full.ask);
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  beta original 👋\n" } });
+  select("alpha");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  alpha original 🧭\n");
+  expect(sent).toEqual([]);
+});
+
 for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
   it(`u2773b_orders_settlement_preserves_other_revisions_${outcome}`, async () => {
     const reply = gate<object>();
@@ -193,8 +215,9 @@ for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
     if (outcome === "acknowledged") reply.resolve({});
     else reply.reject(outcome === "failed" ? new RpcError(-32003, "refused") : new RpcError(-32603, "disconnected"));
 
-    if (outcome === "acknowledged") await reply.promise;
-    else await screen.findByRole("alert");
+    if (outcome === "acknowledged") {
+      await waitFor(() => expect(screen.getByRole("button", { name: "Recover unfinished work" }).querySelector("[data-state=draft]")?.textContent).toBe("1"));
+    } else await screen.findByRole("alert");
     expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  newer B é\n");
     expect(sent).toEqual([{ id: "a", order: { kind: "work", title: full.title, ask: "older A 👋", done: full.done, limits }, captured: { order: full } }]);
     cleanup();
@@ -256,6 +279,11 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
   expect(screen.getByRole("alert").textContent).toContain("/p");
   expect(screen.getByRole("alert").textContent).toContain("reload");
+  const clipboard = vi.fn(async (_text: string) => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+
+  for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
+  await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
   storage.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   expect(screen.queryByRole("alert")).toBeNull();
@@ -263,6 +291,9 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   expect(["Title", "Ask", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
     .toEqual(["  unsaved title 👋  ", "  unsaved ask\n", "  unsaved done é  "]);
+  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  expect(document.querySelector(".order-edit")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
   expect(sends).toEqual([]);
 });
 
@@ -375,6 +406,7 @@ describe("U2773 Order forms on real Projects", () => {
   it("u2773c_orders_removed_original_keeps_form_in_project_recovery", async () => {
     const app = createServedApp(first.base);
     const original = await app.rpc("agent.spawn", { cwd: first.dir, name: "same name", parent: null, prompt: null, order: full });
+    const calls = vi.spyOn(app, "rpc");
     mount(app);
     const ask = await open(original.id);
     fireEvent.input(ask, { target: { value: "  unavailable original 🧭\n" } });
@@ -385,7 +417,7 @@ describe("U2773 Order forms on real Projects", () => {
     expect(recovery.textContent).toContain("  unavailable original 🧭\n");
     expect(recovery.textContent).toContain(original.id);
     await waitFor(() => expect(recovery.querySelector("[data-state=unavailable]")).not.toBeNull());
-    const calls = vi.spyOn(app, "rpc");
+    calls.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
     expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(0);
     expect(calls.mock.calls.filter(([method]) => method === "agent.setOrder" || method === "agent.spawn")).toEqual([]);

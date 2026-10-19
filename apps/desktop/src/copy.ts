@@ -200,6 +200,8 @@ export const copy = {
   aRunningAgentIsNotChanged: "A running Agent is not changed.",
   thePromptCouldNotBeRead: "The prompt could not be read",
   theOrderCouldNotBeSaved: "The order could not be saved",
+  orderRestoreFailed: "This saved order form could not be restored. Recover unfinished work to copy or discard its original fields.",
+  orderChanged: "The original order changed. Your edit is retained. Copy it or discard this revision before editing the current order.",
   title: "Title",
   ask: "Ask",
   doneWhen: "Done when",
