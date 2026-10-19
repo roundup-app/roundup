@@ -236,6 +236,15 @@ A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workst
 **Drawing**:
 A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edits in place and an Agent writes as text. It is Pad text, so the Pad contracts are unchanged.
 
+**Pad source** (`PadSource`, `source`):
+One creation of a Pad, identified by a Project-scoped never-reused **incarnation**, together with its current text and Revision. Its identity survives edits, ownership and Home changes; another creation with the same name is another source.
+
+**Pad source state** (`PadSourceState`, `source_state`):
+The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
+
+**Pad deletion** (`PadDeletion`):
+The cause recorded when a Pad source ends: explicit deletion by the user, deletion by its owner, or cleanup (including Workstream removal and archival). Cleanup alone is not explicit source revocation.
+
 **Pad**:
 A markdown note owned by an Agent or the user, with a Home (P12). Removing its Workstream deletes it unless a kept Agent owns it (A34). It has a Revision (P15): a number that starts at 1 and rises with each change to its text, which `pad.write` and `pad.appendSection` can require atomically (`expectedRevision`) so two writers never interleave blindly. "Scratchpad" is the product word in prose only.
 _Avoid_: scratchpad
@@ -585,6 +594,8 @@ A PNG or checks JSON under the artifact-relative `artifacts/ux/<id>/` (journey: 
 **Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
 
 **Values** (`Values`): a Todo's title, body, done state and blocker identities, as held by a Change.
+
+**Captured Change** (`expected_change`): the last History Change sequence captured with a Todo's editable Values in its original Project. `todo.update` and `todo.setBlockers` can require that sequence atomically: a mismatch refuses with conflict; a removed Todo is not found. Omission keeps an unconditional write. Read the base Values and sequence together from the last Change returned by `todo.getHistory`; a separate later History read is not the base of an earlier `todo.get`. Immediate completion needs no captured Change.
 
 **Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation. `seq` orders Changes; lists and the Rail do not carry them.
 

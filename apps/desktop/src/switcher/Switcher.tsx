@@ -24,6 +24,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const [open, setOpen] = createSignal(false);
   const [text, setText] = createSignal("");
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
+  let input: HTMLInputElement | undefined;
   let panel: HTMLElement | undefined;
   let returnTo: Element | null = null;
   let afterOpen: Element | null = null;
@@ -116,8 +117,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   return (
     <Show when={open()}>
-      <section class="switcher" ref={(element) => { panel = element; queueMicrotask(() => element.querySelector("input")?.focus()); }}>
-        <Combobox.Root items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={setText}
+      <section class="switcher" ref={(element) => { panel = element; queueMicrotask(() => input?.focus()); }}>
+        <Combobox.Root inputValue={text()} inputRef={(element) => { input = element; }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={setText}
           onSelect={(value) => chooseValue(value, false)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {

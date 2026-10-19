@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import * as v from "valibot";
 
 type Restore<T> =
@@ -92,7 +93,7 @@ const sameDestination = (a: Destination, b: Destination) =>
  * Reading/copying never submits, changes the current draft, or resumes autosave.
  * Credential drafts remain memory-only; vendor Terminal buffers must never enter this holder.
  * Values contain named scalar fields/string selections; editor documents remain exact source strings.
- * list() returns independent copies, oldest first; the last draft for a destination is current.
+ * list()/problem() are reactive; list() returns independent copies, oldest first; the last draft for a destination is current.
  * submit() marks a snapshot before the owner sends; settle() requires that revision's actual outcome.
  * Unknown acceptance requires reconciliation by the owner, never another submit() here.
  * edit/submit return recoverable memory plus the retention result; problem() also reports restore failure.
@@ -100,6 +101,7 @@ const sameDestination = (a: Destination, b: Destination) =>
  */
 export const draftStorage = (project: string) => {
   const storage = storedValue(`roundup:drafts:${project}`, draftsSchema);
+  const [version, setVersion] = createSignal(0);
   let drafts: Draft[] = [];
   let problem: DraftProblem | null = null;
   let baseline = "";
@@ -111,6 +113,7 @@ export const draftStorage = (project: string) => {
 
     if (result.status === "failed") {
       problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
+      setVersion((previous) => previous + 1);
 
       return false;
     }
@@ -130,7 +133,7 @@ export const draftStorage = (project: string) => {
 
   restore();
 
-  const retain = (affected: Draft | null): DraftProblem | null => {
+  const persist = (affected: Draft | null): DraftProblem | null => {
     // Never overwrite a record that failed parsing, or a different writer's work.
     const result = storage.restore();
 
@@ -171,9 +174,25 @@ export const draftStorage = (project: string) => {
     return null;
   };
 
+  const retain = (affected: Draft | null): DraftProblem | null => {
+    const failure = persist(affected);
+    // Publish memory and its retention result together, including failed writes.
+    setVersion((previous) => previous + 1);
+
+    return failure;
+  };
+
   return {
-    list: (): Draft[] => structuredClone(drafts),
-    problem: (): DraftProblem | null => structuredClone(problem),
+    list: (): Draft[] => {
+      version();
+
+      return structuredClone(drafts);
+    },
+    problem: (): DraftProblem | null => {
+      version();
+
+      return structuredClone(problem);
+    },
     edit: (target: Destination, value: Draft["value"], caret: Draft["selection"], policy: Draft["policy"]): RetainedDraft => {
       const draft: Draft = structuredClone({
         revision: crypto.randomUUID(), destination: target, value, selection: caret, policy, status: "draft",
