@@ -125,6 +125,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PROMPT: ${{ needs.task.outputs.prompt }}
         run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/loop/builder.py" engine-read-only '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
+      # Claude Code at the version the setup action pins; the job runs no setup.
+      - name: Install Claude Code
+        if: vars.CLAUDE_API != ''
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash -s -- 2.1.296
+          echo "$HOME/.local/bin" >>"$GITHUB_PATH"
       # CLAUDE_API: the same prompt and schema on Claude Code over API credit (`ANTHROPIC_API_KEY`), holding the job's read token only.
       - id: api
         if: vars.CLAUDE_API != ''
