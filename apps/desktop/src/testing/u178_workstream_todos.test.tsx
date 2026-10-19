@@ -119,8 +119,23 @@ it("u2744a_shelf_scope_real_daemon", async () => {
     };
 
     const expand = async () => {
-      await evaluate(`(() => { document.querySelectorAll('.shelf [data-part="branch-control"]').forEach(control => { if (control.closest('[role="treeitem"]').getAttribute('aria-expanded') === 'false') control.click(); }); const done = [...document.querySelectorAll('.shelf-done-line .todo-row-button')][0]; if (done && !document.querySelector('.shelf .todo-tick:checked')) done.click(); return true; })()`);
-      await evaluate("new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
+      for (;;) {
+        const closed = '.shelf [role="treeitem"][aria-expanded="false"] > [data-part="branch-control"]';
+        const id = await evaluate<string | null>(`[...document.querySelectorAll(${JSON.stringify(closed)})].find(control => control.checkVisibility())?.closest('[data-shelf-group]').dataset.shelfGroup ?? null`);
+
+        if (!id) break;
+        const group = `.shelf [data-shelf-group="${id}"]`;
+
+        await browser("click", `${group} > [data-part="branch-control"]`);
+        await until(`document.querySelector(${JSON.stringify(group)})?.getAttribute('aria-expanded') === 'true'`);
+      }
+
+      const done = '.shelf-done-line .todo-row-button';
+
+      if (await evaluate<boolean>(`!!document.querySelector(${JSON.stringify(done)}) && ![...document.querySelectorAll('.shelf .todo-tick:checked')].some(tick => tick.checkVisibility())`)) {
+        await browser("click", done);
+        await until("[...document.querySelectorAll('.shelf .todo-tick:checked')].some(tick => tick.checkVisibility())");
+      }
     };
 
     const readback = async (id: string | null, maker = false, step?: string) => {
@@ -129,14 +144,14 @@ it("u2744a_shelf_scope_real_daemon", async () => {
       await tab("todos");
       expect(await evaluate("document.querySelector('#shelf-tab-todos .shelf-count')?.textContent ?? '0'")).toBe(String(expectedTodos.filter(todo => !todo.done).length));
       await expand();
-      await until(`document.querySelectorAll('#shelf-panel-todos [data-todo]').length === ${expectedTodos.length}`);
-      const todoIds = await evaluate<number[]>("[...document.querySelectorAll('#shelf-panel-todos [data-todo]')].map(row => Number(row.dataset.todo))");
+      await until(`[...document.querySelectorAll('#shelf-panel-todos [data-todo]')].filter(row => row.checkVisibility()).length === ${expectedTodos.length}`);
+      const todoIds = await evaluate<number[]>("[...document.querySelectorAll('#shelf-panel-todos [data-todo]')].filter(row => row.checkVisibility()).map(row => Number(row.dataset.todo))");
       expect(todoIds.toSorted((a, b) => a - b)).toEqual(expectedTodos.map(row => row.id).toSorted((a, b) => a - b));
       await tab("pads");
       expect(await evaluate("document.querySelector('#shelf-tab-pads .shelf-count')?.textContent ?? '0'")).toBe(String(expectedPads.length));
       await expand();
-      await until(`document.querySelectorAll('#shelf-panel-pads .pad-name').length === ${expectedPads.length}`);
-      expect((await evaluate<string[]>("[...document.querySelectorAll('#shelf-panel-pads .pad-name')].map(row => row.textContent)")).toSorted()).toEqual(expectedPads.map(row => row.name).toSorted());
+      await until(`[...document.querySelectorAll('#shelf-panel-pads .pad-name')].filter(row => row.checkVisibility()).length === ${expectedPads.length}`);
+      expect((await evaluate<string[]>("[...document.querySelectorAll('#shelf-panel-pads .pad-name')].filter(row => row.checkVisibility()).map(row => row.textContent)")).toSorted()).toEqual(expectedPads.map(row => row.name).toSorted());
 
       if (step) await capture(`${step}-pads`);
       await tab("todos");
