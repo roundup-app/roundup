@@ -155,6 +155,7 @@ it("u2744a_shelf_scope_real_daemon", async () => {
 
       if (step) await capture(`${step}-pads`);
       await tab("todos");
+      await expand();
     };
 
     for (const scheme of ["light", "dark"]) {
