@@ -82,7 +82,8 @@ export type App = {
   /** Ends the Project's Daemon and its Agents and Terminals. */
   closeProject(path: string): Promise<void>;
   /** Stores `name` for the Project; an empty name returns it to its folder's name (S10). */
-  renameProject(path: string, name: string): Promise<Project>;
+  /** With a captured authoritative name `base`, atomically refuse CONFLICT if it changed; omission authorizes an unconditional rename. */
+  renameProject(path: string, name: string, base?: string): Promise<Project>;
   /** Resolves `null` when the user cancels the macOS chooser. */
   chooseProjectPath(): Promise<string | null>;
   /** The macOS save chooser, with `suggestedName` filled in; resolves `null` on cancel. */
