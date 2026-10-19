@@ -10,6 +10,7 @@ import re
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -159,16 +160,33 @@ def question(answer, branch):
     return stopped(prs[0]) if prs[0]['isDraft'] else ''
 
 
+def screen_on_codex(ask):
+    """`SCREEN_SCHEMA`'s answer to `ask` from Codex's `CODEX_MODEL`, signed in with `CODEX_AUTH`, in a read-only sandbox:
+    the JSON text it gave, which may be no valid verdict."""
+    home = codex_home(os.environ.get('CODEX_AUTH', ''), Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'])))
+    answer = home / 'answer.json'
+    (home / 'schema.json').write_text(json.dumps(SCREEN_SCHEMA))
+    subprocess.run(['codex', 'exec', '--model', CODEX_MODEL, '--sandbox', 'read-only', '--output-schema',
+                    str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
+                   input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True, timeout=300,
+                   check=True, env={**os.environ, 'CODEX_HOME': str(home)})
+    return answer.read_text()
+
+
 def screen(ask):
-    """Haiku's verdict on what a run asks the user (L79, `.agents/screen.md`): a dict of `verdict` (one of `VERDICTS`),
-    `reason` and `preview`, or None when Claude Code gave no valid one in `SCREEN_TRIES` tries. Each failed try is logged."""
+    """The screen's verdict on what a run asks the user (L79, `.agents/screen.md`), from Haiku or, with `CODEX_ONLY`
+    set, from Codex: a dict of `verdict` (one of `VERDICTS`), `reason` and `preview`, or None when it gave no valid one
+    in `SCREEN_TRIES` tries. Each failed try is logged."""
     for attempt in range(1, SCREEN_TRIES + 1):
         try:
-            out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
-                                  '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                                 input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
-                                 timeout=300, check=True)
-            verdict = json.loads(out.stdout).get('structured_output')
+            if os.environ.get('CODEX_ONLY'):
+                verdict = json.loads(screen_on_codex(ask))
+            else:
+                out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                                      '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
+                                     input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                                     timeout=300, check=True)
+                verdict = json.loads(out.stdout).get('structured_output')
         except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
             print(f'screen: try {attempt} gave no verdict: {error}', file=sys.stderr)
             continue
@@ -254,15 +272,17 @@ def app_token(rights=RIGHTS):
     return token
 
 
-def stream(command, prompt, events, env, account):
-    """Run `command` on `prompt` as `account`, `git` and `gh` holding a fresh App token with a run's rights, writing its
-    stdout lines to `events`, which the public step log shows only as each event's kind; revokes the token after.
-    Returns the exit code."""
-    name, email = account
-    env = {**env, 'GH_TOKEN': app_token(RUN_RIGHTS), 'GIT_AUTHOR_NAME': name, 'GIT_AUTHOR_EMAIL': email,
-           'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
+def stream(command, prompt, events, env, account, rights=RUN_RIGHTS):
+    """Run `command` on `prompt` as `account`, `git` and `gh` holding a fresh App token with `rights` (a run's, unless
+    None: then they keep the job's own `GH_TOKEN`), writing its stdout lines to `events`, which the public step log shows
+    only as each event's kind; revokes the App token after. Returns the exit code."""
+    if rights is not None:
+        name, email = account
+        env = {**env, 'GH_TOKEN': app_token(rights), 'GIT_AUTHOR_NAME': name, 'GIT_AUTHOR_EMAIL': email,
+               'GIT_COMMITTER_NAME': name, 'GIT_COMMITTER_EMAIL': email}
     try:
-        subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
+        if rights is not None:
+            subprocess.run(['gh', 'auth', 'setup-git', '--hostname', 'github.com'], env=env, check=True, timeout=60)
         with open(events, 'w') as log, subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                                         text=True, env=env) as run:
             run.stdin.write(prompt)
@@ -274,11 +294,18 @@ def stream(command, prompt, events, env, account):
                     event = json.loads(line)
                 except ValueError:
                     event = {}
-                content = event.get('message', {}).get('content', [])
+                if not isinstance(event, dict):
+                    event = {}
+                message, item = event.get('message', {}), event.get('item', {})
+                content = message.get('content', []) if isinstance(message, dict) else []
                 kinds = [part.get('type', '') for part in content] if isinstance(content, list) else []
-                print(event.get('type', 'not an event'), event.get('item', {}).get('type', ''), *kinds, flush=True)
+                print(event.get('type', 'not an event'), item.get('type', '') if isinstance(item, dict) else '', *kinds,
+                      flush=True)
+                if event.get('type') == 'error' and isinstance(message, str):  # why Codex failed; no tool output
+                    print(f'::error::{message}', flush=True)
     finally:
-        subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
+        if rights is not None:
+            subprocess.run(['gh', 'api', '-X', 'DELETE', '/installation/token'], env=env, timeout=60)
     return run.returncode
 
 
@@ -310,45 +337,67 @@ def claude(prompt, model, schema, output):
     return code
 
 
-def codex(login, prompt, model, schema, output):
-    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
-    Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
-    starts, so a run cut off still leaves them, then `structured_output`, its answer. Returns Codex's exit code."""
+def codex_home(login, home):
+    """Sign Codex in with the ChatGPT login `login` in the new directory `home`, outside the checkout so no commit takes
+    it, and return `home`; raises ValueError when `login` is no ChatGPT login."""
     auth = json.loads(login or '{}')
     if auth.get('auth_mode') != 'chatgpt' or not auth.get('tokens'):
         raise ValueError('CODEX_AUTH holds no ChatGPT login: seed the CODEX_AUTH_JSON secret with `codex login`')
     # GitHub masks the whole secret, not each token inside it.
     for value in auth['tokens'].values():
         print(f'::add-mask::{value}')
-    # Outside the checkout, so no commit takes the login.
-    home = Path(os.environ['RUNNER_TEMP']) / 'codex'
-    home.mkdir(mode=0o700)
+    home.mkdir(mode=0o700, exist_ok=True)
     (home / 'auth.json').write_text(login)
     (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n')
+    return home
+
+
+def strict(schema):
+    """The JSON Schema `schema` as OpenAI's structured outputs read it: every object closed and all its properties
+    required, every enum typed."""
+    if isinstance(schema, list):
+        return [strict(part) for part in schema]
+    if not isinstance(schema, dict):
+        return schema
+    schema = {key: strict(value) for key, value in schema.items()}
+    if 'enum' in schema and 'type' not in schema:
+        schema = {'type': 'string', **schema}
+    if isinstance(schema.get('properties'), dict):
+        schema = {**schema, 'required': list(schema['properties']), 'additionalProperties': False}
+    return schema
+
+
+def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS):
+    """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
+    Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
+    starts, so a run cut off still leaves them, then `structured_output`, its answer. `rights` is as `stream` reads it.
+    Returns Codex's exit code."""
+    home = codex_home(login, Path(os.environ['RUNNER_TEMP']) / 'codex')
     events, answer = home / 'events.jsonl', home / 'answer.json'
     with open(output, 'a') as out:
         out.write(f'execution_file={events}\n')
     command = ['codex', 'exec', '--json', '--model', model, '--sandbox', 'danger-full-access',
                '--output-last-message', str(answer)]
     if schema is not None:
-        (home / 'schema.json').write_text(schema)
+        (home / 'schema.json').write_text(json.dumps(strict(json.loads(schema)), separators=(',', ':')))
         command += ['--output-schema', str(home / 'schema.json')]
-    code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT)
+    code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT, rights)
     if schema is not None and answer.is_file():
         answer_out(output, answer.read_text().strip())
     return code
 
 
-def engine(prompt, schema, output):
+def engine(prompt, schema, output, rights=RUN_RIGHTS):
     """L23: run `prompt` on Codex and, when that model used no tool (a usage limit or a setup failure such as a
     broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. The ChatGPT login leaves the
-    environment first, so a Claude Code run's shell never holds it. Returns the exit code of the run that was last."""
+    environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
+    run that did no work fails. `rights` is as `stream` reads it. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
     temp = Path(os.environ['RUNNER_TEMP'])
 
     def codex_or_none():
         try:
-            return codex(login, prompt, CODEX_MODEL, schema, output)
+            return codex(login, prompt, CODEX_MODEL, schema, output, rights)
         except ValueError as error:  # a broken login is a setup failure: no tool use, so the other engine runs
             print(f'::error::Codex did not start: {error}')
             return 1
@@ -359,6 +408,9 @@ def engine(prompt, schema, output):
     code = run()
     if worked(events):
         return code
+    if os.environ.get('CODEX_ONLY'):
+        print('::error::Codex did no work and CODEX_ONLY forbids Claude Code', file=sys.stderr)
+        return code or 1
     print('engine: Codex did no work; falling back to Claude Code', file=sys.stderr)
     return engines['Claude Code'][0]()
 
@@ -1040,6 +1092,8 @@ def main(args):
             return 0 if worked(path) else 1
         case ['engine', *schema] if len(schema) < 2:
             return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['engine-read-only', schema]:
+            return engine(sys.stdin.read(), schema, os.environ['GITHUB_OUTPUT'], rights=None)
         case ['pick', most] if most.isdigit():
             pick(int(most))
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
@@ -1071,7 +1125,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick <most> | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
