@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { RpcError } from "../app/seam";
 import type { Ask } from "@contracts/ask/Ask";
 import { ask, input, mountAskBar, press, rowTexts } from "./askFixture";
 
@@ -49,7 +50,7 @@ describe("u504 the Ask bar", () => {
     expect(enter.defaultPrevented).toBe(true);
     expect(input()!.value).toBe("");
     expect(rowTexts()).toEqual(["fix the login bug |  | Placing"]);
-    expect(sent(app)).toEqual([{ text: "fix the login bug" }]);
+    expect(sent(app)).toEqual([{ text: "fix the login bug", submission: expect.any(String) }]);
 
     answer(ask("a1", 1, [{ text: "fix the login bug", placement: { kind: "routed", workstream: "ops" }, state: "queued" }]));
     await waitFor(() => expect(rowTexts()).toEqual(["fix the login bug | ops | Queued for the supervisor"]));
@@ -120,4 +121,46 @@ describe("u504 the Ask bar", () => {
     expect(sent(app)).toEqual([]);
     expect(input()!.value).toBe("one");
   });
+});
+
+it.each(["refused", "unknown", "unknown-rpc", "internal", "acknowledged"] as const)("u2773b_holder_returns_captured_identity_for_late_%s", async (kind) => {
+  const { app, connected } = await mountAskBar();
+  let resolveA!: (ask: Ask) => void;
+  let rejectA!: (reason: Error) => void;
+  const refusal = new RpcError(-32003, "original unavailable");
+  app.handlers["ask.send"] = request => request.submission === "a"
+    ? new Promise<Ask>((resolve, reject) => { resolveA = resolve; rejectA = reject; })
+    : { ...ask("accepted-b", 2, [], request.text), submission: "b" };
+  const captured = { text: "  @Same exact 🌿\n ", submission: "a", workstream: "original" };
+  const a = connected.asks.send(captured);
+  captured.text = "newer editor value";
+  const b = await connected.asks.send({ text: "newer B", submission: "b" });
+  expect(b.kind).toBe("acknowledged");
+
+  if (kind === "acknowledged") resolveA({ ...ask("accepted-a", 1, [], "  @Same exact 🌿\n "), submission: "a" });
+  else rejectA(kind === "refused" ? refusal : kind === "unknown-rpc" ? new RpcError(-32004, "connection lost after write") : kind === "internal" ? new RpcError(-32603, "timeout") : new Error("connection lost"));
+  const result = await a;
+  expect(result.kind).toBe(kind === "unknown-rpc" || kind === "internal" ? "unknown" : kind);
+  expect(result.submission).toBe("a");
+
+  if (result.kind === "refused") expect(result.error).toBe(refusal);
+  expect(sent(app)).toEqual([
+    { text: "  @Same exact 🌿\n ", submission: "a", workstream: "original" },
+    { text: "newer B", submission: "b" },
+  ]);
+  expect(connected.asks.entries().find(entry => entry.key === "accepted-b")?.text).toBe("newer B");
+});
+
+it("u2773b_reconciliation_reads_acceptance_without_sending", async () => {
+  const { app, connected } = await mountAskBar();
+  app.handlers["ask.send"] = () => { throw new Error("response lost"); };
+
+  expect((await connected.asks.send({ text: "same", submission: "a" })).kind).toBe("unknown");
+  app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], "same"), submission: "a" }];
+  expect(await connected.asks.reconcile("a")).toMatchObject({ kind: "acknowledged", submission: "a", ask: { id: "accepted" } });
+  expect((await connected.asks.reconcile("b")).kind).toBe("unknown");
+  app.handlers["ask.list"] = () => { throw new RpcError(-32603, "disconnected"); };
+
+  expect((await connected.asks.reconcile("a")).kind).toBe("unknown");
+  expect(sent(app)).toEqual([{ text: "same", submission: "a" }]);
 });

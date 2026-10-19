@@ -130,7 +130,9 @@ def typed_prompts():
         pending += chunk
         while (split := split_line(pending)) is not None:
             line, pending = split
-            text = line.replace(b"\x1b[200~", b"").replace(b"\x1b[201~", b"").decode(errors="replace").strip()
+            text = line.replace(b"\x1b[200~", b"").replace(b"\x1b[201~", b"").decode(errors="replace")
+            if not os.environ.get("FAKE_CLAUDE_EXACT_PROMPTS"):
+                text = text.strip()
             # H20: the typed lead-in of a Steer, outside the paste; the prompt is the pasted body.
             text = text.removeprefix("Follow this instruction: ")
             text = text.split("\n\n<roundup-context>\n", 1)[0]

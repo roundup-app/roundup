@@ -664,6 +664,12 @@ The matching spellings of one displayed Help chord.
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
 One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
+**Ask submission** (`AskSubmission`, `submission`):
+The caller-captured identity of one submitted Ask revision within its original Project. Durable intake binds it to exact text and an optional captured Workstream id; equal replay returns the same Ask and conflicting replay refuses. Separate intentional submissions use distinct identities even for equal text.
+
+**Ask outcome** (`AskOutcome`):
+Acknowledged durable intake, an explicit RPC refusal retaining its error code, or unknown acceptance without an authoritative acknowledgement. Read-only reconciliation matches the submission identity, never text or current selection. Acknowledged intake does not promise that later delivery succeeds.
+
 **Ask part** (`AskPart`, `ask::State`):
 A verbatim, non-overlapping span of an Ask, with its Placement.
 

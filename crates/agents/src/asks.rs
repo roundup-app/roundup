@@ -115,27 +115,51 @@ impl Intake {
 
     async fn place(self: Arc<Self>, ctx: Ctx, ask: Ask) -> Result<(), RpcError> {
         let rail = self.agents.shared.tree()?;
-        let named = ask.text.strip_prefix('@').and_then(|rest| {
-            // Names may contain spaces. Match the longest supplied name before its separator.
-            let max_prefix = rail
-                .iter()
-                .map(|node| node.name.chars().count() * 4)
-                .max()
-                .unwrap_or(0);
-            rest.match_indices(' ')
-                .rev()
-                .filter(|(at, _)| *at <= max_prefix)
-                .find_map(|(at, _)| {
-                    rail.iter()
-                        .any(|node| {
-                            node.kind == NodeKind::Workstream
-                                && node.name.to_lowercase() == rest[..at].to_lowercase()
-                        })
-                        .then_some((&rest[..at], &rest[at + 1..]))
-                })
-                .or_else(|| rest.split_once(' '))
+        let captured = ask.parts.first().and_then(|part| match &part.placement {
+            Place::Routed { workstream } => Some(workstream.clone()),
+            _ => None,
         });
-        let parts = if let Some((name, text)) = named {
+        let named = ask
+            .text
+            .strip_prefix('@')
+            .filter(|_| captured.is_none())
+            .and_then(|rest| {
+                // Names may contain spaces. Match the longest supplied name before its separator.
+                let max_prefix = rail
+                    .iter()
+                    .map(|node| node.name.chars().count() * 4)
+                    .max()
+                    .unwrap_or(0);
+                rest.match_indices(' ')
+                    .rev()
+                    .filter(|(at, _)| *at <= max_prefix)
+                    .find_map(|(at, _)| {
+                        rail.iter()
+                            .any(|node| {
+                                node.kind == NodeKind::Workstream
+                                    && node.name.to_lowercase() == rest[..at].to_lowercase()
+                            })
+                            .then_some((&rest[..at], &rest[at + 1..]))
+                    })
+                    .or_else(|| rest.split_once(' '))
+            });
+        let parts = if let Some(workstream) = captured {
+            if !rail
+                .iter()
+                .any(|node| node.id == workstream && node.kind == NodeKind::Workstream)
+            {
+                return self.fail(
+                    &ask.id,
+                    0,
+                    ask.parts[0].clone(),
+                    "the Workstream was removed".into(),
+                );
+            }
+            vec![placement::AskPart {
+                text: ask.text.clone(),
+                destination: Destination::Routed { workstream },
+            }]
+        } else if let Some((name, text)) = named {
             let ids: Vec<_> = rail
                 .iter()
                 .filter(|node| {
@@ -500,25 +524,55 @@ impl Module for Asks {
             ));
         }
         let shared = &self.shared;
-        shared.recover(ctx)?;
+
         match method {
             "ask.send" => {
-                let SendParams { text } = params(value)?;
+                let SendParams {
+                    text,
+                    submission,
+                    workstream,
+                } = params(value)?;
+                if submission
+                    .as_ref()
+                    .is_some_and(|id| id.is_empty() || id.len() > 128)
+                {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        "invalid Ask submission identity",
+                    ));
+                }
                 if text.trim().is_empty() || text.len() > 32_768 {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
                         "Ask text must be non-empty and at most 32768 bytes",
                     ));
                 }
-                let ask = shared
-                    .store()
-                    .insert(text, (shared.agents.shared.clock)())?;
+                let ask = {
+                    let mut store = shared.store();
+                    if let Some(id) = &submission
+                        && let Some(ask) = store.replay(id, &text, workstream.as_deref())?
+                    {
+                        return reply(&ask);
+                    }
+                    if let Some(id) = &workstream {
+                        let node = shared.agents.shared.node(id)?;
+                        if node.kind != NodeKind::Workstream {
+                            return Err(RpcError::new(
+                                code::INVALID_PARAMS,
+                                "target must be a Workstream",
+                            ));
+                        }
+                    }
+                    store.insert(text, (shared.agents.shared.clock)(), submission, workstream)?
+                };
+                shared.recover(ctx)?;
                 shared.emit(&ask.id)?;
                 shared.enqueue(user_ctx(ctx));
                 reply(&ask)
             }
             "ask.list" => reply(&shared.store().list()?),
             "ask.pick" => {
+                shared.recover(ctx)?;
                 let PickParams {
                     id,
                     part: ord,
