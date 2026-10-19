@@ -162,7 +162,20 @@ export const App = (props: {
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
 }) => {
+  // U2770: only user input changes ring mode; component autofocus cannot override the last press.
+  // Start keyboard-visible for native accessibility focus arriving before any page input.
+  document.documentElement.dataset.keyboardFocus = "true";
+  const keyboardFocus = () => { document.documentElement.dataset.keyboardFocus = "true"; };
+
+  window.addEventListener("keydown", keyboardFocus, true);
+  onCleanup(() => {
+    window.removeEventListener("keydown", keyboardFocus, true);
+    delete document.documentElement.dataset.keyboardFocus;
+  });
+
   const clearBrowserSelection = (event: MouseEvent) => {
+    document.documentElement.dataset.keyboardFocus = "false";
+
     if (event.button !== 0) return;
 
     window.getSelection()?.removeAllRanges();

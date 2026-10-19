@@ -196,10 +196,6 @@
   opacity: 1;
 }
 
-.spawn-prompt-field:focus-visible {
-  outline-width: 0;
-}
-
 .spawn-prompt-field:hover {
   background-color: var(--hover);
 }
@@ -621,11 +617,6 @@
   box-shadow: var(--shadow-scroll);
   z-index: 1;
   pointer-events: none;
-}
-
-/* Full-width rows keep their keyboard ring inside the clipping Rail. */
-.rail-tree .app-tree .rail-row:focus-visible {
-  outline-offset: calc(-1 * var(--space-1));
 }
 
 /* U2228a: the full name of a cut row wraps inside the Rail's width on an opaque panel that stands apart from the Rail. */

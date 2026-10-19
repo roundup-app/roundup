@@ -29,31 +29,23 @@ const runs = async (scheme: "light" | "dark", contrast?: "more", agent: "runner"
   await page.until(`() => document.querySelector('.terminal-tab-pair[data-selected=true]')`);
 };
 
-it("u2233_keyboard_focus_draws_a_ring_and_a_click_does_not", async () => {
-  const ring = `() => document.activeElement && getComputedStyle(document.activeElement).outlineStyle`;
-
-  const targets = [
-    { surface: "strip", controls: [".project-tab .tab-name-button", ".project-tab .tab-close", ".strip-add"] },
-    { surface: "runs", controls: [".terminal-tab", ".terminal-tab-pair > button:last-of-type", ".terminal-new"] },
-  ] as const;
-
-  for (const { surface, controls } of targets) {
+// U2770's real-input observer owns pointer rings and tab-name keyboard rings.
+it("u2233_close_and_add_keep_the_keyboard_ring", async () => {
+  for (const surface of ["strip", "runs"] as const) {
     if (surface === "strip") await strip("light");
     else await runs("light");
 
-    // A click on the `+` opens a Terminal that takes focus itself, so the Terminal surface is clicked on a tab.
-    const clicked = surface === "strip" ? controls[2] : controls[0];
-    const at = await page.call<{ x: number; y: number }>(`(control) => { const r = document.querySelector(control).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }`, clicked);
-
-    await page.click(at.x, at.y);
-    expect(await page.call<string>(ring), surface + " click").toBe("none");
-
-    // One real key press makes the next focus a keyboard focus.
+    // The tab reveals its sibling close control while focus is within the pair.
+    await page.call(`(control) => document.querySelector(control).focus()`, surface === "strip" ? ".project-tab .tab-name-button" : ".terminal-tab");
     await page.press("Tab", "Tab");
+
+    const controls = surface === "strip"
+      ? [".project-tab .tab-close", ".strip-add"]
+      : [".terminal-tab-pair > button:last-of-type", ".terminal-new"];
 
     for (const control of controls) {
       await page.call(`(control) => document.querySelector(control).focus()`, control);
-      expect(await page.call<string>(ring), `${surface} ${control}`).toBe("solid");
+      expect(await page.call<string>(`() => getComputedStyle(document.activeElement).outlineStyle`), `${surface} ${control}`).toBe("solid");
     }
   }
 }, 120_000);
