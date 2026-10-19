@@ -4,6 +4,7 @@ ended, when a PR gets a fix run and how a review run's answer reaches the PR. Ex
 written."""
 import base64
 import binascii
+import contextlib
 import json
 import os
 import re
@@ -11,7 +12,9 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -25,6 +28,24 @@ NEEDS_MAC = orders.NEEDS_MAC
 SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
 SCREEN_TRIES = 2
+# L23: with the repository variable `CLAUDE_API` set, every Claude Code call runs on Claude API credit through Workload
+# Identity Federation instead of the Max token. The workflows pass the repository variables as the JSON `CLAUDE_API_VARS`
+# (empty when it is unset); `API_VARS` are the ones Claude Code needs. GitHub's identity token lives about five minutes, so
+# a run's file is rewritten every `API_REFRESH` seconds. `--max-budget-usd` caps a call in dollars: a build or fix run
+# `BUILD_BUDGET`; a screen (Haiku, three turns, no tools) `SCREEN_BUDGET`; a review and a design critic hold their model,
+# turns, budget and `--effort` in `READ_ONLY` (the critic on Sonnet here, Opus on the Max token). The value of `CLAUDE_API`
+# is the count of build and fix slots, which `slot_count` reads in place of `CODEX_RUNS`; a PR gets `API_ATTEMPTS` fix runs
+# in place of `ATTEMPTS`.
+API_VARS = ('ANTHROPIC_FEDERATION_RULE_ID', 'ANTHROPIC_ORGANIZATION_ID', 'ANTHROPIC_SERVICE_ACCOUNT_ID', 'ANTHROPIC_WORKSPACE_ID')
+API_AUDIENCE = 'https://api.anthropic.com'
+API_REFRESH = 60
+BUILD_BUDGET = 3
+SCREEN_BUDGET = 0.25
+READ_ONLY = {'review': ('claude-sonnet-5-5', 60, 1.5, 'medium'), 'critic': ('claude-sonnet-5-5', 80, 3, 'high')}
+BUILD_EFFORT = 'medium'
+SCREEN_EFFORT = 'low'
+API_ATTEMPTS = 2
+READ_ONLY_TOOLS = 'Bash,Read,Glob,Grep,Skill'
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
                  'properties': {'verdict': {'enum': list(VERDICTS)}, 'reason': {'type': 'string'}, 'preview': {'type': 'string'}}}
 # L23: where claude-code-action trades the job's OIDC token for a Claude App token (its `src/github/token.ts`), and the
@@ -139,7 +160,7 @@ def left_off(issue):
         return ''
     findings = [c['body'] for marker in ('VERDICT:', 'CRITIC:') for c in orders.marked(pr, marker)[-1:]]
     return '\n\n'.join([
-        f"Continue PR #{pr}, do not start over: it used its {ATTEMPTS} fix runs and was closed unmerged ({closed['url']}). "
+        f"Continue PR #{pr}, do not start over: it used its {fix_attempts()} fix runs and was closed unmerged ({closed['url']}). "
         f"Instead of starting from `origin/main`, create the branch named above from its head: `git fetch origin "
         f"pull/{pr}/head && git switch -c <that branch> FETCH_HEAD && git merge origin/main`, keeping the behaviour of both "
         f"sides. Its last verdicts follow; meet each finding, keep the work that stands, and name PR #{pr} in your PR body.",
@@ -179,14 +200,18 @@ def screen(ask):
     in `SCREEN_TRIES` tries. Each failed try is logged."""
     for attempt in range(1, SCREEN_TRIES + 1):
         try:
-            if os.environ.get('CODEX_ONLY'):
+            if os.environ.get('CODEX_ONLY') and not switched():
                 verdict = json.loads(screen_on_codex(ask))
             else:
-                out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
-                                      '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA)],
-                                     input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
-                                     timeout=300, check=True)
-                verdict = json.loads(out.stdout).get('structured_output')
+                with claude_env() as env:
+                    out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                                          '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA),
+                                          *api_flags(SCREEN_BUDGET, SCREEN_EFFORT)],
+                                         input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                                         timeout=300, check=True, env=env)
+                result = json.loads(out.stdout)
+                log_cost('screen', result.get('total_cost_usd'))
+                verdict = result.get('structured_output')
         except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as error:
             print(f'screen: try {attempt} gave no verdict: {error}', file=sys.stderr)
             continue
@@ -254,13 +279,18 @@ def worked(path):
     return any(tool_use(json.loads(line)) for line in text.splitlines() if line.strip())
 
 
+def identity_token(audience):
+    """The job's OIDC token for `audience`, from the endpoint the runner exposes."""
+    request = urllib.request.Request(f"{os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']}&audience={audience}",
+                                     headers={'Authorization': f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.load(response)['value']
+
+
 def app_token(rights=RIGHTS):
     """A fresh Claude App token for this job holding `rights`, traded for its OIDC token as claude-code-action does
     (L23), masked in the log."""
-    request = urllib.request.Request(f"{os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']}&audience={AUDIENCE}",
-                                     headers={'Authorization': f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        oidc = json.load(response)['value']
+    oidc = identity_token(AUDIENCE)
     request = urllib.request.Request(EXCHANGE, data=json.dumps({'permissions': rights}).encode(), method='POST',
                                      headers={'Authorization': f'Bearer {oidc}', 'Content-Type': 'application/json'})
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -316,22 +346,104 @@ def answer_out(output, answer):
         out.write(f'structured_output<<{delimiter}\n{answer}\n{delimiter}\n')
 
 
-def claude(prompt, model, schema, output):
+def switched():
+    """Whether `CLAUDE_API` moves Claude Code onto API credit."""
+    return bool(os.environ.get('CLAUDE_API_VARS'))
+
+
+def api_flags(budget, effort):
+    """The `claude` flags that cap a call at `budget` dollars and set its `effort`: none on the Max token."""
+    return ['--max-budget-usd', str(budget), '--effort', effort] if switched() else []
+
+
+def slot_count():
+    """The build and fix slots: `CLAUDE_API` when set, which must be a positive integer, else `CODEX_RUNS`."""
+    given = os.environ.get('CLAUDE_API', '')
+    if not given:
+        return int(os.environ['CODEX_RUNS'])
+    if not (given.isdigit() and int(given) > 0):
+        raise SystemExit(f'::error::CLAUDE_API must be the positive number of build and fix slots, not {given!r}')
+    return int(given)
+
+
+def fix_attempts():
+    """The fix runs a PR gets."""
+    return API_ATTEMPTS if switched() else ATTEMPTS
+
+
+@contextlib.contextmanager
+def claude_env():
+    """The environment for a `claude` process: `os.environ`, or with `CLAUDE_API` set the federation variables and a file
+    of the job's identity token for `API_AUDIENCE`, rewritten every `API_REFRESH` seconds while the block runs, with the
+    Max token, the token request and `CLAUDE_API_VARS` left out. Exits with an error annotation when a federation variable is
+    missing or a step still holds the Max token."""
+    if not switched():
+        yield os.environ
+        return
+    given = json.loads(os.environ['CLAUDE_API_VARS'])
+    missing = [name for name in API_VARS if not given.get(name)]
+    if missing:
+        raise SystemExit(f"::error::CLAUDE_API is set but the repository variables {', '.join(missing)} are not")
+    if os.environ.get('CLAUDE_CODE_OAUTH_TOKEN'):
+        raise SystemExit('::error::CLAUDE_API is set but this step holds CLAUDE_CODE_OAUTH_TOKEN')
+    with tempfile.TemporaryDirectory(dir=os.environ.get('RUNNER_TEMP')) as directory:
+        token = Path(directory, 'identity-token')
+
+        def write():
+            fresh = identity_token(API_AUDIENCE)
+            print(f'::add-mask::{fresh}')
+            Path(directory, 'next').touch(mode=0o600)
+            Path(directory, 'next').write_text(fresh)
+            os.replace(Path(directory, 'next'), token)
+
+        def refresh():
+            while not stopped.wait(API_REFRESH):
+                try:
+                    write()
+                except (OSError, ValueError, KeyError, urllib.error.URLError) as error:
+                    print(f'::warning::identity token refresh failed: {error}', flush=True)
+
+        stopped = threading.Event()
+        write()
+        thread = threading.Thread(target=refresh, daemon=True)
+        thread.start()
+        try:
+            hidden = ('CLAUDE_API_VARS', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')
+            yield {**{name: value for name, value in os.environ.items() if name not in hidden},
+                   **{name: given[name] for name in API_VARS}, 'ANTHROPIC_IDENTITY_TOKEN_FILE': str(token)}
+        finally:
+            stopped.set()
+            thread.join()
+
+
+def log_cost(label, cost):
+    """One line of the log and the job summary for a Claude Code call's dollar `cost`, on API credit only."""
+    if switched():
+        line = f'cost of {label}: ' + (f'${cost:.4f}' if isinstance(cost, (int, float)) else 'not reported')
+        print(line, flush=True)
+        if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
+            with open(summary, 'a') as out:
+                out.write(f'- {line}\n')
+
+
+def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET, effort=BUILD_EFFORT, flags=('--dangerously-skip-permissions',)):
     """L23: run `prompt` on Claude Code's `model` in this checkout, signed in with the Max token in
-    `CLAUDE_CODE_OAUTH_TOKEN`, answering the JSON Schema `schema` unless it is None. Appends the step output
-    `execution_file`, its event lines, before the run starts, then `structured_output` when it answered. Returns its exit
-    code."""
+    `CLAUDE_CODE_OAUTH_TOKEN` or, with `CLAUDE_API` set, on API credit capped at `budget` dollars at `effort` (`claude_env`), answering
+    the JSON Schema `schema` unless it is None. `flags` are the permission flags; `rights` is as `stream` reads it.
+    Appends the step output `execution_file`, its event lines, before the run starts, then `structured_output` when it
+    answered. Returns its exit code."""
     home = Path(os.environ['RUNNER_TEMP']) / 'claude'
     home.mkdir(mode=0o700)
     events = home / 'events.jsonl'
     with open(output, 'a') as out:
         out.write(f'execution_file={events}\n')
-    command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose',
-               '--dangerously-skip-permissions']
+    command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose', *flags, *api_flags(budget, effort)]
     if schema is not None:
         command += ['--json-schema', schema]
-    code = stream(command, prompt, events, os.environ, CLAUDE_ACCOUNT)
+    with claude_env() as env:
+        code = stream(command, prompt, events, env, CLAUDE_ACCOUNT, rights)
     results = [event for event in map(json.loads, events.read_text().splitlines()) if event.get('type') == 'result']
+    log_cost(model, results[-1].get('total_cost_usd') if results else None)
     if schema is not None and results and isinstance(results[-1].get('structured_output'), dict):
         answer_out(output, json.dumps(results[-1]['structured_output']))
     return code
@@ -389,10 +501,13 @@ def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS):
 
 def engine(prompt, schema, output, rights=RUN_RIGHTS):
     """L23: run `prompt` on Codex and, when that model used no tool (a usage limit or a setup failure such as a
-    broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. The ChatGPT login leaves the
+    broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. With `CLAUDE_API` set Codex
+    never starts: Claude Code runs on API credit at once. The ChatGPT login leaves the
     environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
     run that did no work fails. `rights` is as `stream` reads it. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
+    if switched():
+        return claude(prompt, CLAUDE_MODEL, schema, output, rights)
     temp = Path(os.environ['RUNNER_TEMP'])
 
     def codex_or_none():
@@ -872,7 +987,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
                                   orders.created(criticisms[-1]['created_at']) > answered):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
-    if len(attempts) >= ATTEMPTS and not plumbing:
+    if len(attempts) >= fix_attempts() and not plumbing:
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [c['body'] for c in {'review': verdicts, 'critic': criticisms}.get(cause, [])][-1:]
@@ -888,7 +1003,7 @@ def exhaust(current, attempts, verdicts, cause):
     pr, branch = current['number'], current['headRefName']
     match = LINKED.search(current['body'] or '')
     if not match:
-        flag(pr, f'{ATTEMPTS} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
+        flag(pr, f'{fix_attempts()} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
     issue = int(match[1])
     if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
@@ -911,12 +1026,12 @@ def exhaust(current, attempts, verdicts, cause):
         subjects = [c['messageHeadline'] for c in commits if since < orders.created(c['committedDate']) <= ended_at]
         lines.append(f"- `{cause_ran}` ({reason(cause_ran, ended_at)}): " + ('; '.join(subjects) or 'no commit'))
         since = ended_at
-    comment(issue, f'<!-- fix-exhausted #{pr} -->\nPR #{pr} ({current["url"]}) used its {ATTEMPTS} fix runs and was closed '
+    comment(issue, f'<!-- fix-exhausted #{pr} -->\nPR #{pr} ({current["url"]}) used its {fix_attempts()} fix runs and was closed '
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
                    + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nThe next build run continues from that head.')
-    strike(issue, f'PR #{pr} used its {ATTEMPTS} fix runs: {current["url"]}')
+    strike(issue, f'PR #{pr} used its {fix_attempts()} fix runs: {current["url"]}')
     call('pr', 'close', str(pr), '--delete-branch')
 
 
@@ -1094,8 +1209,12 @@ def main(args):
             return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
         case ['engine-read-only', schema]:
             return engine(sys.stdin.read(), schema, os.environ['GITHUB_OUTPUT'], rights=None)
-        case ['pick', most] if most.isdigit():
-            pick(int(most))
+        case ['claude-read-only', who, schema] if who in READ_ONLY:
+            model, turns, budget, effort = READ_ONLY[who]
+            return claude(sys.stdin.read(), model, schema, os.environ['GITHUB_OUTPUT'], rights=None, budget=budget, effort=effort,
+                          flags=('--max-turns', str(turns), '--allowedTools', READ_ONLY_TOOLS))
+        case ['pick']:
+            pick(slot_count())
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
@@ -1108,7 +1227,7 @@ def main(args):
         case ['restore-merge-loss']:
             return 0 if restore_merge_loss() else 1
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
-            if codex_slots(int(os.environ['CODEX_RUNS']), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
+            if codex_slots(slot_count(), fixing(int(os.environ['GITHUB_RUN_ID'])))[1] < 1:
                 print('Skip fix: build jobs and other fix runs hold every Codex slot (L23); a later pick starts the '
                       'repair this PR still needs.', file=sys.stderr)
                 return 3
@@ -1125,7 +1244,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick <most> | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
