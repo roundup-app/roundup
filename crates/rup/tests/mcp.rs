@@ -228,8 +228,14 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 63] = [
+const TOOL_METHODS: [&str; 69] = [
     "agent.wake",
+    "deliverable.publish",
+    "deliverable.list",
+    "deliverable.get",
+    "deliverable.resolve",
+    "deliverable.move",
+    "deliverable.remove",
     "todo.create",
     "todo.get",
     "todo.list",
@@ -1338,6 +1344,10 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
         }
         let (args, expected) = match method.name {
             "todo.delete" => (json!({"id":42}), "deleted Todo 42"),
+            "deliverable.remove" => (
+                json!({"project":"project-a","id":"published-42"}),
+                "removed publication published-42",
+            ),
             "pad.delete" => (json!({"name":"notes"}), "deleted Pad notes"),
             "pad.export" => (
                 json!({"name":"notes","path":"/tmp/notes.md"}),
