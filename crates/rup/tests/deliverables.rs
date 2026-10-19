@@ -184,6 +184,7 @@ async fn dv4_user_home_wins() {
         )
         .await
         .unwrap();
+    assert!(c.request("deliverable.move",json!({"project":p["project"],"id":p["id"],"home":format!("0{}",home.as_str().unwrap())})).await.is_err());
     assert_eq!(moved["home"], home);
     assert_eq!(
         maker.request("deliverable.publish", request).await.unwrap(),
@@ -218,6 +219,9 @@ async fn dv4_user_home_wins() {
         .await
         .unwrap();
     assert_eq!(touches.as_array().unwrap().len(), 1);
+    assert_eq!(touches[0]["actor"]["kind"], "user");
+    assert_eq!(touches[0]["actor"]["id"], "you");
+    assert_eq!(touches[0]["verb"], "wrote");
 }
 
 #[tokio::test]
@@ -258,9 +262,10 @@ async fn dv3_revoked_access() {
 
 #[tokio::test]
 async fn dv3_no_substitution() {
-    let a = common::Served::start("#!/bin/sh\nexit 0\n", &[]).await;
-    let c = rpc::Client::connect(&a.socket()).await.unwrap();
-    let db = rusqlite::Connection::open(a.dir.path().join(".roundup/project.db")).unwrap();
+    let mut a = daemon::start(&[]);
+    let c = a.client().await;
+    let db = rusqlite::Connection::open(a.data_dir().join("project.db")).unwrap();
+    let mut records = Vec::new();
     for (key, mutation, cause) in [
         (
             "corrupt",
@@ -278,6 +283,7 @@ async fn dv3_no_substitution() {
             .unwrap();
         let p=c.request("deliverable.publish",json!({"key":key,"title":"equal title","target":{"kind":"pad","name":key,"revision":1}})).await.unwrap();
         db.execute(mutation, [p["id"].as_str().unwrap()]).unwrap();
+        std::fs::write(a.dir.path().join(key), "substitute file").unwrap();
         c.request("pad.write", json!({"name":key,"text":"substitute"}))
             .await
             .unwrap();
@@ -287,6 +293,20 @@ async fn dv3_no_substitution() {
             json!({"kind":"unavailable","cause":cause})
         );
         assert_eq!(c.request("deliverable.get", id).await.unwrap(), p);
+        records.push((p, cause));
+    }
+    a.restart(&[]);
+    let c = a.client().await;
+    for (record, cause) in records {
+        let id = json!({"project":record["project"],"id":record["id"]});
+        assert_eq!(
+            c.request("deliverable.get", id.clone()).await.unwrap(),
+            record
+        );
+        assert_eq!(
+            c.request("deliverable.resolve", id).await.unwrap(),
+            json!({"kind":"unavailable","cause":cause})
+        );
     }
 }
 
@@ -349,6 +369,25 @@ async fn dv1_only_explicit_publication() {
     c.request("todo.complete", json!({"id":t["id"]}))
         .await
         .unwrap();
+    let terminal=c.request("terminal.spawn",json!({"cwd":a.dir.path(),"command":["/bin/sh","-c","printf 'unpublished result'"],"env":{},"cols":80,"rows":24})).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let output = c
+                .request("terminal.read", json!({"id":terminal["id"],"after":0}))
+                .await
+                .unwrap();
+            if output["text"]
+                .as_str()
+                .unwrap()
+                .contains("unpublished result")
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("Terminal emitted its unregistered output");
     assert_eq!(
         c.request("deliverable.list", json!({})).await.unwrap(),
         json!([])

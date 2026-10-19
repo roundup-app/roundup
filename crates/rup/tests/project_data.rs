@@ -231,7 +231,7 @@ async fn dv2_retained_revision_n2_with_worktrees_on_only_the_worktree_folders_ap
         .unwrap();
     let pad=maker.request("deliverable.publish",json!({"key":"pad-retained","title":"Result","target":{"kind":"pad","name":"notes","revision":before.pad.revision}})).await.unwrap();
     let file=maker.request("deliverable.publish",json!({"key":"file-retained","title":"Result","target":{"kind":"file","path":"README.md"}})).await.unwrap();
-    client
+    maker
         .request(
             "pad.write",
             json!({"name":"notes","text":"body revision two"}),

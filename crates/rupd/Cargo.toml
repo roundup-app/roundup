@@ -16,7 +16,7 @@ messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
-rusqlite.workspace = true
+rusqlite = { workspace = true, features = ["hooks"] }
 rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -29,7 +29,6 @@ cap-std = "4"
 rustix = { version = "1", features = ["fs"] }
 
 [dev-dependencies]
-rusqlite = { workspace = true, features = ["hooks"] }
 async-trait.workspace = true
 tempfile.workspace = true
 
