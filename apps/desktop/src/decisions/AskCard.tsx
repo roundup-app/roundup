@@ -1,7 +1,10 @@
 import { copy } from "../copy";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import * as v from "valibot";
 import { Markdown } from "../plain/Markdown";
+import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
+import { useConnectedProject } from "../state/connectedProject";
+import { promptKey } from "./decisions";
 import { Listbox } from "../ui/Listbox";
 
 const json = v.pipe(v.string(), v.parseJson());
@@ -28,10 +31,41 @@ const value = (at: number | null) => (at === null ? null : String(at));
 const position = (answer: string | null) => (answer === null ? null : Number(answer));
 
 /** U406: the answers of an `ask_user` Decision with their tradeoffs, the focused answer's preview, and the note. `focus` is the focused row; `null` is none: the user's own answer. Ark's Listbox moves it, wrapping through none. */
-export const AskCard = (props: { question: Question; stuck: () => boolean; send: (answer: string | null, note: string) => void }) => {
+export const AskCard = (props: { question: Question; identity: PromptIdentity; stuck: () => boolean }) => {
+  const { drafts, decisions } = useConnectedProject();
+  const identity = props.identity;
+  const destination = { surface: "decisions", object: promptKey(identity), recipient: identity.agent };
   const answers = () => props.question.answers;
-  const [focus, setFocus] = createSignal<number | null>(answers().length > 0 ? 0 : null);
-  const [note, setNote] = createSignal("");
+
+  const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface
+    && (draft.destination.object === destination.object || draft.destination.object === identity.decision)
+    && draft.value.decision === identity.decision && draft.value.agent === identity.agent && draft.destination.recipient === destination.recipient
+    && draft.value.daemon === identity.daemon && draft.value.attempt === identity.attempt);
+
+  const current = () => records().at(-1);
+
+  const focus = () => {
+    const choice = v.safeParse(v.nullable(v.string()), current()?.value.choice);
+
+    return choice.success ? choice.output === null ? null : answers().findIndex(answer => answer.label === choice.output) : answers().length > 0 ? 0 : null;
+  };
+
+  const note = () => {
+    const parsed = v.safeParse(v.string(), current()?.value.note);
+
+    return parsed.success ? parsed.output : "";
+  };
+
+  let field: HTMLTextAreaElement | undefined;
+  const caret = () => field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null;
+  const edit = (choice: string | null, note: string) => drafts.edit(destination, { ...identity, choice, note }, caret(), "ordinary");
+
+  const retainSelection = () => {
+    const draft = current();
+
+    // Pointer navigation clears the browser selection after focus leaves; that is not a user edit.
+    if (draft && document.activeElement === field) drafts.setSelection(draft.revision, caret());
+  };
 
   const focused = createMemo(() => {
     const at = focus();
@@ -39,10 +73,14 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
     return at === null ? undefined : answers()[at];
   });
 
-  const sendable = () => !props.stuck() && (focused() !== undefined || note().trim() !== "");
+  const sendable = () => !props.stuck() && !records().some(draft => draft.status === "pending" || draft.status === "unknown") && (focused() !== undefined || note().trim() !== "");
 
   const send = () => {
-    if (sendable()) props.send(focused()?.label ?? null, note());
+    if (!sendable()) return;
+    const draft = current() ?? edit(focused()?.label ?? null, note()).draft;
+
+    if (!drafts.submit(draft.revision)) return;
+    void decisions.answer(identity.decision, focused()?.label ?? null, note(), identity).then(outcome => drafts.settle(draft.revision, outcome));
   };
 
   const items = () => answers().map((each, at) => ({
@@ -52,10 +90,14 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
     recommended: each.label.endsWith(RECOMMENDED),
   }));
 
-  const select = (at: number | null) => setFocus(at !== null && answers()[at] === undefined ? null : at);
+  const select = (at: number | null) => {
+    const next = at !== null ? answers()[at]?.label ?? null : null;
+
+    if (next !== (focused()?.label ?? null)) edit(next, note());
+  };
 
   return (
-    <Listbox.Root answers={items()} value={value(focus())} highlightedValue={value(focus())} pending={props.stuck()}
+    <Listbox.Root answers={items()} value={value(focus())} highlightedValue={value(focus())} pending={props.stuck()} disabled={false}
       onValueChange={(answer) => select(position(answer))} onHighlightChange={(answer) => select(position(answer))}>
       <Show when={answers().length > 0}>
         <Listbox.Content class="ask-answers" aria-label={copy.answers}>
@@ -79,12 +121,25 @@ export const AskCard = (props: { question: Question; stuck: () => boolean; send:
         )}
       </Show>
       <form class="ask-note" onSubmit={(submit) => { submit.preventDefault(); send(); }}>
-        <Listbox.NoteInput
+        <Listbox.NoteTextarea
+          rows={1}
+          ref={element => {
+            field = element;
+            queueMicrotask(() => {
+              const selection = current()?.selection;
+
+              if (element.isConnected && selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
+            });
+          }}
+          onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection}
+          onKeyDown={event => {
+            if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); }
+          }}
           maxLength={NOTE_MAX}
           aria-label={copy.note}
           placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
           value={note()}
-          onInput={(input) => setNote(input.currentTarget.value)}
+          onInput={(input) => edit(focused()?.label ?? null, input.currentTarget.value)}
         />{" "}
         <button data-button="quiet" type="submit" class="word" aria-disabled={sendable() ? undefined : true}>{copy.send}</button>
       </form>
