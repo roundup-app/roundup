@@ -1,6 +1,8 @@
 import { batch, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
+import type { SendParams } from "@contracts/ask/SendParams";
+import { RpcError } from "../app/seam";
 import type { Target } from "@contracts/ask/Target";
 import type { AppSeam } from "../app/seam";
 import type { Events } from "../app/events";
@@ -8,13 +10,19 @@ import type { Events } from "../app/events";
 /** U505: one Ask as the App shows it; `pending` is the optimistic entry between Enter and the Daemon's answer. */
 export type AskEntry = { key: string; text: string; parts: readonly AskPart[]; pending: boolean };
 
+export type AskOutcome =
+  | { kind: "acknowledged"; submission: string; ask: Ask }
+  | { kind: "refused" | "unknown"; submission: string; error: Error };
+
 export type AsksState = {
   /** Newest first; an Ask still being sent comes before every other. */
   entries(): readonly AskEntry[];
   /** Fetches `ask.list` once; later changes arrive as `ask.changed`. */
   load(): void;
-  /** U504: the entry shows before the call returns. Resolves with the failure message, or `null` once the Daemon holds the Ask. */
-  send(text: string): Promise<string | null>;
+  /** Captured content and destination belong to one submitted revision. */
+  send(text: string, captured?: Omit<SendParams, "text">): Promise<AskOutcome>;
+  /** Read-only reconciliation. Absence is unknown, never a refusal. */
+  reconcile(submission: string): Promise<Ask | null>;
   /** U506: `ask.pick` for one part; resolves with the failure message or `null`. */
   pick(id: string, part: number, target: Target): Promise<string | null>;
   picking(id: string, part: number): boolean;
@@ -33,7 +41,6 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   const [pickFailures, setPickFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [failure, setFailure] = createSignal<string | null>(null);
   let loaded = false;
-  let counter = 0;
 
   const upsert = (ask: Ask): void => {
     setAsks((all) => [ask, ...all.filter((each) => each.id !== ask.id)].sort((a, b) => Number(b.at) - Number(a.at)));
@@ -78,22 +85,40 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
       });
     },
 
-    send: async (text) => {
-      const key = `sending-${++counter}`;
-
-      setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all]);
+    send: async (text, captured) => {
+      const submission = captured?.submission ?? crypto.randomUUID();
+      const key = `sending-${submission}`;
+      setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all.filter((entry) => entry.key !== key)]);
       setFailure(null);
 
-      const result = await call(() => app.rpc("ask.send", { text }));
+      try {
+        const ask = await app.rpc("ask.send", { text, ...captured, submission });
+        batch(() => {
+          setPending((all) => all.filter((entry) => entry.key !== key));
+          upsert(ask);
+        });
 
-      batch(() => {
-        setPending((all) => all.filter((entry) => entry.key !== key));
+        return { kind: "acknowledged", submission, ask };
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+        // INTERNAL also covers transport/plugin failures at the App boundary.
+        const kind = error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code) ? "refused" : "unknown";
+        batch(() => {
+          setPending((all) => all.filter((entry) => entry.key !== key));
+          setFailure(error.message);
+        });
 
-        if (result.ok) upsert(result.value);
-        else setFailure(result.message);
-      });
+        return { kind, submission, error };
+      }
+    },
 
-      return result.ok ? null : result.message;
+    reconcile: async (submission) => {
+      const all = await app.rpc("ask.list", null);
+      const ask = all.find((entry) => entry.submission === submission) ?? null;
+
+      if (ask) upsert(ask);
+
+      return ask;
     },
 
     pick: async (id, part, target) => {

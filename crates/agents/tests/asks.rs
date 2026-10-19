@@ -1066,17 +1066,214 @@ async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
 }
 
 #[tokio::test]
-async fn u2773b_submission_replay_is_durable_and_conflicts_refuse() {
+async fn u2773b_submission_replay_survives_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let request = json!({"text":" exact 🌿\n ","submission":"revision-a"});
+    let first = {
+        let h = Harness::open(dir.path());
+        h.asks
+            .call(&h.ctx, "ask.send", request.clone())
+            .await
+            .unwrap()
+    };
+    let h = Harness::open(dir.path());
+    let replay = h.asks.call(&h.ctx, "ask.send", request).await.unwrap();
+    assert_eq!(first["id"], replay["id"]);
+    assert_eq!(replay["submission"], "revision-a");
+    assert_eq!(replay["text"], " exact 🌿\n ");
+    assert_eq!(h.list().await.as_array().unwrap().len(), 1);
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn u2773b_conflicting_submission_refuses() {
     let dir = tempfile::tempdir().unwrap();
     let h = Harness::open(dir.path());
-    let request = json!({"text":" exact 🌿\n ","submission":"revision-a"});
-    let first = h.asks.call(&h.ctx, "ask.send", request.clone()).await.unwrap();
-    let replay = h.asks.call(&h.ctx, "ask.send", request.clone()).await.unwrap();
-    assert_eq!(first["id"], replay["id"]);
-    assert_eq!(first["submission"], "revision-a");
-    let err = h.asks.call(&h.ctx, "ask.send", json!({"text":"changed","submission":"revision-a"})).await.unwrap_err();
+    h.asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"original","submission":"a"}),
+        )
+        .await
+        .unwrap();
+    let err = h
+        .asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"changed","submission":"a"}),
+        )
+        .await
+        .unwrap_err();
     assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(h.list().await[0]["text"], "original");
     assert_eq!(h.list().await.as_array().unwrap().len(), 1);
-    let other = h.asks.call(&h.ctx, "ask.send", json!({"text":" exact 🌿\n ","submission":"revision-b"})).await.unwrap();
+}
+
+#[tokio::test]
+async fn u2773b_equal_text_can_be_two_intentional_submissions() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let first = h
+        .asks
+        .call(&h.ctx, "ask.send", json!({"text":"same","submission":"a"}))
+        .await
+        .unwrap();
+    let other = h
+        .asks
+        .call(&h.ctx, "ask.send", json!({"text":"same","submission":"b"}))
+        .await
+        .unwrap();
     assert_ne!(first["id"], other["id"]);
+}
+
+#[tokio::test]
+async fn u2773a_captured_destination_ignores_rename_before_placement() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    f.start(&id).await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask =
+        f.h.asks
+            .call(
+                &f.h.ctx,
+                "ask.send",
+                json!({"text":" exact 🌿\n ","submission":"a","workstream":id}),
+            )
+            .await
+            .unwrap();
+    f.h.agents
+        .call(&f.h.ctx, "rail.rename", json!({"id":id,"name":"Renamed"}))
+        .await
+        .unwrap();
+    let replacement =
+        f.h.agents
+            .call(&f.h.ctx, "rail.createWorkstream", json!({"name":"Work"}))
+            .await
+            .unwrap();
+    assert_eq!(f.read().await, paste(" exact 🌿\n "));
+    let typed = f.changed(&mut events, &ask["id"], "typed").await;
+    assert_eq!(typed["parts"][0]["placement"]["workstream"], id);
+    let tree =
+        f.h.agents
+            .call(&f.h.ctx, "rail.tree", Value::Null)
+            .await
+            .unwrap();
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == replacement["id"])
+            .unwrap()["terminal_id"]
+            .is_null()
+    );
+    assert_eq!(f.h.count.load(Ordering::SeqCst), 0);
+    f.stop().await;
+}
+
+#[tokio::test]
+async fn u2773a_removed_captured_destination_refuses_without_retargeting() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let original = h
+        .agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":"Work"}))
+        .await
+        .unwrap();
+    h.agents
+        .call(&h.ctx, "rail.remove", json!({"id":original["id"]}))
+        .await
+        .unwrap();
+    h.agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":"Work"}))
+        .await
+        .unwrap();
+    let err = h
+        .asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"exact","submission":"a","workstream":original["id"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::NOT_FOUND);
+    assert_eq!(h.list().await, json!([]));
+    assert_eq!(h.count.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn u2773a_removal_after_intake_never_routes_to_a_replacement() {
+    let dir = tempfile::tempdir().unwrap();
+    let f = DoorHarness::open(dir.path());
+    let id = f.workstream().await;
+    let mut events = f.h.ctx.bus.subscribe();
+    let ask =
+        f.h.asks
+            .call(
+                &f.h.ctx,
+                "ask.send",
+                json!({"text":"exact","submission":"a","workstream":id}),
+            )
+            .await
+            .unwrap();
+    f.h.agents
+        .call(&f.h.ctx, "rail.remove", json!({"id":id}))
+        .await
+        .unwrap();
+    let replacement =
+        f.h.agents
+            .call(&f.h.ctx, "rail.createWorkstream", json!({"name":"Work"}))
+            .await
+            .unwrap();
+    let failed = f.changed(&mut events, &ask["id"], "failed").await;
+    assert_eq!(failed["parts"][0]["placement"]["workstream"], id);
+    assert_eq!(failed["parts"][0]["text"], "exact");
+    assert!(f.bytes.is_empty());
+    let tree =
+        f.h.agents
+            .call(&f.h.ctx, "rail.tree", Value::Null)
+            .await
+            .unwrap();
+    assert_eq!(tree[0]["id"], replacement["id"]);
+    assert!(tree[0]["terminal_id"].is_null());
+    f.stop().await;
+}
+
+#[tokio::test]
+async fn u2773b_submission_cannot_be_replayed_to_another_destination() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let first = h
+        .agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":"First"}))
+        .await
+        .unwrap();
+    let second = h
+        .agents
+        .call(&h.ctx, "rail.createWorkstream", json!({"name":"Second"}))
+        .await
+        .unwrap();
+    h.asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"exact","submission":"a","workstream":first["id"]}),
+        )
+        .await
+        .unwrap();
+    let err = h
+        .asks
+        .call(
+            &h.ctx,
+            "ask.send",
+            json!({"text":"exact","submission":"a","workstream":second["id"]}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(h.list().await[0]["workstream"], first["id"]);
+    assert_eq!(h.list().await.as_array().unwrap().len(), 1);
 }

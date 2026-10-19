@@ -12,6 +12,13 @@ impl Store {
         });
         let db = Connection::open(&path)?;
         db.busy_timeout(Duration::from_secs(5))?;
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS ask_intake (
+            ask TEXT PRIMARY KEY REFERENCES asks(id),
+            submission TEXT UNIQUE,
+            workstream TEXT
+        )",
+        )?;
         // A killed placement is never called again. A pre-write typed claim also remains final.
         let placement = serde_json::to_string(&Place::Unclear {
             question: "roundup restarted before placing this".into(),
@@ -28,7 +35,7 @@ impl Store {
     pub(super) fn list(&self) -> Result<Vec<Ask>, RpcError> {
         let mut stmt = self
             .0
-            .prepare("SELECT id, text, at FROM asks ORDER BY seq DESC")
+            .prepare("SELECT asks.id, text, at, submission, workstream FROM asks LEFT JOIN ask_intake ON ask_intake.ask=asks.id ORDER BY seq DESC")
             .map_err(sql)?;
         let rows = stmt
             .query_map([], |row| {
@@ -36,6 +43,8 @@ impl Store {
                     id: row.get(0)?,
                     text: row.get(1)?,
                     at: row.get(2)?,
+                    submission: row.get(3)?,
+                    workstream: row.get(4)?,
                     parts: vec![],
                 })
             })
@@ -84,11 +93,13 @@ impl Store {
     pub(super) fn get(&self, id: &str) -> Result<Ask, RpcError> {
         let mut ask = self
             .0
-            .query_row("SELECT id,text,at FROM asks WHERE id=?", [id], |row| {
+            .query_row("SELECT asks.id,text,at,submission,workstream FROM asks LEFT JOIN ask_intake ON ask_intake.ask=asks.id WHERE asks.id=?", [id], |row| {
                 Ok(Ask {
                     id: row.get(0)?,
                     text: row.get(1)?,
                     at: row.get(2)?,
+                    submission: row.get(3)?,
+                    workstream: row.get(4)?,
                     parts: vec![],
                 })
             })
@@ -99,7 +110,38 @@ impl Store {
         Ok(ask)
     }
 
-    pub(super) fn insert(&mut self, text: String, at: i64) -> Result<Ask, RpcError> {
+    pub(super) fn replay(
+        &self,
+        submission: &str,
+        text: &str,
+        workstream: &Option<String>,
+    ) -> Result<Option<Ask>, RpcError> {
+        let id: Option<String> = self
+            .0
+            .query_row(
+                "SELECT ask FROM ask_intake WHERE submission=?",
+                [submission],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql)?;
+        let Some(id) = id else { return Ok(None) };
+        let ask = self.get(&id)?;
+        if ask.text != text || &ask.workstream != workstream {
+            return Err(RpcError::conflict(
+                "submission already names different Ask content or destination",
+            ));
+        }
+        Ok(Some(ask))
+    }
+
+    pub(super) fn insert(
+        &mut self,
+        text: String,
+        at: i64,
+        submission: Option<String>,
+        workstream: Option<String>,
+    ) -> Result<Ask, RpcError> {
         let tx = self.0.transaction().map_err(sql)?;
         let id: String = tx
             .query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))
@@ -107,6 +149,11 @@ impl Store {
         tx.execute(
             "INSERT INTO asks (id,text,at) VALUES (?,?,?)",
             params![id, text, at],
+        )
+        .map_err(sql)?;
+        tx.execute(
+            "INSERT INTO ask_intake (ask,submission,workstream) VALUES (?,?,?)",
+            params![id, submission, workstream],
         )
         .map_err(sql)?;
         let part = Part {
@@ -124,6 +171,8 @@ impl Store {
             id,
             text,
             at,
+            submission,
+            workstream,
             parts: vec![part],
         })
     }

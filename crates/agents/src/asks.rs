@@ -135,7 +135,14 @@ impl Intake {
                 })
                 .or_else(|| rest.split_once(' '))
         });
-        let parts = if let Some((name, text)) = named {
+        let parts = if let Some(workstream) = &ask.workstream {
+            vec![placement::AskPart {
+                text: ask.text.clone(),
+                destination: Destination::Routed {
+                    workstream: workstream.clone(),
+                },
+            }]
+        } else if let Some((name, text)) = named {
             let ids: Vec<_> = rail
                 .iter()
                 .filter(|node| {
@@ -500,25 +507,50 @@ impl Module for Asks {
             ));
         }
         let shared = &self.shared;
-        shared.recover(ctx)?;
         match method {
             "ask.send" => {
-                let SendParams { text } = params(value)?;
+                shared.recover(ctx)?;
+                let SendParams {
+                    text,
+                    submission,
+                    workstream,
+                } = params(value)?;
                 if text.trim().is_empty() || text.len() > 32_768 {
                     return Err(RpcError::new(
                         code::INVALID_PARAMS,
                         "Ask text must be non-empty and at most 32768 bytes",
                     ));
                 }
-                let ask = shared
-                    .store()
-                    .insert(text, (shared.agents.shared.clock)())?;
+                let mut store = shared.store();
+                if let Some(key) = &submission {
+                    if key.is_empty() || key.len() > 256 {
+                        return Err(RpcError::new(
+                            code::INVALID_PARAMS,
+                            "submission must contain 1 to 256 bytes",
+                        ));
+                    }
+                    if let Some(ask) = store.replay(key, &text, &workstream)? {
+                        return reply(&ask);
+                    }
+                }
+                if let Some(id) = &workstream
+                    && shared.agents.shared.node(id)?.kind != NodeKind::Workstream
+                {
+                    return Err(RpcError::new(
+                        code::INVALID_PARAMS,
+                        "target must be a Workstream",
+                    ));
+                }
+                let ask =
+                    store.insert(text, (shared.agents.shared.clock)(), submission, workstream)?;
+                drop(store);
                 shared.emit(&ask.id)?;
                 shared.enqueue(user_ctx(ctx));
                 reply(&ask)
             }
             "ask.list" => reply(&shared.store().list()?),
             "ask.pick" => {
+                shared.recover(ctx)?;
                 let PickParams {
                     id,
                     part: ord,
