@@ -8,6 +8,7 @@ pub mod attachment;
 pub mod checkpoint;
 pub mod common;
 pub mod decision;
+pub mod deliverable;
 pub mod event;
 pub mod message;
 pub mod methods;

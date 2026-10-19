@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    message, pad, project, terminal, todo, workstream,
+    deliverable, message, pad, project, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -381,6 +381,30 @@ pub(crate) fn commands(door: bool) -> Vec<Offered> {
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
 fn offered_tools() -> Vec<Offered> {
     vec![
+        offered::<deliverable::PublishParams>(
+            "deliverable.publish",
+            "Deliberately publish a file, expected Pad revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses.",
+        ),
+        offered::<deliverable::ListParams>(
+            "deliverable.list",
+            "List published results without reading retained payloads.",
+        ),
+        offered::<deliverable::DeliverableId>(
+            "deliverable.get",
+            "Read publication metadata by its Project and identity.",
+        ),
+        offered::<deliverable::DeliverableId>(
+            "deliverable.resolve",
+            "Resolve the recorded revision or exact current external target, or its unavailability cause.",
+        ),
+        offered::<deliverable::MoveParams>(
+            "deliverable.move",
+            "Move a published result; an Agent cannot override user placement.",
+        ),
+        offered::<deliverable::DeliverableId>(
+            "deliverable.remove",
+            "Explicitly remove a publication. User only; the identity and key cannot be reused.",
+        ),
         offered::<todo::CreateParams>("todo.create", "Create a Todo."),
         offered::<todo::TodoId>("todo.get", "Read one Todo."),
         offered_without_params("todo.list", "List every Todo."),

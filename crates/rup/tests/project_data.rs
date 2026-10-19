@@ -169,10 +169,10 @@ async fn n2_a_folder_that_is_not_a_repository_gets_no_roundup_folder() {
 }
 
 #[tokio::test]
-async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
+async fn dv2_retained_revision_n2_with_worktrees_on_only_the_worktree_folders_appear() {
     let dir = repository();
     let before = listing(dir.path());
-    let project = open(dir, tempfile::tempdir().unwrap());
+    let mut project = open(dir, tempfile::tempdir().unwrap());
     project
         .client()
         .await
@@ -221,6 +221,25 @@ async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
         .unwrap();
     let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
     let before = pads::source(&db, "notes").unwrap().unwrap();
+    let maker = project.client().await;
+    maker
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":ids[0],"parent":null}}),
+        )
+        .await
+        .unwrap();
+    let pad=maker.request("deliverable.publish",json!({"key":"pad-retained","title":"Result","target":{"kind":"pad","name":"notes","revision":before.pad.revision}})).await.unwrap();
+    let file=maker.request("deliverable.publish",json!({"key":"file-retained","title":"Result","target":{"kind":"file","path":"README.md"}})).await.unwrap();
+    client
+        .request(
+            "pad.write",
+            json!({"name":"notes","text":"body revision two"}),
+        )
+        .await
+        .unwrap();
+    let before = pads::source(&db, "notes").unwrap().unwrap();
+
     client
         .request("agent.stop", json!({"id":ids[0]}))
         .await
@@ -243,6 +262,27 @@ async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
     assert_eq!(
         pads::source_state(&db, before.incarnation).unwrap(),
         pads::PadSourceState::Live(before)
+    );
+    project.restart(&[]);
+    let client = project.client().await;
+    for (record, expected) in [(pad, "body"), (file, "hello\n")] {
+        let id = json!({"project":record["project"],"id":record["id"]});
+        assert_eq!(
+            client.request("deliverable.get", id.clone()).await.unwrap()["maker"]["id"],
+            ids[0]
+        );
+        let result = client.request("deliverable.resolve", id).await.unwrap();
+        assert_eq!(
+            std::fs::read_to_string(result["path"].as_str().unwrap()).unwrap(),
+            expected
+        );
+    }
+    assert_eq!(
+        client
+            .request("pad.read", json!({"name":"notes"}))
+            .await
+            .unwrap()["text"],
+        "body revision two"
     );
 }
 
