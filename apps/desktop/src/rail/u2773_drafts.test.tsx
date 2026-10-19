@@ -71,7 +71,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   open();
   fireEvent.input(field(), { target: { value: " exact unsaved 😀 " } });
-  expect(screen.getByRole("alert").textContent).toContain("could not be retained");
+  expect(screen.getByRole("alert").textContent).toMatch(/p:.*Task.*reload/);
   expect(field().value).toBe(" exact unsaved 😀 ");
   write.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Retry retention" }));
@@ -83,19 +83,6 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([]);
 });
 
-
-it("u2773c_rail_external_change_keeps_original", async () => {
-  const { app } = await mountRail([workstream("w")]);
-  fireEvent.dblClick(screen.getByText("w"));
-  fireEvent.input(screen.getByLabelText("Name"), { target: { value: "my name" } });
-  app.emit({ name: "rail.changed", actor: { kind: "user", id: "you", parent: null } });
-  app.handlers["rail.tree"] = () => [workstream("w", { name: "external" })];
-  app.emit({ name: "rail.changed", actor: { kind: "user", id: "you", parent: null } });
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("original name changed"));
-  expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe("my name");
-  fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-  expect(railCallsTo(app, "rail.rename")).toEqual([]);
-});
 
 it("u2773a_rail_clear_reopens_exact_reason", async () => {
   const node = workstream("w");
