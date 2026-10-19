@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSignal } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
@@ -91,16 +91,17 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
 it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   const { app, connected } = await mountSwitcher("ann");
   const [query, setQuery] = createSignal("");
+  const [open, setOpen] = createSignal(true);
   const [highlighted, setHighlighted] = createSignal<string | null>("dee");
   const select = vi.fn((value: string) => connected.rail.select(value));
   const exact = "  e\u0301 🧭 東京  ";
   const items = [{ value: "dee", label: exact }, { value: "ann", label: "other" }];
   let input!: HTMLInputElement;
 
-  const view = render(() => <Combobox.Root items={items.filter((item) => item.label.includes(query()))}
+  const view = render(() => <Show when={open()}><Combobox.Root items={items.filter((item) => item.label.includes(query()))}
     inputValue={query()} inputRef={(element) => { input = element; }}
     highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={setQuery} onSelect={select}
-    label="Query" placeholder="" empty="" row={(item) => item.label} />);
+    label="Query" placeholder="" empty="" row={(item) => item.label} /></Show>);
 
   await waitFor(() => expect(document.activeElement).toBe(input));
   fireEvent.input(input, { target: { value: exact } });
@@ -117,7 +118,12 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   expect([...view.container.querySelectorAll('[role="option"]')].map((row) => row.getAttribute("data-value"))).toEqual(["dee"]);
   expect(document.activeElement).toBe(origin);
 
-  // Explicit reopening belongs to the owner: use the native ref for focus and selection only.
+  // Explicit reopening remounts the field; the owner restores selection through the fresh native ref.
+  const previous = input;
+  setOpen(false);
+  setOpen(true);
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  expect(input).not.toBe(previous);
   input.focus();
   input.setSelectionRange(selection.start, selection.end, selection.direction ?? undefined);
   expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 9, "backward"]);
