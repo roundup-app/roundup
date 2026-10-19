@@ -590,12 +590,14 @@ export const Rail = () => {
     </div>
       <div class="rail-recovery">
       <Show when={drafts.problem()}>
-        <p role="alert" class="ink" data-tone="red">{copy.railRetentionFailed(project.name)} <button data-button="quiet" onClick={() => drafts.retry()}>{copy.retryRetention}</button></p>
+        <p role="alert" class="ink" data-tone="red" data-kind="error">{copy.railRetentionFailed(project.name, [...new Set(drafts.list().map((saved) => saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task))])} <button data-button="quiet" onClick={() => drafts.retry()}>{copy.retryRetention}</button></p>
       </Show>
       <For each={drafts.list()}>{(saved) => <Show when={drafts.problem() || saved.destination.surface === "rail-name" || saved.status !== "draft" || (saved.destination.object !== "" && !rail.nodes.some((node) => node.id === saved.destination.object))}>
         <div class="light" data-state={saved.status}>
           <p>{copy.retainedRailSummary(saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task, saved.destination.object || project.name, saved.status)}</p>
-          <textarea class="spawn-prompt-field" aria-label={copy.retainedRailInput} readOnly value={String(saved.value.text ?? "")} />
+          <Show when={saved.destination.surface !== "rail-task" || saved.revision !== task()?.revision || !composing()}>
+            <textarea class="spawn-prompt-field" aria-label={copy.retainedRailInput} readOnly value={String(saved.value.text ?? "")} />
+          </Show>
           <span class="rail-recovery-actions"><button data-button="quiet" onClick={() => void attempt(() => navigator.clipboard.writeText(String(saved.value.text ?? "")))}>{copy.copy}</button>
           <button data-button="quiet" onClick={() => drafts.discard(saved.revision)}>{copy.discardRevision}</button></span>
         </div>

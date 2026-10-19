@@ -8,7 +8,7 @@ export const copy = {
   retainedRailInput: "Retained rail input",
   railDestinationUnavailable: "The original destination is unavailable. Copy or discard the retained task.",
   railNameConflict: "The original name changed. Your edit is retained; copy or discard it in the rail.",
-  railRetentionFailed: (project: string) => `${project}: rail input could not be retained across reload.`,
+  railRetentionFailed: (project: string, surfaces: readonly string[]) => `${project}: ${surfaces.length ? surfaces.join(", ") : "Task, Name and Clear reason"} input could not be retained across reload.`,
   retryRetention: "Retry retention",
   discardRevision: "Discard this revision",
   context: "Context",
