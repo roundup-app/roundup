@@ -225,25 +225,18 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
 
 it("u2773c_header_external_change_keeps_original", async () => {
   const { app } = await openTabs({ api: [], web: [] });
-  let dispose = () => {};
-
-  const state = createRoot(stop => {
-    dispose = stop;
-
-    return createProjectsState(app);
-  });
-
-  await waitFor(() => expect(state.loaded()).toBe(true));
-
   const original = path("api");
-  const base = state.tabs().find(tab => tab.project.path === original)!.project.name;
+  tab("api").focus();
+  fireEvent.keyDown(tab("api"), { key: "F2" });
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+
   await app.renameProject(original, "B");
-  const outcome = await state.rename(original, " exact 雪 ", base);
-  expect(outcome).toMatchObject({ path: original, name: " exact 雪 ", status: "failed" });
+  fireEvent.input(input, { target: { value: " exact 雪 " } });
+  press("Enter");
+
+  await screen.findByText("Project name changed");
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
-  expect(state.tabs().find(tab => tab.project.path === original)?.project.name).toBe("B");
-  expect(state.base(original)).toBe("B");
-  dispose();
+  expect(tab("B")).toBeDefined();
 });
 
 it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
