@@ -2,6 +2,8 @@
 
 roundup is built by agents in a loop. Identifiers and RPC methods use `GLOSSARY.md` code terms (read it when naming one), or add one in the same PR. App copy uses its user labels: words describing the action or content, which may differ from code terms.
 
+Before specifying, implementing or reviewing product behavior, read `PRINCIPLES.md`; derive the applicable Gates and Observers from the scenario and diff.
+
 ## The loop
 
 Work orders are GitHub Issues (`.agents/data/work.md`); scenario files hold acceptance only.
