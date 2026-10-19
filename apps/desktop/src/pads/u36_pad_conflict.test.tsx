@@ -41,16 +41,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
 
   // Rule 10: u36_typing_more_while_the_line_shows_keeps_the_line_and_blur_sends_no_write
   // also proves the initial notice; the appearance-only test remains retired to the rendered observer.
-  it("u36_a_dirty_draft_blur_sends_no_write", async () => {
-    const { calls, field, state } = await openConflict();
-
-    fireEvent.focusOut(field);
-
-    expect(calls()).not.toContain("pad.write");
-    expect(field.value).toBe("mine, edited");
-    expect(state.pads[0]?.text).toBe("mine\nagent line");
-  });
-
+  // Rule 10: u36_typing_more_while_the_line_shows_keeps_the_line_and_blur_sends_no_write also proves dirty blur preserves work without a write.
   it("u36_typing_more_while_the_line_shows_keeps_the_line_and_blur_sends_no_write", async () => {
     const { calls, field, state } = await openConflict();
 
@@ -96,7 +87,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
       expect(
         app.calls.filter((call) => call.method === "pad.write"),
       ).toEqual([
-        { method: "pad.write", params: { name: "release-checklist", text: "mine, edited", expectedRevision: 1 } },
+        { method: "pad.write", params: { name: "release-checklist", text: "mine, edited", expectedRevision: 1, expectedIncarnation: "fixture-release-checklist" } },
       ]),
     );
     expect(state.pads[0]?.text).toBe("mine, edited");
@@ -141,7 +132,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     fireEvent.input(field, { target: { value: "edited after choice" } });
     fireEvent.focusOut(field);
     await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
-      name: "release-checklist", text: "edited after choice", expectedRevision: 3,
+      name: "release-checklist", text: "edited after choice", expectedRevision: 3, expectedIncarnation: "fixture-release-checklist",
     }));
   });
 
@@ -165,7 +156,7 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
     app.handlers["pad.write"] = ({ text }) => ({ ...padOf("release-checklist", USER, text), revision: 3 });
     fireEvent.focusOut(field);
     await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
-      name: "release-checklist", text: "mine, edited more", expectedRevision: 2,
+      name: "release-checklist", text: "mine, edited more", expectedRevision: 2, expectedIncarnation: "fixture-release-checklist",
     }));
   });
 
@@ -253,24 +244,21 @@ describe("u36 a pad edit never overwrites another actor's change", () => {
   });
 
   it("u36_the_users_own_write_echo_never_shows_the_line", async () => {
-    const { app, state } = await openShelf([
-      padOf("release-checklist", USER, "mine"),
-    ]);
-
+    const { app, state } = await openShelf([padOf("release-checklist", USER, "mine")]);
+    const reply = deferred<Pad>();
+    app.handlers["pad.write"] = () => reply.promise;
     const field = await openPad("release-checklist");
-    fireEvent.focus(field);
+    fireEvent.input(field, { target: { value: "submitted" } });
+    fireEvent.focusOut(field);
     fireEvent.input(field, { target: { value: "mine, typing" } });
-    state.pads = [padOf("release-checklist", USER, "mine plus agent")];
-
-    app.emit({
-      actor: USER,
-      name: "pad.changed",
-      data: { name: "release-checklist" },
-    });
+    state.pads = [{ ...padOf("release-checklist", USER, "submitted"), revision: 2 }];
+    app.emit({ actor: USER, name: "pad.changed", data: { name: "release-checklist" } });
     await waitForReload(app);
-
     expect(screen.queryByText(/Changed by/)).toBeNull();
     expect(field.value).toBe("mine, typing");
+    reply.resolve(state.pads[0]!);
+    await reply.promise;
+    await writeAdopted();
   });
 
   it("u36_a_pad_changed_for_another_pad_never_attributes_a_conflict_actor", async () => {
@@ -545,7 +533,7 @@ it("p2544d_external_change_pauses_autosave", async () => {
   expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([]);
   fireEvent.click(screen.getByText("Keep mine"));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.write")).toEqual([
-    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 4 } },
+    { method: "pad.write", params: { name: "notes", text: "draft", expectedRevision: 4, expectedIncarnation: "fixture-notes" } },
   ]));
 });
 
@@ -576,15 +564,258 @@ it("p2544d_failed_conflict_reload_surfaces_reload_failure", async () => {
 
 it("u2773a_pads_restores_exact_work", async () => {
   const { connected, app } = await openShelf([padOf("retained", USER, "  original\n\n")]);
+  app.handlers["pad.write"] = () => deferred<Pad>().promise;
   const field = await openPad("retained");
   fireEvent.input(field, { target: { value: "unfinished 🌱 é\nsecond" } });
-  const record = connected.drafts.list().find(draft => draft.destination.surface === "pads");
-  expect(record?.value).toMatchObject({ originalName: "retained", source: "unfinished 🌱 é\nsecond", base: "  original\n\n" });
-  connected.drawer.close("keyboard");
+  field.setSelectionRange(2, 9, "backward");
+  const record = connected.drafts.list().find(draft => draft.destination.surface === "pads" && draft.destination.object === "fixture-retained");
+  expect(record?.value).toMatchObject({ originalName: "retained", source: "  unfinished 🌱 é\nsecond\n\n", base: "  original\n\n" });
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
   const before = app.calls.filter(call => call.method === "pad.write").length;
   const reopened = await openPad("retained");
   expect(reopened.value).toBe("unfinished 🌱 é\nsecond");
+  expect([reopened.selectionStart, reopened.selectionEnd, reopened.selectionDirection]).toEqual([2, 9, "backward"]);
   fireEvent.focusOut(reopened);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
   expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+});
+
+it.each(["acknowledged", "failed", "unknown"])("u2773b_pads_settlement_preserves_other_revisions_%s", async (outcome) => {
+  const { app, connected } = await openShelf([padOf("settlement", USER, "base")]);
+  const reply = deferred<Pad>();
+  app.handlers["pad.write"] = () => reply.promise;
+  const field = await openPad("settlement");
+  fireEvent.input(field, { target: { value: "revision A 🌱" } });
+  fireEvent.focusOut(field);
+  fireEvent.input(field, { target: { value: "revision B é" } });
+
+  if (outcome === "acknowledged") reply.resolve({ ...padOf("settlement", USER, "revision A 🌱"), revision: 2 });
+  else reply.reject(outcome === "failed" ? new RpcError(-32602, "refused") : new Error("disconnected"));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  expect(field.value).toBe("revision B é");
+  field.setSelectionRange(2, 3, "forward");
+  expect(connected.drafts.list().at(-1)?.value).toMatchObject({ base: "base", baseRevision: 1 });
+  expect(connected.drafts.list().map(draft => [draft.value.source, draft.status])).toEqual(outcome === "acknowledged" ? [["revision B é", "draft"]] : [["revision A 🌱", outcome], ["revision B é", "draft"]]);
+  const older = connected.drafts.list().find(draft => draft.status === outcome);
+
+  if (older) connected.drafts.discard(older.revision);
+  expect(connected.drafts.list().at(-1)?.value.source).toBe("revision B é");
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
+});
+
+it("u2773c_pads_external_change_keeps_original", async () => {
+  const { app, state, connected } = await openShelf([padOf("original", USER, "base")]);
+  const field = await openPad("original");
+  fireEvent.input(field, { target: { value: "dirty é 🪁" } });
+  state.pads = [{ ...padOf("original", USER, "replacement"), incarnation: "replacement" }];
+  app.emit({ name: "pad.changed", actor: USER, data: { name: "original" } });
+  await screen.findByRole("alert");
+  fireEvent.focusOut(field);
+  expect(field.value).toBe("dirty é 🪁");
+  expect(connected.drafts.list().at(-1)).toMatchObject({ destination: { object: "fixture-original" }, value: { base: "base", baseRevision: 1, originalName: "original", source: "dirty é 🪁" } });
+  expect(app.calls.filter(call => call.method === "pad.write")).toEqual([]);
+});
+
+it("u2773e_recovery_actions_keep_surface_draft", async () => {
+  const { app, connected } = await openShelf([padOf("retention", USER, "base")]);
+  const field = await openPad("retention");
+  const write = Storage.prototype.setItem;
+  const stored = localStorage.getItem("roundup:drafts:/p");
+
+  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (key === "roundup:drafts:/p") throw new Error("disk full");
+    write.call(this, key, value);
+  });
+
+  fireEvent.input(field, { target: { value: "recoverable é 🪁" } });
+  const body = within(document.querySelector<HTMLElement>(".pad-body")!);
+  expect(body.getByRole("alert").textContent).toContain("/p");
+  expect(localStorage.getItem("roundup:drafts:/p")).toBe(stored);
+  const clipboard = vi.fn(async () => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  fireEvent.click(body.getByRole("button", { name: "Copy source" }));
+  expect(clipboard).toHaveBeenCalledWith("recoverable é 🪁");
+  writes.mockRestore();
+  const before = app.calls.filter(call => call.method === "pad.write").length;
+  fireEvent.click(body.getByRole("button", { name: "Retry storage only" }));
+  expect(connected.drafts.problem()).toBeNull();
+  expect(JSON.parse(localStorage.getItem("roundup:drafts:/p")!).drafts.at(-1).value.source).toBe("recoverable é 🪁");
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(before);
+
+  // A later retention failure exposes selected discard at the owning editor.
+  const failedAgain = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (key === "roundup:drafts:/p") throw new Error("disk full");
+    write.call(this, key, value);
+  });
+
+  fireEvent.input(field, { target: { value: "selected" } });
+  fireEvent.click(body.getByRole("button", { name: "Discard this revision" }));
+  expect(connected.drafts.list()).toEqual([]);
+  expect(field.value).toBe("base");
+  failedAgain.mockRestore();
+});
+
+it("u2773a_pads_restores_exact_work_through_App_and_real_Daemon", async () => {
+  const [{ startRealDaemon }, { createServedApp }, { App }, { createProjectDrafts }, { fakeEmulators }, { showEverythingInApp }, { showShelfTab }, { render }] = await Promise.all([
+    import("../testing/realDaemonFixture"), import("../testing/realSeam"), import("../App"), import("../state/connectedProject"), import("../terminal/paneHarness"), import("../testing/showEverything"), import("../testing/shelfTabs"), import("@solidjs/testing-library"),
+  ]);
+
+  const first = await startRealDaemon({});
+  const second = await startRealDaemon({});
+
+  try {
+    let one = createServedApp(first.base);
+    let two = createServedApp(second.base);
+    const name = "retained-real";
+    const original = await one.rpc("pad.create", { name, text: "original\n" });
+    const other = await two.rpc("pad.create", { name, text: "other Project\n" });
+    await one.rpc("rail.createWorkstream", { name: "scope-first", parent: null });
+    await two.rpc("rail.createWorkstream", { name: "scope-second", parent: null });
+    let paths = [first.dir];
+    const closed = new Set<string>();
+    const calls = [vi.spyOn(one, "rpc"), vi.spyOn(two, "rpc")];
+
+    const app = {
+      ...one,
+      projects: async () => paths.map(path => ({ path, name: path === first.dir ? "first" : "second", running: true })),
+      forProject: (path: string) => path === first.dir ? one : two,
+      chooseProjectPath: async () => paths.includes(second.dir) ? first.dir : second.dir,
+      openProject: async (path: string) => {
+        if (closed.delete(path)) {
+          const root = path === first.dir ? first : second;
+          await root.restart();
+          const bound = createServedApp(root.base);
+          calls.push(vi.spyOn(bound, "rpc"));
+
+          if (path === first.dir) one = bound;
+          else two = bound;
+        }
+
+        if (!paths.includes(path)) paths.push(path);
+
+        return { path, name: path === first.dir ? "first" : "second" };
+      },
+      closeProject: async (path: string) => {
+        (path === first.dir ? first : second).daemon.kill();
+        closed.add(path);
+        paths = paths.filter(each => each !== path);
+      },
+      onDaemonExited: async () => () => {},
+    };
+
+    let drafts = createProjectDrafts();
+    const mount = () => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+    const writes = () => calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "pad.write" || method === "pad.create" || method === "pad.move").length;
+    mount();
+    await showEverythingInApp(/scope-first/);
+    showShelfTab("Pads");
+    const field = await openPad(name);
+    fireEvent.input(field, { target: { value: "unfinished é 🪁\nsecond" } });
+    const retained = drafts(first.dir).list().at(-1)!;
+    expect(retained.destination).toEqual({ surface: "pads", object: original.incarnation, recipient: null });
+    expect(retained.value).toMatchObject({ originalName: name, source: "unfinished é 🪁\nsecond\n", base: "original\n", baseRevision: original.revision });
+    // A separate public write generates the real Event that pauses this editor.
+    await one.rpc("pad.write", { name, text: "external\n", expectedRevision: original.revision, expectedIncarnation: original.incarnation });
+    await screen.findByText(/Changed by/);
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "second" });
+    await showEverythingInApp(/scope-second/);
+    showShelfTab("Pads");
+    const elsewhere = await openPad(name);
+    expect(elsewhere.value).toBe("other Project");
+    fireEvent.input(elsewhere, { target: { value: "separate 🪁" } });
+    await two.rpc("pad.write", { name, text: "external other", expectedRevision: other.revision, expectedIncarnation: other.incarnation });
+    await screen.findByText(/Changed by/);
+    const afterExternal = writes();
+    cleanup();
+    // A fresh App and holder read the durable bytes, rather than reusing component memory.
+    drafts = createProjectDrafts();
+    mount();
+    fireEvent.click(await screen.findByRole("tab", { name: "first" }));
+    await showEverythingInApp(/scope-first/);
+    showShelfTab("Pads");
+    const restored = await openPad(name);
+    expect(restored.value).toBe("unfinished é 🪁\nsecond");
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+    const focused = document.activeElement;
+    await one.rpc("pad.setOwner", { name, owner: USER });
+    expect(document.activeElement).toBe(focused);
+    fireEvent.focusOut(restored);
+    expect(writes()).toBe(afterExternal);
+    expect(drafts(first.dir).list().at(-1)?.value.base).toBe("original\n");
+    expect(drafts(second.dir).list().at(-1)).toMatchObject({ destination: { object: other.incarnation }, value: { source: "separate 🪁\n", base: "other Project\n" } });
+    expect((await one.rpc("pad.read", { name })).text).toBe("external\n");
+    expect((await two.rpc("pad.read", { name })).text).toBe("external other");
+    const firstTab = document.querySelector<HTMLElement>(`[data-path="${first.dir}"]`)!;
+    fireEvent.pointerEnter(firstTab);
+    fireEvent.click(within(firstTab).getByRole("button", { name: /^Close / }));
+    await waitFor(() => expect(document.querySelector(`[data-path="${first.dir}"]`)).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await waitFor(() => expect(document.querySelector(`[data-path="${first.dir}"]`)).not.toBeNull());
+    await showEverythingInApp(/scope-first/);
+    showShelfTab("Pads");
+    const reopenedProject = await openPad(name);
+    expect(reopenedProject.value).toBe("unfinished é 🪁\nsecond");
+    expect(writes()).toBe(afterExternal);
+    // Removing and recreating the original cannot lend authority to recovered edits.
+    await one.rpc("pad.delete", { name });
+    const replacement = await one.rpc("pad.create", { name, text: "replacement" });
+    await waitFor(() => expect(screen.getByRole<HTMLButtonElement>("button", { name: "Resume" }).disabled).toBe(true));
+    expect(replacement.incarnation).not.toBe(original.incarnation);
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+    expect((await one.rpc("pad.read", { name })).text).toBe("replacement");
+    expect(drafts(first.dir).list().at(-1)?.destination.object).toBe(original.incarnation);
+  } finally {
+    cleanup();
+    vi.restoreAllMocks();
+    await first.stop();
+    await second.stop();
+  }
+}, 240_000);
+
+it("u2773b_pads_late_failure_keeps_original_Project", async () => {
+  const first = await openShelf([padOf("same-name", USER, "base")], false, false, "/first");
+  const reply = deferred<Pad>();
+  first.app.handlers["pad.write"] = () => reply.promise;
+  const field = await openPad("same-name");
+  fireEvent.input(field, { target: { value: "A é" } });
+  fireEvent.focusOut(field);
+  fireEvent.input(field, { target: { value: "B 🪁" } });
+  cleanup();
+  const other = await openShelf([padOf("same-name", USER, "other base")], false, false, "/second");
+  const otherField = await openPad("same-name");
+  fireEvent.input(otherField, { target: { value: "other current" } });
+  reply.reject(new RpcError(-32602, "refused"));
+  await waitFor(() => expect(first.connected.drafts.list()[0]?.status).toBe("failed"));
+  expect(first.connected.drafts.list().map(draft => [draft.value.source, draft.status])).toEqual([["A é", "failed"], ["B 🪁", "draft"]]);
+  expect(other.connected.drafts.list().at(-1)?.value).toMatchObject({ source: "other current", base: "other base" });
+  expect(otherField.value).toBe("other current");
+  expect(first.app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
+  expect(other.app.calls.filter(call => call.method === "pad.write")).toHaveLength(0);
+  first.connected.drafts.discard(first.connected.drafts.list()[0]!.revision);
+  expect(first.connected.drafts.list().at(-1)?.value.source).toBe("B 🪁");
+  expect(other.connected.drafts.list().at(-1)?.value.source).toBe("other current");
+});
+
+it("u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write", async () => {
+  const { app, connected, state } = await openShelf([padOf("unknown", USER, "base")]);
+  app.handlers["pad.write"] = ({ text }) => {
+    state.pads = [{ ...state.pads[0]!, text, revision: 2 }];
+    throw new Error("reply lost");
+  };
+
+  const field = await openPad("unknown");
+  fireEvent.input(field, { target: { value: "submitted é" } });
+  fireEvent.focusOut(field);
+  await waitFor(() => expect(connected.drafts.list()[0]?.status).toBe("unknown"));
+  const snapshot = connected.drafts.list()[0]!;
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  await openPad("unknown");
+  fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+  await screen.findByRole("alert");
+  expect(connected.drafts.list()).toEqual([snapshot]);
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
+  expect(state.pads[0]?.text).toBe("submitted é");
 });

@@ -1,3 +1,6 @@
+import * as v from "valibot";
+import { Editable } from "../ui/Editable";
+import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { Tip } from "../ui/Tip";
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
@@ -7,7 +10,7 @@ import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
-import { EntryRow } from "../ink/EntryRow";
+
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
@@ -28,18 +31,66 @@ export const Pads = () => {
   const list = usePadList();
   const pads = list.pads;
   const [naming, setNaming] = createSignal(false);
+  const creation = { surface: "pads", object: "creation", recipient: null };
+
+  const retentionProblem = () => {
+    const problem = connected.drafts.problem();
+
+    return problem && (!problem.destination || (problem.destination.surface === creation.surface && problem.destination.object === creation.object)) ? problem : invalid() ? { cause: "invalid" } : null;
+  };
+
+  const nameLabel = copy.copyField(copy.draftField("name").toLowerCase());
+  const restored = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation").at(-1);
+  const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
+  const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
+  const [name, setName] = createSignal(parsed?.success ? parsed.output.name : "");
+  let revision = restored?.revision;
+  let field: HTMLInputElement | undefined;
+  let home = parsed?.success ? parsed.output.home : null;
+  let caret = restored?.selection ?? null;
+
+  const capture = () => {
+    if (invalid()) return;
+    caret = field ? { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" } : caret;
+    revision = connected.drafts.edit(creation, { name: name(), home }, caret, "ordinary").draft.revision;
+  };
+
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
   const scope = shelfScope(connected);
 
-  const create = (name: string) =>
+  const create = () =>
     failure.run(async () => {
-      const home = scope.home();
+      if (!name().trim()) return;
+      capture();
+      const submitted = revision ? connected.drafts.submit(revision) : null;
 
-      await connected.app.rpc("pad.create", { name, text: null });
+      if (!submitted) return;
+      const target = name().trim();
+      const targetHome = home;
 
-      // U347: a Pad added while a Workstream is selected goes to that Workstream, so `this one` shows it.
-      if (home !== null) await connected.app.rpc("pad.move", { name, home });
+      const timeout = setTimeout(() => {
+        connected.drafts.settle(submitted.draft.revision, "unknown");
+        failure.show(copy.draftStatus.unknown);
+      }, 15_000);
+
+      try {
+        await connected.app.rpc("pad.create", { name: target, text: null });
+        connected.drafts.settle(submitted.draft.revision, "acknowledged");
+
+        if (revision === submitted.draft.revision) {
+          revision = undefined;
+          setName("");
+        }
+
+        // The creation reply acknowledges only its captured name; a later edit remains current.
+        if (targetHome !== null) await connected.app.rpc("pad.move", { name: target, home: targetHome });
+      } catch (error) {
+        connected.drafts.settle(submitted.draft.revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
     });
 
   const makeYours = (name: string) =>
@@ -77,6 +128,8 @@ export const Pads = () => {
         ref={(button) => (plusButton = button)}
         onClick={() => {
           failure.clear();
+
+          if (!revision) home = scope.home();
           setNaming(true);
         }}
       >
@@ -102,20 +155,41 @@ export const Pads = () => {
       />}</Groups>
       <Show when={naming()}>
         <div class="shelf-list">
-          <EntryRow
-            glyph={<span class="light"><OwnerMark owner={USER} decorative /></span>}
-            class="pad-inset"
-            label={copy.padName}
-            placeholder={copy.newPadPlaceholder}
-            onSubmit={(name) => void create(name)}
-            onClose={(reason) => {
-              setNaming(false);
+          <ShelfRow glyph={<span class="light"><OwnerMark owner={USER} decorative /></span>} class="entry-row pad-inset">
+            <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(); }}>
+            <Editable.Input class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
+              ref={(input) => {
+                field = input;
+                queueMicrotask(() => {
+                  if (!input.isConnected) return;
+                  input.focus();
 
-              if (reason !== "blur") plusButton?.focus();
-            }}
-          />
+                  if (caret) input.setSelectionRange(caret.start, caret.end, caret.direction);
+                });
+              }}
+              onInput={(event) => { setName(event.currentTarget.value); capture(); }}
+              onSelect={() => { if (revision) capture(); }}
+              on:keydown={(event) => {
+                if (event.key === "Enter" && name().trim()) { event.preventDefault(); void create(); }
+                else if (event.key === "Escape" || (event.key === "Enter" && !name().trim())) {
+                  event.preventDefault();
+                  setNaming(false);
+                  plusButton?.focus();
+                }
+              }}
+              onBlur={() => { if (!name().trim()) setNaming(false); }} />
+            </Editable.Root>
+          </ShelfRow>
         </div>
       </Show>
+      <Show when={retentionProblem()}>{(problem) => <div role="alert">
+        <p>{copy.draftRetention(connected.project.path, copy.pad, problem().cause)}</p>
+        <div style={{ display: "flex", gap: "var(--space-2)", "flex-wrap": "wrap" }}>
+        <button data-button="quiet" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
+        <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
+        <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
+        </div>
+      </div>}</Show>
       <bulk.Bar />
     </section>
   );

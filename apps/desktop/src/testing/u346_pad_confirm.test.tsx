@@ -107,7 +107,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
 
     const home = await served.rpc("rail.createWorkstream", { name: "review", parent: null });
 
-    await served.rpc("pad.create", { name: "notes", text: "original" });
+    const pad = await served.rpc("pad.create", { name: "notes", text: "original" });
     await served.rpc("pad.move", { name: "notes", home: home.id });
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
     const { showEverythingInApp } = await import("./showEverything");
@@ -124,7 +124,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     await waitFor(() => expect(calls.filter((call) => call.method === "pad.list").length).toBeGreaterThan(1));
     expect(field.value).toBe("my draft");
     expect(calls.filter((call) => call.method === "pad.write")).toEqual([
-      { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 1 } },
+      { method: "pad.write", params: { name: "notes", text: "my draft", expectedRevision: 1, expectedIncarnation: pad.incarnation } },
     ]);
     expect(await served.rpc("pad.list", null)).toMatchObject([{ text: "original remote", revision: 2 }]);
     await served.rpc("pad.append", { name: "notes", text: " intervening" });
@@ -132,7 +132,7 @@ it("p2544d_stale_write_without_event_keeps_draft", async () => {
     await waitFor(() => expect(calls.filter((call) => call.method === "pad.list")).toHaveLength(3));
     expect(screen.queryByText(/pad notes is at revision/)).toBeNull();
     expect(calls.filter((call) => call.method === "pad.write").at(-1)?.params).toEqual({
-      name: "notes", text: "my draft", expectedRevision: 2,
+      name: "notes", text: "my draft", expectedRevision: 2, expectedIncarnation: pad.incarnation,
     });
     expect(field.value).toBe("my draft");
     await new Promise((done) => setTimeout(done, 550));
