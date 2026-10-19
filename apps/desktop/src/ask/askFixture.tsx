@@ -18,7 +18,7 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false, path = `/ask-${crypto.randomUUID()}`) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
@@ -27,7 +27,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "existing output" });
   app.handlers["terminal.resize"] = () => null;
   const { factory } = fakeEmulators();
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, () => false, () => 0);
 
   if (tree instanceof Promise) {
     app.handlers["rail.tree"] = () => tree;
@@ -36,7 +36,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   if (selected !== null) connected.rail.select(selected);
 
-  render(() => (
+  const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
       <button type="button" class="outside">outside</button>
@@ -46,7 +46,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   await connected.rail.settled();
 
-  return { app, connected };
+  return { app, connected, unmount: view.unmount };
 };
 
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });
