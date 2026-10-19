@@ -7,6 +7,71 @@ use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use unicode_normalization::UnicodeNormalization;
 
+/// One creation of a Pad in this Project, read with its exact current text and Revision.
+/// Incarnations are scoped to this Project database; callers must retain the Project too.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PadSource {
+    pub incarnation: i64,
+    pub pad: Pad,
+}
+
+/// Why a source row was removed. Workstream cleanup is not explicit source revocation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PadDeletion {
+    User,
+    Owner,
+    Cleanup,
+}
+
+/// Authoritative lifecycle fact, independent of any later reuse of the Pad's name.
+/// Unknown is never permission to substitute a name or grant access.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PadSourceState {
+    Live(PadSource),
+    Deleted(PadDeletion),
+    Unknown,
+}
+
+/// Capture a live source through the existing storage owner. The connection must be to
+/// this Project's initialized database. A publication writer uses its own transaction
+/// here so the capture and publication commit share one SQLite snapshot.
+/// One SELECT reads identity, text and Revision coherently; no file mirror is read.
+pub fn source(db: &Connection, name: &str) -> rusqlite::Result<Option<PadSource>> {
+    db.query_row(
+        "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
+         FROM pads p JOIN pad_sources s ON s.pad_key = p.key WHERE p.key = ?1",
+        [key(name)],
+        |row| {
+            Ok(PadSource {
+                incarnation: row.get(6)?,
+                pad: row_to_pad(row)?,
+            })
+        },
+    )
+    .optional()
+}
+
+/// Look up the recorded incarnation, never a reusable name. Uses the caller's Project
+/// transaction, so a publication resolver can read its retained record and this fact
+/// without racing source deletion. This supplies facts, not an access grant.
+pub fn source_state(db: &Connection, incarnation: i64) -> rusqlite::Result<PadSourceState> {
+    db.query_row(
+        "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation, s.deletion
+         FROM pad_sources s LEFT JOIN pads p ON p.key = s.pad_key WHERE s.incarnation = ?1",
+        [incarnation],
+        |row| {
+            let deletion: Option<String> = row.get(7)?;
+            match deletion.as_deref() {
+                None => Ok(PadSourceState::Live(PadSource { incarnation: row.get(6)?, pad: row_to_pad(row)? })),
+                Some("user") => Ok(PadSourceState::Deleted(PadDeletion::User)),
+                Some("owner") => Ok(PadSourceState::Deleted(PadDeletion::Owner)),
+                Some("cleanup") => Ok(PadSourceState::Deleted(PadDeletion::Cleanup)),
+                Some(_) => Err(rusqlite::Error::InvalidQuery),
+            }
+        },
+    ).optional().map(|state| state.unwrap_or(PadSourceState::Unknown))
+}
+
 const FILES_SETTING: &str = "files";
 
 pub struct Store {
@@ -89,6 +154,22 @@ impl Store {
             params![key(name), home],
         )?;
         Ok(changed == 1)
+    }
+
+    /// Called only in the same transaction as `delete`, after authorization.
+    pub fn record_deletion(&self, name: &str, cause: PadDeletion) -> rusqlite::Result<()> {
+        self.db.execute(
+            "UPDATE pad_sources SET pad_key = NULL, deletion = ?2 WHERE pad_key = ?1",
+            params![
+                key(name),
+                match cause {
+                    PadDeletion::User => "user",
+                    PadDeletion::Owner => "owner",
+                    PadDeletion::Cleanup => "cleanup",
+                }
+            ],
+        )?;
+        Ok(())
     }
 
     pub fn delete(&self, name: &str) -> rusqlite::Result<bool> {
