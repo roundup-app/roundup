@@ -185,14 +185,14 @@ const DraftRecovery = () => {
     const { surface, object } = draft.destination;
 
     if (surface === "pads") {
-      if (!draft.value.originalName || !pads.loaded() || pads.failure()) return "unverified";
+      if (!draft.value.originalName || !pads.loaded() || pads.failure()) return copy.originalUnverified;
 
-      return pads.pads().some((pad) => pad.incarnation === object) ? null : "unavailable";
+      return pads.pads().some((pad) => pad.incarnation === object) ? null : copy.originalUnavailable;
     }
 
-    if (surface !== "orders" && surface !== "rail") return "unverified";
+    if (surface !== "orders" && surface !== "rail") return copy.originalUnverified;
 
-    return rail.nodes.some((node) => node.id === object) ? null : "unavailable";
+    return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
   };
 
   const identity = (draft: ReturnType<typeof drafts.list>[number]) => {
@@ -222,7 +222,7 @@ const DraftRecovery = () => {
       <Show when={shown()}>{(draft) => <section class="draft-detail" aria-label={draft().revision}>
         <h3>{copy.inspectedRevision(identity(draft()), current().has(draft().revision) ? copy.currentDraft : copy.draftStatus[draft().status])}</h3>
         <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
-        <Show when={availability(draft())}>{(state) => <p role="status" data-state={state()}>{state() === "unavailable" ? copy.originalUnavailable : copy.originalUnverified}</p>}</Show>
+        <Show when={availability(draft())}>{(text) => <p role="status" data-state={text() === copy.originalUnavailable ? "unavailable" : "unverified"}>{text()}</p>}</Show>
         <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
         <For each={Object.keys(draft().value)}>{(field) => <div>
           <h3>{copy.draftField(field)}</h3>
