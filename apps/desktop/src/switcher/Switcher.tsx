@@ -88,10 +88,17 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     // Let removal of the pressed button finish before returning the native caret.
     queueMicrotask(() => {
-      if (!open() || retentionProblem() || !input?.isConnected) return;
+      if (!open() || !input?.isConnected) return;
       input.focus();
 
       if (selection) input.setSelectionRange(...selection);
+    });
+  };
+
+  const restoreFocusOnRemoval = (element: HTMLElement): void => {
+    onCleanup(() => {
+      // Removing a focused recovery action must leave the query ready for typing.
+      if (element.contains(document.activeElement)) restoreQueryFocus();
     });
   };
 
@@ -210,24 +217,19 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
             </>;
           }} />
-        <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert" ref={(element) => {
-          onCleanup(() => {
-            // Native selection events can finish storage recovery before the focused button is activated.
-            if (element.contains(document.activeElement)) restoreQueryFocus();
-          });
-        }}>
+        <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert" ref={restoreFocusOnRemoval}>
           <p>{copy.switcherRetentionFailure(problem().operation, project.name)}</p>
           <div class="switcher-recovery-actions">
           <Show when={text() !== ""}>
-          <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => {
+          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { void navigator.clipboard.writeText(text()).then(() => {
             setCopyFailure(null);
             setCopied(true);
             clearCopied();
           }, () => { setCopied(false); setCopyFailure(copy.switcherCopyFailure); }); }}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           </Show>
-          <button data-button="quiet" onClick={() => { drafts.retry(); }}>{copy.retryStorage}</button>
+          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { drafts.retry(); }}>{copy.retryStorage}</button>
           <Show when={text() !== ""}>
-          <button data-button="quiet" onClick={() => {
+          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => {
             const draft = current();
 
             if (draft) drafts.discard(draft.revision);
