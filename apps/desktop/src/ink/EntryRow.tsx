@@ -11,15 +11,25 @@ export const EntryRow = (props: {
   label: string;
   placeholder: string;
   class: string;
+  initial?: { text: string; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
+  onEdit?: (field: HTMLInputElement) => void;
   onSubmit: (text: string) => void;
   onClose: (reason: "enter" | "escape" | "blur") => void;
 }) => (
   <ShelfRow glyph={props.glyph} class={`entry-row ${props.class}`}>
     <input
+      type="text"
       class="entry-field"
       aria-label={props.label}
       placeholder={props.placeholder}
       ref={(field) => {
+        field.value = props.initial?.text ?? "";
+
+        if (props.initial?.selection) {
+          const selection = props.initial.selection;
+          field.setSelectionRange(selection.start, selection.end, selection.direction);
+        }
+
         // The list grows above this row when an item lands, so keep the row in view as the list's height changes.
         const list = new ResizeObserver(() => field.scrollIntoView({ block: "nearest" }));
 
@@ -32,8 +42,12 @@ export const EntryRow = (props: {
         });
         onCleanup(() => list.disconnect());
       }}
+      onInput={(event) => props.onEdit?.(event.currentTarget)}
+      onSelect={(event) => { if (event.currentTarget.isConnected) props.onEdit?.(event.currentTarget); }}
       onKeyDown={(key) => {
         const field = key.currentTarget;
+
+        props.onEdit?.(field);
 
         if (key.key === "Escape") props.onClose("escape");
         else if (key.key !== "Enter") return;
