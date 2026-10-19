@@ -258,7 +258,7 @@ impl Agents {
         let (Some(readiness), Some(ms)) = (config.readiness.clone(), config.timeout_ms) else {
             return Err(invalid("prepared_readiness_missing"));
         };
-        self.shared.rail().node(id)?;
+        self.shared.rail().resource_node(id)?;
         let (git, plan_project, plan_id) =
             (self.shared.git.bounded(), project.clone(), id.to_owned());
         let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id))

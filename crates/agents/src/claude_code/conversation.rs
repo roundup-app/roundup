@@ -1,6 +1,7 @@
 //! A35: vendor storage stays here. A Mark freezes complete JSONL records, not a mutable file offset.
 
 use std::io::Write;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 use contracts::agent::{ConversationCard, ConversationOverview};
@@ -10,6 +11,49 @@ use serde_json::Value;
 use std::sync::LazyLock;
 
 use super::{Launcher, is_uuid};
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct RetainedCopy {
+    path: PathBuf,
+    owner: PathBuf,
+    text: String,
+}
+
+impl RetainedCopy {
+    fn read(ownership: &[u8]) -> Result<Self, RpcError> {
+        serde_json::from_slice(ownership).map_err(RpcError::internal)
+    }
+
+    fn metadata(path: &Path) -> Result<Option<std::fs::Metadata>, RpcError> {
+        match std::fs::symlink_metadata(path) {
+            Ok(metadata) if metadata.file_type().is_file() => Ok(Some(metadata)),
+            Ok(_) => Err(RpcError::conflict(
+                "retained conversation ownership changed; preserving it",
+            )),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(err) => Err(RpcError::internal(err)),
+        }
+    }
+
+    fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+        a.dev() == b.dev() && a.ino() == b.ino()
+    }
+
+    fn sync(&self) -> Result<(), RpcError> {
+        let mut dir = self.path.parent();
+        // Persist the transcript entry and the newly made vendor project/config directories.
+        for _ in 0..4 {
+            let Some(path) = dir else {
+                break;
+            };
+            std::fs::File::open(path)
+                .and_then(|dir| dir.sync_all())
+                .map_err(RpcError::internal)?;
+            dir = path.parent();
+        }
+        Ok(())
+    }
+}
 
 impl Launcher {
     fn conversation_path(&self, cwd: &Path, id: &str) -> Result<PathBuf, RpcError> {
@@ -27,6 +71,49 @@ impl Launcher {
             .join("projects")
             .join(project)
             .join(format!("{id}.jsonl")))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn replace_retained_for_test(
+        &self,
+        cwd: &Path,
+        id: &str,
+        bytes: &[u8],
+    ) -> Result<(), RpcError> {
+        std::fs::write(self.conversation_path(cwd, id)?, bytes).map_err(RpcError::internal)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn assert_retained_for_test(&self, cwd: &Path, id: &str, expected: &[u8]) {
+        assert_eq!(
+            std::fs::read(self.conversation_path(cwd, id).unwrap()).unwrap(),
+            expected
+        );
+    }
+
+    #[cfg(test)]
+    pub(crate) fn retained_copy_exists_for_test(&self, ownership: &[u8]) -> bool {
+        RetainedCopy::read(ownership)
+            .unwrap()
+            .path
+            .try_exists()
+            .unwrap()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn interrupt_copy_for_test(&self, ownership: &[u8]) {
+        let copy = RetainedCopy::read(ownership).unwrap();
+        std::fs::remove_file(copy.path).unwrap();
+        std::fs::write(copy.owner, b"{").unwrap();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn copy_owner_exists_for_test(&self, ownership: &[u8]) -> bool {
+        RetainedCopy::read(ownership)
+            .unwrap()
+            .owner
+            .try_exists()
+            .unwrap()
     }
 
     /// A2681a: a missing or unreadable transcript has no display parts.
@@ -119,6 +206,30 @@ impl Launcher {
     /// Create a new conversation from the frozen end, without opening the original for writing.
     /// Returns the id A22's launcher can resume; nothing starts or changes the Rail here.
     pub fn copy_conversation(&self, cwd: &Path, mark: &[u8]) -> Result<String, RpcError> {
+        let (id, ownership) = self.prepare_conversation(cwd, mark)?;
+        let copy = RetainedCopy::read(&ownership)?;
+        let dir = copy
+            .path
+            .parent()
+            .ok_or_else(|| RpcError::internal("missing conversation directory"))?;
+        std::fs::create_dir_all(dir).map_err(RpcError::internal)?;
+        let mut file = tempfile::NamedTempFile::new_in(dir).map_err(RpcError::internal)?;
+        file.write_all(copy.text.as_bytes())
+            .map_err(RpcError::internal)?;
+        file.as_file().sync_all().map_err(RpcError::internal)?;
+        file.persist_noclobber(&copy.path)
+            .map_err(RpcError::internal)?;
+        copy.sync()?;
+        Ok(id)
+    }
+
+    /// Reserve an opaque ownership record before creating a retained vendor file. The Rail
+    /// stores these bytes without interpreting vendor paths or records (P4).
+    pub(crate) fn prepare_conversation(
+        &self,
+        cwd: &Path,
+        mark: &[u8],
+    ) -> Result<(String, Vec<u8>), RpcError> {
         let mut random = [0u8; 16];
         getrandom::fill(&mut random).map_err(RpcError::internal)?;
         random[6] = (random[6] & 0x0f) | 0x40;
@@ -133,26 +244,123 @@ impl Launcher {
             &hex[20..]
         );
         let path = self.conversation_path(cwd, &id)?;
-        let dir = path
+        if path.try_exists().map_err(RpcError::internal)? {
+            return Err(RpcError::conflict(
+                "retained conversation destination exists",
+            ));
+        }
+        let end = mark
+            .iter()
+            .rposition(|b| *b == b'\n')
+            .map_or(0, |at| at + 1);
+        if end == 0 {
+            return Err(RpcError::internal("conversation has no complete records"));
+        }
+        let mut bytes = Vec::new();
+        for line in mark[..end]
+            .split(|b| *b == b'\n')
+            .filter(|line| !line.is_empty())
+        {
+            let mut record: Value = serde_json::from_slice(line).map_err(RpcError::internal)?;
+            let fields = record
+                .as_object_mut()
+                .ok_or_else(|| RpcError::internal("conversation record is not an object"))?;
+            if fields.contains_key("sessionId") {
+                fields.insert("sessionId".into(), Value::String(id.clone()));
+            }
+            serde_json::to_writer(&mut bytes, &record).map_err(RpcError::internal)?;
+            bytes.push(b'\n');
+        }
+        let owner = path.with_extension("roundup-owned");
+        if owner.try_exists().map_err(RpcError::internal)? {
+            return Err(RpcError::conflict(
+                "retained conversation ownership destination exists",
+            ));
+        }
+        let copy = RetainedCopy {
+            path,
+            owner,
+            text: String::from_utf8(bytes).map_err(RpcError::internal)?,
+        };
+        let ownership = serde_json::to_vec(&copy).map_err(RpcError::internal)?;
+        Ok((id, ownership))
+    }
+
+    pub(crate) fn write_conversation(&self, ownership: &[u8]) -> Result<(), RpcError> {
+        let copy = RetainedCopy::read(ownership)?;
+        let dir = copy
+            .path
             .parent()
             .ok_or_else(|| RpcError::internal("missing conversation directory"))?;
         std::fs::create_dir_all(dir).map_err(RpcError::internal)?;
-        let mut copy = tempfile::NamedTempFile::new_in(dir).map_err(RpcError::internal)?;
-        for line in mark.split(|b| *b == b'\n').filter(|line| !line.is_empty()) {
-            let mut record: Value = serde_json::from_slice(line).map_err(RpcError::internal)?;
-            if let Some(fields) = record.as_object_mut() {
-                if fields.contains_key("sessionId") {
-                    fields.insert("sessionId".into(), Value::String(id.clone()));
-                }
-            } else {
-                return Err(RpcError::internal("conversation record is not an object"));
+        // The recorded scratch identity owns any interrupted write. Only a complete, synced
+        // file gets a transcript name; retain its hard link until the Rail publication commits.
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&copy.owner)
+            .map_err(RpcError::internal)?;
+        file.write_all(copy.text.as_bytes())
+            .map_err(RpcError::internal)?;
+        file.sync_all().map_err(RpcError::internal)?;
+        std::fs::hard_link(&copy.owner, &copy.path).map_err(RpcError::internal)?;
+        copy.sync()
+    }
+
+    /// Unpublished transcript removal requires both the original inode proof and exact
+    /// complete bytes. User truncation, replacement and symlinks all refuse recovery.
+    pub(crate) fn discard_conversation(&self, ownership: &[u8]) -> Result<(), RpcError> {
+        let copy = RetainedCopy::read(ownership)?;
+        let owner = RetainedCopy::metadata(&copy.owner)?;
+        if let Some(actual) = RetainedCopy::metadata(&copy.path)? {
+            if !owner
+                .as_ref()
+                .is_some_and(|owner| RetainedCopy::same_file(owner, &actual))
+                || std::fs::read(&copy.path).map_err(RpcError::internal)? != copy.text.as_bytes()
+            {
+                return Err(RpcError::conflict(
+                    "retained conversation ownership or contents changed; preserving it",
+                ));
             }
-            serde_json::to_writer(&mut copy, &record).map_err(RpcError::internal)?;
-            copy.write_all(b"\n").map_err(RpcError::internal)?;
+            std::fs::remove_file(&copy.path).map_err(RpcError::internal)?;
+            copy.sync()?;
         }
-        copy.as_file().sync_all().map_err(RpcError::internal)?;
-        copy.persist_noclobber(path).map_err(RpcError::internal)?;
-        Ok(id)
+        if owner.is_some() {
+            // No transcript existed during an interrupted scratch write. Only its exact
+            // reserved prefix is ours; an unrelated scratch replacement stays untouched.
+            let actual = std::fs::read(&copy.owner).map_err(RpcError::internal)?;
+            if !copy.text.as_bytes().starts_with(&actual) {
+                return Err(RpcError::conflict(
+                    "retained conversation ownership changed; preserving it",
+                ));
+            }
+            std::fs::remove_file(&copy.owner).map_err(RpcError::internal)?;
+            copy.sync()?;
+        }
+        Ok(())
+    }
+
+    /// Publication owns the transcript now. Release only the proof link, accepting user
+    /// edits to the published inode and safely repeating after a crash during release.
+    pub(crate) fn finish_conversation(&self, ownership: &[u8]) -> Result<(), RpcError> {
+        let copy = RetainedCopy::read(ownership)?;
+        let Some(owner) = RetainedCopy::metadata(&copy.owner)? else {
+            return Ok(());
+        };
+        if let Some(actual) = RetainedCopy::metadata(&copy.path)? {
+            if !RetainedCopy::same_file(&owner, &actual) {
+                return Err(RpcError::conflict(
+                    "retained conversation ownership changed; preserving proof",
+                ));
+            }
+        } else if std::fs::read(&copy.owner).map_err(RpcError::internal)? != copy.text.as_bytes() {
+            return Err(RpcError::conflict(
+                "retained conversation proof changed; preserving it",
+            ));
+        }
+        std::fs::remove_file(&copy.owner).map_err(RpcError::internal)?;
+        copy.sync()
     }
 }
 
@@ -219,6 +427,39 @@ fn merge_cards(card: &mut ConversationCard, text: &str) {
                     .map(str::to_owned)
                     .collect(),
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn u2875c_copy_recovery_preserves_replaced_or_truncated_user_files() {
+        for replace in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let launcher = Launcher::new(
+                "unused",
+                dir.path().join("config.json"),
+                dir.path().join("rup"),
+                None,
+            );
+            let (id, ownership) = launcher
+                .prepare_conversation(dir.path(), b"{\"sessionId\":\"external\"}\n")
+                .unwrap();
+            launcher.write_conversation(&ownership).unwrap();
+            let path = launcher.conversation_path(dir.path(), &id).unwrap();
+            let bytes = std::fs::read(&path).unwrap();
+            let changed = if replace {
+                std::fs::remove_file(&path).unwrap();
+                bytes
+            } else {
+                bytes[..1].to_vec()
+            };
+            std::fs::write(&path, &changed).unwrap();
+            assert!(launcher.discard_conversation(&ownership).is_err());
+            assert_eq!(std::fs::read(path).unwrap(), changed);
         }
     }
 }
