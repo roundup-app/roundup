@@ -99,6 +99,7 @@ impl Pads {
     fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
         name::validate(&p.name)?;
         let pad = Pad {
+            incarnation: String::new(), // Assigned by the existing source-creation trigger.
             name: p.name,
             owner: ctx.actor.clone(),
             text: p.text.unwrap_or_default(),
@@ -107,11 +108,12 @@ impl Pads {
             home: None,
         };
         let store = self.store()?;
-        store.atomically(|| {
+        let pad = store.atomically(|| {
             if !store.insert(&pad).map_err(RpcError::internal)? {
                 return Err(RpcError::conflict(format!("pad exists: {}", pad.name)));
             }
-            self.mirror(&store, &pad.name, &pad.text)
+            self.mirror(&store, &pad.name, &pad.text)?;
+            get(&store, &pad.name)
         })?;
         wrote(ctx, &pad.name)?;
         reply(&pad)
@@ -136,6 +138,14 @@ impl Pads {
                 return Err(RpcError::forbidden(format!(
                     "only {} may rewrite pad {}",
                     pad.owner.id, pad.name
+                )));
+            }
+            if let Some(expected) = &p.expected_incarnation
+                && expected != &pad.incarnation
+            {
+                return Err(RpcError::conflict(format!(
+                    "pad {} is a different creation",
+                    pad.name
                 )));
             }
             if let Some(expected) = p.expected_revision

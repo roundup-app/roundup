@@ -110,6 +110,7 @@ const todosAt = (now: number): Todo[] =>
 
 const padsAt = (now: number): Pad[] =>
   Array.from({ length: 4 }, (_, index) => ({
+    incarnation: `fixture-${index}`,
     name: index === 1 ? "a-pad-with-a-very-long-name-here" : `pad-${index}`,
     owner: index % 2 === 1 ? USER : { kind: "agent", id: "agent-1", parent: null },
     text: "# hello\nsome text\n".repeat(30),

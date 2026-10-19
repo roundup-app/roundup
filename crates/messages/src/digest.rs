@@ -642,6 +642,7 @@ mod tests {
 
     fn pad(name: &str, owner: &str, at: i64) -> Pad {
         Pad {
+            incarnation: "1".into(),
             name: name.into(),
             owner: Actor {
                 kind: ActorKind::Agent,

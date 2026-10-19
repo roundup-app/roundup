@@ -9,6 +9,8 @@ use crate::common::Actor;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "pad/")]
 pub struct Pad {
+    /// Opaque never-reused creation identity within this Project; retain the Project too.
+    pub incarnation: String,
     pub name: String,
     pub owner: Actor,
     pub text: String,
@@ -35,7 +37,10 @@ pub struct PadName {
     pub name: String,
 }
 
-/// Rewrite the whole text. Owner only. A supplied `expectedRevision` must match atomically or fail with CONFLICT naming the current Revision.
+/// Rewrite the whole text. Owner only. Supplied guards are checked in the same write transaction.
+/// `expectedRevision` mismatch is CONFLICT naming the current Revision.
+/// `expectedIncarnation` mismatch is CONFLICT; a missing Pad is NOT_FOUND.
+/// Omitted guards keep name-based current-content semantics.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "pad/")]
 pub struct WriteParams {
@@ -44,6 +49,10 @@ pub struct WriteParams {
     #[serde(default, rename = "expectedRevision")]
     #[ts(type = "number | null", rename = "expectedRevision", optional)]
     pub expected_revision: Option<u64>,
+    /// Creation captured with the draft in its original Project. Independent of content Revision.
+    #[serde(default, rename = "expectedIncarnation")]
+    #[ts(rename = "expectedIncarnation", optional)]
+    pub expected_incarnation: Option<String>,
 }
 
 /// Add to the end. Anyone; counts as a write in Provenance.

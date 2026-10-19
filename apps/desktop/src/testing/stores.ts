@@ -161,7 +161,7 @@ export const padHandlers = (store: PadStore, announce: Announce, actor: () => Ac
 
     if (store.pads.some((pad) => pad.name === name)) throw new RpcError(CONFLICT, `pad ${name} already exists`);
 
-    const created: Pad = { name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
+    const created: Pad = { incarnation: crypto.randomUUID(), name, owner: actor(), text: text ?? "", updated_at: Date.now(), revision: 1, home: null };
     store.pads = [...store.pads, created];
     announce({ name: "pad.changed", data: { name } });
 
