@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Ask } from "@contracts/ask/Ask";
@@ -314,5 +314,67 @@ it("u2773b_unknown_asks_have_individual_status_checks", async () => {
   await waitFor(() => expect(screen.queryByRole("button", { name: "Check send status: Run the migration on staging" })).toBeNull());
   expect(screen.getByRole("button", { name: "Check send status: Check the production logs" })).toBeTruthy();
   expect(connected.drafts.list().filter(draft => draft.status === "unknown").map(draft => draft.value.text)).toEqual(["Check the production logs"]);
+  expect(sent(app)).toHaveLength(2);
+});
+
+
+it("u2773e_recovery_actions_keep_surface_draft", async () => {
+  const mounted = await mountAskBar();
+  const exact = "  memory e\u0301 🌿\nlast line  ";
+  const clipboard = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: clipboard } });
+  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+
+  try {
+    type(exact);
+    expect(input()!.value).toBe(exact);
+    expect(screen.getByRole("alert").textContent).toContain(mounted.connected.project.path);
+    expect(screen.getByRole("alert").textContent).toContain("Ask");
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy text" }));
+    expect(clipboard).toHaveBeenCalledWith(exact);
+    expect(input()!.value).toBe(exact);
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(sent(mounted.app)).toEqual([]);
+    const path = mounted.connected.project.path;
+    mounted.unmount();
+    const reopened = await mountAskBar([], null, undefined, false, path);
+    expect(input()!.value).toBe(exact);
+    reopened.connected.rail.select("ann");
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+    reopened.connected.rail.select(null);
+    expect(input()!.value).toBe("");
+    expect(sent(reopened.app)).toEqual([]);
+    reopened.unmount();
+    await mountAskBar([], null, undefined, false, path);
+    expect(input()!.value).toBe("");
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
+  const { app, connected } = await mountAskBar();
+  let refuseA!: (error: Error) => void;
+  let acceptB!: (value: Ask) => void;
+  let count = 0;
+  app.handlers["ask.send"] = () => ++count === 1
+    ? new Promise<Ask>((_resolve, reject) => { refuseA = reject; })
+    : new Promise<Ask>(resolve => { acceptB = resolve; });
+  type(" A 🌿\n ");
+  press("Enter", {}, input()!);
+  type(" B e\u0301\n ");
+  press("Enter", {}, input()!);
+  type(" C newest\n ");
+  acceptB(ask("accepted-b", 1, []));
+  await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.text)).toEqual([" A 🌿\n ", " C newest\n "]));
+  refuseA(new RpcError(-32003, "older refused"));
+  await screen.findByRole("alert");
+  expect(input()!.value).toBe(" C newest\n ");
+  expect(connected.drafts.list().map(draft => [draft.value.text, draft.status])).toEqual([[" A 🌿\n ", "failed"], [" C newest\n ", "draft"]]);
   expect(sent(app)).toHaveLength(2);
 });
