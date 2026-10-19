@@ -6,6 +6,19 @@ on:
   schedule:
     - cron: '23 */6 * * *'
   workflow_dispatch:
+    inputs:
+      boxd-smoke:
+        description: Verify a fresh boxd runner and its retained memory instead of sweeping the App
+        type: boolean
+        default: false
+      expect-memory:
+        description: Require the previous smoke job's conversation and auto-memory
+        type: boolean
+        default: false
+      smoke-wait:
+        description: Wait after writing memory so cancellation cleanup can be observed
+        type: boolean
+        default: false
 
 concurrency:
   group: qa
@@ -20,7 +33,53 @@ defaults:
     shell: bash
 
 jobs:
+  smoke:
+    if: inputs.boxd-smoke
+    runs-on: [self-hosted, boxd, 'roundup-smoke-1-${{ github.run_id }}-${{ github.run_attempt }}']
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          clean: false
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          browser: 'true'
+          builder: 'true'
+      - name: L121 prepared environment and private retained state
+        env:
+          EXPECT_MEMORY: ${{ inputs.expect-memory }}
+        run: |
+          python3 /opt/roundup-ci/image.py verify .github/actions/setup/action.yml
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          state = Path(os.environ['ROUNDUP_AGENT_MEMORY'])
+          assert not os.environ.get('CLAUDE_CODE_OAUTH_TOKEN')
+          assert not os.environ.get('BOXD_IDENTITY')
+          assert not (state / 'codex/auth.json').exists()
+          assert not Path('/home/boxd/.codex/auth.json').exists()
+          assert not Path('/home/boxd/.claude/.credentials.json').exists()
+          assert not Path('/tmp/registration.json').exists()
+          settings = json.loads((state / 'claude/settings.json').read_text())
+          assert settings['autoMemoryEnabled'] is True
+          history = state / 'claude/projects/roundup/l121-smoke.jsonl'
+          memory = state / 'project-memory/claude/l121-smoke.md'
+          if os.environ['EXPECT_MEMORY'] == 'true':
+              assert history.read_text() == '{"l121":"retained conversation"}\n'
+              assert memory.read_text() == 'L121 retained project auto-memory\n'
+          history.parent.mkdir(parents=True, exist_ok=True)
+          history.write_text('{"l121":"retained conversation"}\n')
+          memory.write_text('L121 retained project auto-memory\n')
+          print('L121: fresh runner, auto-memory enabled, retained history verified')
+          PY
+          codex --enable memories features list
+      - if: inputs.smoke-wait
+        name: Await cancellation after memory was written
+        run: sleep 300
+
   sweep:
+    if: ${{ !inputs.boxd-smoke }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -50,7 +109,7 @@ jobs:
           if-no-files-found: error
 
   summary:
-    needs: [sweep]
+    needs: [smoke, sweep]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml

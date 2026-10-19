@@ -1,0 +1,7 @@
+{
+  "name": "@roundup/agent-runners",
+  "private": true,
+  "type": "module",
+  "scripts": { "test:runners": "node --test runner.test.mjs && python3 memory.test.py" },
+  "dependencies": { "@octokit/webhooks": "14.2.0" }
+}
