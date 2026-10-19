@@ -181,10 +181,45 @@ async fn b41_a_removed_agent_counts_as_done() {
     assert!(
         {
             let body = note[0]["body"].as_str().unwrap();
-            body.contains("beta is done") || body.contains(&format!("{} is done", s.b))
+            body.contains("beta is done") || body.contains("an Agent that is gone is done")
         },
         "{note:?}"
     );
+}
+
+#[tokio::test]
+async fn e2704a_wake_and_attention_notes_use_names() {
+    let s = scene(&[]).await;
+    s.user
+        .request("rail.rename", json!({"id":s.a,"name":"renamed-child"}))
+        .await
+        .unwrap();
+    ask(&s.as_w, &[&s.a], false).await.unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    let wake = notes(&s.user, &s.w, "[wake]", 1).await;
+    let body = wake[0]["body"].as_str().unwrap();
+    assert!(body.contains("renamed-child is idle"), "{body}");
+    assert!(!body.contains(&format!("{} is idle", s.a)), "{body}");
+    // B43's non-Door parent path, after a rename of the child.
+    let child = agent_in_as(&s.project, &s.w).await;
+    s.user
+        .request("rail.rename", json!({"id":child,"name":"attention-child"}))
+        .await
+        .unwrap();
+    drive(&s.user, &child, FAIL).await;
+    h21_poll("named attention note", async || {
+        let notes = messages(&s.user, &s.w, "[digest]").await;
+        notes
+            .iter()
+            .any(|note| {
+                note["body"]
+                    .as_str()
+                    .unwrap()
+                    .contains("attention-child is error")
+            })
+            .then_some(())
+    })
+    .await;
 }
 
 #[tokio::test]

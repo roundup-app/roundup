@@ -30,6 +30,7 @@ struct Fired {
 
 #[derive(Clone)]
 pub struct Waker {
+    pub agents: Arc<agents::Agents>,
     pub reader: Reader,
     pub messages: Arc<messages::Messages>,
     pub digests: Arc<messages::digest::Seen>,
@@ -69,7 +70,7 @@ impl Waker {
         if let Some(repeated) = ids.iter().find(|id| !seen.insert(id.as_str())) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
-                format!("{repeated} is named twice"),
+                format!("{} is named twice", self.agents.rail_name(repeated)?),
             ));
         }
         if ids.contains(&caller.id) {
@@ -82,8 +83,8 @@ impl Waker {
         // The head is read before the Rail, so a finish between the two is replayed below.
         let head = self.bus.subscribe_after(None)?.head();
         let world = self.reader.world().await?;
-        if let Some(missing) = ids.iter().find(|id| kind_of(&world, id).is_none()) {
-            return Err(RpcError::not_found(format!("agent {missing}")));
+        if ids.iter().any(|id| kind_of(&world, id).is_none()) {
+            return Err(RpcError::not_found("an Agent that is gone"));
         }
         let present: Vec<String> = ids
             .iter()
@@ -177,7 +178,7 @@ impl Waker {
         self.digests
             .entry_of(id, &world.sources(), false)
             .unwrap_or_else(|| DigestEntry {
-                name: id.to_owned(),
+                name: self.agents.rail_name(id).expect("read wake Agent name"),
                 kind: Kind::Done,
                 last: String::new(),
                 todos: 0,
@@ -284,6 +285,51 @@ impl Waker {
                 Ok(event) => self.live(event).await,
                 Err(RecvError::Lagged(_)) => self.recover().await,
                 Err(RecvError::Closed) => return,
+            }
+        }
+    }
+}
+
+/// B2704a: turn each committed name into one ordinary Daemon note. The Message module owns
+/// idle delivery, Takeover holding, persistence and transcript acknowledgement.
+pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
+    while let Some(event) = events.next().await {
+        let EventData::RailRenamed { id, name } = event.data else {
+            continue;
+        };
+        let nodes: Vec<RailNode> = reader
+            .call(
+                "rail",
+                "rail.tree",
+                serde_json::Value::Null,
+                Actor::daemon(),
+            )
+            .await
+            .expect("read renamed Agent");
+        if !nodes.iter().any(|node| {
+            node.id == id
+                && is_agent(node)
+                && node.terminal_id.is_some()
+                && node
+                    .status
+                    .as_ref()
+                    .is_some_and(|status| status.kind != Kind::Done)
+        }) {
+            continue;
+        }
+        let sent = reader.call::<contracts::message::Message>("message", "message.send", serde_json::json!({
+            "to": id, "kind": "note", "body": format!("you are now called \"{name}\" on the Rail")
+        }), Actor::daemon()).await;
+        if let Err(err) = sent {
+            match err.code {
+                // B51 saves a mismatched-inbox note held before returning this error.
+                rpc::code::INBOX_UNAVAILABLE => {}
+                // Ordinary B1/B51 send refusals (including a concurrent stop) must not
+                // terminate the observer and prevent later committed names being sent.
+                rpc::code::NOT_FOUND | rpc::code::CONFLICT | rpc::code::INVALID_PARAMS => {
+                    eprintln!("rupd: Rail rename note for {name} refused: {err}");
+                }
+                _ => panic!("queue Rail rename note: {err}"),
             }
         }
     }

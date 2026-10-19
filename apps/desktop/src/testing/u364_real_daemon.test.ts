@@ -23,7 +23,7 @@ const WIDE = 400;
 beforeAll(async () => {
   if (!found) throw new Error("U364 needs a Chrome binary: set CHROME_PATH");
 
-  // E10: U356's ten Agents, each Agent's turns chosen by its id; its Claude is the pinned one, its model aimock serving that file's turns.
+  // E10: U356's ten Agents, each Agent's turns chosen by its seed name; its Claude is the pinned one, its model aimock serving that file's turns.
   real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u356_blocked.json"));
   page = await openPage(found);
 }, 300_000);
@@ -85,7 +85,7 @@ run("u364 on the real Daemon", () => {
       const door = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream")[workstream - 1]!;
 
       for (let at = 1; at <= 5; at++) {
-        await spawnPrompted(app, real.dir, door.id);
+        await spawnPrompted(app, real.dir, door.id, `seed-${(workstream - 1) * 5 + at - 1}`);
         await page.until(`() => ${AGENTS}.length >= ${(workstream - 1) * 5 + at}`, 60_000);
       }
     }
