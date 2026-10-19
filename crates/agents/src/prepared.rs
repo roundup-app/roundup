@@ -258,15 +258,10 @@ impl Agents {
         let (Some(readiness), Some(ms)) = (config.readiness.clone(), config.timeout_ms) else {
             return Err(invalid("prepared_readiness_missing"));
         };
-        let attempt = self
-            .shared
-            .rail()
-            .node(id)?
-            .attempt
-            .expect("reserved Attempt");
+        self.shared.rail().node(id)?;
         let (git, plan_project, plan_id) =
             (self.shared.git.bounded(), project.clone(), id.to_owned());
-        let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id, &attempt))
+        let plan = tokio::task::spawn_blocking(move || git.plan(&plan_project, &plan_id))
             .await
             .map_err(RpcError::internal)??;
         let mut reasons = Vec::new();
