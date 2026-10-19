@@ -1,3 +1,5 @@
+import { Tip } from "../ui/Tip";
+import { IconButton } from "../ui/IconButton";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
@@ -325,37 +327,30 @@ const PadBody = (props: {
           <span style={wholeWord}><OwnerMark owner={pad().owner} decorative /></span>
         </Show>
         <span class="pad-head-title">
-          <span class="pad-head-name" title={name} style={cutName}>
-            {name}
-          </span>
+          <Tip text={name}>{(trigger) => <span {...trigger()} class="pad-head-name" style={cutName}>{name}</span>}</Tip>
           <Show when={saved() && !deleted() && !conflictActor()}>
             <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
           </Show>
         </span>
         <Show when={owner()}>
-          <button
+          <Tip text={copy.ownerName(connected.rail.nameOf(pad().owner))}>{(trigger) => <button {...trigger()}
             data-button="icon"
             type="button"
             class="word"
             style={wholeWord}
             aria-label={copy.openOwner}
-            title={copy.ownerName(connected.rail.nameOf(pad().owner))}
             onClick={() => void openOwner()}
           >
             <Icon name="talk" />
-          </button>
+          </button>}</Tip>
         </Show>
-        <button data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.exportMd} title={copy.exportMd} onClick={() => void exportToFile()}>
+        <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
-        </button>
+        </IconButton>
         <Show when={!asking()}>
-          <button
-            data-button="icon"
-            type="button"
-            class="word"
+          <IconButton
             style={wholeWord}
             aria-label={copy.delete}
-            title={copy.delete}
             ref={(button) => (deleteButton = button)}
             onClick={() => {
               actionFailure.clear();
@@ -363,7 +358,7 @@ const PadBody = (props: {
             }}
           >
             <Icon name="trash" />
-          </button>
+          </IconButton>
         </Show>
       </div>
       <Show when={asking()}>
