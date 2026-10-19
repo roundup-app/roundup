@@ -342,8 +342,10 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     mounted.unmount();
     const reopened = await mountAskBar([], null, undefined, false, path);
     expect(input()!.value).toBe(exact);
+    reopened.connected.rail.select("ann");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+    reopened.connected.rail.select(null);
     expect(input()!.value).toBe("");
     expect(sent(reopened.app)).toEqual([]);
     reopened.unmount();
@@ -353,4 +355,26 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   }
+});
+
+it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
+  const { app, connected } = await mountAskBar();
+  let refuseA!: (error: Error) => void;
+  let acceptB!: (value: Ask) => void;
+  let count = 0;
+  app.handlers["ask.send"] = () => ++count === 1
+    ? new Promise<Ask>((_resolve, reject) => { refuseA = reject; })
+    : new Promise<Ask>(resolve => { acceptB = resolve; });
+  type(" A 🌿\n ");
+  press("Enter", {}, input()!);
+  type(" B e\u0301\n ");
+  press("Enter", {}, input()!);
+  type(" C newest\n ");
+  acceptB(ask("accepted-b", 1, []));
+  await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.text)).toEqual([" A 🌿\n ", " C newest\n "]));
+  refuseA(new RpcError(-32003, "older refused"));
+  await screen.findByRole("alert");
+  expect(input()!.value).toBe(" C newest\n ");
+  expect(connected.drafts.list().map(draft => [draft.value.text, draft.status])).toEqual([[" A 🌿\n ", "failed"], [" C newest\n ", "draft"]]);
+  expect(sent(app)).toHaveLength(2);
 });
