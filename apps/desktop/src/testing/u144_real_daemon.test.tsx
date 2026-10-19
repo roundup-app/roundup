@@ -498,7 +498,17 @@ describe("u2773 Project draft integration on real Projects", () => {
       write.call(this, key, value);
     });
 
-    const saved = holder.edit(target(), { ask: exact, title: "same name", done: "later" }, { start: 3, end: 7, direction: "forward" }, "ordinary").draft;
+    const saved = holder.edit(
+      kind === "surface" ? incompatible.destination : target(),
+      kind === "surface" ? { title: exact, body: "  complete form\n", choices: ["second", "first"] } : { ask: exact, title: "same name", done: "later" },
+      { start: 3, end: 7, direction: "forward" }, "ordinary",
+    ).draft;
+
+    if (kind === "surface") expect(saved).toMatchObject({
+      destination: { surface: "todos", object: "42", recipient: null },
+      value: { title: exact, body: "  complete form\n", choices: ["second", "first"] },
+      selection: { start: 3, end: 7, direction: "forward" },
+    });
     mount();
     await openRecovery();
     expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
