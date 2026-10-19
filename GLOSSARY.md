@@ -347,6 +347,13 @@ The ask an Agent works on, optionally its Done condition, and its limits, rules 
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
 
+**Captured Order** (`CapturedOrder`, `SetOrderParams.captured`):
+The exact Order (including its absence) read with an editor's original Project and
+Rail node id. `agent.setOrder` compares it and replaces the Order in one storage
+transaction at execution, including after a Held action: a changed base is
+`CONFLICT`, a removed id is `NOT_FOUND`, and refusal produces no Touch, Event or
+Steer. Omission keeps unconditional writes. It grants no authority.
+
 **Order title**:
 The short name of a Work order, at most six words, which the Door writes beside the ask (`order.title`). Absent, the Drawer leads with the ask.
 
