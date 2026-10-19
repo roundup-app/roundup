@@ -1,8 +1,8 @@
 import { fileURLToPath } from "node:url";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
-import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin";
-import TimedSequencer from "./src/testing/shardSequencer";
+import { realDaemon, realDaemonFromEnv } from "./src/testing/realDaemonPlugin.ts";
+import TimedSequencer from "./src/testing/shardSequencer.ts";
 
 const served = realDaemonFromEnv(process.env);
 
