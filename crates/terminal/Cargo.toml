@@ -6,6 +6,7 @@ version.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+getrandom = "0.3"
 contracts = { path = "../contracts" }
 rpc = { path = "../rpc" }
 serde_json.workspace = true
