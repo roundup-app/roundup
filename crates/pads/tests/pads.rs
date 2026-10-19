@@ -1507,6 +1507,8 @@ async fn p2544d_two_connections_have_one_winner() {
         rig.create("notes", "original").await;
         rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
             .await;
+        let incarnation =
+            rig.ok(&agent("a"), "pad.list", json!({})).await[0]["incarnation"].clone();
         let stores = [
             Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
             Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
@@ -1523,6 +1525,7 @@ async fn p2544d_two_connections_have_one_winner() {
                         bus: rig.bus.clone(),
                         touches: rig.touches.clone(),
                     };
+                    let incarnation = incarnation.clone();
                     let barrier = &barrier;
                     let runtime = &runtime;
                     scope.spawn(move || {
@@ -1530,7 +1533,7 @@ async fn p2544d_two_connections_have_one_winner() {
                         runtime.block_on(pads.call(
                             &ctx,
                             "pad.write",
-                            json!({"name": "notes", "text": text, "expectedRevision": 1}),
+                            json!({"name": "notes", "text": text, "expectedRevision": 1, "expectedIncarnation": incarnation}),
                         ))
                     })
                 })
