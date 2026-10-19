@@ -46,7 +46,7 @@ it.each([[new Error("connection lost"), "unknown"], [new RpcError(-32603, "conne
   reject(failure);
   await waitFor(() => expect(screen.getByLabelText<HTMLTextAreaElement>("Retained rail input").value).toBe("older A"));
   expect(field().value).toBe("newer B");
-  expect(screen.getByLabelText("Retained rail input").parentElement?.dataset.state).toBe(status);
+  await waitFor(() => expect(screen.getByLabelText("Retained rail input").parentElement?.dataset.state).toBe(status));
   cleanup();
   const reopened = await mountRail([workstream("w")]);
   open();
