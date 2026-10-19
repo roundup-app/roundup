@@ -34,14 +34,14 @@ const kindReady = async (statusOf: () => Promise<Status | null | undefined>, exp
 
 let real: StartedDaemon;
 
-// Two Workstreams of five Agents each; the Agent with id N plays entry N (U351).
+// Two Workstreams of five Agents each; each Agent plays its named entry (U351).
 const FIRST = ["working", "idle", "needs-you", "working", "idle"];
 
 const SECOND = ["error", "needs-you", "working", "error", "needs-you"];
 
 describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
   beforeAll(async () => {
-    // E10: each Agent's turns are chosen by its id in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
+    // E10: each Agent's turns are chosen by its seed name in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
     real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u351_kinds.json"));
   }, 120_000);
 
@@ -110,7 +110,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       await doorReady(async () => (await tree()).find((node) => node.id === workstream)?.status, () => row(workstream));
 
       for (const [at, kind] of kinds.entries()) {
-        await spawnPrompted(app, real.dir, workstream);
+        await spawnPrompted(app, real.dir, workstream, `seed-${agents.length}`);
         await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;

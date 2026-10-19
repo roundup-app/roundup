@@ -43,13 +43,13 @@ const get = async (url: string, resource: string) => {
   return response?.ok ? response.json() : null;
 };
 
-/** aimock on loopback with `fixture` as its only turns: an unmatched request fails (`--strict`). */
+/** aimock on loopback with scenario turns and shared rename-note acknowledgements: an unmatched request fails (`--strict`). */
 export const startModel = async (fixture: string): Promise<Model> => {
   const port = await freePort();
 
   const child: ChildProcess = spawn(
     join(REPO, "node_modules/.bin/llmock"),
-    ["--port", String(port), "--host", "127.0.0.1", "--strict", "--validate-on-load", "--strict-tool-arguments", "--journal-max", "0", "--log-level", "warn", "--fixtures", fixture],
+    ["--port", String(port), "--host", "127.0.0.1", "--strict", "--validate-on-load", "--strict-tool-arguments", "--journal-max", "0", "--log-level", "warn", "--fixtures", join(REPO, "crates/rup/tests/e2e/fixtures/rail_rename_note.json"), "--fixtures", fixture],
     { env: { ...process.env, AIMOCK_API_KEYS: KEY }, stdio: ["ignore", "ignore", "inherit"] },
   );
 

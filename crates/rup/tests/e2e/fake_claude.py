@@ -279,8 +279,20 @@ def brief_report(report):
     send({"method": "notifications/initialized"})
     names = [t["name"] for t in request(2, "tools/list", {})["tools"]]
     brief = open(flag("--append-system-prompt-file")).read()
+    seen = {"brief": brief, "tools": names}
+    if "FAKE_CLAUDE_NAME_REPORT" in os.environ:
+        settings = json.load(open(flag("--settings")))
+        startup = []
+        for group in settings["hooks"]["SessionStart"]:
+            for item in group["hooks"]:
+                ran = run_hook(item["command"], json.dumps({"hook_event_name": "SessionStart", "session_id": "00000000-0000-4000-8000-000000002704", "source": "startup"}), stdout=subprocess.PIPE)
+                if ran.stdout.strip():
+                    startup.append(json.loads(ran.stdout))
+        result = request(3, "tools/call", {"name": "agent_context", "arguments": {}})
+        context = json.loads(result["content"][0]["text"])
+        seen.update({"startup": startup, "context": context, "reply": "I am " + context["self"]["name"] + "."})
     with open(report, "w") as out:
-        json.dump({"brief": brief, "tools": names}, out)
+        json.dump(seen, out)
 
 
 def log_launch():
