@@ -166,6 +166,7 @@ export const App = (props: {
   // Start keyboard-visible for native accessibility focus arriving before any page input.
   const keyboardFocus = (event: KeyboardEvent) => {
     const target = event.composedPath()[0];
+
     const editing = target instanceof HTMLElement
       && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
 
