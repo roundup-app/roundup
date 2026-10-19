@@ -483,7 +483,7 @@ code {
   padding: var(--space-4);
 }
 
-.draft-identity, .draft-revisions button {
+.draft-identity {
   overflow-wrap: anywhere;
 }
 
@@ -503,7 +503,7 @@ code {
 .draft-value {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: inherit;
+  font-family: var(--font-mono);
   user-select: text;
 }
 
@@ -593,11 +593,37 @@ code {
 }
 
 .draft-destination > span:first-child {
-  flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .draft-revisions button, .draft-status {
+  flex-shrink: 0;
+}
+
+
+.draft-identity, .draft-object { color: var(--grey); }
+.draft-object { font-family: var(--font-mono); }
+.draft-revisions li:has([aria-pressed="true"]) .draft-name,
+.draft-revisions button[aria-pressed="true"] { color: var(--text); font-weight: 600; }
+.draft-detail { margin-top: var(--space-6); }
+.draft-detail > h3 { overflow-wrap: anywhere; }
+.draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.rail > .draft-entry {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+  min-height: var(--space-6);
+  --button-inline: 0;
+}
+.draft-entry > .overview-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
   flex-shrink: 0;
 }

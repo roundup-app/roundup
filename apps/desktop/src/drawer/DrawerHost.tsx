@@ -6,6 +6,9 @@ import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
+import { Tip } from "../ui/Tip";
+import { usePadList } from "../rail/pads/padList";
+import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
 import { setDrawerSliding } from "./sliding";
@@ -134,11 +137,18 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
-  return <button data-button="quiet" type="button" onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>{copy.recoverDrafts}</button>;
+  return <Show when={connected.drafts.list().length || connected.drafts.problem()}>
+    <button class="draft-entry" data-button="quiet" type="button" aria-label={copy.recoverDrafts} onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>
+      <span class="overview-tile"><Icon name="edit" /></span><span>{copy.recoverDrafts}</span>
+      <Show when={connected.drafts.list().length}><span data-state="draft">{connected.drafts.list().length}</span></Show>
+    </button>
+  </Show>;
 };
 
 const DraftRecovery = () => {
   const { drafts, project, rail } = useConnectedProject();
+  const pads = usePadList();
+  const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
   const [failure, failed] = createSignal<string | null>(null);
   const records = createMemo(() => drafts.list());
@@ -174,30 +184,40 @@ const DraftRecovery = () => {
     return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
   };
 
+  const identity = (surface: string, object: string) => {
+    const node = rail.nodes.find((node) => node.id === object);
+    const name = surface === "pads" ? pads.pads().find((pad) => pad.name === object)?.name
+      : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
+      : node?.name;
+    return copy.draftIdentity(surface === "rail" && node ? copy.nodeKind[node.kind] : copy.draftSurface(surface), name ?? copy.originalUnavailable);
+  };
+
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
     <p class="draft-identity">{project.path}</p>
-    <Show when={drafts.problem()}>{(problem) => <p role="alert">{copy.draftRetention(project.path, problem().destination?.surface ?? (copy.draftSurfaces([...new Set(drafts.list().map((draft) => draft.destination.surface))]) || copy.allDraftSurfaces), problem().cause)}</p>}</Show>
-    <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
+    <Show when={drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, problem().destination ? copy.draftSurface(problem().destination!.surface) : (copy.draftSurfaces([...new Set(drafts.list().map((draft) => copy.draftSurface(draft.destination.surface)))]) || copy.allDraftSurfaces), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
     <Show when={failure()}>{(text) => <p role="alert">{text()}</p>}</Show>
     <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">
         <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li data-current={current().has(revision)} data-revision={revision}>
-          <div class="draft-destination"><span>{copy.draftIdentity(draft().destination.surface, draft().destination.object)}</span>
-          <span class="draft-status" data-state={draft().status} data-kind={draft().status === "failed" ? "error" : undefined}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} />{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
-          <button data-button="quiet" type="button" aria-label={copy.draftIdentity(copy.inspectDraft, draft().destination.surface, draft().destination.object, revision)} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{copy.inspectDraft}</button>
+          <div class="draft-destination"><Tip text={copy.draftIdentity(identity(draft().destination.surface, draft().destination.object), draft().destination.object)}>{(trigger) => <span {...trigger()} class="draft-name">{identity(draft().destination.surface, draft().destination.object)} <span class="draft-object">{draft().destination.object}</span></span>}</Tip>
+          <span class="draft-status" data-state={draft().status} data-kind={draft().status === "failed" ? "error" : undefined}><Show when={draft().status !== "draft"} fallback={<Icon name="edit" />}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} /></Show>{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
+          <button data-button="quiet" type="button" aria-label={copy.draftIdentity(copy.inspectDraft, copy.draftSurface(draft().destination.surface), draft().destination.object, revision)} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{copy.inspectDraft}</button>
         </li>}</Show>}</For>
       </ul>
-      <Show when={shown()}>{(draft) => <section aria-label={draft().revision}>
-        <p class="draft-identity">{copy.draftIdentity(draft().destination.surface, draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
+      <Show when={shown()}>{(draft) => <section class="draft-detail" aria-label={draft().revision}>
+        <h3>{copy.inspectedRevision(identity(draft().destination.surface, draft().destination.object), draft().revision)}</h3>
+        <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
         <Show when={availability(draft().destination.surface, draft().destination.object)}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
         <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
         <For each={Object.keys(draft().value)}>{(field) => <div>
-          <h3>{field}</h3>
+          <h3>{copy.draftField(field)}</h3>
           <Show when={draft().policy === "ordinary"}><pre class="draft-value">{fieldText(draft(), field)}</pre></Show>
-          <button data-button="quiet" type="button" onClick={() => void copyText(fieldText(draft(), field))}>{copy.copyField(field)}</button>
+
         </div>}</For>
-        <button data-button="quiet" type="button" onClick={() => drafts.discard(draft().revision)}>{copy.discardRevision}</button>
+        <div class="draft-actions">
+        <For each={Object.keys(draft().value)}>{(field) => <button data-button="quiet" type="button" onClick={() => void copyText(fieldText(draft(), field))}>{copy.copyField(copy.draftField(field).toLowerCase())}</button>}</For>
+        <button data-button="quiet" type="button" onClick={() => drafts.discard(draft().revision)}>{copy.discardRevision}</button></div>
       </section>}</Show>
     </Show>
   </section>;
