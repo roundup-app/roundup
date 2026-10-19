@@ -88,15 +88,15 @@ it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
 it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
   const { connected } = await mount();
   await waitFor(() => expect(disclosure("unassigned")).toBeTruthy());
-  expect(screen.queryByRole("button", { name: /#4 / })).toBeNull();
+  expect(document.querySelector('[data-todo="4"]')?.closest("[hidden]")).toBeTruthy();
   const control = disclosure("unassigned");
   fireEvent.click(control);
-  await screen.findByRole("button", { name: /#4 / });
+  await waitFor(() => expect(document.querySelector('[data-todo="4"]')?.closest("[hidden]")).toBeNull());
   control.focus();
 
   for (const [key, visible] of [["ArrowLeft", false], ["ArrowRight", true], ["Enter", false], [" ", true]] as const) {
     fireEvent.keyDown(control, { key });
-    await waitFor(() => expect(!!screen.queryByRole("button", { name: /#4 / })).toBe(visible));
+    await waitFor(() => expect(document.querySelector('[data-todo="4"]')?.closest("[hidden]") === null).toBe(visible));
     expect(document.activeElement).toBe(control);
     expect(connected.rail.selected()).toBeNull();
   }
@@ -193,15 +193,26 @@ it("u2744a_shelf_scope_events_refresh_membership", async () => {
   expect(ownTodos("unassigned")).toContain(5);
 });
 
-it.each([[null, null], ["w", "w"], ["a", "w"], ["r", null]] as const)("u2744a_shelf_scope_add_uses_selected_workstream %s", async (selected, home) => {
+const chooseTerminal = async (title: string) => {
+  leaderKey("KeyK");
+  const field = await screen.findByRole("combobox");
+  fireEvent.input(field, { target: { value: title } });
+  await screen.findByRole("option", { name: new RegExp(title) });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+};
+
+it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, null], [null, "w", "work shell"], [null, null, "root shell"]] as const)("u2744a_shelf_scope_add_uses_selected_workstream %s", async (selected, home, terminal) => {
   const { connected, app } = await mount();
   connected.rail.select(selected);
+
+  if (terminal) await chooseTerminal(terminal);
   fireEvent.click(screen.getByRole("button", { name: /Add Todo/ }));
   const title = await screen.findByRole("textbox", { name: /New Todo title/ });
   fireEvent.input(title, { target: { value: "new scope item" } });
   fireEvent.keyDown(title, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.create")).toHaveLength(1));
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.move").map(call => call.params)).toEqual(home ? [{ id: 13, home }] : []));
+  expect((await app.rpc("todo.list", null)).find(todo => todo.id === 13)?.creator).toEqual(USER);
   await tab("Pads");
   fireEvent.click(screen.getByRole("button", { name: /Add Pad/ }));
   const name = await screen.findByRole("textbox", { name: /Pad name/ });
@@ -209,17 +220,14 @@ it.each([[null, null], ["w", "w"], ["a", "w"], ["r", null]] as const)("u2744a_sh
   fireEvent.keyDown(name, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1));
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual(home ? [{ name: "new-pad", home }] : []));
+  expect((await app.rpc("pad.list", null)).find(pad => pad.name === "new-pad")?.owner).toEqual(USER);
 });
 
 
 it.each([["work shell", "w", [1, 6, 8, 12, 2], 6], ["root shell", null, [1, 6, 8, 12, 2, 5, 3, 7, 4, 9, 10], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
   const { connected } = await mount();
   connected.rail.select("a");
-  leaderKey("KeyK");
-  const field = await screen.findByRole("combobox");
-  fireEvent.input(field, { target: { value: title } });
-  await screen.findByRole("option", { name: new RegExp(title) });
-  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+  await chooseTerminal(title);
   await waitFor(() => expect(connected.rail.selected()).toBe(owner));
   await waitFor(() => expect(ids()).toEqual(expected));
   await tab("Pads");
@@ -246,4 +254,16 @@ it("u458_grouped_ranges_follow_visible_order", async () => {
   first.focus();
   fireEvent.keyDown(first, { key: "ArrowDown" });
   expect(document.activeElement).toBe(sixth);
+});
+
+it("u2744a_shelf_scope_unassigned_starts_folded_when_first_added_after_folding", async () => {
+  const { app, store, pads } = await mount();
+  store.todos = store.todos.filter(todo => ![4, 9, 10].includes(todo.id));
+  pads.pads = pads.pads.filter(pad => !["pad-4", "pad-9", "pad-10"].includes(pad.name));
+  app.emit(event({ name: "todo.deleted", data: { id: 4 } }));
+  await waitFor(() => expect(groupIds()).not.toContain("unassigned"));
+  fireEvent.click(disclosure("w"));
+  await app.rpc("todo.create", { title: "unassigned arrives", body: null, blockers: null });
+  await waitFor(() => expect(groupIds()).toContain("unassigned"));
+  expect(disclosure("unassigned").closest('[role="treeitem"]')?.getAttribute("aria-expanded")).toBe("false");
 });
