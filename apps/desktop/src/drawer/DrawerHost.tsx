@@ -184,16 +184,17 @@ const DraftRecovery = () => {
       <ul class="draft-revisions">
         <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li data-current={current().has(revision)} data-revision={revision}>
           <div class="draft-destination"><span>{copy.draftIdentity(draft().destination.surface, draft().destination.object)}</span>
-          <span class="draft-status" data-state={draft().status}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} />{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
+          <span class="draft-status" data-state={draft().status} data-kind={draft().status === "failed" ? "error" : undefined}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} />{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
           <button data-button="quiet" type="button" aria-label={copy.draftIdentity(copy.inspectDraft, draft().destination.surface, draft().destination.object, revision)} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{copy.inspectDraft}</button>
         </li>}</Show>}</For>
       </ul>
       <Show when={shown()}>{(draft) => <section aria-label={draft().revision}>
         <p class="draft-identity">{copy.draftIdentity(draft().destination.surface, draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
         <Show when={availability(draft().destination.surface, draft().destination.object)}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
+        <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
         <For each={Object.keys(draft().value)}>{(field) => <div>
           <h3>{field}</h3>
-          <pre class="draft-value">{fieldText(draft(), field)}</pre>
+          <Show when={draft().policy === "ordinary"}><pre class="draft-value">{fieldText(draft(), field)}</pre></Show>
           <button data-button="quiet" type="button" onClick={() => void copyText(fieldText(draft(), field))}>{copy.copyField(field)}</button>
         </div>}</For>
         <button data-button="quiet" type="button" onClick={() => drafts.discard(draft().revision)}>{copy.discardRevision}</button>

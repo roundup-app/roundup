@@ -101,3 +101,20 @@ it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async
   expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
   window.localStorage.clear();
 });
+
+
+it("u2773e_recovery_hides_declared_credentials_until_explicit_copy", async () => {
+  const drafts = createProjectDrafts();
+  const secret = "sentinel-credential-recovery";
+  drafts(FIRST.path).edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential");
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  await screen.findByRole("region", { name: "Unfinished work" });
+  expect(document.body.textContent).not.toContain(secret);
+  const clipboard = vi.fn(async (_text: string) => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
+  expect(clipboard).toHaveBeenCalledWith(secret);
+});
