@@ -103,8 +103,7 @@ const dispatch = (event: KeyboardEvent): void => {
     && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
 
   // U2770: update before a shortcut consumes the press; editing alone keeps the field's ring steady.
-  if (!event.isComposing && (!editing || event.metaKey || event.ctrlKey
-    || event.key === "Tab" || event.key === "Escape")) {
+  if (!event.isComposing && (!editing || event.key === "Tab" || event.key === "Escape")) {
     document.documentElement.dataset.keyboardFocus = "true";
   }
 
@@ -165,6 +164,7 @@ const dispatch = (event: KeyboardEvent): void => {
       if (!binding.matches.some((chord) => matchKeybindingPress(event, chord)) || binding.when?.(event) === false) continue;
       event.preventDefault();
       event.stopImmediatePropagation();
+      document.documentElement.dataset.keyboardFocus = "true";
       binding.run(event);
 
       return;
