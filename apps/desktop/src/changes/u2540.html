@@ -16,6 +16,9 @@ const controls = seedApp("tree-40", Date.now());
 
 const { app } = controls;
 
+// Fixture runs are independent; ?restore explicitly exercises a reload of the same drafts.
+if (!new URLSearchParams(location.search).has("restore")) localStorage.removeItem(`roundup:drafts:${app.opened.project.path}`);
+
 const original = app.handlers["rail.tree"];
 
 const worktree = { branch: "roundup/agent-1", base: "main", path: "/p/.roundup/agent-1" };
@@ -32,7 +35,7 @@ app.handlers["agent.changedFiles"] = () => ({ files: [{ path, line: 1, status: "
 
 app.handlers["agent.compareFile"] = () => comparison;
 
-if (dense) for (let i = 0; i < 100; i++) notesFor(app).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
+if (dense) for (let i = 0; i < 100; i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
 
 const failure = railStorage(app.opened.project.path).write({ selected: "agent-1", collapsed: [] });
 

@@ -19,14 +19,14 @@ const FILES: ChangedFiles = {
 };
 
 /** Mounts the bottom bar's Worktree control for selected Agent `a` (with a Worktree) and `plain` (without) over the fake App. */
-export const mountControl = async (changed: () => ChangedFiles | Promise<ChangedFiles> = () => FILES) => {
+export const mountControl = async (changed: () => ChangedFiles | Promise<ChangedFiles> = () => FILES, project = "/p") => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("plain", "working", "building")];
   app.handlers["agent.worktreeState"] = () => STATE;
   app.handlers["agent.changedFiles"] = changed;
 
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => NOW);
+  const connected = await connectProject(app, { name: "p", path: project }, () => false, () => NOW);
 
   connected.rail.select("a");
 

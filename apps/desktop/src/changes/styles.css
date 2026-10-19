@@ -125,3 +125,7 @@
 
 .note-form > p { flex: 1; }
 .note-form > .diff-actions { margin-inline-start: auto; }
+
+.note-recovery { overflow-wrap: anywhere; }
+.note-recovery pre { font: inherit; margin: 0; }
+.note-recovery .diff-actions { flex-wrap: wrap; }

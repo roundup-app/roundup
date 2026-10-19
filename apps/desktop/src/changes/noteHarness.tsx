@@ -15,8 +15,8 @@ const expectRow = (path: string) => {
   if (!document.querySelector("file-tree-container")?.shadowRoot?.querySelector(`[data-item-path="${path}"]`)) throw new Error("file row not ready");
 };
 
-export const openDiff = async () => {
-  const mounted = await mountControl();
+export const openDiff = async (project = "/p") => {
+  const mounted = await mountControl(undefined, project);
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
   await openFile();
