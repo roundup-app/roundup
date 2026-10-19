@@ -18,12 +18,6 @@
   padding-inline-start: var(--space-4);
 }
 
-.app-tree [data-part="branch-control"]:focus-visible,
-.app-tree [data-part="item"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
 .app-tree [data-part="branch"] {
   cursor: pointer;
 }
@@ -31,11 +25,6 @@
 .app-tree [data-part="branch-control"]:hover,
 .app-tree [data-part="item"]:hover {
   background-color: var(--hover);
-}
-
-.app-tree [data-part="branch"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 [data-scope="tree-view"][data-part="label"] {
