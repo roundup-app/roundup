@@ -1,3 +1,4 @@
+import { draftStorage } from "./storage";
 import { createContext, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
 import { checkContract } from "../app/contractMatch";
@@ -21,6 +22,8 @@ import type { RailState } from "./rail";
 /** Everything a region of an open Project reads: the Project and its live connection to the Daemon. */
 export type ConnectedProject = {
   project: Project;
+  /** App-owned across surface disposal and connection replacement; keyed by original path. */
+  drafts: ReturnType<typeof draftStorage>;
   app: AppSeam;
   events: Events;
   rail: RailState;
@@ -49,6 +52,7 @@ export const connectProject = async (
   now: Accessor<number>,
   daemonExit: Accessor<DaemonExit | null> = () => null,
   storage?: RailStorage,
+  drafts = draftStorage(project.path),
 ): Promise<ConnectedProject> => {
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
@@ -57,7 +61,7 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
+  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
 };
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();

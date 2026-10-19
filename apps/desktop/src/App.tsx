@@ -25,6 +25,7 @@ import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import { Keys } from "./keys/Keys";
+import { draftStorage } from "./state/storage";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
@@ -63,6 +64,7 @@ const Connection = (props: {
   tab: () => OpenTab | undefined;
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
+  drafts: ReturnType<typeof draftStorage>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
@@ -78,7 +80,7 @@ const Connection = (props: {
 
   const [connected] = createResource(async () => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path));
+      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts);
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -176,6 +178,21 @@ export const App = (props: {
 
   window.addEventListener("pointerdown", clearBrowserSelection, true);
   onCleanup(() => window.removeEventListener("pointerdown", clearBrowserSelection, true));
+
+  // Keep recoverable memory even when a tab closes or its Daemon is replaced.
+  // P11 forbids eviction of unfinished work; these holders end with this App.
+  const drafts = new Map<string, ReturnType<typeof draftStorage>>();
+
+  const draftsFor = (path: string) => {
+    let holder = drafts.get(path);
+
+    if (!holder) {
+      holder = draftStorage(path);
+      drafts.set(path, holder);
+    }
+
+    return holder;
+  };
 
   const projects = createProjectsState(props.app);
   const tabsId = createUniqueId();
@@ -302,7 +319,7 @@ export const App = (props: {
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={draftsFor(key.split("\n")[0]!)} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
