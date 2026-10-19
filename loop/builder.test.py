@@ -358,7 +358,7 @@ class Engine(unittest.TestCase):
         with tempfile.TemporaryDirectory() as path:
             output, claude, codex = self.run_engine(path, 8, env=switch)
         self.assertIsNone(codex)
-        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN=None, CODEX_AUTH=None, GH_TOKEN='fresh',
+        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='', CODEX_AUTH=None, GH_TOKEN='fresh',
                                              GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_FEDERATION_RULE_ID='rule',
                                              ANTHROPIC_IDENTITY_TOKEN_FILE=claude['env']['ANTHROPIC_IDENTITY_TOKEN_FILE'],
                                              ACTIONS_ID_TOKEN_REQUEST_URL=None))
