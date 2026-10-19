@@ -146,7 +146,7 @@ export const DraftRecoveryEntry = () => {
 };
 
 const DraftRecovery = () => {
-  const { drafts, project, rail } = useConnectedProject();
+  const { drafts, project, rail, terminalAvailability } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
@@ -179,6 +179,14 @@ const DraftRecovery = () => {
   };
 
   const availability = (surface: string, object: string) => {
+    // The surface captures the original Terminal id as its destination object.
+    // Recovery never decodes selection form values or the vendor editor.
+    if (surface === "terminal_selection") {
+      const state = terminalAvailability(object);
+
+      return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
+    }
+
     if (surface !== "orders" && surface !== "rail") return copy.originalUnverified;
 
     return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
