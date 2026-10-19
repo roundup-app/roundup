@@ -154,3 +154,17 @@ describe("O16: the user edits the order in the Drawer", () => {
     expect(screen.queryByRole("button", { name: "Edit order" })).toBeNull();
   });
 });
+
+it("u2773a_orders_restores_exact_work_after_escape", async () => {
+  await openDrawer(full);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const field = screen.getByLabelText<HTMLTextAreaElement>("Ask");
+  const exact = "  draft\ncombining é 👋  \n";
+  fireEvent.input(field, { target: { value: exact } });
+  field.setSelectionRange(3, 9, "backward");
+  fireEvent.select(field);
+  fireEvent.keyDown(field, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const restored = screen.getByLabelText<HTMLTextAreaElement>("Ask");
+  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 3, 9, "backward"]);
+});
