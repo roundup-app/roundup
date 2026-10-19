@@ -111,10 +111,14 @@ run('u362 rendered Todo drag', () => {
       const movedHome = await page.call<string>(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id);
       expect(movedHome).toBe(home);
       await page.until(`() => document.querySelector('.shelf [data-todo="${id}"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === '${home}' `);
+      // todo.updated can refetch before dnd-kit finishes its drop. Its Feedback
+      // cleanup removes the placeholder only after returning the source to idle.
+      await page.until(`() => !document.querySelector('[data-dnd-placeholder], [data-dnd-dragging]')`);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
       await page.pointer('down', back.x, back.y);
       await page.pointer('move', root.x, root.y);
+      await page.until(`() => document.querySelector('[data-todo-root]')?.hasAttribute('data-todo-drop')`);
       await page.pointer('up', root.x, root.y);
       await page.until(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').length === 2`);
       expect(await page.call(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move').at(-1).params`)).toEqual({id: Number(id), home: null});
