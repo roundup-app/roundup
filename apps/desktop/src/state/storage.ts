@@ -224,6 +224,8 @@ export const draftStorage = (project: string) => {
 
       if (!incompatible && result.status === "restored") validateSaved(result.value.drafts);
 
+      if (!incompatible) validateSaved(drafts.filter((draft) => draft.policy === "ordinary"));
+
       if (result.status === "failed" && !incompatible) {
         problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
       }

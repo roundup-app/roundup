@@ -125,14 +125,17 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
   stop();
 });
 
-it("u2773e_storage_failure_keeps_memory_when_repair_has_same_revision", () => {
+it.each(["before", "after"])("u2773e_storage_failure_keeps_memory_when_repair_has_same_revision_%s_registration", (timing) => {
   const key = "roundup:drafts:/project/a";
   const seed = draftStorage("/project/a");
   const original = seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary").draft;
   const drafts = draftStorage("/project/a");
-  drafts.validate("todos", v.object({ title: v.string() }));
+
+  if (timing === "before") drafts.validate("todos", v.object({ title: v.string() }));
   const repaired = JSON.stringify({ version: 1, drafts: [{ ...original, value: { title: "repaired" } }] });
   localStorage.setItem(key, repaired);
+
+  if (timing === "after") expect(drafts.validate("todos", v.object({ title: v.string() }))).toMatchObject({ operation: "restore", destination: original.destination, revision: original.revision });
   expect(drafts.retry()?.operation).toBe("restore");
   expect(localStorage.getItem(key)).toBe(repaired);
   expect(drafts.list()).toEqual([original]);
