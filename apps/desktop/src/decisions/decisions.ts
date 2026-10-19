@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { createResource, createSignal } from "solid-js";
+import { createResource, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import type { ConnectedProject } from "../state/connectedProject";
@@ -30,7 +30,7 @@ export type DecisionsState = {
  * Subscribes before it lists, and reconciles by id: an id an Event touched while a list was in flight keeps what the
  * Event said, so an old list neither resurrects a cleared Decision nor overwrites its replacement.
  */
-export const createDecisions = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>, drafts?: Pick<ConnectedProject["drafts"], "list" | "validate" | "registerRecovery">): DecisionsState => {
+export const createDecisions = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>, drafts: Pick<ConnectedProject["drafts"], "list" | "validate" | "registerRecovery">): DecisionsState => {
   const [decisions, setDecisions] = createSignal<readonly Decision[]>([]);
   const [listFailure, setListFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set());
@@ -38,8 +38,8 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   const [observed, setObserved] = createSignal(false);
   let reading: Set<string> | null = null;
 
-  drafts?.validate("decisions", identity);
-  drafts?.registerRecovery("decisions", (draft, facts) => {
+  drafts.validate("decisions", identity);
+  drafts.registerRecovery("decisions", (draft, facts) => {
     const parsed = v.safeParse(identity, draft.value);
 
     if (!parsed.success || parsed.output.decision !== draft.destination.object || parsed.output.agent !== draft.destination.recipient) return "unverified";
@@ -51,7 +51,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   // so replacing a connection cannot revive its old captures or overwrite a newer read.
   const [authority] = createResource(() => ({
     open: decisions(), observed: observed(), failure: listFailure(), exited: daemonExit(),
-    requested: new Set(drafts?.list().filter((draft) => draft.destination.surface === "decisions").map((draft) => draft.destination.object)),
+    requested: new Set(drafts.list().filter((draft) => draft.destination.surface === "decisions").map((draft) => draft.destination.object)),
   }), async (facts) => {
     const captures = new Map<string, PromptIdentity | "unavailable" | "unverified">();
 
@@ -78,14 +78,14 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     setFailures((current) => new Map([...current].filter(([key]) => key !== id)));
   };
 
-  events.subscribe((event) => {
+  onCleanup(events.subscribe((event) => {
     if (event.name === "decision.opened") {
       reading?.add(event.data.id);
       setDecisions((current) => [...current.filter((each) => each.id !== event.data.id), event.data]);
     } else if (event.name === "decision.cleared") {
       forget(event.data.id);
     }
-  });
+  }));
 
   const list = async (): Promise<void> => {
     if (reading !== null || daemonExit() !== null) return;

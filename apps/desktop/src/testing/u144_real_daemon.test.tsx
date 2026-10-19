@@ -742,7 +742,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const accepted = await bound.rpc("decision.answers", { agent: agent.id });
     expect(accepted).toHaveLength(retirement === "answered" ? 1 : 0);
 
-    if (retirement === "answered") expect(accepted[0]).toMatchObject({ decision, attempt: agent.attempt, answer: "deny", answered_by: { kind: "user" } });
+    if (retirement === "answered") expect(accepted[0]).toMatchObject({ decision, attempt: agent.attempt, answer: "deny", answered_by: { kind: "user", id: "you", parent: null } });
 
     noDelivery();
   }, 60_000);
@@ -803,7 +803,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     let phase = "failure";
     const rpc = bound.rpc;
 
-    bound.rpc = async (method, params) => {
+    const authorityRead: AppSeam["rpc"] = async (method, params) => {
       if (method === `decision.${read}`) {
         if (phase === "failure") throw new Error("authority unavailable");
 
@@ -817,13 +817,20 @@ describe("u2773 Project draft integration on real Projects", () => {
       return result;
     };
 
-    calls.push(vi.spyOn(bound, "rpc"));
+    bound.rpc = authorityRead;
+    const oldCalls = vi.spyOn(bound, "rpc");
+    calls.push(oldCalls);
     calls.forEach((spy) => spy.mockClear());
     mount();
     await openRecovery();
     await waitFor(() => expect(within(screen.getByRole("region", { name: "Unfinished work" })).getByRole("status").dataset.state).toBe("unverified"));
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "pending" }), b]);
     cleanup();
+    const oldReads = [...oldCalls.mock.calls];
+    const previous = app.forProject;
+    const current = { ...bound, rpc: authorityRead };
+    calls.push(vi.spyOn(current, "rpc"));
+    app.forProject = (path) => path === first.dir ? current : previous(path);
     phase = "pending";
     mount();
     await openRecovery();
@@ -846,6 +853,9 @@ describe("u2773 Project draft integration on real Projects", () => {
     await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
     expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
     expect(drafts(second.dir).list()).toEqual([separate]);
+
+    expect(oldCalls.mock.calls).toEqual(oldReads);
+
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
   }, 60_000);
 
