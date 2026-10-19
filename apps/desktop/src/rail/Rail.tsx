@@ -588,7 +588,6 @@ export const Rail = () => {
       </Sortable.Root>
     </TreeView.Root>
     </div>
-      <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <div class="rail-recovery">
       <Show when={drafts.problem()}>
         <p role="alert" class="ink" data-tone="red">{copy.railRetentionFailed(project.name)} <button data-button="quiet" onClick={() => drafts.retry()}>{copy.retryRetention}</button></p>
@@ -627,6 +626,7 @@ export const Rail = () => {
           </Show>
         </Portal>
       </Show>
+      <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <div class="rail-actions">
         <button data-button="add"
           aria-label={copy.addWorkstream}

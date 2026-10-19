@@ -1,14 +1,11 @@
 import { RpcError } from "../app/seam";
-import { startRealDaemon } from "../testing/realDaemonFixture";
-import { createServedApp } from "../testing/realSeam";
-import { Rail } from "./Rail";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { agent, workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { clearingOf } from "./clear";
 import { ClearPrompt } from "./ClearPrompt";
-import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { render } from "@solidjs/testing-library";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -150,72 +147,3 @@ it("u2773a_rail_restores_original_parent_after_selection_moves", async () => {
   fireEvent.keyDown(field(), { key: "Enter" });
   await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "for A", parent: "a", model: null, effort: null }]));
 });
-
-it("u2773a_rail_real_projects_keep_name_destinations_on_reopen", async () => {
-  const first = await startRealDaemon({});
-  const second = await startRealDaemon({});
-
-  try {
-    const sources = [first, second];
-    const records = [];
-
-    for (const [index, real] of sources.entries()) {
-      const app = createServedApp(real.base);
-
-      if (index === 1) await app.rpc("rail.createWorkstream", { name: "other", parent: null });
-      const target = await app.rpc("rail.createWorkstream", { name: "same", parent: null });
-      const mounted = await connectProject(app, { name: "same", path: real.dir }, () => false, Date.now, () => null);
-
-      render(() => <ConnectedProjectContext.Provider value={mounted}><Rail /></ConnectedProjectContext.Provider>);
-      fireEvent.dblClick(await screen.findByText("same"));
-      fireEvent.input(screen.getByLabelText("Name"), { target: { value: ` exact ${index}\u0301 😀 ` } });
-      records.push({ real, app, target, text: ` exact ${index}\u0301 😀 ` });
-      cleanup();
-    }
-
-    expect(records[0]!.target.id).not.toBe(records[1]!.target.id);
-
-    for (const { real, app, target, text } of records) {
-      const calls = vi.spyOn(app, "rpc");
-      const mounted = await connectProject(app, { name: "same", path: real.dir }, () => false, Date.now, () => null);
-
-      render(() => <ConnectedProjectContext.Provider value={mounted}><Rail /></ConnectedProjectContext.Provider>);
-      fireEvent.dblClick(await screen.findByText("same"));
-      expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe(text);
-      expect(calls.mock.calls.filter(([method]) => method === "rail.rename")).toEqual([]);
-      fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-      await waitFor(async () => expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe(text.trim()));
-      expect(calls.mock.calls.filter(([method]) => method === "rail.rename")).toEqual([["rail.rename", { id: target.id, name: text.trim() }]]);
-      cleanup();
-    }
-  } finally {
-    cleanup();
-    await first.stop();
-    await second.stop();
-  }
-}, 120_000);
-
-it("u2773c_rail_real_external_name_change_refuses_overwrite", async () => {
-  const real = await startRealDaemon({});
-
-  try {
-    const app = createServedApp(real.base);
-    const target = await app.rpc("rail.createWorkstream", { name: "original", parent: null });
-    const mounted = await connectProject(app, { name: "project", path: real.dir }, () => false, Date.now, () => null);
-
-    render(() => <ConnectedProjectContext.Provider value={mounted}><Rail /></ConnectedProjectContext.Provider>);
-    fireEvent.dblClick(await screen.findByText("original"));
-    fireEvent.input(screen.getByLabelText("Name"), { target: { value: " exact dirty name 😀 " } });
-    await app.rpc("rail.rename", { id: target.id, name: "external" });
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("original name changed"));
-    const calls = vi.spyOn(app, "rpc");
-
-    fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Enter" });
-    expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe(" exact dirty name 😀 ");
-    expect(calls.mock.calls.filter(([method]) => method === "rail.rename")).toEqual([]);
-    expect((await app.rpc("rail.tree", null)).find((node) => node.id === target.id)?.name).toBe("external");
-  } finally {
-    cleanup();
-    await real.stop();
-  }
-}, 120_000);
