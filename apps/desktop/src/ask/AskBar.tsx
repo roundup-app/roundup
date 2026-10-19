@@ -9,7 +9,7 @@ import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
-import { Tip } from "../rail/Tip";
+import { Tip } from "../ui/Tip";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
 import "./styles.css";
@@ -173,14 +173,18 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
     onCleanup(() => observer.disconnect());
   });
 
-  return <Tip text={[cut() ? props.node.name : "", props.node.status ? LABELS[props.node.status.kind] : ""].filter(Boolean).join(" ")} disabled={!cut() && !props.node.status}>
-    {(trigger) => <button {...trigger({ onClick: props.select })} type="button" class="overview-entry"
+  return <Tip text={props.node.name} disabled={!cut()}>{(trigger, focus) => {
+    const tip = trigger();
+
+    return <button {...focus} onClick={props.select} type="button" class="overview-entry"
       aria-label={[props.node.name, props.node.status ? LABELS[props.node.status.kind] : ""].filter(Boolean).join(" ")}
       data-feedback="ink" data-button="quiet" onPointerEnter={measure}>
-      <span class={props.waiting ? "overview-state ink" : "overview-state"} data-state={props.node.status?.kind} data-tone={props.node.status?.kind === "error" ? "red" : undefined}>
-        <Show when={props.node.status}>{(status) => <KindGlyph kind={status().kind} />}</Show>
-      </span>
-      <span ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
-    </button>}
-  </Tip>;
+      <Tip text={props.node.status ? LABELS[props.node.status.kind] : ""} disabled={!props.node.status}>{(trigger) =>
+        <span {...trigger()} class={props.waiting ? "overview-state ink" : "overview-state"} data-state={props.node.status?.kind} data-tone={props.node.status?.kind === "error" ? "red" : undefined}>
+          <Show when={props.node.status}>{(status) => <KindGlyph kind={status().kind} />}</Show>
+        </span>
+      }</Tip>
+      <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
+    </button>;
+  }}</Tip>;
 };

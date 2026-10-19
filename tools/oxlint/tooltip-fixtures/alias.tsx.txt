@@ -1,0 +1,3 @@
+import { Tooltip as UncheckedTooltip } from "../ui/Tooltip";
+
+export const Example = () => <UncheckedTooltip.Root />;

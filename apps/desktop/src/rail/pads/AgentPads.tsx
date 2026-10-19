@@ -16,7 +16,7 @@ import { createSortedList } from "../../todos/sortedList";
 import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
-import { Tip } from "../Tip";
+import { Tip } from "../../ui/Tip";
 import { Trunks } from "../Trunks";
 import { openTodosBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
