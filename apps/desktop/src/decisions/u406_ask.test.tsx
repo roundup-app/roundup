@@ -1,4 +1,4 @@
-import { fireEvent, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { askingWith, card, gate, mountApp, rpcCalls, select } from "./decisionsFixture";
@@ -172,4 +172,23 @@ describe("u406 the Card for ask_user", () => {
 
     await waitFor(() => expect(calls(app)[0]).toMatchObject({ answer: null, note: "docs" }));
   });
+});
+
+
+it("u2773a_decisions_restores_exact_work", async () => {
+  await open();
+  fireEvent.click(rows()[1]!);
+  fireEvent.input(note(), { target: { value: "  e\u0301 😀 exact  " } });
+  note().setSelectionRange(2, 5, "backward");
+  fireEvent.select(note());
+  select("beta");
+  select("alpha");
+  await waitFor(() => expect(note().value).toBe("  e\u0301 😀 exact  "));
+  expect(selected()).toBe(1);
+  expect([note().selectionStart, note().selectionEnd, note().selectionDirection]).toEqual([2, 5, "backward"]);
+  cleanup();
+  const reloaded = await open();
+  await waitFor(() => expect(note().value).toBe("  e\u0301 😀 exact  "));
+  expect(selected()).toBe(1);
+  expect(calls(reloaded.app)).toEqual([]);
 });
