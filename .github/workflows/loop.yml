@@ -58,13 +58,19 @@ jobs:
         if: ${{ !cancelled() }}
       - run: python3 loop/stall.test.py
         if: ${{ !cancelled() }}
-      - uses: pnpm/action-setup@v5
-        if: ${{ !cancelled() }}
-      - name: L121 boxd runner and retained-memory regressions
+      - name: Select boxd regressions
+        id: boxd-changes
         if: ${{ !cancelled() }}
         run: |
-          pnpm install --filter @roundup/boxd-runners --frozen-lockfile --ignore-scripts
-          pnpm --filter @roundup/boxd-runners test:boxd
+          tests=$(python3 loop/affected.py boxd HEAD^1)
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v5
+        if: ${{ !cancelled() && steps.boxd-changes.outputs.tests == 'all' }}
+      - name: L121 boxd runner and retained-memory regressions
+        if: ${{ !cancelled() && steps.boxd-changes.outputs.tests == 'all' }}
+        run: |
+          pnpm install --filter @roundup/agent-runners --frozen-lockfile --ignore-scripts
+          pnpm --filter @roundup/agent-runners test:runners
       - run: python3 loop/workflows.test.py
         if: ${{ !cancelled() }}
       - run: loop/rules.test.sh

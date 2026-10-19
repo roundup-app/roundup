@@ -31,19 +31,13 @@ def workflow_expression(expression, run):
     """Evaluate the workflow expression subset used by downstream admission and concurrency."""
     expression = expression.removeprefix('${{').removesuffix('}}').strip()
     values = {'github.repository': 'saadshahd/roundup',
-              **{(key if key.startswith('github.') else f'github.event.workflow_run.{key}'): value
+        **{(key if key.startswith(('github.', 'vars.', 'inputs.', 'needs.')) else f'github.event.workflow_run.{key}'): value
                  for key, value in run.items()}}
-    expression = re.sub(r'github\.[a-z_.]+', lambda match: repr(values[match[0]]), expression)
+    expression = re.sub(r'(?:github|vars|inputs|needs)\.[A-Za-z0-9_.]+', lambda match: repr(values[match[0]]), expression)
     expression = expression.replace('\n', ' ').replace('&&', ' and ').replace('||', ' or ')
-    return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
-
-
-class WebShards(unittest.TestCase):
-    def test_l121_web_shards_do_not_run_boxd_controller_tests(self):
-        result = subprocess.run(['pnpm', '-r', '--filter', '@roundup/boxd-runners', '--if-present', 'test',
-                                 '--shard=4/7', '--config', '/nonexistent/vitest-ci-config.mjs'],
-                                cwd=ROOT, capture_output=True, text=True, timeout=30)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    import json
+    return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args),
+                             'fromJSON': json.loads, 'contains': lambda values, value: value in values})
 
 
 class DownstreamDraft(unittest.TestCase):
@@ -184,6 +178,24 @@ class Permissions(unittest.TestCase):
 
 
 class Build(unittest.TestCase):
+    def test_l121_paid_runners_require_an_explicit_owner_opt_in(self):
+        for workflow, job, variable, scope in (('build-issue', 'build', 'BOXD_ISSUES', 'inputs.issue'),
+                                               ('fix', 'fix-run', 'BOXD_PRS', 'needs.task.outputs.pr')):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            expression = source.split(f'\n  {job}:', 1)[1].split('runs-on: ', 1)[1].split('\n', 1)[0]
+            context = {scope: 123 if job == 'build' else '123', f'vars.{variable}': '',
+                       'github.run_id': 7, 'github.run_attempt': 2}
+            for setting in ('', '[]', '[124]'):
+                with self.subTest(workflow=workflow, setting=setting):
+                    self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': setting}),
+                                     ['ubuntu-latest'])
+            self.assertEqual(workflow_expression(expression, {**context, f'vars.{variable}': '[123]'}),
+                             ['self-hosted', 'boxd', f'roundup-{"build" if job == "build" else "fix"}-123-7-2'])
+        for workflow in ('review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            runner = source.split(f'\n  {workflow}-run:', 1)[1].split('runs-on: ', 1)[1].split('\n', 1)[0]
+            self.assertEqual(runner, 'ubuntu-latest')
+
     def test_l23_the_builder_job_holds_no_actions_issue_or_pr_write(self):
         source = (ROOT / '.github/workflows/build-issue.yml').read_text()
         build = source.split('  build:', 1)[1].split('\n  after:', 1)[0]
@@ -246,6 +258,22 @@ class Scripts(unittest.TestCase):
 
 
 class L89(unittest.TestCase):
+    def test_l121_boxd_tests_follow_their_integration_paths(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        for path in ('loop/agent-runners/runner.mjs', 'loop/agent-runners/memory.test.py', 'loop/builder.py',
+                     'loop/affected.py', 'loop/workflows.test.py', '.github/workflows/build-issue.yml',
+                     '.github/workflows/loop.yml', '.github/actions/setup/action.yml', '.github/actionlint.yaml',
+                     'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', '.npmrc', 'justfile',
+                     'AGENTS.md', 'scenarios/loop-boxd.md'):
+            with self.subTest(path=path):
+                self.assertEqual(affected.boxd([path]), 'all')
+        for changed in ([], ['apps/desktop/src/App.tsx'], ['crates/rupd/src/lib.rs'],
+                        ['README.md', 'docs/perf.md'], ['loop/agent-runners-other/runner.mjs']):
+            with self.subTest(changed=changed):
+                self.assertEqual(affected.boxd(changed), [])
+
     def test_l89_a_pr_tests_what_its_diff_reaches(self):
         import sys
         sys.path.insert(0, str(ROOT / 'loop'))

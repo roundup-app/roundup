@@ -26,8 +26,7 @@ def register(path):
         _, kind, _, run, attempt = given['label'].split('-')
         expected = {'GITHUB_REPOSITORY': given['repository'], 'GITHUB_RUN_ID': run,
                     'GITHUB_RUN_ATTEMPT': attempt,
-                    'GITHUB_JOB': {'build': 'build', 'fix': 'fix-run', 'review': 'review-run',
-                                   'critic': 'critic-run', 'smoke': 'smoke'}[kind]}
+                    'GITHUB_JOB': {'build': 'build', 'fix': 'fix-run', 'smoke': 'smoke'}[kind]}
         (Path('/opt/roundup-ci') / 'job.json').write_text(json.dumps(expected))
     finally:
         path.unlink(missing_ok=True)

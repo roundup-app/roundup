@@ -16,6 +16,16 @@ memory = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(memory)
 
 
+class WebShards(unittest.TestCase):
+    def test_l121_web_shards_do_not_run_boxd_controller_tests(self):
+        result = subprocess.run(['pnpm', '-r', '--filter', '@roundup/agent-runners', '--if-present', 'test',
+                                 '--shard=4/7', '--config', '/nonexistent/vitest-ci-config.mjs'],
+                                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn('TAP version', result.stdout + result.stderr)
+        self.assertNotIn('No projects matched', result.stdout + result.stderr)
+
+
 class Memory(unittest.TestCase):
     def test_l121_a_foreign_job_cannot_start_on_a_memory_bearing_runner(self):
         with tempfile.TemporaryDirectory() as directory:
