@@ -1,11 +1,13 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot } from "solid-js";
 import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
-import { openTabs, path, tab, projectTabs } from "./stripFixture";
+import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const field = () => screen.getByRole<HTMLInputElement>("textbox", { name: "Project name" });
 
@@ -48,22 +50,6 @@ describe("u183 rename in place", () => {
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["payments", "web"]));
     expect(document.activeElement).toBe(tab("payments"));
     expect(await app.projects()).toContainEqual({ name: "payments", path: path("api"), running: true });
-  });
-
-  it("u183_escape_cancels_and_calls_nothing", async () => {
-    const { app } = await openTabs({ api: [], web: [] });
-    const input = await edit();
-    let renamed = 0;
-    const rename = app.renameProject;
-
-    app.renameProject = (...args) => (renamed++, rename(...args));
-    input.value = "other";
-    press("Escape");
-
-    expect(screen.queryByRole("textbox", { name: "Project name" })).toBeNull();
-    expect(tab("api").textContent).toBe("api");
-    expect(renamed).toBe(0);
-    expect(document.activeElement).toBe(tab("api"));
   });
 
   it("u183_an_empty_name_returns_the_folder_name", async () => {
@@ -223,6 +209,31 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
   expect(replies).toHaveLength(2);
 });
 
+
+it("u2773a_header_restores_exact_work", async () => {
+  const { app, view } = await openTabs({ api: [], web: [] });
+  let sends = 0;
+  const rename = app.renameProject;
+  app.renameProject = (...args) => { sends++;
+
+ return rename(...args); };
+
+  const input = await edit();
+  fireEvent.input(input, { target: { value: "  e\u0301 🪁 雪  " } });
+  input.setSelectionRange(2, 6, "backward");
+  fireEvent.select(input);
+  press("Escape");
+  expect(document.activeElement).toBe(tab("api"));
+  fireEvent.click(tab("web"));
+  fireEvent.click(tab("api"));
+  const restored = await edit();
+  expect(restored.value).toBe("  e\u0301 🪁 雪  ");
+  expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 6, "backward"]);
+  fireEvent.blur(restored);
+  expect(sends).toBe(0);
+  view.unmount();
+});
+
 it("u2773c_header_external_change_keeps_original", async () => {
   const { app } = await openTabs({ api: [], web: [] });
   const original = path("api");
@@ -237,6 +248,10 @@ it("u2773c_header_external_change_keeps_original", async () => {
   await screen.findByText("Project name changed");
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
   expect(tab("B")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${original}` }));
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(within(recovery).getByRole("status", { name: "Failed" })).toBeDefined();
 });
 
 it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
@@ -263,4 +278,110 @@ it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", asyn
   await screen.findByRole("tab", { name: "web" });
   expect(tab("B")).toBeDefined();
   expect(calls.map(call => call.base)).toEqual(["api", "api"]);
+});
+
+
+it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlement_preserves_other_revisions_%s", async outcome => {
+  const { app, view } = await openTabs({ api: [], web: [] });
+  let accept: ((project: { name: string; path: string }) => void) | undefined;
+  let reject: ((error: Error) => void) | undefined;
+  const sends: unknown[][] = [];
+  app.renameProject = (...args) => { sends.push(args);
+
+ return new Promise((yes, no) => { accept = yes; reject = no; }); };
+
+  const a = await edit();
+  fireEvent.input(a, { target: { value: "  A e\u0301 🪁  " } });
+  press("Enter");
+  const b = await edit("A");
+  fireEvent.input(b, { target: { value: "  B 雪  " } });
+  press("Escape");
+  fireEvent.click(tab("web"));
+
+  if (outcome === "acknowledged") accept!({ path: path("api"), name: "A e\u0301 🪁" });
+  else reject!(new RpcError(outcome === "failed" ? -32602 : -32603, outcome));
+  await waitFor(() => expect(document.querySelector(`[data-path="${path("api")}"]`)?.textContent).toContain(outcome === "acknowledged" ? "A e\u0301 🪁" : "api"));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts.some((draft: { status: string }) => draft.status === "pending")).toBe(false));
+  view.unmount();
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  fireEvent.click(await screen.findByRole("tab", { name: "api" }));
+  fireEvent.click(await screen.findByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : "Acceptance unknown"} ·`) });
+
+  if (outcome === "acknowledged") expect(older).toBeNull();
+  else {
+    fireEvent.click(older!);
+    expect(within(dialog).getByText("  A e\u0301 🪁  ", { exact: true, normalizer: text => text })).toBeDefined();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+    expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  }
+
+  expect(sends).toEqual([[path("api"), "  A e\u0301 🪁  ", "api"]]);
+});
+
+it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
+  const { app } = await openTabs({ api: [], web: [] });
+  const sends = vi.spyOn(app, "renameProject");
+  fireEvent.click(tab("api"));
+  const input = await edit();
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
+  press("Escape");
+  expect(screen.getByRole("status", { name: `Project name · ${path("api")}` })).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  "]));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy original source" }));
+  await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  ", "api"]));
+  write.mockRestore();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
+  await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(within(dialog).queryByRole("button", { name: "Retry storage only" })).toBeNull();
+  expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts[0].value.name).toBe("  recover e\u0301 🪁  ");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]);
+  expect(sends).not.toHaveBeenCalled();
+
+});
+
+
+
+
+
+it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
+  renderTabs({ api: [], web: [] });
+  const key = `roundup:drafts:${path("api")}`;
+  const original = JSON.stringify({ version: 1, drafts: [{ revision: "incompatible-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: 42 }, selection: null, status: "draft", policy: "ordinary" }] });
+  window.localStorage.setItem(key, original);
+  await screen.findByRole("tab", { name: "api" });
+  fireEvent.click(tab("api"));
+  const input = await edit();
+  fireEvent.input(input, { target: { value: "  memory 雪  " } });
+  press("Escape");
+  expect(window.localStorage.getItem(key)).toBe(original);
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
+  expect(window.localStorage.getItem(key)).toBe(original);
+  expect(within(dialog).getByRole("alert")).toBeDefined();
+});
+
+it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
+  const { app } = renderTabs({ api: [], web: [] });
+  window.localStorage.setItem(`roundup:drafts:${path("api")}`, JSON.stringify({ version: 1, drafts: [{ revision: "legacy-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: "  legacy 雪  " }, selection: null, status: "draft", policy: "ordinary" }] }));
+  const sends = vi.spyOn(app, "renameProject");
+  await screen.findByRole("tab", { name: "api" });
+  const input = await edit();
+  expect(input.value).toBe("  legacy 雪  ");
+  press("Enter");
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(within(dialog).getByRole("status", { name: "" }).textContent).toContain("original name changed");
+  expect(sends).not.toHaveBeenCalled();
 });

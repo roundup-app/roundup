@@ -140,6 +140,7 @@ export const DraftRecoveryEntry = () => {
   const problem = () => connected.drafts.problem()?.destination?.surface.startsWith("rail-") ? null : connected.drafts.problem();
 
   return <Show when={records().length || problem()}>
+    <Show when={problem()}>{failure => <p class="draft-recovery draft-identity" role="status" aria-label={copy.draftIdentity(copy.projectName, connected.project.path)}>{copy.draftRetention(connected.project.path, failure().destination ? copy.draftSurface(failure().destination!.surface) : copy.allDraftSurfaces, failure().cause)}</p>}</Show>
     <button class="draft-entry" data-button="quiet" type="button" aria-label={copy.recoverDrafts} onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>
       <span class="overview-tile"><Icon name="edit" /></span><span>{copy.recoverDrafts}</span>
       <Show when={records().length}><span data-state="draft">{records().length}</span></Show>
