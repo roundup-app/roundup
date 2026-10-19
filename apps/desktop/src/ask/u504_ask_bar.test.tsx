@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Ask } from "@contracts/ask/Ask";
 import { ask, input, mountAskBar, press, rowTexts } from "./askFixture";
@@ -199,6 +200,7 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   type("  A 🌿\n ");
   press("Enter", {}, input()!);
   type("  B e\u0301\n ");
+
   if (outcome === "acknowledged") accept(ask("accepted", 1, []));
   else reject(outcome === "refused" ? new RpcError(-32003, "refused") : new Error("lost reply"));
   await waitFor(() => expect(first.connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
@@ -211,8 +213,72 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
   expect(input()!.value).toBe("  B e\u0301\n ");
   expect(sent(reopened.app)).toEqual([]);
   const older = reopened.connected.drafts.list().find(draft => draft.status !== "draft");
+
   if (older) reopened.connected.drafts.discard(older.revision);
   reopened.unmount();
   const again = await mountAskBar([], null, undefined, false, path);
   expect(again.connected.drafts.list().map(draft => draft.value.text)).toEqual(["  B e\u0301\n "]);
+});
+
+it("u2773b_ask_checks_unknown_acceptance_without_resending", async () => {
+  const { app, connected } = await mountAskBar();
+  app.handlers["ask.send"] = () => { throw new Error("lost reply"); };
+
+  type(" exact A 🌿\n ");
+  press("Enter", {}, input()!);
+  type("new B");
+  const check = await screen.findByRole("button", { name: "Check send status" });
+  const submission = connected.drafts.list().find(draft => draft.status === "unknown")!.revision;
+  app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], " exact A 🌿\n "), submission }];
+  fireEvent.click(check);
+  await waitFor(() => expect(connected.drafts.list().map(draft => draft.value.text)).toEqual(["new B"]));
+  expect(input()!.value).toBe("new B");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(sent(app)).toEqual([{ text: " exact A 🌿\n ", submission }]);
+});
+
+it("u2773a_ask_keeps_captured_workstream_after_equal_named_replacement", async () => {
+  const { connected, app } = await mountAskBar();
+  type("@ops exact 🌿");
+  const tree = connected.rail.nodes.map(node => node.id === "ops" ? { ...node, name: "Renamed" } : { ...node });
+  app.handlers["rail.tree"] = () => [...tree, workstream("replacement", { name: "ops" })];
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(connected.rail.nodes.find(node => node.id === "replacement")?.name).toBe("ops"));
+  type("@ops exact 🌿 more");
+  press("Enter", {}, input()!);
+  await waitFor(() => expect(sent(app)).toHaveLength(1));
+  expect(sent(app)[0]).toMatchObject({ text: "@ops exact 🌿 more", workstream: "ops" });
+});
+
+it("u2773b_ask_late_failure_settles_only_the_original_project", async () => {
+  const first = await mountAskBar();
+  let reject!: (reason: Error) => void;
+  first.app.handlers["ask.send"] = () => new Promise<Ask>((_resolve, fail) => { reject = fail; });
+  type("original A 🌿");
+  press("Enter", {}, input()!);
+  first.unmount();
+  const other = await mountAskBar();
+  type("other Project B");
+  reject(new RpcError(-32003, "original refused"));
+  await waitFor(() => expect(first.connected.drafts.list()[0]?.status).toBe("failed"));
+  expect(input()!.value).toBe("other Project B");
+  expect(other.connected.drafts.list().map(draft => draft.value.text)).toEqual(["other Project B"]);
+  expect(first.connected.drafts.list()[0]?.value.text).toBe("original A 🌿");
+  expect(sent(other.app)).toEqual([]);
+});
+
+it("u2773b_ask_repeat_enter_cannot_send_an_older_failed_revision", async () => {
+  const { app, connected } = await mountAskBar();
+  app.handlers["ask.send"] = () => { throw new RpcError(-32003, "refused A"); };
+
+  type("failed A");
+  press("Enter", {}, input()!);
+  await waitFor(() => expect(connected.drafts.list()[0]?.status).toBe("failed"));
+  let accept!: (value: Ask) => void;
+  app.handlers["ask.send"] = () => new Promise<Ask>(resolve => { accept = resolve; });
+  type("pending B");
+  press("Enter", {}, input()!);
+  press("Enter", { repeat: true }, input()!);
+  expect(sent(app)).toEqual([{ text: "failed A", submission: expect.any(String) }, { text: "pending B", submission: expect.any(String) }]);
+  accept(ask("accepted", 1, []));
 });

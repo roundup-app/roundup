@@ -122,6 +122,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
 
         if (ask) {
           upsert(ask);
+          setFailure(null);
 
           return { kind: "acknowledged", submission, ask };
         }

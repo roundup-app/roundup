@@ -1,4 +1,7 @@
 import { createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import * as v from "valibot";
+import type { AskSubmission } from "../state/asks";
+import { DraftRecoveryEntry } from "../drawer/DrawerHost";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -24,12 +27,62 @@ const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ??
 /** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
 export const AskBar = () => {
   const connected = useConnectedProject();
-  const { asks, rail, daemonExit } = connected;
+  const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
   const madeScope = shelfScope(connected);
   const [over, setOver] = createSignal(false);
-  const [text, setText] = createSignal("");
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const destination = { surface: "ask", object: "ask-bar", recipient: null };
+  drafts.validate("ask", v.object({ text: v.string(), workstream: v.nullable(v.string()) }));
+  drafts.registerRecovery("ask", (draft, facts) => {
+    if (facts.daemonExit() !== null || facts.rail.failure()) return "unverified";
+
+    const target = v.safeParse(v.string(), draft.value.workstream);
+
+    return !target.success || facts.rail.nodes.some(node => node.kind === "workstream" && node.id === target.output) ? "available" : "unavailable";
+  });
+  const records = () => drafts.list().filter(draft => draft.destination.surface === "ask" && draft.destination.object === "ask-bar");
+
+  const current = () => {
+    const latest = records().at(-1);
+
+    return latest?.status === "draft" || latest?.status === "failed" ? latest : undefined;
+  };
+
+  const text = () => {
+    const value = v.safeParse(v.string(), current()?.value.text);
+
+    return value.success ? value.output : "";
+  };
+
+  const setText = (value: string, recipient?: string) => {
+    const mentioned = /^@(\S+)\s/.exec(value)?.[1];
+    const previous = current();
+    const captured = v.safeParse(v.string(), previous?.value.workstream);
+    const recipientBefore = captured.success ? captured.output : null;
+
+    const workstream = recipient ?? (previous && /^@(\S+)\s/.exec(String(previous.value.text))?.[1] === mentioned
+      ? recipientBefore
+      : rail.nodes.find(node => node.kind === "workstream" && node.name === mentioned)?.id ?? null);
+
+    drafts.edit(destination, { text: value, workstream }, field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null, "ordinary");
+  };
+
+  const retainSelection = () => {
+    const draft = current();
+
+    if (draft && field) drafts.setSelection(draft.revision, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection });
+  };
+
+  const restoreSelection = (element: HTMLTextAreaElement) => {
+    field = element;
+    queueMicrotask(() => {
+      const caret = current()?.selection;
+
+      if (element.isConnected && caret) element.setSelectionRange(caret.start, caret.end, caret.direction);
+    });
+  };
+
+  const [failure, setFailure] = createSignal<{ revision: string; message: string } | null>(null);
   const [dismissed, setDismissed] = createSignal(false);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let panel: HTMLElement | undefined;
@@ -38,6 +91,10 @@ export const AskBar = () => {
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
   const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null));
+
+  createEffect(() => {
+    if (shown()) onCleanup(drafts.editor(destination));
+  });
 
   asks.load();
 
@@ -85,18 +142,23 @@ export const AskBar = () => {
 
     if (value.trim() === "") return;
 
-    setText("");
-    setFailure(null);
-    void asks.send({ text: value, submission: crypto.randomUUID() }).then((outcome) => {
-      if (outcome.kind === "acknowledged") return;
+    const draft = current();
 
-      setFailure(outcome.kind === "refused" ? copy.askNotSent + outcome.error.message : copy.askUnknown + outcome.message);
-      setText((now) => (now === "" ? value : now));
+    if (!draft || !drafts.submit(draft.revision)) return;
+    setFailure(null);
+    const workstream = v.safeParse(v.string(), draft.value.workstream);
+    const request: AskSubmission = { text: value, submission: draft.revision };
+
+    if (workstream.success) request.workstream = workstream.output;
+    void asks.send(request).then((outcome) => {
+      drafts.settle(draft.revision, outcome.kind === "refused" ? "failed" : outcome.kind);
+
+      if (outcome.kind !== "acknowledged") setFailure({ revision: draft.revision, message: outcome.kind === "refused" ? copy.askNotSent + outcome.error.message : copy.askUnknown + outcome.message });
     });
   };
 
   const complete = (name: string): void => {
-    setText(`@${name} `);
+    setText(`@${name} `, rail.nodes.find(node => node.kind === "workstream" && node.name === name)?.id);
     field?.focus();
   };
 
@@ -127,12 +189,23 @@ export const AskBar = () => {
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
-          <Mentions.Field class="ask-input" ref={(element: HTMLTextAreaElement) => { field = element; }}
+          <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
-            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onKey={onKey} />
+            onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
-        <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+        <Show when={failure()?.message ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+        <Show when={drafts.problem()}>{problem => <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />}</Show>
+        <Show when={drafts.problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+        <Show when={drafts.problem() || records().some(draft => draft.status !== "draft")}><DraftRecoveryEntry /></Show>
+        <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => <button type="button" data-button="quiet" onClick={() => {
+          void asks.reconcile(revision).then(outcome => {
+            drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
+
+            if (outcome.kind === "unknown") setFailure({ revision, message: copy.askUnknown + outcome.message });
+            else setFailure(previous => previous?.revision === revision ? null : previous);
+          });
+        }}>{copy.askCheckAcceptance}</button>}</For>
         <Show when={!over()}><ProjectOverview /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
