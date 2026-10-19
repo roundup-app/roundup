@@ -2,7 +2,7 @@ import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
 import "./buttons.css";
-import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, createUniqueId, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { ChooseProject, EmptyRail, EmptyShelf } from "./app/FirstRun";
 import { Layout } from "./app/Layout";
@@ -164,14 +164,16 @@ export const App = (props: {
 }) => {
   // U2770: only user input changes ring mode; component autofocus cannot override the last press.
   // Start keyboard-visible for native accessibility focus arriving before any page input.
-  document.documentElement.dataset.keyboardFocus = "true";
-  const keyboardFocus = () => { document.documentElement.dataset.keyboardFocus = "true"; };
+  const keyboardFocus = (event: KeyboardEvent) => {
+    const target = event.composedPath()[0];
+    const editing = target instanceof HTMLElement
+      && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
 
-  window.addEventListener("keydown", keyboardFocus, true);
-  onCleanup(() => {
-    window.removeEventListener("keydown", keyboardFocus, true);
-    delete document.documentElement.dataset.keyboardFocus;
-  });
+    // Editing keys keep focus in the field, so they must not change its ring mid-entry.
+    if (event.isComposing || (editing && !event.metaKey && !event.ctrlKey && !event.altKey
+      && event.key !== "Tab" && event.key !== "Escape")) return;
+    document.documentElement.dataset.keyboardFocus = "true";
+  };
 
   const clearBrowserSelection = (event: MouseEvent) => {
     document.documentElement.dataset.keyboardFocus = "false";
@@ -187,8 +189,16 @@ export const App = (props: {
     }
   };
 
-  window.addEventListener("pointerdown", clearBrowserSelection, true);
-  onCleanup(() => window.removeEventListener("pointerdown", clearBrowserSelection, true));
+  onMount(() => {
+    document.documentElement.dataset.keyboardFocus = "true";
+    window.addEventListener("keydown", keyboardFocus, true);
+    window.addEventListener("pointerdown", clearBrowserSelection, true);
+  });
+  onCleanup(() => {
+    window.removeEventListener("keydown", keyboardFocus, true);
+    window.removeEventListener("pointerdown", clearBrowserSelection, true);
+    delete document.documentElement.dataset.keyboardFocus;
+  });
 
   const projects = createProjectsState(props.app);
   const tabsId = createUniqueId();
