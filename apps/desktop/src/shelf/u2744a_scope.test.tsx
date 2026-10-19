@@ -225,3 +225,13 @@ it.each([["work shell", "w", [1, 6, 8, 12, 2], 6], ["root shell", null, [1, 6, 8
   await tab("Pads");
   await waitFor(() => expect(names()).toHaveLength(padCount));
 });
+
+it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () => {
+  const { app } = await mount();
+  const row = await screen.findByRole("button", { name: /#2 / });
+  row.focus();
+  fireEvent.keyDown(row, { key: "ArrowDown", altKey: true });
+  await waitFor(() => expect(app.calls.filter(call => call.method === "todo.reorder").map(call => call.params)).toEqual([{ id: 2, before: 6 }]));
+  await waitFor(() => expect(ownTodos("a")).toEqual([5, 2]));
+  expect(document.activeElement).toBe(row);
+});
