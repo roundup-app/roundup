@@ -416,6 +416,11 @@ def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET
     return code
 
 
+def codex_directory():
+    """The Codex state directory: retained for a boxd job, temporary on other runners."""
+    return Path(os.environ.get('ROUNDUP_AGENT_MEMORY', os.environ['RUNNER_TEMP'])) / 'codex'
+
+
 def codex_home(login, home):
     """Sign Codex in with the ChatGPT login `login` in the new directory `home`, outside the checkout so no commit takes
     it, and return `home`; raises ValueError when `login` is no ChatGPT login."""
@@ -427,7 +432,9 @@ def codex_home(login, home):
         print(f'::add-mask::{value}')
     home.mkdir(mode=0o700, exist_ok=True)
     (home / 'auth.json').write_text(login)
-    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n')
+    memory = '\n[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\nuse_memories = true\n' \
+        if os.environ.get('ROUNDUP_AGENT_MEMORY') else ''
+    (home / 'config.toml').write_text('cli_auth_credentials_store = "file"\n' + memory)
     return home
 
 
@@ -451,7 +458,7 @@ def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS):
     Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
     starts, so a run cut off still leaves them, then `structured_output`, its answer. `rights` is as `stream` reads it.
     Returns Codex's exit code."""
-    home = codex_home(login, Path(os.environ['RUNNER_TEMP']) / 'codex')
+    home = codex_home(login, codex_directory())
     events, answer = home / 'events.jsonl', home / 'answer.json'
     with open(output, 'a') as out:
         out.write(f'execution_file={events}\n')
@@ -485,7 +492,7 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS):
             return 1
 
     engines = {'Claude Code': (lambda: claude(prompt, CLAUDE_MODEL, schema, output), temp / 'claude' / 'events.jsonl'),
-               'Codex': (codex_or_none, temp / 'codex' / 'events.jsonl')}
+               'Codex': (codex_or_none, codex_directory() / 'events.jsonl')}
     run, events = engines['Codex']
     code = run()
     if worked(events):
