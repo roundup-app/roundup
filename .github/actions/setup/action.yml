@@ -115,6 +115,19 @@ runs:
         until [ -s "$RUNNER_TEMP/browser.status" ]; do sleep 1; done
         cat "$RUNNER_TEMP/browser.log"
         [ "$(cat "$RUNNER_TEMP/browser.status")" = 0 ]
+    # `gh pr edit --attach` (a run attaches its rendered captures to its PR, `.agents/data/harness.md`) needs gh 2.102.0.
+    - if: inputs.builder == 'true' && runner.os == 'Linux'
+      name: GitHub CLI 2.102.0 or later
+      shell: bash
+      run: |
+        want=2.102.0
+        have=$(gh --version | awk 'NR == 1 { print $3 }')
+        if [ "$(printf '%s\n%s\n' "$want" "$have" | sort -V | head -n 1)" != "$want" ]; then
+          dir="gh_${want}_linux_$([ "$(uname -m)" = x86_64 ] && echo amd64 || echo arm64)"
+          curl -fsSL "https://github.com/cli/cli/releases/download/v$want/$dir.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          sudo install "$RUNNER_TEMP/$dir/bin/gh" /usr/local/bin/gh
+        fi
+        gh --version
     # Codex, and Claude Code at the version claude-code-action 1 pins.
     - if: inputs.builder == 'true'
       shell: bash

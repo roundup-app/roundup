@@ -5,3 +5,9 @@ dist/
 .roundup/
 __pycache__/
 proofs/.tools/
+# Rendered captures are attached to the PR (`gh pr edit --attach`), never committed.
+artifacts/ux/**/*.png
+artifacts/ux/**/*.jpg
+artifacts/ux/**/*.webm
+artifacts/ux/**/*.mp4
+artifacts/ux/**/*.mov
