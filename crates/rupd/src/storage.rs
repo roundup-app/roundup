@@ -304,6 +304,11 @@ mod tests {
             "CREATETABLEmessage_sender_names(agentTEXTPRIMARYKEYNOTNULL,nameTEXTNOTNULL)"
                 .to_owned(),
         );
+        // Publications extend the Project owner, rather than a second standalone store.
+        resize_schema
+            .execute_batch(include_str!("../migrations/project/0004-deliverables.sql"))
+            .unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);
