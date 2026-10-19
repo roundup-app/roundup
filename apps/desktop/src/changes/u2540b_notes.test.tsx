@@ -385,3 +385,24 @@ it("u2773a_changes_recovery_switch_keeps_single_editor", async () => {
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "newer recovery editor work 🐝");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
+
+
+it("u2773e_changes_connection_replacement_keeps_memory", async () => {
+  const first = await openDiff();
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  original memory e\u0301\n🐝  " } });
+  expect(screen.getByRole("alert")).toBeTruthy();
+  first.view.unmount();
+  write.mockRestore();
+  const next = await openDiff("/p", first.connected.drafts);
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  original memory e\u0301\n🐝  ");
+  expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+  next.app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await waitFor(() => expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
+  expect(next.app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
+  expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+});

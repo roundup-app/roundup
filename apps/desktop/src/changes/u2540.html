@@ -43,7 +43,7 @@ app.handlers["agent.changedFiles"] = () => ({ files: [{ path, line: 1, status: "
 
 app.handlers["agent.compareFile"] = () => comparison;
 
-if (dense) for (let i = 0; i < 100; i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
+
 
 const failure = railStorage(app.opened.project.path).write({ selected: "agent-1", collapsed: [] });
 
@@ -57,5 +57,18 @@ window.__checks = runChecks;
 if (new URLSearchParams(location.search).has("failure")) app.handlers["agent.compareFile"] = () => { throw new RpcError(-32001, `Worktree unavailable: ${path}`); };
 
 render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now }), document.getElementById("root"));
+
+if (dense) {
+  // The mounted control registers the App-owned holder before fixture edits enter it.
+  if (!document.querySelector(".worktree-control")) await new Promise(resolve => {
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector(".worktree-control")) return;
+      observer.disconnect();
+      resolve();
+    });
+    observer.observe(document.getElementById("root"), { childList: true, subtree: true });
+  });
+  for (let i = 0; i < 100; i++) notesFor(app, app.opened.project.path).save("agent-1", { comparison, side: "new", start: i + 1, end: i + 1, source: `const next${i} = ${i};`, text: `Note ${i + 1}: retain original context ${"long comment ".repeat(5)}` });
+}
 
 </script></body></html>

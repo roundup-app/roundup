@@ -66,17 +66,31 @@ type Send = { kind: "idle" | "failed"; text: string } | { kind: "pending" } | { 
 
 const stores = new WeakMap<AppSeam["rpc"], Map<string, ReturnType<typeof createNotes>>>();
 
-/** Project path scopes durable drafts; the RPC identity shares live edits across inspection mounts. */
-export const notesFor = (app: AppSeam, project: string) => {
-  let projects = stores.get(app.rpc);
+const owners = new WeakMap<ReturnType<typeof draftStorage>, Map<string, ReturnType<typeof createNotes>>>();
 
-  if (!projects) { projects = new Map(); stores.set(app.rpc, projects); }
+/** Connected surfaces use the App's Project owner, including after RPC replacement.
+ * Standalone observers can look up the connected RPC's store without reaching into App state. */
+export const notesFor = (app: AppSeam, project: string, drafts?: ReturnType<typeof draftStorage>) => {
+  let projects = drafts ? owners.get(drafts) : stores.get(app.rpc);
 
-  let notes = projects.get(project);
+  if (!projects) {
+    projects = new Map();
 
-  if (!notes) { notes = createNotes(app, project); projects.set(project, notes); }
+    if (drafts) owners.set(drafts, projects); else stores.set(app.rpc, projects);
+  }
 
-  return notes;
+  let store = projects.get(project);
+
+  if (!store) { store = createNotes(app, project, drafts ?? draftStorage(project)); projects.set(project, store); }
+
+  let calls = stores.get(app.rpc);
+
+  if (!calls) { calls = new Map(); stores.set(app.rpc, calls); }
+
+  calls.set(project, store);
+  store.setApp(app);
+
+  return store.notes;
 };
 
 /** RPC replies have a 15-second bound; mutations distinguish rejection from lost acceptance. */
@@ -100,8 +114,9 @@ const bodyOf = (notes: readonly Note[]) => JSON.stringify({
   notes: notes.map(note => ({ "File:": { old: note.comparison.oldPath, new: note.comparison.newPath }, "Base:": note.comparison.base, "Content revisions:": { old: note.comparison.old.revision, new: note.comparison.new.revision }, "Lines:": `${note.side} ${note.start}-${note.end}`, "Selected source:": note.source, "User comment:": note.text })),
 }, null, 2);
 
-const createNotes = (app: AppSeam, project: string) => {
-  const storage = draftStorage(project);
+const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typeof draftStorage>) => {
+  let app = firstApp;
+  const records = () => storage.list().filter(draft => draft.destination.surface === "changes" && draft.policy === "ordinary");
   const restored = new Map<string, Recipient>();
   const invalid = new Set<string>();
   const restoredRevisions = new Map<string, string>();
@@ -116,8 +131,7 @@ const createNotes = (app: AppSeam, project: string) => {
   };
 
   const load = () => {
-    for (const draft of storage.list()) {
-      if (draft.destination.surface !== "changes") continue;
+    for (const draft of records()) {
       const id = draft.destination.recipient;
 
       try {
@@ -168,7 +182,7 @@ const createNotes = (app: AppSeam, project: string) => {
     if (invalid.size) return;
 
     if (empty) {
-      for (const draft of storage.list()) if (draft.destination.surface === "changes" && draft.destination.recipient === id) setProblem(storage.discard(draft.revision));
+      for (const draft of records()) if (draft.destination.surface === "changes" && draft.destination.recipient === id) setProblem(storage.discard(draft.revision));
     } else setProblem(storage.edit({ surface: "changes", object: id, recipient: id }, { data: stringify(value) }, null, "ordinary").problem);
   };
 
@@ -188,22 +202,22 @@ const createNotes = (app: AppSeam, project: string) => {
     if (status === "failed") putState(id, { kind: "failed", text });
   };
 
-  const history = (id: string) => reply(() => app.rpc("message.list", { to: id, status: null }));
+  const history = (connection: AppSeam, id: string) => reply(() => connection.rpc("message.list", { to: id, status: null }));
 
-  return {
+  const notes = {
     list, state,
     project,
     entries: () => [...all().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
-    copy: () => JSON.stringify({ project, drafts: storage.list(), memory: [...all()] }, null, 2),
+    copy: () => JSON.stringify({ project, drafts: records(), memory: [...all()] }, null, 2),
     retry: () => {
       setProblem(storage.retry());
 
       // A recovered read can reveal older work alongside newer memory. Keep both, with no implicit merge or send.
-      const saved = storage.list();
+      const saved = records();
 
       for (const draft of saved) {
-        if (draft.destination.surface !== "changes" || draft.destination.recipient === null) continue;
+        if (draft.destination.recipient === null) continue;
         const id = draft.destination.recipient;
 
         if (draft.destination.object !== id) { invalid.add(draft.revision); continue; }
@@ -228,7 +242,7 @@ const createNotes = (app: AppSeam, project: string) => {
     },
     invalid: () => { invalidCount();
 
-      return storage.list().filter(draft => invalid.has(draft.revision)); },
+      return records().filter(draft => invalid.has(draft.revision)); },
     discardInvalid: (revision: string) => {
       invalid.delete(revision);
       setInvalidCount(invalid.size);
@@ -280,10 +294,11 @@ const createNotes = (app: AppSeam, project: string) => {
     remove: (id: string, note: number) => retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) }),
     send: async (id: string) => {
       if (list(id).length === 0 || (state(id).kind === "pending" || state(id).kind === "unknown")) return;
+      const connection = app;
       const notes = [...list(id)];
       const submission: Submission = { revision: crypto.randomUUID(), notes, body: bodyOf(notes), previous: null, status: "pending", text: "" };
       retain(id, { ...recipient(id), submissions: [...recipient(id).submissions, submission] });
-      const prior = await history(id);
+      const prior = await history(connection, id);
 
       if (prior.kind !== "ok") {
         settle(id, submission, "failed", prior.text);
@@ -293,7 +308,7 @@ const createNotes = (app: AppSeam, project: string) => {
 
       submission.previous = prior.value.map(message => message.id);
       retain(id, { ...recipient(id), submissions: recipient(id).submissions.map(value => value.revision === submission.revision ? { ...submission } : value) });
-      const result = await reply(() => app.rpc("message.send", { to: id, kind: "note", body: submission.body, replyTo: null }));
+      const result = await reply(() => connection.rpc("message.send", { to: id, kind: "note", body: submission.body, replyTo: null }));
 
       if (result.kind === "ok") accepted(id, submission, result.value);
       else settle(id, submission, result.kind, result.kind === "unknown" ? copy.notesUnknown(result.text) : result.text);
@@ -303,7 +318,7 @@ const createNotes = (app: AppSeam, project: string) => {
 
       if (current.kind !== "unknown") return;
       const submission = current.submission;
-      const result = await history(id);
+      const result = await history(app, id);
 
       if (result.kind !== "ok") return;
 
@@ -321,6 +336,8 @@ const createNotes = (app: AppSeam, project: string) => {
       else settle(id, submission, "unknown", copy.notesNotFound);
     },
   };
+
+  return { notes, setApp: (value: AppSeam) => { app = value; } };
 };
 
 export type Notes = ReturnType<typeof notesFor>;

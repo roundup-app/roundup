@@ -208,3 +208,28 @@ it("u2773e_changes_lost_history_baseline_never_authorizes_resend", async () => {
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("exact possibly accepted note");
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
+
+it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
+  const first = await openDiff();
+  await saveNote("older connection revision A");
+  let refuse!: (error: Error) => void;
+  first.app.handlers["message.send"] = () => new Promise((_done, reject) => { refuse = reject; });
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await waitFor(() => expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
+  first.view.unmount();
+  const next = await openDiff("/p", first.connected.drafts);
+  fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "new connection revision B 🐝" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  refuse(new RpcError(-32003, "original connection refused"));
+  await screen.findByText("original connection refused");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+  expect(next.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  expect(recovery.textContent).toContain("older connection revision A");
+  expect(recovery.textContent).toContain("new connection revision B 🐝");
+  next.view.unmount();
+  await openDiff("/p", first.connected.drafts);
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+});
