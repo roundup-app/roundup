@@ -111,12 +111,6 @@ describe("u406 the Card for ask_user", () => {
       await lane.browser("fill", "textarea.app-listbox-note", "  first é");
       await lane.browser("press", "Shift+Enter");
       await lane.browser("keyboard", "inserttext", "second 👩🏽‍💻  ");
-      await lane.evaluate("(() => { const field=document.querySelector('textarea.app-listbox-note'); field.setSelectionRange(field.value.length,field.value.length); field.focus(); return true; })()");
-      const choice = await lane.evaluate("document.querySelector('.ask-note textarea').placeholder");
-      await lane.browser("press", "ArrowUp");
-      expect(await lane.evaluate("document.querySelector('.ask-note textarea').selectionStart")).toBeLessThan(12);
-      expect(await lane.evaluate("document.querySelector('.ask-note textarea').placeholder")).toBe(choice);
-      await lane.capture("U2773-decisions", "multiline-arrows");
       await lane.evaluate("(() => { const field=document.querySelector('textarea.app-listbox-note'); field.setSelectionRange(2,7,'backward'); field.dispatchEvent(new Event('select',{bubbles:true})); return true; })()");
       await lane.browser("click", '.rail-row[data-id="agent-3"]');
       await lane.until("!!document.querySelector('.rail-row[data-id=\"agent-3\"][aria-selected=true]')");

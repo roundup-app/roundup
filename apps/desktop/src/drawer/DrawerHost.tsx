@@ -136,14 +136,20 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
+  const visibleDecision = createMemo(() => connected.decisions.of(connected.rail.selected()));
+
+  const currentDecisions = createMemo(() => new Map(connected.drafts.list()
+    .filter((draft) => draft.destination.surface === "decisions" && draft.status === "draft")
+    .map((draft) => [draft.destination.object, draft.revision])));
+
   const records = () => connected.drafts.recoverable().filter((draft) => {
     if (draft.destination.surface.startsWith("rail-")) return false;
 
-    const visible = connected.decisions.of(connected.rail.selected());
+    const visible = visibleDecision();
 
     return !(draft.destination.surface === "decisions" && draft.status === "draft"
       && visible?.answerable && visible.id === draft.value.decision
-      && draft.revision === connected.drafts.list().filter((entry) => entry.destination.surface === "decisions" && entry.destination.object === draft.destination.object && entry.status === "draft").at(-1)?.revision
+      && draft.revision === currentDecisions().get(draft.destination.object)
       && connected.decisions.availability({ daemon: String(draft.value.daemon), agent: String(draft.value.agent), attempt: String(draft.value.attempt), decision: String(draft.value.decision) }) === "available");
   });
 
