@@ -1,7 +1,6 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import { IconButton } from "../ui/IconButton";
-import { Tooltip } from "../ui/Tooltip";
-import { Portal } from "solid-js/web";
+import { Tip } from "../ui/Tip";
 import { createNear } from "../ink/near";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
@@ -121,7 +120,7 @@ export const OpenRow = (props: {
             props.sorted?.button(row);
           }}
         >
-          <span class="shelf-title">{props.todo.title}</span>
+          {(trigger) => <span {...trigger()} class="shelf-title">{props.todo.title}</span>}
         </RowButton>
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
@@ -176,18 +175,16 @@ export const OpenRow = (props: {
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
           <Show when={failure() === null && waitingOn().length > 0}>
-            <Tooltip.Root><Tooltip.Trigger asChild={(trigger) => <span {...trigger()} data-todo-waits>
-              <span>{copy.waitsOnWord}</span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
+            <span data-todo-waits>
+              <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <span {...trigger()}>{copy.waitsOnWord}</span>}</Tip><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
                   <Show when={index() > 0}><span>{copy.comma}</span></Show>
-                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>
+                  <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>
                     {props.nested ? `#${blocker.id}` : blocker.title}
-                  </button>
+                  </button>}</Tip>
                 </>
               )}</For></span>
-            </span>} />
-              <Portal><Tooltip.Positioner style={{ "pointer-events": "none" }}><Tooltip.Content class="todo-tooltip">{copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}</Tooltip.Content></Tooltip.Positioner></Portal>
-            </Tooltip.Root>
+            </span>
           </Show>
           <Show when={props.nested}>
             {" "}<span data-todo-home>{copy.in}<span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
@@ -359,7 +356,7 @@ export const Todos = () => {
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={isEmpty() && !typing()}>
-        <EmptyState icon="check" title={copy.noTodosYet} hint={copy.noTodosHint} />
+        <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={noneRunning()}>
         <p>{copy.noTodosFromRunningAgents}</p>
@@ -422,7 +419,7 @@ export const Todos = () => {
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <div class="shelf-done-line">
               <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-                <span class="shelf-title">{done().length}{copy.doneCount}</span>
+                {() => <span class="shelf-title">{done().length}{copy.doneCount}</span>}
               </RowButton>
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
@@ -447,7 +444,7 @@ export const Todos = () => {
                       onKeyDown={(event) => selectionKey(todo, event)}
                       onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
                     >
-                      <span class="shelf-title">{todo.title}</span>
+                      {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
                     </RowButton>
                   }
                 />

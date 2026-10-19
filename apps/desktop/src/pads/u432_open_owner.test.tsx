@@ -42,10 +42,11 @@ const openOwned = async (over: { exited?: boolean; resumable?: boolean; beginFai
 const openOwnerButton = () => screen.findByRole("button", { name: "Open owner" });
 
 describe("u432 open owner", () => {
-  it("u432_agent_pad_has_open_owner_named_by_title", async () => {
+  it("u432_agent_pad_has_owner_name_in_tooltip", async () => {
     await openOwned();
 
-    expect((await openOwnerButton()).getAttribute("title")).toBe("Open owner: auth-refactor");
+    fireEvent.pointerMove(await openOwnerButton(), { pointerType: "mouse" });
+    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe("Open owner: auth-refactor"));
   });
 
   it("u432_user_pad_has_no_open_owner", async () => {
