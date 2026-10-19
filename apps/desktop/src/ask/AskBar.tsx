@@ -168,7 +168,7 @@ export const AskBar = () => {
     void asks.send(request).then((outcome) => {
       drafts.settle(draft.revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
-      if (outcome.kind !== "acknowledged") setFailure({ revision: draft.revision, message: outcome.kind === "refused" ? copy.askNotSent + outcome.error.message : copy.askUnknown + outcome.message });
+      if (outcome.kind === "refused") setFailure({ revision: draft.revision, message: copy.askNotSent + outcome.error.message });
     });
   };
 
@@ -209,19 +209,30 @@ export const AskBar = () => {
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
-        <div class="ask-send-status">
-          <Show when={failure()?.message ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-          <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => <button type="button" data-button="quiet" onClick={() => {
-            void asks.reconcile(revision).then(outcome => {
-              drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
+        <Show when={failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}>{(message) => <div class="ask-send-status"><ErrorLine message={message()} /></div>}</Show>
+        <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
+          const [cause, setCause] = createSignal<string | null>(null);
+          const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
 
-              if (outcome.kind === "unknown") setFailure({ revision, message: copy.askUnknown + outcome.message });
-              else setFailure(previous => previous?.revision === revision ? null : previous);
-            });
-          }}>{copy.askCheckAcceptance}</button>}</For>
-        </div>
-        <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />}</Show>
-        <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+          return <div class="ask-send-status">
+            <div class="ask-unknown-content">
+              <span class="ask-unknown-text">{label()}</span>
+              <span class="ask-unknown-state" role="status" data-state="unknown"><Icon name="circle" />{cause() ? copy.askUnknown + cause() : copy.askUnknownState}</span>
+            </div>
+            <button type="button" data-button="quiet" aria-label={copy.askCheckAcceptance + ": " + label()} onClick={() => {
+              void asks.reconcile(revision).then(outcome => {
+                drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
+
+                if (outcome.kind === "unknown") setCause(outcome.message);
+                else setFailure(previous => previous?.revision === revision ? null : previous);
+              });
+            }}>{copy.askCheckAcceptance}</button>
+          </div>;
+        }}</For>
+        <Show when={problem()}>{problem => <div class="ask-send-status">
+          <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />
+          <button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
+        </div>}</Show>
         <Show when={!over()}><ProjectOverview /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
