@@ -2864,6 +2864,8 @@ async fn a32_worktrees_and_branches_survive_even_dirty() {
 #[tokio::test]
 async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     let (project, mut client, door) = clear_fixture("a32_archive", &[]).await;
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
+    let scratch = pads::source(&db, "scratch").unwrap().unwrap();
     let model = project.model.as_ref().unwrap();
     let todos = client.request("todo.list", Value::Null).await.unwrap();
     let todos = todos.as_array().unwrap();
@@ -3004,6 +3006,10 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
     assert!(text.contains("## scratch (pad, owner "), "{text}");
     assert!(text.contains("scratch text"), "{text}");
     assert!(!text.contains("build the login page"), "{text}");
+    assert_eq!(
+        pads::source_state(&db, scratch.incarnation).unwrap(),
+        pads::PadSourceState::Deleted(pads::PadDeletion::Cleanup)
+    );
     model.assert_matched();
 }
 
