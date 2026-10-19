@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import * as v from "valibot";
 import type { ChildProcess } from "node:child_process";
 import { request } from "node:http";
 import { build } from "vite";
@@ -467,9 +468,20 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773h_retention_failure_preserves_closed_project_memory", async () => {
+  it.each(["write", "surface"])("u2773h_retention_failure_preserves_closed_project_memory_%s", async (kind) => {
     await setup();
+    const key = `roundup:drafts:${first.dir}`;
+    const incompatible = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: null }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
+    const bytes = JSON.stringify({ version: 1, drafts: [incompatible] }, null, 2);
+
+    if (kind === "surface") localStorage.setItem(key, bytes);
     const holder = drafts(first.dir);
+
+    if (kind === "surface") {
+      holder.validate("todos", v.object({ title: v.string() }));
+      holder.discard(incompatible.revision);
+    }
+
     let headerFactory: typeof drafts | undefined;
     const setWindowTitle = app.setWindowTitle;
 
@@ -481,7 +493,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const write = Storage.prototype.setItem;
 
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
-      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
+      if (kind === "write" && key.startsWith("roundup:drafts:")) throw new Error("disk full");
 
       write.call(this, key, value);
     });
@@ -490,7 +502,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount();
     await openRecovery();
     expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
-    expect(screen.getByRole("alert").textContent).toContain("Order");
+    expect(screen.getByRole("alert").textContent).toContain(kind === "surface" ? "Todo" : "Order");
     expect(headerFactory).toBe(drafts);
     const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
@@ -503,6 +515,13 @@ describe("u2773 Project draft integration on real Projects", () => {
     await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
     expect(drafts(first.dir)).toBe(header);
     expect(header.list()).toEqual([saved, headerSaved]);
+
+    if (kind === "surface") {
+      expect(header.problem()).toEqual({ project: first.dir, destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" });
+      expect(header.retry()?.operation).toBe("restore");
+      expect(localStorage.getItem(key)).toBe(bytes);
+    }
+
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "first" });
@@ -511,6 +530,14 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(holder.list()).toEqual([saved, headerSaved]);
     fireEvent.click(screen.getByRole("button", { name: new RegExp(saved.revision) }));
     expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+
+    if (kind === "surface") {
+      fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+      expect(localStorage.getItem(key)).toBe(bytes);
+      expect(screen.getByRole("alert")).toBeTruthy();
+      localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
+    }
+
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);

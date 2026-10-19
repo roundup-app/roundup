@@ -7,7 +7,7 @@ import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, terminal } from "../testing/nodes";
-import { ConnectedProjectContext, ProjectDraftsContext, useConnectedProject } from "./connectedProject";
+import { ConnectedProjectContext, ProjectDraftsContext, useConnectedProject, createProjectDrafts } from "./connectedProject";
 import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
@@ -90,16 +90,30 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
   const independent = edit(seed, "independent");
   const bytes = JSON.stringify({ version: 1, drafts: [incompatible, independent] }, null, 2);
   localStorage.setItem(key, bytes);
-  const drafts = draftStorage("/project/a");
+  const authority = createProjectDrafts();
+  const drafts = authority("/project/a");
+  const observations: ReturnType<typeof drafts.problem>[] = [];
+
+  const stop = createRoot((dispose) => {
+    for (const [index, consumer] of [drafts, authority("/project/a")].entries()) createComputed(() => {
+      observations[index] = consumer.problem();
+    });
+
+    return dispose;
+  });
+
   const failure = { project: "/project/a", destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" };
   expect(drafts.validate("todos", v.object({ title: v.string() }))).toEqual(failure);
+  expect(observations).toEqual([failure, failure]);
   const a = drafts.edit(incompatible.destination, { title: "submitted" }, null, "ordinary").draft;
-  drafts.submit(a.revision);
+  expect(drafts.submit(a.revision)?.problem).toEqual(failure);
   const b = drafts.edit(incompatible.destination, { title: "  新 e\u0301 🧭\n", choices: ["b", "a"] }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
-  drafts.settle(a.revision, "failed");
-  drafts.discard(a.revision);
+  expect(drafts.problem()).toEqual(failure);
+  expect(drafts.settle(a.revision, "failed")).toEqual(failure);
+  expect(drafts.discard(a.revision)).toEqual(failure);
   expect(drafts.retry()).toEqual(failure);
   expect(drafts.problem()).toEqual(failure);
+  expect(observations).toEqual([failure, failure]);
   expect(localStorage.getItem(key)).toBe(bytes);
   expect(drafts.list()).toEqual([independent, b]);
   // Repair is external and explicit; retry merges its independent revision.
@@ -107,6 +121,25 @@ it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
   localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [external] }));
   expect(drafts.retry()).toBeNull();
   expect(draftStorage("/project/a").list()).toEqual([external, independent, b]);
+  expect(observations).toEqual([null, null]);
+  stop();
+});
+
+it("u2773e_storage_failure_keeps_memory_when_repair_has_same_revision", () => {
+  const key = "roundup:drafts:/project/a";
+  const seed = draftStorage("/project/a");
+  const original = seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary").draft;
+  const drafts = draftStorage("/project/a");
+  drafts.validate("todos", v.object({ title: v.string() }));
+  const repaired = JSON.stringify({ version: 1, drafts: [{ ...original, value: { title: "repaired" } }] });
+  localStorage.setItem(key, repaired);
+  expect(drafts.retry()?.operation).toBe("restore");
+  expect(localStorage.getItem(key)).toBe(repaired);
+  expect(drafts.list()).toEqual([original]);
+  drafts.discard(original.revision);
+  expect(localStorage.getItem(key)).toBe(repaired);
+  expect(drafts.retry()).toBeNull();
+  expect(draftStorage("/project/a").list()).toEqual([]);
 });
 
 it.each(["{broken", '{"version":2,"drafts":[]}', '{"version":1,"drafts":[{}]}'])("u2773e_storage_failure_keeps_invalid_records_%s", (raw) => {
