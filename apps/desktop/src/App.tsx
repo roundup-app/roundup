@@ -162,19 +162,6 @@ export const App = (props: {
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
 }) => {
-  // U2770: only user input changes ring mode; component autofocus cannot override the last press.
-  const keyboardFocus = (event: KeyboardEvent) => {
-    const target = event.composedPath()[0];
-
-    const editing = target instanceof HTMLElement
-      && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
-
-    // Editing keys keep focus in the field, so they must not change its ring mid-entry.
-    if (event.isComposing || (editing && !event.metaKey && !event.ctrlKey
-      && event.key !== "Tab" && event.key !== "Escape" && event.key !== "Meta" && event.key !== "Control")) return;
-    document.documentElement.dataset.keyboardFocus = "true";
-  };
-
   const clearBrowserSelection = (event: MouseEvent) => {
     document.documentElement.dataset.keyboardFocus = "false";
 
@@ -192,11 +179,9 @@ export const App = (props: {
   onMount(() => {
     // Start keyboard-visible for native accessibility focus arriving before any page input.
     document.documentElement.dataset.keyboardFocus = "true";
-    window.addEventListener("keydown", keyboardFocus, true);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
-    window.removeEventListener("keydown", keyboardFocus, true);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
     delete document.documentElement.dataset.keyboardFocus;
   });

@@ -97,6 +97,17 @@ const takeLeaderKey = (event: KeyboardEvent): void => {
 const dispatch = (event: KeyboardEvent): void => {
   if (!(event instanceof KeyboardEvent)) return;
 
+  const target = event.composedPath()[0];
+
+  const editing = target instanceof HTMLElement
+    && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
+
+  // U2770: update before a shortcut consumes the press; editing alone keeps the field's ring steady.
+  if (!event.isComposing && (!editing || event.metaKey || event.ctrlKey
+    || event.key === "Tab" || event.key === "Escape")) {
+    document.documentElement.dataset.keyboardFocus = "true";
+  }
+
   if (event.repeat && event.code === held) {
     event.preventDefault();
     event.stopImmediatePropagation();
