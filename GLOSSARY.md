@@ -239,6 +239,9 @@ A fenced ```excalidraw block in a Pad whose JSON body is a diagram the user edit
 **Pad source** (`PadSource`, `source`):
 One creation of a Pad, identified by a Project-scoped never-reused **incarnation**, together with its current text and Revision. Its identity survives edits, ownership and Home changes; another creation with the same name is another source.
 
+**Pad incarnation** (`incarnation`, `expectedIncarnation`, `expected_incarnation`):
+The Pad source creation identity exposed as an opaque string in every public Pad result. It survives edits, ownership/Home changes and restart. Retain it with the original Project and content Revision. `pad.write` checks a supplied incarnation and `expectedRevision` in its write transaction: replacement is `CONFLICT`, absence is `NOT_FOUND`, and refusal changes no text, mirror, Touch or Event. Omitting the incarnation keeps current-content-by-name semantics. Incarnations can be equal in different Projects.
+
 **Pad source state** (`PadSourceState`, `source_state`):
 The live Pad source, its recorded deletion, or an unknown incarnation; an unknown source grants no authority to a same-named Pad.
 
