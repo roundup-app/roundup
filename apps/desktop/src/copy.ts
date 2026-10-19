@@ -107,6 +107,7 @@ export const copy = {
   cancel: "Cancel",
   stopAndClose: "Stop and close",
   projectName: "Project name",
+  projectNoLongerOpen: "Project is no longer open",
   projectActions: "Project actions",
   rename: "Rename",
   terminalName: "Terminal name",
