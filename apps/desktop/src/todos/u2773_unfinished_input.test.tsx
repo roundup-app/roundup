@@ -318,8 +318,9 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   document.activeElement instanceof HTMLElement && document.activeElement.blur();
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
-  field.setSelectionRange(2, 3);
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  field.setSelectionRange(2, 3, "backward");
   fireEvent.select(field);
-  expect(connected.drafts.list().map(draft => [draft.status, draft.selection])).toEqual([["failed", { start: 2, end: 3, direction: "forward" }]]);
+  expect(connected.drafts.list().map(draft => [draft.status, draft.selection])).toEqual([["failed", { start: 2, end: 3, direction: "backward" }]]);
   expect(screen.getByRole("button", { name: "Copy Todo", description: /Failed.*Title.*refused title/ })).toBeTruthy();
 });
