@@ -13,13 +13,13 @@ import type { StartedDaemon } from "./realDaemonFixture";
 
 let real: StartedDaemon;
 
-// Two Workstreams of five Agents each, one `blocked` in each; the Agent with id N plays entry N (U351, U356).
+// Two Workstreams of five Agents each, one `blocked` in each; each Agent plays its named entry (U351, U356).
 const FIRST = ["blocked", "working", "idle", "working", "idle"];
 
 const SECOND = ["error", "needs-you", "blocked", "error", "needs-you"];
 
 beforeAll(async () => {
-  // E10: each Agent's turns are chosen by its id in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
+  // E10: each Agent's turns are chosen by its seed name in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
   real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u356_blocked.json"));
 }, 120_000);
 
@@ -74,7 +74,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       }, { timeout: 30_000, interval: 1000 });
 
       for (const [at, kind] of kinds.entries()) {
-        await spawnPrompted(app, real.dir, workstream);
+        await spawnPrompted(app, real.dir, workstream, `seed-${agents.length}`);
         await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
