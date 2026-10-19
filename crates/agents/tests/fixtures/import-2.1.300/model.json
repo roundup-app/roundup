@@ -1,0 +1,43 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "<task-notification>"
+      },
+      "response": {
+        "content": "Subagent finished."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "observe-import-child-2875"
+      },
+      "response": {
+        "content": "Child observation complete."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_observe_2875"
+      },
+      "response": {
+        "content": "Parent observation complete."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "observe-import-parent-2875",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_observe_2875",
+            "name": "Agent",
+            "arguments": "{\"description\": \"Observe local storage\", \"prompt\": \"observe-import-child-2875\", \"subagent_type\": \"general-purpose\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
