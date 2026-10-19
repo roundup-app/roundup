@@ -415,6 +415,12 @@ describe("u2773 Project draft integration on real Projects", () => {
     replacement = await served.rpc("rail.createWorkstream", { name: `replacement ${seed}`, parent: null });
     const other = createServedApp(second.base);
     otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
+
+    if (otherOriginal.id === original.id) {
+      await other.rpc("rail.remove", { id: otherOriginal.id });
+      otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
+    }
+
     const roots = [first, second];
     const live = new Map(roots.map((root) => [root.dir, createServedApp(root.base)]));
     let opened = [first.dir];
@@ -707,6 +713,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     await setup();
     const source = await app.forProject(first.dir).rpc("rail.startDoor", { id: original.id });
     const other = await app.forProject(second.dir).rpc("rail.startDoor", { id: otherOriginal.id });
+    expect(other.id).not.toBe(source.id);
+    expect(other.name).toBe(source.name);
     const emulators = fakeEmulators();
     const mounted = mount(emulators);
     await screen.findByRole("region", { name: "Rail" });
