@@ -1,3 +1,4 @@
+import type { ConnectedProject } from "../state/connectedProject";
 import * as v from "valibot";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -35,10 +36,10 @@ export type Clearing = {
 };
 
 /** U350: the reason prompt of one Workstream. */
-const createClearing = (app: AppSeam, events: Events, id: string, project: string): Clearing => {
+const createClearing = (app: AppSeam, events: Events, id: string, storage: ConnectedProject["drafts"]): Clearing => {
   const [phase, setPhase] = createSignal<ClearPhase>("closed");
   const [failure, setFailure] = createSignal<{ message: string; code: number | null } | null>(null);
-  const drafts = draftsOf(events, project);
+  const drafts = draftsOf(storage);
   const destination = { surface: "rail-clear", object: id, recipient: id };
   const current = () => drafts.records().filter((draft) => draft.destination.surface === destination.surface && draft.destination.object === id).at(-1);
 
@@ -129,12 +130,12 @@ const createClearing = (app: AppSeam, events: Events, id: string, project: strin
 const known = new WeakMap<Events, Map<string, Clearing>>();
 
 /** One prompt per Workstream, shared by the Rail row's menu and its prompt. */
-export const clearingOf = (app: AppSeam, events: Events, id: string, project: string): Clearing => {
+export const clearingOf = (app: AppSeam, events: Events, id: string, storage: ConnectedProject["drafts"]): Clearing => {
   const byId = known.get(events) ?? new Map<string, Clearing>();
 
   known.set(events, byId);
 
-  const found = byId.get(id) ?? createClearing(app, events, id, project);
+  const found = byId.get(id) ?? createClearing(app, events, id, storage);
 
   byId.set(id, found);
 

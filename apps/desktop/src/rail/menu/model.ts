@@ -1,3 +1,4 @@
+import type { ConnectedProject } from "../../state/connectedProject";
 import { copy } from "../../copy";
 import { createSignal } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -33,7 +34,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, project: string) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"]) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -128,7 +129,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   const isClearable = (node: RailNode) => {
     if (node.kind !== "workstream") return false;
 
-    const phase = clearingOf(app, events, node.id, project).phase();
+    const phase = clearingOf(app, events, node.id, storage).phase();
 
     return phase !== "pending" && (phase === "closed" || clearTarget()?.id !== node.id);
   };
@@ -148,7 +149,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     if (!isClearable(node)) return;
 
     setClearTarget(node);
-    clearingOf(app, events, node.id, project).open();
+    clearingOf(app, events, node.id, storage).open();
   };
 
   const chooseRemove = () => {
