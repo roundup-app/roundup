@@ -31,7 +31,11 @@ const Fixture = () => {
     <div style={{ height: 'calc(var(--space-6) * 2)', width: 'calc(var(--space-6) * 10)' }}>
       <Strip tabs={tabs()} active={active()} onSelect={setActive}
         onMark={(path) => { setActive(path); setMarks(marks() + 1); }}
-        onRename={(path, name) => { setTabs(tabs().map(tab => tab.path === path ? { ...tab, name } : tab)); }}
+        onRename={async (path, name) => {
+          setTabs(tabs().map(tab => tab.path === path ? { ...tab, name } : tab));
+
+          return { path, name, revision: 0, status: "acknowledged", project: { path, name } };
+        }}
         onClose={(path) => { const next = tabs().filter(tab => tab.path !== path); setTabs(next);
 
  if (active() === path) setActive(next[0]!.path); }}

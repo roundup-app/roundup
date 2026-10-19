@@ -38,7 +38,7 @@ export const ProjectTab = (props: {
   selected: boolean;
   closeFocus?: boolean;
   onMark: () => void;
-  onRename: (name: string) => ReturnType<ProjectsState["rename"]> | void;
+  onRename: (name: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
   ref?: (element: HTMLElement) => void;
 }) => {
