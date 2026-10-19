@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import type { ExecFileException } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,7 +19,12 @@ let profile: string;
 let session: string;
 
 const browser = async (...args: string[]) => {
-  const { stdout } = await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 });
+  const { stdout } = await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 }).catch((error: ExecFileException & { stdout?: string; stderr?: string }) => {
+    if (error instanceof Error && "stdout" in error && "stderr" in error) throw new Error(`${error.message}\n${String(error.stdout)}\n${String(error.stderr)}`);
+
+    throw error;
+  });
+
   // SAFETY: agent-browser returns its own JSON envelope in this isolated session.
   const response = JSON.parse(stdout) as { success: boolean; error?: string; data: { result: unknown } };
 
@@ -40,9 +46,9 @@ const showDiff = async () => {
   await click("View diff");
 };
 
-const capture = async (name: string) => {
+const capture = async (name: string, id = "U2540") => {
   const checks = await browser("eval", "window.__checks()");
-  const dir = captureDir("U2540");
+  const dir = captureDir(id);
 
   if (dir) {
     await mkdir(dir, { recursive: true });
@@ -133,3 +139,78 @@ it("u2540d_review_stage_rendered_observer", async () => {
     await click("Close");
   }
 }, 180_000);
+
+it("u2773a_changes_browser_reload_restores_exact_work", async () => {
+  await open("/src/changes/u2540.html");
+  await showDiff();
+  await click("Add note");
+  await browser("find", "label", "Note", "fill", "  unfinished e\u0301\n🐝 exact  ");
+  await browser("find", "label", "End line", "fill", "2");
+  await browser("eval", `(() => { const field = document.querySelector('.note-form textarea'); field.setSelectionRange(2, 9, 'backward'); field.dispatchEvent(new Event('select', { bubbles: true })); })()`);
+  await open("/src/changes/u2540.html?restore");
+  await showDiff();
+  await click("Add note");
+  await wait("document.activeElement === document.querySelector('.note-form textarea')");
+  expect(await browser("eval", `(() => { const field = document.querySelector('.note-form textarea'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()`)).toEqual(["  unfinished e\u0301\n🐝 exact  ", 2, 9, "backward"]);
+  expect(await browser("eval", "[...document.querySelectorAll('.note-form input')].map(field => field.value)")).toEqual(["1", "2"]);
+  expect(await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'message.send').length")).toBe(0);
+  await capture("recovered-form", "U2773a");
+}, 60_000);
+
+it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
+  const { startRealDaemon } = await import("../testing/realDaemonFixture");
+  const { createServedApp } = await import("../testing/realSeam");
+  const logs = await mkdtemp(join(tmpdir(), "unfinished-rendered-log-"));
+  const real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") }, true);
+
+  try {
+    const git = (...args: string[]) => exec("git", ["-C", real.dir, ...args], { timeout: 30_000 });
+    await git("init", "-b", "main");
+    await git("config", "user.name", "Recovery observer");
+    await git("config", "user.email", "observer@example.test");
+    await writeFile(join(real.dir, "same.ts"), "base source\n");
+    await git("add", "same.ts");
+    await git("commit", "-m", "base");
+    const app = createServedApp(real.base);
+    await app.rpc("project.setWorktrees", { on: true, check: "true" });
+    const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Recovery", order: { kind: "work", ask: "inspect", limits: [] } });
+    await writeFile(join(node.worktree!.path, "same.ts"), "exact work\n");
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
+    await browser("eval", `document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
+    await wait("!!document.querySelector('.worktree-control')");
+    await click(node.worktree!.branch);
+    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+    await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+    await click("View diff");
+    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
+    await capture("real-before-retention-failure", "U2773e");
+    await browser("eval", "Storage.prototype.setItem = function(key) { if (key.startsWith('roundup:drafts:')) throw new Error('storage refused'); }");
+    await browser("eval", "[...document.querySelectorAll('.diff-reader button')].find(button => button.textContent === 'Add note').click()");
+    await browser("screenshot", "/tmp/unfinished-changes-before-retention.png");
+    await browser("wait", ".note-form textarea");
+    await browser("fill", ".note-form textarea", "  retain this exact e\u0301\n🐝  ");
+    await wait("!!document.querySelector('.note-batch [role=alert]')");
+    expect(await browser("eval", "document.querySelector('.note-form textarea').value")).toBe("  retain this exact e\u0301\n🐝  ");
+    await capture("real-retention-failure", "U2773e");
+    await browser("screenshot", "/tmp/unfinished-changes-retention.png");
+    expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
+    await click("Close");
+    await wait("!document.querySelector('.worktree-panel')");
+    await click("Recover Changes drafts");
+    await wait("!!document.querySelector('.note-recovery')");
+    expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain("retain this exact");
+    await capture("real-recovery-actions", "U2773e");
+    await browser("screenshot", "/tmp/unfinished-changes-recovery.png");
+    // The densest established seed also exposes capacity failure instead of truncating a note.
+    await open("/src/changes/u2540.html?dense");
+    await showDiff();
+    await wait("!!document.querySelector('.note-batch [role=alert]')");
+    expect(await browser("eval", "document.querySelectorAll('[aria-label=\"Notes\"] > li').length")).toBe(100);
+    await capture("dense-retention-failure", "U2773e");
+  } finally {
+    await browser("open", "about:blank");
+    await real.stop();
+    await rm(logs, { recursive: true, force: true });
+  }
+}, 120_000);

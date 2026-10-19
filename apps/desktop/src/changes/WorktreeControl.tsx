@@ -11,7 +11,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Popover } from "../ui/Popover";
 import { notesFor } from "./notes";
 import type { Notes, Note } from "./notes";
-import { NoteBatch } from "./NoteBatch";
+import { NoteBatch, NoteRecovery } from "./NoteBatch";
 import { DiffReader } from "./DiffReader";
 import { ChangedTree } from "./ChangedTree";
 import "./styles.css";
@@ -115,8 +115,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
 /** U2539b: the bottom bar's one control for the selected Agent's Worktree; none for an Agent without one. */
 export const WorktreeControl = () => {
-  const { rail, app } = useConnectedProject();
-  const notes = notesFor(app);
+  const { rail, app, project } = useConnectedProject();
+  const notes = notesFor(app, project.path);
 
   const selected: Accessor<{ id: string; name: string; worktree: Worktree } | null> = createMemo(
     () => {
@@ -128,5 +128,5 @@ export const WorktreeControl = () => {
     { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
-  return <Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} />}</Show>;
+  return <><Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} />}</Show><NoteRecovery notes={notes} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
 };

@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -50,10 +50,13 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     onCleanup(() => { current = false; });
   });
 
+  // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
+  const notes = createMemo(() => props.notes.list(props.id));
+
   createEffect(() => {
     const value = read();
     const mount = host();
-    const annotations = props.notes.list(props.id).filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
+    const annotations = notes().filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
 
     if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return;
     let current = true;
