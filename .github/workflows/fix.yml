@@ -149,6 +149,7 @@ jobs:
         timeout-minutes: 105
         env:
           CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_ONLY: ${{ vars.CODEX_ONLY }}
           # Claude Code runs on it, and a Builder's real-`claude` observers sign in with it.
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PROMPT: ${{ needs.task.outputs.prompt }}
@@ -175,6 +176,8 @@ jobs:
         env:
           BRANCH: ${{ needs.task.outputs.branch }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CODEX_AUTH: ${{ secrets.CODEX_AUTH_JSON }}
+          CODEX_ONLY: ${{ vars.CODEX_ONLY }}
           GH_TOKEN: ${{ github.token }}
         run: |
           verdict=$(python3 "$RUNNER_TEMP/main/loop/builder.py" screen "$BRANCH" </dev/null)
