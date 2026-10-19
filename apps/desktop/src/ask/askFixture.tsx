@@ -1,6 +1,7 @@
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { DrawerHost } from "../drawer/DrawerHost";
 import { Keys } from "../keys/Keys";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -39,6 +40,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
+      <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
       <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar /></div>
     </ConnectedProjectContext.Provider>
