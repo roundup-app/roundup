@@ -1,3 +1,4 @@
+import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
 import { createMemo, createSignal, onMount, Show } from "solid-js";
 import { createNear } from "../ink/near";
@@ -37,7 +38,7 @@ export const ProjectTab = (props: {
   selected: boolean;
   closeFocus?: boolean;
   onMark: () => void;
-  onRename: (name: string) => void;
+  onRename: (name: string) => ReturnType<ProjectsState["rename"]> | void;
   onClose: () => void;
   ref?: (element: HTMLElement) => void;
 }) => {

@@ -2,6 +2,7 @@ import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
+import { RpcError } from "../app/seam";
 import { storedValue } from "./storage";
 
 /** One open Project as the strip shows it: `generation` counts reopens, so a new Daemon's connection replaces the old one whole. */
@@ -33,8 +34,12 @@ export type ProjectsState = {
   reopening: Accessor<boolean>;
   /** Ends the Project's Daemon and drops its tab; the tab to its left opens (U184). */
   close(path: string): Promise<void>;
-  /** Shows `name` at once and restores the old name when the call fails (U183). */
-  rename(path: string, name: string): Promise<void>;
+  /** Shows the latest submitted name; each reply keeps its original path, exact text and revision (U183, U2773b). */
+  rename(path: string, name: string): Promise<{
+    path: string;
+    name: string;
+    revision: number;
+  } & ({ status: "acknowledged"; project: Project } | { status: "failed"; error: string } | { status: "unknown"; error: string })>;
 };
 
 /** The open tab's path, kept in the webview's saved state beside the Rail's layout (U186). */
@@ -48,6 +53,9 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
   const [active, setActive] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [reopening, setReopening] = createSignal(false);
+
+  let renameRevision = 0;
+  const renames = new Map<string, { committed: Project; acknowledged: number; pending: Map<number, string> }>();
 
   const update = (path: string, change: (tab: OpenTab) => OpenTab) => setTabs((all) => all.map((tab) => (tab.project.path === path ? change(tab) : tab)));
 
@@ -169,24 +177,63 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
       }
     },
     rename: async (path, name) => {
+      const submission = { path, name, revision: ++renameRevision };
       const before = tabs().find((tab) => tab.project.path === path)?.project;
 
-      if (!before) return;
+      if (!before) return { ...submission, status: "failed", error: "Project is no longer open" };
 
-      update(path, (tab) => ({ ...tab, project: { ...tab.project, name: name.trim() || folderOf(path) } }));
+      const holder = renames.get(path) ?? { committed: before, acknowledged: 0, pending: new Map<number, string>() };
+      renames.set(path, holder);
+      holder.pending.set(submission.revision, name.trim() || folderOf(path));
+
+      const showName = () => {
+        const latest = [...holder.pending].filter(([revision]) => revision > holder.acknowledged).at(-1);
+        update(path, (tab) => ({ ...tab, project: latest ? { ...holder.committed, name: latest[1] } : holder.committed }));
+      };
+
+      showName();
 
       try {
         const project = await app.renameProject(path, name);
 
-        setFailure(null);
-        update(path, (tab) => ({ ...tab, project }));
-      } catch (error) {
-        update(path, (tab) => ({ ...tab, project: before }));
+        holder.pending.delete(submission.revision);
 
-        // The adapter rejects as an RpcError; a rejection that is not an Error is a bug and is rethrown, which surfaces as an unhandled rejection rather than as text.
+        if (submission.revision > holder.acknowledged) {
+          holder.committed = project;
+          holder.acknowledged = submission.revision;
+        }
+
+        setFailure(null);
+        showName();
+
+        return { ...submission, status: "acknowledged", project };
+      } catch (error) {
         if (!(error instanceof Error)) throw error;
 
+        holder.pending.delete(submission.revision);
         setFailure(error.message);
+        showName();
+
+        // INTERNAL also covers a lost or malformed answer: only a domain refusal establishes rejection.
+        if (error instanceof RpcError && (error.code === -32602 || error.code === -32003)) {
+          return { ...submission, status: "failed", error: error.message };
+        }
+
+        try {
+          const project = (await app.projects()).find((project) => project.path === path);
+
+          if (project && submission.revision >= holder.acknowledged) {
+            holder.committed = { path: project.path, name: project.name };
+            showName();
+          }
+        } catch (readError) {
+          if (!(readError instanceof Error)) throw readError;
+          setFailure(`${error.message}; ${readError.message}`);
+        }
+
+        return { ...submission, status: "unknown", error: error.message };
+      } finally {
+        if (holder.pending.size === 0) renames.delete(path);
       }
     },
   };

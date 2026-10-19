@@ -121,26 +121,87 @@ describe("u183 rename in place", () => {
 });
 
 
-it.each([false, true])("u2773b_header_settlement_preserves_other_revisions_other_project_%s", async (switchProject) => {
+it.each<[boolean, RpcError]>([
+  [false, new RpcError(-32603, "disconnected")],
+  [true, new RpcError(-32000, "request timed out")],
+])("u2773b_header_settlement_preserves_other_revisions_other_project_%s", async (switchProject, unknownError) => {
   const { app } = await openTabs({ api: [], web: [] });
-  const state = createRoot(() => createProjectsState(app));
+  let dispose = () => {};
+
+  const state = createRoot((stop) => {
+    dispose = stop;
+
+    return createProjectsState(app);
+  });
+
   await waitFor(() => expect(state.loaded()).toBe(true));
+  state.select(path("api"));
+  const rename = state.rename;
   const calls: { path: string; name: string; accept: (project: { path: string; name: string }) => void; reject: (error: Error) => void }[] = [];
   app.renameProject = (path, name) => new Promise((accept, reject) => { calls.push({ path, name, accept, reject }); });
-  const a = state.rename(path("api"), " A 雪 ");
-  const b = state.rename(path("api"), "B");
+  const a = rename(path("api"), " A 雪 ");
+  const b = rename(path("api"), "B");
+
   if (switchProject) state.select(path("web"));
+  expect(state.active()).toBe(path(switchProject ? "web" : "api"));
   calls[1]!.accept({ path: path("api"), name: "B" });
   const acknowledged = await b;
   expect(acknowledged).toMatchObject({ status: "acknowledged", path: path("api"), name: "B" });
   calls[0]!.reject(new RpcError(-32602, "rejected"));
   const rejected = await a;
   expect(rejected).toMatchObject({ status: "failed", path: path("api"), name: " A 雪 " });
-  expect(rejected.revision).not.toBe(acknowledged.revision);
+  expect(rejected!.revision).not.toBe(acknowledged!.revision);
   expect(state.tabs().find(tab => tab.project.path === path("api"))?.project.name).toBe("B");
   expect(state.tabs().find(tab => tab.project.path === path("web"))?.project.name).toBe("web");
-  const unknown = state.rename(path("api"), "C");
-  calls[2]!.reject(new RpcError(-32603, "disconnected"));
+  const clean = rename(path("api"), "refused");
+  calls[2]!.reject(new RpcError(-32602, "rejected"));
+  expect(await clean).toMatchObject({ status: "failed", path: path("api"), name: "refused" });
+  expect(state.tabs().find(tab => tab.project.path === path("api"))?.project.name).toBe("B");
+  const read = app.projects;
+  let reads = 0;
+  app.projects = async () => {
+    reads++;
+
+    return [{ path: path("api"), name: "C", running: true }, ...(await read()).filter(project => project.path !== path("api"))];
+  };
+
+  const unknown = rename(path("api"), "C");
+  calls[3]!.reject(unknownError);
   expect(await unknown).toMatchObject({ status: "unknown", path: path("api"), name: "C" });
-  expect(calls.map(({ path, name }) => [path, name])).toEqual([[path("api"), " A 雪 "], [path("api"), "B"], [path("api"), "C"]]);
+  expect(reads).toBe(1);
+  expect(state.tabs().find(tab => tab.project.path === path("api"))?.project.name).toBe("C");
+  app.projects = async () => {
+    reads++;
+    throw new RpcError(-32603, "read disconnected");
+  };
+
+  const unavailable = rename(path("api"), "D");
+  calls[4]!.reject(unknownError);
+  expect(await unavailable).toMatchObject({ status: "unknown", path: path("api"), name: "D" });
+  expect(reads).toBe(2);
+  expect(state.tabs().find(tab => tab.project.path === path("api"))?.project.name).toBe("C");
+  dispose();
+  expect(calls.map(({ path, name }) => [path, name])).toEqual([[path("api"), " A 雪 "], [path("api"), "B"], [path("api"), "refused"], [path("api"), "C"], [path("api"), "D"]]);
+});
+
+
+it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => {
+  const { app } = await openTabs({ api: [], web: [] });
+  const replies: { accept: (project: { path: string; name: string }) => void; reject: (error: Error) => void }[] = [];
+  app.renameProject = () => new Promise((accept, reject) => { replies.push({ accept, reject }); });
+  const a = await edit();
+  a.value = "A";
+  press("Enter");
+  const b = await edit("A");
+  b.value = "B";
+  press("Enter");
+  fireEvent.click(tab("web"));
+  replies[1]!.accept({ path: path("api"), name: "B" });
+  await waitFor(() => expect(tab("B")).toBeDefined());
+  replies[0]!.reject(new RpcError(-32602, "older rename rejected"));
+  await screen.findByText("older rename rejected");
+  expect(tab("B")).toBeDefined();
+  fireEvent.click(tab("B"));
+  await waitFor(() => expect(document.querySelector(".window-title")?.textContent).toBe("B"));
+  expect(replies).toHaveLength(2);
 });

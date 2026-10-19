@@ -209,18 +209,19 @@ export const App = (props: {
   const renameProject = async (path: string, name: string) => {
     const before = renamingProjects().get(path)?.name ?? projects.tabs().find((tab) => tab.project.path === path)?.project.name;
 
-    if (before === undefined) return;
     const revision = ++renameRevision;
-    setRenamingProjects((all) => new Map(all).set(path, { name: before, revision }));
-    await projects.rename(path, name);
+    setRenamingProjects((all) => new Map(all).set(path, { name: before ?? name, revision }));
+    const outcome = await projects.rename(path, name);
 
-    if (renamingProjects().get(path)?.revision !== revision) return;
+    if (renamingProjects().get(path)?.revision !== revision) return outcome;
     setRenamingProjects((all) => {
       const next = new Map(all);
       next.delete(path);
 
       return next;
     });
+
+    return outcome;
   };
 
   const answer = (request: Requested) => void (request.kind === "open" ? projects.open(request.path) : renameProject(request.path, request.name));
@@ -336,7 +337,7 @@ export const App = (props: {
               active={projects.active()}
               onSelect={projects.select}
               onMark={jumpTo}
-              onRename={(path, name) => void renameProject(path, name)}
+              onRename={renameProject}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
             />
