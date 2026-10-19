@@ -45,6 +45,11 @@ impl Model {
                 "warn",
                 "--fixtures",
             ])
+            .arg(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../rup/tests/e2e/fixtures/rail_rename_note.json"),
+            )
+            .arg("--fixtures")
             .arg(fixture)
             .stdout(Stdio::null())
             .spawn()

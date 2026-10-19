@@ -84,6 +84,7 @@ struct Run {
     watcher: Client,
     sender: Client,
     child: String,
+    scout: bool,
     terminal: Value,
     attempt: Value,
     /// The bytes the Daemon typed itself at the start (its context), before any note.
@@ -135,6 +136,10 @@ impl Run {
 
     /// A Daemon whose Claude Code lists `peerProtocol` `protocol` in its session file.
     async fn start_on(protocol: u64) -> Self {
+        Self::start_case(protocol, false).await
+    }
+
+    async fn start_case(protocol: u64, scout: bool) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
@@ -165,6 +170,7 @@ impl Run {
             watcher,
             sender,
             child: String::new(),
+            scout,
             terminal: Value::Null,
             attempt: Value::Null,
             started_with: AtomicUsize::new(0),
@@ -174,9 +180,33 @@ impl Run {
     }
 
     async fn spawn(&mut self) {
-        let node = self
-            .user
-            .request("agent.spawn", json!({"name":"child","cwd":self.dir.path()}))
+        let caller = Client::connect(&self.daemon.socket).await.unwrap();
+        if self.scout {
+            let parent = self
+                .user
+                .request(
+                    "agent.spawn",
+                    json!({"name":"parent","cwd":self.dir.path()}),
+                )
+                .await
+                .unwrap();
+            self.user
+                .request("agent.stop", json!({"id":parent["id"]}))
+                .await
+                .unwrap();
+            caller
+                .request(
+                    "daemon.identify",
+                    json!({"actor":{"kind":"agent","id":parent["id"]}}),
+                )
+                .await
+                .unwrap();
+        }
+        let node = caller
+            .request(
+                "agent.spawn",
+                json!({"name":"child","cwd":self.dir.path(),"scout":self.scout}),
+            )
             .await
             .unwrap();
         self.child = node["id"].as_str().unwrap().to_owned();
@@ -689,4 +719,295 @@ async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
         run.entries(),
         [first, other, again].map(|id| format!("rup-{id}"))
     );
+}
+
+impl Run {
+    async fn rename(&self, name: &str) -> u32 {
+        self.user
+            .request("rail.rename", json!({"id":self.child,"name":name}))
+            .await
+            .unwrap();
+        let body = format!("you are now called \"{name}\" on the Rail");
+        until("rename note queued", async || {
+            let messages = self
+                .user
+                .request("message.list", json!({"to":self.child}))
+                .await
+                .unwrap();
+            messages
+                .as_array()
+                .unwrap()
+                .iter()
+                .rev()
+                .find(|m| m["body"] == body)
+                .map(|m| m["id"].as_u64().unwrap() as u32)
+        })
+        .await
+    }
+
+    async fn assert_rename_delivery(&mut self, ids: &[u32], names: &[&str]) {
+        let expected: Vec<_> = ids.iter().map(|id| format!("rup-{id}")).collect();
+        until("ordered rename entries", async || {
+            (self.entries() == expected).then_some(())
+        })
+        .await;
+        for ((entry, id), name) in self.received().iter().zip(ids).zip(names) {
+            assert_eq!(
+                entry["msg_id"],
+                format!("00000000-0000-4000-8000-{id:012x}")
+            );
+            let content = entry["message"]["content"].as_str().unwrap();
+            assert!(content.contains("from-name=\"rupd\""), "{content}");
+            assert!(
+                content.contains(&format!("you are now called \"{name}\" on the Rail")),
+                "{content}"
+            );
+            let message = self.message(*id).await;
+            assert_eq!(message["from"]["id"], "rupd");
+            assert_eq!(message["kind"], "note");
+            assert_eq!(message["status"], "pending");
+        }
+        assert_eq!(self.typed().await, 0);
+        self.record(ids).await;
+        until("rename acknowledgements", async || {
+            let mut delivered = true;
+            for id in ids {
+                delivered &= self.status(*id).await.0 == "delivered";
+            }
+            delivered.then_some(())
+        })
+        .await;
+        self.idle_edge().await;
+        let (_, delivered) = self.seen().await;
+        for id in ids {
+            assert_eq!(delivered.iter().filter(|seen| *seen == id).count(), 1);
+        }
+        assert_eq!(self.entries(), expected);
+        assert_eq!(self.typed().await, 0);
+    }
+}
+
+#[tokio::test]
+async fn b2704a_rename_updates_context_and_queues_one_note() {
+    for (scout, agent_caller) in [(false, false), (true, false), (false, true)] {
+        let mut run = Run::start_case(1, scout).await;
+        let caller = Client::connect(&run.daemon.socket).await.unwrap();
+        if agent_caller {
+            caller
+                .request(
+                    "daemon.identify",
+                    json!({"actor":{"kind":"agent","id":run.child}}),
+                )
+                .await
+                .unwrap();
+        }
+        caller
+            .request("rail.rename", json!({"id":run.child,"name":"sad-2"}))
+            .await
+            .unwrap();
+        let id = until("rename note queued", async || {
+            let messages = run
+                .user
+                .request("message.list", json!({"to":run.child}))
+                .await
+                .unwrap();
+            messages
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|m| m["body"] == "you are now called \"sad-2\" on the Rail")
+                .map(|m| m["id"].as_u64().unwrap() as u32)
+        })
+        .await;
+        let context = run
+            .user
+            .request("agent.context", json!({"id":run.child}))
+            .await
+            .unwrap();
+        assert_eq!(context["self"]["name"], "sad-2");
+        run.assert_rename_delivery(&[id], &["sad-2"]).await;
+    }
+}
+
+#[tokio::test]
+async fn b2704a_busy_renames_arrive_once_in_order() {
+    let mut run = Run::start().await;
+    run.signal(json!({"hook_event_name":"PreToolUse","tool_name":"Bash"}))
+        .await;
+    let first = run.rename("sad-2").await;
+    let second = run.rename("sad-3").await;
+    assert!(run.entries().is_empty());
+    run.signal(json!({"hook_event_name":"Stop"})).await;
+    run.assert_rename_delivery(&[first, second], &["sad-2", "sad-3"])
+        .await;
+}
+
+#[tokio::test]
+async fn b2704a_takeover_holds_rename_notes() {
+    let mut run = Run::start().await;
+    run.signal(json!({"hook_event_name":"PreToolUse","tool_name":"Bash"}))
+        .await;
+    let pending = run.rename("sad-1").await;
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let first = run.rename("sad-2").await;
+    let second = run.rename("sad-3").await;
+    run.signal(json!({"hook_event_name":"Stop"})).await;
+    for id in [pending, first, second] {
+        until("rename held for Takeover", async || {
+            (run.status(id).await == ("held".into(), Some("takeover".into()))).then_some(())
+        })
+        .await;
+    }
+    assert!(run.entries().is_empty());
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    run.assert_rename_delivery(&[pending, first, second], &["sad-1", "sad-2", "sad-3"])
+        .await;
+}
+
+#[tokio::test]
+async fn b2704a_workstream_rename_notifies_its_door() {
+    let mut run = Run::start().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let workstream = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"sad","parent":null}))
+        .await
+        .unwrap();
+    let door = run
+        .user
+        .request("rail.startDoor", json!({"id":workstream["id"]}))
+        .await
+        .unwrap();
+    run.child = door["id"].as_str().unwrap().into();
+    run.terminal = door["terminal_id"].clone();
+    run.attempt = door["attempt"].clone();
+    run.ready().await;
+    let id = run.rename("sad-2").await;
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["self"]["name"], "sad-2");
+    assert_eq!(run.message(id).await["to"], run.child);
+    run.assert_rename_delivery(&[id], &["sad-2"]).await;
+}
+
+#[tokio::test]
+async fn b2704a_unchanged_names_produce_no_note() {
+    let run = Run::start().await;
+    run.user
+        .request("rail.rename", json!({"id":run.child,"name":"child"}))
+        .await
+        .unwrap();
+    assert!(
+        run.user
+            .request("rail.rename", json!({"id":"7013","name":"rejected"}))
+            .await
+            .is_err()
+    );
+    // Explicitly named Agents keep their name on the first prompt and on later prompts.
+    for prompt in ["", "first words", "later words"] {
+        run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":prompt}))
+            .await;
+    }
+    run.user
+        .request("rail.move", json!({"id":run.child,"parent":null,"index":0}))
+        .await
+        .unwrap();
+    let messages = run
+        .user
+        .request("message.list", json!({"to":run.child}))
+        .await
+        .unwrap();
+    assert!(messages.as_array().unwrap().is_empty(), "{messages}");
+    assert!(run.entries().is_empty());
+}
+
+#[tokio::test]
+async fn b2704a_first_prompt_rename_notifies() {
+    let mut run = Run::start().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let node = run
+        .user
+        .request("agent.spawn", json!({"cwd":run.dir.path()}))
+        .await
+        .unwrap();
+    run.child = node["id"].as_str().unwrap().into();
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    run.ready().await;
+    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"sad"}))
+        .await;
+    let id = until("first prompt rename note", async || {
+        let messages = run
+            .user
+            .request("message.list", json!({"to":run.child}))
+            .await
+            .unwrap();
+        messages
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["body"] == "you are now called \"sad\" on the Rail")
+            .map(|m| m["id"].as_u64().unwrap() as u32)
+    })
+    .await;
+    run.signal(json!({"hook_event_name":"Stop"})).await;
+    run.assert_rename_delivery(&[id], &["sad"]).await;
+    run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":"later name"}))
+        .await;
+    let context = run
+        .user
+        .request("agent.context", json!({"id":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(context["self"]["name"], "sad");
+    let messages = run
+        .user
+        .request("message.list", json!({"to":run.child}))
+        .await
+        .unwrap();
+    assert_eq!(messages.as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn b2704a_unchanged_names_produce_no_note_for_a_no_word_first_prompt() {
+    let mut run = Run::start().await;
+    run.user
+        .request("agent.stop", json!({"id":run.child}))
+        .await
+        .unwrap();
+    let node = run
+        .user
+        .request("agent.spawn", json!({"cwd":run.dir.path()}))
+        .await
+        .unwrap();
+    run.child = node["id"].as_str().unwrap().into();
+    run.terminal = node["terminal_id"].clone();
+    run.attempt = node["attempt"].clone();
+    run.ready().await;
+    for prompt in ["   ", "later words"] {
+        run.signal(json!({"hook_event_name":"UserPromptSubmit","prompt":prompt}))
+            .await;
+    }
+    let messages = run
+        .user
+        .request("message.list", json!({"to":run.child}))
+        .await
+        .unwrap();
+    assert!(messages.as_array().unwrap().is_empty(), "{messages}");
+    assert!(run.entries().is_empty());
 }
