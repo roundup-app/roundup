@@ -136,10 +136,13 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
-  return <Show when={connected.drafts.recoverable().length || connected.drafts.problem()}>
+  const records = () => connected.drafts.recoverable().filter((draft) => !draft.destination.surface.startsWith("rail-"));
+  const problem = () => connected.drafts.problem()?.destination?.surface.startsWith("rail-") ? null : connected.drafts.problem();
+
+  return <Show when={records().length || problem()}>
     <button class="draft-entry" data-button="quiet" type="button" aria-label={copy.recoverDrafts} onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>
       <span class="overview-tile"><Icon name="edit" /></span><span>{copy.recoverDrafts}</span>
-      <Show when={connected.drafts.recoverable().length}><span data-state="draft">{connected.drafts.recoverable().length}</span></Show>
+      <Show when={records().length}><span data-state="draft">{records().length}</span></Show>
     </button>
   </Show>;
 };
@@ -150,7 +153,7 @@ const DraftRecovery = () => {
   const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
   const [failure, failed] = createSignal<string | null>(null);
-  const records = createMemo(() => drafts.recoverable());
+  const records = createMemo(() => drafts.recoverable().filter((draft) => !draft.destination.surface.startsWith("rail-")));
 
   // External recovery can retain two unsubmitted revisions for one destination.
   // Only its newest unsubmitted revision is current; inspection never promotes another.
@@ -213,7 +216,7 @@ const DraftRecovery = () => {
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
     <p class="draft-identity">{project.path}</p>
-    <Show when={drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, problem().destination ? copy.draftSurface(problem().destination!.surface) : (copy.draftSurfaces([...new Set(drafts.recoverable().map((draft) => copy.draftSurface(draft.destination.surface)))]) || copy.allDraftSurfaces), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
+    <Show when={drafts.problem()?.destination?.surface.startsWith("rail-") ? null : drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, problem().destination ? copy.draftSurface(problem().destination!.surface) : (copy.draftSurfaces([...new Set(drafts.recoverable().map((draft) => copy.draftSurface(draft.destination.surface)))]) || copy.allDraftSurfaces), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
     <Show when={failure()}>{(text) => <p role="alert">{text()}</p>}</Show>
     <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">

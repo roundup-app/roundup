@@ -255,11 +255,13 @@ describe("u1 calls and events", () => {
 
     await app.closeProject("/p");
     const renamed = await app.renameProject("/p", "api");
+    await app.renameProject("/p", "next", "api");
 
     expect(renamed).toEqual({ name: "api", path: "/p" });
     expect(calls).toEqual([
       { command: "close_project", args: { path: "/p" } },
       { command: "rename_project", args: { path: "/p", name: "api" } },
+      { command: "rename_project", args: { path: "/p", name: "next", base: "api" } },
     ]);
   });
 
