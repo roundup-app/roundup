@@ -149,7 +149,7 @@ export const DraftRecoveryEntry = () => {
 };
 
 const DraftRecovery = () => {
-  const { drafts, project, rail, daemonExit } = useConnectedProject();
+  const { drafts, project, rail, daemonExit, decisions } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
@@ -198,7 +198,7 @@ const DraftRecovery = () => {
       return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
     }
 
-    const state = drafts.availability(draft, { rail, daemonExit });
+    const state = drafts.availability(draft, { rail, daemonExit, decisions });
 
     return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
   };
