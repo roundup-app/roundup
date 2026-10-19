@@ -744,6 +744,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
             format!("answered Decision {id}: {answer}")
         }
         "todo.delete" => format!("deleted Todo {id}"),
+        "deliverable.remove" => format!("removed publication {id}"),
         "pad.delete" => format!("deleted Pad {}", field("name")),
         "pad.export" => format!("exported Pad {} to {}", field("name"), field("path")),
         "pad.setStorage" => format!(

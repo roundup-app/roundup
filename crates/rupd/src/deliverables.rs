@@ -84,7 +84,7 @@ impl Daemon {
         let maker: Option<(String, Option<String>)> = if conn.actor.kind == ActorKind::Agent {
             Some(
                 tx.query_row(
-                    "SELECT name,worktree_path FROM nodes WHERE id=?1",
+                    "SELECT name,worktree_path FROM nodes WHERE CAST(id AS TEXT)=?1",
                     [&conn.actor.id],
                     |r| Ok((r.get(0)?, r.get(1)?)),
                 )
@@ -101,6 +101,11 @@ impl Daemon {
         let result = match method {
             "deliverable.publish" => {
                 let p: PublishParams = rpc::params(args)?;
+                if conn.actor.kind == ActorKind::Ext {
+                    return Err(RpcError::forbidden(
+                        "only the user or an authenticated maker can publish",
+                    ));
+                }
                 if p.key.is_empty()
                     || p.key.len() > 256
                     || p.title.trim().is_empty()
@@ -189,7 +194,7 @@ impl Daemon {
                         .as_ref()
                         .map_or_else(|| "You".to_owned(), |(name, _)| name.clone()),
                     home: if maker.is_some() {
-                        tx.query_row("WITH RECURSIVE ancestry(id,kind,parent) AS (SELECT id,kind,parent FROM nodes WHERE id=?1 UNION ALL SELECT n.id,n.kind,n.parent FROM nodes n JOIN ancestry a ON n.id=a.parent) SELECT CAST(id AS TEXT) FROM ancestry WHERE kind IN ('workstream','group') LIMIT 1",[&conn.actor.id],|r|r.get(0)).optional().map_err(RpcError::internal)?
+                        tx.query_row("WITH RECURSIVE ancestry(id,kind,parent) AS (SELECT id,kind,parent FROM nodes WHERE CAST(id AS TEXT)=?1 UNION ALL SELECT n.id,n.kind,n.parent FROM nodes n JOIN ancestry a ON n.id=a.parent) SELECT CAST(id AS TEXT) FROM ancestry WHERE kind IN ('workstream','group') LIMIT 1",[&conn.actor.id],|r|r.get(0)).optional().map_err(RpcError::internal)?
                     } else {
                         None
                     },
@@ -244,7 +249,7 @@ impl Daemon {
                 if let Some(home) = &p.home
                     && !tx
                         .query_row(
-                            "SELECT EXISTS(SELECT 1 FROM nodes WHERE id=?1 AND kind='workstream')",
+                            "SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=?1 AND kind IN ('workstream','group'))",
                             [home],
                             |r| r.get::<_, bool>(0),
                         )
@@ -468,10 +473,8 @@ fn resolve(db: &Connection, cache: &Path, record: &Deliverable) -> Result<Resolu
     })
 }
 
-fn capture(root: &Path, path: &str, worktree: bool) -> Result<(Vec<u8>, FileSource), RpcError> {
+fn open_source(root: &Path, path: &str) -> Result<std::fs::File, RpcError> {
     use cap_std::fs::{Dir, OpenOptions, OpenOptionsExt};
-    use std::io::Read;
-    use std::os::unix::fs::MetadataExt;
     let invalid = |message| RpcError::new(code::INVALID_PARAMS, message);
     if path.is_empty()
         || Path::new(path)
@@ -521,13 +524,21 @@ fn capture(root: &Path, path: &str, worktree: bool) -> Result<(Vec<u8>, FileSour
     let filename = Path::new(path)
         .file_name()
         .ok_or_else(|| invalid("publication filename is absent"))?;
-    let mut file = dir
+    let file = dir
         .open_with(filename, &options)
         .map_err(|e| RpcError::forbidden(format!("cannot read publication source: {e}")))?
         .into_std();
+    Ok(file)
+}
+
+fn capture(root: &Path, path: &str, worktree: bool) -> Result<(Vec<u8>, FileSource), RpcError> {
+    use std::io::Read;
+    use std::os::unix::fs::MetadataExt;
+    let mut file = open_source(root, path)?;
     let before = file.metadata().map_err(RpcError::internal)?;
     if !before.is_file() || before.len() > MAX_BYTES as u64 || before.mode() & 0o444 == 0 {
-        return Err(invalid(
+        return Err(RpcError::new(
+            code::INVALID_PARAMS,
             "source is not a readable regular file within 32 MiB",
         ));
     }
@@ -688,16 +699,14 @@ impl FileSource {
                 .map_err(RpcError::internal)?;
             return Ok(!registered);
         }
-        let dir = match cap_std::fs::Dir::open_ambient_dir(&self.root, cap_std::ambient_authority())
-        {
-            Ok(dir) => dir,
+        // Opening the source, without reading its contents, also enforces ACLs. Mode bits
+        // alone would incorrectly keep retained access after an ACL denied this reader.
+        let file = match open_source(&self.root, &self.path) {
+            Ok(file) => file,
             Err(_) => return Ok(false),
         };
-        let metadata = match dir.metadata(&self.path) {
-            Ok(meta) => meta,
-            Err(_) => return Ok(false),
-        };
-        use cap_std::fs::MetadataExt as _;
+        let metadata = file.metadata().map_err(RpcError::internal)?;
+        use std::os::unix::fs::MetadataExt;
         if !metadata.is_file()
             || metadata.mode() & 0o444 == 0
             || metadata.dev() != self.device
@@ -705,14 +714,7 @@ impl FileSource {
         {
             return Ok(false);
         }
-        let created = metadata
-            .created()
-            .map_err(RpcError::internal)?
-            .into_std()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(RpcError::internal)?
-            .as_nanos()
-            .to_string();
+        let created = birth(&metadata)?;
         Ok(created == self.created)
     }
 }
