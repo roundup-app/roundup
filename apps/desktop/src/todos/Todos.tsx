@@ -369,13 +369,14 @@ export const Todos = () => {
         class="shelf-add"
         ref={(button) => (plusButton = button)}
         onClick={(event) => {
+          setCreateFailure(null);
+
           if (typing()) {
             event.currentTarget.parentElement?.querySelector<HTMLInputElement>(".entry-field")?.focus();
 
             return;
           }
 
-          setCreateFailure(null);
           setCreationHome(selectedWorkstream());
           const draft = creation();
 
