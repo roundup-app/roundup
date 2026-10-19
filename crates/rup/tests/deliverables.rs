@@ -3,6 +3,14 @@
 mod common;
 use serde_json::{Value, json};
 
+async fn pad_target(client: &rpc::Client, name: &str, revision: u64) -> Value {
+    let source = client
+        .request("pad.read", json!({"name":name}))
+        .await
+        .unwrap();
+    json!({"kind":"pad","name":name,"incarnation":source["incarnation"],"revision":revision})
+}
+
 #[tokio::test]
 async fn dv1_publication_identity() {
     let mut projects = Vec::new();
@@ -27,7 +35,7 @@ async fn dv1_publication_identity() {
         std::fs::write(p.dir.path().join("result.txt"), "retained file").unwrap();
         let mut records = Vec::new();
         for (key, target) in [
-            ("pad", json!({"kind":"pad","name":"notes","revision":1})),
+            ("pad", pad_target(&c, "notes", 1).await),
             ("file", json!({"kind":"file","path":"result.txt"})),
             (
                 "external",
@@ -44,6 +52,13 @@ async fn dv1_publication_identity() {
             assert_eq!(r["home"], home);
             assert_eq!(r["title"], "Result");
             assert_eq!(r["target"]["kind"], key);
+            if key == "file" {
+                assert_eq!(r["target"]["length"], 13);
+                assert_eq!(
+                    r["target"]["sha256"],
+                    "c18472670a3f225d4bb83d2fd240712de2239e05650fa8723597cb7a0f6e2592"
+                );
+            }
             assert_eq!(c.request("deliverable.publish", request).await.unwrap(), r);
             assert!(
                 !records
@@ -231,8 +246,7 @@ async fn dv3_revoked_access() {
     c.request("pad.create", json!({"name":"notes","text":"retained"}))
         .await
         .unwrap();
-    let request =
-        json!({"key":"notes","title":"notes","target":{"kind":"pad","name":"notes","revision":1}});
+    let request = json!({"key":"notes","title":"notes","target":pad_target(&c,"notes",1).await});
     let p = c.request("deliverable.publish", request).await.unwrap();
     let id = json!({"project":p["project"],"id":p["id"]});
     let opened = c.request("deliverable.resolve", id.clone()).await.unwrap();
@@ -269,7 +283,7 @@ async fn dv3_no_substitution() {
     for (key, mutation, cause) in [
         (
             "corrupt",
-            "UPDATE deliverable_bytes SET bytes=x'00' WHERE id=?1",
+            "UPDATE deliverable_bytes SET bytes=zeroblob(length(bytes)) WHERE id=?1",
             "integrity-failure",
         ),
         (
@@ -281,7 +295,13 @@ async fn dv3_no_substitution() {
         c.request("pad.create", json!({"name":key,"text":"original"}))
             .await
             .unwrap();
-        let p=c.request("deliverable.publish",json!({"key":key,"title":"equal title","target":{"kind":"pad","name":key,"revision":1}})).await.unwrap();
+        let p = c
+            .request(
+                "deliverable.publish",
+                json!({"key":key,"title":"equal title","target":pad_target(&c,key,1).await}),
+            )
+            .await
+            .unwrap();
         db.execute(mutation, [p["id"].as_str().unwrap()]).unwrap();
         std::fs::write(a.dir.path().join(key), "substitute file").unwrap();
         c.request("pad.write", json!({"name":key,"text":"substitute"}))
@@ -392,7 +412,12 @@ async fn dv1_only_explicit_publication() {
         c.request("deliverable.list", json!({})).await.unwrap(),
         json!([])
     );
-    c.request("deliverable.publish",json!({"key":"deliberate","title":"Result","target":{"kind":"pad","name":"scratch","revision":2}})).await.unwrap();
+    c.request(
+        "deliverable.publish",
+        json!({"key":"deliberate","title":"Result","target":pad_target(&c,"scratch",2).await}),
+    )
+    .await
+    .unwrap();
     assert_eq!(
         c.request("deliverable.list", json!({}))
             .await
@@ -438,7 +463,8 @@ async fn dv2_publish_replay() {
         )
         .await
         .unwrap();
-        let request = json!({"key":"once","title":"Result","target":{"kind":"pad","name":"notes","revision":1}});
+        let request =
+            json!({"key":"once","title":"Result","target":pad_target(&c,"notes",1).await});
         let copy = request.clone();
         let pending = tokio::spawn(async move { c.request("deliverable.publish", copy).await });
         reached(&observation.path().join(stage)).await;
@@ -492,7 +518,7 @@ async fn dv4_removal_replay() {
     )
     .await
     .unwrap();
-    let request = json!({"key":"removed","title":"Result","target":{"kind":"pad","name":"notes","revision":1}});
+    let request = json!({"key":"removed","title":"Result","target":pad_target(&c,"notes",1).await});
     let record = c
         .request("deliverable.publish", request.clone())
         .await
@@ -532,10 +558,17 @@ async fn dv4_removal_replay() {
 async fn dv2_publish_failures() {
     let p = daemon::start(&[]);
     let c = p.client().await;
-    c.request("pad.create", json!({"name":"notes","text":"v1"}))
+    c.request("pad.create", json!({"name":"notes","text":"v"}))
         .await
         .unwrap();
-    assert!(c.request("deliverable.publish",json!({"key":"stale","title":"stale","target":{"kind":"pad","name":"notes","revision":2}})).await.is_err());
+    assert!(
+        c.request(
+            "deliverable.publish",
+            json!({"key":"stale","title":"stale","target":pad_target(&c,"notes",2).await})
+        )
+        .await
+        .is_err()
+    );
     let source = p.dir.path().join("large.bin");
     std::fs::write(&source, vec![0; 32 * 1024 * 1024 + 1]).unwrap();
     let file = json!({"key":"large","title":"large","target":{"kind":"file","path":"large.bin"}});
@@ -550,7 +583,14 @@ async fn dv2_publish_failures() {
         c.request("deliverable.publish",json!({"key":format!("large-{n}"),"title":"large","target":{"kind":"file","path":"large.bin"}})).await.unwrap();
     }
     // Exactly the Project quota is retained; another byte cannot evict any publication.
-    assert!(c.request("deliverable.publish",json!({"key":"over-quota","title":"notes","target":{"kind":"pad","name":"notes","revision":1}})).await.is_err());
+    assert!(
+        c.request(
+            "deliverable.publish",
+            json!({"key":"over-quota","title":"notes","target":pad_target(&c,"notes",1).await})
+        )
+        .await
+        .is_err()
+    );
     let list = c.request("deliverable.list", json!({})).await.unwrap();
     assert_eq!(list.as_array().unwrap().len(), 32);
     assert_eq!(list[0], first);
@@ -610,7 +650,7 @@ async fn dv4_home_lifecycle() {
     std::fs::write(p.dir.path().join("result"), "F1").unwrap();
     let mut publications = Vec::new();
     for (key, target) in [
-        ("pad", json!({"kind":"pad","name":"notes","revision":1})),
+        ("pad", pad_target(&c, "notes", 1).await),
         ("file", json!({"kind":"file","path":"result"})),
     ] {
         let record = c
@@ -807,5 +847,44 @@ async fn dv3_file_recreation_revokes_identity() {
     assert_eq!(
         c.request("deliverable.list", json!({})).await.unwrap(),
         json!([record])
+    );
+}
+
+#[tokio::test]
+async fn dv1_stale_pad_source_cannot_publish_replacement() {
+    let p = daemon::start(&[]);
+    let c = p.client().await;
+    c.request("pad.create", json!({"name":"notes","text":"original"}))
+        .await
+        .unwrap();
+    let target = pad_target(&c, "notes", 1).await;
+    c.request(
+        "deliverable.publish",
+        json!({"key":"original","title":"Original","target":target}),
+    )
+    .await
+    .unwrap();
+    c.request("pad.delete", json!({"name":"notes"}))
+        .await
+        .unwrap();
+    c.request("pad.create", json!({"name":"notes","text":"replacement"}))
+        .await
+        .unwrap();
+    assert!(
+        c.request(
+            "deliverable.publish",
+            json!({"key":"stale-input","title":"Original","target":target})
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(
+        c.request("deliverable.list", json!({}))
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
     );
 }

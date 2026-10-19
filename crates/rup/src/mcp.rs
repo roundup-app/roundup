@@ -383,7 +383,7 @@ fn offered_tools() -> Vec<Offered> {
     vec![
         offered::<deliverable::PublishParams>(
             "deliverable.publish",
-            "Deliberately publish a file, expected Pad revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses.",
+            "Deliberately publish a file, expected Pad incarnation and Revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses.",
         ),
         offered::<deliverable::ListParams>(
             "deliverable.list",

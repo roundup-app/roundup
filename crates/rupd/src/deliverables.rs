@@ -42,7 +42,7 @@ impl Publications {
                 .map_err(RpcError::internal)?;
             if let PublishedTarget::Pad { incarnation, .. } = record.target
                 && matches!(
-                    pads::source_state(&db, incarnation).map_err(RpcError::internal)?,
+                    pad_state(&db, &incarnation).map_err(RpcError::internal)?,
                     pads::PadSourceState::Deleted(pads::PadDeletion::User)
                         | pads::PadSourceState::Unknown
                 )
@@ -142,18 +142,23 @@ impl Daemon {
                             availability: ExternalAvailability::NotChecked,
                         }
                     }
-                    PublicationTarget::Pad { name, revision } => {
+                    PublicationTarget::Pad {
+                        name,
+                        incarnation,
+                        revision,
+                    } => {
                         let source = pads::source(&tx, &name)
                             .map_err(RpcError::internal)?
                             .ok_or_else(|| RpcError::not_found("Pad is gone"))?;
-                        if source.pad.revision != revision {
-                            return Err(RpcError::conflict("Pad Revision changed"));
+                        if source.pad.incarnation != incarnation || source.pad.revision != revision
+                        {
+                            return Err(RpcError::conflict("Pad source or Revision changed"));
                         }
                         let content = source.pad.text.into_bytes();
                         bounded(&tx, &content)?;
                         let target = PublishedTarget::Pad {
                             name: source.pad.name,
-                            incarnation: source.incarnation,
+                            incarnation: source.pad.incarnation,
                             revision,
                             length: content.len() as u64,
                             sha256: hash(&content),
@@ -397,7 +402,7 @@ fn resolve(db: &Connection, cache: &Path, record: &Deliverable) -> Result<Resolu
             sha256,
             ..
         } => {
-            match pads::source_state(db, *incarnation).map_err(RpcError::internal)? {
+            match pad_state(db, incarnation).map_err(RpcError::internal)? {
                 pads::PadSourceState::Deleted(pads::PadDeletion::User) => {
                     return unavailable(UnavailableCause::AccessRevoked);
                 }
@@ -610,7 +615,7 @@ mod tests {
             events,
             output: None,
         };
-        daemon
+        let pad = daemon
             .route(
                 &mut conn,
                 "pad.create",
@@ -618,7 +623,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let record=daemon.route(&mut conn,"deliverable.publish",json!({"key":"notes","title":"Result","target":{"kind":"pad","name":"notes","revision":1}})).await.unwrap();
+        let record=daemon.route(&mut conn,"deliverable.publish",json!({"key":"notes","title":"Result","target":{"kind":"pad","name":"notes","incarnation":pad["incarnation"],"revision":1}})).await.unwrap();
         let denied = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = denied.clone();
         daemon
@@ -717,4 +722,14 @@ impl FileSource {
         let created = birth(&metadata)?;
         Ok(created == self.created)
     }
+}
+
+fn pad_state(db: &Connection, incarnation: &str) -> rusqlite::Result<pads::PadSourceState> {
+    let Ok(id) = incarnation.parse::<i64>() else {
+        return Ok(pads::PadSourceState::Unknown);
+    };
+    if id.to_string() != incarnation {
+        return Ok(pads::PadSourceState::Unknown);
+    }
+    pads::source_state(db, id)
 }

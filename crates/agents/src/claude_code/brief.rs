@@ -32,7 +32,7 @@ impl Role {
 const TOOLS: &[(&str, &str)] = &[
     (
         "deliverable_publish",
-        "deliberately publish a file, expected Pad revision or current external URL; after an unknown reply replay the identical request and key, never scratch work",
+        "deliberately publish a file, expected Pad incarnation and Revision or current external URL; after an unknown reply replay the identical request and key, never scratch work",
     ),
     (
         "deliverable_list",
