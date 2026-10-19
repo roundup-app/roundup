@@ -482,21 +482,28 @@ describe("u2773 Project draft integration on real Projects", () => {
     await openRecovery();
     expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
     expect(screen.getByRole("alert").textContent).toContain("Order");
+    const header = drafts(first.dir);
+    expect(header).toBe(holder);
+    const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     // This native seam ends the original real Daemon; the App removes its Connection.
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
     await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
+    expect(drafts(first.dir)).toBe(header);
+    expect(header.list()).toEqual([saved, headerSaved]);
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "first" });
     await openRecovery();
-    expect(holder.list()).toEqual([saved]);
+    expect(drafts(first.dir)).toBe(holder);
+    expect(holder.list()).toEqual([saved, headerSaved]);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(saved.revision) }));
     expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-    expect(createProjectDrafts()(first.dir).list()).toEqual([saved]);
+    expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
     noDelivery();
   }, 60_000);
 

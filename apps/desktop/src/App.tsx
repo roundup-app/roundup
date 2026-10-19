@@ -29,7 +29,7 @@ import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
-import { createProjectDrafts, connectProject, ConnectedProjectContext } from "./state/connectedProject";
+import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
 import { createXtermEmulators } from "./terminal/emulator";
 import type { EmulatorFactory } from "./terminal/emulator";
@@ -314,7 +314,7 @@ export const App = (props: {
   const emulators = () => props.createEmulator ?? createXtermEmulators();
 
   return (
-    <Show when={projects.loaded()}>
+    <ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
         {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
@@ -427,6 +427,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show>
+    </Show></ProjectDraftsContext.Provider>
   );
 };
