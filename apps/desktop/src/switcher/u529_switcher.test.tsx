@@ -1,5 +1,7 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createSignal, Show } from "solid-js";
+import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
 
@@ -84,4 +86,50 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     expect(document.activeElement).toBe(origin);
     expect(app.calls.length).toBe(calls);
   });
+});
+
+it("u2773a_queries_controlled_input_restores_without_execution", async () => {
+  const { app, connected } = await mountSwitcher("ann");
+  const [query, setQuery] = createSignal("");
+  const [open, setOpen] = createSignal(true);
+  const [highlighted, setHighlighted] = createSignal<string | null>("dee");
+  const select = vi.fn((value: string) => connected.rail.select(value));
+  const exact = "  e\u0301 🧭 東京  ";
+  const items = [{ value: "dee", label: exact }, { value: "ann", label: "other" }];
+  let input!: HTMLInputElement;
+
+  const view = render(() => <Show when={open()}><Combobox.Root items={items.filter((item) => item.label.includes(query()))}
+    inputValue={query()} inputRef={(element) => { input = element; }}
+    highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={setQuery} onSelect={select}
+    label="Query" placeholder="" empty="" row={(item) => item.label} /></Show>);
+
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  fireEvent.input(input, { target: { value: exact } });
+  input.setSelectionRange(2, 9, "backward");
+  const selection = { start: input.selectionStart, end: input.selectionEnd, direction: input.selectionDirection };
+  const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
+  origin.focus();
+  const calls = app.calls.length;
+
+  setQuery("");
+  await waitFor(() => expect(input.value).toBe(""));
+  setQuery(exact);
+  await waitFor(() => expect(input.value).toBe(exact));
+  expect([...view.container.querySelectorAll('[role="option"]')].map((row) => row.getAttribute("data-value"))).toEqual(["dee"]);
+  expect(document.activeElement).toBe(origin);
+
+  // Explicit reopening remounts the field; the owner restores selection through the fresh native ref.
+  const previous = input;
+  setOpen(false);
+  setOpen(true);
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  expect(input).not.toBe(previous);
+  input.focus();
+  input.setSelectionRange(selection.start, selection.end, selection.direction ?? undefined);
+  expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 9, "backward"]);
+  expect(input.value).toBe(exact);
+  expect(document.activeElement).toBe(input);
+  expect(select).not.toHaveBeenCalled();
+  expect(connected.rail.selected()).toBe("ann");
+  expect(app.calls.length).toBe(calls);
 });
