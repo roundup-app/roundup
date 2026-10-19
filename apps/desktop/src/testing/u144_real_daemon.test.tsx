@@ -424,7 +424,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     };
   };
 
-  it("u2773a_orders_restores_exact_work_across_surfaces_projects_and_fresh_app", async () => {
+  it("u2773h_shared_authority_survives_project_lifecycle", async () => {
     await setup();
     const holder = drafts(first.dir);
     const saved = holder.edit(target(), { title: "same name", ask: exact, done: "  yes\n" }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
@@ -467,15 +467,17 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773e_recovery_actions_keep_surface_draft_after_failed_storage_close_and_reopen", async () => {
+  it("u2773h_retention_failure_preserves_closed_project_memory", async () => {
     await setup();
     const holder = drafts(first.dir);
     let headerFactory: typeof drafts | undefined;
     const setWindowTitle = app.setWindowTitle;
+
     app.setWindowTitle = async (title) => {
       headerFactory ??= useContext(ProjectDraftsContext);
       await setWindowTitle(title);
     };
+
     const write = Storage.prototype.setItem;
 
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
@@ -515,7 +517,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773b_orders_settlement_preserves_other_revisions_across_switches", async () => {
+  it("u2773h_settlement_keeps_other_revisions", async () => {
     await setup();
     const holder = drafts(first.dir);
     const a = holder.edit(target(), { ask: "A" }, null, "ordinary").draft;
@@ -539,7 +541,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it("u2773c_orders_external_change_keeps_original_after_real_removal", async () => {
+  it("u2773h_unavailable_original_remains_recoverable", async () => {
     await setup();
     const holder = drafts(first.dir);
     const a = holder.edit(target(), { ask: "older exact\n" }, null, "ordinary").draft;

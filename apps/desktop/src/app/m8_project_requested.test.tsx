@@ -58,7 +58,7 @@ describe("m8 an Agent opens and renames Projects", () => {
 });
 
 
-it("u2773a_orders_restores_exact_work", async () => {
+it("u2773h_current_revision_is_distinct", async () => {
   const holder = draftStorage(FIRST.path);
   const exact = "  Order e\u0301 🪁\nlast line  ";
   const saved = holder.edit({ surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name", done: "" }, { start: 2, end: 5, direction: "forward" }, "ordinary").draft;
@@ -76,7 +76,7 @@ it("u2773a_orders_restores_exact_work", async () => {
   window.localStorage.clear();
 });
 
-it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async () => {
+it("u2773h_invalid_storage_preserves_recoverable_work", async () => {
   const bytes = '{"version":999,"drafts":broken';
   window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, bytes);
   const drafts = createProjectDrafts();
@@ -104,7 +104,7 @@ it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async
 });
 
 
-it("u2773e_recovery_hides_declared_credentials_until_explicit_copy", async () => {
+it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   const drafts = createProjectDrafts();
   const secret = "sentinel-credential-recovery";
   drafts(FIRST.path).edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential");
