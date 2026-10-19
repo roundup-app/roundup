@@ -1,6 +1,7 @@
 import "./Listbox.css";
 import { Listbox as ArkListbox, createListCollection, useListboxContext } from "@ark-ui/solid/listbox";
-import { createMemo, createUniqueId, splitProps, type JSX } from "solid-js";
+import { createMemo, createUniqueId, splitProps, type Component, type JSX } from "solid-js";
+import { Dynamic } from "solid-js/web";
 
 type Answer = { value: string; label: string; description: string; disabled?: boolean };
 
@@ -17,6 +18,7 @@ const Root = (props: {
   highlightedValue: string | null;
   onValueChange: (value: string | null) => void;
   onHighlightChange: (value: string | null) => void;
+  /** Explicit false permits editing while pending; omitted preserves the pending lock. */
   disabled?: boolean;
   pending?: boolean;
   children: JSX.Element;
@@ -31,7 +33,7 @@ const Root = (props: {
   return <ArkListbox.Root collection={collection()} value={[key(props.value)]} highlightedValue={key(props.highlightedValue)}
     onValueChange={details => props.onValueChange(answerOf(details.value[0] ?? null))}
     onHighlightChange={details => props.onHighlightChange(answerOf(details.highlightedValue))}
-    disabled={props.disabled || props.pending} loopFocus selectOnHighlight typeahead={false} aria-busy={props.pending || undefined}>
+    disabled={props.disabled ?? props.pending} loopFocus selectOnHighlight typeahead={false} aria-busy={props.pending || undefined}>
     {props.children}
   </ArkListbox.Root>;
 };
@@ -55,22 +57,29 @@ const Item = (props: { item: Answer; class?: string; children?: JSX.Element }) =
 };
 
 /** Ark binds arrows to the associated list. Enter and text editing stay with the note's caller.
- * Pending keeps focus on a read-only note, so the caller can retain its failure/retry policy. */
-const NoteInput = (props: JSX.InputHTMLAttributes<HTMLInputElement>) => {
+ * Disabled keeps focus on a read-only note. Callers own submission and draft recovery. */
+const NoteField = <T extends HTMLInputElement | HTMLTextAreaElement>(props: JSX.InputHTMLAttributes<T>, element: "input" | "textarea") => {
   const listbox = useListboxContext();
   const [local, rest] = splitProps(props, ["onKeyDown"]);
 
   const binding = createMemo(() => {
-    const { onKeyDown, ...input } = listbox().getInputProps();
+    const native: unknown = listbox().getInputProps();
+
+    // SAFETY: Ark uses only shared native value/caret and keyboard behavior here; the wrappers
+    // pair T with its native tag, including the textarea Ark does not type directly.
+    const { onKeyDown, ...input } = native as JSX.InputHTMLAttributes<T>;
 
     return { input, onKeyDown };
   });
 
-  return <input type="text" {...binding().input} {...rest} class={`app-listbox-note ${props.class ?? ""}`} disabled={props.disabled ?? false} readOnly={listbox().disabled || props.readOnly}
+  // SAFETY: Native tag and event target are paired by the two typed wrappers below.
+  const Field = Dynamic as Component<JSX.InputHTMLAttributes<T> & { component: "input" | "textarea" }>;
+
+  return <Field component={element} type={element === "input" ? "text" : undefined} {...binding().input} {...rest} class={`app-listbox-note ${props.class ?? ""}`} disabled={props.disabled ?? false} readOnly={listbox().disabled || props.readOnly}
     aria-disabled={listbox().disabled || props["aria-disabled"]}
     aria-controls={listbox().collection.size > 1 ? binding().input["aria-controls"] : ""}
     aria-activedescendant={answerOf(listbox().highlightedValue) === null ? "" : binding().input["aria-activedescendant"]}
-    onKeyDown={event => {
+    onKeyDown={(event: KeyboardEvent & { currentTarget: T; target: Element }) => {
       if (listbox().disabled) {
         if (event.key === "Enter") event.preventDefault();
 
@@ -95,4 +104,10 @@ const NoteInput = (props: JSX.InputHTMLAttributes<HTMLInputElement>) => {
     }} />;
 };
 
-export const Listbox = { Root, Content, Item, Label: ArkListbox.Label, NoteInput };
+const NoteInput = (props: JSX.InputHTMLAttributes<HTMLInputElement>) => NoteField(props, "input");
+
+/** Native multiline value, caret, ref and events belong to the caller. Shift+Enter edits;
+ * Enter reaches onKeyDown so the caller can explicitly submit and prevent its default. */
+const NoteTextarea = (props: JSX.TextareaHTMLAttributes<HTMLTextAreaElement>) => NoteField(props, "textarea");
+
+export const Listbox = { Root, Content, Item, Label: ArkListbox.Label, NoteInput, NoteTextarea };

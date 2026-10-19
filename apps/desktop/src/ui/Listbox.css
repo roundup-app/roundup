@@ -66,3 +66,16 @@
 .app-listbox-item[data-selected][data-disabled] .app-listbox-description {
   color: var(--grey);
 }
+
+textarea.app-listbox-note {
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: var(--text);
+  background-color: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  field-sizing: content;
+  max-height: var(--order-field-max-height);
+  resize: none;
+}
