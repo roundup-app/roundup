@@ -1,9 +1,14 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { describe, expect, it } from "vitest";
-import { mountApp, select } from "../decisions/decisionsFixture";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { gate, mountApp, select } from "../decisions/decisionsFixture";
+import { RpcError } from "../app/seam";
 import type { Kind } from "@contracts/Kind";
 import type { Order } from "@contracts/agent/Order";
 import { agent, clarifying, door } from "../testing/nodes";
+
+beforeEach(() => window.localStorage.clear());
+
+afterEach(() => vi.restoreAllMocks());
 
 const limits = ["Change no file", "Keep it short", "Ask before deleting", "Use no network"];
 
@@ -102,6 +107,7 @@ describe("O16: the user edits the order in the Drawer", () => {
     expect(field("done").value).toBe("The tour is written");
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Copy title" })).toBeNull();
   });
 
   it("o16_save_sends_set_order_with_the_limits_unchanged", async () => {
@@ -113,7 +119,7 @@ describe("O16: the user edits the order in the Drawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
     expect(sent).toEqual([
-      { id: "a", order: { kind: "work", title: "Tour the Drawer", ask: "Tour it", done: "It is toured", limits } },
+      { id: "a", order: { kind: "work", title: "Tour the Drawer", ask: "Tour it", done: "It is toured", limits }, captured: { order: full } },
     ]);
   });
 
@@ -126,16 +132,6 @@ describe("O16: the user edits the order in the Drawer", () => {
     await waitFor(() => expect(sent).toHaveLength(1));
     expect("title" in sent[0]!.order).toBe(false);
     expect("done" in sent[0]!.order).toBe(false);
-  });
-
-  it("o16_escape_cancels_and_sends_nothing", async () => {
-    const sent: object[] = [];
-    const drawer = await edit(full, (params) => (sent.push(params), {}));
-    fireEvent.input(field("title"), { target: { value: "changed" } });
-    fireEvent.keyDown(field("title"), { key: "Escape" });
-    expect(document.querySelector(".order-edit")).toBeNull();
-    expect(sent).toEqual([]);
-    expect(drawer.querySelector(".order-title")!.textContent).toContain("Give a Drawer tour");
   });
 
   it("o16_a_rejected_save_keeps_the_input_and_shows_the_error", async () => {
@@ -153,4 +149,183 @@ describe("O16: the user edits the order in the Drawer", () => {
     await openDrawer(clarifying("which?"));
     expect(screen.queryByRole("button", { name: "Edit order" })).toBeNull();
   });
+});
+
+it("u2773a_orders_untouched_cancel_leaves_nothing_to_recover", async () => {
+  await openDrawer(full);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+});
+
+it("u2773a_orders_restores_exact_work_after_escape", async () => {
+  const sent: object[] = [];
+  await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sent.push(params);
+
+ return {}; } } });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const field = screen.getByLabelText<HTMLTextAreaElement>("Ask");
+  const exact = "  draft\ncombining é 👋  \n";
+  fireEvent.input(field, { target: { value: exact } });
+  field.focus();
+  field.setSelectionRange(3, 9, "backward");
+  fireEvent.select(field);
+  fireEvent.keyDown(field, { key: "Escape" });
+  expect(document.querySelector(".order-edit")).toBeNull();
+  expect(document.querySelector(".order-title")?.textContent).toContain("Give a Drawer tour");
+  expect(sent).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const restored = screen.getByLabelText<HTMLTextAreaElement>("Ask");
+  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 3, 9, "backward"]);
+});
+
+it("u2773a_orders_agent_switch_keeps_recipient", async () => {
+  const sent: object[] = [];
+  await openDrawer(full, { handlers: {
+    "rail.tree": () => [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full }), door("r", "working", "editing", { name: "harbor" })],
+    "agent.setOrder": (params) => { sent.push(params);
+
+ return {}; },
+  } });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  alpha original 🧭\n" } });
+  select("beta");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of beta" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(full.ask);
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  beta original 👋\n" } });
+  select("alpha");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  alpha original 🧭\n");
+  expect(sent).toEqual([]);
+});
+
+for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
+  it(`u2773b_orders_settlement_preserves_other_revisions_${outcome}`, async () => {
+    const reply = gate<object>();
+    const sent: object[] = [];
+    await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sent.push(params);
+
+ return reply.promise; } } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+    const ask = screen.getByLabelText<HTMLTextAreaElement>("Ask");
+    fireEvent.input(ask, { target: { value: "  older A 👋\n" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.input(ask, { target: { value: "  newer B é\n" } });
+
+    if (outcome === "acknowledged") reply.resolve({});
+    else reply.reject(outcome === "failed" ? new RpcError(-32003, "refused") : new RpcError(-32603, "disconnected"));
+
+    if (outcome === "acknowledged") {
+      await waitFor(() => expect(screen.getByRole("button", { name: "Recover unfinished work" }).querySelector("[data-state=draft]")?.textContent).toBe("1"));
+    } else await screen.findByRole("alert");
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  newer B é\n");
+    expect(sent).toEqual([{ id: "a", order: { kind: "work", title: full.title, ask: "older A 👋", done: full.done, limits }, captured: { order: full } }]);
+    cleanup();
+    await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sent.push(params);
+
+ return {}; } } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  newer B é\n");
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+    const recovery = await screen.findByLabelText("Unfinished work");
+    await waitFor(() => expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(outcome === "acknowledged" ? 1 : 2));
+    expect(recovery.textContent).toContain("  newer B é\n");
+
+    if (outcome !== "acknowledged") {
+      const inspect = recovery.querySelectorAll<HTMLButtonElement>("li button");
+      fireEvent.click(inspect[1]!);
+      expect(recovery.textContent).toContain("  older A 👋\n");
+      expect(recovery.textContent).toContain(outcome === "failed" ? "Failed" : "Acceptance unknown");
+      fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+      expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
+      expect(recovery.textContent).toContain("  newer B é\n");
+    }
+
+    expect(sent).toHaveLength(1);
+  });
+}
+
+it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => {
+  const older = gate<object>();
+  const newer = gate<object>();
+  let calls = 0;
+  await openDrawer(full, { handlers: { "agent.setOrder": () => (++calls === 1 ? older.promise : newer.promise) } });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "old failed revision" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "new acknowledged revision" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  newer.resolve({});
+  await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
+  older.reject(new RpcError(-32003, "older refused"));
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+  const recovery = await screen.findByLabelText("Unfinished work");
+  await waitFor(() => expect(recovery.textContent).toContain("Failed"));
+  expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
+  expect(recovery.textContent).toContain("old failed revision");
+  expect(recovery.textContent).not.toContain("new acknowledged revision");
+  expect(calls).toBe(2);
+});
+
+it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
+  const sends: object[] = [];
+  await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sends.push(params);
+
+ return {}; } } });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(screen.getByLabelText("Title"), { target: { value: "  unsaved title 👋  " } });
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
+  fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
+  expect(screen.getByRole("alert").textContent).toContain("reload");
+  const clipboard = vi.fn(async (_text: string) => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+
+  for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
+  await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
+  storage.mockRestore();
+  fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  expect(["Title", "Ask", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
+    .toEqual(["  unsaved title 👋  ", "  unsaved ask\n", "  unsaved done é  "]);
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "discard me" } });
+  vi.restoreAllMocks();
+  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  expect(document.querySelector(".order-edit")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  expect(sends).toEqual([]);
+});
+
+it("u2773c_orders_untouched_editor_follows_external_change", async () => {
+  let latest = full;
+
+  const { app } = await mountApp([], (app) => {
+    app.handlers["rail.tree"] = () => [
+      agent("a", "working", "editing", { name: "alpha", order: 0, work: latest }),
+      agent("b", "working", "editing", { name: "beta", order: 1 }),
+      door("r", "working", "editing", { name: "harbor", order: 2 }),
+    ];
+    app.handlers["agent.spawnPrompt"] = () => ({ prompt: null });
+  });
+
+  select("alpha");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
+  latest = { kind: "work", title: "Updated title", ask: "Updated ask", done: "Updated done", limits: ["Updated limit"] };
+  app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  await waitFor(() => expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("Updated ask"));
+  expect(["Title", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
+    .toEqual(["Updated title", "Updated done"]);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Copy ask" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "My edit after update" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.setOrder").map((call) => call.params))
+    .toEqual([{ id: "a", order: { ...latest, ask: "My edit after update" }, captured: { order: latest } }]));
 });
