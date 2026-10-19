@@ -85,6 +85,8 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 
 .ask-text,
 .ask-name {
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -248,7 +250,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   align-items: center;
   justify-content: center;
   width: var(--space-3);
-  height: 1lh;
+  height: var(--space-3);
   color: var(--grey);
 }
 

@@ -1,0 +1,3 @@
+import { Tip } from "../ui/Tip";
+
+export const Example = () => <Tip text="Explain">{(trigger) => <span {...trigger()}>Owner</span>}</Tip>;
