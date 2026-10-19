@@ -296,6 +296,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
 
     const current = (await app.rpc("rail.tree", null)).find(node => node.id === door.id)!;
     await writeFile(join(current.worktree!.path, "result.txt"), "changed result\n");
+    expect(await app.rpc("agent.changedFiles", { id: door.id })).toEqual({ files: [{ path: "result.txt", status: "modified", line: 1 }] });
     await wait("!!document.querySelector('.worktree-control')");
     await press(current.worktree!.branch);
     await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
@@ -354,7 +355,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
       }
     }
   } catch (error) {
-    console.error(JSON.stringify({ body: await evaluate("document.body.innerText"), tree: await app.rpc("rail.tree", null), decisions: await app.rpc("decision.list", null) }));
+    console.error(JSON.stringify({ body: await evaluate("document.body.innerText"), panel: await evaluate("document.querySelector('.worktree-panel')?.outerHTML"), tree: await app.rpc("rail.tree", null), decisions: await app.rpc("decision.list", null) }));
     throw error;
   } finally { await fixture.close(); }
 }, 240_000);
