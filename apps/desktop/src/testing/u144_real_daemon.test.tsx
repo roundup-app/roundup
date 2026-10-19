@@ -367,7 +367,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     return screen.findByRole("region", { name: "Unfinished work" });
   };
 
-  const mount = () => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
+  const mount = (emulators = fakeEmulators()) => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
 
   const noDelivery = () => {
     const methods = calls.flatMap((spy) => spy.mock.calls.map(([method]) => method));
@@ -381,12 +381,25 @@ describe("u2773 Project draft integration on real Projects", () => {
   afterAll(async () => { await first?.stop(); await second?.stop(); });
   afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
 
+  // Fixture surface owner: its format and identity extraction stay outside shared recovery.
+  const recoverSelections = () => drafts(first.dir).registerRecovery("terminal_selection", (draft, { rail, daemonExit }) => {
+    if (daemonExit() || rail.terminalExit(draft.destination.object)) return "unavailable";
+
+    if (rail.failure()) return "unverified";
+
+    const source = rail.nodes.find((node) => node.id === draft.value.source);
+    const terminal = rail.terminals().find((each) => each.id === draft.destination.object);
+
+    return source?.attempt === draft.value.attempt && source?.terminal_id === draft.destination.object && terminal?.running ? "available" : "unavailable";
+  });
+
   let seed = 0;
 
   const setup = async () => {
     seed++;
     window.localStorage.clear();
     drafts = createProjectDrafts();
+    recoverSelections();
     const served = createServedApp(first.base);
     original = await served.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
     replacement = await served.rpc("rail.createWorkstream", { name: `replacement ${seed}`, parent: null });
@@ -679,4 +692,136 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect((await app.forProject(first.dir).rpc("rail.tree", null)).some((node) => node.id === replacement.id)).toBe(true);
     noDelivery();
   }, 60_000);
+
+  it.each([
+    { ending: "exit", observer: "u2773a_terminal_selection_restores_exact_work_shared_exit" },
+    { ending: "remove", observer: "u2773e_recovery_actions_keep_surface_draft_terminal_selection_shared_remove" },
+  ] as const)("$observer", async ({ ending }) => {
+    await setup();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const terminal = source.terminal_id!;
+    await bound.rpc("rail.rename", { id: replacement.id, name: source.name });
+    const liveReplacement = await bound.rpc("rail.startDoor", { id: replacement.id });
+    const holder = drafts(first.dir);
+    const destination = { surface: "terminal_selection", object: terminal, recipient: source.id };
+    const a = holder.edit(destination, { note: "older exact\n", excerpt: exact, source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    holder.submit(a.revision);
+    const status = ending === "exit" ? "failed" : "unknown";
+
+    holder.settle(a.revision, status);
+    const write = Storage.prototype.setItem;
+
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
+
+      write.call(this, key, value);
+    });
+
+    const b = holder.edit(destination, { note: exact, excerpt: " captured 🧭\n", source: source.id, attempt: source.attempt }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+    mount();
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(document.querySelector(`[data-terminal="${terminal}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${liveReplacement.id}"]`)!);
+    await waitFor(() => expect(document.querySelector(`[data-terminal="${terminal}"]`)).toBeNull());
+    await openRecovery();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+    const inspect = screen.getByRole("button", { name: new RegExp(a.revision) });
+    expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
+    writes.mockRestore();
+    expect(screen.queryByText("Original object unavailable")).toBeNull();
+    expect(screen.queryByText("Original availability not verified")).toBeNull();
+    inspect.focus();
+    recoverSelections();
+    expect(document.activeElement).toBe(inspect);
+    calls.forEach((spy) => spy.mockClear());
+
+    if (ending === "exit") await bound.rpc("terminal.kill", { id: terminal });
+    else await bound.rpc("rail.remove", { id: source.id });
+    await screen.findByText("Original object unavailable");
+    expect(document.activeElement).toBe(inspect);
+    expect(holder.list()).toEqual([expect.objectContaining({ revision: a.revision, status }), b]);
+    expect(screen.getByText(`${terminal} · ${source.id}`)).toBeTruthy();
+    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    const tree = await bound.rpc("rail.tree", null);
+    expect(tree.some((node) => node.id === source.id)).toBe(ending === "exit");
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "second" });
+    fireEvent.click(screen.getByRole("tab", { name: /^first(?: |$)/ }));
+    await openRecovery();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+    expect(screen.getByRole("img", { name: status === "failed" ? "Failed" : "Acceptance unknown" })).toBeTruthy();
+    const clipboard = vi.fn(async (_text: string) => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    const fields = screen.getAllByRole("button", { name: "Copy stored value" });
+    fireEvent.click(fields[1]!);
+    expect(clipboard).toHaveBeenCalledWith(exact);
+    fireEvent.click(fields[0]!);
+    expect(clipboard).toHaveBeenLastCalledWith("older exact\n");
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
+    expect((await bound.rpc("rail.tree", null)).find((node) => node.id === liveReplacement.id)).toMatchObject({ id: liveReplacement.id, name: source.name, terminal_id: liveReplacement.terminal_id });
+    expect((await bound.rpc("terminal.list", null)).find((each) => each.id === liveReplacement.terminal_id)?.running).toBe(true);
+    const methods = calls.flatMap((spy) => spy.mock.calls.map(([method]) => method));
+    expect(methods.filter((method) => method === "terminal.write" || method === "terminal.spawn" || method === "rail.startDoor")).toEqual([]);
+    noDelivery();
+  }, 60_000);
+
+
+  it("u2773f_dead_vendor_is_not_reconstructed_shared_recovery", async () => {
+    await setup();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const terminal = source.terminal_id!;
+    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: terminal, recipient: source.id }, { note: exact, excerpt: " captured source\n", source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    await bound.rpc("terminal.kill", { id: terminal });
+    window.localStorage.setItem(`roundup:rail:${first.dir}`, JSON.stringify({ selected: source.id, collapsed: [] }));
+    drafts = createProjectDrafts();
+    recoverSelections();
+    const emulators = fakeEmulators();
+    const outside = document.createElement("input");
+    document.body.append(outside);
+    outside.focus();
+    calls.forEach((spy) => spy.mockClear());
+    mount(emulators);
+    await screen.findByRole("button", { name: "Recover unfinished work" });
+    expect(document.activeElement).toBe(outside);
+    await openRecovery();
+    expect(await screen.findByText("Original object unavailable")).toBeTruthy();
+    expect(drafts(first.dir).list()).toEqual([saved]);
+    expect(emulators.made.has(terminal)).toBe(false);
+    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect((await bound.rpc("terminal.list", null)).find((each) => each.id === terminal)?.running).not.toBe(true);
+    const methods = calls.flatMap((spy) => spy.mock.calls.map(([method]) => method));
+    expect(methods.filter((method) => method === "terminal.write" || method === "terminal.spawn" || method === "rail.startDoor")).toEqual([]);
+    noDelivery();
+    outside.remove();
+  }, 60_000);
+
+
+  it("u2773a_terminal_selection_restores_exact_work_shared_reused_terminal_id", async () => {
+    await setup();
+    await first.restart();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: source.terminal_id!, recipient: source.id }, { note: exact, source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    await first.restart();
+    await bound.rpc("rail.rename", { id: replacement.id, name: source.name });
+    const liveReplacement = await bound.rpc("rail.startDoor", { id: replacement.id });
+    expect(liveReplacement.terminal_id).toBe(source.terminal_id);
+    calls.forEach((spy) => spy.mockClear());
+    mount();
+    await openRecovery();
+    expect(await screen.findByText("Original object unavailable")).toBeTruthy();
+    expect(screen.getByText(`${source.terminal_id} · ${source.id}`)).toBeTruthy();
+    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect(drafts(first.dir).list()).toEqual([saved]);
+    expect((await bound.rpc("terminal.list", null)).find((each) => each.id === liveReplacement.terminal_id)?.running).toBe(true);
+    noDelivery();
+  }, 60_000);
+
 });

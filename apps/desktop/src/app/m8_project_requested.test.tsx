@@ -133,6 +133,18 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   expect(clipboard).toHaveBeenCalledWith(secret);
 });
 
+
+it("u2773a_terminal_selection_restores_exact_work_shared_unregistered_owner", async () => {
+  const drafts = createProjectDrafts();
+  drafts(FIRST.path).edit({ surface: "terminal_selection", object: "original-terminal", recipient: "original-agent" }, { note: "  unverified 🧭\n" }, null, "ordinary");
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  expect(await screen.findByText("Original availability not verified")).toBeTruthy();
+  expect(screen.queryByText("Original object unavailable")).toBeNull();
+});
+
 it.each(["loading", "failed", "creation"])("u2773c_pads_external_change_keeps_original_%s_unverified", async (state) => {
   const drafts = createProjectDrafts();
   drafts(FIRST.path).edit({ surface: "pads", object: state === "creation" ? "new-pad" : "original-incarnation", recipient: null }, state === "creation" ? { name: "proposed name", source: "new work" } : { originalName: "original name", source: "exact work", base: "original base" }, null, "ordinary");
