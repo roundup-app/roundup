@@ -583,7 +583,7 @@ async fn g2_concurrent_provisions_never_run_two_git_commands_at_once() {
             .map(|n| {
                 let (git, project) = (&git, f.dir.path());
                 scope.spawn(move || {
-                    let plan = git.plan(project, &format!("agent-{n}"), "1")?;
+                    let plan = git.plan(project, &format!("agent-{n}"))?;
                     git.provision(project, &plan)
                 })
             })
@@ -1029,7 +1029,7 @@ async fn g6_recovery_preserves_changed_or_unowned_provisioning_resources() {
     for change in ["dirty", "commit", "owner"] {
         let f = Fixture::in_git_project("exec sleep 30", Git::from_env());
         let git = Git::from_env();
-        let plan = git.plan(f.dir.path(), "owned", "1").unwrap();
+        let plan = git.plan(f.dir.path(), "owned").unwrap();
         let worktree = git.provision(f.dir.path(), &plan).unwrap();
         match change {
             "dirty" => std::fs::write(worktree.path.join("keep"), "user work").unwrap(),

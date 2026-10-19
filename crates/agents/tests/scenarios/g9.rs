@@ -20,7 +20,7 @@ fn repository() -> (tempfile::TempDir, Git, Worktree) {
     std::fs::write(dir.path().join(".gitignore"), "ignored\n").unwrap();
     git.run(dir.path(), &["add", "."]).unwrap();
     git.run(dir.path(), &["commit", "-qm", "G9"]).unwrap();
-    let plan = git.plan(dir.path(), "g9", "1").unwrap();
+    let plan = git.plan(dir.path(), "g9").unwrap();
     let worktree = git.provision(dir.path(), &plan).unwrap();
     std::fs::write(worktree.path.join("ignored"), "only ignored copy").unwrap();
     (dir, git, worktree)
@@ -289,7 +289,7 @@ fn g9_drop_before_git_removal_restores_prepared_moves() {
 #[test]
 fn g9_later_preparation_failure_restores_earlier_moves() {
     let (dir, git, w) = repository();
-    let plan = git.plan(dir.path(), "second", "1").unwrap();
+    let plan = git.plan(dir.path(), "second").unwrap();
     let second = git.provision(dir.path(), &plan).unwrap();
     std::fs::write(second.path.join("dirty"), "keep").unwrap();
     let before = identity(&w.path.join("ignored"));
@@ -438,7 +438,7 @@ fn g9_registration_restore_never_writes_through_an_external_symlink() {
 #[test]
 fn g9_preparation_timeout_restores_earlier_moves() {
     let (dir, git, first) = repository();
-    let plan = git.plan(dir.path(), "second", "1").unwrap();
+    let plan = git.plan(dir.path(), "second").unwrap();
     let second = git.provision(dir.path(), &plan).unwrap();
     let before = identity(&first.path.join("ignored"));
     let wrappers = tempfile::tempdir().unwrap();
