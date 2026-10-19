@@ -81,6 +81,9 @@ pub struct SchemeParams {
 #[ts(export, export_to = "terminal/")]
 pub struct TerminalInfo {
     pub id: String,
+    /// Opaque, non-secret identity of this original Terminal; stable until removal, never reused
+    /// by another Terminal or Project, including after a Daemon restart. Grants no authority.
+    pub incarnation: String,
     pub cwd: String,
     /// Latest OSC 0/2 window title, if any.
     pub title: Option<String>,
