@@ -4,6 +4,7 @@
 
 mod brief;
 mod conversation;
+mod discovery;
 pub mod extras;
 pub mod inbox;
 mod launch;
