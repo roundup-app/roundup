@@ -1,13 +1,13 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createComponent, createComputed, createRoot } from "solid-js";
+import { createComponent, createComputed, createRoot, useContext } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, terminal } from "../testing/nodes";
-import { useConnectedProject } from "./connectedProject";
+import { ConnectedProjectContext, ProjectDraftsContext, useConnectedProject } from "./connectedProject";
 import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
@@ -223,6 +223,15 @@ const openDraftProjects = async () => {
   const paths = [join(directory, "a"), join(directory, "b")];
   const app = createFakeApp();
   const seen: ConnectedProject[] = [];
+  let header: { drafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined; connected: ConnectedProject | undefined } | undefined;
+  const setWindowTitle = app.setWindowTitle;
+
+  // WindowBar invokes this existing App seam from outside ConnectedProjectContext.
+  app.setWindowTitle = async (title) => {
+    header ??= { drafts: useContext(ProjectDraftsContext), connected: useContext(ConnectedProjectContext) };
+    await setWindowTitle(title);
+  };
+
   const emulators = fakeEmulators();
 
   for (const [index, path] of paths.entries()) {
@@ -242,7 +251,7 @@ const openDraftProjects = async () => {
   }));
 
   const select = async (index: number) => {
-    const tabs = within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab");
+    const tabs = within(await screen.findByRole("tablist", { name: "Projects" })).getAllByRole("tab");
     fireEvent.click(tabs[index]!);
     fireEvent.click(await waitFor(() => within(screen.getByRole("tree", { name: "Rail" })).getByText(`editor-${index}`)));
     await waitFor(() => expect(seen.at(-1)?.project.path).toBe(paths[index]));
@@ -250,7 +259,7 @@ const openDraftProjects = async () => {
     return seen.at(-1)!;
   };
 
-  return { app, paths, select, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+  return { app, paths, select, header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
 };
 
 it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
@@ -290,7 +299,7 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
   } finally { opened.close(); }
 });
 
-it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget", async () => {
+it("u2773h_shared_consumers_observe_capacity", async () => {
   const disk = new Map<string, string>();
   vi.spyOn(Storage.prototype, "getItem").mockImplementation((key) => disk.get(key) ?? null);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation((key, value) => { disk.set(key, value); });
@@ -299,13 +308,18 @@ it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget
 
   try {
     const connected = await opened.select(0);
+    const authority = opened.header();
+    expect(authority?.drafts).toBeDefined();
+    expect(authority?.connected).toBeUndefined();
+    const header = authority!.drafts!(connected.project.path);
+    expect(header).toBe(connected.drafts);
     const observations: { records: ReturnType<typeof connected.drafts.list>; problem: ReturnType<typeof connected.drafts.problem> }[] = [];
     createRoot((dispose) => {
       stop = dispose;
 
       // Independent readers track the same holder, as two mounted surface owners do.
-      for (let index = 0; index < 2; index++) createComputed(() => {
-        observations[index] = { records: connected.drafts.list(), problem: connected.drafts.problem() };
+      for (const [index, owner] of [header, connected.drafts].entries()) createComputed(() => {
+        observations[index] = { records: owner.list(), problem: owner.problem() };
       });
     });
     const a = edit(connected.drafts, "a".repeat(6 * 1024 * 1024));
