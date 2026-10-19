@@ -41,6 +41,12 @@ export const createProjectDrafts = () => {
     };
 
     const holder: ReturnType<typeof draftStorage> = {
+      editor: storage.editor,
+      recoverable: () => {
+        revision();
+
+        return storage.recoverable();
+      },
       list: () => {
         revision();
 
