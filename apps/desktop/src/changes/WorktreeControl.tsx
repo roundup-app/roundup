@@ -116,8 +116,8 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
 /** U2539b: the bottom bar's one control for the selected Agent's Worktree; none for an Agent without one. */
 export const WorktreeControl = () => {
-  const { rail, app, project } = useConnectedProject();
-  const notes = notesFor(app, project.path);
+  const { rail, app, project, drafts } = useConnectedProject();
+  const notes = notesFor(app, project.path, drafts);
   const [recoveryOpen, setRecoveryOpen] = createSignal(false);
 
   const selected: Accessor<{ id: string; name: string; worktree: Worktree } | null> = createMemo(
