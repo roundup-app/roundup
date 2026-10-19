@@ -4,6 +4,12 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  retainedRailInput: "Retained rail input",
+  railDestinationUnavailable: "The original destination is unavailable. Copy or discard the retained task.",
+  railNameConflict: "The original name changed. Your edit is retained; copy or discard it in the rail.",
+  railRetentionFailed: (project: string) => `${project}: rail input could not be retained across reload.`,
+  retryRetention: "Retry retention",
+  discardRevision: "Discard this revision",
   context: "Context",
   contextUse: (used: number, limit: number) => `Context ${new Intl.NumberFormat("en", { notation: "compact" }).format(used)} / ${new Intl.NumberFormat("en", { notation: "compact" }).format(limit)}`,
   cardIntent: "Intent",

@@ -1,3 +1,6 @@
+import * as v from "valibot";
+import { railDraftsFor } from "./clear";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "../copy";
@@ -26,29 +29,61 @@ type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 /** U403: a folded Workstream shows at most this many Agent Glyphs before its count. */
 const FOLDED_GLYPHS = 5;
 
-const NameField = (props: { node: RailNode; onCommit: (name: string) => void; onCancel: () => void }) => (
+const NameField = (props: { node: RailNode; onCancel: () => void }) => {
+  const { events, project, app } = useConnectedProject();
+  const drafts = railDraftsFor(events, project.path);
+  const original = untrack(() => ({ id: props.node.id, name: props.node.name }));
+  const saved = () => drafts.list().filter((draft) => draft.destination.surface === "rail-name" && draft.destination.object === original.id).at(-1);
+
+  const text = () => v.parse(v.optional(v.string(), original.name), saved()?.value.text);
+
+  const [failure, setFailure] = createSignal<string | null>(null);
+  const keep = (field: HTMLInputElement) => drafts.edit({ surface: "rail-name", object: original.id, recipient: null }, { text: field.value, base: saved()?.value.base ?? original.name }, { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" }, "ordinary");
+  const conflict = () => saved() && saved()?.value.base !== props.node.name;
+
+  return <>
   <input
     aria-label={copy.name}
-    value={untrack(() => props.node.name)}
-    ref={(field) =>
-      queueMicrotask(() => {
-        field.focus();
-        field.select();
-      })
-    }
+    value={text()}
+    ref={(field) => queueMicrotask(() => {
+      field.focus();
+      const selection = saved()?.selection;
+
+      if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
+      else field.select();
+    })}
+    onInput={(event) => keep(event.currentTarget)}
+    onSelect={(event) => { if (saved()?.status === "draft") keep(event.currentTarget); }}
     onKeyDown={(key) => {
       if (key.key === "Enter") {
+        key.preventDefault();
+
+        if (conflict() || saved()?.status === "pending" || saved()?.status === "unknown") return;
         const name = key.currentTarget.value.trim();
 
-        if (name === "") props.onCancel();
-        else props.onCommit(name);
+        if (name === "") return props.onCancel();
+        const revision = saved()?.revision;
+
+        if (!revision) return props.onCancel();
+        drafts.submit(revision);
+        void app.rpc("rail.rename", { id: original.id, name }).then(() => {
+          drafts.settle(revision, "acknowledged");
+
+          if (!saved()) props.onCancel();
+        }, (error) => {
+          drafts.settle(revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+          setFailure(error instanceof Error ? error.message : String(error));
+        });
       }
 
       if (key.key === "Escape") props.onCancel();
     }}
     onBlur={props.onCancel}
   />
-);
+  <Show when={conflict()}><span role="alert">{copy.railNameConflict}</span></Show>
+  <Show when={failure()}>{(message) => <span role="alert">{message()}</span>}</Show>
+  </>;
+};
 
 
 /** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
@@ -78,7 +113,6 @@ export const RailRowView = (props: {
   /** Whether Ark's tree walks this row as a branch (a Workstream, or a row with rows of its own below it) or as a leaf. */
   branch: boolean;
   onToggle: () => void;
-  onRename: (name: string) => void;
   onStartDoor: () => void;
   doorPending: boolean;
   doorFailure: string | null;
@@ -189,10 +223,6 @@ export const RailRowView = (props: {
     >
       <NameField
         node={props.row.node}
-        onCommit={(name) => {
-          props.onRename(name);
-          setEditing(false);
-        }}
         onCancel={() => setEditing(false)}
       />
     </Show>

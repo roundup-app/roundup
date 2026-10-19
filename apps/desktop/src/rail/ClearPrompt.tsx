@@ -3,12 +3,14 @@ import { createEffect, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
-import { clearingOf } from "./clear";
+import { clearingOf, railDraftsFor } from "./clear";
 
 /** U350: the Workstream's reason prompt, open once `Clear…` in the `⋯` menu is chosen. */
 export const ClearPrompt = (props: { node: RailNode }) => {
-  const { app, events, rail } = useConnectedProject();
+  const { app, events, rail, project } = useConnectedProject();
   const clearing = () => clearingOf(app, events, props.node.id);
+  const drafts = railDraftsFor(events, project.path);
+  const saved = () => drafts.list().filter((draft) => draft.destination.surface === "rail-clear" && draft.destination.object === props.node.id).at(-1);
   let field: HTMLTextAreaElement | undefined;
 
   const subagents = () => {
@@ -29,7 +31,12 @@ export const ClearPrompt = (props: { node: RailNode }) => {
   };
 
   createEffect(() => {
-    if (clearing().phase() === "asking") queueMicrotask(() => field?.focus());
+    if (clearing().phase() === "asking") queueMicrotask(() => {
+      field?.focus();
+      const selection = saved()?.selection;
+
+      if (selection) field?.setSelectionRange(selection.start, selection.end, selection.direction);
+    });
   });
 
   const empty = () => clearing().reason().trim() === "";
@@ -58,7 +65,12 @@ export const ClearPrompt = (props: { node: RailNode }) => {
             wrap="off"
             value={clearing().reason()}
             disabled={pending()}
-            onInput={(input) => clearing().setReason(input.currentTarget.value.replace(/\s*\n\s*/g, " "))}
+            onSelect={(event) => {
+              const current = saved();
+
+              if (current?.status === "draft") drafts.edit(current.destination, current.value, { start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd, direction: event.currentTarget.selectionDirection }, "ordinary");
+            }}
+            onInput={(input) => clearing().setReason(input.currentTarget.value)}
             onKeyDown={(press) => {
               if (press.key === "Enter" && !press.isComposing) {
                 press.preventDefault();

@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
@@ -26,7 +27,8 @@ import type { ExitState } from "../state/rail";
 import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
-import { clearingOf } from "./clear";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
+import { clearingOf, railDraftsFor } from "./clear";
 import "./styles.css";
 
 const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
@@ -53,12 +55,18 @@ export const Rail = () => {
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
   /** U2227: the typed task, kept per Project across Esc until it is emptied or a spawn from the field succeeds. */
-  const [drafts, setDrafts] = createSignal<Record<string, string>>({});
-  const draft = () => drafts()[project.path] ?? "";
-  const keepDraft = (text: string) => setDrafts((all) => ({ ...all, [project.path]: text }));
+  const drafts = railDraftsFor(connected.events, project.path);
+  const task = () => drafts.list().filter((draft) => draft.destination.surface === "rail-task").at(-1);
 
-  const endCompose = () => {
-    keepDraft("");
+  const draft = () => v.parse(v.optional(v.string(), ""), task()?.value.text);
+
+  const keepDraft = (text: string, selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null = null) => {
+    const previous = task();
+    drafts.edit(previous?.destination ?? { surface: "rail-task", object: parent() ?? "", recipient: runningDoor() }, { text }, selection, "ordinary");
+  };
+
+  const endCompose = (revision?: string) => {
+    if (revision && task() && task()?.revision !== revision) return;
     setComposing(false);
   };
 
@@ -290,15 +298,24 @@ export const Rail = () => {
     return selected?.kind === "workstream" ? selected.id : null;
   };
 
-  const spawnAgentWith = (prompt: string | null, under: string | null = parent()) =>
+  const spawnAgentWith = (prompt: string | null, under: string | null = parent(), revision?: string) =>
     guarded(async () => {
       const params: SpawnParams = { cwd: project.path, prompt, parent: under, model: null, effort: null };
 
-      const spawned = await app.rpc("agent.spawn", params);
+      let spawned;
+
+      try {
+        spawned = await app.rpc("agent.spawn", params);
+
+        if (revision) drafts.settle(revision, "acknowledged");
+      } catch (error) {
+        if (revision) drafts.settle(revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        throw error;
+      }
 
       setWanted(spawned.id);
 
-      if (composing()) endCompose();
+      if (composing()) endCompose(revision);
     });
 
   const spawnAgent = () => spawnAgentWith(null);
@@ -361,16 +378,33 @@ export const Rail = () => {
   };
 
   const submitPrompt = (prompt: string | null) => {
-    const door = prompt === null ? null : runningDoor();
+    const current = task();
 
-    if (prompt === null || door === null) return spawnAgentWith(prompt);
+    if (current?.status === "pending" || current?.status === "unknown") return;
+    const target = current?.destination;
 
+    if (target?.object && !rail.nodes.some((node) => node.id === target.object)) {
+      setFailure(copy.railDestinationUnavailable);
+
+      return;
+    }
+
+    const revision = current?.revision;
+
+    if (revision) drafts.submit(revision);
+    const door = prompt === null ? null : target ? target.recipient : runningDoor();
+
+    if (prompt === null || door === null) return spawnAgentWith(prompt, target ? target.object || null : parent(), revision);
     const slow = setTimeout(() => setAsking(true), 500);
-
     guarded(async () => {
       try {
         await app.rpc("message.send", { to: door, kind: "note", body: prompt, replyTo: null });
-        endCompose();
+
+        if (revision) drafts.settle(revision, "acknowledged");
+        endCompose(revision);
+      } catch (error) {
+        if (revision) drafts.settle(revision, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+        throw error;
       } finally {
         clearTimeout(slow);
         setAsking(false);
@@ -464,6 +498,8 @@ export const Rail = () => {
         <SpawnPromptField
           ref={setField}
           value={draft()}
+          selection={task()?.selection ?? null}
+          onSelection={(selection) => { if (task()?.status === "draft") keepDraft(draft(), selection); }}
           onInput={keepDraft}
           onSubmit={(prompt) => {
             if (canSpawn()) submitPrompt(prompt);
@@ -513,9 +549,6 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onRename={(name) =>
-                            void attempt(() => app.rpc("rail.rename", { id: view().node.id, name }))
-                          }
                           onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
                           doorPending={rail.doorPending(view().node.id)}
                           doorFailure={rail.doorFailure(view().node.id)}
@@ -556,6 +589,19 @@ export const Rail = () => {
     </TreeView.Root>
     </div>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <div class="rail-recovery">
+      <Show when={drafts.problem()}>
+        <p role="alert" class="ink" data-tone="red">{copy.railRetentionFailed(project.name)} <button data-button="quiet" onClick={() => drafts.retry()}>{copy.retryRetention}</button></p>
+      </Show>
+      <For each={drafts.list()}>{(saved) => <Show when={drafts.problem() || saved.destination.surface === "rail-name" || saved.status !== "draft" || (saved.destination.object !== "" && !rail.nodes.some((node) => node.id === saved.destination.object))}>
+        <div class="light" data-state={saved.status}>
+          <p>{saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task} · {saved.destination.object || project.name} · {saved.status}</p>
+          <textarea class="spawn-prompt-field" aria-label={copy.retainedRailInput} readOnly value={String(saved.value.text ?? "")} />
+          <span class="rail-recovery-actions"><button data-button="quiet" onClick={() => void attempt(() => navigator.clipboard.writeText(String(saved.value.text ?? "")))}>{copy.copy}</button>
+          <button data-button="quiet" onClick={() => drafts.discard(saved.revision)}>{copy.discardRevision}</button></span>
+        </div>
+      </Show>}</For>
+      </div>
       <Show when={asking()}>
         <p class="light">{copy.askingTheDoor}</p>
       </Show>

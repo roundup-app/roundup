@@ -789,3 +789,16 @@
 .rail-row .row-name-state + .row-tail {
   margin-left: var(--space-4);
 }
+
+.rail-recovery {
+  flex: none;
+  max-height: calc(12 * var(--space-5));
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.rail-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
