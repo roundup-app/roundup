@@ -210,12 +210,12 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
           }} />
         </label>
       }</For>
-      <Show when={selectedDraft()?.status !== "draft"}><p data-state={selectedDraft()?.status}>{copy.draftStatus[selectedDraft()?.status ?? "draft"]}</p></Show>
-      <Show when={!formValue().success}><p class="order-edit-error" role="alert">This saved Order form could not be restored. Recover unfinished work to copy or discard its original fields.</p></Show>
-      <Show when={conflict()}><p class="order-edit-error" role="alert">The original order changed. Your edit is retained. Copy it or discard this revision before editing the current order.</p></Show>
-      <Show when={drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, copy.draftSurface("orders"), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
+      <Show when={selectedDraft()}>{(draft) => <Show when={draft().status !== "draft"}><p data-state={draft().status}>{copy.draftStatus[draft().status]}</p></Show>}</Show>
+      <Show when={!formValue().success}><p class="order-edit-error" role="alert">{copy.orderRestoreFailed}</p></Show>
+      <Show when={conflict()}><p class="order-edit-error" role="alert">{copy.orderChanged}</p></Show>
+      <Show when={drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, copy.draftSurface(destination().surface), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
       <div class="order-edit-actions">
-        <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch(() => setFailure("The draft could not be copied."))}>{copy.copyField(name)}</button>}</For>
+        <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
         <button data-button="quiet" type="button" onClick={() => {
           const draft = selectedDraft();
 
