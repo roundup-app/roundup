@@ -15,6 +15,8 @@ const fit = (field: HTMLTextAreaElement) => {
 export const SpawnPromptField = (props: {
   value: string;
   onInput: (text: string) => void;
+  selection?: { start: number; end: number; direction: "forward" | "backward" | "none" } | null;
+  onSelection?: (selection: { start: number; end: number; direction: "forward" | "backward" | "none" }) => void;
   onSubmit: (prompt: string | null) => void;
   onCancel: () => void;
   ref: (field: HTMLTextAreaElement) => void;
@@ -28,11 +30,13 @@ export const SpawnPromptField = (props: {
     ref={(field) => {
       queueMicrotask(() => {
         field.focus();
-        field.setSelectionRange(field.value.length, field.value.length);
+        const selection = props.selection;
+        field.setSelectionRange(selection?.start ?? field.value.length, selection?.end ?? field.value.length, selection?.direction);
         fit(field);
       });
       props.ref(field);
     }}
+    onSelect={(event) => props.onSelection?.({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd, direction: event.currentTarget.selectionDirection })}
     onInput={(typed) => {
       fit(typed.currentTarget);
       props.onInput(typed.currentTarget.value);

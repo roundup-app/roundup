@@ -1,7 +1,9 @@
+import * as v from "valibot";
+import { draftStorage } from "../state/storage";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Events } from "../app/events";
-import { RpcError } from "../app/seam";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 
 const NOT_ACKED = -32008;
@@ -27,17 +29,25 @@ export type Clearing = {
 const createClearing = (app: AppSeam, events: Events, id: string): Clearing => {
   const [phase, setPhase] = createSignal<ClearPhase>("closed");
   const [failure, setFailure] = createSignal<{ message: string; code: number | null } | null>(null);
-  const [reason, setReason] = createSignal("");
+  const [rawReason, setReason] = createSignal("");
   const [reasons, setReasons] = createSignal<ReadonlyMap<number, string>>(new Map());
   let asked = "";
+  let submitted: string | undefined;
+  const drafts = () => retained.get(events);
+  const saved = () => drafts()?.list().filter((draft) => draft.destination.surface === "rail-clear" && draft.destination.object === id).at(-1);
+
+  const reason = () => drafts() ? v.parse(v.optional(v.string(), ""), saved()?.value.text) : rawReason();
 
   events.subscribe((event) => {
     if (event.name === "workstream.cleared" && event.data.id === id) {
       setReasons((now) => new Map(now).set(event.data.iteration, asked));
       setPhase("closed");
       setFailure(null);
+
+      if (submitted) drafts()?.settle(submitted, "acknowledged");
       setReason("");
     } else if (event.name === "workstream.clearFailed" && event.data.id === id) {
+      if (submitted) drafts()?.settle(submitted, "failed");
       setPhase("asking");
       setFailure({ message: event.data.message, code: event.data.code });
     }
@@ -47,8 +57,15 @@ const createClearing = (app: AppSeam, events: Events, id: string): Clearing => {
     phase,
     failure,
     reason,
-    setReason,
+    setReason: (text) => {
+      setReason(text);
+      drafts()?.edit({ surface: "rail-clear", object: id, recipient: id }, { text }, null, "ordinary");
+    },
     open: () => {
+      const text = saved()?.value.text;
+
+      setReason(v.parse(v.optional(v.string(), ""), text));
+
       if (phase() === "closed") setPhase("asking");
     },
     keep: () => {
@@ -56,13 +73,16 @@ const createClearing = (app: AppSeam, events: Events, id: string): Clearing => {
 
       setPhase("closed");
       setFailure(null);
-      setReason("");
     },
     submit: async (withoutHandoff) => {
       const trimmed = reason().trim();
 
       if (phase() !== "asking" || trimmed === "") return;
 
+      if (saved()?.status === "unknown" || saved()?.status === "pending") return;
+      submitted = saved()?.revision;
+
+      if (submitted) drafts()?.submit(submitted);
       asked = trimmed;
       setPhase("pending");
       setFailure(null);
@@ -72,6 +92,7 @@ const createClearing = (app: AppSeam, events: Events, id: string): Clearing => {
       } catch (error) {
         if (!(error instanceof Error)) throw error;
 
+        if (submitted) drafts()?.settle(submitted, error instanceof RpcError && error.code !== INTERNAL_CODE ? "failed" : "unknown");
         setPhase("asking");
         setFailure({ message: error.message, code: error instanceof RpcError ? error.code : null });
       }
@@ -92,6 +113,64 @@ export const clearingOf = (app: AppSeam, events: Events, id: string): Clearing =
   const found = byId.get(id) ?? createClearing(app, events, id);
 
   byId.set(id, found);
+
+  return found;
+};
+
+/** Share the existing Project draft holder across the Rail's transient editors. */
+const createRailDrafts = (project: string) => {
+  const storage = draftStorage(project);
+  const [version, setVersion] = createSignal(0);
+  const refresh = () => setVersion((value) => value + 1);
+
+  const holder = {
+    list: () => {
+      version();
+
+      return storage.list().filter((draft) => draft.destination.surface.startsWith("rail-"));
+    },
+    problem: () => {
+      version();
+
+      return storage.problem();
+    },
+    edit: (...args: Parameters<typeof storage.edit>) => {
+      const result = storage.edit(...args);
+
+      refresh();
+
+      return result.draft;
+    },
+    submit: (revision: string) => {
+      const result = storage.submit(revision);
+
+      refresh();
+
+      return result;
+    },
+    settle: (...args: Parameters<typeof storage.settle>) => {
+      storage.settle(...args);
+      refresh();
+    },
+    discard: (revision: string) => {
+      storage.discard(revision);
+      refresh();
+    },
+    retry: () => {
+      storage.retry();
+      refresh();
+    },
+  };
+
+  return holder;
+};
+
+const retained = new WeakMap<Events, ReturnType<typeof createRailDrafts>>();
+
+export const railDraftsFor = (events: Events, project: string) => {
+  const found = retained.get(events) ?? createRailDrafts(project);
+
+  retained.set(events, found);
 
   return found;
 };
