@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use contracts::{Actor, ActorKind, EventData, Verb};
-use pads::Pads;
+use pads::{PadDeletion, PadSourceState, Pads, source, source_state};
 use provenance::Touches;
 use rpc::{Bus, Ctx, Module, code};
 use serde_json::{Value, json};
@@ -339,12 +339,27 @@ async fn p9_owner_or_user_deletes_and_others_are_forbidden() {
     rig.ok(&a, "pad.create", json!({"name": "notes"})).await;
     rig.ok(&a, "pad.create", json!({"name": "plan"})).await;
 
+    let db = rusqlite::Connection::open(rig.dir.path().join("pads.db")).unwrap();
+    let notes = source(&db, "notes").unwrap().unwrap();
+    let plan = source(&db, "plan").unwrap().unwrap();
     let denied = rig.fail(&b, "pad.delete", json!({"name": "notes"})).await;
     assert_eq!(denied.code, code::FORBIDDEN);
+    assert_eq!(
+        source_state(&db, notes.incarnation).unwrap(),
+        PadSourceState::Live(notes.clone())
+    );
     let mut events = rig.bus.subscribe();
     rig.ok(&a, "pad.delete", json!({"name": "notes"})).await;
     rig.ok(&user(), "pad.delete", json!({"name": "plan"})).await;
 
+    assert_eq!(
+        source_state(&db, notes.incarnation).unwrap(),
+        PadSourceState::Deleted(PadDeletion::Owner)
+    );
+    assert_eq!(
+        source_state(&db, plan.incarnation).unwrap(),
+        PadSourceState::Deleted(PadDeletion::User)
+    );
     let gone = rig.fail(&a, "pad.read", json!({"name": "notes"})).await;
     assert_eq!(gone.code, code::NOT_FOUND);
     let EventData::PadChanged(changed) = events.try_recv().unwrap().data else {
@@ -436,20 +451,6 @@ async fn p4_owner_may_hand_over_its_own_pad() {
         .fail(&a, "pad.setOwner", json!({"name": "notes", "owner": a}))
         .await;
     assert_eq!(again.code, code::FORBIDDEN);
-}
-
-#[tokio::test]
-async fn p1_names_are_unique_ignoring_case() {
-    let rig = Rig::new();
-    let a = agent("a");
-    rig.ok(&a, "pad.create", json!({"name": "notes", "text": "t"}))
-        .await;
-
-    let clash = rig.fail(&a, "pad.create", json!({"name": "Notes"})).await;
-
-    assert_eq!(clash.code, code::CONFLICT);
-    let found = rig.ok(&a, "pad.read", json!({"name": "NOTES"})).await;
-    assert_eq!(found["name"], "notes");
 }
 
 #[tokio::test]
@@ -627,11 +628,14 @@ async fn p5_a_name_the_file_system_refuses_is_invalid_params() {
     assert_eq!(err.code, code::INVALID_PARAMS);
 }
 
+// Rule 10: replaces p1_names_are_unique_ignoring_case;
+// p1_every_method_resolves_other_spellings_to_the_same_pad proves its read-back clause.
 #[tokio::test]
 async fn p1_names_that_fold_or_normalize_together_conflict() {
     let rig = Rig::new();
     let a = agent("a");
     for (first, second) in [
+        ("notes", "Notes"),
         ("ΑΣ", "ασ"),
         ("straße", "STRASSE"),
         ("caf\u{e9}", "cafe\u{301}"),
@@ -1451,12 +1455,21 @@ async fn p2544d_write_revision_guard() {
         rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
             .await;
         let a = agent("a");
-        rig.ok(
+        let incarnation = rig.ok(&a, "pad.list", json!({})).await[0]["incarnation"].clone();
+        let mut accepted_events = rig.bus.subscribe();
+        let written = rig.ok(
             &a,
             "pad.write",
-            json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+            json!({"name": "notes", "text": "winner", "expectedRevision": 1, "expectedIncarnation": incarnation}),
         )
         .await;
+        assert_eq!(written["incarnation"], incarnation);
+        assert_eq!(written["revision"], 2);
+        assert!(matches!(
+            accepted_events.try_recv().unwrap().data,
+            EventData::PadChanged(_)
+        ));
+        assert!(accepted_events.try_recv().is_err());
         let before = rig.ok(&a, "pad.list", json!({})).await;
         let touches = rig.touches.history("pad:notes").unwrap();
         let mut events = rig.bus.subscribe();
@@ -1464,7 +1477,7 @@ async fn p2544d_write_revision_guard() {
             .fail(
                 &a,
                 "pad.write",
-                json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+                json!({"name": "notes", "text": "loser", "expectedRevision": 1, "expectedIncarnation": incarnation}),
             )
             .await;
         assert_eq!(error.code, code::CONFLICT);
@@ -1494,6 +1507,8 @@ async fn p2544d_two_connections_have_one_winner() {
         rig.create("notes", "original").await;
         rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
             .await;
+        let incarnation =
+            rig.ok(&agent("a"), "pad.list", json!({})).await[0]["incarnation"].clone();
         let stores = [
             Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
             Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
@@ -1510,6 +1525,7 @@ async fn p2544d_two_connections_have_one_winner() {
                         bus: rig.bus.clone(),
                         touches: rig.touches.clone(),
                     };
+                    let incarnation = incarnation.clone();
                     let barrier = &barrier;
                     let runtime = &runtime;
                     scope.spawn(move || {
@@ -1517,7 +1533,7 @@ async fn p2544d_two_connections_have_one_winner() {
                         runtime.block_on(pads.call(
                             &ctx,
                             "pad.write",
-                            json!({"name": "notes", "text": text, "expectedRevision": 1}),
+                            json!({"name": "notes", "text": text, "expectedRevision": 1, "expectedIncarnation": incarnation}),
                         ))
                     })
                 })

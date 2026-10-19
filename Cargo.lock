@@ -3114,6 +3114,7 @@ dependencies = [
  "checkpoints",
  "clap",
  "contracts",
+ "pads",
  "rmcp",
  "rpc",
  "rupd",

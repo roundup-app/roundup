@@ -76,15 +76,6 @@
   background-color: var(--sunken);
 }
 
-.todo-tick:focus-visible {
-  outline: 0 solid var(--accent);
-}
-.todo-tick:focus-visible::before {
-  outline: inherit;
-  outline-width: 2px;
-  outline-offset: 2px;
-}
-
 .todo-tick:checked::before {
   background-color: var(--accent);
 }

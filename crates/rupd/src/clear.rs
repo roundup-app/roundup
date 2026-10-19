@@ -481,8 +481,11 @@ impl Daemon {
             );
             self.as_user("pad.append", json!({"name": name, "text": section}))
                 .await?;
-            self.as_user("pad.delete", json!({"name": pad.name}))
-                .await?;
+            self.pads.delete(
+                &self.ctx(Actor::user()),
+                contracts::pad::PadName { name: pad.name },
+                pads::PadDeletion::Cleanup,
+            )?;
         }
         Ok(())
     }

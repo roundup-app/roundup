@@ -61,10 +61,6 @@
   border-radius: var(--radius-drawer);
 }
 
-.app-select-list:focus-visible {
-  outline: none;
-}
-
 .app-select-item {
   display: flex;
   align-items: center;
