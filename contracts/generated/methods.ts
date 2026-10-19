@@ -58,6 +58,8 @@ import type { ListParams as deliverable_ListParams } from "./deliverable/ListPar
 import type { MoveParams as deliverable_MoveParams } from "./deliverable/MoveParams";
 import type { PublishParams as deliverable_PublishParams } from "./deliverable/PublishParams";
 import type { Resolution as deliverable_Resolution } from "./deliverable/Resolution";
+import type { LinkContent as link_LinkContent } from "./link/LinkContent";
+import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
 import type { MessageId as message_MessageId } from "./message/MessageId";
@@ -128,7 +130,8 @@ export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
-  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } } };
+  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string, methods: string[] } } };
+  "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };

@@ -21,6 +21,7 @@ rusqlite_migration.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
+percent-encoding = "2"
 url = "2"
 terminal = { path = "../terminal" }
 todos = { path = "../todos" }
