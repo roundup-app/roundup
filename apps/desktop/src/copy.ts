@@ -8,6 +8,21 @@ const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], [
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  deliverables: "Made",
+  deliverableCurrent: "Link · current",
+  deliverableNotChecked: "Availability not checked",
+  deliverableRetained: "File · published revision",
+  deliverableRevision: (revision: number) => `Pad · revision ${revision}`,
+  deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
+  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })}`,
+  deliverableUnsafe: "Unavailable: only HTTP and HTTPS targets can open.",
+  deliverableUnavailable: {
+    "missing-revision": "Unavailable: retained revision is missing.",
+    "integrity-failure": "Unavailable: retained revision failed its integrity check.",
+    "access-revoked": "Unavailable: access was revoked or the source was explicitly removed.",
+    "source-unknown": "Unavailable: source access could not be verified.",
+    "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
+  },
   switcherRetentionFailure: (operation: "restore" | "retain", project: string) => operation === "restore"
     ? `Your saved search in ${project} could not be restored. Try again to recover it.`
     : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,
