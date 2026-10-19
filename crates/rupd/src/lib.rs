@@ -7,6 +7,7 @@ mod clear;
 mod context;
 pub mod data;
 mod decision_notes;
+mod deliverables;
 mod digest;
 mod event_log;
 mod handshake;
@@ -85,6 +86,7 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
+    publications: deliverables::Publications,
     /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
@@ -436,6 +438,7 @@ impl Daemon {
             rewinding: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
+            publications: deliverables::Publications::open(dir)?,
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -649,6 +652,9 @@ impl Daemon {
         } else {
             None
         };
+        if method.starts_with("deliverable.") {
+            conn.actor = self.action_actor(conn);
+        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -813,6 +819,9 @@ impl Daemon {
         }
         self.before_prompt_effect(&conn.actor, method, &params)
             .await?;
+        if namespace == "deliverable" {
+            return self.deliverable_call(conn, method, params).await;
+        }
         if method == "attachment.save" {
             return self.attachments.save(params);
         }
@@ -988,6 +997,9 @@ impl Daemon {
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
             return outcome;
+        }
+        if method == "pad.delete" && outcome.is_ok() {
+            self.publications.invalidate_revoked()?;
         }
         outcome
     }
