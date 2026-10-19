@@ -75,7 +75,7 @@ const NoteField = <T extends HTMLInputElement | HTMLTextAreaElement>(props: JSX.
   // SAFETY: Native tag and event target are paired by the two typed wrappers below.
   const Field = Dynamic as Component<JSX.InputHTMLAttributes<T> & { component: "input" | "textarea" }>;
 
-  return <Field component={element} {...binding().input} {...rest} class={`app-listbox-note ${props.class ?? ""}`} disabled={props.disabled ?? false} readOnly={listbox().disabled || props.readOnly}
+  return <Field component={element} type={element === "input" ? "text" : undefined} {...binding().input} {...rest} class={`app-listbox-note ${props.class ?? ""}`} disabled={props.disabled ?? false} readOnly={listbox().disabled || props.readOnly}
     aria-disabled={listbox().disabled || props["aria-disabled"]}
     aria-controls={listbox().collection.size > 1 ? binding().input["aria-controls"] : ""}
     aria-activedescendant={answerOf(listbox().highlightedValue) === null ? "" : binding().input["aria-activedescendant"]}
