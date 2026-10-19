@@ -136,21 +136,24 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
-  return <Show when={connected.drafts.list().length || connected.drafts.problem()}>
+  const records = () => connected.drafts.list().filter((draft) => !draft.destination.surface.startsWith("rail-"));
+  const problem = () => connected.drafts.problem()?.destination?.surface.startsWith("rail-") ? null : connected.drafts.problem();
+
+  return <Show when={records().length || problem()}>
     <button class="draft-entry" data-button="quiet" type="button" aria-label={copy.recoverDrafts} onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>
       <span class="overview-tile"><Icon name="edit" /></span><span>{copy.recoverDrafts}</span>
-      <Show when={connected.drafts.list().length}><span data-state="draft">{connected.drafts.list().length}</span></Show>
+      <Show when={records().length}><span data-state="draft">{records().length}</span></Show>
     </button>
   </Show>;
 };
 
 const DraftRecovery = () => {
-  const { drafts, project, rail } = useConnectedProject();
+  const { drafts, project, rail, daemonExit } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
   const [failure, failed] = createSignal<string | null>(null);
-  const records = createMemo(() => drafts.list());
+  const records = createMemo(() => drafts.list().filter((draft) => !draft.destination.surface.startsWith("rail-")));
 
   // External recovery can retain two unsubmitted revisions for one destination.
   // Only its newest unsubmitted revision is current; inspection never promotes another.
@@ -190,14 +193,18 @@ const DraftRecovery = () => {
       return pads.pads().some((pad) => pad.incarnation === object) ? null : copy.originalUnavailable;
     }
 
-    if (surface !== "orders" && surface !== "rail") return copy.originalUnverified;
+    if (surface === "orders" || surface === "rail") {
+      return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
+    }
 
-    return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
+    const state = drafts.availability(draft, { rail, daemonExit });
+
+    return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
   };
 
   const identity = (draft: ReturnType<typeof drafts.list>[number]) => {
     const { surface, object } = draft.destination;
-    const node = rail.nodes.find((node) => node.id === object);
+    const node = surface === "terminal_selection" ? undefined : rail.nodes.find((node) => node.id === object);
 
     const name = surface === "pads" ? draft.value.originalName
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
@@ -209,7 +216,7 @@ const DraftRecovery = () => {
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
     <p class="draft-identity">{project.path}</p>
-    <Show when={drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, problem().destination ? copy.draftSurface(problem().destination!.surface) : (copy.draftSurfaces([...new Set(drafts.list().map((draft) => copy.draftSurface(draft.destination.surface)))]) || copy.allDraftSurfaces), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
+    <Show when={drafts.problem()?.destination?.surface.startsWith("rail-") ? null : drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, problem().destination ? copy.draftSurface(problem().destination!.surface) : (copy.draftSurfaces([...new Set(drafts.list().map((draft) => copy.draftSurface(draft.destination.surface)))]) || copy.allDraftSurfaces), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
     <Show when={failure()}>{(text) => <p role="alert">{text()}</p>}</Show>
     <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">

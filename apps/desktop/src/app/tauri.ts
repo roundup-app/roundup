@@ -87,7 +87,7 @@ export const createTauriApp = (): App => {
     closeProject: async (path) => {
       await command("close_project", { path });
     },
-    renameProject: (path, name) => parsedCommand(projectSchema, "rename_project", { path, name }),
+    renameProject: (path, name, base) => parsedCommand(projectSchema, "rename_project", base === undefined ? { path, name } : { path, name, base }),
     chooseProjectPath: () => guarded(() => open({ directory: true, multiple: false })),
     chooseSavePath: (suggestedName) => guarded(() => save({ defaultPath: suggestedName })),
     setDockBadge: (count) => guarded(() => getCurrentWindow().setBadgeCount(count === 0 ? undefined : count)),
