@@ -36,6 +36,16 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
+  "apps/desktop/src/ask/dv5_real_daemon.test.tsx": {
+    "cleanup": "The shared fixture stops and waits for its Daemon and closes Vite before removing owned directories; this observer calls stop in afterAll or finally.",
+    "data": "Uses the audited realDaemonFixture with fresh Project and absolute run-owned App data; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/ask/dv5_rendered.test.ts": {
+    "cleanup": "The shared fixture stops and waits for its Daemon and closes Vite before removing owned directories; this observer calls stop in afterAll or finally.",
+    "data": "Uses the audited realDaemonFixture with fresh Project and absolute run-owned App data; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
   "apps/desktop/src/header/u184_close.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
