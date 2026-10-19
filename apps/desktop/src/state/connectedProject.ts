@@ -1,6 +1,6 @@
-import { draftStorage } from "./storage";
-import { createContext, useContext } from "solid-js";
+import { createContext, createSignal, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
+import { draftStorage } from "./storage";
 import { checkContract } from "../app/contractMatch";
 import { connectEvents } from "../app/events";
 import type { Events } from "../app/events";
@@ -18,6 +18,51 @@ import { createTakeover } from "./takeover";
 import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
 import type { RailState } from "./rail";
+
+/** App-run ownership, keyed by the original path, survives connection/editor teardown.
+ * Surface owners use connected.drafts for complete forms and captured submission revisions;
+ * never construct another draftStorage for a connected Project. No operation delivers work.
+ */
+export const createProjectDrafts = () => {
+  const projects = new Map<string, ReturnType<typeof draftStorage>>();
+
+  return (path: string): ReturnType<typeof draftStorage> => {
+    const existing = projects.get(path);
+
+    if (existing) return existing;
+
+    const storage = draftStorage(path);
+    const [revision, changed] = createSignal(0);
+
+    const refresh = <T,>(result: T): T => {
+      changed((value) => value + 1);
+
+      return result;
+    };
+
+    const holder: ReturnType<typeof draftStorage> = {
+      list: () => {
+        revision();
+
+        return storage.list();
+      },
+      problem: () => {
+        revision();
+
+        return storage.problem();
+      },
+      edit: (...args) => refresh(storage.edit(...args)),
+      submit: (...args) => refresh(storage.submit(...args)),
+      settle: (...args) => refresh(storage.settle(...args)),
+      discard: (...args) => refresh(storage.discard(...args)),
+      retry: () => refresh(storage.retry()),
+    };
+
+    projects.set(path, holder);
+
+    return holder;
+  };
+};
 
 /** Everything a region of an open Project reads: the Project and its live connection to the Daemon. */
 export type ConnectedProject = {
@@ -52,7 +97,7 @@ export const connectProject = async (
   now: Accessor<number>,
   daemonExit: Accessor<DaemonExit | null> = () => null,
   storage?: RailStorage,
-  drafts = draftStorage(project.path),
+  drafts = createProjectDrafts()(project.path),
 ): Promise<ConnectedProject> => {
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
@@ -63,6 +108,11 @@ export const connectProject = async (
 
   return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
 };
+
+/** App-run authority for owners outside a connection, including Project tabs.
+ * Resolve by the original Project path, even after its connection or tab closes.
+ */
+export const ProjectDraftsContext = createContext<ReturnType<typeof createProjectDrafts>>();
 
 export const ConnectedProjectContext = createContext<ConnectedProject>();
 
