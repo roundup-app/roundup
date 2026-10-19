@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import type { Ask } from "@contracts/ask/Ask";
@@ -315,4 +315,42 @@ it("u2773b_unknown_asks_have_individual_status_checks", async () => {
   expect(screen.getByRole("button", { name: "Check send status: Check the production logs" })).toBeTruthy();
   expect(connected.drafts.list().filter(draft => draft.status === "unknown").map(draft => draft.value.text)).toEqual(["Check the production logs"]);
   expect(sent(app)).toHaveLength(2);
+});
+
+
+it("u2773e_recovery_actions_keep_surface_draft", async () => {
+  const mounted = await mountAskBar();
+  const exact = "  memory e\u0301 🌿\nlast line  ";
+  const clipboard = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: clipboard } });
+  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+
+  try {
+    type(exact);
+    expect(input()!.value).toBe(exact);
+    expect(screen.getByRole("alert").textContent).toContain(mounted.connected.project.path);
+    expect(screen.getByRole("alert").textContent).toContain("Ask");
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy text" }));
+    expect(clipboard).toHaveBeenCalledWith(exact);
+    expect(input()!.value).toBe(exact);
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(sent(mounted.app)).toEqual([]);
+    const path = mounted.connected.project.path;
+    mounted.unmount();
+    const reopened = await mountAskBar([], null, undefined, false, path);
+    expect(input()!.value).toBe(exact);
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+    expect(input()!.value).toBe("");
+    expect(sent(reopened.app)).toEqual([]);
+    reopened.unmount();
+    await mountAskBar([], null, undefined, false, path);
+    expect(input()!.value).toBe("");
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
 });
