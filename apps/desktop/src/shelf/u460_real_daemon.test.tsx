@@ -55,10 +55,13 @@ const openShelf = async (tab: "Todos" | "Pads", all = false) => {
     expect(within(screen.getByRole("tablist", { name: "Work items" })).getByRole("tab", { name: new RegExp(`^${tab}`) }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel", { name: new RegExp(`^${tab}`) })).toBeTruthy();
   });
-  const scope = await screen.findByRole("button", { name: /Show (all Workstreams|only this Workstream)/ });
 
-  if (all && scope.getAttribute("aria-pressed") === "false") fireEvent.click(scope);
-  await waitFor(() => expect(scope.getAttribute("aria-pressed")).toBe(String(all)));
+  if (all) {
+    fireEvent.click(document.querySelector('[data-todo-root]')!);
+    const unassigned = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+
+    if (unassigned) fireEvent.click(unassigned);
+  }
 };
 
 const selectRow = async (name: string | RegExp) => {
