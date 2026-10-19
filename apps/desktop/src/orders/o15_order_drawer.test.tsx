@@ -300,3 +300,31 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
   expect(sends).toEqual([]);
 });
+
+
+it("u2773c_orders_untouched_editor_follows_external_change", async () => {
+  let latest = full;
+  const { app } = await mountApp([], (app) => {
+    app.handlers["rail.tree"] = () => [
+      agent("a", "working", "editing", { name: "alpha", order: 0, work: latest }),
+      agent("b", "working", "editing", { name: "beta", order: 1 }),
+      door("r", "working", "editing", { name: "harbor", order: 2 }),
+    ];
+    app.handlers["agent.spawnPrompt"] = () => ({ prompt: null });
+  });
+  select("alpha");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
+  latest = { kind: "work", title: "Updated title", ask: "Updated ask", done: "Updated done", limits: ["Updated limit"] };
+  app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  await waitFor(() => expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("Updated ask"));
+  expect(["Title", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
+    .toEqual(["Updated title", "Updated done"]);
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Copy ask" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "My edit after update" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.setOrder").map((call) => call.params))
+    .toEqual([{ id: "a", order: { ...latest, ask: "My edit after update" }, captured: { order: latest } }]));
+});
