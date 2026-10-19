@@ -15,13 +15,16 @@ export const shelfScope = (connected: ConnectedProject) => {
   });
 
   return {
-    selected,
-    label: () => { const scope = selected();
+    label: () => {
+      const scope = selected();
 
- return scope.kind === "overview" ? copy.overview : scope.name; },
-    home: () => { const scope = selected();
+      return scope.kind === "overview" ? copy.overview : scope.name;
+    },
+    home: () => {
+      const scope = selected();
 
- return scope.kind === "overview" ? null : resolvedWorkstream(connected.rail.nodes, scope.id); },
+      return scope.kind === "overview" ? null : resolvedWorkstream(connected.rail.nodes, scope.id);
+    },
     includes: (home: string | null, maker: Actor) => {
       const scope = selected();
 

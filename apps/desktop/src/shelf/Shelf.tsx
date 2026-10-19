@@ -106,7 +106,7 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
   );
 };
 
-/** U373: the open tab's list and optional scope control; the tabs live in the window bar. */
+/** U373/U2744a: the open list follows Rail selection; the tabs live in the window bar. */
 export const Shelf = (props: { open: Accessor<boolean> }) => {
   const [actions, setActions] = createSignal<HTMLDivElement>();
   const connected = useConnectedProject();

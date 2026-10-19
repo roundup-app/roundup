@@ -46,7 +46,11 @@ export const Groups = <T,>(props: { items: Accessor<readonly T[]>; home: (item: 
 
   return <Show when={groups()[0]?.id !== "flat"} fallback={props.children(() => [...props.items()])}>
     <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
-      onExpandedChange={details => setClosed(collection().getBranchValues().filter(id => !details.expandedValue.includes(id)))}>
+      onExpandedChange={details => {
+        const branches = collection().getBranchValues();
+
+        setClosed(held => [...held.filter(id => !branches.includes(id)), ...branches.filter(id => !details.expandedValue.includes(id))]);
+      }}>
       <TreeView.Tree class="shelf-groups" aria-label={copy.shelfLabel}>
         <For each={groups().map(group => group.id)}>{(id, at) => branch(id, () => [at()])}</For>
       </TreeView.Tree>

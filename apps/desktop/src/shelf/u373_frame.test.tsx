@@ -56,11 +56,15 @@ describe("u373 the Shelf has two tabs", () => {
 
   it("u373_counts_follow_the_scope", async () => {
     await mountApp();
+    const counts = () => ["Todos", "Pads"].map(name => tabNamed(name).querySelector(".shelf-count")?.textContent ?? "0");
 
-    await waitFor(() => expect(tabNamed("Todos").querySelector(".shelf-count")).not.toBeNull());
-    const all = Number(tabNamed("Todos").querySelector(".shelf-count")!.textContent);
-
-    await waitFor(() => expect(shelf().querySelectorAll("[data-todo]")).toHaveLength(all));
+    await waitFor(() => expect(counts()).toEqual(["7", "4"]));
+    fireEvent.click(document.querySelector('.rail-row[data-id="payments"]')!);
+    await waitFor(() => expect(counts()).toEqual(["0", "2"]));
+    fireEvent.click(document.querySelector('.rail-row[data-id="tokens"]')!);
+    await waitFor(() => expect(counts()).toEqual(["3", "0"]));
+    fireEvent.click(document.querySelector('[data-todo-root]')!);
+    await waitFor(() => expect(counts()).toEqual(["7", "4"]));
   });
 
   it("u373_a_zero_count_shows_nothing", async () => {

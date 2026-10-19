@@ -376,7 +376,7 @@ export const Todos = () => {
               known={todos.byId()}
               onOpen={show}
               onComplete={complete}
-              sorted={sorted.row(todo.id, parts)}
+              sorted={sorted.row(todo.id, parts, () => items().filter(todo => !todo.done).map(todo => todo.id))}
               registerRow={(id, row) => {
                 selection.register(id, row);
 

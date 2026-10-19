@@ -8,6 +8,7 @@ import { expect, it } from "vitest";
 import * as v from "valibot";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
+import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 import type { CreateParams as TodoCreate } from "@contracts/todo/CreateParams";
 import type { CreateParams as PadCreate } from "@contracts/pad/CreateParams";
@@ -54,7 +55,9 @@ it("u2744a_shelf_scope_real_daemon", async () => {
   const real = await startRealDaemon({}, true);
   const profile = mkdtempSync(join(tmpdir(), "u2744a-profile-"));
   const session = `u2744a-${process.pid}`;
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
+  writeFileSync(join(profile, "config.json"), "{}");
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_"))), AGENT_BROWSER_DEFAULT_TIMEOUT: "60000" };
+  const browser = async (...args: string[]) => (await exec("agent-browser", ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", join(profile, "config.json"), "--session", session, "--profile", profile, ...args], { env, timeout: 90_000 })).stdout;
   // SAFETY: agent-browser serialises the page expression's JSON value.
   const evaluate = async <T,>(source: string): Promise<T> => JSON.parse(await browser("eval", source)) as T;
   const until = (source: string) => browser("wait", "--fn", source);
@@ -70,9 +73,9 @@ it("u2744a_shelf_scope_real_daemon", async () => {
   };
 
   try {
-    const w = await app.rpc("rail.createWorkstream", { name: "Shelf workstream one", parent: null });
+    const w = await app.rpc("rail.createWorkstream", { name: "Shelf workstream one " + "W".repeat(60), parent: null });
     const other = await app.rpc("rail.createWorkstream", { name: "Shelf workstream two", parent: null });
-    const a = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: w.id, name: "Shelf maker one" });
+    const a = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: w.id, name: "A".repeat(32) });
     const b = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: other.id, name: "Shelf maker two" });
     const root = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: "Shelf root maker" });
     const user: Actor = { kind: "user", id: "you", parent: null };
@@ -97,15 +100,16 @@ it("u2744a_shelf_scope_real_daemon", async () => {
     await actorCall(join(real.dir, "rupd.sock"), agent(a.id), "pad.create", { name: "root-home-pad", text: "root" });
     await app.rpc("pad.move", { name: "root-home-pad", home: null });
     await app.rpc("agent.stop", { id: a.id });
-    await app.rpc("agent.stop", { id: b.id });
+    await app.rpc("agent.signal", { id: b.id, attempt: b.attempt!, payload: { hook_event_name: "SessionEnd", reason: "done" } });
+    expect((await app.rpc("rail.tree", null)).find(node => node.id === b.id)?.status?.kind).toBe("done");
     const shell = await app.rpc("terminal.open", { workstream: w.id });
-    await app.rpc("terminal.open", { workstream: null });
+    const rootShell = await app.rpc("terminal.open", { workstream: null });
     await browser("set", "viewport", "1512", "950");
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await browser("wait", ".shelf-tabs");
 
     const select = async (id: string | null) => {
-      await browser("click", id ? `.rail [data-id="${id}"] .name` : "[data-todo-root]");
+      await evaluate(`(() => { document.querySelector(${JSON.stringify(id ? `.rail-row[data-id="${id}"]` : "[data-todo-root]")}).click(); return true; })()`);
       await until(id ? `document.querySelector('.rail-row[data-selected="true"]')?.dataset.id === ${JSON.stringify(id)}` : "!document.querySelector('.rail-row[data-selected=\"true\"]')");
     };
 
@@ -119,18 +123,22 @@ it("u2744a_shelf_scope_real_daemon", async () => {
       await evaluate("new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
     };
 
-    const readback = async (id: string | null, maker = false) => {
+    const readback = async (id: string | null, maker = false, step?: string) => {
       const expectedTodos = (await app.rpc("todo.list", null)).filter(row => id === null || (maker ? row.creator.kind === "agent" && row.creator.id === id : row.home === id));
       const expectedPads = (await app.rpc("pad.list", null)).filter(row => id === null || (maker ? row.owner.kind === "agent" && row.owner.id === id : row.home === id));
       await tab("todos");
+      expect(await evaluate("document.querySelector('#shelf-tab-todos .shelf-count')?.textContent ?? '0'")).toBe(String(expectedTodos.filter(todo => !todo.done).length));
       await expand();
       await until(`document.querySelectorAll('#shelf-panel-todos [data-todo]').length === ${expectedTodos.length}`);
       const todoIds = await evaluate<number[]>("[...document.querySelectorAll('#shelf-panel-todos [data-todo]')].map(row => Number(row.dataset.todo))");
       expect(todoIds.toSorted((a, b) => a - b)).toEqual(expectedTodos.map(row => row.id).toSorted((a, b) => a - b));
       await tab("pads");
+      expect(await evaluate("document.querySelector('#shelf-tab-pads .shelf-count')?.textContent ?? '0'")).toBe(String(expectedPads.length));
       await expand();
       await until(`document.querySelectorAll('#shelf-panel-pads .pad-name').length === ${expectedPads.length}`);
       expect((await evaluate<string[]>("[...document.querySelectorAll('#shelf-panel-pads .pad-name')].map(row => row.textContent)")).toSorted()).toEqual(expectedPads.map(row => row.name).toSorted());
+
+      if (step) await capture(`${step}-pads`);
       await tab("todos");
     };
 
@@ -138,14 +146,30 @@ it("u2744a_shelf_scope_real_daemon", async () => {
       await browser("set", "media", scheme);
       await select(null);
       await tab("todos");
+      await evaluate(`(() => { const control = document.querySelector('#shelf-panel-todos [data-shelf-group="unassigned"] [data-part="branch-control"]'); if (control.closest('[role="treeitem"]').getAttribute('aria-expanded') === 'true') control.click(); return true; })()`);
       await capture(`${scheme}-overview-folded`);
-      await readback(null);
+      await readback(null, false, `${scheme}-overview-open`);
       await capture(`${scheme}-overview-open`);
+      const counts = await evaluate<string[]>("[...document.querySelectorAll('.shelf-count')].map(row => row.textContent)");
+      const control = '#shelf-panel-todos [data-shelf-group="unassigned"] [data-part="branch-control"]';
+      await browser("focus", control);
+
+      for (const [key, expanded] of [["ArrowLeft", false], ["ArrowRight", true], ["Enter", false], ["Space", true]] as const) {
+        await browser("press", key);
+        await until(`document.querySelector(${JSON.stringify(control)})?.closest('[role="treeitem"]').getAttribute('aria-expanded') === '${expanded}'`);
+        expect(await evaluate("document.activeElement.matches('[data-part=branch-control]')")).toBe(true);
+        expect(await evaluate("[...document.querySelectorAll('.shelf-count')].map(row => row.textContent)")).toEqual(counts);
+        expect(await evaluate("!document.querySelector('.rail-row[data-selected=true]')")).toBe(true);
+      }
+
       await select(w.id);
       await readback(w.id);
       await capture(`${scheme}-workstream`);
       await browser("click", `.terminal-tab[data-bubble="${shell.terminal_id}"]`);
       await readback(w.id);
+      await select(null);
+      await browser("click", `.terminal-tab[data-bubble="${rootShell.terminal_id}"]`);
+      await readback(null);
       await select(a.id);
       await readback(a.id, true);
       await capture(`${scheme}-agent`);
@@ -157,13 +181,28 @@ it("u2744a_shelf_scope_real_daemon", async () => {
       await readback(root.id, true);
     }
 
+    await select(null);
+    await tab("todos");
+    await expand();
+    // Inject one rejected completion at the webview transport; all list data and Events remain real.
+    await evaluate(`(() => { const original = window.fetch.bind(window); window.fetch = (url, options) => { if (options?.body && JSON.parse(options.body).method === 'todo.complete') { window.fetch = original; return Promise.resolve(new Response(JSON.stringify({error: {code: -32000, message: 'Cannot complete this Todo: observer failure'}}), {headers: {'Content-Type': 'application/json'}})); } return original(url, options); }; return true; })()`);
+    await browser("click", ".shelf .todo-tick:not(:checked):not(:disabled)");
+    await until("document.querySelector('.shelf [role=alert]')?.textContent.includes('observer failure')");
+
+    for (const scheme of ["light", "dark"]) {
+      await browser("set", "media", scheme);
+      await capture(`${scheme}-failure`);
+    }
+
     await select(w.id);
     await app.rpc("rail.rename", { id: w.id, name: "Renamed Shelf workstream" });
     await until("document.querySelector('[data-shelf-scope]')?.textContent === 'Renamed Shelf workstream'");
     const all: Todo[] = await app.rpc("todo.list", null);
     await app.rpc("todo.move", { id: all.find(row => row.creator.id === a.id)!.id, home: other.id });
     const allPads: Pad[] = await app.rpc("pad.list", null);
-    await app.rpc("pad.setOwner", { name: allPads.find(row => row.owner.id === a.id)!.name, owner: user });
+    const changedPad = allPads.find(row => row.owner.id === a.id)!.name;
+    await app.rpc("pad.setOwner", { name: changedPad, owner: user });
+    await app.rpc("pad.move", { name: changedPad, home: other.id });
     await readback(w.id);
     await select(a.id);
     await readback(a.id, true);
@@ -179,4 +218,4 @@ it("u2744a_shelf_scope_real_daemon", async () => {
     await real.stop();
     rmSync(profile, { recursive: true, force: true });
   }
-}, 240_000);
+}, 360_000);

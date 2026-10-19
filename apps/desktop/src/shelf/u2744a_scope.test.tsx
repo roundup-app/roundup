@@ -258,6 +258,7 @@ it("u458_grouped_ranges_follow_visible_order", async () => {
 
 it("u2744a_shelf_scope_unassigned_starts_folded_when_first_added_after_folding", async () => {
   const { app, store, pads } = await mount();
+  await waitFor(() => expect(groupIds()).toContain("unassigned"));
   store.todos = store.todos.filter(todo => ![4, 9, 10].includes(todo.id));
   pads.pads = pads.pads.filter(pad => !["pad-4", "pad-9", "pad-10"].includes(pad.name));
   app.emit(event({ name: "todo.deleted", data: { id: 4 } }));
