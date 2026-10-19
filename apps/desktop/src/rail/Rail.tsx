@@ -58,8 +58,29 @@ export const Rail = () => {
   const [wanted, setWanted] = createSignal<string | null>(null);
   /** Gates `⌘N` in the chord handler and the add-agent click below, so an open field is never dropped mid-type (U33). */
   const [composing, setComposing] = createSignal(false);
+  const [editingName, setEditingName] = createSignal<string | null>(null);
   const [taskDestination, setTaskDestination] = createSignal<string | null>(null);
   const task = () => retained.records().filter((entry) => entry.destination.surface === "rail-task").at(-1);
+
+  const recovery = createMemo(() => retained.records().filter((entry) => {
+    const { surface, object } = entry.destination;
+
+    if (!surface.startsWith("rail-")) return false;
+
+    if (surface === "rail-task" && composing() && entry.revision === task()?.revision) return false;
+
+    if (surface === "rail-name" && object === editingName()) {
+      return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
+    }
+
+    if (surface === "rail-clear" && object === clearPrompt()?.id) {
+      return entry.revision !== retained.records().filter((draft) => draft.destination.surface === surface && draft.destination.object === object).at(-1)?.revision;
+    }
+
+    return true;
+  }));
+
+  const destinationName = (id: string) => id === "" || id === project.path ? copy.overview : rail.nodes.find((node) => node.id === id)?.name ?? copy.railDraftMissingTarget;
 
   const draft = () => {
     const text = task()?.value.text;
@@ -580,6 +601,7 @@ export const Rail = () => {
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
                           onFailure={setFailure}
+                          onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
                           }}
@@ -625,14 +647,14 @@ export const Rail = () => {
       <Show when={retained.records().some((entry) => entry.destination.surface.startsWith("rail-") && entry.status === "unknown")}>
         <p class="rail-task-target" role="status">{copy.railDraftUnknown(project.name)}</p>
       </Show>
-      <Show when={retained.problem()}>{(problem) => <>
-        <ErrorLine message={copy.railDraftRetention(project.path, problem().destination?.surface ?? "rail", problem().operation)} />
+      <Show when={retained.problem()}>{(problem) => <div class="rail-retention">
+        <ErrorLine message={copy.railDraftRetention(project.name, problem().destination?.surface ?? "rail", problem().operation)} />
         <button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button>
-      </>}</Show>
-      <Show when={retained.records().some((entry) => entry.destination.surface.startsWith("rail-"))}>
+      </div>}</Show>
+      <Show when={recovery().length > 0}>
         <details class="rail-recovery">
-          <summary>{copy.railDrafts}</summary>
-          <For each={retained.records().filter((entry) => entry.destination.surface.startsWith("rail-")).map((entry) => entry.revision).reverse()}>{(revision) => (
+          <summary><Icon name="right" />{copy.railDrafts}</summary>
+          <For each={recovery().map((entry) => entry.revision).reverse()}>{(revision) => (
             <Show when={revisions().get(revision)}>{(entry) => {
               const text = () => {
                 const value = entry().value.text;
@@ -648,16 +670,17 @@ export const Rail = () => {
 
               return (
                 <details>
-                  <summary>{copy.railDraftRecovery(entry().destination.surface, entry().destination.object, entry().status)}</summary>
+                  <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
                   <Show when={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object)}>
                     <p role="status">{copy.railDraftUnavailable}</p>
                   </Show>
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
-                  <p>{copy.railDraftDestination(project.path, entry().destination.recipient ?? (entry().destination.object === "" || entry().destination.object === project.path ? copy.overview : entry().destination.object))}</p>
+                  <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
                   <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
                   <Show when={entry().destination.surface === "rail-clear"}><p>{entry().value.withoutHandoff === true ? copy.clearWithoutHandoff : copy.clearWithHandoff}</p></Show>
                   <Show when={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base)}><p role="status">{copy.railDraftConflict}</p></Show>
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
+                  <div class="rail-recovery-actions">
                   <button data-button="quiet" onClick={() => { void attempt(() => navigator.clipboard.writeText(text())); }}>{copy.railDraftCopy}</button>
                   <button data-button="quiet" onClick={() => {
                     const current = task()?.revision === entry().revision;
@@ -665,6 +688,7 @@ export const Rail = () => {
 
                     if (current && !task()) setTaskDestination(parent());
                   }}>{copy.railDraftDiscard}</button>
+                  </div>
                 </details>
               );
             }}</Show>

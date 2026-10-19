@@ -2,6 +2,8 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 type CopyValue = string | number | undefined;
 
+const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
+
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
@@ -183,7 +185,8 @@ export const copy = {
   railDraftUnavailable: "The original target is unavailable. Copy or discard this draft.",
   railDraftRetention: (project: string, surface: string, operation: "restore" | "retain") => `${railDraftLabels.get(surface) ?? "Rail drafts"} in ${project}: ${operation === "restore" ? "stored work could not be restored" : "work could not be saved for reload"}. Keep this window open; copy your work or retry storage.`,
   railDraftRetry: "Retry storage",
-  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Rail edit"} · ${object} · ${status}`,
+  railDraftRecovery: (surface: string, object: string, status: string) => `${railDraftLabels.get(surface) ?? "Rail edit"} · ${object} · ${railDraftStatuses.get(status) ?? "Retained"}`,
+  railDraftMissingTarget: "Unavailable target",
   railDraftRecovered: "Recovered rail draft",
   railDraftCopy: "Copy draft",
   railDraftDiscard: "Discard this revision",
