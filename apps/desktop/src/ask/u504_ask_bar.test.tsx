@@ -309,7 +309,7 @@ it("u2773b_unknown_asks_have_individual_status_checks", async () => {
   }
 
   const unknown = connected.drafts.list().filter(draft => draft.status === "unknown");
-  app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], String(unknown[0].value.text)), submission: unknown[0].revision }];
+  app.handlers["ask.list"] = () => [{ ...ask("accepted", 1, [], String(unknown[0]!.value.text)), submission: unknown[0]!.revision }];
   fireEvent.click(screen.getByRole("button", { name: "Check send status: Run the migration on staging" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "Check send status: Run the migration on staging" })).toBeNull());
   expect(screen.getByRole("button", { name: "Check send status: Check the production logs" })).toBeTruthy();
