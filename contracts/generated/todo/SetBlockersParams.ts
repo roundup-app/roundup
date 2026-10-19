@@ -2,5 +2,7 @@
 
 /**
  * Replaces the whole blocker list. A list that would make a cycle is an error.
+ * `expected_change` is the last captured History Change sequence; mismatch is CONFLICT,
+ * a removed Todo is NOT_FOUND, and omission is unconditional.
  */
-export type SetBlockersParams = { id: number, blockers: Array<number>, };
+export type SetBlockersParams = { id: number, blockers: Array<number>, expected_change?: number, };
