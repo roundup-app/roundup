@@ -65,7 +65,7 @@ it("u2773e_storage_failure_keeps_memory", () => {
   const result = drafts.edit(target, { text: " complete\nnew 😀 " }, null, "ordinary");
   const b = result.draft;
   expect(result.problem).toEqual({ project: "/project/a", destination: target, revision: b.revision, operation: "retain", cause: "write" });
-  expect(drafts.list()).toEqual([{ ...a, status: "pending" }, b]);
+  expect(drafts.list()).toEqual([{ ...a, status: "pending" }, { ...b, value: { text: " complete\nnew 😀 " } }]);
   expect(localStorage.getItem("roundup:drafts:/project/a")).toBe(before);
   write.mockRestore();
   expect(drafts.retry()).toBeNull();
@@ -110,6 +110,7 @@ it("u2773e_storage_failure_keeps_memory_at_utf8_bound", () => {
   const b = edit(drafts, exact + "x");
   expect(drafts.problem()?.cause).toBe("capacity");
   expect(drafts.list()).toEqual([b]);
+  expect(drafts.list()[0]?.value.text).toBe(exact + "x");
   expect(disk.get("roundup:drafts:/project/a")).toBe(before);
   expect(draftStorage("/project/a").list()).toEqual([a]);
   expect(drafts.discard(b.revision)).toBeNull();
@@ -135,7 +136,9 @@ it("u2773a_storage_identity_separates_surface_object_recipient", () => {
   const drafts = draftStorage("/project/a");
   const destinations = [target, { ...target, surface: "orders" }, { ...target, object: "another" }, { ...target, recipient: "agent-b" }];
   const expected = destinations.map((destination, index) => drafts.edit(destination, { text: `exact ${index}` }, null, "ordinary").draft);
-  expect(draftStorage("/project/a").list()).toEqual(expected);
+  const reopened = draftStorage("/project/a").list();
+  expect(reopened).toEqual(expected);
+  expect(reopened.map((draft) => draft.destination)).toEqual(destinations);
 });
 
 it("u2773e_storage_retry_merges_external_records_without_reviving_discard", () => {
