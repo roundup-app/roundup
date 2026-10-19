@@ -244,7 +244,7 @@ const openDraftProjects = async () => {
   const select = async (index: number) => {
     const tabs = within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab");
     fireEvent.click(tabs[index]!);
-    fireEvent.click(await screen.findByText(`editor-${index}`));
+    fireEvent.click(await waitFor(() => within(screen.getByRole("tree", { name: "Rail" })).getByText(`editor-${index}`)));
     await waitFor(() => expect(seen.at(-1)?.project.path).toBe(paths[index]));
 
     return seen.at(-1)!;
