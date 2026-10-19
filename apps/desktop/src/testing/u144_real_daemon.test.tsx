@@ -535,7 +535,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await openRecovery();
     fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
-    expect(screen.getByText(/Acceptance unknown/)).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Acceptance unknown" })).toBeTruthy();
     holder.settle(a.revision, "acknowledged");
     expect(holder.list()).toEqual([b]);
     noDelivery();
