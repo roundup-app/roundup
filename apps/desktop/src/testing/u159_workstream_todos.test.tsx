@@ -27,7 +27,7 @@ const mount = async () => {
     todo(11, { creator: by("a"), home: "w", done: true }), todo(12, { creator: by("w"), home: "w" }),
   ] };
 
-  const pads = { pads: store.todos.map(t => ({ name: `pad-${t.id}`, owner: t.creator, home: t.home, text: "", revision: 1, updated_at: 0 })), history: [] };
+  const pads = { pads: store.todos.map(t => ({ incarnation: `fixture-${t.id}`, name: `pad-${t.id}`, owner: t.creator, home: t.home, text: "", revision: 1, updated_at: 0 })), history: [] };
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => [info("shell-w", { owner: "w", title: "work shell" }), info("shell-root", { owner: "/p", title: "root shell" })];
   Object.assign(app.handlers, todoHandlers(store, data => app.emit(event(data))), padHandlers(pads, data => app.emit(event(data))));

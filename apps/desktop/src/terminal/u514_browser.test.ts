@@ -212,9 +212,10 @@ const editor = async (kind: typeof editorKinds[number]) => {
 
   if (kind === "pad") {
     await browser("eval", "window.__fake.app.rpc('pad.write', { name: 'pad-3', text: 'alpha bravo charlie delta echo foxtrot' })");
+    await browser("click", '[data-id="payments"] .name');
     await browser("click", "#shelf-tab-pads");
-    await wait("document.querySelectorAll('[data-shelf-row] .pad-name').length >= 4");
-    await browser("eval", "document.querySelectorAll('[data-shelf-row] .pad-name')[3].click()");
+    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
+    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').click()");
     await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
     selector = ".ProseMirror";
   } else if (kind === "todo") {
@@ -304,9 +305,10 @@ it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and
   let selector: string;
 
   if (content === "pad") {
+    await browser("click", '[data-id="agent-1"] .name');
     await browser("click", "#shelf-tab-pads");
-    await wait("!!document.querySelector('.pad-name')");
-    await browser("click", ".pad-name");
+    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
+    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').click()");
     selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
   } else {
     await browser("open", url("/harness.html?seed=decisions&renderer=dom"));
