@@ -283,7 +283,7 @@ async fn d9_worktree_lock_acquisition_uses_the_same_deadline_as_commands() {
     std::fs::write(enabled, "hold").unwrap();
     let project = f.dir.path().to_owned();
     // The existing CLI holder has no App deadline; it must not lend its lifetime to an App read.
-    let held = tokio::task::spawn_blocking(move || holder.plan(&project, "held", "1"));
+    let held = tokio::task::spawn_blocking(move || holder.plan(&project, "held"));
     tokio::time::timeout(Duration::from_secs(5), async {
         while !marker.exists() {
             tokio::task::yield_now().await;

@@ -381,24 +381,7 @@ impl Agents {
                 &pair,
             )
             .await?;
-        let pending = self
-            .shared
-            .rail()
-            .provisioning()?
-            .into_iter()
-            .find(|(node, _, _)| node.id == id);
-        if let Some((node, plan, _)) = pending {
-            let plan =
-                plan.ok_or_else(|| RpcError::internal(format!("worktree_failed: {UNPROVEN}")))?;
-            self.shared
-                .rail()
-                .set_worktree(id, &node.worktree.expect("provisioned Worktree"))?;
-            let (git, project) = (self.shared.git.bounded(), self.project_dir().to_owned());
-            tokio::task::spawn_blocking(move || git.finish(&project, &plan))
-                .await
-                .map_err(RpcError::internal)??;
-            self.shared.rail().clear_provisioning_owner(id)?;
-        }
+        self.retain_worktree(id).await?;
         let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
         self.shared.watch_channel(id, &started);
         if role == Role::Door
