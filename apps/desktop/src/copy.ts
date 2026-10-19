@@ -8,6 +8,21 @@ const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], [
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  deliverables: "Made",
+  deliverableCurrent: "Link · current",
+  deliverableNotChecked: "Availability not checked",
+  deliverableRetained: "File · published revision",
+  deliverableRevision: (revision: number) => `Pad · revision ${revision}`,
+  deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
+  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })}`,
+  deliverableUnsafe: "Unavailable: only HTTP and HTTPS targets can open.",
+  deliverableUnavailable: {
+    "missing-revision": "Unavailable: retained revision is missing.",
+    "integrity-failure": "Unavailable: retained revision failed its integrity check.",
+    "access-revoked": "Unavailable: access was revoked or the source was explicitly removed.",
+    "source-unknown": "Unavailable: source access could not be verified.",
+    "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
+  },
   switcherRetentionFailure: (operation: "restore" | "retain", project: string) => operation === "restore"
     ? `Your saved search in ${project} could not be restored. Try again to recover it.`
     : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,
@@ -17,7 +32,7 @@ export const copy = {
   queryCopied: "Copied",
   discardQuery: "Discard query",
   draftSurface: (surface: string) => ({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" })[surface] ?? "Unfinished work",
-  draftField: (field: string) => ({ originalName: "Original name", source: "Source", base: "Original source", name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
+  draftField: (field: string) => ({ originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
   originalDraftObject: "Original object",
   inspectedRevision: (identity: string, state: string) => `${identity} · ${state}`,
   inspectDraft: "Inspect",
@@ -35,7 +50,7 @@ export const copy = {
   originalUnverified: "Original availability not verified",
   storageRetry: "Retry storage only",
   discardRevision: "Discard this revision",
-  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: reload retention failed (${cause}). Keep a copy, retry storage, or discard a selected revision. Stored data has been preserved.`,
+  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`,
   allDraftSurfaces: "stored surfaces",
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
@@ -213,6 +228,8 @@ export const copy = {
   aRunningAgentIsNotChanged: "A running Agent is not changed.",
   thePromptCouldNotBeRead: "The prompt could not be read",
   theOrderCouldNotBeSaved: "The order could not be saved",
+  orderRestoreFailed: "This saved order form could not be restored. Recover unfinished work to copy or discard its original fields.",
+  orderChanged: "Order changed; copy or discard your retained edit.",
   title: "Title",
   ask: "Ask",
   doneWhen: "Done when",

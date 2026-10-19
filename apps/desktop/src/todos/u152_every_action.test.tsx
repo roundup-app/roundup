@@ -77,7 +77,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       fireEvent.input(field, { target: { value: "renamed" } });
       fireEvent.change(field, { target: { value: "renamed" } });
       fireEvent.blur(field);
-      await waitFor(() => expect(callsTo(mounted.app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 2, title: "renamed", body: null } }]));
+      await waitFor(() => expect(callsTo(mounted.app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 2, title: "renamed", body: null, expected_change: 2 } }]));
       refetch(mounted);
 
       await waitFor(() => expect(rowText(2)).toContain("renamed"));
@@ -89,7 +89,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       await openDrawerOf(2);
       press(within(drawer()).getByRole("button", { name: /Blocker/ }), by);
       press(await within(drawer()).findByRole("button", { name: /#1 / }), by);
-      await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [1] } }]));
+      await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [1], expected_change: 2 } }]));
       refetch(mounted);
 
       await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 1"));
@@ -100,12 +100,12 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(within(drawer()).getByRole("button", { name: "Remove blocker #1" }), by);
-      await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [3] } }]));
+      await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [3], expected_change: 2 } }]));
       refetch(mounted);
       await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 3"));
 
       press(within(drawer()).getByRole("button", { name: "Remove blocker #3" }), by);
-      await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")[1]?.params).toEqual({ id: 2, blockers: [] }));
+      await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")[1]?.params).toEqual({ id: 2, blockers: [], expected_change: 4 }));
       refetch(mounted);
 
       await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")).toBeNull());

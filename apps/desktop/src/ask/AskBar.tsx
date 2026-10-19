@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -10,6 +10,10 @@ import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
+import type { Deliverable } from "@contracts/deliverable/Deliverable";
+import { Popover } from "../ui/Popover";
+import { Portal } from "solid-js/web";
+import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
 import "./styles.css";
@@ -19,7 +23,10 @@ const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ??
 
 /** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
 export const AskBar = () => {
-  const { asks, rail, daemonExit } = useConnectedProject();
+  const connected = useConnectedProject();
+  const { asks, rail, daemonExit } = connected;
+  const deliverables = createDeliverables();
+  const madeScope = shelfScope(connected);
   const [over, setOver] = createSignal(false);
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -30,7 +37,7 @@ export const AskBar = () => {
   let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => over() || (rail.selected() === null && rail.nodes.length > 0);
+  const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null));
 
   asks.load();
 
@@ -112,7 +119,11 @@ export const AskBar = () => {
     else send();
   };
 
-  return (
+  return (<>
+    <Show when={rail.selected() !== null && (deliverables.records().some(record => madeScope.includes(record.home, record.maker)) || deliverables.failure() !== null)}><div class="made-context"><Popover.Root closeOnEscape closeOnInteractOutside positioning={{ placement: "top-start", strategy: "fixed" }}>
+      <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet" class="made-trigger">{copy.deliverables}<Icon name="down" /></button>} />
+      <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
+    </Popover.Root></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
@@ -122,11 +133,11 @@ export const AskBar = () => {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-        <Show when={!over()}><ProjectOverview /></Show>
+        <Show when={!over()}><ProjectOverview /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
     </Show>
-  );
+  </>);
 };
 
 const ProjectOverview = () => {
@@ -187,4 +198,101 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
     </button>;
   }}</Tip>;
+};
+
+/** DV5: metadata stays separate from resolution. Never retain a resolved path between opens. */
+const createDeliverables = () => {
+  const { app, events, daemonExit } = useConnectedProject();
+
+  type Catalogue = { records: Deliverable[]; failure: string | null };
+
+  const [read, { refetch }] = createResource(async (_key, { value }): Promise<Catalogue> => {
+    try {
+      return { records: await app.rpc("deliverable.list", { home: null, maker: null }), failure: null };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { records: value?.records ?? [], failure: error.message };
+    }
+  }, { initialValue: { records: [], failure: null } satisfies Catalogue });
+
+  const refresh = () => { if (daemonExit() === null) void refetch(); };
+
+  window.addEventListener("focus", refresh);
+  const unsubscribe = events.subscribe(event => { if (event.name === "rail.changed") refresh(); });
+  onCleanup(() => { unsubscribe(); window.removeEventListener("focus", refresh); });
+
+  return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };
+};
+
+const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
+  const connected = useConnectedProject();
+  const scope = shelfScope(connected);
+  const records = createMemo(() => props.state.records().filter(record => scope.includes(record.home, record.maker)));
+  const [selected, setSelected] = createSignal<string | null>(null);
+  const [pending, setPending] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<{ id: string; cause: string } | null>(null);
+  let disposed = false;
+  onCleanup(() => { disposed = true; });
+
+  const open = async (record: Deliverable) => {
+    if (pending() !== null || connected.daemonExit() !== null) return;
+    setSelected(record.id);
+    setPending(record.id);
+    setFailure(null);
+
+    try {
+      const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
+
+      if (disposed) return;
+
+      if (resolved.kind === "unavailable") {
+        setFailure({ id: record.id, cause: copy.deliverableUnavailable[resolved.cause] });
+      } else if (resolved.kind === "external" && !/^https?:\/\//i.test(resolved.url)) {
+        setFailure({ id: record.id, cause: copy.deliverableUnsafe });
+      } else {
+        await connected.app.openTarget(resolved.kind === "external"
+          ? { kind: "url", url: resolved.url }
+          : { kind: "path", path: resolved.path, line: null });
+      }
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (!disposed) setFailure({ id: record.id, cause: error.message });
+    } finally {
+      if (!disposed) setPending(null);
+    }
+  };
+
+  const home = (record: Deliverable) => record.home === null ? copy.overview
+    : connected.rail.nodes.find(node => node.id === record.home)?.name ?? record.home;
+
+  const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
+    : record.target.kind === "pad" ? copy.deliverableRevision(record.target.revision) : copy.deliverableRetained;
+
+  const target = (record: Deliverable) => record.target.kind === "external" ? record.target.url
+    : record.target.kind === "pad" ? record.target.name : record.target.path;
+
+  return <Show when={records().length > 0 || props.state.failure() !== null}>
+    <section class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+      <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
+        <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
+      </div>
+      <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
+      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}>
+        <Tip disabled={failure()?.id === record.id} text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
+          aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
+          onClick={() => { void open(record); }}>
+          <span class="made-content">
+            <span class="made-title">{record.title}</span>
+            <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
+            <span class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
+            <span class="made-details made-target">{target(record)}</span>
+          </span>
+          <Icon name="right" />
+        </button>}</Tip>
+        <Show when={failure()?.id === record.id}><ErrorLine message={failure()?.cause ?? ""} /></Show>
+      </li>}</For></ul>
+    </section>
+  </Show>;
 };
