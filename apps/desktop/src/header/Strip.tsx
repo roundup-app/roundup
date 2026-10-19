@@ -171,9 +171,13 @@ export const Strip = (props: {
   onMount(() => {
     if (typeof ResizeObserver === "undefined" || !list) return;
 
-    const observer = new ResizeObserver(measure);
+    const observer = new ResizeObserver(() => {
+      unrevealed = props.active;
+      measure();
+    });
 
     observer.observe(list);
+    for (const element of elements.values()) observer.observe(element);
     onCleanup(() => observer.disconnect());
   });
 
