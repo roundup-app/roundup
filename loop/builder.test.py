@@ -281,7 +281,8 @@ class Stream(unittest.TestCase):
 FAKE_CLAUDE = '''#!/usr/bin/env python3
 import json, os, sys
 json.dump(dict(args=sys.argv[1:], prompt=sys.stdin.read(), env={k: os.environ.get(k) for k in (
-    'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_AUTH', 'GH_TOKEN', 'GIT_AUTHOR_NAME')}), open(os.environ['SEEN_CLAUDE'], 'w'))
+    'CLAUDE_CODE_OAUTH_TOKEN', 'CODEX_AUTH', 'GH_TOKEN', 'GIT_AUTHOR_NAME', 'ANTHROPIC_FEDERATION_RULE_ID',
+    'ANTHROPIC_IDENTITY_TOKEN_FILE', 'ACTIONS_ID_TOKEN_REQUEST_URL')}), open(os.environ['SEEN_CLAUDE'], 'w'))
 if os.environ['CLAUDE_MODE'] == 'works':
     print(json.dumps(dict(type='assistant', message=dict(content=[dict(type='tool_use')]))))
     print(json.dumps(dict(type='result', is_error=False, structured_output=dict(ask='from claude'))))
@@ -304,11 +305,13 @@ class Engine(unittest.TestCase):
             tool.chmod(0o755)
         Path(path, 'temp').mkdir()
         output = Path(path, 'output')
-        with patch.dict(os.environ, CODEX_AUTH=login, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode, CODEX_MODE=codex_mode,
-                        ISSUE=str(item),
-                        RUNNER_TEMP=f'{path}/temp', SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
-                        PATH=f"{bin}:{os.environ['PATH']}", **(env or {})), \
-                patch.object(builder, 'app_token', return_value='fresh') as self.token, redirect_stdout(io.StringIO()) as log, \
+        with patch.dict(os.environ, {**dict(CODEX_AUTH=login, CLAUDE_CODE_OAUTH_TOKEN='max', CLAUDE_MODE=claude_mode,
+                                            CODEX_MODE=codex_mode, ISSUE=str(item), RUNNER_TEMP=f'{path}/temp',
+                                            SEEN=f'{path}/seen', SEEN_CLAUDE=f'{path}/seen-claude', EXIT='0',
+                                            PATH=f"{bin}:{os.environ['PATH']}"), **(env or {})}), \
+                patch.object(builder, 'app_token', return_value='fresh') as self.token, \
+                patch.object(builder, 'identity_token', return_value='jwt'), \
+                redirect_stdout(io.StringIO()) as log, \
                 redirect_stderr(io.StringIO()) as errors:
             self.code = builder.engine('Build U1.', '{"type":"object"}', output, rights)
         self.log, self.errors = log.getvalue(), errors.getvalue()
@@ -328,7 +331,8 @@ class Engine(unittest.TestCase):
                     output, claude, codex = self.run_engine(path, issue, codex_mode='limit')
                 self.assertEqual(claude['args'][:4], ['-p', '--model', 'claude-sonnet-5-5', '--output-format'])
                 self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='max', CODEX_AUTH=None, GH_TOKEN='fresh',
-                                                     GIT_AUTHOR_NAME='claude[bot]'))
+                                                     GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_FEDERATION_RULE_ID=None,
+                                                     ANTHROPIC_IDENTITY_TOKEN_FILE=None, ACTIONS_ID_TOKEN_REQUEST_URL=None))
                 self.assertEqual(output.count('execution_file='), 2)
                 self.assertIn('{"ask": "from claude"}', output)
 
@@ -345,6 +349,38 @@ class Engine(unittest.TestCase):
         self.assertIsNone(claude)
         self.assertNotEqual(self.code, 0)
         self.assertIn('::error::Codex did no work and CODEX_ONLY forbids Claude Code', self.errors)
+
+    API = dict(zip(builder.API_VARS, ('rule', 'org', 'account', 'workspace')))
+
+    def test_l23_with_claude_api_claude_code_runs_alone_on_the_identity_token_and_never_holds_the_max_token(self):
+        switch = dict(CLAUDE_API_VARS=json.dumps(self.API), CLAUDE_CODE_OAUTH_TOKEN='', ACTIONS_ID_TOKEN_REQUEST_URL='u',
+                      ACTIONS_ID_TOKEN_REQUEST_TOKEN='t')
+        with tempfile.TemporaryDirectory() as path:
+            output, claude, codex = self.run_engine(path, 8, env=switch)
+        self.assertIsNone(codex)
+        self.assertEqual(claude['env'], dict(CLAUDE_CODE_OAUTH_TOKEN='', CODEX_AUTH=None, GH_TOKEN='fresh',
+                                             GIT_AUTHOR_NAME='claude[bot]', ANTHROPIC_FEDERATION_RULE_ID='rule',
+                                             ANTHROPIC_IDENTITY_TOKEN_FILE=claude['env']['ANTHROPIC_IDENTITY_TOKEN_FILE'],
+                                             ACTIONS_ID_TOKEN_REQUEST_URL=None))
+        self.assertIn('/identity-token', claude['env']['ANTHROPIC_IDENTITY_TOKEN_FILE'])
+        self.assertEqual(claude['args'][claude['args'].index('--max-budget-usd') + 1], '3')
+        self.assertEqual(claude['args'][claude['args'].index('--effort') + 1], 'medium')
+        for broken, why in ((dict(CLAUDE_API_VARS=json.dumps({**self.API, 'ANTHROPIC_WORKSPACE_ID': ''})), 'ANTHROPIC_WORKSPACE_ID'),
+                            (dict(switch, CLAUDE_CODE_OAUTH_TOKEN='max'), 'CLAUDE_CODE_OAUTH_TOKEN')):
+            with self.subTest(why=why), tempfile.TemporaryDirectory() as path:
+                with self.assertRaises(SystemExit) as stop:
+                    self.run_engine(path, 8, env={**switch, **broken})
+                self.assertIn(why, str(stop.exception))
+                self.assertFalse(Path(path, 'seen-claude').exists())
+
+    def test_l23_claude_api_sets_the_slots_and_must_be_a_positive_number(self):
+        with patch.dict(os.environ, CODEX_RUNS='0', CLAUDE_API='4'):
+            self.assertEqual(builder.slot_count(), 4)
+        for bad in ('0', 'yes', '-1'):
+            with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=bad), self.assertRaises(SystemExit):
+                builder.slot_count()
+        with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=''):
+            self.assertEqual(builder.slot_count(), 2)
 
     def test_l23_a_read_only_codex_run_asks_the_app_for_no_token_and_keeps_the_jobs_own(self):
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, GH_TOKEN='read'):
