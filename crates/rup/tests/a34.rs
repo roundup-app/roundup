@@ -161,11 +161,24 @@ async fn a34_pads_follow_a_kept_agent_and_the_rest_go() {
     pad_in(&client, "by-stopped", &ws, Some(&stopped)).await;
     pad_in(&client, "by-user", &ws, None).await;
 
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
+    let running_source = pads::source(&db, "by-running").unwrap().unwrap();
+    let stopped_source = pads::source(&db, "by-stopped").unwrap().unwrap();
+    let user_source = pads::source(&db, "by-user").unwrap().unwrap();
     let removal = client
         .request("rail.remove", json!({ "id": ws }))
         .await
         .unwrap();
 
+    let after = pads::source(&db, "by-running").unwrap().unwrap();
+    assert_eq!(after.incarnation, running_source.incarnation);
+    assert_eq!(after.pad.home, None);
+    for incarnation in [stopped_source.incarnation, user_source.incarnation] {
+        assert_eq!(
+            pads::source_state(&db, incarnation).unwrap(),
+            pads::PadSourceState::Deleted(pads::PadDeletion::Cleanup)
+        );
+    }
     assert_eq!(
         pads(&client).await,
         [("by-running".to_owned(), Value::Null)]
@@ -956,21 +969,10 @@ async fn t15_workstream_removal_records_deleted_blockers() {
     assert_eq!(changes[2]["after"]["blockers"], json!([]));
 }
 
-#[tokio::test]
-async fn g9_removal_failure_renames_back_ignored_files() {
-    failed_worktree_removal("branch").await;
-}
-
-#[tokio::test]
-async fn g9_storage_failure_restores_all_moves() {
-    failed_worktree_removal("rail").await;
-}
-
-#[tokio::test]
-async fn g9_judgement_failure_preserves_original_files() {
-    failed_worktree_removal("judgement").await;
-}
-
+// Rule 10: retired duplicate wrappers and their remaining proofs:
+// g9_removal_failure_renames_back_ignored_files → a34_a_branch_failure_after_directory_removal_restores_all_worktrees_and_retries.
+// g9_storage_failure_restores_all_moves → a34_a_last_step_failure_restores_worktrees_and_storage_and_retries.
+// g9_judgement_failure_preserves_original_files → a34_a_judgement_failure_leaves_every_store_and_worktree_untouched.
 #[tokio::test]
 async fn g9_workstream_removal_with_one_gb_ignored_file_finishes_under_one_second() {
     use std::io::Write;

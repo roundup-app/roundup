@@ -67,6 +67,7 @@ export const createProjectDrafts = () => {
 /** Everything a region of an open Project reads: the Project and its live connection to the Daemon. */
 export type ConnectedProject = {
   project: Project;
+  /** App-owned across surface disposal and connection replacement; keyed by original path. */
   drafts: ReturnType<typeof draftStorage>;
   app: AppSeam;
   events: Events;
