@@ -88,7 +88,7 @@ it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   const alert = await screen.findByRole("alert");
   expect(alert.textContent).toContain(FIRST.path);
-  expect(alert.textContent).toContain("orders");
+  expect(alert.textContent).toContain("Order");
   const clipboard = vi.fn(async (_text: string) => {});
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
   fireEvent.click(screen.getByRole("button", { name: "Copy ask" }));

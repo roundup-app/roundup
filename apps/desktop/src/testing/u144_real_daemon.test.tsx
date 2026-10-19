@@ -481,7 +481,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount();
     await openRecovery();
     expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
-    expect(screen.getByRole("alert").textContent).toContain("orders");
+    expect(screen.getByRole("alert").textContent).toContain("Order");
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     // This native seam ends the original real Daemon; the App removes its Connection.

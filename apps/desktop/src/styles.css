@@ -592,7 +592,7 @@ code {
   min-width: 0;
 }
 
-.draft-destination > span:first-child {
+.draft-destination > .draft-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -627,3 +627,5 @@ code {
   width: var(--space-5);
   flex-shrink: 0;
 }
+
+.draft-destination > .icon { flex-shrink: 0; }
