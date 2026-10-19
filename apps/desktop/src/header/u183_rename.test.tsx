@@ -358,8 +358,17 @@ describe("u2773 header on real Projects", () => {
     window.localStorage.clear();
     let one = createServedApp(first.base);
     const two = createServedApp(second.base);
-    const oneName = (await one.projects())[0]!.name;
-    const twoName = (await two.projects())[0]!.name;
+    await one.renameProject(first.dir, "Same");
+    await two.renameProject(second.dir, "Same");
+    const projectTab = (path: string) => document.querySelector<HTMLElement>(`[data-path="${path}"]`);
+    const select = (path: string) => fireEvent.click(within(projectTab(path)!).getByRole("tab"));
+
+    const reopenEdit = async (path: string) => {
+      fireEvent.dblClick(projectTab(path)!.querySelector(".tab-name")!);
+
+      return screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+    };
+
     let opened = [first.dir, second.dir];
 
     const app = {
@@ -368,34 +377,43 @@ describe("u2773 header on real Projects", () => {
       forProject: (path: string) => path === first.dir ? one : two,
       closeProject: async (path: string) => { first.daemon.kill(); opened = opened.filter(original => original !== path); },
       chooseProjectPath: async () => first.dir,
-      openProject: async () => { await first.restart(); one = createServedApp(first.base); opened.push(first.dir);
+      openProject: async () => {
+        await first.restart(); one = createServedApp(first.base); opened.push(first.dir);
 
- return (await one.projects())[0]!; },
+        return one.renameProject(first.dir, "Same");
+      },
       onDaemonExited: async () => () => {},
     };
 
     const sends = vi.spyOn(app, "renameProject");
     const mount = () => render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
     const view = mount();
-    await screen.findByRole("tab", { name: oneName });
-    const input = await edit(oneName);
+    await waitFor(() => expect(screen.getAllByRole("tab", { name: "Same" }).map(tab => tab.getAttribute("aria-busy"))).toEqual(["false", "false"]));
+    const input = await reopenEdit(first.dir);
     fireEvent.input(input, { target: { value: "  real e\u0301 🪁  " } });
     input.setSelectionRange(2, 7, "backward");
     fireEvent.select(input);
     press("Escape");
-    fireEvent.click(tab(twoName));
-    fireEvent.click(screen.getByRole("button", { name: `Close ${oneName}` }));
-    await waitFor(() => expect(screen.queryByRole("tab", { name: oneName })).toBeNull());
+    select(second.dir);
+    const other = await reopenEdit(second.dir);
+    fireEvent.input(other, { target: { value: "  second 東京  " } });
+    press("Escape");
+    fireEvent.pointerEnter(projectTab(first.dir)!);
+    fireEvent.click(await within(projectTab(first.dir)!).findByRole("button", { name: "Close Same" }));
+    await waitFor(() => expect(projectTab(first.dir)).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: oneName });
-    fireEvent.click(tab(twoName));
+    await waitFor(() => expect(projectTab(first.dir)).not.toBeNull());
+    select(second.dir);
     view.unmount();
     mount();
-    await screen.findByRole("tab", { name: twoName });
+    await waitFor(() => expect(screen.getAllByRole("tab", { name: "Same" }).map(tab => tab.getAttribute("aria-busy"))).toEqual(["false", "false"]));
     expect(document.querySelector(".tab-rename")).toBeNull();
-    const restored = await edit(oneName);
+    const restored = await reopenEdit(first.dir);
     expect(restored.value).toBe("  real e\u0301 🪁  ");
     expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 7, "backward"]);
+    press("Escape");
+    select(second.dir);
+    expect((await reopenEdit(second.dir)).value).toBe("  second 東京  ");
     expect(sends).not.toHaveBeenCalled();
     press("Escape");
   });
