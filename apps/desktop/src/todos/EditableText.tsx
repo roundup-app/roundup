@@ -30,7 +30,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   const { drafts, project, drawer } = useConnectedProject();
   const [failure, setFailure] = createSignal<string | null>(null);
   const surface = copy.draftSurface("todos");
-  const records = () => drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === props.object);
+  const records = () => drafts.recoverable().filter(draft => draft.destination.surface === "todos" && draft.destination.object === props.object);
 
   const problem = () => {
     if (!props.active && records().length === 0) return null;
@@ -56,13 +56,14 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
       const draft = () => records().find(record => record.revision === revision);
 
       return <Show when={draft()}>{record => <div class="todo-draft-revision">
-        <span data-state={record().status}>{copy.draftStatus[record().status]}</span>
+        <span id={`todo-context-${revision}`} class="todo-draft-label">{copy.draftField(record().destination.object === "new" ? "title" : record().destination.recipient?.startsWith("blockers:") ? "blockers" : record().destination.recipient ?? "title")}{" · "}{String(record().value.text ?? record().value.title ?? "").slice(0, 48)}</span>
+        <span id={`todo-revision-${revision}`} data-state={record().status}>{copy.draftStatus[record().status]}</span>
         <div class="todo-draft-actions">
-        <button data-button="quiet" class="word" type="button" onClick={() => {
+        <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => {
           const text = v.safeParse(v.string(), record().value.text ?? record().value.title);
           void copyDraft(!record().destination.recipient?.startsWith("blockers:") && text.success ? text.output : JSON.stringify(record().value));
         }}>{copy.copyField(surface)}</button>{" "}
-        <button data-button="quiet" class="word" type="button" onClick={() => { props.onDiscard?.(revision); drafts.discard(revision); }}>{copy.discardRevision}</button>
+        <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => { props.onDiscard?.(revision); drafts.discard(revision); }}>{copy.discardRevision}</button>
         </div>
       </div>}</Show>;
     }}</For>
@@ -79,6 +80,7 @@ export const EditableText = (props: {
   captured: () => Change | undefined;
   multiline: boolean;
   name: "title" | "body";
+  onFailure?: (message: string | null) => void;
   /** Resolves only after acknowledgement; the RPC error preserves refusal versus unknown acceptance. */
   commit: (text: string, expectedChange: number) => Promise<void>;
 }) => {
@@ -98,6 +100,11 @@ export const EditableText = (props: {
 
     if (editing() !== null && revision !== null && !records().some(record => record.revision === revision)) setEditing(null);
   });
+
+  createEffect(() => {
+    if (editing() && connected.drawer.content() === content) onCleanup(connected.drafts.editor(draftDestination));
+  });
+  createEffect(() => props.onFailure?.(failure()));
 
   let shown: HTMLParagraphElement | undefined;
 
@@ -144,9 +151,9 @@ export const EditableText = (props: {
     const retain = () => batch(() => {
       const value = { ...started.form, text: element.value };
       const selection = { start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection };
-      const latest = records().findLast(record => record.status === "draft");
+      const latest = records().findLast(record => record.revision === activeRevision() || record.status === "draft");
 
-      if (latest && JSON.stringify(latest.value) === JSON.stringify(value) && JSON.stringify(latest.selection) === JSON.stringify(selection)) {
+      if (latest && JSON.stringify(latest.value) === JSON.stringify(value) && (latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
         setActiveRevision(latest.revision);
 
         return { draft: latest, problem: connected.drafts.problem() };
@@ -240,7 +247,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable">
-    <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
+    <Show when={!props.onFailure && failure()}>{message => <ErrorLine message={message()} />}</Show>
     <Show
       when={editing()}
       fallback={

@@ -30,6 +30,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
   const { app, drawer, drafts } = useConnectedProject();
   drafts.validate("todos", todoDraftSchema);
 
+  const [titleFailure, setTitleFailure] = createSignal<string | null>(null);
   const [captured, setCaptured] = createSignal<Change>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [offering, setOffering] = createSignal(false);
@@ -216,11 +217,13 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
                   <EditableText
                     todo={current()}
                     captured={captured}
+                    onFailure={setTitleFailure}
                     name="title"
                     multiline={false}
                     commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
                   />
                 </div>
+                <Show when={titleFailure()}>{message => <ErrorLine message={message()} />}</Show>
                 <div class="todo-detail-body">
                 <EditableText
                   todo={current()}
