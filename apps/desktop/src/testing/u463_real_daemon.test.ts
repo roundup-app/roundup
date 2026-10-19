@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -179,37 +179,43 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
 // U2773g composes the category proofs on one real Project; it adds no editor or storage seam.
 it("u2773g_journey_retains_unfinished_work", async () => {
   const real = await startWorktreeProject({ "result.txt": "original result\n" }, {
-    FAKE_CLAUDE_DOOR_PROCESS: JSON.stringify(["rup", "--json", "agent", "ask", "Review this result?", "--answers", JSON.stringify({ label: "Keep", description: "retain the result" }), "--answers", JSON.stringify({ label: "Revise", description: "change the result" })]),
+    FAKE_CLAUDE_DOOR_PROCESS: JSON.stringify(["python3", "-c", "import subprocess,sys\nsubprocess.run(sys.argv[1:],check=True)\nsubprocess.run([sys.argv[1], '--json', 'todo', 'create', 'Reviewed result'],check=True)", resolve("../../target/debug/rup"), "--json", "agent", "ask", "Review this result?", "--answers", JSON.stringify({ label: "Keep", description: "retain the result" }), "--answers", JSON.stringify({ label: "Revise", description: "change the result" })]),
   }, true);
+
   const fixture = await observer(1512, "keyboard", "unfinished", undefined, real);
   const { browser, wait, activate, app } = fixture;
   const evaluate = async (source: string) => (await browser("eval", source)).result;
+
   const ask = "@workstream  exact e\u0301 🧭\nlast line  ";
   const answer = "  review e\u0301\nkeep 🧭  ";
   const note = "  diff e\u0301\ninspect 🧭  ";
+
   const capture = async (step: string) => {
     const dir = captureDir("U2773g");
 
     if (!dir) return;
+    await mkdir(dir, { recursive: true });
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
     await browser("screenshot", join(dir, `${step}.png`));
   };
+
   const press = async (name: string) => {
-    await browser("find", "role", "button", "click", "--name", name, "--exact");
+    await evaluate(`[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(name)}).focus()`);
+    await browser("press", "Enter");
   };
+
   const openAsk = async () => {
     await browser("press", "Meta+/");
     await wait("document.activeElement === document.querySelector('.ask-input')");
   };
+
   // The served transport is the failure boundary: each selected call is refused before
   // execution or loses its acknowledgement after real execution. All other RPCs stay real.
   const failNext = (method: string, unknown: boolean) => evaluate(`(() => {
     const transport = window.fetch;
-    window.__unfinishedCalls = [];
     window.fetch = async (url, options) => {
       if (String(url).endsWith('/__daemon/rpc') && JSON.parse(options.body).method === ${JSON.stringify(method)}) {
         window.fetch = transport;
-        window.__unfinishedCalls.push(JSON.parse(options.body));
         if (${unknown}) { await transport(url, options); throw new TypeError('acknowledgement lost'); }
         return new Response(JSON.stringify({error:{code:-32003,message:'journey refused'}}), {headers:{'Content-Type':'application/json'}});
       }
@@ -248,7 +254,8 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await app.rpc("rail.rename", { id: door.id, name: "renamed original" });
     await wait("document.querySelector('.rail-row .name')?.textContent === 'renamed original'");
     expect(await evaluate("[document.querySelector('.ask-note textarea').value, document.activeElement === document.querySelector('.ask-note textarea')]")).toEqual([answer, true]);
-    await browser("reload");
+    // The opt-in first-run chooser is intentionally empty on every load; reopen the selected Project through its normal harness route.
+    await browser("open", `${real.base}/harness.html?daemon=1`);
     await wait("!!document.querySelector('.ask-note textarea')");
     expect(await evaluate("(() => { const field = document.querySelector('.ask-note textarea'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()")).toEqual([answer, 2, 8, "backward"]);
     expect(await app.rpc("decision.answers", { agent: door.id })).toEqual([]);
@@ -281,14 +288,19 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await browser("click", ".ask-note button");
     await wait("!document.querySelector('.ask-note textarea')");
     expect(await app.rpc("decision.answers", { agent: door.id })).toMatchObject([{ answer: "Keep", note: answer, attempt: identity.attempt, answered_by: { kind: "user", id: "you" } }]);
+    await wait("[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('Reviewed result'))");
+    const todos = await app.rpc("todo.list", null);
+
+    expect(todos).toMatchObject([{ title: "Reviewed result", home: door.id }]);
     await capture("intervened");
 
     const current = (await app.rpc("rail.tree", null)).find(node => node.id === door.id)!;
     await writeFile(join(current.worktree!.path, "result.txt"), "changed result\n");
     await wait("!!document.querySelector('.worktree-control')");
     await press(current.worktree!.branch);
-    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
-    await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+    await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
+    await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
+    await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
     await press("View diff");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await press("Add note");
@@ -301,14 +313,19 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await capture("review-retention-failed");
     const before = await app.rpc("message.list", { to: door.id, status: null });
     await evaluate("Storage.prototype.setItem = window.__retentionWrite");
-    await press("Retry storage");
+    await press("Review recovery options");
+    await wait("!!document.querySelector('.note-recovery')");
+    await press("Retry");
+    await wait("!document.querySelector('.note-recovery [role=alert]')");
+    await press("Close");
     await wait("!document.querySelector('.note-batch [role=alert]')");
     await browser("open", "about:blank");
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await wait("!!document.querySelector('.worktree-control')");
     await press(current.worktree!.branch);
-    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
-    await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+    await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
+    await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
+    await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
     await press("View diff");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await press("Add note");
@@ -317,6 +334,27 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     expect(await app.rpc("ask.list", null)).toHaveLength(1);
     expect(await app.rpc("decision.answers", { agent: door.id })).toHaveLength(1);
     expect(await evaluate("typeof window.__fake")).toBe("undefined");
+    expect(await app.rpc("todo.list", null)).toEqual(todos);
     await capture("review-reopened");
+
+    if (captureDir("U2773g")) {
+      // Reuse the densest established diff seed solely for the critic observer.
+      for (const state of ["dense", "dense&retention"]) {
+        await browser("open", `${real.base}/src/changes/u2540.html?${state}`);
+        await wait("!!document.querySelector('.worktree-control')");
+        await press("roundup/agent-1");
+        await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+        await evaluate("document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+        await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
+        await press("View diff");
+        await wait("document.querySelectorAll('[aria-label=Notes] > li').length === 100");
+
+        if (state.includes("retention")) await wait("!!document.querySelector('.note-batch [role=alert]')");
+        await capture(state.includes("retention") ? "dense-retention-failed" : "dense-before-failure");
+      }
+    }
+  } catch (error) {
+    console.error(JSON.stringify({ body: await evaluate("document.body.innerText"), tree: await app.rpc("rail.tree", null), decisions: await app.rpc("decision.list", null) }));
+    throw error;
   } finally { await fixture.close(); }
 }, 240_000);
