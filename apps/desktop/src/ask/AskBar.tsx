@@ -280,7 +280,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       </div>
       <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}>
-        <Tip text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
+        <Tip disabled={failure()?.id === record.id} text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
