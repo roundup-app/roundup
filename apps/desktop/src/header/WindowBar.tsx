@@ -3,8 +3,7 @@ import type { JSX } from "solid-js";
 import type { App } from "../app/seam";
 import type { RailState } from "../state/rail";
 import { resolvedWorkstream } from "../rail/layout";
-import { Tooltip } from "../ui/Tooltip";
-import { Portal } from "solid-js/web";
+import { Tip } from "../ui/Tip";
 import { copy } from "../copy";
 import { middleCut } from "./middleCut";
 
@@ -92,10 +91,9 @@ export const WindowBar = (props: {
     }}>
       <div class="traffic-lights" aria-hidden="true" />
       {props.children}
-      <Tooltip.Root closeOnEscape={false} positioning={{ strategy: "fixed" }}>
-        <Tooltip.Trigger asChild={(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />} />
-        <Portal><Tooltip.Positioner><Tooltip.Content>{title()}</Tooltip.Content></Tooltip.Positioner></Portal>
-      </Tooltip.Root>
+      <Tip text={title()}>
+        {(trigger) => <div {...trigger({})} class="window-title" role="heading" aria-level="1" tabIndex={0} aria-label={title()} ref={box} />}
+      </Tip>
       {props.shelf}
     </div>
   );

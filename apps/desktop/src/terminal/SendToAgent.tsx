@@ -6,7 +6,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Menu } from "../ui/Menu";
 import { Popover } from "../ui/Popover";
-import { Tooltip } from "../ui/Tooltip";
+import { Tip } from "../ui/Tip";
 import { NOTE_MAX } from "./excerpt";
 import type { createSendSelection } from "./sendSelection";
 
@@ -86,10 +86,9 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
               }}
             />
             <Show when={control.receivers().length > 1} fallback={
-              <Tooltip.Root closeOnEscape={false} disabled={control.receivers().length > 0} positioning={{ strategy: "fixed" }}>
-                <Tooltip.Trigger asChild={(trigger) => button(trigger({ onClick: activate }))} />
-                <Portal><Tooltip.Positioner><Tooltip.Content>{copy.noRunningAgent}</Tooltip.Content></Tooltip.Positioner></Portal>
-              </Tooltip.Root>
+              <Tip text={copy.noRunningAgent} disabled={control.receivers().length > 0}>
+                {(trigger) => button(trigger({ onClick: activate }))}
+              </Tip>
             }>
               <Menu.Root open={choosing()} highlightedValue={highlighted()} onHighlightChange={(change) => setHighlighted(change.highlightedValue)} onOpenChange={(change) => setChoosing(change.open)} onSelect={(chosen) => {
                 const to = control.receivers().find((receiver) => receiver.id === chosen.value);
