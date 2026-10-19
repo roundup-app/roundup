@@ -4525,6 +4525,186 @@ async fn e2704a_a_door_answers_with_its_context_name() {
     );
 }
 
+#[tokio::test]
+async fn u2773a_captured_ask_never_reaches_equal_named_replacement() {
+    let logs = tempfile::tempdir().unwrap();
+    let prompts = logs.path().join("asks.jsonl");
+    let project = start(&[
+        ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
+        ("FAKE_CLAUDE_EXACT_PROMPTS", "1"),
+    ]);
+    let other = start(&[]);
+    let user = project.client().await;
+    let other_user = other.client().await;
+    let a = workstream(&user, "Same").await;
+    let elsewhere = workstream(&other_user, "Same").await;
+    user.request("rail.rename", json!({"id":a,"name":"Renamed"}))
+        .await
+        .unwrap();
+    let b = workstream(&user, "Same").await;
+    let exact = "  @Same /skill e\u{301} 🌿\n  ";
+    let accepted = user
+        .request(
+            "ask.send",
+            json!({"text":exact,"submission":"original-revision","workstream":a}),
+        )
+        .await
+        .unwrap();
+    // Rename again while delivery can still be starting the original Door.
+    user.request("rail.rename", json!({"id":a,"name":"Renamed again"}))
+        .await
+        .unwrap();
+    h21_poll("captured Ask delivery", async || {
+        let asks = user.request("ask.list", Value::Null).await.unwrap();
+        (asks[0]["parts"][0]["state"] == "typed").then_some(())
+    })
+    .await;
+    let lines = h21_poll("exact Ask prompt", async || {
+        let lines: Vec<Value> = std::fs::read_to_string(&prompts)
+            .unwrap_or_default()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        lines
+            .iter()
+            .any(|line| line["prompt"] == exact)
+            .then_some(lines)
+    })
+    .await;
+    assert_eq!(
+        lines.iter().filter(|line| line["prompt"] == exact).count(),
+        1
+    );
+    assert_eq!(accepted["text"], exact);
+    assert_eq!(accepted["parts"][0]["placement"]["workstream"], a);
+    let replay = user
+        .request(
+            "ask.send",
+            json!({"text":exact,"submission":"original-revision","workstream":a}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(replay["id"], accepted["id"]);
+    let intentional = user
+        .request(
+            "ask.send",
+            json!({"text":exact,"submission":"another-revision","workstream":a}),
+        )
+        .await
+        .unwrap();
+    assert_ne!(intentional["id"], accepted["id"]);
+    h21_poll("two intentional equal-text prompts", async || {
+        let count = std::fs::read_to_string(&prompts)
+            .unwrap_or_default()
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|line| line["prompt"] == exact)
+            .count();
+        (count == 2).then_some(())
+    })
+    .await;
+
+    let tree = user.request("rail.tree", Value::Null).await.unwrap();
+    assert!(
+        tree.as_array()
+            .unwrap()
+            .iter()
+            .find(|node| node["id"] == b)
+            .unwrap()["terminal_id"]
+            .is_null()
+    );
+    assert!(
+        other_user
+            .request("ask.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        other_user
+            .request("terminal.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "other Project {elsewhere} receives no bytes"
+    );
+    user.request("rail.remove", json!({"id":a})).await.unwrap();
+    let error = user
+        .request(
+            "ask.send",
+            json!({"text":exact,"submission":"removed-revision","workstream":a}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::NOT_FOUND);
+    let asks = user.request("ask.list", Value::Null).await.unwrap();
+    assert_eq!(asks.as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn u2773b_lost_intake_reply_reconciles_after_restart_without_another_effect() {
+    use tokio::net::UnixStream;
+    let mut project = start(&[]);
+    let mut events = project.subscribed().await;
+    let user = project.client().await;
+    let original = workstream(&user, "Same").await;
+    // The response socket is deliberately dropped unread after the durable intake event.
+    let mut stream = UnixStream::connect(project.socket()).await.unwrap();
+    let request = json!({"jsonrpc":"2.0","id":1,"method":"ask.send","params":{"text":"exact lost reply 🌿\n ","submission":"lost","workstream":original}});
+    stream
+        .write_all(format!("{request}\n").as_bytes())
+        .await
+        .unwrap();
+    let accepted = next(&mut events, |data| match data {
+        EventData::AskChanged { ask } if ask.submission.as_deref() == Some("lost") => Some(*ask),
+        _ => None,
+    })
+    .await;
+    drop(stream);
+    project.restart(&[]);
+    let user = project.client().await;
+    let before = user.request("terminal.list", Value::Null).await.unwrap();
+    let listed = user.request("ask.list", Value::Null).await.unwrap();
+    assert_eq!(listed[0]["submission"], "lost");
+    assert_eq!(listed[0]["parts"][0]["placement"]["workstream"], original);
+    assert_eq!(listed[0]["text"], "exact lost reply 🌿\n ");
+    assert_eq!(listed[0]["id"], accepted.id);
+    assert_eq!(
+        user.request("terminal.list", Value::Null).await.unwrap(),
+        before
+    );
+    let replay = user
+        .request("ask.send", request["params"].clone())
+        .await
+        .unwrap();
+    assert_eq!(replay["id"], accepted.id);
+    let conflict = user
+        .request(
+            "ask.send",
+            json!({"text":"different","submission":"lost","workstream":original}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(conflict.code, rpc::code::CONFLICT);
+    assert_eq!(
+        user.request("ask.list", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        user.request("terminal.list", Value::Null).await.unwrap(),
+        before
+    );
+}
+
 /// A shell that records every start and raw input byte independently of identity reads.
 fn terminal_identity_fixture() -> tempfile::TempDir {
     use std::os::unix::fs::PermissionsExt;

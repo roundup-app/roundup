@@ -9,6 +9,9 @@ pub struct Ask {
     pub text: String,
     pub at: i64,
     pub parts: Vec<AskPart>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub submission: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -57,6 +60,12 @@ pub enum State {
 #[ts(export, export_to = "ask/")]
 pub struct SendParams {
     pub text: String,
+    // A caller-captured revision identity. Equal replay returns its original Ask.
+    #[ts(optional)]
+    pub submission: Option<String>,
+    // Captured destination; never resolve the text's leading name when supplied.
+    #[ts(optional)]
+    pub workstream: Option<String>,
 }
 
 #[derive(Deserialize, TS)]

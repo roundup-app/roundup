@@ -1,6 +1,7 @@
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { DraftRecoveryEntry, DrawerHost } from "../drawer/DrawerHost";
 import { Keys } from "../keys/Keys";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -18,7 +19,7 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false, path = `/ask-${crypto.randomUUID()}`) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
@@ -27,7 +28,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "existing output" });
   app.handlers["terminal.resize"] = () => null;
   const { factory } = fakeEmulators();
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, () => false, () => 0);
 
   if (tree instanceof Promise) {
     app.handlers["rail.tree"] = () => tree;
@@ -36,9 +37,11 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   if (selected !== null) connected.rail.select(selected);
 
-  render(() => (
+  const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
+      <aside class="rail"><DraftRecoveryEntry /></aside>
+      <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
       <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar /></div>
     </ConnectedProjectContext.Provider>
@@ -46,7 +49,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   await connected.rail.settled();
 
-  return { app, connected };
+  return { app, connected, unmount: view.unmount };
 };
 
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });
