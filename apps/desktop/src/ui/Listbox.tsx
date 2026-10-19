@@ -94,6 +94,9 @@ const NoteField = <T extends HTMLInputElement | HTMLTextAreaElement>(props: JSX.
       }
 
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        // Notes with text keep native caret movement, including wrapped lines; Alt+arrow chooses an answer.
+        if (element === "textarea" && !event.altKey && event.currentTarget.value.length > 0) return;
+
         const navigate = binding().onKeyDown;
 
         if (navigate) {

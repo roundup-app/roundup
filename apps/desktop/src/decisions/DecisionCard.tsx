@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createMemo, For, on, Show } from "solid-js";
+import { createMemo, createResource, For, on, Show } from "solid-js";
 import * as v from "valibot";
 import type { Decision } from "@contracts/decision/Decision";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -25,11 +25,21 @@ const readable = (args: string): string => {
 
 /** The Decision an Agent waits on, with the buttons that answer it; `focusTerminal` hands the keyboard to that Agent's Terminal. */
 export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void }) => {
-  const { decisions, daemonExit, rail } = useConnectedProject();
+  const { app, decisions, daemonExit, rail } = useConnectedProject();
   const id = createMemo(() => props.decision.id);
   // A refusal refresh changes the Decision, not its question; keep the user's answer draft mounted.
   const questionArgs = createMemo(() => props.decision.tool === "ask_user" ? props.decision.args : null);
   const asked = createMemo(on([id, questionArgs], ([, args]) => args === null ? null : questionOf(args)));
+
+  const [prompt, { refetch }] = createResource(() => asked() ? id() : false, async (id) => {
+    try { return { identity: await app.rpc("decision.capture", { id }), failure: null }; }
+    catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { identity: null, failure: error.message };
+    }
+  });
+
   const unreadable = () => props.decision.tool === "ask_user" && asked() === null;
 
   const answers = () => {
@@ -72,7 +82,10 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       </Show>
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>
-        {(question) => <AskCard question={question} stuck={stuck} send={(answer, note) => void decisions.answer(id(), answer, note)} />}
+        {(question) => <>
+          <Show when={prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
+          <Show when={!prompt.loading ? prompt()?.identity : null} keyed>{identity => <AskCard question={question} identity={identity} stuck={stuck} />}</Show>
+        </>}
       </Show>
       <div class="decision-buttons">
         <For each={answers()}>
