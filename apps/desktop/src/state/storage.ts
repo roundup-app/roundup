@@ -272,6 +272,14 @@ export const draftStorage = (project: string) => {
 
       return { draft: structuredClone(draft), problem: failure };
     },
+    setSelection: (revision: string, selection: Draft["selection"]): DraftProblem | null => {
+      const draft = drafts.find(entry => entry.revision === revision);
+
+      if (!draft) return structuredClone(problem);
+      draft.selection = structuredClone(selection);
+
+      return retain(draft);
+    },
     submit: (revision: string): RetainedDraft | null => {
       const draft = drafts.find((entry) => entry.revision === revision);
 
