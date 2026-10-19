@@ -114,6 +114,11 @@ run('u362 rendered Todo drag', () => {
       // todo.updated can refetch before dnd-kit finishes its drop. Its Feedback
       // cleanup removes the placeholder only after returning the source to idle.
       await page.until(`() => !document.querySelector('[data-dnd-placeholder], [data-dnd-dragging]')`);
+      // sortedList.settle slides rows after the refetch; measure the next drag
+      // only once those animations have finished moving its handle.
+      await page.call(`async () => {
+        await Promise.all([...document.querySelectorAll('.shelf .todo-row')].flatMap(row => row.getAnimations()).map(animation => animation.finished));
+      }`);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
       await page.pointer('down', back.x, back.y);
