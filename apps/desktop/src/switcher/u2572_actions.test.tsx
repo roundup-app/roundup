@@ -7,7 +7,7 @@ import { openTabs, tab } from "../header/stripFixture";
 import { agent, event, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, press } from "./switcherFixture";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("u2572a_searches_destinations_then_grouped_actions", async () => {
   await mountSwitcher("ws", [

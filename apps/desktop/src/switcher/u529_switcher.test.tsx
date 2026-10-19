@@ -319,6 +319,9 @@ it("u2773a_queries_browser_reload_retains_caret_without_execution", async () => 
       const input = document.querySelector('.switcher input');
       input.value = '  é 🧭 東京  ';
       input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await browser("eval", `(() => {
+      const input = document.querySelector('.switcher input');
       input.setSelectionRange(2, 9, 'backward');
       input.dispatchEvent(new Event('select'));
     })()`);

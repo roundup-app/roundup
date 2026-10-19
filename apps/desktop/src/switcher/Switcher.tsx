@@ -191,8 +191,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
             </>;
           }} />
-        <Show when={retentionProblem()}>{(problem) => <div role="alert">
+        <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert">
           <p>{problem().operation === "restore" ? "Could not restore unfinished input" : "Could not retain unfinished input across reload"} in {project.name}: switcher query. Keep this Project open to recover your work.</p>
+          <div class="switcher-recovery-actions">
           <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => setCopyFailure(null), () => setCopyFailure("Could not copy query. Select the text and copy again.")); }}>Copy query</button>
           <button data-button="quiet" onClick={() => { drafts.retry(); }}>Retry storage</button>
           <button data-button="quiet" onClick={() => {
@@ -201,6 +202,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             if (draft) drafts.discard(draft.revision);
             setText("");
           }}>Discard query</button>
+          </div>
           <Show when={copyFailure()}><p>{copyFailure()}</p></Show>
         </div>}</Show>
       </section>
