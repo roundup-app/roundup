@@ -62,6 +62,12 @@ export const createProjectDrafts = () => {
     const recovery = new Map<string, Recovery>();
 
     const holder: ProjectDrafts = {
+      editor: storage.editor,
+      recoverable: () => {
+        revision();
+
+        return storage.recoverable();
+      },
       registerRecovery: (surface, resolve) => {
         recovery.set(surface, resolve);
         refresh(undefined);
@@ -83,6 +89,7 @@ export const createProjectDrafts = () => {
       },
       validate: (...args) => refresh(storage.validate(...args)),
       edit: (...args) => refresh(storage.edit(...args)),
+      setSelection: (...args) => refresh(storage.setSelection(...args)),
       submit: (...args) => refresh(storage.submit(...args)),
       settle: (...args) => refresh(storage.settle(...args)),
       discard: (...args) => refresh(storage.discard(...args)),

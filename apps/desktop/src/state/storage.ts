@@ -103,6 +103,7 @@ export const draftStorage = (project: string) => {
   const storage = storedValue(`roundup:drafts:${project}`, draftsSchema);
   const [version, setVersion] = createSignal(0);
   let drafts: Draft[] = [];
+  const [editors, setEditors] = createSignal<Destination[]>([]);
   let problem: DraftProblem | null = null;
   let baseline = "";
   const schemas = new Map<string, v.GenericSchema>();
@@ -234,6 +235,16 @@ export const draftStorage = (project: string) => {
 
       return structuredClone(problem);
     },
+    editor: (destination: Destination) => {
+      setEditors(previous => [...previous, destination]);
+
+      return () => setEditors(previous => previous.filter(entry => entry !== destination));
+    },
+    recoverable: (): Draft[] => {
+      version();
+
+      return structuredClone(drafts.filter(draft => draft.status !== "draft" || problem !== null || !editors().some(destination => sameDestination(destination, draft.destination))));
+    },
     list: (): Draft[] => {
       version();
 
@@ -260,6 +271,14 @@ export const draftStorage = (project: string) => {
       const failure = retain(draft);
 
       return { draft: structuredClone(draft), problem: failure };
+    },
+    setSelection: (revision: string, selection: Draft["selection"]): DraftProblem | null => {
+      const draft = drafts.find(entry => entry.revision === revision);
+
+      if (!draft) return structuredClone(problem);
+      draft.selection = structuredClone(selection);
+
+      return retain(draft);
     },
     submit: (revision: string): RetainedDraft | null => {
       const draft = drafts.find((entry) => entry.revision === revision);
