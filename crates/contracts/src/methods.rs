@@ -17,6 +17,32 @@ const fn m(name: &'static str, params: &'static str, result: &'static str) -> Me
 }
 
 pub const METHODS: &[Method] = &[
+    m(
+        "deliverable.publish",
+        "deliverable_PublishParams",
+        "deliverable_Deliverable",
+    ),
+    m(
+        "deliverable.list",
+        "deliverable_ListParams",
+        "deliverable_Deliverable[]",
+    ),
+    m(
+        "deliverable.get",
+        "deliverable_DeliverableId",
+        "deliverable_Deliverable",
+    ),
+    m(
+        "deliverable.resolve",
+        "deliverable_DeliverableId",
+        "deliverable_Resolution",
+    ),
+    m(
+        "deliverable.move",
+        "deliverable_MoveParams",
+        "deliverable_Deliverable",
+    ),
+    m("deliverable.remove", "deliverable_DeliverableId", "null"),
     m("ask.send", "ask_SendParams", "ask_Ask"),
     m("ask.list", "null", "ask_Ask[]"),
     m("ask.pick", "ask_PickParams", "ask_Ask"),

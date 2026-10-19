@@ -7029,6 +7029,65 @@ async fn a2693a_an_unauthorized_mode_change_stops_nothing() {
 }
 
 #[tokio::test]
+async fn dv1_publication_uses_the_authenticated_maker_despite_a_user_claim() {
+    let (run, _caller) = door_terminal().await;
+    let (door, terminal) = start_answer_door(&run).await;
+    let replies=door_peer_request(&run,&terminal,json!([
+        {"id":1,"method":"daemon.identify","params":{"actor":{"kind":"user","id":"you"}}},
+        {"id":2,"method":"deliverable.publish","params":{"key":"authentic","title":"Result","target":{"kind":"external","url":"https://example.com/pr/1"}}}
+    ])).await;
+    let record = replies
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"] == 2)
+        .unwrap()["result"]
+        .clone();
+    assert_eq!(record["maker"]["kind"], "agent");
+    assert_eq!(record["maker"]["id"], door);
+    run.user
+        .request("agent.stop", json!({"id":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn dv4_agent_user_claim_cannot_remove_publication() {
+    let (run, _caller) = door_terminal().await;
+    let (door, terminal) = start_answer_door(&run).await;
+    let record=run.user.request("deliverable.publish",json!({"key":"user-result","title":"Result","target":{"kind":"external","url":"https://example.com/pr/1"}})).await.unwrap();
+    let replies=door_peer_request(&run,&terminal,json!([
+        {"id":1,"method":"daemon.identify","params":{"actor":{"kind":"user","id":"you"}}},
+        {"id":2,"method":"deliverable.remove","params":{"project":record["project"],"id":record["id"]}}
+    ])).await;
+    assert_eq!(
+        replies
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["id"] == 2)
+            .unwrap()["error"]["code"],
+        rpc::code::FORBIDDEN
+    );
+    assert_eq!(
+        run.user
+            .request(
+                "deliverable.get",
+                json!({"project":record["project"],"id":record["id"]})
+            )
+            .await
+            .unwrap(),
+        record
+    );
+    run.user
+        .request("agent.stop", json!({"id":door}))
+        .await
+        .unwrap();
+    run.finish().await;
+}
+
+#[tokio::test]
 async fn u2773c_orders_external_change_keeps_original() {
     let (run, caller) = order_child().await;
     idle(&run).await;

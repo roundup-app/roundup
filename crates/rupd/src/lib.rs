@@ -7,6 +7,7 @@ mod clear;
 mod context;
 pub mod data;
 mod decision_notes;
+mod deliverables;
 mod digest;
 mod event_log;
 mod handshake;
@@ -85,6 +86,7 @@ pub struct Daemon {
     attachments: attachment::Attachments,
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
+    publications: deliverables::Publications,
     /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
@@ -436,6 +438,7 @@ impl Daemon {
             rewinding: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
+            publications: deliverables::Publications::open(dir)?,
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -608,18 +611,20 @@ impl Daemon {
         if method.starts_with("decision.") {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
-        } else if matches!(
-            method,
-            "rail.rename"
-                | "agent.stop"
-                | "agent.interrupt"
-                | "agent.prompt"
-                | "agent.setOrder"
-                | "agent.resume"
-                | "agent.actionHistory"
-                | "workstream.rewind"
-                | "workstream.rewindPlan"
-        ) {
+        } else if method.starts_with("deliverable.")
+            || matches!(
+                method,
+                "rail.rename"
+                    | "agent.stop"
+                    | "agent.interrupt"
+                    | "agent.prompt"
+                    | "agent.setOrder"
+                    | "agent.resume"
+                    | "agent.actionHistory"
+                    | "workstream.rewind"
+                    | "workstream.rewindPlan"
+            )
+        {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = self.route(conn, method, params).await;
@@ -813,6 +818,9 @@ impl Daemon {
         }
         self.before_prompt_effect(&conn.actor, method, &params)
             .await?;
+        if namespace == "deliverable" {
+            return self.deliverable_call(conn, method, params).await;
+        }
         if method == "attachment.save" {
             return self.attachments.save(params);
         }
@@ -988,6 +996,9 @@ impl Daemon {
             self.reset_orphaned_homes().await?;
             self.reset_orphaned_pad_homes().await?;
             return outcome;
+        }
+        if method == "pad.delete" && outcome.is_ok() {
+            self.publications.invalidate_revoked()?;
         }
         outcome
     }
@@ -1750,20 +1761,24 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .is_some_and(|m| m.starts_with("decision."))
         {
             daemon.decision_actor(&conn)
-        } else if matches!(
-            method.as_deref(),
-            Some(
-                "rail.rename"
-                    | "agent.stop"
-                    | "agent.interrupt"
-                    | "agent.prompt"
-                    | "agent.setOrder"
-                    | "agent.resume"
-                    | "agent.actionHistory"
-                    | "workstream.rewind"
-                    | "workstream.rewindPlan"
+        } else if method
+            .as_deref()
+            .is_some_and(|m| m.starts_with("deliverable."))
+            || matches!(
+                method.as_deref(),
+                Some(
+                    "rail.rename"
+                        | "agent.stop"
+                        | "agent.interrupt"
+                        | "agent.prompt"
+                        | "agent.setOrder"
+                        | "agent.resume"
+                        | "agent.actionHistory"
+                        | "workstream.rewind"
+                        | "workstream.rewindPlan"
+                )
             )
-        ) {
+        {
             daemon.action_actor(&conn)
         } else {
             conn.actor.clone()
