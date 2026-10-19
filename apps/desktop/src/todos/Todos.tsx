@@ -14,7 +14,7 @@ import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
 import { untrack } from "solid-js";
-import { TodoDraftRecovery } from "./EditableText";
+import { TodoDraftRecovery, todoDraftSchema } from "./EditableText";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -202,6 +202,7 @@ export const OpenRow = (props: {
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 export const Todos = () => {
   const connected = useConnectedProject();
+  connected.drafts.validate("todos", todoDraftSchema);
   const todos = useTodoList();
   const [typing, setTyping] = createSignal(false);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);

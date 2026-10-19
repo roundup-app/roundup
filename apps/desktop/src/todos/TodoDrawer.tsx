@@ -13,7 +13,7 @@ import { TickBox } from "./TickBox";
 import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
-import { EditableText, TodoDraftRecovery } from "./EditableText";
+import { EditableText, TodoDraftRecovery, todoDraftSchema } from "./EditableText";
 import { failureOf, outcomeOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import type { TodosState } from "./state";
@@ -28,6 +28,7 @@ const TodoLine = (props: { todo: Todo }) => (
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
   const { app, drawer, drafts } = useConnectedProject();
+  drafts.validate("todos", todoDraftSchema);
 
   const [captured, setCaptured] = createSignal<Change>();
   const [failure, setFailure] = createSignal<string | null>(null);

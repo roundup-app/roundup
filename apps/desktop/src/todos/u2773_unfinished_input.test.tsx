@@ -253,3 +253,44 @@ it("u2773a_todos_repeated_add_keeps_the_original_home_after_selection_changes", 
   await waitFor(() => expect(app.calls.filter(call => call.method === "todo.move")).toHaveLength(1));
   expect(app.calls.find(call => call.method === "todo.move")?.params).toEqual({ id: 1, home: "a" });
 });
+
+it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async () => {
+  const path = "/todo-incompatible-form";
+  const key = `roundup:drafts:${path}`;
+  const invalid = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: "title" }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
+  const independent = { ...invalid, revision: "independent", destination: { surface: "orders", object: "original", recipient: null }, value: { ask: "  independent 🧪  " } };
+  const bytes = JSON.stringify({ version: 1, drafts: [invalid, independent] }, null, 2);
+
+  localStorage.setItem(key, bytes);
+  const { connected, app, unmount } = await mountTodos([], true, [], false, path);
+
+  expect(connected.drafts.problem()).toMatchObject({ project: path, destination: invalid.destination, operation: "restore", cause: "invalid" });
+  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  const exact = "  new e\u0301 🧪 memory  ";
+
+  fireEvent.input(field, { target: { value: exact } });
+  field.setSelectionRange(2, 5, "backward");
+  fireEvent.select(field);
+  const recovery = within(screen.getByRole("region", { name: "Todo · new" }));
+  const writeText = vi.fn().mockResolvedValue(undefined);
+
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  fireEvent.click(recovery.getByRole("button", { name: "Copy Todo" }));
+  expect(writeText).toHaveBeenCalledWith(exact);
+  fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
+  fireEvent.click(within(await screen.findByRole("region", { name: "Todo · 42" })).getByRole("button", { name: "Discard this revision" }));
+  expect(localStorage.getItem(key)).toBe(bytes);
+  expect(field.value).toBe(exact);
+  expect(connected.drafts.list().find(draft => draft.revision === "independent")).toEqual(independent);
+  localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [independent] }));
+  fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));
+  expect(connected.drafts.problem()).toBeNull();
+  expect(app.calls.filter(call => call.method === "todo.create" || call.method === "todo.update")).toEqual([]);
+  unmount();
+  await mountTodos([], true, [], false, path);
+  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  const restored = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+
+  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 2, 5, "backward"]);
+});
