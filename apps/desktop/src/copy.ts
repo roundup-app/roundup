@@ -60,6 +60,7 @@ export const copy = {
   notesRegion: "Agent notes",
   notes: "Notes",
   originalContext: " · Original context",
+  originalContextStatus: "Original context",
   editNoteAction: "Edit",
   checkMessageHistory: "Check Message history",
   noteLocation: (_path: string, side: string, start: number, end: number) => `${side === "old" ? "Old" : "New"} file, ${start === end ? `line ${start}` : `lines ${start}–${end}`}`,
