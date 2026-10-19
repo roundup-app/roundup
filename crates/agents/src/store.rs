@@ -47,7 +47,33 @@ impl Agents {
         let enrolled = rail.get_prepared()?.enrolled;
         git.set_enrolled(&enrolled.iter().map(PathBuf::from).collect::<Vec<_>>());
         let recovery = git.bounded();
+        for preparation in rail.unfinished_closed()? {
+            let source = preparation.source;
+            if let Err(error) = crate::worktree_wiring::reconcile_closed(
+                &mut rail, &recovery, project, dir, &launcher, &source,
+            ) {
+                eprintln!("agents: closed source {source}: {}; kept", error.message);
+            }
+        }
+        for (source, copy) in rail.closed_copies()? {
+            match launcher.finish_conversation(&copy) {
+                Ok(()) => rail.release_closed_copy(&source)?,
+                Err(error) => eprintln!(
+                    "agents: closed source {source}: {}; ownership release deferred",
+                    error.message
+                ),
+            }
+        }
         for (node, plan, ready) in rail.provisioning()? {
+            // Refused unpublished resources stay hidden and reserved, even when readiness
+            // completed before interruption. Only source recovery may reclaim them.
+            if rail
+                .unfinished_closed()?
+                .iter()
+                .any(|preparation| preparation.agent == node.id)
+            {
+                continue;
+            }
             let Some(plan) = plan else {
                 eprintln!("agents: {}: {UNPROVEN}; kept", node.id);
                 continue;
