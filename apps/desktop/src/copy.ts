@@ -43,6 +43,7 @@ export const copy = {
   recoverDrafts: "Recover unfinished work",
   unfinishedWork: "Unfinished work",
   noUnfinishedWork: "No unfinished work in this project.",
+  copyProjectName: "Copy name",
   currentDraft: "Current work",
   draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Acceptance unknown" },
   originalUnavailable: "Original object unavailable",
