@@ -5,7 +5,7 @@ import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 const type = (text: string) => fireEvent.input(field()!, { target: { value: text } });
 
@@ -132,4 +132,34 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   expect(select).not.toHaveBeenCalled();
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
+});
+
+
+it("u2773a_queries_restores_exact_work", async () => {
+  const { app, connected } = await mountSwitcher("ann");
+  const exact = "  e\u0301 🧭 東京  ";
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  type(exact);
+  field()!.setSelectionRange(2, 9, "backward");
+  press("Escape", {}, field()!);
+  const calls = app.calls.length;
+  openSwitcher();
+  await waitFor(() => expect(field()?.value).toBe(exact));
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
+  expect(connected.rail.selected()).toBe("ann");
+  expect(app.calls.length).toBe(calls);
+
+  cleanup();
+  const reopened = await mountSwitcher("ann");
+  const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
+  origin.focus();
+  const reopenedCalls = reopened.app.calls.length;
+  await Promise.resolve();
+  expect(document.activeElement).toBe(origin);
+  expect(field()).toBeNull();
+  openSwitcher();
+  await waitFor(() => expect(field()?.value).toBe(exact));
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
+  expect(reopened.app.calls.length).toBe(reopenedCalls);
 });
