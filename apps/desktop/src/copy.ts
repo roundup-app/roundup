@@ -8,6 +8,7 @@ export const copy = {
   draftIdentity: (...parts: string[]) => parts.join(" · "),
   draftSurfaces: (surfaces: string[]) => surfaces.join(", "),
   noDraftRecipient: "No recipient",
+  credentialDraftMemoryOnly: "This form contains credentials. Values are hidden here and will not survive a reload.",
   recoverDrafts: "Recover unfinished work",
   unfinishedWork: "Unfinished work",
   noUnfinishedWork: "No unfinished work in this project.",
