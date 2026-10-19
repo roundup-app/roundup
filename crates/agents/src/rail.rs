@@ -1154,6 +1154,30 @@ mod tests {
     }
 
     #[test]
+    fn u2875c_closed_publication_is_hidden_until_commit_and_keeps_its_tombstone() {
+        let (dir, mut rail) = rail();
+        let (workstream, agent) = rail.reserve_closed("opaque-source", "imported").unwrap();
+        assert!(rail.tree().unwrap().is_empty());
+        assert!(rail.node(&workstream).is_err());
+        assert!(rail.node(&agent).is_err());
+        drop(rail);
+        let mut rail = Rail::open(&dir.path().join("agents.db")).unwrap();
+        assert!(rail.tree().unwrap().is_empty());
+        rail.save_conversation(&agent, "retained", "/project").unwrap();
+        rail.publish_closed("opaque-source").unwrap();
+        let tree = rail.tree().unwrap();
+        assert_eq!(tree.len(), 2);
+        assert_eq!(tree[1].parent.as_ref(), Some(&workstream));
+        assert!(tree[1].can_resume);
+        assert!(tree.iter().all(|node| node.attempt.is_none() && node.terminal_id.is_none()
+            && node.status_revision.is_none()));
+        rail.rename(&agent, "user name").unwrap();
+        assert_eq!(rail.closed_source("opaque-source").unwrap(), Some((workstream.clone(), agent.clone(), true)));
+        rail.remove(&workstream).unwrap();
+        assert_eq!(rail.closed_source("opaque-source").unwrap(), Some((workstream, agent, true)));
+    }
+
+    #[test]
     fn a2703a_rail_resolves_current_names_and_gone_agents() {
         let (_dir, mut rail) = rail();
         let node = rail.insert(NodeKind::Agent, "sad", None, None).unwrap();
