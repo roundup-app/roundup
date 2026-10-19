@@ -7,15 +7,13 @@ import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, terminal } from "../testing/nodes";
-import { ProjectDraftsContext, useConnectedProject } from "./connectedProject";
+import { ConnectedProjectContext, ProjectDraftsContext, useConnectedProject } from "./connectedProject";
 import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
 
-let appDrafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined;
-
-afterEach(() => { appDrafts = undefined; cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () => {
   const storage = storedValue("draft", v.string());
@@ -225,6 +223,14 @@ const openDraftProjects = async () => {
   const paths = [join(directory, "a"), join(directory, "b")];
   const app = createFakeApp();
   const seen: ConnectedProject[] = [];
+  let header: { drafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined; connected: ConnectedProject | undefined } | undefined;
+  const setWindowTitle = app.setWindowTitle;
+
+  // WindowBar invokes this existing App seam from outside ConnectedProjectContext.
+  app.setWindowTitle = async (title) => {
+    header ??= { drafts: useContext(ProjectDraftsContext), connected: useContext(ConnectedProjectContext) };
+    await setWindowTitle(title);
+  };
   const emulators = fakeEmulators();
 
   for (const [index, path] of paths.entries()) {
@@ -237,7 +243,6 @@ const openDraftProjects = async () => {
   const view = render(() => createComponent(App, {
     app, reducedMotion: () => false, clock: () => 0,
     createEmulator: (id) => {
-      appDrafts = useContext(ProjectDraftsContext);
       seen.push(useConnectedProject());
 
       return emulators.factory(id);
@@ -253,7 +258,7 @@ const openDraftProjects = async () => {
     return seen.at(-1)!;
   };
 
-  return { app, paths, select, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+  return { app, paths, select, header: () => header, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
 };
 
 it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
@@ -302,8 +307,10 @@ it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget
 
   try {
     const connected = await opened.select(0);
-    expect(appDrafts).toBeDefined();
-    const header = appDrafts!(connected.project.path);
+    const authority = opened.header();
+    expect(authority?.drafts).toBeDefined();
+    expect(authority?.connected).toBeUndefined();
+    const header = authority!.drafts!(connected.project.path);
     expect(header).toBe(connected.drafts);
     const observations: { records: ReturnType<typeof connected.drafts.list>; problem: ReturnType<typeof connected.drafts.problem> }[] = [];
     createRoot((dispose) => {

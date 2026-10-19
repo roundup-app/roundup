@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { MockInstance } from "vitest";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { useContext } from "solid-js";
 import { App } from "../App";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
@@ -17,7 +18,7 @@ import { realDaemon } from "./realDaemonPlugin";
 import { PROOF, startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { createProjectDrafts, connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "../state/connectedProject";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { WorktreeControl } from "../changes/WorktreeControl";
@@ -427,7 +428,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await setup();
     const holder = drafts(first.dir);
     const saved = holder.edit(target(), { title: "same name", ask: exact, done: "  yes\n" }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
-    holder.edit({ surface: "todos", object: original.id, recipient: null }, { title: "independent 🧭" }, null, "ordinary");
+    const independent = holder.edit({ surface: "todos", object: original.id, recipient: null }, { title: "independent 🧭" }, null, "ordinary").draft;
     drafts(second.dir).edit({ surface: "orders", object: otherOriginal.id, recipient: otherOriginal.id }, { ask: "other Project" }, null, "ordinary");
     expect(holder.problem()).toBeNull();
     const connection = await connectProject(app.forProject(first.dir), { name: "first", path: first.dir }, () => true, () => 0, () => null, undefined, drafts(first.dir));
@@ -461,7 +462,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     drafts = createProjectDrafts();
     mount();
     await openRecovery();
-    expect(drafts(first.dir).list().find((draft) => draft.revision === saved.revision)).toEqual(saved);
+    expect(drafts(first.dir).list()).toEqual([saved, independent]);
     expect(drafts(second.dir).list()[0]?.value).toEqual({ ask: "other Project" });
     noDelivery();
   }, 60_000);
@@ -469,6 +470,12 @@ describe("u2773 Project draft integration on real Projects", () => {
   it("u2773e_recovery_actions_keep_surface_draft_after_failed_storage_close_and_reopen", async () => {
     await setup();
     const holder = drafts(first.dir);
+    let headerFactory: typeof drafts | undefined;
+    const setWindowTitle = app.setWindowTitle;
+    app.setWindowTitle = async (title) => {
+      headerFactory ??= useContext(ProjectDraftsContext);
+      await setWindowTitle(title);
+    };
     const write = Storage.prototype.setItem;
 
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
@@ -482,7 +489,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     await openRecovery();
     expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
     expect(screen.getByRole("alert").textContent).toContain("Order");
-    const header = drafts(first.dir);
+    expect(headerFactory).toBe(drafts);
+    const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
     const headerSaved = header.edit({ surface: "header", object: first.dir, recipient: null }, { name: "  original e\u0301 🪁  " }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));

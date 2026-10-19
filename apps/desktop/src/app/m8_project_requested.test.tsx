@@ -81,6 +81,7 @@ it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async
   window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, bytes);
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);
+  const other = holder.edit({ surface: "todos", object: "other-original", recipient: null }, { title: "  independent 🧭\n" }, null, "ordinary").draft;
   const saved = holder.edit({ surface: "orders", object: "original", recipient: "original" }, { ask: "  memory 🧭\n" }, null, "ordinary").draft;
   const app = createFakeApp();
   app.opened.project = FIRST;
@@ -94,9 +95,9 @@ it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async
   fireEvent.click(screen.getByRole("button", { name: "Copy ask" }));
   expect(clipboard).toHaveBeenCalledWith("  memory 🧭\n");
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  expect(holder.list()).toEqual([saved]);
+  expect(holder.list()).toEqual([other, saved]);
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
-  expect(holder.list()).toEqual([]);
+  expect(holder.list()).toEqual([other]);
   expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
   expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
   window.localStorage.clear();
@@ -112,7 +113,7 @@ it("u2773e_recovery_hides_declared_credentials_until_explicit_copy", async () =>
   render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   await screen.findByRole("region", { name: "Unfinished work" });
-  expect(document.body.textContent).not.toContain(secret);
+  expect(document.body.innerHTML).not.toContain(secret);
   const clipboard = vi.fn(async (_text: string) => {});
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
   fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
