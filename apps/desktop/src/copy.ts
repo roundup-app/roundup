@@ -4,11 +4,14 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  inspectDraft: "Inspect",
+  draftIdentity: (...parts: string[]) => parts.join(" · "),
+  draftSurfaces: (surfaces: string[]) => surfaces.join(", "),
+  noDraftRecipient: "No recipient",
   recoverDrafts: "Recover unfinished work",
   unfinishedWork: "Unfinished work",
   noUnfinishedWork: "No unfinished work in this project.",
   currentDraft: "Current work",
-  earlierRevision: "Earlier revision",
   draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Acceptance unknown" },
   originalUnavailable: "Original object unavailable",
   originalUnverified: "Original availability not verified",

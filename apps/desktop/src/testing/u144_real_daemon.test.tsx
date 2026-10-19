@@ -433,8 +433,13 @@ describe("u2773 Project draft integration on real Projects", () => {
     const connection = await connectProject(app.forProject(first.dir), { name: "first", path: first.dir }, () => true, () => 0, () => null, undefined, drafts(first.dir));
     expect(connection.drafts).toBe(holder);
     connection.stopTerminalScheme();
+    const outside = document.createElement("input");
+    document.body.append(outside);
+    outside.focus();
     mount();
     const entry = await screen.findByRole("button", { name: "Recover unfinished work" });
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
     entry.focus();
     const focus = document.activeElement;
     holder.retry();
@@ -503,6 +508,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
     await openRecovery();
+    expect(screen.getByRole("img", { name: "Pending" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     holder.settle(a.revision, "failed");

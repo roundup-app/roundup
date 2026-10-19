@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { createProjectDrafts } from "../state/connectedProject";
@@ -61,12 +61,18 @@ describe("m8 an Agent opens and renames Projects", () => {
 it("u2773a_orders_restores_exact_work", async () => {
   const holder = draftStorage(FIRST.path);
   const exact = "  Order e\u0301 🪁\nlast line  ";
-  holder.edit({ surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name", done: "" }, { start: 2, end: 5, direction: "forward" }, "ordinary");
+  const saved = holder.edit({ surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name", done: "" }, { start: 2, end: 5, direction: "forward" }, "ordinary").draft;
+  // Two independently retained unsubmitted revisions may arrive from external recovery.
+  window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, JSON.stringify({ version: 1, drafts: [
+    { ...saved, revision: "older-revision", value: { ask: "older" } }, saved,
+  ] }));
   await started();
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
-  expect(await screen.findByRole("region", { name: "Unfinished work" })).toBeTruthy();
+  const recovery = await screen.findByRole("region", { name: "Unfinished work" });
+  const revisions = within(recovery).getAllByRole("listitem");
+  expect(revisions.filter((row) => row.dataset.current === "true").map((row) => row.dataset.revision)).toEqual([saved.revision]);
   expect(screen.getByText(exact, { exact: true, normalizer: (text) => text })).toBeTruthy();
-  expect(screen.getByRole("button", { name: /orders · removed-agent/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: new RegExp(saved.revision) })).toBeTruthy();
   window.localStorage.clear();
 });
 
