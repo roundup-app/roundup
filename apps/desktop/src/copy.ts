@@ -4,6 +4,14 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  switcherRetentionFailure: (operation: "restore" | "retain", project: string) => operation === "restore"
+    ? `Your saved search in ${project} could not be restored. Try again to recover it.`
+    : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,
+  switcherCopyFailure: "Could not copy query. Select the text and copy again.",
+  copyQuery: "Copy query",
+  retryStorage: "Try again",
+  queryCopied: "Copied",
+  discardQuery: "Discard query",
   draftSurface: (surface: string) => ({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" })[surface] ?? "Unfinished work",
   draftField: (field: string) => ({ originalName: "Original name", source: "Source", base: "Original source", name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
   originalDraftObject: "Original object",
