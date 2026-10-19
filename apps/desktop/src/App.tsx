@@ -163,7 +163,6 @@ export const App = (props: {
   chime?: Chime | undefined;
 }) => {
   // U2770: only user input changes ring mode; component autofocus cannot override the last press.
-  // Start keyboard-visible for native accessibility focus arriving before any page input.
   const keyboardFocus = (event: KeyboardEvent) => {
     const target = event.composedPath()[0];
 
@@ -171,7 +170,7 @@ export const App = (props: {
       && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
 
     // Editing keys keep focus in the field, so they must not change its ring mid-entry.
-    if (event.isComposing || (editing && !event.metaKey && !event.ctrlKey && !event.altKey
+    if (event.isComposing || (editing && !event.metaKey && !event.ctrlKey
       && event.key !== "Tab" && event.key !== "Escape")) return;
     document.documentElement.dataset.keyboardFocus = "true";
   };
@@ -191,6 +190,7 @@ export const App = (props: {
   };
 
   onMount(() => {
+    // Start keyboard-visible for native accessibility focus arriving before any page input.
     document.documentElement.dataset.keyboardFocus = "true";
     window.addEventListener("keydown", keyboardFocus, true);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
