@@ -67,8 +67,8 @@ export const ProjectTab = (props: {
   const schema = v.strictObject({ name: v.string(), base: v.optional(v.string()) });
   drafts?.validate("header", schema);
   drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
-  const destination = { surface: "header", object: props.tab.path, recipient: null };
-  const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === "header" && draft.destination.object === props.tab.path) ?? []);
+  const destination = Object.freeze({ surface: "header", object: props.tab.path, recipient: null });
+  const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
@@ -175,24 +175,24 @@ export const ProjectTab = (props: {
       </Show>
     </FlatTab>
     <Show when={records().length || problem()}>
-      <Tip text={problem() ? copy.draftRetention(props.tab.path, copy.draftSurface("header"), problem()!.cause) : copy.unfinishedWork}>{trigger => <IconButton {...trigger()} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.path)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
+      <Tip text={problem() ? copy.draftRetention(props.tab.path, copy.projectName, problem()!.cause) : copy.unfinishedWork}>{trigger => <IconButton {...trigger()} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.path)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
     </Show>
-    <Show when={props.selected && problem()}>{failure => <Portal><aside class="header-retention" role="status" aria-label={copy.draftIdentity(copy.draftSurface("header"), props.tab.path)}>
-      <p>{copy.draftRetention(props.tab.path, copy.draftSurface("header"), failure().cause)}</p>
-      <button type="button" data-button="quiet" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.draftSurface("header"), props.tab.path)} onClick={() => recover(true)}>{copy.recoverDrafts}</button>
+    <Show when={props.selected && problem()}>{failure => <Portal><aside class="header-retention" role="status" aria-label={copy.draftIdentity(copy.projectName, props.tab.path)}>
+      <p>{copy.draftRetention(props.tab.path, copy.projectName, failure().cause)}</p>
+      <button type="button" data-button="quiet" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.projectName, props.tab.path)} onClick={() => recover(true)}>{copy.recoverDrafts}</button>
     </aside></Portal>}</Show>
     <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
         <Dialog.Title>{copy.unfinishedWork}</Dialog.Title>
         <Dialog.Description>{props.tab.path}</Dialog.Description>
-        <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(props.tab.path, copy.draftSurface("header"), failure().cause)}</p>}</Show>
+        <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(props.tab.path, copy.projectName, failure().cause)}</p>}</Show>
         <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
-        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{draft => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} · {draft.revision}</button>}</For>
+        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{draft => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], draft.revision)}</button>}</For>
         <Show when={shown()}>{draft => <>
           <p>{draft().destination.object}</p>
           <Show when={draft().value.base !== props.tab.base}><p role="status">{copy.railDraftConflict}</p></Show>
           <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
-          <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyField("name")}</button>
+          <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyProjectName}</button>
           <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></div>
         </>}</Show>
         <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button>
