@@ -89,6 +89,7 @@ export const createProjectDrafts = () => {
       },
       validate: (...args) => refresh(storage.validate(...args)),
       edit: (...args) => refresh(storage.edit(...args)),
+      setSelection: (...args) => refresh(storage.setSelection(...args)),
       submit: (...args) => refresh(storage.submit(...args)),
       settle: (...args) => refresh(storage.settle(...args)),
       discard: (...args) => refresh(storage.discard(...args)),
