@@ -111,7 +111,7 @@ it("u2773b_todos_discard_removes_only_selected_revision_across_reopen", async ()
   fireEvent.keyDown(field, { key: "Enter" });
   await screen.findByText("Failed");
   fireEvent.input(field, { target: { value: "  newer B 🧪  " } });
-  fireEvent.click(within(screen.getByText("Failed").parentElement!).getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(screen.getByRole("region", { name: "Todo · new" })).getByRole("button", { name: "Discard this revision" }));
   const path = connected.project.path;
 
   unmount();
@@ -197,6 +197,7 @@ it("u2773b_todos_discard_current_does_not_restore_it_on_escape", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
   fireEvent.input(screen.getByRole("textbox", { name: "New Todo title" }), { target: { value: "discard this" } });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "New Todo title" }), { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
   const reopened = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
@@ -293,4 +294,32 @@ it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async (
   const restored = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([exact, 2, 5, "backward"]);
+});
+
+it("u2773a_todos_live_creation_enters_recovery_only_after_hiding", async () => {
+  await mountTodos([]);
+  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  const field = screen.getByRole("textbox", { name: "New Todo title" });
+  fireEvent.input(field, { target: { value: "unfinished" } });
+  expect(screen.queryByRole("button", { name: "Copy Todo" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  fireEvent.keyDown(field, { key: "Escape" });
+  expect(screen.getByRole("button", { name: "Copy Todo", description: /Title.*unfinished/ })).toBeTruthy();
+});
+
+it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () => {
+  const { app, connected } = await mountTodos([todo(1, { title: "original" })]);
+  fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
+  await waitFor(() => expect(app.calls.some(call => call.method === "todo.readHistory")).toBe(true));
+  fireEvent.dblClick(within(screen.getByRole("complementary", { name: "Drawer" })).getByText("original"));
+  fireEvent.input(screen.getByRole("textbox", { name: "Title" }), { target: { value: "refused title" } });
+  expect(screen.queryByRole("button", { name: "Copy Todo" })).toBeNull();
+  app.handlers["todo.update"] = () => Promise.reject(new RpcError(-32003, "refused"));
+  document.activeElement instanceof HTMLElement && document.activeElement.blur();
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Title" });
+  field.setSelectionRange(2, 3);
+  fireEvent.select(field);
+  expect(connected.drafts.list().map(draft => draft.status)).toEqual(["failed"]);
+  expect(screen.getByRole("button", { name: "Copy Todo", description: /Failed.*Title.*refused title/ })).toBeTruthy();
 });
