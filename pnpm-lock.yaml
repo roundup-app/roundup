@@ -112,6 +112,9 @@ importers:
       diff:
         specifier: ^9.0.0
         version: 9.0.0
+      flatted:
+        specifier: 3.4.4
+        version: 3.4.4
       lucide-solid:
         specifier: ^1.51.0
         version: 1.51.0(solid-js@1.9.17)
