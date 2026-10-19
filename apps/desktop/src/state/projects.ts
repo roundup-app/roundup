@@ -3,6 +3,7 @@ import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import type { App, DaemonExit, Project } from "../app/seam";
 import { RpcError } from "../app/seam";
+import { copy } from "../copy";
 import { storedValue } from "./storage";
 
 /** One open Project as the strip shows it: `generation` counts reopens, so a new Daemon's connection replaces the old one whole. */
@@ -180,7 +181,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
       const submission = { path, name, revision: ++renameRevision };
       const before = tabs().find((tab) => tab.project.path === path)?.project;
 
-      if (!before) return { ...submission, status: "failed", error: "Project is no longer open" };
+      if (!before) return { ...submission, status: "failed", error: copy.projectNoLongerOpen };
 
       const holder = renames.get(path) ?? { committed: before, acknowledged: 0, remaining: 0, pending: new Map<number, string>() };
       renames.set(path, holder);
