@@ -215,7 +215,7 @@ impl Git {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
     }
 
-    pub fn plan(&self, project: &Path, id: &str, attempt: &str) -> Result<Provision, RpcError> {
+    pub fn plan(&self, project: &Path, id: &str) -> Result<Provision, RpcError> {
         let commit = self.run(project, &["rev-parse", "HEAD"]).map_err(|err| {
             if self.check_deadline().is_err() {
                 failed(err)
@@ -244,10 +244,15 @@ impl Git {
         {
             return Err(failed("provisioning destination already exists"));
         }
+        // Provisioning can precede the first launch. A fresh ownership ref also prevents a
+        // stale recovery plan from claiming a later reservation for the same Agent.
+        let mut nonce = [0u8; 16];
+        getrandom::fill(&mut nonce).map_err(RpcError::internal)?;
+        let ownership: String = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
         Ok(Provision {
             worktree,
             commit,
-            owner: format!("refs/roundup/provisioning/{id}/{attempt}"),
+            owner: format!("refs/roundup/provisioning/{id}/{ownership}"),
         })
     }
 
