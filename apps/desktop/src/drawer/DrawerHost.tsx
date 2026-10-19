@@ -146,7 +146,7 @@ export const DraftRecoveryEntry = () => {
 };
 
 const DraftRecovery = () => {
-  const { drafts, project, rail, terminalAvailability } = useConnectedProject();
+  const { drafts, project, rail, daemonExit } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
@@ -178,22 +178,20 @@ const DraftRecovery = () => {
     }
   };
 
-  const availability = (surface: string, object: string) => {
-    // The surface captures the original Terminal id as its destination object.
-    // Recovery never decodes selection form values or the vendor editor.
-    if (surface === "terminal_selection") {
-      const state = terminalAvailability(object);
+  const availability = (draft: ReturnType<typeof drafts.list>[number]) => {
+    const { surface, object } = draft.destination;
 
-      return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
+    if (surface === "orders" || surface === "rail") {
+      return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
     }
 
-    if (surface !== "orders" && surface !== "rail") return copy.originalUnverified;
+    const state = drafts.availability(draft, { rail, daemonExit });
 
-    return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
+    return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
   };
 
   const identity = (surface: string, object: string) => {
-    const node = rail.nodes.find((node) => node.id === object);
+    const node = surface === "terminal_selection" ? undefined : rail.nodes.find((node) => node.id === object);
 
     const name = surface === "pads" ? pads.pads().find((pad) => pad.name === object)?.name
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
@@ -218,7 +216,7 @@ const DraftRecovery = () => {
       <Show when={shown()}>{(draft) => <section class="draft-detail" aria-label={draft().revision}>
         <h3>{copy.inspectedRevision(identity(draft().destination.surface, draft().destination.object), current().has(draft().revision) ? copy.currentDraft : copy.draftStatus[draft().status])}</h3>
         <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
-        <Show when={availability(draft().destination.surface, draft().destination.object)}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
+        <Show when={availability(draft())}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
         <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
         <For each={Object.keys(draft().value)}>{(field) => <div>
           <h3>{copy.draftField(field)}</h3>
