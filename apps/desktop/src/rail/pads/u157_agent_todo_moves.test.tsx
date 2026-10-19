@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { showEverything, withScopeRow } from "../../testing/showEverything";
 import { afterEach, describe, expect, it } from "vitest";
 import { DrawerHost } from "../../drawer/DrawerHost";
@@ -40,7 +40,7 @@ describe("u157 a Todo created by an Agent", () => {
     await connected.rail.settled();
     fireEvent.click(await waitFor(() => within(rowOf("auth")).queryByRole("button", { name: /(pads|todos)$/ }) ?? Promise.reject(new Error("no control"))));
 
-    const nested = document.querySelector<HTMLElement>('[data-todo="1"]')!;
+    const nested = screen.getByRole("tree", { name: "Rail" }).querySelector<HTMLElement>('[data-todo="1"]')!;
 
     expect(nested.querySelector("[data-todo-home]")?.textContent).toBe("In Project root");
     fireEvent.mouseEnter(nested);
@@ -61,9 +61,9 @@ describe("u157 a Todo created by an Agent", () => {
 
     fireEvent.click(offer);
 
-    await waitFor(() => expect(document.querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("In alpha"));
+    await waitFor(() => expect(screen.getByRole("tree", { name: "Rail" }).querySelector<HTMLElement>('[data-todo="1"] [data-todo-home]')?.textContent).toBe("In alpha"));
     expect(document.querySelector('[data-todo="1"]')).not.toBeNull();
-    expect(document.querySelector('[data-shelf-row][data-id="1"]')).toBeNull();
+    expect(document.querySelector('[data-shelf-row][data-id="1"]')).not.toBeNull();
     expect(app.calls.filter((c) => c.method === "todo.move").map((c) => c.params)).toEqual([{ id: 1, home: "r1" }]);
     expect(store.todos[0]?.creator).toEqual(creator);
   });
