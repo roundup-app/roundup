@@ -1,7 +1,9 @@
-import { spawn, spawnSync } from "node:child_process";
+import { execFile, spawn, spawnSync } from "node:child_process";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
-import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { promisify } from "node:util";
+import { createServedApp } from "./realSeam";
 import { join, resolve } from "node:path";
 import { configure } from "@testing-library/dom";
 import { createServer } from "vite";
@@ -171,4 +173,27 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     },
     stop,
   };
+};
+
+/** A temporary committed Project with Worktrees enabled; failed preparation reaps its Daemon too. */
+export const startWorktreeProject = async (files: Record<string, string>, env: Record<string, string>, inBrowser = false): Promise<StartedDaemon> => {
+  const real = await startRealDaemon(env, inBrowser);
+  const execute = promisify(execFile);
+  const git = (...args: string[]) => execute("git", ["-C", real.dir, ...args], { timeout: 30_000 });
+
+  try {
+    await git("init", "-b", "main");
+    await git("config", "user.name", "Worktree observer");
+    await git("config", "user.email", "observer@example.test");
+
+    for (const [name, text] of Object.entries(files)) await writeFile(join(real.dir, name), text);
+    await git("add", "--", ...Object.keys(files));
+    await git("commit", "-m", "base");
+    await createServedApp(real.base).rpc("project.setWorktrees", { on: true, check: "true" });
+
+    return real;
+  } catch (error) {
+    await real.stop();
+    throw error;
+  }
 };
