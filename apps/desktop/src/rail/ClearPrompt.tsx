@@ -1,15 +1,24 @@
 import { copy } from "../copy";
-import { createEffect, Show } from "solid-js";
+import { onMount, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
+import { registerKeys } from "../keys/registry";
 import { clearingOf } from "./clear";
 
 /** U350: the Workstream's reason prompt, open once `Clear…` in the `⋯` menu is chosen. */
-export const ClearPrompt = (props: { node: RailNode }) => {
-  const { app, events, rail } = useConnectedProject();
-  const clearing = () => clearingOf(app, events, props.node.id);
+export const ClearPrompt = (props: { node: RailNode; onHide: () => void }) => {
+  const { app, events, rail, drafts } = useConnectedProject();
+  const clearing = clearingOf(app, events, props.node.id, drafts);
   let field: HTMLTextAreaElement | undefined;
+  let form: HTMLFormElement | undefined;
+  const hide = () => { clearing.keep(); props.onHide(); };
+
+  registerKeys({ kind: "layer", element: () => form, active: () => clearing.phase() !== "closed", modal: false }, [{
+    chords: ["Escape"],
+    when: (press) => press.target === document || document.activeElement === document.body || (press.target instanceof Node && !!form?.contains(press.target)),
+    run: hide,
+  }]);
 
   const subagents = () => {
     const below = new Set([props.node.id]);
@@ -28,37 +37,44 @@ export const ClearPrompt = (props: { node: RailNode }) => {
     return rail.nodes.filter((node) => node.kind === "agent" && below.has(node.id)).length;
   };
 
-  createEffect(() => {
-    if (clearing().phase() === "asking") queueMicrotask(() => field?.focus());
+  onMount(() => {
+    const prompt = clearing;
+    const selection = prompt.selection();
+
+    if (prompt.phase() !== "asking") return;
+
+    queueMicrotask(() => {
+      if (!field?.isConnected) return;
+
+      field.focus();
+
+      if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
+    });
   });
 
-  const empty = () => clearing().reason().trim() === "";
-  const pending = () => clearing().phase() === "pending";
+  const pending = () => clearing.phase() === "pending";
 
   return (
-    <Show when={clearing().phase() !== "closed"}>
+    <Show when={clearing.phase() !== "closed"}>
       <form
+        ref={(element) => { form = element; }}
         class="clear-prompt"
         data-clear-prompt
         onSubmit={(submit) => {
           submit.preventDefault();
-          void clearing().submit(false);
+          void clearing.submit(false);
         }}
-        onKeyDown={(press) => {
-          if (press.key === "Escape") {
-            press.preventDefault();
-            clearing().keep();
-          }
-        }}
+
       >
         <label class="clear-title">{copy.whyClear}<textarea
             ref={(element) => (field = element)}
             class="clear-reason"
             rows={1}
             wrap="off"
-            value={clearing().reason()}
+            value={clearing.reason()}
             disabled={pending()}
-            onInput={(input) => clearing().setReason(input.currentTarget.value.replace(/\s*\n\s*/g, " "))}
+            onInput={(input) => clearing.setReason(input.currentTarget.value, { start: input.currentTarget.selectionStart, end: input.currentTarget.selectionEnd, direction: input.currentTarget.selectionDirection })}
+            onSelect={(event) => { if (event.currentTarget.isConnected && !pending()) clearing.select({ start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd, direction: event.currentTarget.selectionDirection }); }}
             onKeyDown={(press) => {
               if (press.key === "Enter" && !press.isComposing) {
                 press.preventDefault();
@@ -72,7 +88,7 @@ export const ClearPrompt = (props: { node: RailNode }) => {
             ? copy.theDoorIsWritingTheHandoff
             : copy.theDoorWritesAHandoffKeepsWhatYou(subagents())}
         </p>
-        <Show when={clearing().failure()}>
+        <Show when={clearing.failure()}>
           {(failed) => (
             <p class="ink clear-failure" data-tone="red" role="alert">
               <Icon name="x" />
@@ -81,11 +97,11 @@ export const ClearPrompt = (props: { node: RailNode }) => {
           )}
         </Show>
         <p class="clear-words">
-          <button type="submit" class="word" data-button="quiet" disabled={empty() || pending()}>{copy.clearWithHandoff}</button>{" "}
-          <Show when={clearing().offersWithoutHandoff()}>
-            <button type="button" class="word" data-button="quiet" disabled={empty() || pending()} onClick={() => void clearing().submit(true)}>{copy.clearWithoutHandoff}</button>{" "}
+          <button type="submit" class="word" data-button="quiet" disabled={!clearing.canSubmit()}>{copy.clearWithHandoff}</button>{" "}
+          <Show when={clearing.offersWithoutHandoff()}>
+            <button type="button" class="word" data-button="quiet" disabled={!clearing.canSubmit()} onClick={() => void clearing.submit(true)}>{copy.clearWithoutHandoff}</button>{" "}
           </Show>
-          <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={() => clearing().keep()}>{copy.keep}</button>
+          <button type="button" class="word" data-button="quiet" disabled={pending()} onClick={hide}>{copy.keep}</button>
         </p>
       </form>
     </Show>

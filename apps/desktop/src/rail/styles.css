@@ -172,7 +172,18 @@
 .rail-row input {
   flex: 1;
   min-width: 0;
+  min-height: var(--space-6);
+  box-sizing: border-box;
+  padding: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
   font: inherit;
+}
+
+.rail-name-error {
+  flex: none;
+  cursor: default;
 }
 
 .spawn-prompt-field {
@@ -779,4 +790,114 @@
 }
 .rail-row .row-name-state + .row-tail {
   margin-left: var(--space-4);
+}
+
+.rail-recovery {
+  padding: var(--space-2);
+  max-height: var(--pad-menu-max-height);
+  overflow: auto;
+}
+
+.rail-recovery p,
+.rail-recovery summary {
+  overflow-wrap: anywhere;
+}
+
+.rail-recovery textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rail-recovery summary {
+  min-height: var(--space-6);
+  cursor: pointer;
+}
+
+.rail-recovery summary:hover {
+  color: var(--accent);
+}
+
+.rail-recovery summary:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.rail-recovery summary:active {
+  color: var(--text);
+  transition-duration: 0s;
+}
+
+.rail-recovery textarea {
+  padding: var(--space-1);
+  appearance: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text);
+  background: var(--ground);
+}
+
+.rail-task-target {
+  margin: var(--space-1) var(--space-3);
+  color: var(--grey);
+  overflow-wrap: anywhere;
+}
+
+/* The edited name owns the row until editing ends. */
+.rail-row[data-editing="true"] .row-tail,
+.rail-row[data-editing="true"] .rail-pads-control,
+.rail-row[data-editing="true"] .fill {
+  display: none;
+}
+
+.rail-row[data-editing="true"] input {
+  width: 100%;
+}
+
+.rail-retention {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.rail-retention > button {
+  justify-self: start;
+}
+
+.rail-recovery summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  list-style: none;
+  font-size: var(--text-row);
+  color: var(--grey);
+}
+
+.rail-recovery summary::-webkit-details-marker {
+  display: none;
+}
+
+.rail-recovery details[open] > summary > svg,
+.rail-recovery[open] > summary > svg {
+  transform: rotate(90deg);
+}
+
+.rail-recovery summary > svg {
+  flex: none;
+}
+
+.rail-recovery textarea {
+  resize: none;
+  margin-block: var(--space-3);
+}
+
+.rail-recovery details > p {
+  margin-bottom: var(--space-2);
+}
+
+.rail-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block: var(--space-3);
 }
