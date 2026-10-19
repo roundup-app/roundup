@@ -8,6 +8,8 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { Events } from "../app/events";
 import type { AppSeam, DaemonExit } from "../app/seam";
 
+const availability = { available: "available", unavailable: "unavailable", unverified: "unverified" } as const;
+
 const identity = v.object({ daemon: v.string(), agent: v.string(), attempt: v.string(), decision: v.string() });
 
 export type DecisionsState = {
@@ -42,7 +44,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   drafts.registerRecovery("decisions", (draft, facts) => {
     const parsed = v.safeParse(identity, draft.value);
 
-    if (!parsed.success || parsed.output.decision !== draft.destination.object || parsed.output.agent !== draft.destination.recipient) return "unverified";
+    if (!parsed.success || parsed.output.decision !== draft.destination.object || parsed.output.agent !== draft.destination.recipient) return availability.unverified;
 
     return facts.decisions.availability(parsed.output);
   });
@@ -63,7 +65,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
       } catch (error) {
         if (!(error instanceof Error)) throw error;
 
-        captures.set(decision.id, error instanceof RpcError && error.code === -32003 ? "unavailable" : "unverified");
+        captures.set(decision.id, error instanceof RpcError && error.code === -32003 ? availability.unavailable : availability.unverified);
       }
     }));
 
@@ -136,21 +138,21 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   return {
     availability: (prompt) => {
-      if (daemonExit()) return "unavailable";
+      if (daemonExit()) return availability.unavailable;
 
-      if (!observed() || listFailure()) return "unverified";
+      if (!observed() || listFailure()) return availability.unverified;
 
-      if (!decisions().some((decision) => decision.id === prompt.decision && decision.agent === prompt.agent)) return "unavailable";
+      if (!decisions().some((decision) => decision.id === prompt.decision && decision.agent === prompt.agent)) return availability.unavailable;
 
-      if (authority.loading) return "unverified";
+      if (authority.loading) return availability.unverified;
 
       const captured = authority()?.get(prompt.decision);
 
-      if (!captured || captured === "unverified") return "unverified";
+      if (!captured || captured === "unverified") return availability.unverified;
 
-      if (captured === "unavailable") return "unavailable";
+      if (captured === "unavailable") return availability.unavailable;
 
-      return captured.daemon === prompt.daemon && captured.agent === prompt.agent && captured.attempt === prompt.attempt && captured.decision === prompt.decision ? "available" : "unavailable";
+      return captured.daemon === prompt.daemon && captured.agent === prompt.agent && captured.attempt === prompt.attempt && captured.decision === prompt.decision ? availability.available : availability.unavailable;
     },
     of: (agent) => decisions().filter((each) => each.agent === agent).reduce<Decision | undefined>((newest, each) => (!newest || each.opened_at >= newest.opened_at ? each : newest), undefined),
     open: () => decisions().toSorted((a, b) => a.opened_at - b.opened_at),
