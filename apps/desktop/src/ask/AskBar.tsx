@@ -1,7 +1,6 @@
 import { createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
-import { DraftRecoveryEntry } from "../drawer/DrawerHost";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -210,18 +209,19 @@ export const AskBar = () => {
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
-        <Show when={failure()?.message ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+        <div class="ask-send-status">
+          <Show when={failure()?.message ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => <button type="button" data-button="quiet" onClick={() => {
+            void asks.reconcile(revision).then(outcome => {
+              drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
+
+              if (outcome.kind === "unknown") setFailure({ revision, message: copy.askUnknown + outcome.message });
+              else setFailure(previous => previous?.revision === revision ? null : previous);
+            });
+          }}>{copy.askCheckAcceptance}</button>}</For>
+        </div>
         <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />}</Show>
         <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-        <Show when={!connected.drawer.content() && (problem() || records().some(draft => draft.status !== "draft"))}><DraftRecoveryEntry /></Show>
-        <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => <button type="button" data-button="quiet" onClick={() => {
-          void asks.reconcile(revision).then(outcome => {
-            drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
-
-            if (outcome.kind === "unknown") setFailure({ revision, message: copy.askUnknown + outcome.message });
-            else setFailure(previous => previous?.revision === revision ? null : previous);
-          });
-        }}>{copy.askCheckAcceptance}</button>}</For>
         <Show when={!over()}><ProjectOverview /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
