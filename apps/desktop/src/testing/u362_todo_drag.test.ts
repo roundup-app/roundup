@@ -111,6 +111,9 @@ run('u362 rendered Todo drag', () => {
       const movedHome = await page.call<string>(`async id => (await window.__fake.app.rpc('todo.list', {})).find(todo => todo.id === Number(id)).home`, id);
       expect(movedHome).toBe(home);
       await page.until(`() => document.querySelector('.shelf [data-todo="${id}"]')?.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === '${home}' `);
+      // Sortable's Feedback restores the real handle only after removing its inert placeholder.
+      // The refetched Home can render before that cleanup, so it cannot bound the next drag.
+      await page.until(`() => !document.querySelector('[data-dnd-placeholder], [data-dnd-dragging]')`);
       const back = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
       const root = await point('[data-todo-root]');
       await page.pointer('down', back.x, back.y);
