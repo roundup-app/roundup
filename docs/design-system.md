@@ -88,7 +88,7 @@ A click target is any element with a click, press or key handler, a `button`, `a
 | rest | its resting surface; a button also has a label in `--text` or `--grey` and a hit height of at least 24 px | always |
 | hover | `--hover` surface, cursor `pointer` | pointer over it |
 | pressed | one step darker than hover, with no transition | from `pointerdown`, before `pointerup` |
-| focus | 2 px `--accent` outline, offset 1 px | `:focus-visible` |
+| focus | 2 px `--accent` outline, offset 1 px | keyboard focus only; a pointer press never draws it (U2770) |
 | disabled | `--disabled` text, cursor `default`, `aria-disabled`, no hover or pressed change | when it cannot act |
 
 A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because it answers with a text cursor and, while focused, one `--accent` bar inside its box (U353) instead of a hover surface, a pointer and a pressed style.
@@ -132,7 +132,7 @@ Each check is measured from computed style and the DOM of the running App, never
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
 | D5 | text has at least 4.5:1 against its own ground, and a Glyph tone and a focus ring 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
-| D6 | every click target except a `textarea` shows its rest, hover and focus states from the table above, and its hit area is at least 24 px high | U133 |
+| D6 | every click target except a `textarea` shows its rest, hover and keyboard focus states from the table above; a pointer press never draws a focus ring (U2770), and its hit area is at least 24 px high | U133, U2770 |
 | D7 | every click target except a `textarea` has a pressed style that differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer, the Terminal bubble, the Shelf, the Terminal's control overlay (U375) and floating menus have a shadow (menus use `--shadow-drawer` on their surface only), and a list's scroll shadow is `--shadow-scroll`; no `backdrop-filter` element contains another | U134, U371 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0 | U5, U135 |
