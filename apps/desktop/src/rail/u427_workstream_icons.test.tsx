@@ -48,16 +48,21 @@ describe("u427 a Workstream row's icons", () => {
     expect(icon("c1", "Clear Workstream…").getAttribute("aria-label")).toBe("Clear Workstream…");
     fireEvent.click(icon("c1", "Clear Workstream…"));
 
-    expect(clearingOf(mounted.app, mounted.connected.events, "c1").phase()).toBe("asking");
+    expect(clearingOf(mounted.app, mounted.connected.events, "c1", mounted.connected.drafts).phase()).toBe("asking");
     expect(within(await screen.findByRole("dialog", { name: "Clear c1" })).getByRole("textbox", { name: "Why clear?" })).toBeTruthy();
     expect(mounted.rail.selected()).toBeNull();
     expect(mounted.app.calls.filter((call) => call.method === "workstream.clear")).toEqual([]);
   });
 
   it("u427_no_clear_icon_while_a_clear_is_pending", async () => {
-    await mountRail([workstream("c2")]);
+    const mounted = await mountRail([workstream("c2")]);
+    mounted.app.handlers["workstream.clear"] = () => ({ pending: true });
 
     fireEvent.click(icon("c2", "Clear Workstream…"));
+    const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Why clear?" });
+    fireEvent.input(reason, { target: { value: "next iteration" } });
+    fireEvent.submit(reason.closest("form")!);
+    await waitFor(() => expect(reason.disabled).toBe(true));
 
     await waitFor(() => expect([...rowOf("c2").querySelectorAll(".row-icons button")].map((button) => button.getAttribute("aria-label"))).not.toContain("Clear Workstream…"));
   });
