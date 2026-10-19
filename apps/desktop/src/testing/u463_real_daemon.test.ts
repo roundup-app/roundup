@@ -359,3 +359,54 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     throw error;
   } finally { await fixture.close(); }
 }, 240_000);
+
+it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () => {
+  const real = await startWorktreeProject({ "result.txt": "original result\n" }, {}, true);
+  const fixture = await observer(1512, "keyboard", "changes-reopen", undefined, real);
+  const { browser, wait, app } = fixture;
+  const evaluate = async (source: string) => (await browser("eval", source)).result;
+  const text = "  unfinished e\u0301\n🧭 exact  ";
+  const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Original", order: { kind: "work", ask: "inspect", limits: [] } });
+
+  const press = async (name: string) => {
+    await evaluate(`[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(name)}).click()`);
+  };
+
+  const form = async () => {
+    await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
+    await evaluate(`document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
+    await wait("!!document.querySelector('.worktree-control')");
+    await press(node.worktree!.branch);
+    await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path="result.txt"]')`);
+    await evaluate(`document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-path="result.txt"]').click()`);
+    await wait("[...document.querySelectorAll('button')].some(button => button.textContent === 'View diff' && !button.disabled)");
+    await press("View diff");
+    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
+    await press("Add note");
+    await wait("!!document.querySelector('.note-form textarea')");
+  };
+
+  try {
+    await writeFile(join(node.worktree!.path, "result.txt"), "changed result\nsecond line\n");
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("set", "viewport", "1512", "950");
+    await form();
+    await browser("fill", ".note-form textarea", text);
+    await browser("find", "label", "End line", "fill", "2");
+    await evaluate("(() => { const field = document.querySelector('.note-form textarea'); field.setSelectionRange(2, 9, 'backward'); field.dispatchEvent(new Event('select', { bubbles: true })); })()");
+
+    for (const navigation of ["reload", "reopen"]) {
+      if (navigation === "reload") await browser("reload");
+      else {
+        await browser("open", "about:blank");
+        await browser("open", `${real.base}/harness.html?daemon=1`);
+      }
+
+      await form();
+      expect(await evaluate("(() => { const field = document.querySelector('.note-form textarea'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()")).toEqual([text, 2, 9, "backward"]);
+      expect(await evaluate("[...document.querySelectorAll('.note-form input')].map(field => field.value)")).toEqual(["1", "2"]);
+      expect(await app.rpc("message.list", { to: node.id, status: null })).toEqual([]);
+      expect(await app.rpc("agent.changedFiles", { id: node.id })).toEqual({ files: [{ path: "result.txt", status: "modified", line: 1 }] });
+    }
+  } finally { await fixture.close(); }
+}, 180_000);
