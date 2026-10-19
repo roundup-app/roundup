@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import type { Message } from "@contracts/message/Message";
 import { RpcError } from "../app/seam";
@@ -96,13 +96,17 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("revision A");
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
-  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
-  expect(recovery.textContent?.includes("revision A")).toBe(outcome !== "acknowledged");
-  expect(recovery.textContent).toContain("revision B");
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 
-  if (outcome !== "acknowledged") {
+  if (outcome === "acknowledged") {
+    expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
+  } else {
+    fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+    const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+
+    expect(recovery.textContent).toContain("revision A");
+    expect(recovery.textContent).toContain("revision B");
+    expect(within(recovery).queryByRole("button", { name: "Retry" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Discard this submission" }));
     expect(recovery.textContent).not.toContain("revision A");
     expect(recovery.textContent).toContain("revision B");
