@@ -1,8 +1,19 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createComponent, createComputed, createRoot } from "solid-js";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { createFakeApp } from "../testing/fakeApp";
+import { info, terminal } from "../testing/nodes";
+import { useConnectedProject } from "./connectedProject";
+import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
 
-afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () => {
   const storage = storedValue("draft", v.string());
@@ -203,4 +214,69 @@ it("u2773b_storage_late_out_of_order_replies_keep_original_project", () => {
   first.settle(a.revision, "failed");
   expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "failed" }, current]);
   expect(draftStorage("/project/b").list()).toEqual([elsewhere]);
+});
+
+// The existing emulator edge runs inside the mounted Project context: consumers
+// observe the same public holder that surface owners will use, without a new App seam.
+const openDraftProjects = async () => {
+  const directory = mkdtempSync(join(tmpdir(), "roundup-drafts-"));
+  const paths = [join(directory, "a"), join(directory, "b")];
+  const app = createFakeApp();
+  const seen: ConnectedProject[] = [];
+  const emulators = fakeEmulators();
+
+  for (const path of paths) {
+    app.add(path);
+    app.of(path).handlers["rail.tree"] = () => [terminal("editor")];
+    app.of(path).handlers["terminal.list"] = () => [info("t-editor")];
+  }
+
+  const view = render(() => createComponent(App, {
+    app, reducedMotion: () => false, clock: () => 0,
+    createEmulator: (id) => {
+      seen.push(useConnectedProject());
+      return emulators.factory(id);
+    },
+  }));
+  const select = async (index: number) => {
+    const tabs = within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab");
+    fireEvent.click(tabs[index]!);
+    fireEvent.click(await screen.findByText("editor"));
+    await waitFor(() => expect(seen.at(-1)?.project.path).toBe(paths[index]));
+    return seen.at(-1)!;
+  };
+
+  return { app, paths, select, seen, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+};
+
+it("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement", async () => {
+  const opened = await openDraftProjects();
+  try {
+    const first = await opened.select(0);
+    const a = first.drafts.edit(target, { text: " A\ne\u0301 😀 ", choices: ["second", "first"] }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+    first.drafts.submit(a.revision);
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    const b = first.drafts.edit(target, { text: " B\n😀 " }, null, "ordinary").draft;
+    const other = await opened.select(1);
+    const elsewhere = edit(other.drafts, "other Project");
+    first.drafts.settle(a.revision, "failed");
+    const returned = await opened.select(0);
+    expect(returned.drafts.list()).toEqual([{ ...a, status: "failed" }, b]);
+    opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
+    const replaced = await opened.select(0);
+    expect(replaced).not.toBe(first);
+    expect(replaced.drafts.list()).toEqual([{ ...a, status: "failed" }, b]);
+    const newer = edit(replaced.drafts, "newest");
+    first.drafts.settle(a.revision, "acknowledged");
+    expect(replaced.drafts.list()).toEqual([newer]);
+    expect(other.drafts.list()).toEqual([elsewhere]);
+    const focus = document.activeElement;
+    const before = opened.paths.map((path) => opened.app.of(path!).calls.length);
+    write.mockRestore();
+    expect(replaced.drafts.retry()).toBeNull();
+    expect(document.activeElement).toBe(focus);
+    expect(opened.paths.map((path) => opened.app.of(path!).calls.length)).toEqual(before);
+  } finally { opened.close(); }
 });
