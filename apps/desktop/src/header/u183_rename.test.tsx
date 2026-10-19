@@ -7,7 +7,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { createRoot } from "solid-js";
 import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
-import { openTabs, path, tab, projectTabs } from "./stripFixture";
+import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -399,4 +399,25 @@ describe("u2773 header on real Projects", () => {
     expect(sends).not.toHaveBeenCalled();
     press("Escape");
   });
+});
+
+
+it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
+  renderTabs({ api: [], web: [] });
+  const key = `roundup:drafts:${path("api")}`;
+  const original = JSON.stringify({ version: 1, drafts: [{ revision: "incompatible-header", destination: { surface: "header", object: path("api"), recipient: null }, value: { name: 42 }, selection: null, status: "draft", policy: "ordinary" }] });
+  window.localStorage.setItem(key, original);
+  await screen.findByRole("tab", { name: "api" });
+  fireEvent.click(tab("api"));
+  const input = await edit();
+  fireEvent.input(input, { target: { value: "  memory 雪  " } });
+  press("Escape");
+  expect(screen.getByRole("alert").textContent).toContain("invalid");
+  expect(window.localStorage.getItem(key)).toBe(original);
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
+  expect(window.localStorage.getItem(key)).toBe(original);
+  expect(within(dialog).getByRole("alert").textContent).toContain("invalid");
 });

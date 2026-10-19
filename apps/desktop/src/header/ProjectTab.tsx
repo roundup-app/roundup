@@ -68,8 +68,8 @@ export const ProjectTab = (props: {
   drafts?.validate("header", schema);
   drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
   const destination = { surface: "header", object: props.tab.path, recipient: null };
-  const records = () => drafts?.list().filter(draft => draft.destination.surface === "header" && draft.destination.object === props.tab.path) ?? [];
-  const current = () => records().filter(draft => draft.status === "draft").at(-1);
+  const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === "header" && draft.destination.object === props.tab.path) ?? []);
+  const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
@@ -180,7 +180,7 @@ export const ProjectTab = (props: {
         <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{draft => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} · {draft.revision}</button>}</For>
         <Show when={shown()}>{draft => <>
           <p>{draft().destination.object}</p>
-          <Show when={draft().value.base !== props.tab.base}><p role="status">{copy.originalUnverified}</p></Show>
+          <Show when={draft().value.base !== props.tab.base}><p role="status">{copy.railDraftConflict}</p></Show>
           <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
           <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyField("name")}</button>
           <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></div>
