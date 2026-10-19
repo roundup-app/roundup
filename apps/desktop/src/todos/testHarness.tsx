@@ -30,13 +30,13 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
 export const todoEvent = (name: "todo.created" | "todo.updated", data: Todo): DaemonEvent => event({ name, data });
 
 /** The Shelf's Todos and the Drawer host over a fake Daemon whose `todo.list` answers `store.todos`. */
-export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false) => {
+export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false, path = `/test-todos/${crypto.randomUUID()}`) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => withScopeRow(rail);
   const store: TodoStore = { todos: initial };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => reducedMotion, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
 
   await showEverything(connected);
 

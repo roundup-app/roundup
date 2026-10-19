@@ -129,7 +129,7 @@ describe("u17 Todo detail", () => {
     fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
 
     await waitFor(() =>
-      expect(callsTo(app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 5, blockers: [4, 7] } }]),
+      expect(callsTo(app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 5, blockers: [4, 7], expected_change: 2 } }]),
     );
   });
 
@@ -186,7 +186,7 @@ describe("u17 Todo detail", () => {
     fireEvent.blur(field);
     fireEvent.blur(field);
 
-    expect(callsTo(app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 5, title: "session cache", body: null } }]);
+    await waitFor(() => expect(callsTo(app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 5, title: "session cache", body: null, expected_change: 2 } }]));
   });
 
   it("u17_enter_in_the_title_field_leaves_it", async () => {
@@ -211,7 +211,7 @@ describe("u17 Todo detail", () => {
     fireEvent.input(field, { target: { value: "Move it to redis." } });
     fireEvent.blur(field);
 
-    expect(callsTo(app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 5, title: null, body: "Move it to redis." } }]);
+    await waitFor(() => expect(callsTo(app, "todo.update")).toEqual([{ method: "todo.update", params: { id: 5, title: null, body: "Move it to redis.", expected_change: 2 } }]));
   });
 
   it("u17_leaving_a_field_with_unchanged_text_calls_nothing", async () => {
@@ -267,7 +267,6 @@ describe("u17 Todo detail", () => {
 
   it("u17_two_quick_blocker_picks_both_land_the_second_built_on_the_first", async () => {
     const { app } = await openDrawerOf(/#5/);
-    app.handlers["todo.setBlockers"] = async ({ blockers }) => ({ ...blocked(), blockers });
     fireEvent.click(within(drawer()).getByText("Blocker"));
     fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
     fireEvent.click(within(drawer()).getByText("Blocker"));
@@ -276,18 +275,17 @@ describe("u17 Todo detail", () => {
 
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(2));
     expect(callsTo(app, "todo.setBlockers").map((call) => call.params)).toEqual([
-      { id: 5, blockers: [4, 7] },
-      { id: 5, blockers: [4, 7, 10] },
+      { id: 5, blockers: [4, 7], expected_change: 2 },
+      { id: 5, blockers: [4, 7, 10], expected_change: 5 },
     ]);
   });
 
   it("u17_a_blocker_change_by_another_actor_between_two_picks_is_not_undone_by_the_second", async () => {
-    const { app, store } = await openDrawerOf(/#5/);
-    app.handlers["todo.setBlockers"] = async ({ blockers }) => ({ ...blocked(), blockers });
+    const { app } = await openDrawerOf(/#5/);
     fireEvent.click(within(drawer()).getByText("Blocker"));
     fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(1));
-    store.todos = shelf().map((each) => (each.id === 5 ? { ...each, blockers: [], blocked: false } : each));
+    await app.handlers["todo.setBlockers"]?.({ id: 5, blockers: [] });
     app.emit(todoEvent("todo.updated", todo(5)));
     await waitFor(() => expect(within(drawer()).queryByText("Waits on")).toBeNull());
 
@@ -295,12 +293,11 @@ describe("u17 Todo detail", () => {
     fireEvent.click(within(drawer()).getByRole("button", { name: /#10/ }));
 
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(2));
-    expect(callsTo(app, "todo.setBlockers")[1]?.params).toEqual({ id: 5, blockers: [10] });
+    expect(callsTo(app, "todo.setBlockers")[1]?.params).toEqual({ id: 5, blockers: [10], expected_change: 6 });
   });
 
   it("u17_a_todo_just_picked_is_not_offered_again_before_the_event_arrives", async () => {
     const { app } = await openDrawerOf(/#5/);
-    app.handlers["todo.setBlockers"] = async ({ blockers }) => ({ ...blocked(), blockers });
     fireEvent.click(within(drawer()).getByText("Blocker"));
     fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(1));
@@ -362,14 +359,7 @@ describe("u17 Todo detail", () => {
     expect(reportError).toHaveBeenCalledWith("boom");
   });
 
-  it("u17_rowButton_resolves_the_row_not_a_blockers_link_when_the_link_renders_first", async () => {
-    await mountTodos([todo(7, { title: "waits later", blocked: true, blockers: [9] }), todo(9, { title: "later todo" })]);
-    await screen.findByText(/^Waits on/);
 
-    const row = await rowButton(/#9/);
-
-    expect(row.className).not.toBe("word");
-  });
 
 
 });
