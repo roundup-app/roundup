@@ -1,11 +1,11 @@
-import { cleanup, fireEvent, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
 import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 const type = (text: string) => fireEvent.input(field()!, { target: { value: text } });
 
@@ -132,4 +132,101 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   expect(select).not.toHaveBeenCalled();
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
+});
+
+
+it("u2773a_queries_restores_exact_work", async () => {
+  const { app, connected } = await mountSwitcher("ann");
+  const exact = "  e\u0301 🧭 東京  ";
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  type(exact);
+  field()!.setSelectionRange(2, 9, "backward");
+  press("Escape", {}, field()!);
+  const calls = app.calls.length;
+  openSwitcher();
+  await waitFor(() => expect(field()?.value).toBe(exact));
+  await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]));
+  expect(connected.rail.selected()).toBe("ann");
+  expect(app.calls.length).toBe(calls);
+
+  cleanup();
+  const reopened = await mountSwitcher("ann");
+  const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
+  origin.focus();
+  const reopenedCalls = reopened.app.calls.length;
+  await Promise.resolve();
+  expect(document.activeElement).toBe(origin);
+  expect(field()).toBeNull();
+  openSwitcher();
+  await waitFor(() => expect(field()?.value).toBe(exact));
+  await waitFor(() => expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]));
+  expect(reopened.app.calls.length).toBe(reopenedCalls);
+});
+
+
+it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draft_%s", async (failure) => {
+  const key = "roundup:drafts:/p";
+  const exact = "  e\u0301 🧭 東京  ";
+  const writeText = vi.fn(async (_text: string) => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+  if (failure === "invalid") localStorage.setItem(key, "{broken");
+
+  const read = failure === "read" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
+  const { app } = await mountSwitcher();
+  const write = failure === "write" ? vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); }) : null;
+  const calls = app.calls.length;
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  type(exact);
+  expect(await screen.findByRole("alert")).toBeDefined();
+  expect(field()!.value).toBe(exact);
+  fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(exact));
+  expect(screen.getByRole("button", { name: "Copied" })).toBeDefined();
+
+  if (failure === "invalid") expect(localStorage.getItem(key)).toBe("{broken");
+
+  read?.mockRestore();
+  write?.mockRestore();
+
+  if (failure === "invalid") localStorage.removeItem(key);
+
+  field()!.setSelectionRange(2, 9, "backward");
+  screen.getByRole("button", { name: "Try again" }).focus();
+  fireEvent.click(document.activeElement!);
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(JSON.parse(localStorage.getItem(key)!).drafts.at(-1).value.query).toBe(exact);
+  expect(field()!.value).toBe(exact);
+  expect(document.activeElement).toBe(field());
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
+  expect(app.calls.length).toBe(calls);
+
+  const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+  type("newer query");
+  await screen.findByRole("alert");
+  refuse.mockRestore();
+  fireEvent.click(screen.getByRole("button", { name: "Discard query" }));
+  expect(field()!.value).toBe("");
+  expect(JSON.parse(localStorage.getItem(key)!).drafts).toEqual([]);
+  expect(app.calls.length).toBe(calls);
+});
+
+// The U2773a Project/reload observers run in testing/u375_real_daemon.test.tsx,
+// whose Daemon launches use the existing N7 inventory and cleanup contract.
+
+it("u2773e_unreadable_query_offers_only_retry_until_there_is_text", async () => {
+  localStorage.setItem("roundup:drafts:/p", "{broken");
+  await mountSwitcher();
+  openSwitcher();
+  await screen.findByRole("alert");
+  expect(field()!.value).toBe("");
+  expect(screen.queryByRole("button", { name: "Copy query" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Discard query" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeDefined();
+  type("recoverable");
+  expect(screen.getByRole("button", { name: "Copy query" })).toBeDefined();
+  expect(screen.getByRole("button", { name: "Discard query" })).toBeDefined();
 });
