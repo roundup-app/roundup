@@ -168,6 +168,7 @@ async fn n20_current_store_opens() {
         parent: None,
     };
     let pads = [contracts::pad::Pad {
+        incarnation: "1".into(),
         name: "kept".into(),
         owner: Actor {
             kind: ActorKind::Agent,

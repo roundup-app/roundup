@@ -1455,12 +1455,21 @@ async fn p2544d_write_revision_guard() {
         rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
             .await;
         let a = agent("a");
-        rig.ok(
+        let incarnation = rig.ok(&a, "pad.list", json!({})).await[0]["incarnation"].clone();
+        let mut accepted_events = rig.bus.subscribe();
+        let written = rig.ok(
             &a,
             "pad.write",
-            json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+            json!({"name": "notes", "text": "winner", "expectedRevision": 1, "expectedIncarnation": incarnation}),
         )
         .await;
+        assert_eq!(written["incarnation"], incarnation);
+        assert_eq!(written["revision"], 2);
+        assert!(matches!(
+            accepted_events.try_recv().unwrap().data,
+            EventData::PadChanged(_)
+        ));
+        assert!(accepted_events.try_recv().is_err());
         let before = rig.ok(&a, "pad.list", json!({})).await;
         let touches = rig.touches.history("pad:notes").unwrap();
         let mut events = rig.bus.subscribe();
@@ -1468,7 +1477,7 @@ async fn p2544d_write_revision_guard() {
             .fail(
                 &a,
                 "pad.write",
-                json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+                json!({"name": "notes", "text": "loser", "expectedRevision": 1, "expectedIncarnation": incarnation}),
             )
             .await;
         assert_eq!(error.code, code::CONFLICT);
@@ -1498,6 +1507,8 @@ async fn p2544d_two_connections_have_one_winner() {
         rig.create("notes", "original").await;
         rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
             .await;
+        let incarnation =
+            rig.ok(&agent("a"), "pad.list", json!({})).await[0]["incarnation"].clone();
         let stores = [
             Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
             Pads::open(rig.dir.path(), rig.bus.clone()).unwrap(),
@@ -1514,6 +1525,7 @@ async fn p2544d_two_connections_have_one_winner() {
                         bus: rig.bus.clone(),
                         touches: rig.touches.clone(),
                     };
+                    let incarnation = incarnation.clone();
                     let barrier = &barrier;
                     let runtime = &runtime;
                     scope.spawn(move || {
@@ -1521,7 +1533,7 @@ async fn p2544d_two_connections_have_one_winner() {
                         runtime.block_on(pads.call(
                             &ctx,
                             "pad.write",
-                            json!({"name": "notes", "text": text, "expectedRevision": 1}),
+                            json!({"name": "notes", "text": text, "expectedRevision": 1, "expectedIncarnation": incarnation}),
                         ))
                     })
                 })
