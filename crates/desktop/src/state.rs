@@ -332,8 +332,14 @@ impl AppState {
     }
 
     /// Stores `name` for the open Project, trimmed; an empty name removes it (S10).
-    pub fn rename_project(&self, path: &str, name: &str) -> Result<Project, RpcError> {
-        if !self.entries().iter().any(|entry| entry.path == path) {
+    pub fn rename_project(
+        &self,
+        path: &str,
+        name: &str,
+        base: Option<&str>,
+    ) -> Result<Project, RpcError> {
+        let entries = self.entries();
+        if !entries.iter().any(|entry| entry.path == path) {
             return Err(not_open(path));
         }
         let trimmed = name.trim();
@@ -343,9 +349,16 @@ impl AppState {
                 format!("a name is 1 to {NAME_LIMIT} characters on one line"),
             ));
         }
-        self.store
-            .set_name(path, (!trimmed.is_empty()).then(|| trimmed.to_owned()));
-        Ok(self.project_at(path))
+        let name = self.store.set_name(
+            path,
+            (!trimmed.is_empty()).then(|| trimmed.to_owned()),
+            base,
+            &named_after(Path::new(path)),
+        )?;
+        Ok(Project {
+            path: path.to_owned(),
+            name,
+        })
     }
 
     /// Closes every Daemon's stdin (S3).
