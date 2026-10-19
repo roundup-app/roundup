@@ -162,6 +162,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
   const { createServedApp } = await import("../testing/realSeam");
   const logs = await mkdtemp(join(tmpdir(), "unfinished-rendered-log-"));
   const real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") }, true);
+  const press = (name: string) => browser("eval", `[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(name)}).click()`);
 
   try {
     const git = (...args: string[]) => exec("git", ["-C", real.dir, ...args], { timeout: 30_000 });
@@ -179,14 +180,14 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await wait(`!!document.querySelector('.rail-row[data-id="${node.id}"] .name')`);
     await browser("eval", `document.querySelector('.rail-row[data-id="${node.id}"] .name').click()`);
     await wait("!!document.querySelector('.worktree-control')");
-    await click(node.worktree!.branch);
+    await press(node.worktree!.branch);
     await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
     await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
-    await click("View diff");
+    await press("View diff");
     await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-column-number]')");
     await capture("real-before-retention-failure", "U2773e");
-    await browser("eval", "Storage.prototype.setItem = function(key) { if (key.startsWith('roundup:drafts:')) throw new Error('storage refused'); }");
-    await browser("eval", "[...document.querySelectorAll('.diff-reader button')].find(button => button.textContent === 'Add note').click()");
+    await browser("eval", "(() => { const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) { if (key.startsWith('roundup:drafts:')) throw new Error('storage refused'); return write.call(this, key, value); }; })()");
+    await press("Add note");
     await browser("screenshot", "/tmp/unfinished-changes-before-retention.png");
     await browser("wait", ".note-form textarea");
     await browser("fill", ".note-form textarea", "  retain this exact e\u0301\n🐝  ");
@@ -195,15 +196,15 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await capture("real-retention-failure", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-retention.png");
     expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
-    await click("Close");
+    await press("Close");
     await wait("!document.querySelector('.worktree-panel')");
-    await click("Recover Changes drafts");
+    await press("Recover Changes drafts");
     await wait("!!document.querySelector('.note-recovery')");
     expect(await browser("eval", "document.querySelector('.note-recovery').textContent")).toContain("retain this exact");
     await capture("real-recovery-actions", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-recovery.png");
-    // The densest established seed also exposes capacity failure instead of truncating a note.
-    await open("/src/changes/u2540.html?dense");
+    // The densest established seed exposes a retention failure without truncating a note.
+    await open("/src/changes/u2540.html?dense&retention");
     await showDiff();
     await wait("!!document.querySelector('.note-batch [role=alert]')");
     expect(await browser("eval", "document.querySelectorAll('[aria-label=\"Notes\"] > li').length")).toBe(100);

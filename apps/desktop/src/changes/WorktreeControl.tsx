@@ -19,7 +19,7 @@ import "./styles.css";
 type Read = { failure: null; changed: ChangedFiles } | { failure: string } | null;
 
 /** U2539b: the panel of one Agent's Worktree. It reads again on every open and closes when the selection moves, because it is keyed on the Agent. */
-const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes }) => {
+const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Notes; recoveryOpen: boolean; onOpen: () => void }) => {
   const { app, worktrees } = useConnectedProject();
   const state = () => worktrees.read(props.id);
 
@@ -56,17 +56,18 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
     onCleanup(() => { current = false; });
   }));
 
-  const close = () => {
-    setOpen(false);
-    setDiff(false);
-    setEditing(undefined);
-    control()?.focus();
-  };
+  const hide = () => { setOpen(false); setDiff(false); setEditing(undefined); };
+
+  const close = () => { hide(); control()?.focus(); };
+
+  const openPanel = () => { props.onOpen(); setOpen(true); };
+
+  createEffect(() => { if (props.recoveryOpen) hide(); });
 
   return (
-    <Popover.Root open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) setOpen(true); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
+    <Popover.Root open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
       <Popover.Trigger asChild={(trigger) => (
-        <button {...trigger()} ref={setControl} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : setOpen(true))}>
+        <button {...trigger()} ref={setControl} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
           <span class="worktree-branch">{props.worktree.branch}</span>
         </button>
@@ -117,6 +118,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 export const WorktreeControl = () => {
   const { rail, app, project } = useConnectedProject();
   const notes = notesFor(app, project.path);
+  const [recoveryOpen, setRecoveryOpen] = createSignal(false);
 
   const selected: Accessor<{ id: string; name: string; worktree: Worktree } | null> = createMemo(
     () => {
@@ -128,5 +130,5 @@ export const WorktreeControl = () => {
     { equals: (a, b) => a?.id === b?.id && a?.worktree.branch === b?.worktree.branch && a?.worktree.path === b?.worktree.path && a?.worktree.base === b?.worktree.base },
   );
 
-  return <><Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} />}</Show><NoteRecovery notes={notes} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
+  return <><Show when={selected()} keyed>{(each) => <Panel id={each.id} name={each.name} worktree={each.worktree} notes={notes} recoveryOpen={recoveryOpen()} onOpen={() => setRecoveryOpen(false)} />}</Show><NoteRecovery notes={notes} open={recoveryOpen()} onOpenChange={setRecoveryOpen} available={id => rail.nodes.some(node => node.id === id && node.worktree !== null)} /></>;
 };

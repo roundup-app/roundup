@@ -1,6 +1,6 @@
 import { Tip } from "../ui/Tip";
 import { copy } from "../copy";
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Popover } from "../ui/Popover";
@@ -33,7 +33,7 @@ export const NoteBatch = (props: { id: string; name: string; notes: Notes; compa
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
           <Tip text={note.comparison.newPath}>{(trigger) => <p class="note-path" {...trigger()} style={{ width: "fit-content", "max-width": "100%" }}>{note.comparison.newPath}</p>}</Tip>
-          <p>{copy.noteLocation(note.comparison.newPath, note.side, note.start, note.end)}<Show when={older(note)}>{copy.originalContext}</Show></p>
+          <p>{copy.noteLocation(note.comparison.newPath, note.side, note.start, note.end)}<Show when={older(note)}><span role="status">{copy.originalContext}</span></Show></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>
@@ -50,12 +50,11 @@ export const NoteBatch = (props: { id: string; name: string; notes: Notes; compa
 
 
 /** Project-local access stays available when the original Agent or Worktree is gone. */
-export const NoteRecovery = (props: { notes: Notes; available: (id: string) => boolean }) => {
-  const [open, setOpen] = createSignal(false);
+export const NoteRecovery = (props: { notes: Notes; available: (id: string) => boolean; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const [editing, setEditing] = createSignal<{ id: string; form: NoteFormDraft }>();
   const [failure, setFailure] = createSignal<string | null>(null);
   let trigger: HTMLButtonElement | undefined;
-  const close = () => { setOpen(false); setEditing(undefined); trigger?.focus(); };
+  const close = () => { props.onOpenChange(false); setEditing(undefined); trigger?.focus(); };
 
   const copyValue = async (value: string) => {
     try { await navigator.clipboard.writeText(value); setFailure(null); }
@@ -64,7 +63,10 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
 
   const any = () => props.notes.entries().some(([, value]) => value.notes.length || value.forms.length || value.submissions.length || value.recovered.length) || props.notes.problem();
 
-  return <Show when={any()}><Popover.Root open={open()} onOpenChange={({ open: next }) => { if (next) setOpen(true); else close(); }} closeOnEscape positioning={{ placement: "top-end", strategy: "fixed" }}>
+  createEffect(() => { if (!props.open) setEditing(undefined); });
+  createEffect(() => { if (!any()) props.onOpenChange(false); });
+
+  return <Show when={any()}><Popover.Root open={props.open} onOpenChange={({ open: next }) => { if (next) props.onOpenChange(true); else close(); }} closeOnEscape positioning={{ placement: "top-end", strategy: "fixed" }}>
     <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { trigger = element; }} type="button" data-button="quiet">{copy.recoverNotes}</button>} />
     <Popover.Positioner><Popover.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <div class="diff-actions"><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></div>

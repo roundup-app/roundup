@@ -1,6 +1,7 @@
 import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import * as v from "valibot";
+import { parse, stringify } from "flatted";
 import { draftStorage } from "../state/storage";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import type { Message } from "@contracts/message/Message";
@@ -42,7 +43,7 @@ const submissionSchema = v.strictObject({
 
 const savedRecipientSchema = v.strictObject({ version: v.literal(1), notes: v.array(noteSchema), forms: v.array(formSchema), submissions: v.array(submissionSchema) });
 
-const recipientSchema = v.strictObject({ ...savedRecipientSchema.entries, recovered: v.optional(v.array(v.strictObject({ revision: v.string(), data: savedRecipientSchema })), []) });
+const recipientSchema = v.strictObject({ ...savedRecipientSchema.entries, recovered: v.array(v.strictObject({ revision: v.string(), data: savedRecipientSchema })) });
 
 export type Note = v.InferOutput<typeof noteSchema>;
 
@@ -51,6 +52,15 @@ export type NoteFormDraft = v.InferOutput<typeof formSchema>;
 type Submission = v.InferOutput<typeof submissionSchema>;
 
 type Recipient = v.InferOutput<typeof recipientSchema>;
+
+/** Valibot checks the library graph without replacing shared comparison objects. */
+const parseRecipient = (data: string): Recipient => {
+  const value: unknown = parse(data);
+
+  v.assert(recipientSchema, value);
+
+  return value;
+};
 
 type Send = { kind: "idle" | "failed"; text: string } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
 
@@ -111,7 +121,7 @@ const createNotes = (app: AppSeam, project: string) => {
       const id = draft.destination.recipient;
 
       try {
-        const value = v.parse(recipientSchema, JSON.parse(String(draft.value.data)));
+        const value = parseRecipient(String(draft.value.data));
 
         if (id === null || draft.destination.object !== id) { invalid.add(draft.revision); continue; }
 
@@ -159,7 +169,7 @@ const createNotes = (app: AppSeam, project: string) => {
 
     if (empty) {
       for (const draft of storage.list()) if (draft.destination.surface === "changes" && draft.destination.recipient === id) setProblem(storage.discard(draft.revision));
-    } else setProblem(storage.edit({ surface: "changes", object: id, recipient: id }, { data: JSON.stringify(value) }, null, "ordinary").problem);
+    } else setProblem(storage.edit({ surface: "changes", object: id, recipient: id }, { data: stringify(value) }, null, "ordinary").problem);
   };
 
   const accepted = (id: string, submission: Submission, message: Message) => {
@@ -199,14 +209,14 @@ const createNotes = (app: AppSeam, project: string) => {
         if (draft.destination.object !== id) { invalid.add(draft.revision); continue; }
 
         try {
-          const value = v.parse(recipientSchema, JSON.parse(String(draft.value.data)));
+          const value = parseRecipient(String(draft.value.data));
 
           remember(value);
           const current = all().get(id);
 
           if (!current) {
             setAll(old => new Map(old).set(id, { ...value, submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown" } : submission) }));
-          } else if (JSON.stringify(v.parse(recipientSchema, current)) !== JSON.stringify(value) && !current.recovered.some(entry => entry.revision === draft.revision)) {
+          } else if (JSON.stringify(v.parse(recipientSchema, current)) !== JSON.stringify(v.parse(recipientSchema, value)) && !current.recovered.some(entry => entry.revision === draft.revision)) {
             setAll(old => new Map(old).set(id, { ...current, recovered: [...current.recovered, { revision: draft.revision, data: { version: value.version, notes: value.notes, forms: value.forms, submissions: value.submissions.map(submission => submission.status === "pending" ? { ...submission, status: "unknown", text: copy.notesNoReply } : submission) } }, ...value.recovered.filter(entry => !current.recovered.some(known => known.revision === entry.revision))] }));
           }
         } catch { invalid.add(draft.revision); }
@@ -297,9 +307,9 @@ const createNotes = (app: AppSeam, project: string) => {
 
       if (result.kind !== "ok") return;
 
-      // With no baseline, reload interrupted the read before any send could start.
+      // A failed metadata write can leave a null baseline even after an accepted send.
       if (submission.previous === null) {
-        settle(id, submission, "failed", copy.notesNotSent);
+        settle(id, submission, "unknown", copy.notesNoBaseline);
 
         return;
       }
