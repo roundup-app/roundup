@@ -212,3 +212,12 @@ button[aria-disabled="true"] {
 .rail > .todo-project-root[data-todo-drop] {
   background: var(--hover);
 }
+
+/* Recovery actions leave breathing room around the keyboard ring without a hover surface. */
+.switcher-recovery-actions [data-button="quiet"] {
+  --button-inline: var(--space-1);
+}
+
+.switcher-recovery-actions [data-button="quiet"]:focus-visible {
+  border-radius: var(--radius-control);
+}
