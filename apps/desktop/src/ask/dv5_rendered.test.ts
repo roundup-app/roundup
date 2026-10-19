@@ -71,6 +71,7 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await until(`document.querySelector('.made-row[data-deliverable="${record.id}"]')?.dataset.selected === 'true' && document.querySelector('.made')?.getAttribute('aria-busy') === 'false'`);
     expect(await evaluate(`document.activeElement === document.querySelector(${JSON.stringify(button)})`)).toBe(true);
     await app.rpc("pad.delete", { name: pad.name });
+    await evaluate(`document.querySelector(${JSON.stringify(button)}).scrollIntoView({ block: "center" })`);
     await browser("click", button);
     await until("!!document.querySelector('.made [role=alert]') && document.querySelector('.made')?.getAttribute('aria-busy') === 'false'");
     expect(await evaluate("document.querySelectorAll('.made-row').length")).toBe(12);
@@ -83,6 +84,8 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     // Scope follows Rail selection without replacing its Terminal.
     await browser("click", `.rail [data-id="${home.id}"] [data-part="branch-control"]`);
     await until(`document.querySelector('.rail [data-id="${home.id}"] [data-part="branch-control"]')?.dataset.selected === 'true'`);
+    await capture("home-strip");
+    await browser("click", ".made-trigger");
     await until("document.querySelectorAll('.made-row').length === 10");
     expect(await evaluate("!!document.querySelector('.pane')")).toBe(true);
     await capture("home");

@@ -11,7 +11,8 @@ import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
-import { IconButton } from "../ui/IconButton";
+import { Popover } from "../ui/Popover";
+import { Portal } from "solid-js/web";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
@@ -25,6 +26,7 @@ export const AskBar = () => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit } = connected;
   const deliverables = createDeliverables();
+  const madeScope = shelfScope(connected);
   const [over, setOver] = createSignal(false);
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -118,7 +120,10 @@ export const AskBar = () => {
   };
 
   return (<>
-    <Show when={rail.selected() !== null}><div class="made-context"><Deliverables state={deliverables} /></div></Show>
+    <Show when={rail.selected() !== null && (deliverables.records().some(record => madeScope.includes(record.home, record.maker)) || deliverables.failure() !== null)}><div class="made-context"><Popover.Root closeOnEscape closeOnInteractOutside positioning={{ placement: "top-start", strategy: "fixed" }}>
+      <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet" class="made-trigger">{copy.deliverables}<Icon name="down" /></button>} />
+      <Portal><Popover.Positioner><Popover.Content class="made-panel"><Deliverables state={deliverables} /></Popover.Content></Popover.Positioner></Portal>
+    </Popover.Root></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
@@ -263,7 +268,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     : connected.rail.nodes.find(node => node.id === record.home)?.name ?? record.home;
 
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
-    : record.target.kind === "pad" ? copy.deliverableRevision(record.target.revision) : copy.deliverableRetained(record.target.sha256.slice(0, 12));
+    : record.target.kind === "pad" ? copy.deliverableRevision(record.target.revision) : copy.deliverableRetained;
 
   const target = (record: Deliverable) => record.target.kind === "external" ? record.target.url
     : record.target.kind === "pad" ? record.target.name : record.target.path;
@@ -271,18 +276,22 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   return <Show when={records().length > 0 || props.state.failure() !== null}>
     <section class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
-        <IconButton aria-label={copy.refresh} onClick={() => { void props.state.refresh(); }}><Icon name="down" /></IconButton>
+        <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
       <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}>
-        <div class="made-content">
-          <div class="made-title">{record.title}<span class="made-status" data-state={record.target.kind}>{status(record)}</span></div>
-          <div class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</div>
-          <div class="made-details">{target(record)}</div>
-          <Show when={failure()?.id === record.id}><ErrorLine message={failure()?.cause ?? ""} /></Show>
-        </div>
-        <IconButton aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.id)} aria-disabled={pending() !== null}
-          onClick={() => { void open(record); }}><Icon name="right" /></IconButton>
+        <Tip text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
+          aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
+          onClick={() => { void open(record); }}>
+          <span class="made-content">
+            <span class="made-title">{record.title}</span>
+            <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
+            <span class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
+            <span class="made-details made-target">{target(record)}</span>
+          </span>
+          <Icon name="right" />
+        </button>}</Tip>
+        <Show when={failure()?.id === record.id}><ErrorLine message={failure()?.cause ?? ""} /></Show>
       </li>}</For></ul>
     </section>
   </Show>;
