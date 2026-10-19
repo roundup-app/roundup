@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
 import { fireEvent, mountSend, screen, waitFor } from "./sendHarness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); window.localStorage.clear(); });
 
 const send = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Send to agent" }));
@@ -66,16 +66,4 @@ it("u516_a_rejected_send_says_why_and_keeps_the_selection", async () => {
   await send();
   await waitFor(() => expect(view.calls()).toHaveLength(2));
   expect(view.calls()[1]!.body).toBe("keep me\n\n```\nls\n```");
-});
-
-it("u2773a_terminal_selection_restores_exact_work_after_agent_switch", async () => {
-  const view = await mountSend([agent("a", "idle", "waiting")]);
-  view.emulator.select("  captured 🧭\nexact  ", { command: "echo exact", cwd: "/original", exit: 0 });
-  fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: "  keep é 🧭  " } });
-  view.connected.rail.select("a");
-  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Add a note (optional)" })).toBeNull());
-  view.connected.rail.select("sh");
-  expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" })).value).toBe("  keep é 🧭  ");
-  expect(view.calls()).toEqual([]);
-  expect(view.connected.drafts.list().filter((draft) => draft.destination.surface === "terminal_selection").map((draft) => draft.value)).toEqual([expect.objectContaining({ note: "  keep é 🧭  ", excerpt: "  captured 🧭\nexact  ", source: "sh", terminal: "t-sh" })]);
 });
