@@ -1064,3 +1064,19 @@ async fn a41_a_failed_write_or_ended_door_fails_without_sent() {
         f.stop().await;
     }
 }
+
+#[tokio::test]
+async fn u2773b_submission_replay_is_durable_and_conflicts_refuse() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Harness::open(dir.path());
+    let request = json!({"text":" exact 🌿\n ","submission":"revision-a"});
+    let first = h.asks.call(&h.ctx, "ask.send", request.clone()).await.unwrap();
+    let replay = h.asks.call(&h.ctx, "ask.send", request.clone()).await.unwrap();
+    assert_eq!(first["id"], replay["id"]);
+    assert_eq!(first["submission"], "revision-a");
+    let err = h.asks.call(&h.ctx, "ask.send", json!({"text":"changed","submission":"revision-a"})).await.unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(h.list().await.as_array().unwrap().len(), 1);
+    let other = h.asks.call(&h.ctx, "ask.send", json!({"text":" exact 🌿\n ","submission":"revision-b"})).await.unwrap();
+    assert_ne!(first["id"], other["id"]);
+}
