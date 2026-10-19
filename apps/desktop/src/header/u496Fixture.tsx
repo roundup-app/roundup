@@ -19,7 +19,7 @@ const connected = await connectProject(app, { path: '/fixture', name: 'Fixture' 
 
 const Fixture = () => {
   const [tabs, setTabs] = createSignal<StripTab[]>(Array.from({ length: 8 }, (_, at) => ({
-    path: `/project ${at} 雪`, name: `Project number ${at}`, busy: false, exitText: null,
+    path: `/project ${at} 雪`, name: `Project number ${at}`, base: `Project number ${at}`, busy: false, exitText: null,
     needsYou: at === 1 ? 1 : 0, error: at === 7 ? 1 : 0, running: ['Authored Agent'],
   })));
 
@@ -32,7 +32,7 @@ const Fixture = () => {
       <Strip tabs={tabs()} active={active()} onSelect={setActive}
         onMark={(path) => { setActive(path); setMarks(marks() + 1); }}
         onRename={async (path, name) => {
-          setTabs(tabs().map(tab => tab.path === path ? { ...tab, name } : tab));
+          setTabs(tabs().map(tab => tab.path === path ? { ...tab, name, base: name } : tab));
 
           return { path, name, revision: 0, status: "acknowledged", project: { path, name } };
         }}

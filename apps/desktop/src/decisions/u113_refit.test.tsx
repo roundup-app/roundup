@@ -5,8 +5,8 @@ import { rpcCalls, card, cleared, decision, mountApp, opened, select } from "./d
 let watchers: (() => void)[] = [];
 
 class FakeResizeObserver {
-  constructor(callback: () => void) {
-    watchers.push(callback);
+  constructor(callback: ResizeObserverCallback) {
+    watchers.push(() => callback([], this));
   }
 
   observe() {}
