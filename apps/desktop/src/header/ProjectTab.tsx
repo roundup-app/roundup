@@ -48,7 +48,13 @@ export const ProjectTab = (props: {
   let button: HTMLButtonElement | undefined;
   const mark = () => markOf(props.tab);
   const parts = createMemo(() => nameParts(props.tab.name));
-  const edit = () => setEditing(wrap?.offsetWidth ?? 0);
+  let base: string | undefined;
+
+  const edit = () => {
+    base = props.tab.base;
+    setEditing(wrap?.offsetWidth ?? 0);
+  };
+
   registerKeys({ kind: "region", element: () => wrap }, [
     { chords: ["F2"], when: (press) => press.target === button, run: edit },
   ]);
@@ -64,7 +70,7 @@ export const ProjectTab = (props: {
 
         if (refocus) button?.focus();
 
-        if (saved !== null) props.onRename(saved);
+        if (saved !== null) props.onRename(saved, base);
       }} />}>
         <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show></>}>
           {(tooltip) =>

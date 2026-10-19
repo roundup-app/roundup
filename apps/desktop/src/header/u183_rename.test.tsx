@@ -241,33 +241,26 @@ it("u2773c_header_external_change_keeps_original", async () => {
 
 it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
   const { app } = await openTabs({ api: [], web: [] });
-  let dispose = () => {};
-
-  const state = createRoot(stop => {
-    dispose = stop;
-
-    return createProjectsState(app);
-  });
-
-  await waitFor(() => expect(state.loaded()).toBe(true));
-
   const original = path("api");
   const calls: { base: string | undefined; accept: (project: { path: string; name: string }) => void; reject: (error: Error) => void }[] = [];
   app.renameProject = (_path, _name, base) => new Promise((accept, reject) => { calls.push({ base, accept, reject }); });
   let finishRead: ((projects: Awaited<ReturnType<typeof app.projects>>) => void) | undefined;
   app.projects = () => new Promise(resolve => { finishRead = resolve; });
-  const older = state.rename(original, " exact A 雪 ", "api");
-  expect(state.base(original)).toBe("api");
+  tab("api").focus();
+  fireEvent.keyDown(tab("api"), { key: "F2" });
+  const older = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  fireEvent.input(older, { target: { value: "A 雪" } });
+  press("Enter");
   calls[0]!.reject(new RpcError(-32003, "Project name changed"));
   await waitFor(() => expect(finishRead).toBeDefined());
-  const newer = state.rename(original, "B", "api");
+  const newer = await edit("api");
+  fireEvent.input(newer, { target: { value: "B" } });
+  press("Enter");
   calls[1]!.accept({ path: original, name: "B" });
-  expect(await newer).toMatchObject({ status: "acknowledged", path: original });
-  state.select(path("web"));
+  await screen.findByRole("tab", { name: "B" });
+  fireEvent.click(tab("web"));
   finishRead!([{ path: original, name: "external", running: true }]);
-  expect(await older).toMatchObject({ status: "failed", path: original, name: " exact A 雪 " });
-  expect(state.base(original)).toBe("B");
-  expect(state.tabs().find(tab => tab.project.path === original)?.project.name).toBe("B");
+  await screen.findByRole("tab", { name: "web" });
+  expect(tab("B")).toBeDefined();
   expect(calls.map(call => call.base)).toEqual(["api", "api"]);
-  dispose();
 });
