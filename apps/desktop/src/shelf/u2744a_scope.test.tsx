@@ -235,3 +235,15 @@ it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () 
   await waitFor(() => expect(ownTodos("a")).toEqual([5, 2]));
   expect(document.activeElement).toBe(row);
 });
+
+it("u458_grouped_ranges_follow_visible_order", async () => {
+  await mount();
+  const first = await screen.findByRole("button", { name: /#1 / });
+  const sixth = await screen.findByRole("button", { name: /#6 / });
+  fireEvent.click(first, { metaKey: true });
+  fireEvent.click(sixth, { shiftKey: true });
+  expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 6]);
+  first.focus();
+  fireEvent.keyDown(first, { key: "ArrowDown" });
+  expect(document.activeElement).toBe(sixth);
+});
