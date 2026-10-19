@@ -255,7 +255,11 @@ impl Agents {
         ctx: &Ctx,
         params: SetOrderParams,
     ) -> Result<RailNode, RpcError> {
-        let SetOrderParams { id, order } = params;
+        let SetOrderParams {
+            id,
+            order,
+            captured,
+        } = params;
         valid_explicit_order(&order)?;
         self.shared.rail().node(&id)?;
         let allowed = match ctx.actor.kind {
@@ -277,7 +281,10 @@ impl Agents {
                 self.rail_name(&id)?
             )));
         }
-        let node = self.shared.rail().set_order(&id, &order)?;
+        let node = self
+            .shared
+            .rail()
+            .set_order(&id, &order, captured.as_ref())?;
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         let takeover = self
