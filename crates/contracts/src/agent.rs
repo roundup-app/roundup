@@ -739,12 +739,26 @@ pub struct CreateWorkstreamParams {
     pub order: Option<Order>,
 }
 
-/// O4: replace the order of Agent or Door `id`.
+/// U2773c: the Order read with an editor's original Project and exact node id.
+/// A null Order captures the absence of an Order; it is not an unconditional write.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct CapturedOrder {
+    pub order: Option<Order>,
+}
+
+/// O4, U2773c: replace the Order of Agent or Door `id`.
+/// With `captured`, compare and replace atomically at execution, including after a
+/// Held action. A mismatch is CONFLICT; a removed id is NOT_FOUND.
+/// Omit `captured` for an unconditional write.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct SetOrderParams {
     pub id: String,
     pub order: Order,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub captured: Option<CapturedOrder>,
 }
 
 /// Re-parent and position a node. `parent: None` moves it to the root.
