@@ -611,18 +611,20 @@ impl Daemon {
         if method.starts_with("decision.") {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
-        } else if matches!(
-            method,
-            "rail.rename"
-                | "agent.stop"
-                | "agent.interrupt"
-                | "agent.prompt"
-                | "agent.setOrder"
-                | "agent.resume"
-                | "agent.actionHistory"
-                | "workstream.rewind"
-                | "workstream.rewindPlan"
-        ) {
+        } else if method.starts_with("deliverable.")
+            || matches!(
+                method,
+                "rail.rename"
+                    | "agent.stop"
+                    | "agent.interrupt"
+                    | "agent.prompt"
+                    | "agent.setOrder"
+                    | "agent.resume"
+                    | "agent.actionHistory"
+                    | "workstream.rewind"
+                    | "workstream.rewindPlan"
+            )
+        {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
         let outcome = self.route(conn, method, params).await;
@@ -652,9 +654,6 @@ impl Daemon {
         } else {
             None
         };
-        if method.starts_with("deliverable.") {
-            conn.actor = self.action_actor(conn);
-        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -1762,20 +1761,24 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .is_some_and(|m| m.starts_with("decision."))
         {
             daemon.decision_actor(&conn)
-        } else if matches!(
-            method.as_deref(),
-            Some(
-                "rail.rename"
-                    | "agent.stop"
-                    | "agent.interrupt"
-                    | "agent.prompt"
-                    | "agent.setOrder"
-                    | "agent.resume"
-                    | "agent.actionHistory"
-                    | "workstream.rewind"
-                    | "workstream.rewindPlan"
+        } else if method
+            .as_deref()
+            .is_some_and(|m| m.starts_with("deliverable."))
+            || matches!(
+                method.as_deref(),
+                Some(
+                    "rail.rename"
+                        | "agent.stop"
+                        | "agent.interrupt"
+                        | "agent.prompt"
+                        | "agent.setOrder"
+                        | "agent.resume"
+                        | "agent.actionHistory"
+                        | "workstream.rewind"
+                        | "workstream.rewindPlan"
+                )
             )
-        ) {
+        {
             daemon.action_actor(&conn)
         } else {
             conn.actor.clone()

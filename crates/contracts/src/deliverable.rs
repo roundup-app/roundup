@@ -4,12 +4,15 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// A Pad target binds the source incarnation returned by pad.read and its expected Revision.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 #[ts(export, export_to = "deliverable/")]
 pub enum PublicationTarget {
     Pad {
         name: String,
+        // A recreated name is not the selected Pad.
+        incarnation: String,
         #[ts(type = "number")]
         revision: u64,
     },
@@ -34,8 +37,7 @@ pub struct PublishParams {
 pub enum PublishedTarget {
     Pad {
         name: String,
-        #[ts(type = "number")]
-        incarnation: i64,
+        incarnation: String,
         #[ts(type = "number")]
         revision: u64,
         #[ts(type = "number")]
