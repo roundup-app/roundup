@@ -382,6 +382,13 @@ class Engine(unittest.TestCase):
         with patch.dict(os.environ, CODEX_RUNS='2', CLAUDE_API=''):
             self.assertEqual(builder.slot_count(), 2)
 
+    def test_l23_a_claude_code_run_that_used_no_tool_annotates_what_it_said(self):
+        with tempfile.TemporaryDirectory() as path:
+            self.run_engine(path, 8, claude_mode='limit', codex_mode='limit', env=dict(CLAUDE_API_VARS=json.dumps(self.API),
+                            CLAUDE_CODE_OAUTH_TOKEN=''))
+        self.assertIn('::error::Claude Code did no work', self.log)
+        self.assertIn('Claude usage limit reached', self.log)
+
     def test_l23_a_read_only_codex_run_asks_the_app_for_no_token_and_keeps_the_jobs_own(self):
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, GH_TOKEN='read'):
             output, claude, codex = self.run_engine(path, 8, rights=None)
