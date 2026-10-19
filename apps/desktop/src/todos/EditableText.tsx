@@ -40,6 +40,11 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     return found?.destination && found.destination.surface !== "todos" ? null : found;
   };
 
+  const label = (draft: ReturnType<typeof drafts.list>[number]) => copy.draftIdentity(
+    copy.draftField(draft.destination.object === "new" ? "title" : draft.destination.recipient?.startsWith("blockers:") ? "blockers" : draft.destination.recipient ?? "title"),
+    String(draft.value.text ?? draft.value.title ?? "").slice(0, 48),
+  );
+
   const copyDraft = async (text: string) => {
     try { await navigator.clipboard.writeText(text); setFailure(null); }
     catch (error) { if (!(error instanceof Error)) throw error; setFailure(copy.copyDraftFailure(error.message)); }
@@ -56,7 +61,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
       const draft = () => records().find(record => record.revision === revision);
 
       return <Show when={draft()}>{record => <div class="todo-draft-revision">
-        <span id={`todo-context-${revision}`} class="todo-draft-label">{copy.draftField(record().destination.object === "new" ? "title" : record().destination.recipient?.startsWith("blockers:") ? "blockers" : record().destination.recipient ?? "title")}{" · "}{String(record().value.text ?? record().value.title ?? "").slice(0, 48)}</span>
+        <span id={`todo-context-${revision}`} class="todo-draft-label">{label(record())}</span>
         <span id={`todo-revision-${revision}`} data-state={record().status}>{copy.draftStatus[record().status]}</span>
         <div class="todo-draft-actions">
         <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => {
