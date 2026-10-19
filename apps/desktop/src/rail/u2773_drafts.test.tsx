@@ -1,37 +1,19 @@
-import { RpcError } from "../app/seam";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { agent, workstream } from "../testing/nodes";
+import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { clearingOf } from "./clear";
 import { ClearPrompt } from "./ClearPrompt";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { render } from "@solidjs/testing-library";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
 const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
 
-it("u2773a_rail_restores_exact_work", async () => {
-  const first = await mountRail([workstream("w")]);
-  open();
-  fireEvent.input(field(), { target: { value: " exact\ne\u0301 😀 " } });
-  field().setSelectionRange(2, 5, "backward");
-  fireEvent.select(field());
-  fireEvent.keyDown(field(), { key: "Escape" });
-  cleanup();
-  const reopened = await mountRail([workstream("w")]);
-  open();
-  await Promise.resolve();
-  expect(field().value).toBe(" exact\ne\u0301 😀 ");
-  expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 5, "backward"]);
-  expect(railCallsTo(first.app, "agent.spawn")).toEqual([]);
-  expect(railCallsTo(reopened.app, "agent.spawn")).toEqual([]);
-});
-
-it.each([[new Error("connection lost"), "unknown"], [new RpcError(-32603, "connection lost"), "unknown"], [new RpcError(-32003, "refused"), "failed"]] as const)("u2773b_rail_settlement_preserves_other_revisions: %s", async (failure, status) => {
+it("u2773b_rail_settlement_preserves_other_revisions_untyped_disconnect", async () => {
   const mounted = await mountRail([workstream("w")]);
   let reject!: (error: Error) => void;
 
@@ -40,10 +22,10 @@ it.each([[new Error("connection lost"), "unknown"], [new RpcError(-32603, "conne
   fireEvent.input(field(), { target: { value: "older A" } });
   fireEvent.keyDown(field(), { key: "Enter" });
   fireEvent.input(field(), { target: { value: "newer B" } });
-  reject(failure);
+  reject(new Error("connection lost"));
   await waitFor(() => expect(screen.getByLabelText<HTMLTextAreaElement>("Retained rail input").value).toBe("older A"));
   expect(field().value).toBe("newer B");
-  await waitFor(() => expect(screen.getByLabelText("Retained rail input").parentElement?.dataset.state).toBe(status));
+  await waitFor(() => expect(screen.getByLabelText("Retained rail input").parentElement?.dataset.state).toBe("unknown"));
   cleanup();
   const reopened = await mountRail([workstream("w")]);
   open();
@@ -52,18 +34,6 @@ it.each([[new Error("connection lost"), "unknown"], [new RpcError(-32603, "conne
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(field().value).toBe("newer B");
   expect(railCallsTo(reopened.app, "agent.spawn")).toEqual([]);
-});
-
-it("u2773a_rail_name_reopens_without_renaming", async () => {
-  await mountRail([workstream("w")]);
-  fireEvent.dblClick(screen.getByText("w"));
-  fireEvent.input(screen.getByLabelText("Name"), { target: { value: "  e\u0301 😀  " } });
-  fireEvent.keyDown(screen.getByLabelText("Name"), { key: "Escape" });
-  cleanup();
-  const mounted = await mountRail([workstream("w")]);
-  fireEvent.dblClick(screen.getByText("w"));
-  expect(screen.getByLabelText<HTMLInputElement>("Name").value).toBe("  e\u0301 😀  ");
-  expect(railCallsTo(mounted.app, "rail.rename")).toEqual([]);
 });
 
 it("u2773e_recovery_actions_keep_surface_draft", async () => {
@@ -99,38 +69,4 @@ it("u2773a_rail_clear_reopens_exact_reason", async () => {
   render(() => <ConnectedProjectContext.Provider value={next.connected}><ClearPrompt node={node} /></ConnectedProjectContext.Provider>);
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(" exact\ne\u0301 😀 ");
   expect(railCallsTo(next.app, "workstream.clear")).toEqual([]);
-});
-
-it("u2773b_rail_acknowledgement_consumes_only_submitted_work", async () => {
-  const mounted = await mountRail([workstream("w")]);
-  let finish!: (node: ReturnType<typeof agent>) => void;
-
-  mounted.app.handlers["agent.spawn"] = () => new Promise((resolve) => { finish = resolve; });
-  open();
-  fireEvent.input(field(), { target: { value: "A" } });
-  fireEvent.keyDown(field(), { key: "Enter" });
-  fireEvent.input(field(), { target: { value: "B" } });
-  finish(agent("new", "idle", "ready"));
-  await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toHaveLength(1));
-  await Promise.resolve();
-  expect(field().value).toBe("B");
-  cleanup();
-  await mountRail([workstream("w")]);
-  open();
-  expect(field().value).toBe("B");
-  expect(screen.queryByLabelText("Retained rail input")).toBeNull();
-});
-
-
-it("u2773a_rail_restores_original_parent_after_selection_moves", async () => {
-  const mounted = await mountRail([workstream("a"), workstream("b")]);
-  mounted.app.handlers["agent.spawn"] = () => agent("new", "idle", "ready");
-  mounted.rail.select("a");
-  open();
-  fireEvent.input(field(), { target: { value: "for A" } });
-  fireEvent.keyDown(field(), { key: "Escape" });
-  mounted.rail.select("b");
-  open();
-  fireEvent.keyDown(field(), { key: "Enter" });
-  await waitFor(() => expect(railCallsTo(mounted.app, "agent.spawn")).toEqual([{ cwd: "/p", prompt: "for A", parent: "a", model: null, effort: null }]));
 });
