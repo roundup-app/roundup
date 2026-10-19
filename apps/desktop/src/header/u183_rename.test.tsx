@@ -222,3 +222,59 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
   await waitFor(() => expect(document.querySelector(".window-title")?.textContent).toBe("B"));
   expect(replies).toHaveLength(2);
 });
+
+it("u2773c_header_external_change_keeps_original", async () => {
+  const { app } = await openTabs({ api: [], web: [] });
+  let dispose = () => {};
+
+  const state = createRoot(stop => {
+    dispose = stop;
+
+    return createProjectsState(app);
+  });
+
+  await waitFor(() => expect(state.loaded()).toBe(true));
+
+  const original = path("api");
+  const base = state.tabs().find(tab => tab.project.path === original)!.project.name;
+  await app.renameProject(original, "B");
+  const outcome = await state.rename(original, " exact 雪 ", base);
+  expect(outcome).toMatchObject({ path: original, name: " exact 雪 ", status: "failed" });
+  expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
+  expect(state.tabs().find(tab => tab.project.path === original)?.project.name).toBe("B");
+  expect(state.base(original)).toBe("B");
+  dispose();
+});
+
+it("u2773c_header_late_conflict_read_cannot_replace_newer_acknowledgement", async () => {
+  const { app } = await openTabs({ api: [], web: [] });
+  let dispose = () => {};
+
+  const state = createRoot(stop => {
+    dispose = stop;
+
+    return createProjectsState(app);
+  });
+
+  await waitFor(() => expect(state.loaded()).toBe(true));
+
+  const original = path("api");
+  const calls: { base: string | undefined; accept: (project: { path: string; name: string }) => void; reject: (error: Error) => void }[] = [];
+  app.renameProject = (_path, _name, base) => new Promise((accept, reject) => { calls.push({ base, accept, reject }); });
+  let finishRead: ((projects: Awaited<ReturnType<typeof app.projects>>) => void) | undefined;
+  app.projects = () => new Promise(resolve => { finishRead = resolve; });
+  const older = state.rename(original, " exact A 雪 ", "api");
+  expect(state.base(original)).toBe("api");
+  calls[0]!.reject(new RpcError(-32003, "Project name changed"));
+  await waitFor(() => expect(finishRead).toBeDefined());
+  const newer = state.rename(original, "B", "api");
+  calls[1]!.accept({ path: original, name: "B" });
+  expect(await newer).toMatchObject({ status: "acknowledged", path: original });
+  state.select(path("web"));
+  finishRead!([{ path: original, name: "external", running: true }]);
+  expect(await older).toMatchObject({ status: "failed", path: original, name: " exact A 雪 " });
+  expect(state.base(original)).toBe("B");
+  expect(state.tabs().find(tab => tab.project.path === original)?.project.name).toBe("B");
+  expect(calls.map(call => call.base)).toEqual(["api", "api"]);
+  dispose();
+});
