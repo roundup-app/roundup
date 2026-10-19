@@ -5,11 +5,12 @@ type CopyValue = string | number | undefined;
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
   deliverables: "Made",
-  deliverableCurrent: "Current external target · availability not checked",
-  deliverableRetained: (sha256: string) => `Published file revision ${sha256}`,
-  deliverableRevision: (revision: number) => `Published Pad revision ${revision}`,
+  deliverableCurrent: "Link · current",
+  deliverableNotChecked: "Availability not checked",
+  deliverableRetained: "File · published revision",
+  deliverableRevision: (revision: number) => `Pad · revision ${revision}`,
   deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
-  openDeliverable: (title: string, maker: string, home: string, id: string) => `Open ${title} · ${maker} · ${home} · ${id}`,
+  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })}`,
   deliverableUnsafe: "Unavailable: only HTTP and HTTPS targets can open.",
   deliverableUnavailable: {
     "missing-revision": "Unavailable: retained revision is missing.",
