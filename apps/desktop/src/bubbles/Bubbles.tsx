@@ -70,11 +70,8 @@ export const Bubbles = (props: { screens: Screens }) => {
   const schema = v.strictObject({ name: v.string(), base: v.string() });
   drafts.validate("bubbles", schema);
   drafts.registerRecovery("bubbles", (draft, facts) => {
-    if (facts.daemonExit() !== null) return "unavailable";
-
-    if (facts.rail.failure()) return "unverified";
-
-    return facts.rail.terminals().some(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running) ? "available" : "unavailable";
+    return facts.daemonExit() !== null ? "unavailable" : facts.rail.failure() ? "unverified"
+      : facts.rail.terminals().some(terminal => terminal.incarnation === draft.destination.object && terminal.id === draft.destination.recipient && terminal.running) ? "available" : "unavailable";
   });
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
   const [recovering, recover] = createSignal(false);
@@ -123,6 +120,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [measured, setMeasured] = createSignal(false);
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
   const [editing, setEditing] = createSignal<string | null>(null);
+  createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
   let before: Element | null = null;
@@ -216,6 +214,12 @@ export const Bubbles = (props: { screens: Screens }) => {
     for (const terminal of shown()) next[terminal.id] = { ...placeOf(terminal.id), min: terminal.id !== id };
     setPlaces(next);
     persistPlaces(next);
+  };
+
+  const openRecovery = () => {
+    show(null);
+    // Let the Terminal's dismissable layer close before the recovery layer takes focus.
+    setTimeout(() => recover(true));
   };
 
   // Saved places end with the Daemon; its last readable screens keep their current geometry and visibility until the view ends.
@@ -672,7 +676,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target } = event;
 
-    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, .terminal-recover, [role=menu], [role=menuitem]")) return;
 
     for (const { id } of shown()) if (!placeOf(id).min) setPlace(id, { ...placeOf(id), min: true });
   };
@@ -848,7 +852,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       const press = event.detail.originalEvent;
       const target = press.target;
 
-      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair"))) return;
+      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
 
       if (!place().min) setPlace(id, { ...place(), min: true });
     };
@@ -885,6 +889,131 @@ export const Bubbles = (props: { screens: Screens }) => {
     );
   };
 
+  const Tab = (tabProps: { id: string }) => {
+    const id = tabProps.id;
+    const terminal = () => shown().find((candidate) => candidate.id === id)!;
+
+    const name = () => nameFor(terminal());
+    const [nameRef, nameCut] = createCut();
+    let renameChosen = false;
+    let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
+    const current = () => records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "draft").at(-1);
+    let base = "";
+    let initial = "";
+    let revision: string | undefined;
+    let selection: ReturnType<typeof drafts.list>[number]["selection"] = null;
+    let recovered = false;
+    const [changed, change] = createSignal(false);
+
+    const start = () => {
+      destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
+      const retained = current() ?? records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
+      const parsed = retained && v.safeParse(schema, retained.value);
+
+      if (!terminal().running || readOnly() || (retained && !parsed?.success)) {
+        openRecovery();
+
+        return;
+      }
+
+      initial = parsed?.success ? parsed.output.name : name();
+      base = parsed?.success ? parsed.output.base : name();
+      revision = retained?.revision;
+      selection = retained?.selection ?? null;
+      recovered = retained !== undefined;
+      change(false);
+      setEditing(id);
+    };
+
+    const capture = (input: HTMLInputElement) => {
+      const caret = { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" };
+      const previous = records().find(draft => draft.revision === revision);
+
+      if (previous?.value.name === input.value) {
+        drafts.setSelection(previous.revision, caret);
+
+        return;
+      }
+
+      revision = drafts.edit(destination, { name: input.value, base }, caret, "ordinary").draft.revision;
+    };
+
+    createEffect(() => {
+      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held === id ? null : held);
+    });
+
+    const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
+
+    return <Menu.Root positioning={{ strategy: "fixed" }} onSelect={({ value }) => { renameChosen = value === "rename"; }}
+      onOpenChange={({ open }) => {
+        // The menu hands focus back to its trigger as it closes; the editor starts after that.
+        if (open || !renameChosen) return;
+
+        renameChosen = false;
+        setTimeout(start);
+      }}>
+      <Menu.ContextTrigger asChild={(trigger) => <FlatTab {...trigger({ class: "terminal-tab-pair" })} selected={!placeOf(id).min} data-bubble={id}>
+        <Show when={editing() === id} fallback={
+          <Tip content={name()} cut={nameCut}>
+            {(trigger) => (
+              <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
+                aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
+                onClick={() => toggleMinimised(id)}
+                onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) start(); }}>
+                <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
+                <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
+              </button>
+            )}
+          </Tip>
+        }>
+          <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
+            <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={recovered && !changed() ? "enter" : "both"} finalFocusEl={tab}
+              onValueCommit={({ value }) => {
+                const submitted = revision;
+                const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
+
+                if (!live || readOnly() || base !== nameFor(live)) {
+                  openRecovery();
+
+                  return;
+                }
+
+                if (submitted) drafts.submit(submitted);
+                const failure = rename(live, value);
+
+                if (submitted) drafts.settle(submitted, failure === null ? "acknowledged" : "failed");
+                setFailure(failure);
+
+                if (failure !== null) openRecovery();
+              }}
+              onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
+              <Editable.Context>{(api) => {
+                onMount(() => api().edit());
+
+                return null;
+              }}</Editable.Context>
+              <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
+                onInput={event => { change(true); capture(event.currentTarget); }}
+                onSelect={event => { if (document.activeElement === event.currentTarget && revision) capture(event.currentTarget); }} ref={(input: HTMLInputElement) => {
+                // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
+                onMount(() => requestAnimationFrame(() => { if (!input.isConnected) return;
+                  input.focus({ preventScroll: true });
+
+                  if (selection) input.setSelectionRange(selection.start, selection.end, selection.direction);
+                  else input.select(); }));
+              }} /></Editable.Area>
+            </Editable.Root>
+            <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
+          </div>
+        </Show>
+        <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
+      </FlatTab>} />
+      <Portal><Menu.Positioner><Menu.Content>
+        <Menu.Item value="rename">{copy.rename}</Menu.Item>
+      </Menu.Content></Menu.Positioner></Portal>
+    </Menu.Root>;
+  };
+
   return (
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
@@ -892,130 +1021,8 @@ export const Bubbles = (props: { screens: Screens }) => {
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
         }}>
-          <For each={shownIds()}>{(id) => {
-            const terminal = () => shown().find((candidate) => candidate.id === id)!;
-
-            const name = () => nameFor(terminal());
-            const [nameRef, nameCut] = createCut();
-            let renameChosen = false;
-            let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
-            const current = () => records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "draft").at(-1);
-            let base = "";
-            let initial = "";
-            let revision: string | undefined;
-            let selection: ReturnType<typeof drafts.list>[number]["selection"] = null;
-            let recovered = false;
-            const [changed, change] = createSignal(false);
-
-            const start = () => {
-              destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
-              const retained = current() ?? records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
-              const parsed = retained && v.safeParse(schema, retained.value);
-
-              if (!terminal().running || readOnly() || (retained && !parsed?.success)) {
-                recover(true);
-
-                return;
-              }
-
-              initial = parsed?.success ? parsed.output.name : name();
-              base = parsed?.success ? parsed.output.base : name();
-              revision = retained?.revision;
-              selection = retained?.selection ?? null;
-              recovered = retained !== undefined;
-              change(false);
-              setEditing(id);
-            };
-
-            const capture = (input: HTMLInputElement) => {
-              const caret = { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" };
-              const previous = records().find(draft => draft.revision === revision);
-
-              if (previous?.value.name === input.value) {
-                drafts.setSelection(previous.revision, caret);
-
-                return;
-              }
-
-              revision = drafts.edit(destination, { name: input.value, base }, caret, "ordinary").draft.revision;
-            };
-
-            createEffect(() => {
-              if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held === id ? null : held);
-            });
-
-            const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
-
-            return <Menu.Root positioning={{ strategy: "fixed" }} onSelect={({ value }) => { renameChosen = value === "rename"; }}
-              onOpenChange={({ open }) => {
-                // The menu hands focus back to its trigger as it closes; the editor starts after that.
-                if (open || !renameChosen) return;
-
-                renameChosen = false;
-                setTimeout(start);
-              }}>
-              <Menu.ContextTrigger asChild={(trigger) => <FlatTab {...trigger({ class: "terminal-tab-pair" })} selected={!placeOf(id).min} data-bubble={id}>
-                <Show when={editing() === id} fallback={
-                  <Tip content={name()} cut={nameCut}>
-                    {(trigger) => (
-                      <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
-                        aria-label={name()} aria-describedby={props.screens.unseen(id) ? `terminal-state-${id}` : undefined} aria-pressed={!placeOf(id).min}
-                        onClick={() => toggleMinimised(id)}
-                        onDblClick={(event) => { if (event.target instanceof Element && event.target.closest(".terminal-tab-name")) start(); }}>
-                        <span class="terminal-tab-name" ref={nameRef}>{name()}</span>
-                        <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
-                      </button>
-                    )}
-                  </Tip>
-                }>
-                  <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
-                    <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={recovered && !changed() ? "enter" : "both"} finalFocusEl={tab}
-                      onValueCommit={({ value }) => {
-                        const submitted = revision;
-                        const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
-
-                        if (!live || readOnly() || base !== nameFor(live)) {
-                          recover(true);
-
-                          return;
-                        }
-
-                        if (submitted) drafts.submit(submitted);
-                        const failure = rename(live, value);
-
-                        if (submitted) drafts.settle(submitted, failure === null ? "acknowledged" : "failed");
-                        setFailure(failure);
-
-                        if (failure !== null) recover(true);
-                      }}
-                      onEditChange={({ edit }) => { if (!edit) setEditing(null); }}>
-                      <Editable.Context>{(api) => {
-                        onMount(() => api().edit());
-
-                        return null;
-                      }}</Editable.Context>
-                      <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
-                        onInput={event => { change(true); capture(event.currentTarget); }}
-                        onSelect={event => { if (document.activeElement === event.currentTarget && revision) capture(event.currentTarget); }} ref={(input: HTMLInputElement) => {
-                        // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
-                        onMount(() => requestAnimationFrame(() => { if (!input.isConnected) return;
-                          input.focus({ preventScroll: true });
-
-                          if (selection) input.setSelectionRange(selection.start, selection.end, selection.direction);
-                          else input.select(); }));
-                      }} /></Editable.Area>
-                    </Editable.Root>
-                    <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
-                  </div>
-                </Show>
-                <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-              </FlatTab>} />
-              <Portal><Menu.Positioner><Menu.Content>
-                <Menu.Item value="rename">{copy.rename}</Menu.Item>
-              </Menu.Content></Menu.Positioner></Portal>
-            </Menu.Root>;
-          }}</For>
-          <Show when={records().length || problem()}><IconButton aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => recover(true)}><Icon name="edit" /></IconButton></Show>
+          <For each={shownIds()}>{id => <Tab id={id} />}</For>
+          <Show when={records().length || problem()}><IconButton class="terminal-recover" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.terminalName)} onClick={() => openRecovery()}><Icon name="edit" /></IconButton></Show>
           <FlatAdd data-button="add" class="terminal-new" aria-label={copy.newTerminal} onClick={() => void open()}>{copy.plusTerminal}</FlatAdd>
         </div>
       </Portal>}</Show>
@@ -1025,9 +1032,9 @@ export const Bubbles = (props: { screens: Screens }) => {
           <Dialog.Description class="draft-identity">{copy.draftIdentity(path, copy.terminalName)}</Dialog.Description>
           <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(path, copy.terminalName, failure().cause)}</p>}</Show>
           <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
-          <For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{draft => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), draft.destination.object)}</button>}</For>
+          <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
           <Show when={shownDraft()}>{draft => <>
-            <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
+            <p class="draft-identity">{copy.draftIdentity(String(draft().value.base ?? ""), draft().destination.recipient ?? copy.noDraftRecipient)}</p>
             <span role="status" data-state={draft().status}>{copy.draftStatus[draft().status]}</span>
             <Show when={!original(draft()) || readOnly()} fallback={<Show when={original(draft()) && draft().value.base !== nameFor(original(draft())!)}><p role="status">{copy.railDraftConflict}</p></Show>}><p role="status">{copy.originalUnavailable}</p></Show>
             <pre class="draft-value">{String(draft().value.name ?? "")}</pre>

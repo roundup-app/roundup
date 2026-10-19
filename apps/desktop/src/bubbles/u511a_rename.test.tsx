@@ -234,6 +234,12 @@ it("u2773a_bubbles_restores_exact_work", async () => {
   await edit("2");
   expect(field()!.value).toBe(text);
   expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 5, "backward"]);
+  mounted.connected.rail.select("other");
+  await waitFor(() => expect(field()).toBeNull());
+  mounted.connected.rail.select("a");
+  expect(field()).toBeNull();
+  await edit("2");
+  expect(field()!.value).toBe(text);
   fireEvent.keyDown(field()!, { key: "Escape" });
   cleanup();
   const restored = await mountBubbles();
@@ -267,6 +273,11 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   fireEvent.keyDown(field()!, { key: "Escape" });
   expect(mounted.connected.drafts.list().map(draft => [draft.value.name, draft.status])).toEqual([["  failed A 雪  ", "failed"], ["  newer B 🫧  ", "draft"]]);
   await waitFor(() => expect(tab("2")).not.toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  const revisions = await screen.findByRole("dialog", { name: "Unfinished work" });
+
+  fireEvent.click(within(revisions).getByRole("button", { name: /^Inspect · Failed/ }));
+  fireEvent.click(within(revisions).getByRole("button", { name: "Close" }));
   await edit("2");
   expect(field()!.value).toBe("  newer B 🫧  ");
   fireEvent.keyDown(field()!, { key: "Enter" });
@@ -276,6 +287,16 @@ it("u2773b_bubbles_settlement_preserves_other_revisions", async () => {
   cleanup();
   const reloaded = await mountBubbles();
   expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  failed A 雪  "]);
+  await edit("2");
+  fireEvent.input(field()!, { target: { value: "  retained C 雪  " } });
+  fireEvent.keyDown(field()!, { key: "Escape" });
+  await waitFor(() => expect(tab("2")).not.toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  const selected = await screen.findByRole("dialog", { name: "Unfinished work" });
+
+  fireEvent.click(within(selected).getByRole("button", { name: /^Inspect · Failed/ }));
+  fireEvent.click(within(selected).getByRole("button", { name: "Discard this revision" }));
+  expect(reloaded.connected.drafts.list().map(draft => draft.value.name)).toEqual(["  retained C 雪  "]);
 });
 
 it("u2773c_bubbles_external_change_keeps_original", async () => {
