@@ -211,3 +211,66 @@ pub(super) fn real_paths(project: &Path, cwd: &Path) -> Result<(PathBuf, PathBuf
     }
     Ok((real_project, real_cwd))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn git(project: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .current_dir(project)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap().trim().to_owned()
+    }
+
+    fn fixture() -> (tempfile::TempDir, Agents, String) {
+        let (dir, _, shared) = crate::tests::shared_over_temp_dir(Arc::new(|| 0));
+        git(dir.path(), &["init", "-b", "main"]);
+        git(dir.path(), &["config", "user.email", "test@example.com"]);
+        git(dir.path(), &["config", "user.name", "Test"]);
+        std::fs::create_dir(dir.path().join("src")).unwrap();
+        std::fs::write(dir.path().join("src/file"), "base").unwrap();
+        git(dir.path(), &["add", "src"]);
+        git(dir.path(), &["commit", "-m", "base"]);
+        shared
+            .rail()
+            .set_worktrees(&contracts::project::Worktrees {
+                on: true,
+                check: None,
+            })
+            .unwrap();
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "closed", None, None)
+            .unwrap()
+            .id;
+        let agents = crate::tests::owner_agents(shared, dir.path());
+        (dir, agents, id)
+    }
+
+    #[tokio::test]
+    async fn u2875b_closed_worktree_provisioning_does_not_allocate_attempt() {
+        let (dir, agents, id) = fixture();
+        let (cwd, made) = agents
+            .provision_worktree(&id, &dir.path().join("src"))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(cwd, made.path.join("src"));
+        assert_eq!(std::fs::read_to_string(cwd.join("file")).unwrap(), "base");
+        assert_eq!(git(dir.path(), &["branch", "--show-current"]), "main");
+        let node = agents.shared.node(&id).unwrap();
+        assert!(node.attempt.is_none());
+        assert!(node.terminal_id.is_none());
+        assert!(agents.shared.terminals.list().is_empty());
+        assert!(agents.shared.runs().is_empty());
+        assert_eq!(agents.shared.rail().allocate_attempt(&id).unwrap(), "1");
+    }
+}
