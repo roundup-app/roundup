@@ -211,6 +211,7 @@ mod tests {
         let (reads, mut snapshots) = mpsc::unbounded_channel();
         let pads = Arc::new(Pads {
             listed: Mutex::new(vec![contracts::pad::Pad {
+                incarnation: "1".into(),
                 name: "plan".into(),
                 owner: Actor::user(),
                 text: "keep this".into(),
