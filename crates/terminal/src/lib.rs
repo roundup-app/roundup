@@ -475,6 +475,10 @@ impl Terminals {
         if !Path::new(&params.cwd).is_dir() {
             return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
         }
+        // Generate independently of authentication and vendor content; failure starts no program.
+        let mut nonce = [0u8; 32];
+        getrandom::fill(&mut nonce).map_err(RpcError::internal)?;
+        let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
         let pair = native_pty_system()
             .openpty(window(params.cols, params.rows)?)
             .map_err(RpcError::internal)?;
@@ -573,6 +577,7 @@ impl Terminals {
                 pid,
                 info: TerminalInfo {
                     id: number.to_string(),
+                    incarnation,
                     cwd: params.cwd,
                     title: None,
                     program: program_name(params.command.as_deref()),
