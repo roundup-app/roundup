@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { createResource, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
+import type { AnswerParams } from "@contracts/decision/AnswerParams";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import type { ConnectedProject } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
@@ -10,7 +11,10 @@ import type { AppSeam, DaemonExit } from "../app/seam";
 
 const availability = { available: "available", unavailable: "unavailable", unverified: "unverified" } as const;
 
-const identity = v.object({ daemon: v.string(), agent: v.string(), attempt: v.string(), decision: v.string() });
+const draftSchema = v.object({ daemon: v.string(), agent: v.string(), attempt: v.string(), decision: v.string(), choice: v.nullable(v.string()), note: v.string() });
+
+/** Stable storage destination: a reused Decision id must not replace an older Prompt's draft. */
+export const promptKey = (prompt: PromptIdentity): string => JSON.stringify([prompt.daemon, prompt.agent, prompt.attempt, prompt.decision]);
 
 export type DecisionsState = {
   /** Read-only Prompt authority for this connection; pending or failed reads grant none. */
@@ -25,7 +29,7 @@ export type DecisionsState = {
   answering(id: string): boolean;
   answerFailure(id: string): string | null;
   /** `answer` is a permission word or an `ask_user` label; null with a note is the user's own answer (H14). */
-  answer(id: string, answer: string | null, note?: string): Promise<void>;
+  answer(id: string, answer: string | null, note?: string, identity?: PromptIdentity): Promise<"acknowledged" | "failed" | "unknown">;
 };
 
 /**
@@ -40,11 +44,14 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   const [observed, setObserved] = createSignal(false);
   let reading: Set<string> | null = null;
 
-  drafts.validate("decisions", identity);
+  drafts.validate("decisions", draftSchema);
   drafts.registerRecovery("decisions", (draft, facts) => {
-    const parsed = v.safeParse(identity, draft.value);
+    const parsed = v.safeParse(draftSchema, draft.value);
 
-    if (!parsed.success || parsed.output.decision !== draft.destination.object || parsed.output.agent !== draft.destination.recipient) return availability.unverified;
+    if (!parsed.success || parsed.output.agent !== draft.destination.recipient) return availability.unverified;
+    const prompt = parsed.output;
+
+    if (draft.destination.object !== prompt.decision && draft.destination.object !== promptKey(prompt)) return availability.unverified;
 
     return facts.decisions.availability(parsed.output);
   });
@@ -53,7 +60,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   // so replacing a connection cannot revive its old captures or overwrite a newer read.
   const [authority] = createResource(() => ({
     open: decisions(), observed: observed(), failure: listFailure(), exited: daemonExit(),
-    requested: new Set(drafts.list().filter((draft) => draft.destination.surface === "decisions").map((draft) => draft.destination.object)),
+    requested: new Set(drafts.list().filter((draft) => draft.destination.surface === "decisions").map((draft) => String(draft.value.decision))),
   }), async (facts) => {
     const captures = new Map<string, PromptIdentity | "unavailable" | "unverified">();
 
@@ -113,24 +120,33 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   void list();
 
-  const answer = async (id: string, text: string | null, note?: string): Promise<void> => {
-    if (daemonExit() !== null || pending().has(id)) return;
+  const answer = async (id: string, text: string | null, note?: string, identity?: PromptIdentity): Promise<"acknowledged" | "failed" | "unknown"> => {
+    if (daemonExit() !== null || pending().has(id)) return "unknown";
 
     setPending((current) => new Set(current).add(id));
     setFailures((current) => new Map([...current].filter(([key]) => key !== id)));
+
+    let sent = false;
 
     try {
       const proof = await app.daemonProof();
 
       // A permission answer sends no note (H14).
-      const params = { id, answer: text, proof };
+      const params: AnswerParams = { id, answer: text, proof };
 
+      if (identity) params.identity = identity;
+
+      sent = true;
       await app.rpc("decision.answer", note === undefined ? params : { ...params, note });
       forget(id);
+
+      return "acknowledged";
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailures((current) => new Map(current).set(id, thrown.message));
+
+      return !sent || thrown instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(thrown.code) ? "failed" : "unknown";
     } finally {
       setPending((current) => new Set([...current].filter((key) => key !== id)));
     }
