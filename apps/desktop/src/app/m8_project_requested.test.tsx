@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
+import { createProjectDrafts } from "../state/connectedProject";
 import { draftStorage } from "../state/storage";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
@@ -27,7 +28,7 @@ const started = async () => {
   return app;
 };
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); window.localStorage.clear(); });
 
 describe("m8 an Agent opens and renames Projects", () => {
   it("m8_the_webview_answers_a_requested_open_with_open_project", async () => {
@@ -65,6 +66,32 @@ it("u2773a_orders_restores_exact_work", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   expect(await screen.findByRole("region", { name: "Unfinished work" })).toBeTruthy();
   expect(screen.getByText(exact, { exact: true, normalizer: (text) => text })).toBeTruthy();
-  expect(screen.getByText("removed-agent", { exact: false })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /orders · removed-agent/ })).toBeTruthy();
+  window.localStorage.clear();
+});
+
+it("u2773e_recovery_actions_keep_surface_draft_with_invalid_stored_bytes", async () => {
+  const bytes = '{"version":999,"drafts":broken';
+  window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, bytes);
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  const saved = holder.edit({ surface: "orders", object: "original", recipient: "original" }, { ask: "  memory 🧭\n" }, null, "ordinary").draft;
+  const app = createFakeApp();
+  app.opened.project = FIRST;
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toContain(FIRST.path);
+  expect(alert.textContent).toContain("orders");
+  const clipboard = vi.fn(async (_text: string) => {});
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  fireEvent.click(screen.getByRole("button", { name: "Copy ask" }));
+  expect(clipboard).toHaveBeenCalledWith("  memory 🧭\n");
+  fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+  expect(holder.list()).toEqual([saved]);
+  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  expect(holder.list()).toEqual([]);
+  expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
+  expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
   window.localStorage.clear();
 });
