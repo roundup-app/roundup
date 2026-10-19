@@ -21,6 +21,7 @@ use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
 use serde_json::Value;
 
 use store::Store;
+pub use store::{PadDeletion, PadSource, PadSourceState, source, source_state};
 
 pub struct Pads {
     store: Mutex<Store>,
@@ -98,6 +99,7 @@ impl Pads {
     fn create(&self, ctx: &Ctx, p: CreateParams) -> Result<Value, RpcError> {
         name::validate(&p.name)?;
         let pad = Pad {
+            incarnation: String::new(), // Assigned by the existing source-creation trigger.
             name: p.name,
             owner: ctx.actor.clone(),
             text: p.text.unwrap_or_default(),
@@ -106,11 +108,12 @@ impl Pads {
             home: None,
         };
         let store = self.store()?;
-        store.atomically(|| {
+        let pad = store.atomically(|| {
             if !store.insert(&pad).map_err(RpcError::internal)? {
                 return Err(RpcError::conflict(format!("pad exists: {}", pad.name)));
             }
-            self.mirror(&store, &pad.name, &pad.text)
+            self.mirror(&store, &pad.name, &pad.text)?;
+            get(&store, &pad.name)
         })?;
         wrote(ctx, &pad.name)?;
         reply(&pad)
@@ -135,6 +138,14 @@ impl Pads {
                 return Err(RpcError::forbidden(format!(
                     "only {} may rewrite pad {}",
                     pad.owner.id, pad.name
+                )));
+            }
+            if let Some(expected) = &p.expected_incarnation
+                && expected != &pad.incarnation
+            {
+                return Err(RpcError::conflict(format!(
+                    "pad {} is a different creation",
+                    pad.name
                 )));
             }
             if let Some(expected) = p.expected_revision
@@ -235,17 +246,25 @@ impl Pads {
         })
     }
 
-    fn delete(&self, ctx: &Ctx, p: PadName) -> Result<Value, RpcError> {
+    /// Delete within the Pad transaction, retaining the cause supplied by the trusted owner.
+    /// RPC authoring uses its authenticated Actor; internal archival supplies Cleanup while
+    /// keeping the user's existing Touch and event attribution.
+    pub fn delete(&self, ctx: &Ctx, p: PadName, cause: PadDeletion) -> Result<Value, RpcError> {
         let store = self.store()?;
-        let pad = get(&store, &p.name)?;
-        require_owner_or_user(ctx, &pad, "delete")?;
-        store.atomically(|| {
+        let mut files = RemovalFiles::default();
+        let pad = store.atomically(|| {
+            let pad = get(&store, &p.name)?;
+            require_owner_or_user(ctx, &pad, "delete")?;
+            store
+                .record_deletion(&pad.name, cause)
+                .map_err(RpcError::internal)?;
             found(store.delete(&pad.name), &pad.name)?;
             if store.files().map_err(RpcError::internal)? {
-                files::remove(&self.files_dir, &pad.name)?;
+                files.stage(&self.files_dir, &pad.name)?;
             }
-            Ok(())
+            Ok(pad)
         })?;
+        files.commit();
         wrote(ctx, &pad.name)?;
         Ok(Value::Null)
     }
@@ -331,7 +350,17 @@ impl Module for Pads {
             "pad.appendSection" => self.append_section(ctx, params(value)?),
             "pad.setOwner" => self.set_owner(ctx, params(value)?),
             "pad.move" => self.move_to(ctx, params(value)?),
-            "pad.delete" => self.delete(ctx, params(value)?),
+            "pad.delete" => self.delete(
+                ctx,
+                params(value)?,
+                if ctx.actor.kind == ActorKind::User {
+                    PadDeletion::User
+                } else if ctx.actor == Actor::daemon() {
+                    PadDeletion::Cleanup
+                } else {
+                    PadDeletion::Owner
+                },
+            ),
             "pad.setStorage" => self.set_storage(ctx, params(value)?),
             "pad.export" => self.export(ctx, params(value)?),
             _ => Err(RpcError::method_not_found(method)),

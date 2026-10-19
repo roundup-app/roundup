@@ -18,14 +18,6 @@ pub fn write(dir: &Path, name: &str, text: &str) -> Result<(), RpcError> {
     write().map_err(|err| refused(err, name))
 }
 
-/// A missing file is already removed.
-pub fn remove(dir: &Path, name: &str) -> Result<(), RpcError> {
-    match std::fs::remove_file(path(dir, name)) {
-        Err(err) if err.kind() != io::ErrorKind::NotFound => Err(refused(err, name)),
-        _ => Ok(()),
-    }
-}
-
 /// `None` when the file does not exist.
 pub fn read(dir: &Path, name: &str) -> Result<Option<String>, RpcError> {
     match std::fs::read_to_string(path(dir, name)) {

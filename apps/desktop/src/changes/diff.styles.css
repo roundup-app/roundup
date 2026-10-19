@@ -57,5 +57,5 @@
 .diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
 button { color: var(--grey); background: var(--sunken); font: inherit; border: 0; }
 button:hover { color: var(--text); }
-button:focus-visible { outline: 2px solid var(--accent); }
+button:focus { outline: var(--keyboard-ring); }
 button:active { color: var(--ink-pressed); }
