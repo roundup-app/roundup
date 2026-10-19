@@ -106,6 +106,50 @@ impl Launcher {
     }
 }
 
+impl Launcher {
+    /// The complete records of one selected conversation, only while they still hash to the
+    /// `revision` the user previewed (U2875c). A changed or vanished source is a conflict.
+    pub fn read_import_snapshot(
+        &self,
+        project: &Path,
+        source: &str,
+        revision: &str,
+        now_ms: i64,
+    ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
+        let changed = || RpcError::conflict(format!("source changed since preview: {source}"));
+        let found = self.discover_recent(project, now_ms, i64::MAX)?;
+        let candidate = found
+            .candidates
+            .into_iter()
+            .find(|c| c.source == source && c.revision == revision)
+            .ok_or_else(changed)?;
+        let file = format!("{source}.jsonl");
+        let buckets = std::fs::read_dir(self.conversation_dir.join("projects"))
+            .map_err(RpcError::internal)?;
+        for bucket in buckets.flatten() {
+            let Ok(mut bytes) = std::fs::read(bucket.path().join(&file)) else {
+                continue;
+            };
+            bytes.truncate(
+                bytes
+                    .iter()
+                    .rposition(|b| *b == b'\n')
+                    .map_or(0, |at| at + 1),
+            );
+            return if hex(&Sha256::digest(&bytes)) == revision {
+                Ok((candidate, bytes))
+            } else {
+                Err(changed())
+            };
+        }
+        Err(changed())
+    }
+}
+
+fn hex(digest: &[u8]) -> String {
+    digest.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) -> Scan {
     if !is_uuid(stem) {
         return Scan::Excluded("unsupported source name");
@@ -205,10 +249,7 @@ fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) ->
             .unwrap_or_else(|| "Untitled conversation".into()),
         cwd: relative.to_path_buf(),
         last_activity_ms: latest,
-        revision: Sha256::digest(&bytes)
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect(),
+        revision: hex(&Sha256::digest(&bytes)),
     })
 }
 
