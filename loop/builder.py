@@ -375,7 +375,7 @@ def fix_attempts():
 def claude_env():
     """The environment for a `claude` process: `os.environ`, or with `CLAUDE_API` set the federation variables and a file
     of the job's identity token for `API_AUDIENCE`, rewritten every `API_REFRESH` seconds while the block runs, with the
-    Max token (even empty, which Claude Code reads as a login that came first), the token request and `CLAUDE_API_VARS` left out. Exits with an error annotation when a federation variable is
+    Max token, the token request and `CLAUDE_API_VARS` left out. Exits with an error annotation when a federation variable is
     missing or a step still holds the Max token."""
     if not switched():
         yield os.environ
@@ -408,7 +408,7 @@ def claude_env():
         thread = threading.Thread(target=refresh, daemon=True)
         thread.start()
         try:
-            hidden = ('CLAUDE_API_VARS', 'CLAUDE_CODE_OAUTH_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')
+            hidden = ('CLAUDE_API_VARS', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')
             yield {**{name: value for name, value in os.environ.items() if name not in hidden},
                    **{name: given[name] for name in API_VARS}, 'ANTHROPIC_IDENTITY_TOKEN_FILE': str(token)}
         finally:
