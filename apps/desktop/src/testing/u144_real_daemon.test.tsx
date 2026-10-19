@@ -397,6 +397,16 @@ describe("u2773 Project draft integration on real Projects", () => {
 
   const setup = async () => {
     seed++;
+
+    // Each probe owns its sources; a prior probe's live Door must not become its recipient.
+    for (const root of [first, second]) {
+      const bound = createServedApp(root.base);
+
+      for (const node of await bound.rpc("rail.tree", null)) {
+        if (node.kind === "workstream" && node.parent === null) await bound.rpc("rail.remove", { id: node.id });
+      }
+    }
+
     window.localStorage.clear();
     drafts = createProjectDrafts();
     recoverSelections();
@@ -405,6 +415,12 @@ describe("u2773 Project draft integration on real Projects", () => {
     replacement = await served.rpc("rail.createWorkstream", { name: `replacement ${seed}`, parent: null });
     const other = createServedApp(second.base);
     otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
+
+    if (otherOriginal.id === original.id) {
+      await other.rpc("rail.remove", { id: otherOriginal.id });
+      otherOriginal = await other.rpc("rail.createWorkstream", { name: `same name ${seed}`, parent: null });
+    }
+
     const roots = [first, second];
     const live = new Map(roots.map((root) => [root.dir, createServedApp(root.base)]));
     let opened = [first.dir];
@@ -693,6 +709,267 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
+  it("u2773a_terminal_selection_restores_exact_work", async () => {
+    await setup();
+    const source = await app.forProject(first.dir).rpc("rail.startDoor", { id: original.id });
+    const other = await app.forProject(second.dir).rpc("rail.startDoor", { id: otherOriginal.id });
+    expect(other.id).not.toBe(source.id);
+    expect(other.name).toBe(source.name);
+    const emulators = fakeEmulators();
+    const mounted = mount(emulators);
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(emulators.made.has(source.terminal_id!)).toBe(true));
+    emulators.made.get(source.terminal_id!)!.select("  source A é\n🧭  ", { command: "echo A", cwd: first.dir, exit: 0 });
+    const screenElement = document.querySelector<HTMLElement>("[data-terminal]")!;
+    screenElement.focus();
+    fireEvent.keyDown(screenElement, { key: "a", code: "KeyA", metaKey: true, shiftKey: true });
+    expect(drafts(first.dir).list().filter((draft) => draft.destination.surface === "terminal_selection")).toEqual([]);
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" });
+    fireEvent.input(input, { target: { value: "  note A é 🧭  " } });
+    input.setSelectionRange(2, 8, "backward");
+    fireEvent.select(input);
+    const saved = drafts(first.dir).list().find((draft) => draft.destination.surface === "terminal_selection")!;
+    expect(saved.selection).toEqual({ start: 2, end: 8, direction: "backward" });
+    calls.forEach((spy) => spy.mockClear());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${replacement.id}"]`)!);
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Add a note (optional)" })).toBeNull());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" }).value).toBe("  note A é 🧭  "));
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "second" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${other.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${other.id}"]`)!);
+    await waitFor(() => expect(emulators.made.has(other.terminal_id!)).toBe(true));
+    emulators.made.get(other.terminal_id!)!.select("  source B 🧭\n  ");
+    fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: "  note B 🧭  " } });
+    const separate = drafts(second.dir).list().find((draft) => draft.destination.surface === "terminal_selection")!;
+    expect(separate.value).toMatchObject({ note: "  note B 🧭  ", excerpt: "  source B 🧭\n  ", source: other.id, terminal: other.terminal_id });
+    expect(separate.destination.recipient).toBe(other.id);
+    fireEvent.click(screen.getByRole("tab", { name: /^first(?: |$)/ }));
+    await waitFor(() => expect(document.querySelector<HTMLInputElement>(".send-to-agent-note")?.value).toBe("  note A é 🧭  "));
+    await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" }).value).toBe("  note A é 🧭  "));
+    await app.forProject(first.dir).rpc("rail.rename", { id: source.id, name: "incoming rename" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)?.textContent).toContain("incoming rename"));
+    mounted.unmount();
+    drafts = createProjectDrafts();
+    const outside = document.createElement("input");
+    document.body.append(outside);
+    outside.focus();
+    mount();
+    const restored = await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" });
+    expect(restored.value).toBe("  note A é 🧭  ");
+    expect(document.activeElement).toBe(outside);
+    expect(drafts(first.dir).list().find((draft) => draft.revision === saved.revision)).toEqual(saved);
+    expect(saved.value).toMatchObject({ note: "  note A é 🧭  ", excerpt: "  source A é\n🧭  ", source: source.id, terminal: source.terminal_id, command: "echo A", cwd: first.dir, exit: 0 });
+    expect(saved.destination.recipient).toBe(source.id);
+    expect(drafts(second.dir).list()).toContainEqual(separate);
+    const terminal = document.querySelector<HTMLElement>("[data-terminal]")!;
+    terminal.focus();
+    fireEvent.keyDown(terminal, { key: "a", code: "KeyA", metaKey: true, shiftKey: true });
+    await waitFor(() => expect(document.activeElement).toBe(restored));
+    expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 8, "backward"]);
+    noDelivery();
+    outside.remove();
+  }, 60_000);
+
+  it.each(["acknowledged", "failed", "unknown"] as const)("u2773b_terminal_selection_settlement_preserves_other_revisions_%s", async (outcome) => {
+    await setup();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const transport = createServedApp(first.base);
+    let complete!: () => void;
+    const reply = new Promise<void>((resolve) => { complete = resolve; });
+
+    const delayed: AppSeam["rpc"] = async (method, params) => {
+      if (method !== "message.send") return transport.rpc(method, params);
+      await reply;
+
+      if (outcome === "failed") throw new RpcError(-32003, "refused");
+      const accepted = await transport.rpc(method, params);
+
+      if (outcome === "unknown") throw new RpcError(-32603, "reply lost after acceptance");
+
+      return accepted;
+    };
+
+    vi.spyOn(bound, "rpc").mockImplementation(delayed);
+    const emulators = fakeEmulators();
+    mount(emulators);
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(emulators.made.has(source.terminal_id!)).toBe(true));
+    emulators.made.get(source.terminal_id!)!.select(" exact A é\n🧭  ");
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" });
+    fireEvent.input(input, { target: { value: "  note A é  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Send to agent" }));
+    const holder = drafts(first.dir);
+
+    if (!holder.list().some((draft) => draft.status === "pending")) fireEvent.click(await screen.findByRole("menuitem", { name: source.name }));
+    await waitFor(() => expect(holder.list().some((draft) => draft.status === "pending")).toBe(true));
+    const a = holder.list().find((draft) => draft.status === "pending")!;
+    fireEvent.input(input, { target: { value: "  newer B 🧭  " } });
+    const b = holder.list().find((draft) => draft.status === "draft")!;
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "second" });
+    const outside = document.createElement("input");
+    document.body.append(outside);
+    outside.focus();
+    complete();
+    await waitFor(() => expect(holder.list().find((draft) => draft.revision === a.revision)?.status).toBe(outcome === "acknowledged" ? undefined : outcome));
+    expect(document.activeElement).toBe(outside);
+    expect(holder.list()).toContainEqual(b);
+    fireEvent.click(screen.getByRole("tab", { name: /^first(?: |$)/ }));
+    await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" }).value).toBe("  newer B 🧭  "));
+    const recovery = await openRecovery();
+
+    if (outcome !== "acknowledged") {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+      expect(holder.list()).toContainEqual(b);
+      expect(within(recovery).getByRole("img", { name: outcome === "unknown" ? "Acceptance unknown" : "Failed" })).toBeTruthy();
+      fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+      expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
+    }
+
+    const accepted = await transport.rpc("message.list", { to: source.id, status: null });
+    expect(accepted.map((message) => message.body)).toEqual(outcome === "failed" ? [] : ["note A é\n\n```\n exact A é\n🧭\n```"]);
+    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => method === "message.send")).toHaveLength(1);
+    expect(b.destination.recipient).toBe(source.id);
+    expect(b.value).toMatchObject({ note: "  newer B 🧭  ", excerpt: " exact A é\n🧭  ", source: source.id, terminal: source.terminal_id, attempt: source.attempt });
+    outside.remove();
+  }, 60_000);
+
+  it("u2773b_terminal_selection_acknowledgement_consumes_restored_pending_revision", async () => {
+    await setup();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const transport = createServedApp(first.base);
+    let complete!: () => void;
+    const reply = new Promise<void>((resolve) => { complete = resolve; });
+
+    const delayed: AppSeam["rpc"] = async (method, params) => {
+      if (method === "message.send") await reply;
+
+      return transport.rpc(method, params);
+    };
+
+    vi.spyOn(bound, "rpc").mockImplementation(delayed);
+    const emulators = fakeEmulators();
+    const mounted = mount(emulators);
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(emulators.made.has(source.terminal_id!)).toBe(true));
+    emulators.made.get(source.terminal_id!)!.select("captured A");
+    fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: " pending A " } });
+    fireEvent.click(screen.getByRole("button", { name: "Send to agent" }));
+    expect(drafts(first.dir).list().map((draft) => draft.status)).toEqual(["pending"]);
+    mounted.unmount();
+    mount();
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" })).value).toBe(" pending A ");
+    complete();
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Add a note (optional)" })).toBeNull());
+    expect(drafts(first.dir).list()).toEqual([]);
+    expect(createProjectDrafts()(first.dir).list()).toEqual([]);
+    expect((await transport.rpc("message.list", { to: source.id, status: null })).map((message) => message.body)).toEqual(["pending A\n\n```\ncaptured A\n```"]);
+    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => method === "message.send")).toHaveLength(1);
+  }, 60_000);
+
+  it("u2773b_terminal_selection_out_of_order_replies_settle_their_own_revision", async () => {
+    await setup();
+    const bound = app.forProject(first.dir);
+    const source = await bound.rpc("rail.startDoor", { id: original.id });
+    const transport = createServedApp(first.base);
+    const completions: (() => void)[] = [];
+
+    const delayed: AppSeam["rpc"] = async (method, params) => {
+      if (method !== "message.send") return transport.rpc(method, params);
+      const index = completions.length;
+      await new Promise<void>((resolve) => { completions.push(resolve); });
+
+      if (index === 0) throw new RpcError(-32003, "older refusal");
+
+      return transport.rpc(method, params);
+    };
+
+    vi.spyOn(bound, "rpc").mockImplementation(delayed);
+    const emulators = fakeEmulators();
+    mount(emulators);
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(emulators.made.has(source.terminal_id!)).toBe(true));
+    emulators.made.get(source.terminal_id!)!.select(" original excerpt 🧭 ");
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" });
+    fireEvent.input(input, { target: { value: " A é " } });
+    emulators.made.get(source.terminal_id!)!.select(" original excerpt 🧭 ", { command: "later live command", cwd: "/other", exit: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Send to agent" }));
+    const holder = drafts(first.dir);
+    const a = holder.list().find((draft) => draft.status === "pending")!;
+    fireEvent.input(input, { target: { value: " B 🧭 " } });
+    fireEvent.click(screen.getByRole("button", { name: "Send to agent" }));
+    const b = holder.list().find((draft) => draft.status === "pending" && draft.revision !== a.revision)!;
+    expect(b).toBeDefined();
+    fireEvent.input(input, { target: { value: " C é 🧭 " } });
+    const c = holder.list().find((draft) => draft.status === "draft")!;
+    completions[1]!();
+    await waitFor(() => expect(holder.list().some((draft) => draft.revision === b.revision)).toBe(false));
+    completions[0]!();
+    await waitFor(() => expect(holder.list().find((draft) => draft.revision === a.revision)?.status).toBe("failed"));
+    expect(holder.list()).toEqual([{ ...a, status: "failed" }, c]);
+    expect(input.value).toBe(" C é 🧭 ");
+    expect((await transport.rpc("message.list", { to: source.id, status: null })).map((message) => message.body)).toEqual(["B 🧭\n\n```\n original excerpt 🧭\n```"]);
+    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => method === "message.send")).toHaveLength(2);
+  }, 60_000);
+
+  it("u2773e_recovery_actions_keep_surface_draft_terminal_selection", async () => {
+    await setup();
+    const source = await app.forProject(first.dir).rpc("rail.startDoor", { id: original.id });
+    const emulators = fakeEmulators();
+    mount(emulators);
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(emulators.made.has(source.terminal_id!)).toBe(true));
+    const emulator = emulators.made.get(source.terminal_id!)!;
+    emulator.select("  original excerpt\n🧭  ");
+    fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: " older A " } });
+    const holder = drafts(first.dir);
+    const a = holder.list().find((draft) => draft.destination.surface === "terminal_selection")!;
+    const before = window.localStorage.getItem(`roundup:drafts:${first.dir}`);
+    const write = Storage.prototype.setItem;
+
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
+      write.call(this, key, value);
+    });
+
+    emulator.select("  separate B é\n🧭  ");
+    fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: "  newer B 🧭  " } });
+    const b = holder.list().find((draft) => draft.revision !== a.revision)!;
+    expect(holder.list()).toContainEqual(a);
+    expect(b.value).toMatchObject({ note: "  newer B 🧭  ", excerpt: "  separate B é\n🧭  ", source: source.id, terminal: source.terminal_id });
+    expect(b.destination.recipient).toBe(source.id);
+    expect(window.localStorage.getItem(`roundup:drafts:${first.dir}`)).toBe(before);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    const clipboard = vi.fn(async (_text: string) => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy note" }));
+    expect(clipboard).toHaveBeenLastCalledWith("  newer B 🧭  ");
+    fireEvent.click(screen.getByRole("button", { name: "Copy Excerpt" }));
+    expect(clipboard).toHaveBeenLastCalledWith("  separate B é\n🧭  ");
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(createProjectDrafts()(first.dir).list()).toEqual([a, b]);
+    fireEvent.click(screen.getByRole("button", { name: "Discard note" }));
+    expect(createProjectDrafts()(first.dir).list()).toEqual([a]);
+    expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" })).value).toBe(" older A ");
+    noDelivery();
+  }, 60_000);
+
   it.each([
     { ending: "exit", observer: "u2773a_terminal_selection_restores_exact_work_shared_exit" },
     { ending: "remove", observer: "u2773e_recovery_actions_keep_surface_draft_terminal_selection_shared_remove" },
@@ -705,7 +982,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const liveReplacement = await bound.rpc("rail.startDoor", { id: replacement.id });
     const holder = drafts(first.dir);
     const destination = { surface: "terminal_selection", object: terminal, recipient: source.id };
-    const a = holder.edit(destination, { note: "older exact\n", excerpt: exact, source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    const a = holder.edit(destination, { note: "older exact\n", excerpt: exact, source: source.id, attempt: source.attempt, terminal: source.terminal_id!, command: null, cwd: null, exit: null, x: 120, y: 80 }, null, "ordinary").draft;
     holder.submit(a.revision);
     const status = ending === "exit" ? "failed" : "unknown";
 
@@ -718,7 +995,7 @@ describe("u2773 Project draft integration on real Projects", () => {
       write.call(this, key, value);
     });
 
-    const b = holder.edit(destination, { note: exact, excerpt: " captured 🧭\n", source: source.id, attempt: source.attempt }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+    const b = holder.edit(destination, { note: exact, excerpt: " captured 🧭\n", source: source.id, attempt: source.attempt, terminal: source.terminal_id!, command: null, cwd: null, exit: null, x: 120, y: 80 }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
     mount();
     await screen.findByRole("region", { name: "Rail" });
     await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
@@ -755,10 +1032,9 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(screen.getByRole("img", { name: status === "failed" ? "Failed" : "Acceptance unknown" })).toBeTruthy();
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    const fields = screen.getAllByRole("button", { name: "Copy stored value" });
-    fireEvent.click(fields[1]!);
+    fireEvent.click(screen.getByRole("button", { name: "Copy Excerpt" }));
     expect(clipboard).toHaveBeenCalledWith(exact);
-    fireEvent.click(fields[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Copy note" }));
     expect(clipboard).toHaveBeenLastCalledWith("older exact\n");
     fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
     expect(screen.queryByRole("alert")).toBeNull();
@@ -772,16 +1048,25 @@ describe("u2773 Project draft integration on real Projects", () => {
   }, 60_000);
 
 
-  it("u2773f_dead_vendor_is_not_reconstructed_shared_recovery", async () => {
+  it("u2773f_dead_vendor_is_not_reconstructed", async () => {
     await setup();
     const bound = app.forProject(first.dir);
     const source = await bound.rpc("rail.startDoor", { id: original.id });
     const terminal = source.terminal_id!;
-    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: terminal, recipient: source.id }, { note: exact, excerpt: " captured source\n", source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    const initial = fakeEmulators();
+    const mounted = mount(initial);
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(document.querySelector(`.rail-row[data-id="${source.id}"]`)).toBeTruthy());
+    fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
+    await waitFor(() => expect(initial.made.has(terminal)).toBe(true));
+    initial.made.get(terminal)!.select(" captured source\n");
+    fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: " retained 🧭  " } });
+    const saved = drafts(first.dir).list().find((draft) => draft.destination.surface === "terminal_selection")!;
+    expect(saved.value).toMatchObject({ note: " retained 🧭  ", excerpt: " captured source\n", source: source.id, terminal, attempt: source.attempt });
+    mounted.unmount();
     await bound.rpc("terminal.kill", { id: terminal });
     window.localStorage.setItem(`roundup:rail:${first.dir}`, JSON.stringify({ selected: source.id, collapsed: [] }));
     drafts = createProjectDrafts();
-    recoverSelections();
     const emulators = fakeEmulators();
     const outside = document.createElement("input");
     document.body.append(outside);
@@ -794,7 +1079,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(await screen.findByText("Original object unavailable")).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(emulators.made.has(terminal)).toBe(false);
-    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect(screen.getByText(" retained 🧭  ", { normalizer: (text) => text }).textContent).toBe(" retained 🧭  ");
     expect((await bound.rpc("terminal.list", null)).find((each) => each.id === terminal)?.running).not.toBe(true);
     const methods = calls.flatMap((spy) => spy.mock.calls.map(([method]) => method));
     expect(methods.filter((method) => method === "terminal.write" || method === "terminal.spawn" || method === "rail.startDoor")).toEqual([]);
@@ -808,7 +1093,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await first.restart();
     const bound = app.forProject(first.dir);
     const source = await bound.rpc("rail.startDoor", { id: original.id });
-    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: source.terminal_id!, recipient: source.id }, { note: exact, source: source.id, attempt: source.attempt }, null, "ordinary").draft;
+    const saved = drafts(first.dir).edit({ surface: "terminal_selection", object: source.terminal_id!, recipient: source.id }, { note: exact, excerpt: "", source: source.id, attempt: source.attempt, terminal: source.terminal_id!, command: null, cwd: null, exit: null, x: 120, y: 80 }, null, "ordinary").draft;
     await first.restart();
     await bound.rpc("rail.rename", { id: replacement.id, name: source.name });
     const liveReplacement = await bound.rpc("rail.startDoor", { id: replacement.id });
