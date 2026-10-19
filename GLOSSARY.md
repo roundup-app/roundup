@@ -543,6 +543,9 @@ The append-only log of Touches.
 **Daemon**:
 `rupd`, the local process everything else is a client of.
 
+**Link** (`link.read`):
+A durable `roundup://<kind>/<id>?project=<key>` URL naming one Pad, Todo, Agent, Workstream or Terminal of one Project; `link.read` returns the object's content at read time and never a copy (LK1–LK3).
+
 **Proof**:
 The random secret the App gives its attached Daemon on stdin and the webview reads through `daemon_proof`; the user's `decision.answer` needs it; an Agent's is checked by Reach instead (H4, H18, H21).
 
