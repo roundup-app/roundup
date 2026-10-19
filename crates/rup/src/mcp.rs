@@ -209,8 +209,8 @@ fn agent_wake() -> Offered {
     )
 }
 
-/// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
-/// `order`.
+/// O4, U2773c: the shim fixes the target to the caller's own id while preserving
+/// the Order and optional captured base.
 fn agent_set_order() -> Offered {
     with_own_id::<agent::SetOrderParams>(
         "agent.setOrder",
