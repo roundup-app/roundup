@@ -7027,3 +7027,72 @@ async fn a2693a_an_unauthorized_mode_change_stops_nothing() {
     );
     run.finish().await;
 }
+
+#[tokio::test]
+async fn u2773c_orders_external_change_keeps_original() {
+    let (run, caller) = order_child().await;
+    idle(&run).await;
+    std::fs::write(run.dir.path().join("order-submit"), "accept").unwrap();
+    run.user
+        .request("takeover.begin", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    run.user
+        .request(
+            "agent.setOrder",
+            json!({
+                "id":run.child,"order":{"kind":"work","ask":"original A","limits":[]}
+            }),
+        )
+        .await
+        .unwrap();
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let captured = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == run.child)
+        .unwrap()["work"]
+        .clone();
+    // This authorized external write is after the editor's final read.
+    // Takeover suppresses its asynchronous user Steer, isolating the refused edit.
+    let external = json!({"kind":"work","ask":"another Actor's exact Order","limits":["keep B"]});
+    run.user
+        .request("agent.setOrder", json!({"id":run.child,"order":external}))
+        .await
+        .unwrap();
+    run.user
+        .request("takeover.end", json!({"agent":run.child}))
+        .await
+        .unwrap();
+    let before = recorded_bytes(&run).await;
+    let result = caller
+        .request(
+            "agent.setOrder",
+            json!({
+                "id":run.child,
+                "order":{"kind":"work","ask":"stale edit","limits":[]},
+                "captured":{"order":captured}
+            }),
+        )
+        .await;
+    let tree = run.user.request("rail.tree", ()).await.unwrap();
+    let stored = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == run.child)
+        .unwrap()["work"]
+        .clone();
+    let bytes = recorded_bytes(&run).await;
+    run.finish().await;
+    assert_eq!(result.unwrap_err().code, rpc::code::CONFLICT);
+    assert_eq!(
+        stored, external,
+        "U2773c: refuse overwriting the external Order"
+    );
+    assert_eq!(
+        bytes, before,
+        "U2773c: refused edit types zero Terminal bytes"
+    );
+}
