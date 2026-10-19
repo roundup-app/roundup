@@ -29,8 +29,19 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
 
   createEffect(on(control.focusNote, (count) => {
     // A closing menu hands the keyboard back to where it came from a frame later; the note takes it after that.
-    if (count > 0) requestAnimationFrame(() => requestAnimationFrame(() => input?.focus()));
+    if (count > 0) requestAnimationFrame(() => requestAnimationFrame(() => {
+      input?.focus();
+      const caret = control.caret();
+
+      if (caret) input?.setSelectionRange(caret.start, caret.end, caret.direction);
+    }));
   }, { defer: true }));
+
+  createEffect(() => {
+    const caret = control.caret();
+
+    if (caret) input?.setSelectionRange(caret.start, caret.end, caret.direction);
+  });
 
   const anchorRect = () => {
     const at = control.anchor();
@@ -49,7 +60,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
 
     if (only === undefined) return;
 
-    if (others.length === 0) void control.send(only).then(() => { if (!control.open()) props.focusTerminal(); });
+    if (others.length === 0) void control.send(only).then((consumed) => { if (consumed) props.focusTerminal(); });
     else setChoosing(true);
   };
 
@@ -78,6 +89,10 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
               aria-label={copy.addANoteOptional}
               value={control.note()}
               onInput={(typed) => control.setNote(typed.currentTarget.value)}
+              onSelect={(event) => {
+                const editor = event.currentTarget;
+                control.selection(editor.selectionStart ?? 0, editor.selectionEnd ?? 0, editor.selectionDirection ?? "none");
+              }}
               onKeyDown={(press) => {
                 if (press.key !== "Enter" || press.shiftKey || press.isComposing) return;
 
@@ -95,7 +110,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
 
                 setChoosing(false);
 
-                if (to) void control.send(to).then(() => { if (!control.open()) props.focusTerminal(); });
+                if (to) void control.send(to).then((consumed) => { if (consumed) props.focusTerminal(); });
               }}>
                 <Menu.Trigger asChild={(trigger) => button(trigger())} />
                 <Show when={choosing()}><Portal>
@@ -109,6 +124,13 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
                 </Portal></Show>
               </Menu.Root>
             </Show>
+            <Show when={control.problem()}>{(message) => <>
+              <ErrorLine message={message()} />
+              <button data-button="quiet" type="button" onClick={() => void control.copy("note")}>{copy.copyField(copy.draftField("text").toLowerCase())}</button>
+              <button data-button="quiet" type="button" onClick={() => void control.copy("excerpt")}>{copy.copyField(copy.draftField("source").toLowerCase())}</button>
+              <button data-button="quiet" type="button" onClick={() => control.retry()}>{copy.storageRetry}</button>
+            </>}</Show>
+            <button data-button="quiet" type="button" onClick={() => control.discard()}>{copy.discardRevision}</button>
             <Show when={control.error()}>{(message) => <ErrorLine message={message()} />}</Show>
           </Popover.Content>
         </Popover.Positioner>
