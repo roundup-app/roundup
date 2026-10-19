@@ -4,6 +4,11 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  switcherRetentionFailure: (operation: "restore" | "retain", project: string) => `${operation === "restore" ? "Could not restore unfinished input" : "Could not retain unfinished input across reload"} in ${project}: switcher query. Keep this Project open to recover your work.`,
+  switcherCopyFailure: "Could not copy query. Select the text and copy again.",
+  copyQuery: "Copy query",
+  retryStorage: "Retry storage",
+  discardQuery: "Discard query",
   context: "Context",
   contextUse: (used: number, limit: number) => `Context ${new Intl.NumberFormat("en", { notation: "compact" }).format(used)} / ${new Intl.NumberFormat("en", { notation: "compact" }).format(limit)}`,
   cardIntent: "Intent",
