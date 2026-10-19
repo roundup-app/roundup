@@ -328,7 +328,9 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
   press("Escape");
-  expect(screen.getByRole("status", { name: `Project name · ${path("api")}` }).textContent).toContain(path("api"));
+  const notice = screen.getByRole("status", { name: `Project name · ${path("api")}` });
+  fireEvent.click(within(notice).getByRole("button", { name: "Close", exact: true }));
+  expect(screen.queryByRole("status", { name: `Project name · ${path("api")}` })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];
@@ -338,6 +340,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   write.mockRestore();
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(within(dialog).queryByRole("button", { name: "Retry storage only" })).toBeNull();
   expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts[0].value.name).toBe("  recover e\u0301 🪁  ");
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
   expect(JSON.parse(window.localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts).toEqual([]);

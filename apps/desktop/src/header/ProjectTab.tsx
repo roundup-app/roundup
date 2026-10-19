@@ -25,7 +25,7 @@ const RenameField = (props: { name: string; recovered: boolean; selection: { sta
     if (finished) return;
     finished = true;
 
-    if (field) props.onEdit(field);
+    if (field && refocus) props.onEdit(field);
     props.onDone(saved, refocus);
   };
 
@@ -42,7 +42,7 @@ const RenameField = (props: { name: string; recovered: boolean; selection: { sta
 
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
-    onSelect={event => { if (!finished) props.onEdit(event.currentTarget); }}
+    onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
     onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.recovered && !changed) ? null : field?.value ?? "", false)} />;
 };
 
@@ -72,6 +72,7 @@ export const ProjectTab = (props: {
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
+  const [dismissedFailure, dismissFailure] = createSignal<ReturnType<NonNullable<typeof drafts>["problem"]>>();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
   const shown = () => records().find(draft => draft.revision === inspected()) ?? current() ?? records().at(-1);
 
@@ -131,7 +132,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <Tabs.Context>{(tabs) => <>
-    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() ? "true" : undefined}
       style={editing() === null ? undefined : { width: `${editing()}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
@@ -159,7 +160,7 @@ export const ProjectTab = (props: {
         <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show></>}>
           {(tooltip) =>
               <Tabs.Trigger {...tooltip({})} value={props.tab.path} class="tab-name-button"
-                data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
+                aria-description={records().length || problem() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
                 onClick={(click) => {
                   if (click.target instanceof Element && click.target.closest('.tab-mark')) {
                     click.preventDefault();
@@ -167,35 +168,40 @@ export const ProjectTab = (props: {
                   }
                 }}>
                 <span class="tab-name" onDblClick={edit}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <Show when={records().length || problem()}><span class="tab-unfinished" data-state="unfinished" aria-hidden="true" /></Show>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
           }
         </Tip>
+        <div class="tab-actions">
+        <Show when={records().length || problem()}>
+          <Tip text={copy.recoverDrafts}>{trigger => <IconButton {...trigger()} tabIndex={props.selected ? 0 : -1} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.path)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
+        </Show>
         <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
+        </div>
       </Show>
     </FlatTab>
-    <Show when={records().length || problem()}>
-      <Tip text={problem() ? copy.draftRetention(props.tab.path, copy.projectName, problem()!.cause) : copy.unfinishedWork}>{trigger => <IconButton {...trigger()} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.path)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
-    </Show>
-    <Show when={props.selected && problem()}>{failure => <Portal><aside class="header-retention" role="status" aria-label={copy.draftIdentity(copy.projectName, props.tab.path)}>
-      <p>{copy.draftRetention(props.tab.path, copy.projectName, failure().cause)}</p>
-      <button type="button" data-button="quiet" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.projectName, props.tab.path)} onClick={() => recover(true)}>{copy.recoverDrafts}</button>
-    </aside></Portal>}</Show>
+    <Show when={props.selected && problem() && problem() !== dismissedFailure()}><Portal><aside class="header-retention" role="status" aria-label={copy.draftIdentity(copy.projectName, props.tab.path)}>
+      <p>{copy.draftRetention(props.tab.name, copy.projectName, problem()!.cause)}</p>
+      <div class="header-recovery-actions">
+        <button type="button" data-button="quiet" aria-label={copy.draftIdentity(copy.recoverDrafts, copy.projectName, props.tab.path)} onClick={() => recover(true)}>{copy.recoverDrafts}</button>
+        <IconButton aria-label={copy.close} onClick={() => dismissFailure(problem())}><Icon name="x" /></IconButton>
+      </div>
+    </aside></Portal></Show>
     <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
-        <Dialog.Title>{copy.unfinishedWork}</Dialog.Title>
+        <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
         <Dialog.Description>{props.tab.path}</Dialog.Description>
-        <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(props.tab.path, copy.projectName, failure().cause)}</p>}</Show>
+        <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(props.tab.name, copy.projectName, failure().cause)}</p>}</Show>
         <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
-        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{draft => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], draft.revision)}</button>}</For>
+        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], String(index() + 1))}</button>}</For>
         <Show when={shown()}>{draft => <>
-          <p>{draft().destination.object}</p>
           <Show when={draft().value.base !== props.tab.base}><p role="status">{copy.railDraftConflict}</p></Show>
           <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
           <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => void copyName()}>{copy.copyProjectName}</button>
           <button type="button" data-button="quiet" onClick={() => { drafts?.discard(draft().revision); setEditing(null); }}>{copy.discardRevision}</button></div>
         </>}</Show>
-        <div class="header-recovery-actions"><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button>
+        <div class="header-recovery-actions"><Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts?.retry()}>{copy.storageRetry}</button></Show>
         <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
       </Dialog.Content></Dialog.Positioner></Portal>
     </Dialog.Root>

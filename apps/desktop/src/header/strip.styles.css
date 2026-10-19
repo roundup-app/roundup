@@ -49,7 +49,9 @@
   --button-inline: var(--space-1);
   display: grid;
   /* U443: the dot follows the name's last character; U382’s floor lives on the tab’s min-width, not on a padded name column. */
-  grid-template-columns: minmax(0, max-content) var(--space-2);
+  grid-template-columns: minmax(0, max-content);
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
   justify-content: start;
   flex: 1 1 auto;
   gap: var(--space-1);
@@ -228,8 +230,9 @@
 .header-retention {
   position: fixed;
   bottom: var(--space-4);
-  right: var(--space-4);
-  max-width: calc(var(--space-5) * 20);
+  left: var(--space-4);
+  width: calc(var(--rail-width) - var(--space-4) * 2);
+  box-sizing: border-box;
   padding: var(--space-4);
   color: var(--text);
   background: var(--sunken);
@@ -242,4 +245,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.tab-actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  margin-left: var(--space-3);
+}
+
+.tab-unfinished {
+  color: var(--grey);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-control);
+  background: currentColor;
+}
+
+.project-tab[data-unfinished="true"] {
+  min-width: calc(8ch + 2 * var(--space-5) + 6 * var(--space-1) + var(--space-2) + 2 * var(--space-3) + 2 * var(--rule));
 }
