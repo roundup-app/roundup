@@ -76,11 +76,11 @@ export const ProjectTab = (props: {
   const [copyFailure, failCopy] = createSignal<string | null>(null);
   const shown = () => records().find(draft => draft.revision === inspected()) ?? current() ?? records().at(-1);
 
-  const problem = () => {
+  const problem = createMemo(() => {
     const failure = drafts?.problem();
 
     return (failure?.destination && failure.destination.surface !== "header") || (!failure?.destination && records().length === 0) ? null : failure;
-  };
+  });
 
   let panel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: recovering, modal: true }, []);
