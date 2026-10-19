@@ -30,6 +30,30 @@ impl Role {
 
 /// The tools `rup mcp` offers, with when to use each.
 const TOOLS: &[(&str, &str)] = &[
+    (
+        "deliverable_publish",
+        "deliberately publish a file, expected Pad incarnation and Revision or current external URL; after an unknown reply replay the identical request and key, never scratch work",
+    ),
+    (
+        "deliverable_list",
+        "list published results by Home or maker without reading their retained bytes",
+    ),
+    (
+        "deliverable_get",
+        "read one publication by its Project and id, never by title",
+    ),
+    (
+        "deliverable_resolve",
+        "retrieve its exact retained revision or current external URL, or its unavailable cause; never substitute another target",
+    ),
+    (
+        "deliverable_move",
+        "place a publication you made unless the user has placed it; the user move wins",
+    ),
+    (
+        "deliverable_remove",
+        "request publication removal; only the user is authorized, and the id and key cannot be reused",
+    ),
     ("todo_create", "record a piece of work that is not done yet"),
     ("todo_get", "read one Todo before changing it"),
     ("todo_list", "see all the work already recorded"),
