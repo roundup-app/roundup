@@ -276,3 +276,24 @@
   pointer-events: auto;
   background: var(--ground);
 }
+
+.bubble-recovery {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - var(--space-5) * 2);
+  max-width: calc(var(--space-5) * 20);
+  max-height: calc(100% - var(--space-5) * 2);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow: auto;
+  height: fit-content;
+}
+
+.bubble-recovery.draft-recovery [data-part="title"] {
+  font-size: var(--text-title);
+  font-weight: 600;
+}

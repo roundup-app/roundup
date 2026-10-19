@@ -197,3 +197,20 @@ export const startWorktreeProject = async (files: Record<string, string>, env: R
     throw error;
   }
 };
+
+/** Two browser-ready Projects with separate data; failed startup or observation reaps both. */
+export const withProjectPair = async (observe: (first: StartedDaemon, second: StartedDaemon) => Promise<void>): Promise<void> => {
+  const first = await startRealDaemon({}, true);
+
+  try {
+    const second = await startRealDaemon({}, true);
+
+    try {
+      await observe(first, second);
+    } finally {
+      await second.stop();
+    }
+  } finally {
+    await first.stop();
+  }
+};
