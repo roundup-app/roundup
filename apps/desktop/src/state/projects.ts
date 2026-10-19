@@ -35,8 +35,10 @@ export type ProjectsState = {
   reopening: Accessor<boolean>;
   /** Ends the Project's Daemon and drops its tab; the tab to its left opens (U184). */
   close(path: string): Promise<void>;
+  /** Last authoritative name for an open original, excluding pending optimistic names. */
+  base(path: string): string | undefined;
   /** Shows the latest submitted name; each reply keeps its original path, exact text and revision (U183, U2773b). */
-  rename(path: string, name: string): Promise<{
+  rename(path: string, name: string, base?: string): Promise<{
     path: string;
     name: string;
     revision: number;
@@ -177,7 +179,12 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
         else setActive(null);
       }
     },
-    rename: async (path, name) => {
+    base: (path) => {
+      const project = tabs().find(tab => tab.project.path === path)?.project;
+
+      return project ? (renames.get(path)?.committed.name ?? project.name) : undefined;
+    },
+    rename: async (path, name, base) => {
       const submission = { path, name, revision: ++renameRevision };
       const before = tabs().find((tab) => tab.project.path === path)?.project;
 
@@ -196,7 +203,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
       showName();
 
       try {
-        const project = await app.renameProject(path, name);
+        const project = await app.renameProject(path, name, base);
 
         holder.pending.delete(submission.revision);
 
@@ -217,7 +224,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
         showName();
 
         // INTERNAL also covers a lost or malformed answer: only a domain refusal establishes rejection.
-        if (error instanceof RpcError && (error.code === -32602 || error.code === -32003)) {
+        if (error instanceof RpcError && error.code === -32602) {
           return { ...submission, status: "failed", error: error.message };
         }
 
@@ -233,7 +240,7 @@ export const createProjectsState = (app: App, saved = openTabStorage()): Project
           setFailure(`${error.message}; ${readError.message}`);
         }
 
-        return { ...submission, status: "unknown", error: error.message };
+        return { ...submission, status: error instanceof RpcError && error.code === -32003 ? "failed" : "unknown", error: error.message };
       } finally {
         holder.remaining--;
 

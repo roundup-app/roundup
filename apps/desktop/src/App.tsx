@@ -219,12 +219,12 @@ export const App = (props: {
   const [renamingProjects, setRenamingProjects] = createSignal<ReadonlyMap<string, { name: string; revision: number }>>(new Map());
   let renameRevision = 0;
 
-  const renameProject = async (path: string, name: string) => {
+  const renameProject = async (path: string, name: string, base?: string) => {
     const before = renamingProjects().get(path)?.name ?? projects.tabs().find((tab) => tab.project.path === path)?.project.name;
 
     const revision = ++renameRevision;
     setRenamingProjects((all) => new Map(all).set(path, { name: before ?? name, revision }));
-    const outcome = await projects.rename(path, name);
+    const outcome = await projects.rename(path, name, base);
 
     if (renamingProjects().get(path)?.revision !== revision) return outcome;
     setRenamingProjects((all) => {
@@ -254,6 +254,7 @@ export const App = (props: {
       return {
         path: tab.project.path,
         name: tab.project.name,
+        base: projects.base(tab.project.path),
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
         ...attentionCounts(nodes),

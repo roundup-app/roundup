@@ -261,10 +261,10 @@ it.each(editorKinds.flatMap(kind => ["drag", "double-click"].map(gesture => ({ k
     const from = await read<{ x: number; y: number }>(`(() => {
       const editor = document.querySelector(${JSON.stringify(selector)});
       const box = (editor.querySelector('p') ?? editor).getBoundingClientRect();
-      return { x: Math.round(${kind === "rename" ? "box.right - 8" : "box.left + 4"}), y: Math.round(box.top + (editor.matches('input, textarea') ? box.height / 2 : 8)) };
+      return { x: Math.round(box.left + 4), y: Math.round(box.top + (editor.matches('input, textarea') ? box.height / 2 : 8)) };
     })()`);
 
-    await drag(from, { x: from.x + (kind === "rename" ? -35 : 25), y: from.y });
+    await drag(from, { x: from.x + 25, y: from.y });
   } else if (kind === "pad") {
     const at = await read<{ x: number; y: number }>("(() => { const box = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: Math.round(box.left + 15), y: Math.round(box.top + 8) }; })()");
 

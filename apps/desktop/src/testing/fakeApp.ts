@@ -176,10 +176,14 @@ export const createFakeApp = (): FakeApp => {
       open = open.filter((project) => project.path !== path);
       exited.delete(path);
     },
-    renameProject: async (path, name) => {
+    renameProject: async (path, name, base) => {
       if (!open.some((project) => project.path === path)) throw new RpcError(CONFLICT, `${path} is not open`);
 
-      const renamed = { name: name.trim() || folderOf(path), path };
+      if (base !== undefined && open.find(project => project.path === path)?.name !== base) throw new RpcError(CONFLICT, "Project name changed");
+      const trimmed = name.trim();
+
+      if (name.includes("\n") || name.includes("\r") || Array.from(trimmed).length > 40) throw new RpcError(-32602, "invalid Project name");
+      const renamed = { name: trimmed || folderOf(path), path };
 
       open = open.map((project) => (project.path === path ? renamed : project));
 

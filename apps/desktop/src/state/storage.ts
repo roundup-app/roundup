@@ -105,14 +105,31 @@ export const draftStorage = (project: string) => {
   let drafts: Draft[] = [];
   let problem: DraftProblem | null = null;
   let baseline = "";
+  const schemas = new Map<string, v.GenericSchema>();
+  let incompatible = false;
   const removed = new Set<string>();
   let durable = new Set<string>();
+
+  const validateSaved = (saved: Draft[]): boolean => {
+    const invalid = saved.find((draft) => {
+      const schema = schemas.get(draft.destination.surface);
+
+      return schema !== undefined && !v.safeParse(schema, draft.value).success;
+    });
+
+    if (!invalid) return true;
+
+    incompatible = true;
+    problem = { project, destination: invalid.destination, revision: invalid.revision, operation: "restore", cause: "invalid" };
+
+    return false;
+  };
 
   const restore = () => {
     const result = storage.restore();
 
     if (result.status === "failed") {
-      problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
+      if (!incompatible) problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
       setVersion((previous) => previous + 1);
 
       return false;
@@ -120,6 +137,13 @@ export const draftStorage = (project: string) => {
 
     const saved = result.status === "restored" ? result.value.drafts : [];
 
+    if (!validateSaved(saved)) {
+      setVersion((previous) => previous + 1);
+
+      return false;
+    }
+
+    incompatible = false;
     baseline = JSON.stringify(saved);
     durable = new Set(saved.map((draft) => draft.revision));
     const known = new Set(drafts.map((draft) => draft.revision));
@@ -134,6 +158,8 @@ export const draftStorage = (project: string) => {
   restore();
 
   const persist = (affected: Draft | null): DraftProblem | null => {
+    if (incompatible) return structuredClone(problem);
+
     // Never overwrite a record that failed parsing, or a different writer's work.
     const result = storage.restore();
 
@@ -145,6 +171,8 @@ export const draftStorage = (project: string) => {
 
     const saved = result.status === "restored" ? result.value.drafts : [];
 
+    if (!validateSaved(saved)) return structuredClone(problem);
+
     if (JSON.stringify(saved) !== baseline) {
       problem = { project, destination: affected?.destination ?? null, revision: affected?.revision ?? null, operation: "retain", cause: "changed" };
 
@@ -152,6 +180,9 @@ export const draftStorage = (project: string) => {
     }
 
     const ordinary = drafts.filter((draft) => draft.policy === "ordinary");
+
+    if (!validateSaved(ordinary)) return structuredClone(problem);
+
     const value = { version: 1 as const, drafts: ordinary };
 
     if (new TextEncoder().encode(JSON.stringify(value)).byteLength > 10 * 1024 * 1024) {
@@ -183,6 +214,26 @@ export const draftStorage = (project: string) => {
   };
 
   return {
+    /** Register the owning surface's form parser before capturing edits. Incompatible
+     * stored forms block writes until an explicit retry parses the repaired record.
+     * Registration reads storage only; it never restores autosave or submits work.
+     */
+    validate: (surface: string, schema: v.GenericSchema): DraftProblem | null => {
+      schemas.set(surface, schema);
+      const result = storage.restore();
+
+      if (!incompatible && result.status === "restored") validateSaved(result.value.drafts);
+
+      if (!incompatible) validateSaved(drafts.filter((draft) => draft.policy === "ordinary"));
+
+      if (result.status === "failed" && !incompatible) {
+        problem = { project, destination: null, revision: null, operation: "restore", cause: result.cause };
+      }
+
+      setVersion((previous) => previous + 1);
+
+      return structuredClone(problem);
+    },
     list: (): Draft[] => {
       version();
 
