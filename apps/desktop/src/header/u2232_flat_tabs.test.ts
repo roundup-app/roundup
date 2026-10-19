@@ -29,7 +29,7 @@ const runs = async (scheme: "light" | "dark", contrast?: "more", agent: "runner"
   await page.until(`() => document.querySelector('.terminal-tab-pair[data-selected=true]')`);
 };
 
-// U2770's real-input observer owns pointer rings and tab-name keyboard rings.
+// U2770's real-input observer owns pointer rings and tab-name/Open-folder keyboard rings.
 it("u2233_close_and_add_keep_the_keyboard_ring", async () => {
   for (const surface of ["strip", "runs"] as const) {
     if (surface === "strip") await strip("light");
@@ -40,7 +40,7 @@ it("u2233_close_and_add_keep_the_keyboard_ring", async () => {
     await page.press("Tab", "Tab");
 
     const controls = surface === "strip"
-      ? [".project-tab .tab-close", ".strip-add"]
+      ? [".project-tab .tab-close"]
       : [".terminal-tab-pair > button:last-of-type", ".terminal-new"];
 
     for (const control of controls) {
