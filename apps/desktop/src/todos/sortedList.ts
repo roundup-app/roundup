@@ -71,8 +71,8 @@ export const createSortedList = (source: {
   });
 
   /** One `todo.reorder` putting `id` at index `to` of this list. */
-  const move = async (id: number, to: number) => {
-    const message = await source.call({ id, before: beforeOf(source.all(), source.ids(), id, to) });
+  const move = async (id: number, to: number, ids = source.ids()) => {
+    const message = await source.call({ id, before: beforeOf(source.all(), ids, id, to) });
 
     fails.get(id)?.(message);
 
@@ -82,27 +82,27 @@ export const createSortedList = (source: {
     }
   };
 
-  const step = (id: number, by: -1 | 1) => {
-    const to = source.ids().indexOf(id) + by;
+  const step = (id: number, by: -1 | 1, ids = source.ids()) => {
+    const to = ids.indexOf(id) + by;
 
-    if (to < 0 || to >= source.ids().length) return;
+    if (to < 0 || to >= ids.length) return;
 
     measure();
     refocus = id;
-    void move(id, to);
+    void move(id, to, ids);
   };
 
   return {
     /** The Sortable's new order of the ids: the row it moved goes to its index. */
     order: (next: readonly string[]) => {
-      const before = source.ids().map(String);
+      const before = source.ids().map(String).filter(id => next.includes(id));
       const at = next.findIndex((id, index) => id !== before[index]);
       const moved = [next[at], before[at]].find((id) => id !== undefined && before.filter((other) => other !== id).join() === next.filter((other) => other !== id).join());
 
       if (moved === undefined) return;
       measure();
       refocus = Number(moved);
-      void move(refocus, next.indexOf(moved));
+      void move(refocus, next.indexOf(moved), before.map(Number));
     },
     /** What `ui/Sortable.Root` needs to drop a row on a Rail Home, else undefined. */
     external: source.home ? {
@@ -122,7 +122,7 @@ export const createSortedList = (source: {
         });
       },
     } : undefined,
-    row: (id: number, parts: Parts): SortedRow => ({
+    row: (id: number, parts: Parts, ids: Accessor<readonly number[]> = source.ids): SortedRow => ({
       frame: (el) => {
         if (el) {
           frames.set(id, el);
@@ -142,12 +142,12 @@ export const createSortedList = (source: {
         parts.handleRef(el ?? undefined);
       },
       fail: (show) => fails.set(id, show),
-      step: (by) => step(id, by),
+      step: (by) => step(id, by, ids()),
       key: (event) => {
         if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
 
         event.preventDefault();
-        step(id, event.key === "ArrowUp" ? -1 : 1);
+        step(id, event.key === "ArrowUp" ? -1 : 1, ids());
       },
     }),
   };

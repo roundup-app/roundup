@@ -162,7 +162,7 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await wait(`!!document.querySelector('#shelf-tab-pads')`);
   await browser("click", "#shelf-tab-pads");
   await wait(`document.querySelectorAll('[data-shelf-row] .pad-name').length === 4`);
-  await read(`document.querySelectorAll('[data-shelf-row] .pad-name')[3].click()`);
+  await read(`[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === "pad-3").click()`);
   await wait(`!!document.querySelector('.ProseMirror[contenteditable=true]')`);
   await browser("focus", ".ProseMirror");
   await key();
