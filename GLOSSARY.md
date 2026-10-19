@@ -38,6 +38,9 @@ Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback
 **Project**:
 A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
+**Project name base** (`base`, `ProjectsState.base`):
+The authoritative Project name an edit was captured against, distinct from an optimistic display name. When supplied to a rename, the existing name holder compares it and replaces the name under one lock; a changed base is a conflict. Omission preserves an authorized unconditional rename.
+
 **Project data**:
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 
@@ -346,6 +349,13 @@ The ask an Agent works on, optionally its Done condition, and its limits, rules 
 
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
+
+**Captured Order** (`CapturedOrder`, `SetOrderParams.captured`):
+The exact Order (including its absence) read with an editor's original Project and
+Rail node id. `agent.setOrder` compares it and replaces the Order in one storage
+transaction at execution, including after a Held action: a changed base is
+`CONFLICT`, a removed id is `NOT_FOUND`, and refusal produces no Touch, Event or
+Steer. Omission keeps unconditional writes. It grants no authority.
 
 **Order title**:
 The short name of a Work order, at most six words, which the Door writes beside the ask (`order.title`). Absent, the Drawer leads with the ask.
@@ -665,3 +675,15 @@ An Ask's text and its context: the five newest earlier Asks' parts and destinati
 
 **Placement call** (`PlacementCall`, `Agents::placement_call`):
 The Adapter's one-shot judgement that splits an Ask into checked parts and proposes their Placements. It is not an Agent and has no Terminal or Rail node.
+
+**Deliverable** (user label: Made):
+A deliberately published Project result with a never-reused identity, authenticated maker, retained maker name, Home, title and publication time. Its target is one retained file or Pad revision, or an exact current external URL. Removing its maker does not remove it; explicit user removal cannot be replayed away.
+
+**Publication target** (`PublicationTarget`):
+The selected file, expected Pad incarnation and Revision or current external URL in a deliberate publication request. Its key belongs to the authenticated maker and Project; equal replay returns the same Deliverable and conflicting replay refuses.
+
+**Published target** (`PublishedTarget`, `ExternalAvailability`):
+The retained target identity of a Deliverable: local bytes with length and SHA-256, a Pad source incarnation and Revision, or an exact external URL whose availability is not checked.
+
+**Resolution** (`Resolution`, `UnavailableCause`):
+The exact retained target or an explicit cause preventing its use. Missing or corrupt revisions and revoked access never authorize substitution by a current path, title or same-named Pad.

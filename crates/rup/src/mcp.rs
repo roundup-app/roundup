@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    message, pad, project, terminal, todo, workstream,
+    deliverable, message, pad, project, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -209,8 +209,8 @@ fn agent_wake() -> Offered {
     )
 }
 
-/// O4: `agent.setOrder` takes `{id, order}`; the shim fills `id`, so the Agent's tool takes only
-/// `order`.
+/// O4, U2773c: the shim fixes the target to the caller's own id while preserving
+/// the Order and optional captured base.
 fn agent_set_order() -> Offered {
     with_own_id::<agent::SetOrderParams>(
         "agent.setOrder",
@@ -381,6 +381,30 @@ pub(crate) fn commands(door: bool) -> Vec<Offered> {
 /// M5: one tool for each method of its first list; the methods left out are in its second, with their reasons (`scenarios/mcp.md`).
 fn offered_tools() -> Vec<Offered> {
     vec![
+        offered::<deliverable::PublishParams>(
+            "deliverable.publish",
+            "Deliberately publish a file, expected Pad incarnation and Revision or current external URL. Replay the same key and request after an unknown reply; conflicting replay refuses.",
+        ),
+        offered::<deliverable::ListParams>(
+            "deliverable.list",
+            "List published results without reading retained payloads.",
+        ),
+        offered::<deliverable::DeliverableId>(
+            "deliverable.get",
+            "Read publication metadata by its Project and identity.",
+        ),
+        offered::<deliverable::DeliverableId>(
+            "deliverable.resolve",
+            "Resolve the recorded revision or exact current external target, or its unavailability cause.",
+        ),
+        offered::<deliverable::MoveParams>(
+            "deliverable.move",
+            "Move a published result; an Agent cannot override user placement.",
+        ),
+        offered::<deliverable::DeliverableId>(
+            "deliverable.remove",
+            "Explicitly remove a publication. User only; the identity and key cannot be reused.",
+        ),
         offered::<todo::CreateParams>("todo.create", "Create a Todo."),
         offered::<todo::TodoId>("todo.get", "Read one Todo."),
         offered_without_params("todo.list", "List every Todo."),
@@ -720,6 +744,7 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
             format!("answered Decision {id}: {answer}")
         }
         "todo.delete" => format!("deleted Todo {id}"),
+        "deliverable.remove" => format!("removed publication {id}"),
         "pad.delete" => format!("deleted Pad {}", field("name")),
         "pad.export" => format!("exported Pad {} to {}", field("name"), field("path")),
         "pad.setStorage" => format!(

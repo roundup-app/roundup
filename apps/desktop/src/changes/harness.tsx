@@ -1,6 +1,7 @@
 import { render } from "@solidjs/testing-library";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { WorktreeState } from "@contracts/agent/WorktreeState";
+import type { ConnectedProject } from "../state/connectedProject";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, NOW } from "../testing/nodes";
@@ -19,14 +20,14 @@ const FILES: ChangedFiles = {
 };
 
 /** Mounts the bottom bar's Worktree control for selected Agent `a` (with a Worktree) and `plain` (without) over the fake App. */
-export const mountControl = async (changed: () => ChangedFiles | Promise<ChangedFiles> = () => FILES) => {
+export const mountControl = async (changed: () => ChangedFiles | Promise<ChangedFiles> = () => FILES, project = "/p", drafts?: ConnectedProject["drafts"]) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => [agent("a", "working", "building", { worktree: WORKTREE }), agent("plain", "working", "building")];
   app.handlers["agent.worktreeState"] = () => STATE;
   app.handlers["agent.changedFiles"] = changed;
 
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => NOW);
+  const connected = await connectProject(app, { name: "p", path: project }, () => false, () => NOW, () => null, undefined, drafts);
 
   connected.rail.select("a");
 
