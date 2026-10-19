@@ -4,6 +4,21 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  recoverDrafts: "Recover unfinished work",
+  unfinishedWork: "Unfinished work",
+  noUnfinishedWork: "No unfinished work in this project.",
+  currentDraft: "Current work",
+  earlierRevision: "Earlier revision",
+  draftStatus: { draft: "Unsubmitted", pending: "Pending", failed: "Failed", unknown: "Acceptance unknown" },
+  originalUnavailable: "Original object unavailable",
+  originalUnverified: "Original availability not verified",
+  storageRetry: "Retry storage only",
+  discardRevision: "Discard this revision",
+  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: reload retention failed (${cause}). Keep a copy, retry storage, or discard a selected revision. Stored data has been preserved.`,
+  allDraftSurfaces: "stored surfaces",
+  copyField: (field: string) => `Copy ${field}`,
+  copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
+
   context: "Context",
   contextUse: (used: number, limit: number) => `Context ${new Intl.NumberFormat("en", { notation: "compact" }).format(used)} / ${new Intl.NumberFormat("en", { notation: "compact" }).format(limit)}`,
   cardIntent: "Intent",

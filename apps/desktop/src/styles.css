@@ -466,3 +466,54 @@ code {
   -webkit-user-select: text;
   user-select: text;
 }
+
+.draft-recovery {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+.draft-identity, .draft-revisions button {
+  overflow-wrap: anywhere;
+}
+
+.draft-revisions {
+  margin: var(--space-4) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draft-revisions li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-block: var(--space-4);
+}
+
+.draft-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  user-select: text;
+}
+
+.draft-recovery h2 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-title);
+}
+
+.draft-recovery h3 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-body);
+}
+
+.draft-recovery p, .draft-value {
+  margin: var(--space-3) 0;
+}
+
+.draft-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

@@ -1,9 +1,12 @@
+/* oxlint-disable anti-slop/no-runtime-typeof -- draftStorage parses the scalar/string-array union; recovery must copy string members verbatim. */
+import { useConnectedProject } from "../state/connectedProject";
 import { activationSource } from "../keys/registry";
 import { registerKeys } from "../keys/registry";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
-import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
+import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
 import { setDrawerSliding } from "./sliding";
@@ -124,4 +127,64 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       </Show>
     </aside>
   );
+};
+
+
+/** Recovery never opens an editor or calls the Daemon. Availability is authoritative only
+ * for Rail-owned destinations; other owners retain their own reconciliation contract. */
+export const DraftRecoveryEntry = () => {
+  const connected = useConnectedProject();
+
+  return <button data-button="quiet" type="button" onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>{copy.recoverDrafts}</button>;
+};
+
+const DraftRecovery = () => {
+  const { drafts, project, rail } = useConnectedProject();
+  const [selected, select] = createSignal<string | null>(null);
+  const [failure, failed] = createSignal<string | null>(null);
+  const current = () => drafts.list().filter((draft) => draft.status === "draft").reverse();
+  const revisions = createMemo(() => [...current(), ...drafts.list().filter((draft) => draft.status !== "draft").reverse()]);
+  const byRevision = createMemo(() => new Map(revisions().map((draft) => [draft.revision, draft])));
+  const shown = () => byRevision().get(selected() ?? "") ?? revisions()[0];
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      failed(null);
+    } catch (error) {
+      failed(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)));
+    }
+  };
+
+  const availability = (surface: string, object: string) => {
+    if (surface !== "orders" && surface !== "rail") return copy.originalUnverified;
+
+    return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
+  };
+
+  return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
+    <h2>{copy.unfinishedWork}</h2>
+    <p class="draft-identity">{project.path}</p>
+    <Show when={drafts.problem()}>{(problem) => <p role="alert">{copy.draftRetention(project.path, problem().destination?.surface ?? ([...new Set(drafts.list().map((draft) => draft.destination.surface))].join(", ") || copy.allDraftSurfaces), problem().cause)}</p>}</Show>
+    <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
+    <Show when={failure()}>{(text) => <p role="alert">{text()}</p>}</Show>
+    <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
+      <ul class="draft-revisions">
+        <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li>
+          <span class="draft-status" data-state={draft().status}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : draft().status === "unknown" ? "blocked" : "idle"} label={copy.draftStatus[draft().status]} />{draft().status === "draft" ? copy.currentDraft : copy.earlierRevision} · {copy.draftStatus[draft().status]}</span>
+          <button data-button="quiet" type="button" aria-label={`${draft().destination.surface} · ${draft().destination.object} · ${revision}`} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{draft().destination.surface} · {draft().destination.object}</button>
+        </li>}</Show>}</For>
+      </ul>
+      <Show when={shown()}>{(draft) => <section aria-label={draft().revision}>
+        <p class="draft-identity">{draft().destination.surface} · {draft().destination.object} · {draft().destination.recipient}</p>
+        <Show when={availability(draft().destination.surface, draft().destination.object)}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
+        <For each={Object.keys(draft().value)}>{(field) => <div>
+          <h3>{field}</h3>
+          <pre class="draft-value">{typeof draft().value[field] === "string" ? String(draft().value[field]) : JSON.stringify(draft().value[field])}</pre>
+          <button data-button="quiet" type="button" onClick={() => void copyText(typeof draft().value[field] === "string" ? String(draft().value[field]) : JSON.stringify(draft().value[field]))}>{copy.copyField(field)}</button>
+        </div>}</For>
+        <button data-button="quiet" type="button" onClick={() => drafts.discard(draft().revision)}>{copy.discardRevision}</button>
+      </section>}</Show>
+    </Show>
+  </section>;
 };

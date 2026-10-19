@@ -11,7 +11,7 @@ import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
-import { DrawerHost } from "./drawer/DrawerHost";
+import { DraftRecoveryEntry, DrawerHost } from "./drawer/DrawerHost";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
@@ -29,7 +29,7 @@ import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
-import { connectProject, ConnectedProjectContext } from "./state/connectedProject";
+import { createProjectDrafts, connectProject, ConnectedProjectContext } from "./state/connectedProject";
 import type { ConnectedProject } from "./state/connectedProject";
 import { createXtermEmulators } from "./terminal/emulator";
 import type { EmulatorFactory } from "./terminal/emulator";
@@ -63,6 +63,7 @@ const Connection = (props: {
   tab: () => OpenTab | undefined;
   reducedMotion: Accessor<boolean>;
   now: Accessor<number>;
+  drafts: ReturnType<typeof createProjectDrafts>;
   onConnected: (path: string, connection: ConnectedProject | Error | null) => void;
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
@@ -78,7 +79,7 @@ const Connection = (props: {
 
   const [connected] = createResource(async () => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path));
+      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path));
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -161,6 +162,8 @@ export const App = (props: {
   createEmulator?: EmulatorFactory | undefined;
   /** U410: the Toast sound; the webview's own by default. */
   chime?: Chime | undefined;
+  /** App-run draft authority; embedding callers may supply the same holder to surface owners. */
+  drafts?: ReturnType<typeof createProjectDrafts>;
 }) => {
   const clearBrowserSelection = (event: MouseEvent) => {
     if (event.button !== 0) return;
@@ -178,6 +181,7 @@ export const App = (props: {
   onCleanup(() => window.removeEventListener("pointerdown", clearBrowserSelection, true));
 
   const projects = createProjectsState(props.app);
+  const drafts = props.drafts ?? createProjectDrafts();
   const tabsId = createUniqueId();
   const now = createNow(props.clock);
   // U413: roundup is in front while its window has focus and is visible.
@@ -302,7 +306,7 @@ export const App = (props: {
   return (
     <Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -360,6 +364,7 @@ export const App = (props: {
                   <>
                     <Keys />
                     <AttentionKey />
+                    <DraftRecoveryEntry />
                     <Rail />
                   </>
                 )}
