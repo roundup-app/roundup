@@ -498,7 +498,7 @@ export const Todos = () => {
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
           && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
-          <ErrorLine message={copy.todoDeleted(Number(object))} />
+          <ErrorLine message={copy.draftIdentity(copy.originalUnavailable, object)} />
           <TodoDraftRecovery object={object} />
         </div>}</For>
       </Show>

@@ -120,7 +120,7 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
   fireEvent.input(field, { target: { value: "  recover after removal 🧪  " } });
   connected.drawer.close("key");
   await external.rpc("todo.delete", { id: original.id });
-  await screen.findByText(/was deleted/);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain(String(original.id)));
   expect(connected.drafts.list().find(draft => draft.destination.object === String(original.id))?.value.text).toBe("  recover after removal 🧪  ");
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(connected.drafts.list()).toEqual([]);
