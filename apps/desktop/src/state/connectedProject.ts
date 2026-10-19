@@ -28,6 +28,7 @@ type Availability = "available" | "unavailable" | "unverified";
 type Recovery = (draft: Draft, facts: {
   rail: Pick<RailState, "nodes" | "terminals" | "terminalExit" | "failure">;
   daemonExit: Accessor<DaemonExit | null>;
+  decisions: Pick<DecisionsState, "availability">;
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
@@ -144,7 +145,7 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
+  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit, drafts), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
