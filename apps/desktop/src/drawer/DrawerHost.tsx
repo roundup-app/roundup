@@ -145,7 +145,7 @@ export const DraftRecoveryEntry = () => {
 };
 
 const DraftRecovery = () => {
-  const { drafts, project, rail } = useConnectedProject();
+  const { drafts, project, rail, daemonExit } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();
   const [selected, select] = createSignal<string | null>(null);
@@ -190,14 +190,18 @@ const DraftRecovery = () => {
       return pads.pads().some((pad) => pad.incarnation === object) ? null : copy.originalUnavailable;
     }
 
-    if (surface !== "orders" && surface !== "rail") return copy.originalUnverified;
+    if (surface === "orders" || surface === "rail") {
+      return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
+    }
 
-    return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
+    const state = drafts.availability(draft, { rail, daemonExit });
+
+    return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
   };
 
   const identity = (draft: ReturnType<typeof drafts.list>[number]) => {
     const { surface, object } = draft.destination;
-    const node = rail.nodes.find((node) => node.id === object);
+    const node = surface === "terminal_selection" ? undefined : rail.nodes.find((node) => node.id === object);
 
     const name = surface === "pads" ? draft.value.originalName
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
