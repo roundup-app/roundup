@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
 import { fireEvent, mountSend, screen, waitFor } from "./sendHarness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); window.localStorage.clear(); });
 
 const send = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Send to agent" }));
