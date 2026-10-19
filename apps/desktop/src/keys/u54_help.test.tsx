@@ -96,11 +96,15 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       from.dispatchEvent(press);
       // `⌘K` arms the leader, which would take every later probe.
       endLeader();
-      // `⌘/` opens the Ask bar, which would swallow every later probe.
-      document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
-      // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
-      document.querySelector(".spawn-prompt-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      // Only dismiss prompts opened by the sweep; Escape beneath Help would close Help itself.
+      if (!help()) {
+        // `⌘/` opens the Ask bar, which would swallow every later probe.
+        document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+        // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
+        document.querySelector(".spawn-prompt-field:not([readonly])")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      }
 
       if (press.defaultPrevented) bound.push(pressOf(press));
     }
@@ -181,6 +185,7 @@ describe("u54 keyboard help", () => {
     question(rowOf("a"));
     await waitFor(() => expect(help()).not.toBeNull());
 
+    await waitFor(() => expect(document.activeElement).toBe(help()));
     expect(await boundPresses(document.activeElement!)).toEqual([]);
     expect(app.calls.length).toBe(calls);
     expect(help()).not.toBeNull();

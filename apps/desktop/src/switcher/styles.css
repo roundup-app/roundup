@@ -37,3 +37,20 @@
 .centre-stack {
   position: relative;
 }
+
+.switcher-recovery {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--grey);
+}
+
+.switcher-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.switcher-recovery p {
+  margin: 0;
+}
