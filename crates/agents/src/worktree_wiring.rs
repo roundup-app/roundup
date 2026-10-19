@@ -10,6 +10,25 @@ impl Agents {
             reason = "internal publication lifecycle for the scoped #2875 caller"
         )
     )]
+    async fn import_conversation(
+        &self,
+        source: &str,
+        revision: &str,
+        now_ms: i64,
+    ) -> Result<(String, String), RpcError> {
+        let project = self.project_dir().to_owned();
+        let launcher = self.launcher.clone();
+        let (src, rev) = (source.to_owned(), revision.to_owned());
+        let (candidate, bytes) = tokio::task::spawn_blocking(move || {
+            launcher.read_import_snapshot(&project, &src, &rev, now_ms)
+        })
+        .await
+        .map_err(RpcError::internal)??;
+        let cwd = self.project_dir().join(&candidate.cwd);
+        self.prepare_closed(source, &candidate.title, &cwd, &bytes)
+            .await
+    }
+
     async fn prepare_closed(
         &self,
         source: &str,
@@ -668,6 +687,64 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[tokio::test]
+    async fn u2875c_preview_identity_is_checked_before_import() {
+        const ID: &str = "11111111-1111-4111-8111-111111111111";
+        let (dir, agents, _) = fixture();
+        let project = dir.path().canonicalize().unwrap();
+        let bucket = dir.path().join("projects/bucket");
+        std::fs::create_dir_all(&bucket).unwrap();
+        let file = bucket.join(format!("{ID}.jsonl"));
+        let line = |ts: &str| {
+            format!(
+                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\"}}\n",
+                project.join("src").display()
+            )
+        };
+        std::fs::write(&file, line("2026-10-19T11:00:00Z")).unwrap();
+        let now = 1_792_411_200_000;
+        let found = agents
+            .launcher
+            .discover_recent(&project, now, 86_400_000)
+            .unwrap();
+        let revision = found.candidates[0].revision.clone();
+        // The source changes after preview: refused, nothing published.
+        std::fs::write(
+            &file,
+            line("2026-10-19T11:00:00Z") + &line("2026-10-19T11:30:00Z"),
+        )
+        .unwrap();
+        let refused = agents.import_conversation(ID, &revision, now).await;
+        assert!(
+            refused
+                .unwrap_err()
+                .message
+                .contains("changed since preview")
+        );
+        assert!(agents.shared.rail().closed_source(ID).unwrap().is_none());
+        // The refreshed preview imports once; a replay returns the same nodes.
+        let found = agents
+            .launcher
+            .discover_recent(&project, now, 86_400_000)
+            .unwrap();
+        let revision = found.candidates[0].revision.clone();
+        let ids = agents
+            .import_conversation(ID, &revision, now)
+            .await
+            .unwrap();
+        assert_eq!(
+            agents
+                .import_conversation(ID, &revision, now)
+                .await
+                .unwrap(),
+            ids
+        );
+        assert_eq!(
+            agents.shared.node(&ids.1).unwrap().name,
+            "Untitled conversation"
+        );
     }
 
     #[tokio::test]
