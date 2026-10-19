@@ -1,6 +1,7 @@
-import { cleanup, render, screen } from "@solidjs/testing-library";
-import { afterEach, describe, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
+import { draftStorage } from "../state/storage";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
@@ -53,4 +54,17 @@ describe("m8 an Agent opens and renames Projects", () => {
 
     await screen.findByRole("tab", { name: "billing" });
   });
+});
+
+
+it("u2773a_orders_restores_exact_work", async () => {
+  const holder = draftStorage(FIRST.path);
+  const exact = "  Order e\u0301 🪁\nlast line  ";
+  holder.edit({ surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name", done: "" }, { start: 2, end: 5, direction: "forward" }, "ordinary");
+  await started();
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  expect(await screen.findByRole("region", { name: "Unfinished work" })).toBeTruthy();
+  expect(screen.getByText(exact, { exact: true, normalizer: (text) => text })).toBeTruthy();
+  expect(screen.getByText("removed-agent", { exact: false })).toBeTruthy();
+  window.localStorage.clear();
 });
