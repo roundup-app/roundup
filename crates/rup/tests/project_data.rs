@@ -734,3 +734,53 @@ async fn n1_fallback_uses_a_nested_temporary_home() {
     drop(run);
     assert!(!path.exists());
 }
+
+#[tokio::test]
+async fn dv2_preexisting_project_pads_gain_durable_source_incarnations() {
+    let mut project = daemon::start(&[]);
+    let client = project.client().await;
+    let original = client
+        .request(
+            "pad.create",
+            json!({"name":"existing", "text":"before upgrade"}),
+        )
+        .await
+        .unwrap();
+    project.crash();
+    let path = project.data_dir().join("project.db");
+    for name in ["project.db", "project.db-wal", "project.db-shm"] {
+        match std::fs::remove_file(project.data_dir().join(name)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => panic!("remove current fixture database: {error}"),
+        }
+    }
+    let db = rusqlite::Connection::open(path).unwrap();
+    // Pin historical Project version 12, before source incarnations. New migrations must
+    // not turn this fixture into a different predecessor or replay already-created tables.
+    let historical = [
+        include_str!("../../rupd/migrations/001/up.sql"),
+        include_str!("../../agents/migrations/003/up.sql"),
+        include_str!("../../rupd/migrations/003/up.sql"),
+        include_str!("../../agents/migrations/004/up.sql"),
+        include_str!("../../rupd/migrations/005/up.sql"),
+        include_str!("../../pads/migrations/002/up.sql"),
+        include_str!("../../rupd/migrations/006/up.sql"),
+        include_str!("../../agents/migrations/005/up.sql"),
+        include_str!("../../messages/migrations/002/up.sql"),
+        include_str!("../../messages/migrations/003/up.sql"),
+        include_str!("../../rupd/migrations/project/0001-prepared.sql"),
+        include_str!("../../rupd/migrations/project/0002-message-sender-names.sql"),
+    ];
+    for sql in historical {
+        db.execute_batch(sql).unwrap();
+    }
+    db.execute("INSERT INTO pads(key,name,owner,text,updated_at,home,revision) VALUES ('existing','existing',?1,?2,?3,NULL,1)",rusqlite::params![original["owner"].to_string(),original["text"].as_str().unwrap(),original["updated_at"].as_i64().unwrap()]).unwrap();
+    db.pragma_update(None, "user_version", 12).unwrap();
+    project.restart(&[]);
+    let first = pads::source(&db, "existing").unwrap().unwrap();
+    assert_eq!(first.pad.text, "before upgrade");
+    assert_eq!(first.pad.revision, 1);
+    project.restart(&[]);
+    assert_eq!(pads::source(&db, "EXISTING").unwrap(), Some(first));
+}
