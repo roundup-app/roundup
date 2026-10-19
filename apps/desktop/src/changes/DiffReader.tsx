@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -16,7 +16,7 @@ let library: Promise<typeof import("@pierre/diffs")> | undefined;
 export const diffsLoaded = () => library !== undefined;
 
 /** One read-only comparison, fetched only after View diff. */
-export const DiffReader = (props: { id: string; name: string; path: string; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void }) => {
+export const DiffReader = (props: { id: string; name: string; path: string; notes: Notes; editing?: Note | undefined; onEdited: () => void; onBack: () => void; onClose: () => void; recover: () => void }) => {
   const { app } = useConnectedProject();
   const [selection, setSelection] = createSignal<{ side: "old" | "new"; start: number; end: number }>({ side: "new", start: 1, end: 1 });
   const [form, setForm] = createSignal<{ comparison: FileComparison; selection: ReturnType<typeof selection>; editing?: Note }>();
@@ -50,10 +50,13 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     onCleanup(() => { current = false; });
   });
 
+  // Form/caret retention must not rebuild Pierre's DOM or disturb its selection.
+  const notes = createMemo(() => props.notes.list(props.id));
+
   createEffect(() => {
     const value = read();
     const mount = host();
-    const annotations = props.notes.list(props.id).filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
+    const annotations = notes().filter(note => value && note.comparison.oldPath === value.oldPath && note.comparison.newPath === value.newPath && note.comparison.base === value.base && note.comparison.old.revision === value.old.revision && note.comparison.new.revision === value.new.revision);
 
     if (!value || !mount || value.old.kind === "binary" || value.new.kind === "binary" || value.status === null) return;
     let current = true;
@@ -154,6 +157,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       </Show>
     </>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
-    <NoteBatch id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
+    <NoteBatch recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;
 };
