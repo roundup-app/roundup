@@ -5,11 +5,11 @@ const focusRingRule = 'roundup/shared-keyboard-ring';
 const sharedKeyboardRing = stylelint.createPlugin(focusRingRule, () => (root, result) => {
   if (root.source?.input.file?.endsWith('/apps/desktop/src/styles.css')) return;
   root.walkDecls((declaration) => {
-    if (!/^(outline(?:-.+)?|box-shadow)$/.test(declaration.prop)) return;
+    if (!/^(outline(?:-.+)?|box-shadow)$/i.test(declaration.prop)) return;
     let focused = false;
 
     for (let parent = declaration.parent; parent; parent = parent.parent) {
-      if (parent.type === 'rule' && /:focus(?:-visible|-within)?|\[data-focus(?:-visible)?(?:[\]=\s])/.test(parent.selector)) focused = true;
+      if (parent.type === 'rule' && /:focus(?:-visible|-within)?|\[\s*data-focus(?:-visible)?(?:[\]=\s])/i.test(parent.selector)) focused = true;
     }
 
     if (!focused) return;
