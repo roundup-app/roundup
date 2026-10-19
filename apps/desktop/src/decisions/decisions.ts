@@ -9,6 +9,8 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { Events } from "../app/events";
 import type { AppSeam, DaemonExit } from "../app/seam";
 
+const outcomes = { acknowledged: "acknowledged", failed: "failed", unknown: "unknown" } as const;
+
 const availability = { available: "available", unavailable: "unavailable", unverified: "unverified" } as const;
 
 const draftSchema = v.object({ daemon: v.string(), agent: v.string(), attempt: v.string(), decision: v.string(), choice: v.nullable(v.string()), note: v.string() });
@@ -121,7 +123,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   void list();
 
   const answer = async (id: string, text: string | null, note?: string, identity?: PromptIdentity): Promise<"acknowledged" | "failed" | "unknown"> => {
-    if (daemonExit() !== null || pending().has(id)) return "unknown";
+    if (daemonExit() !== null || pending().has(id)) return outcomes.unknown;
 
     setPending((current) => new Set(current).add(id));
     setFailures((current) => new Map([...current].filter(([key]) => key !== id)));
@@ -140,13 +142,13 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
       await app.rpc("decision.answer", note === undefined ? params : { ...params, note });
       forget(id);
 
-      return "acknowledged";
+      return outcomes.acknowledged;
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
       setFailures((current) => new Map(current).set(id, thrown.message));
 
-      return !sent || thrown instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(thrown.code) ? "failed" : "unknown";
+      return !sent || thrown instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(thrown.code) ? outcomes.failed : outcomes.unknown;
     } finally {
       setPending((current) => new Set([...current].filter((key) => key !== id)));
     }
