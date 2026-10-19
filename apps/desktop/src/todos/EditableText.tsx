@@ -155,7 +155,7 @@ export const EditableText = (props: {
 
       if (latest && JSON.stringify(latest.value) === JSON.stringify(value) && (latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
         setActiveRevision(latest.revision);
-        connected.drafts.setSelection(latest.revision, selection);
+        if (JSON.stringify(latest.selection) !== JSON.stringify(selection)) connected.drafts.setSelection(latest.revision, selection);
 
         return { draft: latest, problem: connected.drafts.problem() };
       }
