@@ -22,11 +22,11 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
     let node = nodes
         .iter()
         .find(|node| node.id == id && is_agent(node))
-        .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
+        .ok_or_else(|| RpcError::not_found("an Agent that is gone"))?;
     let status = |node: &RailNode| {
         node.status
             .clone()
-            .ok_or_else(|| RpcError::internal(format!("agent {} has no Status", node.id)))
+            .ok_or_else(|| RpcError::internal(format!("{} has no Status", node.name)))
     };
     let parent = node
         .parent
@@ -91,40 +91,38 @@ fn kind_word(kind: Kind) -> &'static str {
     }
 }
 
-/// E3, E9: `context` in words, the id line, then one line each for the parent, whom to ask, every peer and every Todo.
+/// E3, E9: `context` in words, the Rail name, then one line each for the parent, whom to ask, every peer and every Todo.
 /// `door` is whether the Agent to ask is a Workstream's Door; any other Agent is only its parent.
 fn words(context: &Context, door: bool) -> String {
     let mut lines = vec![format!(
-        "Your Agent id is {}. It never changes.",
-        context.this.id
+        "Your Rail name is {}. Say it, never an id, when you speak of yourself or another Agent.",
+        context.this.name
     )];
     lines.push(match &context.parent {
-        Some(parent) => {
-            let what = match parent.node {
-                ParentNode::Agent => "an Agent",
-                ParentNode::Group => "a Workstream",
-            };
-            format!("Parent: {} (id {}), {what}.", parent.name, parent.id)
-        }
+        Some(parent) => match parent.node {
+            ParentNode::Agent => format!(
+                "Parent: {} (message_send {{to}} value: \"{}\"), an Agent.",
+                parent.name, parent.id
+            ),
+            ParentNode::Group => format!("Parent: {}, a Workstream.", parent.name),
+        },
         None => "Parent: none, you are at the Project root.".to_owned(),
     });
-    let who = if context.ask.to == Actor::user().id {
-        "the user"
-    } else if door {
-        "your Door"
-    } else {
-        "your parent"
-    };
-    lines.push(format!(
-        "Ask: {who}, with message_send to \"{}\".",
-        context.ask.to
-    ));
+    if context.ask.to == Actor::user().id {
+        lines.push("Ask: the user, with message_send to \"you\".".to_owned());
+    } else if let Some(parent) = &context.parent {
+        let who = if door { "your Door" } else { "your parent" };
+        lines.push(format!(
+            "Ask: {}, {who}, using the destination above.",
+            parent.name
+        ));
+    }
     if context.peers.is_empty() {
         lines.push("Peers: none.".to_owned());
     }
     for peer in &context.peers {
         lines.push(format!(
-            "Peer: {} (id {}), {}.",
+            "Peer: {} (message_send {{to}} value: \"{}\"), {}.",
             peer.name,
             peer.id,
             kind_word(peer.status.kind)
@@ -292,9 +290,12 @@ mod tests {
 
         let text = words(&context, false);
 
-        assert!(text.contains("Parent: a (id 2), an Agent."), "{text}");
         assert!(
-            text.contains("Ask: your parent, with message_send to \"2\"."),
+            text.contains("Parent: a (message_send {to} value: \"2\"), an Agent."),
+            "{text}"
+        );
+        assert!(
+            text.contains("Ask: a, your parent, using the destination above."),
             "{text}"
         );
         let stdout = brief(&nodes, &context).stdout;
@@ -324,22 +325,22 @@ mod tests {
             shaped["hookSpecificOutput"]["hookEventName"],
             "SessionStart"
         );
-        assert_eq!(
-            shaped["hookSpecificOutput"]["additionalContext"],
-            "Your Agent id is 2. It never changes.\n\
-             Parent: m (id 1), an Agent.\n\
-             Ask: your Door, with message_send to \"1\".\n\
-             Peer: b (id 3), idle.\n\
-             Todo 1: todo 1.\n\
-             Todo 4: todo 4 (blocked)."
-        );
+        let text = shaped["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap();
+        assert!(text.contains("Todo 1: todo 1."), "{text}");
+        assert!(text.contains("Todo 4: todo 4 (blocked)."), "{text}");
     }
 
     #[test]
-    fn e9_the_context_text_starts_with_the_id_line() {
-        let context = compose(&rail(), &[], "6").unwrap();
-
-        assert!(words(&context, false).starts_with("Your Agent id is 6. It never changes.\n"));
+    fn e9_the_context_text_starts_with_the_name_line() {
+        for kind in [NodeKind::Agent, NodeKind::Workstream] {
+            let nodes = [node("7013", kind, "sad", None, true)];
+            let context = compose(&nodes, &[], "7013").unwrap();
+            let text = words(&context, false);
+            assert!(text.starts_with("Your Rail name is sad. Say it, never an id, when you speak of yourself or another Agent.\n"));
+            assert!(!text.contains("7013") && !text.contains("Agent id"));
+        }
     }
 
     #[test]
@@ -350,11 +351,56 @@ mod tests {
 
         assert_eq!(
             text,
-            "Your Agent id is 6. It never changes.\n\
-             Parent: g (id 5), a Workstream.\n\
+            "Your Rail name is c. Say it, never an id, when you speak of yourself or another Agent.\n\
+             Parent: g, a Workstream.\n\
              Ask: the user, with message_send to \"you\".\n\
              Peers: none.\n\
              Todos: none open."
         );
+    }
+    #[test]
+    fn e2704a_destinations_follow_names_once() {
+        for (kind, who) in [
+            (NodeKind::Agent, "your parent"),
+            (NodeKind::Workstream, "your Door"),
+        ] {
+            let nodes = [
+                node("7013", NodeKind::Agent, "sad", Some("7014"), false),
+                node("7014", kind, "parent", None, true),
+                node("7015", NodeKind::Agent, "peer", Some("7014"), false),
+            ];
+            let words = text(&nodes, &compose(&nodes, &[], "7013").unwrap());
+            assert!(!words.contains("7013"), "{words}");
+            for (name, id) in [("parent", "7014"), ("peer", "7015")] {
+                assert_eq!(words.matches(id).count(), 1, "{words}");
+                assert!(
+                    words.contains(&format!("{name} (message_send {{to}} value: \"{id}\")")),
+                    "{words}"
+                );
+            }
+            assert!(words.contains("Peer: peer (message_send {to} value: \"7015\"), idle."));
+            assert!(words.contains(&format!("Ask: parent, {who}, using the destination above.")));
+            assert!(!words.contains("Agent id"));
+        }
+    }
+
+    #[test]
+    fn e2704a_root_asks_the_user() {
+        let nodes = [node("7013", NodeKind::Agent, "sad", None, false)];
+        let text = words(&compose(&nodes, &[], "7013").unwrap(), false);
+        assert!(text.contains("Parent: none, you are at the Project root."));
+        assert!(text.contains("Ask: the user, with message_send to \"you\"."));
+        assert!(!text.contains("7013"));
+    }
+    #[test]
+    fn e2704a_context_digest_and_wake_errors_use_names() {
+        let mut nodes = [node("7013", NodeKind::Agent, "sad", None, false)];
+        let gone = compose(&nodes, &[], "7014").unwrap_err();
+        assert_eq!(gone.code, rpc::code::NOT_FOUND);
+        assert_eq!(gone.message, "not found: an Agent that is gone");
+        nodes[0].status = None;
+        let missing_status = compose(&nodes, &[], "7013").unwrap_err();
+        assert_eq!(missing_status.code, rpc::code::INTERNAL);
+        assert_eq!(missing_status.message, "sad has no Status");
     }
 }

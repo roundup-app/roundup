@@ -67,6 +67,8 @@ pub struct Daemon {
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
+    /// B2704a: retain committed names even when the live event ring lags.
+    renames: std::sync::Mutex<Option<rpc::Subscription>>,
     /// B41: subscribed at `open`, taken once with `pushes`.
     wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B41: serialises the decisions on Wake requests.
@@ -427,6 +429,7 @@ impl Daemon {
             terminals: Arc::clone(&terminals),
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
+            renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
@@ -539,6 +542,14 @@ impl Daemon {
                 events,
             ));
         }
+        if let Some(renames) = self
+            .renames
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            tokio::spawn(wake::tell_renames(self.reader(), renames));
+        }
         let wake_events = self
             .wake_events
             .lock()
@@ -559,6 +570,7 @@ impl Daemon {
 
     fn waker(&self) -> Option<wake::Waker> {
         Some(wake::Waker {
+            agents: Arc::clone(&self.agents),
             reader: self.reader(),
             messages: Arc::clone(self.sender.get()?),
             digests: Arc::clone(&self.digests),
@@ -1030,8 +1042,9 @@ impl Daemon {
                 // The Digest module still owns its permission and node-kind checks.
                 if actor.id != id {
                     return Err(RpcError::forbidden(format!(
-                        "{} may not read the digest of agent {id}",
-                        actor.id
+                        "{} may not read the digest of {}",
+                        self.agents.rail_name(&actor.id)?,
+                        self.agents.rail_name(&id)?
                     )));
                 }
                 self.rail()
@@ -1473,8 +1486,13 @@ impl Daemon {
         };
         if !allowed {
             return Err(RpcError::forbidden(format!(
-                "{} may not read the Context of agent {id}",
-                conn.actor.id
+                "{} may not read the Context of {}",
+                if conn.actor.kind == ActorKind::Agent {
+                    self.agents.rail_name(&conn.actor.id)?
+                } else {
+                    conn.actor.id.clone()
+                },
+                self.agents.rail_name(&id)?
             )));
         }
         match method {
@@ -1492,7 +1510,7 @@ impl Daemon {
             .await?
             .into_iter()
             .find(|node| node.id == id)
-            .ok_or_else(|| RpcError::not_found(format!("agent {id}")))?;
+            .ok_or_else(|| RpcError::not_found("an Agent that is gone"))?;
         let cwd = node
             .worktree
             .map_or_else(|| self.project.clone(), |tree| tree.path.into());
