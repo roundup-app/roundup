@@ -396,34 +396,6 @@ export const Todos = () => {
         <Icon name="plus" />
         <span>{copy.todo}</span>
       </button>
-      <Show when={typing()}>
-        <div class="shelf-list">
-          <EntryRow
-            glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
-            class="todo-inset"
-            label={copy.newTodoTitle}
-            placeholder={copy.newTodoPlaceholder}
-            initial={untrack(() => {
-              const draft = creation();
-              const title = v.safeParse(v.string(), draft?.value.title);
-
-              return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
-            })}
-            onEdit={retainCreation}
-            onSubmit={(title) => void create(title)}
-            onClose={(reason) => {
-              setTyping(false);
-
-              if (reason === "escape") setCreateFailure(null);
-
-              if (reason !== "blur") plusButton?.focus();
-            }}
-          />
-        </div>
-      </Show>
-      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
-        if (creation()?.revision === revision) setTyping(false);
-      }} />
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={isEmpty() && !typing()}>
@@ -488,6 +460,34 @@ export const Todos = () => {
         </Show>
         </>}</Groups>
       </Show>
+      <Show when={typing()}>
+        <div class="shelf-list">
+          <EntryRow
+            glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
+            class="todo-inset"
+            label={copy.newTodoTitle}
+            placeholder={copy.newTodoPlaceholder}
+            initial={untrack(() => {
+              const draft = creation();
+              const title = v.safeParse(v.string(), draft?.value.title);
+
+              return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
+            })}
+            onEdit={retainCreation}
+            onSubmit={(title) => void create(title)}
+            onClose={(reason) => {
+              setTyping(false);
+
+              if (reason === "escape") setCreateFailure(null);
+
+              if (reason !== "blur") plusButton?.focus();
+            }}
+          />
+        </div>
+      </Show>
+      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
+        if (creation()?.revision === revision) setTyping(false);
+      }} />
       <Show when={done().length > 0}>
         <div class="shelf-list">
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
