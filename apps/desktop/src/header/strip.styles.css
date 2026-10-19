@@ -251,6 +251,9 @@
   display: flex;
   flex: none;
   gap: var(--space-1);
+}
+
+.project-tab[data-unfinished="true"] .tab-actions {
   margin-left: var(--space-3);
 }
 
