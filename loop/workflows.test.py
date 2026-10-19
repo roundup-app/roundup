@@ -130,6 +130,13 @@ class Permissions(unittest.TestCase):
             for action in re.findall(r'(?:^|\n)      - id: claude\n        if: ([^\n]*)', source):
                 self.assertIn("vars.CLAUDE_API == ''", action, workflow)
 
+    def test_l23_a_job_that_runs_claude_read_only_installs_claude_code_first(self):
+        for workflow in ('review', 'critic'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            install = source.index('claude.ai/install.sh | bash -s -- 2.1.296')
+            self.assertLess(install, source.index('builder.py" claude-read-only'), workflow)
+            self.assertIn('>>"$GITHUB_PATH"', source[install:], workflow)
+
     def test_l82_the_engine_waits_for_the_generated_conflict_script(self):
         source = (ROOT / '.github/workflows/fix.yml').read_text()
         resolve = source.split('      - id: resolve\n', 1)[1].split('\n      - ', 1)[0]
