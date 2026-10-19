@@ -416,6 +416,12 @@ A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
 **Held**:
 A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input, or the user's answer to an escalated question.
 
+**Draft** (`draftStorage`):
+Unsubmitted user-entered content and selections belonging to one original Project,
+surface, object and recipient, separate from a vendor's live editor. A revision names
+one exact recovery snapshot, whether current, pending, failed or of unknown acceptance;
+acknowledgement or explicit selected discard consumes only that revision (U2773a/b/e).
+
 **Unsent input**:
 The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
 
