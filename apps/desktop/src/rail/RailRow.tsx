@@ -30,8 +30,8 @@ type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 const FOLDED_GLYPHS = 5;
 
 const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: () => void }) => {
-  const { project, events } = useConnectedProject();
-  const drafts = draftsOf(events, project.path);
+  const connected = useConnectedProject();
+  const drafts = draftsOf(connected.drafts);
   const destination = { surface: "rail-name", object: props.node.id, recipient: null };
   const current = () => drafts.records().filter((entry) => entry.destination.surface === destination.surface && entry.destination.object === destination.object).at(-1);
 

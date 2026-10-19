@@ -8,8 +8,8 @@ import { clearingOf } from "./clear";
 
 /** U350: the Workstream's reason prompt, open once `Clear…` in the `⋯` menu is chosen. */
 export const ClearPrompt = (props: { node: RailNode; onHide: () => void }) => {
-  const { app, events, rail, project } = useConnectedProject();
-  const clearing = clearingOf(app, events, props.node.id, project.path);
+  const { app, events, rail, drafts } = useConnectedProject();
+  const clearing = clearingOf(app, events, props.node.id, drafts);
   let field: HTMLTextAreaElement | undefined;
   let form: HTMLFormElement | undefined;
   const hide = () => { clearing.keep(); props.onHide(); };

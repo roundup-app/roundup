@@ -48,7 +48,7 @@ describe("u427 a Workstream row's icons", () => {
     expect(icon("c1", "Clear Workstream…").getAttribute("aria-label")).toBe("Clear Workstream…");
     fireEvent.click(icon("c1", "Clear Workstream…"));
 
-    expect(clearingOf(mounted.app, mounted.connected.events, "c1", mounted.connected.project.path).phase()).toBe("asking");
+    expect(clearingOf(mounted.app, mounted.connected.events, "c1", mounted.connected.drafts).phase()).toBe("asking");
     expect(within(await screen.findByRole("dialog", { name: "Clear c1" })).getByRole("textbox", { name: "Why clear?" })).toBeTruthy();
     expect(mounted.rail.selected()).toBeNull();
     expect(mounted.app.calls.filter((call) => call.method === "workstream.clear")).toEqual([]);

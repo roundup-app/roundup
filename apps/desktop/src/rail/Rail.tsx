@@ -44,15 +44,15 @@ export const Rail = () => {
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
-  const retained = draftsOf(connected.events, project.path);
+  const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
-  const menu = createRailMenu(app, rail, setFailure, connected.events, project.path);
+  const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts);
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
 
-    return node !== null && clearingOf(app, connected.events, node.id, project.path).phase() !== "closed" ? node : null;
+    return node !== null && clearingOf(app, connected.events, node.id, connected.drafts).phase() !== "closed" ? node : null;
   });
 
   const [wanted, setWanted] = createSignal<string | null>(null);
@@ -647,7 +647,7 @@ export const Rail = () => {
       <Show when={retained.records().some((entry) => entry.destination.surface.startsWith("rail-") && entry.status === "unknown")}>
         <p class="rail-task-target" role="status">{copy.railDraftUnknown(project.name)}</p>
       </Show>
-      <Show when={retained.problem()}>{(problem) => <div class="rail-retention">
+      <Show when={retained.problem()?.destination?.surface.startsWith("rail-") ? retained.problem() : null}>{(problem) => <div class="rail-retention">
         <ErrorLine message={copy.railDraftRetention(project.name, problem().destination?.surface ?? "rail", problem().operation)} />
         <button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button>
       </div>}</Show>
