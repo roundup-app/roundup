@@ -87,7 +87,8 @@ it("u2773h_invalid_storage_preserves_recoverable_work", async () => {
   app.opened.project = FIRST;
   render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
-  const alert = await screen.findByRole("alert");
+  const recovery = await screen.findByRole("region", { name: "Unfinished work" });
+  const alert = await within(recovery).findByRole("alert");
   expect(alert.textContent).toContain(FIRST.path);
   expect(alert.textContent).toContain("Order");
   const clipboard = vi.fn(async (_text: string) => {});
@@ -96,7 +97,7 @@ it("u2773h_invalid_storage_preserves_recoverable_work", async () => {
   expect(clipboard).toHaveBeenCalledWith("  memory 🧭\n");
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
   expect(holder.list()).toEqual([other, saved]);
-  fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+  fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
   expect(holder.list()).toEqual([other]);
   expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
   expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);

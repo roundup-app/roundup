@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,6 +10,7 @@ import { chromePath } from "./chromePage";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { App } from "../App";
+import { draftStorage } from "../state/storage";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
@@ -234,17 +235,19 @@ describe("u2773 Rail task destinations", () => {
     await switchTo("Left");
     await openTask();
     expect(task().value).toBe("C");
+    fireEvent.keyDown(task(), { key: "Escape" });
     await waitFor(() => expect(screen.queryAllByLabelText("Recovered rail draft")).toHaveLength(outcome === "acknowledged" ? 1 : 3));
     expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
 
     if (outcome !== "acknowledged") {
       expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(["C", "B", "A"]);
-      expect(document.body.textContent).toContain(outcome);
+      expect(draftStorage(first.dir).list().find((entry) => entry.value.text === "A")?.status).toBe(outcome);
       fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", hidden: true })[2]!);
     }
 
     cleanup(); await mount(); await openTask();
     expect(task().value).toBe("C");
+    fireEvent.keyDown(task(), { key: "Escape" });
     expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toEqual(outcome === "acknowledged" ? ["C"] : ["C", "B"]);
     expect(spy.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(2);
   }, 120_000);
@@ -429,7 +432,7 @@ describe("u2773 Rail persisted edits", () => {
       await browser("wait", "--fn", "!!document.querySelector('[aria-label=Task]')");
       await browser("eval", "Storage.prototype.setItem=function(){throw new Error('full')}");
       await browser("fill", '[aria-label="Task"]', " recoverable\n😀 ");
-      expect((await browser("eval", "document.querySelector('[role=alert]').textContent")).result).toContain(first.dir);
+      expect((await browser("eval", "document.querySelector('[role=alert]').textContent")).result).toContain(basename(first.dir));
       await browser("screenshot", "/tmp/u2773-rail-storage-failure.png");
       await writeFile("/tmp/u2773-rail-checks.json", JSON.stringify((await browser("eval", "window.__checks()")).result, null, 2));
     } finally {
@@ -453,7 +456,7 @@ describe("u2773 Rail persisted edits", () => {
     await app.rpc("rail.remove", { id: node.id });
     await waitFor(() => expect(screen.queryByLabelText("Name")).toBeNull());
     expect(screen.getAllByLabelText<HTMLTextAreaElement>("Recovered rail draft").map((field) => field.value)).toContain(" exact e\u0301 😀 ");
-    expect(document.body.textContent).toContain(node.id);
+    expect(draftStorage(first.dir).list().find((entry) => entry.value.text === " exact e\u0301 😀 ")?.destination.object).toBe(node.id);
     expect(document.body.textContent).toContain("unavailable");
   }, 120_000);
 
