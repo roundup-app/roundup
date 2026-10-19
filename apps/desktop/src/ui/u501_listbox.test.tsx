@@ -151,3 +151,32 @@ it("u501_supplied_metadata_keeps_the_option_name_and_description", () => {
   expect(row.classList.contains("caller-answer")).toBe(true);
   expect(document.getElementById(row.getAttribute("aria-describedby")!)?.textContent).toBe("Keep the summary short");
 });
+
+it("u501_multiline_note_exposes_exact_native_value_selection_and_submit_keys", () => {
+  const exact = "first\n日本語 é 👩🏽‍💻\nlast";
+  const submit = vi.fn();
+  const input = vi.fn();
+  const selection = vi.fn();
+  let editor: HTMLTextAreaElement | undefined;
+  render(() => <Listbox.Root answers={answers} value="brief" highlightedValue="brief" onValueChange={() => undefined} onHighlightChange={() => undefined}>
+    <Listbox.NoteTextarea aria-label="Decision note" aria-describedby="note-help" value={exact}
+      ref={element => { editor = element; }} onInput={event => input(event.currentTarget.value)}
+      onSelect={event => selection(event.currentTarget.selectionStart, event.currentTarget.selectionEnd)}
+      onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submit(event.currentTarget.value); } }} />
+    <span id="note-help">Extra context</span>
+  </Listbox.Root>);
+  const note = screen.getByRole("textbox", { name: "Decision note" });
+  expect(note).toBe(editor);
+  expect(editor?.value).toBe(exact);
+  expect(note).toHaveAccessibleDescription("Extra context");
+  editor!.setSelectionRange(6, 12, "backward");
+  fireEvent.select(note);
+  expect(selection).toHaveBeenCalledWith(6, 12);
+  expect(editor?.selectionDirection).toBe("backward");
+  expect(fireEvent.keyDown(note, { key: "Enter", shiftKey: true })).toBe(true);
+  expect(submit).not.toHaveBeenCalled();
+  fireEvent.input(note, { target: { value: exact + "\nnew" } });
+  expect(input).toHaveBeenCalledWith(exact + "\nnew");
+  fireEvent.keyDown(note, { key: "Enter" });
+  expect(submit.mock.calls).toEqual([[exact + "\nnew"]]);
+});
