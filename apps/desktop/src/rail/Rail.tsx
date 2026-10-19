@@ -595,7 +595,7 @@ export const Rail = () => {
       </Show>
       <For each={drafts.list()}>{(saved) => <Show when={drafts.problem() || saved.destination.surface === "rail-name" || saved.status !== "draft" || (saved.destination.object !== "" && !rail.nodes.some((node) => node.id === saved.destination.object))}>
         <div class="light" data-state={saved.status}>
-          <p>{saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task} · {saved.destination.object || project.name} · {saved.status}</p>
+          <p>{copy.retainedRailSummary(saved.destination.surface === "rail-name" ? copy.name : saved.destination.surface === "rail-clear" ? copy.whyClear : copy.task, saved.destination.object || project.name, saved.status)}</p>
           <textarea class="spawn-prompt-field" aria-label={copy.retainedRailInput} readOnly value={String(saved.value.text ?? "")} />
           <span class="rail-recovery-actions"><button data-button="quiet" onClick={() => void attempt(() => navigator.clipboard.writeText(String(saved.value.text ?? "")))}>{copy.copy}</button>
           <button data-button="quiet" onClick={() => drafts.discard(saved.revision)}>{copy.discardRevision}</button></span>

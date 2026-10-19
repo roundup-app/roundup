@@ -4,6 +4,7 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  retainedRailSummary: (surface: string, target: string, status: string) => `${surface} · ${target} · ${status}`,
   retainedRailInput: "Retained rail input",
   railDestinationUnavailable: "The original destination is unavailable. Copy or discard the retained task.",
   railNameConflict: "The original name changed. Your edit is retained; copy or discard it in the rail.",

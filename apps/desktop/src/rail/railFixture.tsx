@@ -1,3 +1,4 @@
+import { beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -14,6 +15,9 @@ import type { EmulatorFactory } from "../terminal/emulator";
 import { AttentionKey } from "./AttentionKey";
 import { DockBadge } from "./DockBadge";
 import { Rail } from "./Rail";
+
+// Each test owns a fresh Project profile; remounts inside a test retain that profile.
+beforeEach(() => localStorage.clear());
 
 export const exitedTerminal = (id: string, exit_code: number | null): TerminalInfo =>
   info(`t-${id}`, { running: false, exit_code });
