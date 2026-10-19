@@ -38,20 +38,28 @@ pub struct TodoId {
     pub id: u32,
 }
 
+/// Changes title/body. `expected_change` is the last captured History Change sequence;
+/// mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "todo/")]
 pub struct UpdateParams {
     pub id: u32,
     pub title: Option<String>,
     pub body: Option<String>,
+    #[ts(optional)]
+    pub expected_change: Option<u32>,
 }
 
 /// Replaces the whole blocker list. A list that would make a cycle is an error.
+/// `expected_change` is the last captured History Change sequence; mismatch is CONFLICT,
+/// a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "todo/")]
 pub struct SetBlockersParams {
     pub id: u32,
     pub blockers: Vec<u32>,
+    #[ts(optional)]
+    pub expected_change: Option<u32>,
 }
 
 /// Moves a Todo to a Workstream, or to the Project root when `home` is `None`.
