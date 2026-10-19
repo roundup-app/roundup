@@ -10,8 +10,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import type { ViteDevServer } from "vite";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { chromePath } from "./chromePage";
+import { createServedApp } from "./realSeam";
 import { realDaemon } from "./realDaemonPlugin";
 
 const execute = promisify(execFile);
@@ -28,7 +29,7 @@ const output = (id: string, bytes: number[] | Buffer, offset = 0) => JSON.string
 
 const gap = (id: string, from: number, to: number) => JSON.stringify({ jsonrpc: "2.0", method: "terminal.gap", params: { id, from, to } }) + "\n";
 
-const fixture = async () => {
+const fixture = async (offset = 0) => {
   const dir = await mkdtemp(join(tmpdir(), "x14-relay-"));
   const path = join(dir, "daemon.sock");
   const sockets = new Set<Socket>();
@@ -53,7 +54,7 @@ const fixture = async () => {
 
       // The Daemon answers a Terminal subscription with the offset of its first byte; an unknown Terminal is NOT_FOUND.
       const answer = frame.method === "terminal.output"
-        ? frame.params.id === "missing" ? { error: { code: -32001, message: "not found: terminal missing" } } : { result: { offset: 0 } }
+        ? frame.params.id === "missing" ? { error: { code: -32001, message: "not found: terminal missing" } } : { result: { offset } }
         : { result: frame.method === "events.subscribe" ? null : "control-reply" };
 
       socket.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, ...answer }) + "\n");
@@ -274,4 +275,91 @@ it("x14_harness_output_relay_cancellation_is_isolated", async () => {
     expect((await bound(fetch(`${real.base}/__daemon/output?terminal=`))).status).toBe(400);
     expect((await bound(fetch(`${real.base}/__daemon/output?terminal=missing`))).status).toBe(404);
   } finally { await real.close(); }
+}, 30_000);
+
+it("u2773a_harness_page_lifecycle_releases_and_restores_streams", async () => {
+  const real = await fixture();
+  const page = new EventTarget();
+  vi.stubGlobal("window", page);
+  const app = createServedApp(real.base);
+  const events: unknown[] = [];
+  const messages: unknown[] = [];
+  const exits: unknown[] = [];
+
+  try {
+    await app.onDaemonExited(value => exits.push(value));
+    await app.subscribe(event => events.push(event));
+    const selected = await app.selectOutput("A", value => messages.push("gap" in value ? value : Array.from(value)));
+    await expect.poll(() => real.subscriptions.length).toBe(2);
+    real.subscriptions[1]!.write(output("A", [65, 66]));
+    await expect.poll(() => messages).toEqual([[65, 66]]);
+
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const sockets = real.subscriptions.slice(-2);
+      const closed = sockets.map(socket => once(socket, "close"));
+      page.dispatchEvent(new Event("pagehide"));
+
+      if (cycle === 0) page.dispatchEvent(new Event("pageshow"));
+      await bound(Promise.all(closed));
+      expect(await app.rpc("daemon.ping", null)).toBe("control-reply");
+
+      if (cycle === 1) page.dispatchEvent(new Event("pageshow"));
+      await expect.poll(() => real.subscriptions.length).toBe(4 + cycle * 2);
+      const [eventSocket, outputSocket] = real.subscriptions.slice(-2);
+      eventSocket!.write([1, 2].map(seq => JSON.stringify({jsonrpc:"2.0", method:"event", params:{seq: cycle * 2 + seq, actor:{kind:"user",id:"you",parent:null}, name:"rail.changed"}}) + "\n").join(""));
+      outputSocket!.write(output("A", [67 + cycle], 0));
+      await expect.poll(() => events.length).toBe((cycle + 1) * 2);
+      await expect.poll(() => messages.length).toBe(3 + cycle * 2);
+      expect(events).toEqual(Array.from({length: (cycle + 1) * 2}, (_, i) => ({seq: i + 1, actor:{kind:"user",id:"you",parent:null}, name:"rail.changed"})));
+      expect(messages.slice(-2)).toEqual([{gap:{from: cycle === 0 ? 2 : 1, to:0}}, [67 + cycle]]);
+    }
+
+    const closed = real.subscriptions.slice(-2).map(socket => once(socket, "close"));
+    page.dispatchEvent(new Event("pagehide"));
+    await selected.release();
+    await bound(Promise.all(closed));
+    page.dispatchEvent(new Event("pageshow"));
+    page.dispatchEvent(new Event("pageshow"));
+    await expect.poll(() => real.subscriptions.length).toBe(7);
+    real.subscriptions[6]!.write(JSON.stringify({jsonrpc:"2.0", method:"event", params:{seq:5, actor:{kind:"user",id:"you",parent:null}, name:"rail.changed"}}) + "\n");
+    await expect.poll(() => events.length).toBe(5);
+    expect(messages).toHaveLength(5);
+    expect(exits).toEqual([]);
+    expect(await app.rpc("daemon.ping", null)).toBe("control-reply");
+  } finally {
+    page.dispatchEvent(new Event("pagehide"));
+    vi.unstubAllGlobals();
+    await real.close();
+  }
+}, 60_000);
+
+it("u2773a_harness_output_reconnect_keeps_offsets_across_page_restore", async () => {
+  const real = await fixture(7);
+  const page = new EventTarget();
+  vi.stubGlobal("window", page);
+  const app = createServedApp(real.base);
+  const messages: unknown[] = [];
+
+  try {
+    const selected = await app.selectOutput("A", value => messages.push("gap" in value ? value : Array.from(value)));
+    expect(selected.offset).toBe(7);
+    real.subscriptions[0]!.write(output("A", [65], 7));
+    await expect.poll(() => messages).toEqual([[65]]);
+    real.subscriptions[0]!.write(gap("A", 8, 11));
+    await expect.poll(() => real.subscriptions.length).toBe(2);
+    real.subscriptions[1]!.write(output("A", [66, 67], 7));
+    await expect.poll(() => messages).toEqual([[65], {gap:{from:8,to:7}}, [66,67]]);
+    const closed = once(real.subscriptions[1]!, "close");
+    page.dispatchEvent(new Event("pagehide"));
+    await bound(closed);
+    page.dispatchEvent(new Event("pageshow"));
+    await expect.poll(() => real.subscriptions.length).toBe(3);
+    real.subscriptions[2]!.write(output("A", [68], 7));
+    await expect.poll(() => messages).toEqual([[65], {gap:{from:8,to:7}}, [66,67], {gap:{from:9,to:7}}, [68]]);
+    await selected.release();
+  } finally {
+    page.dispatchEvent(new Event("pagehide"));
+    vi.unstubAllGlobals();
+    await real.close();
+  }
 }, 30_000);
