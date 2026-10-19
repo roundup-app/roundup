@@ -209,9 +209,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
 
     await openRealPad();
     expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("false");
-    // Native keyboard activation keeps the ownership handoff independent of the lazy visual blocks' layout.
-    await browser("focus", ".pad-head button[aria-label='Make yours']");
-    await browser("press", "Enter");
+    await browser("click", ".pad-head button[aria-label='Make yours']");
     await browser("wait", ".ProseMirror[contenteditable=true]");
     await browser("focus", ".ProseMirror");
     await browser("press", "Control+Home");
