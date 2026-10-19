@@ -1,8 +1,5 @@
-import { Show } from "solid-js";
-import { ScopeControl } from "../shelf/ScopeControl";
-import { useShelfScope } from "./shelfScope";
 import { expect } from "vitest";
-import { within, render } from "@solidjs/testing-library";
+import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Todo } from "@contracts/todo/Todo";
@@ -43,7 +40,6 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
 
   await showEverything(connected);
 
-  const scope = useShelfScope(connected);
 
   const { unmount } = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
@@ -51,11 +47,16 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
         header="roundup"
         rail={renderRail ? <Rail /> : null}
         centre={null}
-        shelf={<><Show when={scope.workstream()}><ScopeControl showAll={scope.showAll()} onChange={scope.setShowAll} /></Show><Todos /></>}
+        shelf={<Todos />}
         overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => reducedMotion} />}
       />
     </ConnectedProjectContext.Provider>
   ));
+
+  if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control]")).not.toBeNull());
+  const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+
+  if (disclosure) fireEvent.click(disclosure);
 
   return { app, store, connected, unmount };
 };

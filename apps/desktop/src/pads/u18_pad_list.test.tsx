@@ -59,6 +59,15 @@ describe("u18 list and ownership", () => {
     };
 
     fireEvent.click(await screen.findByRole("img", { name: "Agent owned" }));
+
+    const unassigned = await waitFor(() => {
+      const control = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+      expect(control).not.toBeNull();
+
+      return control!;
+    });
+
+    fireEvent.click(unassigned);
     await screen.findByRole("img", { name: "User owned" });
 
     expect(app.calls.filter((call) => call.method === "pad.setOwner")).toEqual([
