@@ -293,3 +293,10 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 .made-details { display: block; color: var(--grey); font-size: var(--text-small); }
 .made-target { display: none; }
 .made-open { width: 100%; display: flex; align-items: start; gap: var(--space-3); }
+
+.ask-send-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
