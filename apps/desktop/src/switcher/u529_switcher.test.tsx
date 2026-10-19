@@ -185,6 +185,7 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
 
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(exact));
+  expect(screen.getByRole("button", { name: "Copied" })).toBeDefined();
 
   if (failure === "invalid") expect(localStorage.getItem(key)).toBe("{broken");
 
@@ -193,10 +194,14 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
 
   if (failure === "invalid") localStorage.removeItem(key);
 
-  fireEvent.click(screen.getByRole("button", { name: "Retry storage" }));
+  field()!.setSelectionRange(2, 9, "backward");
+  screen.getByRole("button", { name: "Try again" }).focus();
+  fireEvent.click(document.activeElement!);
   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   expect(JSON.parse(localStorage.getItem(key)!).drafts.at(-1).value.query).toBe(exact);
   expect(field()!.value).toBe(exact);
+  expect(document.activeElement).toBe(field());
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
   expect(app.calls.length).toBe(calls);
 
   const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
@@ -211,3 +216,17 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
 
 // The U2773a Project/reload observers run in testing/u375_real_daemon.test.tsx,
 // whose Daemon launches use the existing N7 inventory and cleanup contract.
+
+it("u2773e_unreadable_query_offers_only_retry_until_there_is_text", async () => {
+  localStorage.setItem("roundup:drafts:/p", "{broken");
+  await mountSwitcher();
+  openSwitcher();
+  await screen.findByRole("alert");
+  expect(field()!.value).toBe("");
+  expect(screen.queryByRole("button", { name: "Copy query" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Discard query" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeDefined();
+  type("recoverable");
+  expect(screen.getByRole("button", { name: "Copy query" })).toBeDefined();
+  expect(screen.getByRole("button", { name: "Discard query" })).toBeDefined();
+});
