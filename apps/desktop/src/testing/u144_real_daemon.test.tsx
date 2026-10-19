@@ -437,6 +437,78 @@ describe("u2773 Project draft integration on real Projects", () => {
     };
   };
 
+  it("u2773c_pads_external_change_keeps_original", async () => {
+    await setup();
+    const firstApp = app.forProject(first.dir);
+    const pad = await firstApp.rpc("pad.create", { name: `pad-${seed}`, text: "base\n" });
+    const other = await app.forProject(second.dir).rpc("pad.create", { name: pad.name, text: "other" });
+    const holder = drafts(first.dir);
+    const saved = holder.edit({ surface: "pads", object: pad.incarnation, recipient: null }, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
+    const separate = drafts(second.dir).edit({ surface: "pads", object: other.incarnation, recipient: null }, { originalName: other.name, source: "other", base: other.text }, null, "ordinary").draft;
+    mount();
+    const recovery = await openRecovery();
+    await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
+    const inspect = screen.getByRole("button", { name: new RegExp(saved.revision) });
+    inspect.focus();
+    await firstApp.rpc("pad.delete", { name: pad.name });
+    const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
+    expect(replacementPad.incarnation).not.toBe(pad.incarnation);
+    await waitFor(() => expect(within(recovery).getByRole("status").dataset.state).toBe("unavailable"));
+    expect(inspect.getAttribute("aria-label")).toContain(` · ${pad.incarnation} · `);
+    expect(screen.getByRole("heading", { level: 3, name: new RegExp(pad.name) })).toBeTruthy();
+    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect(document.activeElement).toBe(inspect);
+    expect(holder.list()).toEqual([saved]);
+    expect(screen.getByText(pad.text, { normalizer: (text) => text }).textContent).toBe(pad.text);
+    expect(drafts(second.dir).list()).toEqual([separate]);
+    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+    await screen.findByRole("tab", { name: "second" });
+    const otherRecovery = await openRecovery();
+    await waitFor(() => expect(within(otherRecovery).queryByRole("status")).toBeNull());
+    expect(screen.getByRole("button", { name: new RegExp(separate.revision) }).getAttribute("aria-label")).toContain(` · ${other.incarnation} · `);
+    expect(screen.queryByRole("button", { name: new RegExp(saved.revision) })).toBeNull();
+    noDelivery();
+  }, 60_000);
+
+  it("u2773e_recovery_actions_keep_surface_draft", async () => {
+    await setup();
+    const pad = await app.forProject(first.dir).rpc("pad.create", { name: `recovery-${seed}`, text: "base" });
+    const holder = drafts(first.dir);
+    const destination = { surface: "pads", object: pad.incarnation, recipient: null };
+    const older = holder.edit(destination, { originalName: pad.name, source: "older\n", base: pad.text }, null, "ordinary").draft;
+    holder.submit(older.revision);
+    holder.settle(older.revision, "failed");
+    const separate = drafts(second.dir).edit(destination, { source: "other Project" }, null, "ordinary").draft;
+    const write = Storage.prototype.setItem;
+
+    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
+      write.call(this, key, value);
+    });
+
+    const newer = holder.edit(destination, { originalName: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
+    mount();
+    await openRecovery();
+    expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
+    const clipboard = vi.fn(async (_text: string) => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(older.revision) }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy source" }));
+    expect(clipboard).toHaveBeenCalledWith("older\n");
+    const inspect = screen.getByRole("button", { name: new RegExp(older.revision) });
+    inspect.focus();
+    calls.forEach((spy) => spy.mockClear());
+    writes.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(document.activeElement).toBe(inspect);
+    expect(holder.list().find((draft) => draft.revision === newer.revision)).toEqual(newer);
+    expect(screen.getAllByRole("listitem").filter((row) => row.dataset.current === "true").map((row) => row.dataset.revision)).toEqual([newer.revision]);
+    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    expect(createProjectDrafts()(first.dir).list()).toEqual([newer]);
+    expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
+    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list"].includes(method))).toEqual([]);
+  }, 60_000);
+
   it("u2773h_shared_authority_survives_project_lifecycle", async () => {
     await setup();
     const holder = drafts(first.dir);
