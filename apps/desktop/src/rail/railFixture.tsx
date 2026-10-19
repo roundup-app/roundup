@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { createSignal, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { DaemonExit } from "../app/seam";
@@ -61,7 +61,7 @@ export const mountRail = async (
 
 /** The treeitem of the row named `name`: the element that carries `data-id`, `aria-level` and `aria-expanded`. */
 export const itemOf = (name: string): HTMLElement => {
-  const row = screen.getByText(name).closest<HTMLElement>("[role=treeitem]");
+  const row = within(screen.getByRole("tree", { name: "Rail" })).getByText(name).closest<HTMLElement>("[role=treeitem]");
 
   if (!row) throw new Error(`no row for ${name}`);
 

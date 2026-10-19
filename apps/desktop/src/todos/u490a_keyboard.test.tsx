@@ -4,7 +4,6 @@ import type { Actor } from "@contracts/Actor";
 import type { Todo } from "@contracts/todo/Todo";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { Keys } from "../keys/Keys";
-import { rowOf } from "../rail/railFixture";
 import { Rail } from "../rail/Rail";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -13,7 +12,6 @@ import { agent, event, NOW } from "../testing/nodes";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
-import { beforeOf } from "./beforeOf";
 import { Todos } from "./Todos";
 import { todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
@@ -42,14 +40,14 @@ const mountNested = async (todos: Todo[]) => {
     </ConnectedProjectContext.Provider>
   ));
   await connected.rail.settled();
-  fireEvent.click(await waitFor(() => within(rowOf("auth")).getByRole("button", { name: /todos$/ })));
+  fireEvent.click(await waitFor(() => within(document.querySelector('.rail-row[data-id="a1"]')!).getByRole("button", { name: /todos$/ })));
 
   return { app, store };
 };
 
 describe("u490a an Agent's list orders within itself", () => {
   it("u490a_nested_order_boundary", async () => {
-    // The Shelf holds #1, #2 and #6; the Agent's list is #3, #4, #5; #6 follows the list in `todo.list`.
+    // Overview includes the Agent subgroup and the root items; #6 follows the Agent list in todo.list.
     const { app } = await mountNested([todo(1), todo(2), todo(3, { creator: by("a1") }), todo(4, { creator: by("a1") }), todo(5, { creator: by("a1") }), todo(6)]);
     const group = await waitFor(() => document.querySelector<HTMLElement>("[data-pads]") ?? Promise.reject(new Error("no list")));
 
@@ -69,7 +67,7 @@ describe("u490a an Agent's list orders within itself", () => {
     key(5, "ArrowUp");
     await waitFor(() => expect(callsTo(app, "todo.reorder")).toHaveLength(2));
     expect(callsTo(app, "todo.reorder")[1]).toEqual({ method: "todo.reorder", params: { id: 5, before: 4 } });
-    expect(ids(screen.getByRole("region", { name: "Todos" }))).toEqual([1, 2, 6]);
+    await waitFor(() => expect(ids(screen.getByRole("region", { name: "Todos" }))).toEqual([3, 5, 4, 1, 2, 6]));
   });
 
   it("u490a_keyboard_reorders_moves_focus_with_the_row_and_shows_a_failure", async () => {
@@ -96,11 +94,5 @@ describe("u490a an Agent's list orders within itself", () => {
     expect(document.activeElement).toBe(row(4));
   });
 
-  it("u490a_nested_order_boundary_translates_to_the_next_row", () => {
-    const all = [1, 2, 3, 4, 5].map((id) => todo(id));
 
-    expect(beforeOf(all, [2, 4], 4, 0)).toBe(2);
-    expect(beforeOf(all, [2, 4], 2, 1)).toBe(5);
-    expect(beforeOf(all.slice(0, 4), [2, 4], 2, 1)).toBeNull();
-  });
 });

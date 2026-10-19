@@ -18,7 +18,8 @@ import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
 import { shownPads } from "./shownPads";
-import { useShelfScope } from "../todos/shelfScope";
+import { shelfScope } from "../shelf/scope";
+import { Groups } from "../shelf/Groups";
 import { usePadList } from "../rail/pads/padList";
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
@@ -29,11 +30,11 @@ export const Pads = () => {
   const [naming, setNaming] = createSignal(false);
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
-  const scope = useShelfScope(connected);
+  const scope = shelfScope(connected);
 
   const create = (name: string) =>
     failure.run(async () => {
-      const home = scope.workstream();
+      const home = scope.home();
 
       await connected.app.rpc("pad.create", { name, text: null });
 
@@ -47,16 +48,14 @@ export const Pads = () => {
       await list.reload();
     });
 
-  const thisWorkstream = createMemo(() => scope.workstream() !== null && !scope.showAll());
-
   const shown = shownPads(connected, list);
 
-  const selection = createSelection(() => shown().map((pad) => pad.name), () => `${connected.rail.selected()}:${scope.showAll()}`);
+  const selection = createSelection(() => shown().map((pad) => pad.name), () => connected.rail.selected() ?? "overview");
 
   const bulk = createBulkDelete({
     selected: selection.selected,
     targets: () => shown().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
-    context: () => `${connected.rail.selected()}:${scope.showAll()}`,
+    context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
     remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
     reload: async () => {
@@ -67,8 +66,6 @@ export const Pads = () => {
   });
 
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
-  const noneRunning = createMemo(() => scope.workstream() === null && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
-  const noneInWorkstream = createMemo(() => thisWorkstream() && list.loaded() && pads().length > 0 && shown().length === 0 && list.failure() === null);
 
   return (
     <section aria-label={copy.pads}>
@@ -95,22 +92,14 @@ export const Pads = () => {
       <Show when={isEmpty() && !naming()}>
         <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
-      <Show when={noneRunning()}>
-        <p>{copy.noPadsFromRunningAgents}</p>
-      </Show>
-      <Show when={noneInWorkstream()}>
-        <p>{copy.noPadsInThisWorkstream}{" "}
-          <button data-button="quiet" type="button" onClick={() => scope.setShowAll(true)}>{copy.showAll}</button>
-        </p>
-      </Show>
-      <PadRows
+      <Groups items={shown} home={pad => pad.home} maker={pad => pad.owner}>{items => <PadRows
         selection={selection}
         bulk={bulk}
         pads={pads}
-        shown={shown}
+        shown={items}
         onMakeYours={(name) => void makeYours(name)}
         onLateFailure={failure.show}
-      />
+      />}</Groups>
       <Show when={naming()}>
         <div class="shelf-list">
           <EntryRow
