@@ -60,7 +60,8 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
   const current = () => records().filter((draft) => draft.status === "draft").at(-1) ?? records().at(-1);
   const [selected, selectRevision] = createSignal<string | null>(null);
   const selectedDraft = () => records().find((draft) => draft.revision === selected());
-  const formValue = () => v.safeParse(formSchema, selectedDraft()?.value);
+  const [initial, setInitial] = createSignal<v.InferOutput<typeof formSchema> | null>(null);
+  const formValue = () => v.safeParse(formSchema, selectedDraft()?.value ?? initial());
 
   const base = (): WorkOrder | null => {
     const parsed = formValue();
@@ -91,18 +92,15 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
   onCleanup(() => { disposed = true; });
 
   const begin = () => {
-    let draft = current();
+    const draft = current();
     const each = order();
 
-    if (!draft && each?.kind === "work") {
-      draft = drafts.edit(destination(), {
-        title: each.title ?? "", ask: each.ask, done: each.done ?? "", field: "title",
-        baseTitle: each.title ?? null, baseAsk: each.ask, baseDone: each.done ?? null, limits: [...each.limits],
-      }, null, "ordinary").draft;
-    }
-
-    if (!draft) return;
-    selectRevision(draft.revision);
+    if (!draft && each?.kind !== "work") return;
+    setInitial(each?.kind === "work" ? {
+      title: each.title ?? "", ask: each.ask, done: each.done ?? "", field: "title",
+      baseTitle: each.title ?? null, baseAsk: each.ask, baseDone: each.done ?? null, limits: [...each.limits],
+    } : null);
+    selectRevision(draft?.revision ?? null);
     setEditing(true);
   };
 
@@ -120,13 +118,26 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
     selectRevision(next.draft.revision);
   };
 
+  const saveBlocked = () => conflict() || (selectedDraft() !== undefined
+    && !["draft", "failed"].includes(selectedDraft()!.status));
+
+  const recovery = () => conflict() || drafts.problem() || ["failed", "unknown"].includes(selectedDraft()?.status ?? "");
+
   /** Capture the revision and original recipient before crossing the RPC boundary. */
   const save = async () => {
     const draft = selectedDraft();
     const parsed = formValue();
     const captured = base();
 
-    if (!draft || !parsed.success || !captured || conflict()) return;
+    if (saveBlocked()) return;
+
+    if (!draft) {
+      close();
+
+      return;
+    }
+
+    if (!parsed.success || !captured) return;
     const snapshot = drafts.submit(draft.revision);
 
     if (!snapshot) return;
@@ -211,10 +222,11 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
         </label>
       }</For>
       <Show when={selectedDraft()}>{(draft) => <Show when={draft().status !== "draft"}><p data-state={draft().status}>{copy.draftStatus[draft().status]}</p></Show>}</Show>
+      <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert"><KindGlyph kind="error" /><span>{text()}</span></p>}</Show>
       <Show when={!formValue().success}><p class="order-edit-error" role="alert">{copy.orderRestoreFailed}</p></Show>
-      <Show when={conflict()}><p class="order-edit-error" role="alert">{copy.orderChanged}</p></Show>
-      <Show when={drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftRetention(project.path, copy.draftSurface(destination().surface), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
-      <div class="order-edit-actions">
+      <Show when={conflict()}><p class="order-edit-conflict" role="alert">{copy.orderChanged}</p></Show>
+      <Show when={drafts.problem()}>{(problem) => <div class="order-edit-retention" role="alert"><p>{copy.draftRetention(project.name, copy.draftSurface(destination().surface), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
+      <Show when={recovery()}><div class="order-edit-actions">
         <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
         <button data-button="quiet" type="button" onClick={() => {
           const draft = selectedDraft();
@@ -222,10 +234,9 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
           if (draft) drafts.discard(draft.revision);
           close();
         }}>{copy.discardRevision}</button>
-      </div>
-      <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert"><KindGlyph kind="error" /><span>{text()}</span></p>}</Show>
+      </div></Show>
       <div class="order-edit-actions">
-        <button data-button="primary" type="submit" disabled={conflict() || !["draft", "failed"].includes(selectedDraft()?.status ?? "")}>{copy.save}</button>
+        <button data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
         <button data-button="quiet" type="button" onClick={close}>{copy.cancel}</button>
       </div>
     </form>

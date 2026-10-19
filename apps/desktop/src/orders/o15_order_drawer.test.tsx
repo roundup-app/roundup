@@ -107,6 +107,7 @@ describe("O16: the user edits the order in the Drawer", () => {
     expect(field("done").value).toBe("The tour is written");
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Copy title" })).toBeNull();
   });
 
   it("o16_save_sends_set_order_with_the_limits_unchanged", async () => {
@@ -148,6 +149,13 @@ describe("O16: the user edits the order in the Drawer", () => {
     await openDrawer(clarifying("which?"));
     expect(screen.queryByRole("button", { name: "Edit order" })).toBeNull();
   });
+});
+
+it("u2773a_orders_untouched_cancel_leaves_nothing_to_recover", async () => {
+  await openDrawer(full);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
 });
 
 it("u2773a_orders_restores_exact_work_after_escape", async () => {
@@ -271,7 +279,6 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Title"), { target: { value: "  unsaved title 👋  " } });
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
-  expect(screen.getByRole("alert").textContent).toContain("/p");
   expect(screen.getByRole("alert").textContent).toContain("reload");
   const clipboard = vi.fn(async (_text: string) => {});
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
@@ -285,6 +292,9 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   expect(["Title", "Ask", "Done when"].map((label) => screen.getByLabelText<HTMLTextAreaElement>(label).value))
     .toEqual(["  unsaved title 👋  ", "  unsaved ask\n", "  unsaved done é  "]);
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "discard me" } });
+  vi.restoreAllMocks();
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(document.querySelector(".order-edit")).toBeNull();
   expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
