@@ -27,7 +27,7 @@ jobs:
     concurrency:
       group: build-${{ inputs.issue }}
       cancel-in-progress: false
-    runs-on: [self-hosted, boxd, 'roundup-build-${{ inputs.issue }}-${{ github.run_id }}-${{ github.run_attempt }}']
+    runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_ISSUES || '[]'), inputs.issue) && format('["self-hosted","boxd","roundup-build-{0}-{1}-{2}"]', inputs.issue, github.run_id, github.run_attempt) || '["ubuntu-latest"]') }}
     timeout-minutes: 120
     permissions:
       contents: read

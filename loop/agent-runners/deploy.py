@@ -35,7 +35,7 @@ def deploy(controller, snapshot, ref):
     with tempfile.TemporaryDirectory() as directory:
         directory = Path(directory)
         bundle = directory / 'controller'
-        run('pnpm', '--filter', '@roundup/boxd-runners', 'deploy', '--prod', '--legacy', str(bundle), timeout=300)
+        run('pnpm', '--filter', '@roundup/agent-runners', 'deploy', '--prod', '--legacy', str(bundle), timeout=300)
         archive = directory / 'controller.tar.gz'
         with tarfile.open(archive, 'w:gz') as out:
             out.add(bundle, arcname='.')

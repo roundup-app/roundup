@@ -12,11 +12,11 @@ const execute = promisify(execFile);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const WORKFLOWS = { build: 'build', fix: 'fix', review: 'review', critic: 'critic', smoke: 'qa' };
+const WORKFLOWS = { build: 'build', fix: 'fix', smoke: 'qa' };
 
 const EVENTS = new Set(['workflow_run', 'workflow_dispatch', 'schedule', 'issues']);
 
-const LABEL = /^roundup-(build|fix|review|critic|smoke)-([1-9][0-9]*)-([1-9][0-9]*)-([1-9][0-9]*)$/;
+const LABEL = /^roundup-(build|fix|smoke)-([1-9][0-9]*)-([1-9][0-9]*)-([1-9][0-9]*)$/;
 
 class RemoteFailure extends Error {}
 

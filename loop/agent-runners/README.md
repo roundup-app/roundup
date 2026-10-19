@@ -1,6 +1,8 @@
 # Agent runners on boxd
 
-L121 keeps GitHub's permissions, independent review and merge gates. A private controller receives signed job webhooks, restores one isolated VM per agent job and registers a GitHub runner that accepts exactly that job. GitHub-hosted jobs still select work, post answers and run checks.
+L121 keeps GitHub's permissions, independent review and merge gates. Agent jobs use GitHub-hosted runners by default. For explicitly opted-in build and fix jobs, a private controller receives signed job webhooks, restores one isolated VM and registers a GitHub runner that accepts exactly that job. Review and critic jobs remain GitHub-hosted. Work selection, answers and checks also remain GitHub-hosted.
+
+The `loop` workflow runs on PRs only. `loop/affected.py boxd` scopes its package installation and runner tests to runner code, agent integration, workflows/setup, package configuration and the L121 contract; ordinary product/documentation PRs skip those steps while retaining the required `rules` check. This removes the 12 s those steps took in [run 39336136408](https://github.com/saadshahd/roundup/actions/runs/39336136408) from unrelated PRs. The web-shard compatibility regression lives in the boxd suite so general workflow tests need no pnpm installation.
 
 ```text
 GitHub queued job → signed webhook → private controller
@@ -10,11 +12,24 @@ GitHub queued job → signed webhook → private controller
 GitHub completed/cancelled job ────────→ save memory + diagnostics → remove VM/runner
 ```
 
+## Opt in
+
+Repository variables hold JSON arrays of numeric IDs; only the matching job uses paid boxd compute:
+
+```sh
+gh variable set BOXD_ISSUES --body '[123]'
+gh variable set BOXD_PRS --body '[456]'
+```
+
+Unset variables or `[]` keep every agent job on GitHub. A build's Issue opt-in does not opt its subsequent fix PR in; set that PR's ID separately when needed. An explicit boxd opt-in waits for its prepared runner and fails visibly if provisioning fails. It does not fall back silently. The controller and stored snapshot have costs independent of worker opt-ins.
+
 ## Memory
 
-Every job starts a fresh process. Claude conversations and Codex session/state files survive under their Issue/PR; builder and fix jobs share the linked Issue. Claude auto-memory is explicitly enabled in its user settings. Codex's `features.memories`, `memories.generate_memories` and `memories.use_memories` are enabled when its retained home is used. Retained conversations are available to the agent; a new job does not automatically resume an old conversation.
+Every boxd job starts a fresh process. Claude conversations and Codex session/state files survive under their Issue/PR; builder and fix jobs share the linked Issue. Claude auto-memory is explicitly enabled in its user settings. Codex's `features.memories`, `memories.generate_memories` and `memories.use_memories` are enabled when its retained home is used. Retained conversations are available to the agent; a new job does not automatically resume an old conversation.
 
-Project memory is shared across jobs of one role, with separate builder, review, critic and smoke directories. A job receives current project memory alongside its scoped conversations. Changed notes merge against the job's starting revision. Concurrent edits keep the first published file and save the other under `<vendor>/conflicts/<job>/`; every job archive also remains available. Deletions apply when the current note still matches the starting revision.
+Project memory is shared across builder/fix jobs, with a separate directory for smoke-test memory. A job receives current project memory alongside its scoped conversations. Changed notes merge against the job's starting revision. Concurrent edits keep the first published file and save the other under `<vendor>/conflicts/<job>/`; every job archive also remains available. Deletions apply when the current note still matches the starting revision.
+
+GitHub-hosted agents keep their current fresh-memory behavior. Encrypted GitHub artifact retention is a separate follow-up; this change does not implement it.
 
 Only allowlisted conversation, SQLite state and memory paths are archived. Login files, agent settings and runner credentials are excluded. Tar members are checked before extraction; links and traversal are refused. State and diagnostics stay privately on `roundup-ci-control`, never in public GitHub artifacts. The controller's `/home/boxd/roundup-ci-state/` contains:
 
@@ -35,7 +50,7 @@ The controller uses boxd's in-VM CLI and its managed GitHub credential wrapper. 
 Prepare an isolated image machine from the existing `ru-toolchain` snapshot. Clone the trusted revision at `/opt/actions-runner/_work/roundup/roundup` (create the parent with ownership `boxd:boxd`), then run:
 
 ```sh
-python3 /opt/actions-runner/_work/roundup/roundup/loop/boxd/image.py build /opt/actions-runner/_work/roundup/roundup
+python3 /opt/actions-runner/_work/roundup/roundup/loop/agent-runners/image.py build /opt/actions-runner/_work/roundup/roundup
 ```
 
 The image builder requires Python's distro `python3-yaml` package. It derives the tool versions from `.github/actions/setup/action.yml`, installs the official agent packages, warms pnpm/Rust caches and checks the downloaded GitHub runner's SHA-256 digest. The existing setup action verifies the image fingerprint on self-hosted machines and still reconciles the current pnpm lockfile. Checkout keeps ignored package files because each VM starts from the clean snapshot.
@@ -53,7 +68,7 @@ boxd snapshots save roundup-ci-image roundup-ci
 From a checkout with `pnpm install`, authenticated `boxd` and `gh`:
 
 ```sh
-python3 loop/boxd/deploy.py
+python3 loop/agent-runners/deploy.py
 ```
 
 This installs the locked controller package, a restarting systemd service, HTTPS forwarding and the repository's signed `workflow_job` webhook. Controller and isolated runners join the explicit `roundup-ci` network so registration and memory transfer work. Re-deployment preserves the secret and private history. `--ref <branch>` admits an explicitly selected branch during pre-merge smoke testing; production uses `main`. The account's 8-vCPU/32-GiB quota fits the controller plus three 2-vCPU/8-GiB runners.
@@ -67,7 +82,7 @@ The controller persists admission before acknowledging a webhook and reconciles 
 Each VM has a three-hour wall-clock deletion deadline to bound compute leakage if the controller is unavailable. This emergency backstop can lose writes after the last checkpoint. The controller hibernates after ten idle minutes; HTTPS wakes it on the next webhook. Active GitHub status checks keep it awake while jobs run.
 
 ```sh
-pnpm --filter @roundup/boxd-runners test:boxd
+pnpm --filter @roundup/agent-runners test:runners
 gh workflow run qa.yml -f boxd-smoke=true
 gh workflow run qa.yml -f boxd-smoke=true -f expect-memory=true
 ```

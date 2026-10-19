@@ -91,7 +91,7 @@ jobs:
   fix-run:
     needs: task
     if: needs.task.outputs.pr != ''
-    runs-on: [self-hosted, boxd, 'roundup-fix-${{ needs.task.outputs.pr }}-${{ github.run_id }}-${{ github.run_attempt }}']
+    runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_PRS || '[]'), fromJSON(needs.task.outputs.pr || '0')) && format('["self-hosted","boxd","roundup-fix-{0}-{1}-{2}"]', needs.task.outputs.pr, github.run_id, github.run_attempt) || '["ubuntu-latest"]') }}
     timeout-minutes: 120
     permissions:
       contents: read

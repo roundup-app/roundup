@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web [base]
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base]
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
-the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`. The diff
+the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`.
+The `boxd` selector prints `all` only for runner, integration or package-configuration changes. The diff
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
 counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero."""
 import json
@@ -28,6 +29,11 @@ WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', '
 DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
 WEB_READS = {'artifacts/ux/': ('apps/desktop/src/testing/captures.test.ts',)}
+# L121: the prepared runner, its callers and the package/CI configuration its regressions execute under.
+BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py', 'loop/workflows.test.py',
+              '.github/workflows/', '.github/actions/setup/', '.github/actionlint.yaml',
+              'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
+              'AGENTS.md', 'scenarios/loop-boxd.md')
 
 
 def under(path, prefixes):
@@ -69,6 +75,11 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
+def boxd(changed):
+    """Select the runner regressions only when their code, callers or execution configuration can change."""
+    return 'all' if any(under(path, BOXD_READS) for path in changed) else []
+
+
 def workspace():
     """Each workspace crate's folder, relative to the repository root, and the workspace crates it depends on,
     dev-dependencies included."""
@@ -81,7 +92,7 @@ def workspace():
 
 
 def main(argv):
-    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web'):
+    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd'):
         print(__doc__, file=sys.stderr)
         return 2
     lane, base = argv[1], argv[2] if len(argv) == 3 else ''
@@ -91,7 +102,7 @@ def main(argv):
     git = lambda *args: subprocess.run(['git', *args], cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True).stdout
     fork = git('merge-base', base, 'HEAD').strip()
     changed = (git('diff', '--name-only', '--no-renames', fork) + git('ls-files', '--others', '--exclude-standard')).split()
-    selected = crates(changed, workspace()) if lane == 'rust' else web(changed)
+    selected = crates(changed, workspace()) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
     if selected != 'all' and lane == 'web':
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
     print(selected if selected == 'all' else '\n'.join(selected))

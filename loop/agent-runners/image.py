@@ -113,7 +113,7 @@ def build(repository):
         source.extractall(RUNNER, filter='data')
     path.unlink()
     for script in ('agent.py', 'memory.py', 'image.py'):
-        shutil.copyfile(repository / 'loop/boxd' / script, INSTALL / script)
+        shutil.copyfile(repository / 'loop/agent-runners' / script, INSTALL / script)
     for name in ('.claude', '.codex', '.opencode', '.roundup-ci', '.config/gh', '.config/boxd',
                  '.local/share/opencode', '.local/share/claude', '.aws', '.ssh'):
         shutil.rmtree(Path('/home/boxd') / name, ignore_errors=True)
