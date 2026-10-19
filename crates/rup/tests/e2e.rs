@@ -4524,3 +4524,128 @@ async fn e2704a_a_door_answers_with_its_context_name() {
             .contains(workstream["id"].as_str().unwrap())
     );
 }
+
+/// U2773a/c: identity reads and reconnect never restore an editor or start a program.
+#[tokio::test]
+async fn u2773c_terminal_identity_distinguishes_replacement() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = tempfile::tempdir().unwrap();
+    let shell = fixture.path().join("shell");
+    let starts = fixture.path().join("starts");
+    let writes = fixture.path().join("writes");
+    std::fs::write(&writes, "").unwrap();
+    std::fs::write(&shell, format!(
+        "#!/bin/sh\nstty -icanon -echo\nprintf 'start\\n' >> '{}'\nprintf '\\033]2;same name\\007vendor-editor-sentinel\\n'\ncat >> '{}'\n",
+        starts.display(), writes.display()
+    )).unwrap();
+    std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let env = [
+        ("SHELL", shell.to_str().unwrap()),
+        ("IDENTITY_SECRET", "credential-sentinel"),
+    ];
+    let mut project = start(&env);
+    let other = start(&env);
+    let mut identities = Vec::new();
+    let mut original = Value::Null;
+    let mut owner = Value::Null;
+    for (index, current) in [&project, &other].into_iter().enumerate() {
+        let client = current.client().await;
+        let home = client
+            .request("rail.createWorkstream", json!({"name":"same home"}))
+            .await
+            .unwrap()["id"]
+            .clone();
+        client
+            .request("terminal.open", json!({"workstream":home}))
+            .await
+            .unwrap();
+        let listed = tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                let listed = client.request("terminal.list", Value::Null).await.unwrap();
+                if listed[0]["title"] == "same name" {
+                    break listed;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let identity = listed[0]["incarnation"]
+            .as_str()
+            .expect("public Terminal incarnation")
+            .to_owned();
+        assert!(!identity.is_empty());
+        assert_ne!(identity, "0".repeat(64)); // The harness's attached authentication Proof.
+        let mut keys: Vec<_> = listed[0]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "cwd",
+                "exit_code",
+                "id",
+                "incarnation",
+                "owner",
+                "program",
+                "running",
+                "title"
+            ]
+        );
+        let serialized = serde_json::to_string(&listed).unwrap();
+        assert!(!serialized.contains("vendor-editor-sentinel"));
+        assert!(!serialized.contains("credential-sentinel"));
+        drop(client);
+        let reconnected = current.client().await;
+        assert_eq!(
+            reconnected
+                .request("terminal.list", Value::Null)
+                .await
+                .unwrap(),
+            listed
+        );
+        if index == 0 {
+            original = listed[0].clone();
+            owner = home;
+        }
+        identities.push(identity);
+    }
+    assert_ne!(identities[0], identities[1]);
+    assert_eq!(std::fs::read_to_string(&starts).unwrap(), "start\nstart\n");
+    assert_eq!(std::fs::read_to_string(&writes).unwrap(), "");
+    project.restart(&env);
+    let client = project.client().await;
+    assert_eq!(
+        client.request("terminal.list", Value::Null).await.unwrap(),
+        json!([])
+    );
+    assert_eq!(std::fs::read_to_string(&starts).unwrap(), "start\nstart\n");
+    client
+        .request("terminal.open", json!({"workstream":owner}))
+        .await
+        .unwrap();
+    let replacement = tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            let listed = client.request("terminal.list", Value::Null).await.unwrap();
+            if listed[0]["title"] == "same name" {
+                break listed[0].clone();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_ne!(replacement["incarnation"], original["incarnation"]);
+    for key in ["id", "owner", "title", "program", "cwd"] {
+        assert_eq!(replacement[key], original[key], "{key}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(&starts).unwrap(),
+        "start\nstart\nstart\n"
+    );
+    assert_eq!(std::fs::read_to_string(&writes).unwrap(), "");
+}
