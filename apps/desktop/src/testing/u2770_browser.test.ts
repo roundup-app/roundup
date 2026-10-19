@@ -98,7 +98,6 @@ it("u2770_pointer_and_keyboard_focus", async () => {
         await lane.browser("press", "Meta+t");
         await lane.until(`document.activeElement?.matches('.xterm-helper-textarea') && document.activeElement.closest('[data-bubble]')?.dataset.bubble !== ${JSON.stringify(previous)}`);
         expect(await ring()).toBe("solid");
-
       }
 
       const terminalTab = '.terminal-tab-pair:last-of-type .terminal-tab';
@@ -117,8 +116,8 @@ it("u2770_pointer_and_keyboard_focus", async () => {
       await lane.browser("press", "Tab");
       await lane.until(focused(".project-tab .tab-name-button"));
       expect(await ring()).toBe("solid");
-      await lane.browser("click", pads);
-      await lane.until(focused(pads));
+      await lane.browser("click", ".strip-add");
+      await lane.until(focused(".strip-add"));
       expect(await ring()).toBe("none");
     } finally { await lane.close(); }
   }
