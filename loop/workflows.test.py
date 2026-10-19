@@ -38,6 +38,14 @@ def workflow_expression(expression, run):
     return eval(expression, {'__builtins__': {}, 'format': lambda template, *args: template.format(*args)})
 
 
+class WebShards(unittest.TestCase):
+    def test_l121_web_shards_do_not_run_boxd_controller_tests(self):
+        result = subprocess.run(['pnpm', '-r', '--filter', '@roundup/boxd-runners', '--if-present', 'test',
+                                 '--shard=4/7', '--config', '/nonexistent/vitest-ci-config.mjs'],
+                                cwd=ROOT, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
 class DownstreamDraft(unittest.TestCase):
     def check_title(self, draft, event='pull_request', title='Draft check'):
         source = (ROOT / '.github/workflows/check.yml').read_text()

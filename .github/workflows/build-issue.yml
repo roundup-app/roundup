@@ -27,7 +27,7 @@ jobs:
     concurrency:
       group: build-${{ inputs.issue }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, boxd, 'roundup-build-${{ inputs.issue }}-${{ github.run_id }}-${{ github.run_attempt }}']
     timeout-minutes: 120
     permissions:
       contents: read
@@ -48,6 +48,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          clean: false
           persist-credentials: false
       # The Builder switches this checkout to its branch; the end of the job runs main's copy.
       - run: cp -R loop "$RUNNER_TEMP/loop" && mkdir "$RUNNER_TEMP/.agents" && cp .agents/screen.md "$RUNNER_TEMP/.agents/"

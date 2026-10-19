@@ -58,6 +58,13 @@ jobs:
         if: ${{ !cancelled() }}
       - run: python3 loop/stall.test.py
         if: ${{ !cancelled() }}
+      - uses: pnpm/action-setup@v5
+        if: ${{ !cancelled() }}
+      - name: L121 boxd runner and retained-memory regressions
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm install --filter @roundup/boxd-runners --frozen-lockfile --ignore-scripts
+          pnpm --filter @roundup/boxd-runners test:boxd
       - run: python3 loop/workflows.test.py
         if: ${{ !cancelled() }}
       - run: loop/rules.test.sh

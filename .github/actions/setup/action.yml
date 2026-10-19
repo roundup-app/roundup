@@ -19,10 +19,14 @@ inputs:
 runs:
   using: composite
   steps:
+    - if: runner.environment == 'self-hosted'
+      name: Verify prepared boxd toolchain
+      shell: bash
+      run: python3 /opt/roundup-ci/image.py verify "${{ github.action_path }}/action.yml"
     # The browser downloads and its system packages install in about 30 s of waiting on the network: where no Tauri
     # install holds apt's lock, they run in the background while the toolchain, caches and Node install, and `Wait for
     # browser` joins them. The package goes to its own prefix: this runs before `setup-node`, on the runner's own Node.
-    - if: inputs.browser == 'true' && inputs.rust != 'true'
+    - if: runner.environment != 'self-hosted' && inputs.browser == 'true' && inputs.rust != 'true'
       name: Start browser install
       shell: bash
       run: |
@@ -33,19 +37,19 @@ runs:
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
     # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives leaves only the
     # unpacking. The key changes with this file, which names the packages; apt downloads any package the cache holds an older version of.
-    - if: inputs.rust == 'true' && runner.os == 'Linux'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       id: apt-archives
       uses: actions/cache@v5
       with:
         path: ~/apt-archives/*.deb
         key: apt-tauri-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.github/actions/setup/action.yml') }}
-    - if: inputs.rust == 'true' && runner.os == 'Linux'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Start Tauri packages
       shell: bash
       run: |
         mkdir -p "$HOME/apt-archives/partial"
         setsid sudo bash -c 'apt-get update && apt-get install -y -o Dir::Cache::archives="$2" libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev jq; echo $? >"$1"' _ "$RUNNER_TEMP/apt.status" "$HOME/apt-archives" >"$RUNNER_TEMP/apt.log" 2>&1 </dev/null &
-    - if: inputs.rust != 'false'
+    - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: 1.99.0
@@ -53,62 +57,64 @@ runs:
     # One key per OS for every job that builds the workspace. `check-<OS>` is the check job's own key, so Builders
     # restore the entries main's check saved on their OS (L84). Only a push to main saves: a PR or a Builder branch would store its own 726 MB copy.
     # The first job to save a key keeps it, so a job that builds only part of the workspace never saves.
-    - if: inputs.rust != 'false'
+    - if: runner.environment != 'self-hosted' && inputs.rust != 'false'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: check-${{ runner.os }}
         save-if: ${{ inputs.save-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     # The build takes about 15 s with nothing else to wait on: it runs in the background while Node installs, and `Wait for
     # daemon build` joins it.
-    - if: inputs.rust == 'build'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
       name: Start daemon build
       shell: bash
       run: |
         setsid bash -c 'cargo build -p rupd -p rup; echo $? >"$1"' _ "$RUNNER_TEMP/daemon.status" >"$RUNNER_TEMP/daemon.log" 2>&1 </dev/null &
-    - if: inputs.rust == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: taiki-e/install-action@nextest
-    - if: inputs.rust == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true'
       uses: taiki-e/install-action@cargo-machete
     - uses: actions/setup-python@v6
+      if: runner.environment != 'self-hosted'
       with:
         python-version: '3.12'
-    - if: inputs.node != 'false'
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false'
       uses: pnpm/action-setup@v5
-    - if: inputs.node != 'false'
+    - if: runner.environment != 'self-hosted' && inputs.node != 'false'
       uses: actions/setup-node@v5
       with:
         node-version: 22
         cache: pnpm
-    - if: inputs.rust == 'true' && runner.os == 'macOS'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'macOS'
       name: GNU coreutils and jq
       shell: bash
       run: |
         brew install coreutils jq
         echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
     - uses: taiki-e/install-action@just
+      if: runner.environment != 'self-hosted'
     - if: inputs.node != 'false'
       shell: bash
       run: pnpm install --frozen-lockfile
-    - if: inputs.rust == 'true' && runner.os == 'Linux'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'true' && runner.os == 'Linux'
       name: Wait for Tauri packages
       shell: bash
       run: |
         until [ -s "$RUNNER_TEMP/apt.status" ]; do sleep 1; done
         cat "$RUNNER_TEMP/apt.log"
         [ "$(cat "$RUNNER_TEMP/apt.status")" = 0 ]
-    - if: inputs.rust == 'build'
+    - if: runner.environment != 'self-hosted' && inputs.rust == 'build'
       name: Wait for daemon build
       shell: bash
       run: |
         until [ -s "$RUNNER_TEMP/daemon.status" ]; do sleep 1; done
         cat "$RUNNER_TEMP/daemon.log"
         [ "$(cat "$RUNNER_TEMP/daemon.status")" = 0 ]
-    - if: inputs.browser == 'true' && inputs.rust == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.browser == 'true' && inputs.rust == 'true'
       shell: bash
       run: |
         npm install -g agent-browser@0.27.0
         agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}
-    - if: inputs.browser == 'true' && inputs.rust != 'true'
+    - if: runner.environment != 'self-hosted' && inputs.browser == 'true' && inputs.rust != 'true'
       name: Wait for browser
       shell: bash
       run: |
@@ -116,7 +122,7 @@ runs:
         cat "$RUNNER_TEMP/browser.log"
         [ "$(cat "$RUNNER_TEMP/browser.status")" = 0 ]
     # `gh pr edit --attach` (a run attaches its rendered captures to its PR, `.agents/data/harness.md`) needs gh 2.102.0.
-    - if: inputs.builder == 'true' && runner.os == 'Linux'
+    - if: runner.environment != 'self-hosted' && inputs.builder == 'true' && runner.os == 'Linux'
       name: GitHub CLI 2.102.0 or later
       shell: bash
       run: |
@@ -129,7 +135,7 @@ runs:
         fi
         gh --version
     # Codex, and Claude Code at the version claude-code-action 1 pins.
-    - if: inputs.builder == 'true'
+    - if: runner.environment != 'self-hosted' && inputs.builder == 'true'
       shell: bash
       run: |
         npm install -g @openai/codex@0.161.0
