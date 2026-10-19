@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import { RpcError } from "../app/seam";
 import { NOW_TICK_MS } from "../state/clock";
 import { asking, card, cleared, decision, opened, mountApp, rpcCalls, select } from "./decisionsFixture";
 
@@ -21,8 +22,9 @@ describe("u113 a reload and a Reopen", () => {
     expect(rpcCalls(first.app, "decision.list").length).toBeGreaterThan(0);
   });
 
-  it("u113_reopen_answers_with_the_new_connections_proof_and_the_proof_never_shows", async () => {
-    const { app } = await mountApp([decision("d1", "a")]);
+  it.each(["permission", "question"])("u2773e_credentials_keep_existing_policy_%s", async kind => {
+    const live = kind === "permission" ? decision("d1", "a") : asking("d1", "a", "keep?", ["keep", "drop"]);
+    const { app } = await mountApp([live]);
 
     app.proof.value = "proof-old-7f3a";
     app.exitDaemon({ code: 1 });
@@ -33,10 +35,21 @@ describe("u113 a reload and a Reopen", () => {
     await screen.findAllByRole("treeitem");
     select("alpha");
     await waitFor(() => expect(card()).not.toBeNull());
-    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+
+    if (kind === "question") {
+      const field = await within(card()!).findByRole("textbox", { name: "Note" });
+      fireEvent.input(field, { target: { value: "recover this answer" } });
+      app.handlers["decision.answer"] = () => { throw new RpcError(-32002, "refused"); };
+    }
+
+    fireEvent.click(within(card()!).getByRole("button", { name: kind === "permission" ? "Allow" : "Send" }));
 
     await waitFor(() => expect(rpcCalls(app, "decision.answer")).toHaveLength(1));
-    expect(rpcCalls(app, "decision.answer")).toEqual([{ id: "d1", answer: "allow", proof: "proof-new-9c1d" }]);
+
+    if (kind === "question") await within(card()!).findByRole("alert");
+    expect(rpcCalls(app, "decision.answer")).toEqual([kind === "permission"
+      ? { id: "d1", answer: "allow", proof: "proof-new-9c1d" }
+      : { id: "d1", answer: "keep", note: "recover this answer", proof: "proof-new-9c1d", identity: { daemon: "daemon", agent: "a", attempt: "attempt-a", decision: "d1" } }]);
 
     const seen = [document.documentElement.outerHTML, JSON.stringify({ ...localStorage }), JSON.stringify({ ...sessionStorage })];
 
@@ -82,7 +95,7 @@ describe("u468 refused Door answers", () => {
       if (note) {
         const current = within(card()!).getByRole("textbox", { name: "Note" });
         expect(document.activeElement).toBe(current);
-        expect(current instanceof HTMLInputElement && current.value).toBe("keep compatibility");
+        expect(current instanceof HTMLTextAreaElement && current.value).toBe("keep compatibility");
       }
 
       fireEvent.click(within(card()!).getByRole("button", { name: kind === "permission" ? "Allow" : "Send" }));
@@ -90,7 +103,7 @@ describe("u468 refused Door answers", () => {
       await waitFor(() => expect(card()).toBeNull());
       expect(rpcCalls(app, "decision.answer")).toEqual([kind === "permission"
         ? { id: "d1", answer: "allow", proof: app.proof.value }
-        : { id: "d1", answer: "keep", note: "keep compatibility", proof: app.proof.value }]);
+        : { id: "d1", answer: "keep", note: "keep compatibility", proof: app.proof.value, identity: { daemon: "daemon", agent: "a", attempt: "attempt-a", decision: "d1" } }]);
     } finally {
       cleanup();
       vi.useRealTimers();
@@ -107,8 +120,8 @@ describe("u468 refused Door answers", () => {
     app.emit(opened({ ...first, id: "d2", opened_at: 2 }));
     app.emit(cleared("d1", "replaced"));
 
-    const note = within(card()!).getByRole("textbox", { name: "Note" });
-    expect(note instanceof HTMLInputElement && note.value).toBe("");
+    const note = await within(card()!).findByRole("textbox", { name: "Note" });
+    expect(note instanceof HTMLTextAreaElement && note.value).toBe("");
   });
 
 });

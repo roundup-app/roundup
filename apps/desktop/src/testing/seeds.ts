@@ -473,6 +473,14 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     ]);
 
     app.handlers["decision.list"] = () => [...open.values()];
+    app.handlers["decision.capture"] = ({ id }) => {
+      const decision = open.get(id);
+
+      if (!decision) throw new RpcError(CONFLICT, "the original question is no longer open");
+
+      return { daemon: "harness", agent: decision.agent, attempt: "1", decision: id };
+    };
+
     app.handlers["decision.answer"] = ({ id }) => {
       open.delete(id);
       controls.emit({ actor: USER, name: "decision.cleared", data: { id, outcome: "answered" } });

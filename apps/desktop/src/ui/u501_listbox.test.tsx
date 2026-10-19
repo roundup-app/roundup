@@ -187,7 +187,7 @@ it("u501_explicitly_enabled_pending_editor_keeps_ark_selection_and_note_editable
   expect(screen.getByRole("listbox").parentElement?.getAttribute("aria-busy")).toBe("true");
   const editor = screen.getByRole("textbox");
   expect(editor).toHaveProperty("readOnly", false);
-  fireEvent.keyDown(editor, { key: "ArrowDown" });
+  fireEvent.keyDown(editor, { key: "ArrowDown", altKey: true });
   await waitFor(() => expect(value()).toBe("detail"));
   fireEvent.input(editor, { target: { value: "B\n別の答え 👋" } });
   expect(note()).toBe("B\n別の答え 👋");

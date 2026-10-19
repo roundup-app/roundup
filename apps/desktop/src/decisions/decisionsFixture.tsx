@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect } from "vitest";
+import { afterEach, beforeEach, expect } from "vitest";
 import type { Decision } from "@contracts/decision/Decision";
+import { createProjectDrafts } from "../state/connectedProject";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
@@ -8,6 +9,8 @@ import { agent, door, event } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 
 afterEach(cleanup);
+
+beforeEach(() => localStorage.clear());
 
 export const decision = (id: string, agentId: string, over: Partial<Decision> = {}): Decision => ({
   id,
@@ -64,14 +67,17 @@ export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], pr
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   app.handlers["decision.list"] = () => listed;
   app.handlers["decision.answer"] = () => null;
+  app.handlers["decision.capture"] = ({ id }) => ({ daemon: "daemon", agent: "a", attempt: "attempt-a", decision: id });
   prepare(app);
 
-  const view = render(() => <App app={app} reducedMotion={() => false} clock={clock} createEmulator={emulators.factory} />);
+  const drafts = createProjectDrafts();
+
+  const view = render(() => <App app={app} drafts={drafts} reducedMotion={() => false} clock={clock} createEmulator={emulators.factory} />);
 
   await waitFor(() => expect(view.container.querySelector(".pane")).not.toBeNull());
   await waitFor(() => expect(screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id"))).toHaveLength(3));
 
-  return { app, emulators, container: view.container };
+  return { app, drafts, emulators, container: view.container };
 };
 
 export const select = (name: string) => {
