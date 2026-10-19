@@ -2,7 +2,7 @@ import { batch, createSignal } from "solid-js";
 import type { Ask } from "@contracts/ask/Ask";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
-import { INTERNAL_CODE, RpcError, type AppSeam } from "../app/seam";
+import { RpcError, type AppSeam } from "../app/seam";
 import type { SendParams } from "@contracts/ask/SendParams";
 import type { Events } from "../app/events";
 
@@ -106,7 +106,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
         setFailure(message);
 
         // INTERNAL and UNKNOWN_OUTCOME can follow committed intake; neither proves refusal.
-        if (error instanceof RpcError && error.code !== INTERNAL_CODE && error.code !== -32004) return { kind: "refused", submission, error };
+        if (error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code)) return { kind: "refused", submission, error };
 
         return { kind: "unknown", submission, message };
       } finally {
