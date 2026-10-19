@@ -4,7 +4,6 @@ ended, when a PR gets a fix run and how a review run's answer reaches the PR. Ex
 written."""
 import base64
 import binascii
-import contextlib
 import json
 import os
 import re
@@ -12,9 +11,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
-import threading
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -28,17 +25,12 @@ NEEDS_MAC = orders.NEEDS_MAC
 SCREEN_MODEL = 'claude-haiku-5-5'
 VERDICTS = ('user', 'mac', 'loop')
 SCREEN_TRIES = 2
-# L23: with the repository variable `CLAUDE_API` set, every Claude Code call runs on Claude API credit through Workload
-# Identity Federation instead of the Max token. The workflows pass the repository variables as the JSON `CLAUDE_API_VARS`
-# (empty when it is unset); `API_VARS` are the ones Claude Code needs. GitHub's identity token lives about five minutes, so
-# a run's file is rewritten every `API_REFRESH` seconds. `--max-budget-usd` caps a call in dollars: a build or fix run
+# L23: with the repository variable `CLAUDE_API` set, every Claude Code call runs on Claude API credit, signed in with the
+# secret `ANTHROPIC_API_KEY` instead of the Max token. `--max-budget-usd` caps a call in dollars: a build or fix run
 # `BUILD_BUDGET`; a screen (Haiku, three turns, no tools) `SCREEN_BUDGET`; a review and a design critic hold their model,
 # turns, budget and `--effort` in `READ_ONLY` (the critic on Sonnet here, Opus on the Max token). The value of `CLAUDE_API`
 # is the count of build and fix slots, which `slot_count` reads in place of `CODEX_RUNS`; a PR gets `API_ATTEMPTS` fix runs
 # in place of `ATTEMPTS`.
-API_VARS = ('ANTHROPIC_FEDERATION_RULE_ID', 'ANTHROPIC_ORGANIZATION_ID', 'ANTHROPIC_SERVICE_ACCOUNT_ID', 'ANTHROPIC_WORKSPACE_ID')
-API_AUDIENCE = 'https://api.anthropic.com'
-API_REFRESH = 60
 BUILD_BUDGET = 3
 SCREEN_BUDGET = 0.25
 READ_ONLY = {'review': ('claude-sonnet-5-5', 60, 1.5, 'medium'), 'critic': ('claude-sonnet-5-5', 80, 3, 'high')}
@@ -203,12 +195,11 @@ def screen(ask):
             if os.environ.get('CODEX_ONLY') and not switched():
                 verdict = json.loads(screen_on_codex(ask))
             else:
-                with claude_env() as env:
-                    out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
-                                          '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA),
-                                          *api_flags(SCREEN_BUDGET, SCREEN_EFFORT)],
-                                         input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
-                                         timeout=300, check=True, env=env)
+                out = subprocess.run(['claude', '-p', '--model', SCREEN_MODEL, '--tools', '', '--max-turns', '3',
+                                      '--output-format', 'json', '--json-schema', json.dumps(SCREEN_SCHEMA),
+                                      *api_flags(SCREEN_BUDGET, SCREEN_EFFORT)],
+                                     input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True,
+                                     timeout=300, check=True, env=claude_env())
                 result = json.loads(out.stdout)
                 log_cost('screen', result.get('total_cost_usd'))
                 verdict = result.get('structured_output')
@@ -279,18 +270,13 @@ def worked(path):
     return any(tool_use(json.loads(line)) for line in text.splitlines() if line.strip())
 
 
-def identity_token(audience):
-    """The job's OIDC token for `audience`, from the endpoint the runner exposes."""
-    request = urllib.request.Request(f"{os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']}&audience={audience}",
-                                     headers={'Authorization': f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)['value']
-
-
 def app_token(rights=RIGHTS):
     """A fresh Claude App token for this job holding `rights`, traded for its OIDC token as claude-code-action does
     (L23), masked in the log."""
-    oidc = identity_token(AUDIENCE)
+    request = urllib.request.Request(f"{os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']}&audience={AUDIENCE}",
+                                     headers={'Authorization': f"bearer {os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        oidc = json.load(response)['value']
     request = urllib.request.Request(EXCHANGE, data=json.dumps({'permissions': rights}).encode(), method='POST',
                                      headers={'Authorization': f'Bearer {oidc}', 'Content-Type': 'application/json'})
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -348,7 +334,7 @@ def answer_out(output, answer):
 
 def switched():
     """Whether `CLAUDE_API` moves Claude Code onto API credit."""
-    return bool(os.environ.get('CLAUDE_API_VARS'))
+    return bool(os.environ.get('CLAUDE_API'))
 
 
 def api_flags(budget, effort):
@@ -371,49 +357,17 @@ def fix_attempts():
     return API_ATTEMPTS if switched() else ATTEMPTS
 
 
-@contextlib.contextmanager
 def claude_env():
-    """The environment for a `claude` process: `os.environ`, or with `CLAUDE_API` set the federation variables and a file
-    of the job's identity token for `API_AUDIENCE`, rewritten every `API_REFRESH` seconds while the block runs, with the
-    Max token, the token request and `CLAUDE_API_VARS` left out. Exits with an error annotation when a federation variable is
-    missing or a step still holds the Max token."""
+    """The environment for a `claude` process: `os.environ`, or with `CLAUDE_API` set the same without the Max token, even
+    empty, which Claude Code would read as a login. Exits with an error annotation when `ANTHROPIC_API_KEY` is empty or a
+    step still holds the Max token."""
     if not switched():
-        yield os.environ
-        return
-    given = json.loads(os.environ['CLAUDE_API_VARS'])
-    missing = [name for name in API_VARS if not given.get(name)]
-    if missing:
-        raise SystemExit(f"::error::CLAUDE_API is set but the repository variables {', '.join(missing)} are not")
+        return os.environ
+    if not os.environ.get('ANTHROPIC_API_KEY'):
+        raise SystemExit('::error::CLAUDE_API is set but the secret ANTHROPIC_API_KEY is empty')
     if os.environ.get('CLAUDE_CODE_OAUTH_TOKEN'):
         raise SystemExit('::error::CLAUDE_API is set but this step holds CLAUDE_CODE_OAUTH_TOKEN')
-    with tempfile.TemporaryDirectory(dir=os.environ.get('RUNNER_TEMP')) as directory:
-        token = Path(directory, 'identity-token')
-
-        def write():
-            fresh = identity_token(API_AUDIENCE)
-            print(f'::add-mask::{fresh}')
-            Path(directory, 'next').touch(mode=0o600)
-            Path(directory, 'next').write_text(fresh)
-            os.replace(Path(directory, 'next'), token)
-
-        def refresh():
-            while not stopped.wait(API_REFRESH):
-                try:
-                    write()
-                except (OSError, ValueError, KeyError, urllib.error.URLError) as error:
-                    print(f'::warning::identity token refresh failed: {error}', flush=True)
-
-        stopped = threading.Event()
-        write()
-        thread = threading.Thread(target=refresh, daemon=True)
-        thread.start()
-        try:
-            hidden = ('CLAUDE_API_VARS', 'ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')
-            yield {**{name: value for name, value in os.environ.items() if name not in hidden},
-                   **{name: given[name] for name in API_VARS}, 'ANTHROPIC_IDENTITY_TOKEN_FILE': str(token)}
-        finally:
-            stopped.set()
-            thread.join()
+    return {name: value for name, value in os.environ.items() if name != 'CLAUDE_CODE_OAUTH_TOKEN'}
 
 
 def log_cost(label, cost):
@@ -451,8 +405,7 @@ def claude(prompt, model, schema, output, rights=RUN_RIGHTS, budget=BUILD_BUDGET
     command = ['claude', '-p', '--model', model, '--output-format', 'stream-json', '--verbose', *flags, *api_flags(budget, effort)]
     if schema is not None:
         command += ['--json-schema', schema]
-    with claude_env() as env:
-        code = stream(command, prompt, events, env, CLAUDE_ACCOUNT, rights)
+    code = stream(command, prompt, events, claude_env(), CLAUDE_ACCOUNT, rights)
     seen = list(map(json.loads, events.read_text().splitlines()))
     results = [event for event in seen if event.get('type') == 'result']
     if not any(map(tool_use, seen)):
