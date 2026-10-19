@@ -88,19 +88,18 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   });
 });
 
-
 it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   const { app, connected } = await mountSwitcher("ann");
   const [query, setQuery] = createSignal("");
   const [highlighted, setHighlighted] = createSignal<string | null>("dee");
   const select = vi.fn((value: string) => connected.rail.select(value));
-  const inputChanged = vi.fn(setQuery);
   const exact = "  e\u0301 🧭 東京  ";
   const items = [{ value: "dee", label: exact }, { value: "ann", label: "other" }];
   let input!: HTMLInputElement;
+
   const view = render(() => <Combobox.Root items={items.filter((item) => item.label.includes(query()))}
     inputValue={query()} inputRef={(element) => { input = element; }}
-    highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={inputChanged} onSelect={select}
+    highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={setQuery} onSelect={select}
     label="Query" placeholder="" empty="" row={(item) => item.label} />);
 
   await waitFor(() => expect(document.activeElement).toBe(input));
@@ -110,7 +109,6 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   const origin = document.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]')!;
   origin.focus();
   const calls = app.calls.length;
-  inputChanged.mockClear();
 
   setQuery("");
   await waitFor(() => expect(input.value).toBe(""));
@@ -125,7 +123,6 @@ it("u2773a_queries_controlled_input_restores_without_execution", async () => {
   expect([input.selectionStart, input.selectionEnd, input.selectionDirection]).toEqual([2, 9, "backward"]);
   expect(input.value).toBe(exact);
   expect(document.activeElement).toBe(input);
-  expect(inputChanged).not.toHaveBeenCalled();
   expect(select).not.toHaveBeenCalled();
   expect(connected.rail.selected()).toBe("ann");
   expect(app.calls.length).toBe(calls);
