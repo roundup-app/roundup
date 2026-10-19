@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/te
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
+import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
@@ -146,4 +147,149 @@ describe("u2773 retained Rail names", () => {
     }
   }, 120_000);
 
+});
+
+// The public Daemon owns identities and mutations; only reply timing is controlled here.
+describe("u2773 Rail task destinations", () => {
+  let first: StartedDaemon;
+  let second: StartedDaemon;
+  let app: AppSeam;
+  let left: AppSeam;
+  let right: AppSeam;
+  let home: string;
+  let other: string;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    first = await startRealDaemon({});
+    second = await startRealDaemon({});
+    left = createServedApp(first.base);
+    right = createServedApp(second.base);
+    home = (await left.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
+    await right.rpc("rail.createWorkstream", { name: "padding", parent: null });
+    other = (await right.rpc("rail.createWorkstream", { name: "same", parent: null })).id;
+    app = {
+      ...left,
+      projects: async () => [{ name: "Left", path: first.dir, running: true }, { name: "Right", path: second.dir, running: true }],
+      forProject: (path) => path === first.dir ? left : right,
+      openProject: async (path) => ({ name: path === first.dir ? "Left" : "Right", path }),
+    };
+  }, 120_000);
+
+  afterEach(async () => {
+    cleanup();
+    await first?.stop();
+    await second?.stop();
+    localStorage.clear();
+  });
+
+  const mount = async () => {
+    render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+    await screen.findByRole("region", { name: "Rail" });
+  };
+  const switchTo = async (name: string) => {
+    fireEvent.click(screen.getByRole("button", { name }));
+    await screen.findByRole("region", { name: "Rail" });
+  };
+  const task = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
+  const openTask = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
+  const type = (text: string) => fireEvent.input(task(), { target: { value: text } });
+  const submit = () => fireEvent.keyDown(task(), { key: "Enter" });
+  const select = (id: string) => fireEvent.click(document.querySelector(`[data-id="${id}"] .name`)!);
+
+  it("u2773a_rail_restores_exact_work_on_project_agent_switch_and_events", async () => {
+    const sibling = await left.rpc("agent.spawn", { cwd: first.dir, parent: home, name: "same", prompt: null });
+    const calls = vi.spyOn(left, "rpc");
+    const rightCalls = vi.spyOn(right, "rpc");
+    await mount();
+    select(home);
+    openTask();
+    type(" left\ne\u0301 😀 ");
+    task().setSelectionRange(2, 7, "backward");
+    fireEvent.select(task());
+    fireEvent.keyDown(task(), { key: "Escape" });
+    select(sibling.id);
+    openTask();
+    expect(task().value).toBe(" left\ne\u0301 😀 ");
+    expect([task().selectionStart, task().selectionEnd, task().selectionDirection]).toEqual([2, 7, "backward"]);
+    fireEvent.keyDown(task(), { key: "Escape" });
+    await switchTo("Right");
+    select(other);
+    openTask();
+    expect(task().value).toBe("");
+    type(" right\n別 😀 ");
+    const focused = document.activeElement;
+    await left.rpc("rail.rename", { id: home, name: "incoming" });
+    await right.rpc("rail.rename", { id: other, name: "incoming" });
+    await screen.findByText("incoming");
+    expect(document.activeElement).toBe(focused);
+    expect(task().value).toBe(" right\n別 😀 ");
+    fireEvent.keyDown(task(), { key: "Escape" });
+    await switchTo("Left");
+    openTask();
+    expect(task().value).toBe(" left\ne\u0301 😀 ");
+    expect([task().selectionStart, task().selectionEnd, task().selectionDirection]).toEqual([2, 7, "backward"]);
+    expect(home).not.toBe(other);
+    for (const spy of [calls, rightCalls]) expect(spy.mock.calls.filter(([method]) => ["agent.spawn", "message.send"].includes(method))).toEqual([]);
+    submit();
+    await waitFor(async () => expect((await left.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(2));
+    expect(calls.mock.calls.find(([method]) => method === "agent.spawn")?.[1]).toMatchObject({ parent: home, prompt: " left\ne\u0301 😀 " });
+    expect((await right.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(0);
+  }, 120_000);
+
+  it.each(["acknowledged", "failed", "unknown"] as const)("u2773b_rail_settlement_preserves_other_revisions_late_%s", async (outcome) => {
+    const rpc = left.rpc.bind(left);
+    const replies: (() => Promise<void>)[] = [];
+    const spy = vi.spyOn(left, "rpc").mockImplementation((method, params) => {
+      if (method !== "agent.spawn") return rpc(method, params);
+      return new Promise((resolve, reject) => {
+        replies.push(async () => {
+          if (outcome === "failed") reject(new RpcError(-32003, "refused"));
+          else {
+            const result = await rpc(method, params);
+            if (outcome === "unknown") reject(new RpcError(-32603, "reply lost"));
+            else resolve(result);
+          }
+        });
+      });
+    });
+    await mount();
+    select(home);
+    openTask(); type("A"); submit(); type("B"); submit(); type("C");
+    expect(replies).toHaveLength(2);
+    fireEvent.keyDown(task(), { key: "Escape" });
+    await switchTo("Right");
+    openTask(); type("right work");
+    await replies[1]!();
+    await replies[0]!();
+    await waitFor(() => expect(task().value).toBe("right work"));
+    await switchTo("Left");
+    openTask();
+    expect(task().value).toBe("C");
+    await waitFor(() => expect(screen.queryAllByLabelText("Retained rail input")).toHaveLength(outcome === "acknowledged" ? 0 : 2));
+    expect((await rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(outcome === "failed" ? 0 : 2);
+    if (outcome !== "acknowledged") {
+      expect(screen.getAllByLabelText<HTMLTextAreaElement>("Retained rail input").map((field) => field.value)).toEqual(["A", "B"]);
+      fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision" })[0]!);
+    }
+    cleanup(); await mount(); openTask();
+    expect(task().value).toBe("C");
+    expect(screen.queryAllByLabelText<HTMLTextAreaElement>("Retained rail input").map((field) => field.value)).toEqual(outcome === "acknowledged" ? [] : ["B"]);
+    expect(spy.mock.calls.filter(([method]) => method === "agent.spawn")).toHaveLength(2);
+  }, 120_000);
+
+  it("u2773c_rail_external_change_keeps_original_removed_parent", async () => {
+    await mount(); select(home); openTask(); type(" exact removed\n😀 ");
+    await left.rpc("rail.remove", { id: home });
+    await waitFor(() => expect(document.querySelector(`[data-id="${home}"]`)).toBeNull());
+    const replacement = await left.rpc("rail.createWorkstream", { name: "same", parent: null });
+    await screen.findByText("same");
+    const calls = vi.spyOn(left, "rpc");
+    submit();
+    expect(screen.getByRole("alert").textContent).toContain("unavailable");
+    expect(task().value).toBe(" exact removed\n😀 ");
+    expect(replacement.id).not.toBe(home);
+    expect(calls.mock.calls.filter(([method]) => method === "agent.spawn" || method === "message.send")).toEqual([]);
+    expect((await left.rpc("rail.tree", null)).filter((node) => node.kind === "agent")).toHaveLength(0);
+  }, 120_000);
 });
