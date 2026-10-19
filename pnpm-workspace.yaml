@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "ext/*"
+  - "loop/boxd"
 
 # No parent release takes these fixes (Dependabot alerts on pnpm-lock.yaml, Z1).
 overrides:

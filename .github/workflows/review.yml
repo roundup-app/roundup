@@ -63,7 +63,7 @@ jobs:
   review-run:
     needs: task
     if: needs.task.outputs.pr != ''
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, boxd, 'roundup-review-${{ needs.task.outputs.pr }}-${{ github.run_id }}-${{ github.run_attempt }}']
     timeout-minutes: 45
     permissions:
       contents: read
@@ -80,11 +80,14 @@ jobs:
         with:
           ref: ${{ needs.task.outputs.head }}
           fetch-depth: 0
+          clean: false
           persist-credentials: false
       - name: Install main's reviewer instructions
         run: |
           git show origin/main:loop/review-checkout.sh | bash
           cp -R loop "$RUNNER_TEMP/loop"
+          git show origin/main:.github/actions/setup/action.yml >"$RUNNER_TEMP/setup.yml"
+          python3 /opt/roundup-ci/image.py verify "$RUNNER_TEMP/setup.yml"
       - id: claude
         if: vars.CODEX_ONLY == '' && vars.CLAUDE_API == ''
         uses: anthropics/claude-code-action@v1
@@ -93,6 +96,8 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           allowed_bots: claude,github-actions
+          path_to_claude_code_executable: /home/boxd/.local/bin/claude
+          path_to_bun_executable: /usr/local/bin/bun
           claude_args: >-
             --model claude-sonnet-5-5
             --max-turns 60
@@ -100,7 +105,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
       # CODEX_ONLY, without CLAUDE_API: the same prompt and schema on Codex, signed in with the ChatGPT login, holding the job's read token only.
       - name: Install Codex
-        if: vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
+        if: runner.environment != 'self-hosted' && vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
         run: npm install -g @openai/codex@0.161.0
       - id: codex
         if: vars.CODEX_ONLY != '' && vars.CLAUDE_API == ''
@@ -112,7 +117,7 @@ jobs:
         run: printf '%s' "$PROMPT" | python3 "$RUNNER_TEMP/loop/builder.py" engine-read-only '{"type":"object","properties":{"verdict":{"enum":["approve","reject"]},"findings":{"type":"string"}},"required":["verdict","findings"]}'
       # Claude Code at the version the setup action pins; the job runs no setup.
       - name: Install Claude Code
-        if: vars.CLAUDE_API != ''
+        if: vars.CLAUDE_API != '' && runner.environment != 'self-hosted'
         run: |
           curl -fsSL https://claude.ai/install.sh | bash -s -- 2.1.296
           echo "$HOME/.local/bin" >>"$GITHUB_PATH"

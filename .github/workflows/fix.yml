@@ -91,7 +91,7 @@ jobs:
   fix-run:
     needs: task
     if: needs.task.outputs.pr != ''
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, boxd, 'roundup-fix-${{ needs.task.outputs.pr }}-${{ github.run_id }}-${{ github.run_attempt }}']
     timeout-minutes: 120
     permissions:
       contents: read
@@ -108,6 +108,7 @@ jobs:
         with:
           ref: ${{ needs.task.outputs.branch }}
           fetch-depth: 0
+          clean: false
           persist-credentials: false
       # main picks the runner setup and runs the end of the job; the PR's copies may be stale or changed.
       - uses: actions/checkout@v5
