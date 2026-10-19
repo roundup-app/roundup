@@ -5,7 +5,7 @@ import { message } from "../testing/centreFixture";
 import { afterEach, expect, it } from "vitest";
 import { COMPARISON, openDiff, openFile, saveNote } from "./noteHarness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("u2540b_save_cancel_and_invalid_ranges", async () => {
   await openDiff();
@@ -95,4 +95,20 @@ it("u2540b_refresh_keeps_original_context", async () => {
   const body = app.calls.find(call => call.method === "message.send")!.params;
   expect(JSON.stringify(body)).toContain("new-revision");
   expect(JSON.stringify(body)).not.toContain("later-revision");
+});
+
+
+it("u2773a_changes_restores_exact_work", async () => {
+  const { view } = await openDiff();
+  await saveNote("  saved e\u0301 🐝\nexact  ");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished 🐝\n e\u0301  " } });
+  fireEvent.input(screen.getByRole("spinbutton", { name: "End line" }), { target: { value: "2" } });
+  view.unmount();
+  const { app } = await openDiff();
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  saved e\u0301 🐝\nexact  ");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished 🐝\n e\u0301  ");
+  expect(screen.getByRole("spinbutton", { name: "End line" })).toHaveProperty("value", "2");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
