@@ -32,20 +32,23 @@ export const AskBar = () => {
   const madeScope = shelfScope(connected);
   const [over, setOver] = createSignal(false);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  drafts.validate("ask", v.object({ text: v.string(), workstream: v.nullable(v.string()) }));
+  drafts.validate("ask", v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())) }));
   drafts.registerRecovery("ask", (draft, facts) => {
-    if (facts.daemonExit() !== null || facts.rail.failure()) return "unverified";
-
     const target = v.safeParse(v.string(), draft.value.workstream);
+    const available = !target.success || facts.rail.nodes.some(node => node.kind === "workstream" && node.id === target.output);
+    const state = facts.daemonExit() !== null || facts.rail.failure() ? "unverified" : available ? "available" : "unavailable";
 
-    return !target.success || facts.rail.nodes.some(node => node.kind === "workstream" && node.id === target.output) ? "available" : "unavailable";
+    return state;
   });
-  const records = () => drafts.list().filter(draft => draft.destination.surface === "ask" && draft.destination.object === "ask-bar");
+  const records = () => drafts.list().filter(draft => draft.destination.surface === "ask" && draft.destination.object === "ask-bar" && draft.destination.recipient === null);
 
   const problem = () => {
     const found = drafts.problem();
 
-    return !connected.drawer.content() && (!found?.destination || found.destination.surface === "ask") ? found : null;
+    const own = found?.destination?.surface === destination.surface
+      && found.destination.object === destination.object && found.destination.recipient === destination.recipient;
+
+    return !connected.drawer.content() && own ? found : null;
   };
 
   const current = () => {
@@ -61,16 +64,23 @@ export const AskBar = () => {
   };
 
   const setText = (value: string, recipient?: string) => {
-    const mentioned = /^@(\S+)\s/.exec(value)?.[1];
     const previous = current();
     const captured = v.safeParse(v.string(), previous?.value.workstream);
-    const recipientBefore = captured.success ? captured.output : null;
+    const previousName = v.safeParse(v.string(), previous?.value.name);
+    const starts = (text: string, name: string) => text.toLowerCase().startsWith(`@${name.toLowerCase()} `);
 
-    const workstream = recipient ?? (previous && /^@(\S+)\s/.exec(String(previous.value.text))?.[1] === mentioned
-      ? recipientBefore
-      : rail.nodes.find(node => node.kind === "workstream" && node.name === mentioned)?.id ?? null);
+    const named = recipient === undefined
+      ? rail.nodes.filter(node => node.kind === "workstream" && starts(value, node.name)).sort((a, b) => b.name.length - a.name.length)[0]
+      : rail.nodes.find(node => node.kind === "workstream" && node.id === recipient);
 
-    drafts.edit(destination, { text: value, workstream }, field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null, "ordinary");
+    // Newly typed longer names are a new choice; a replacement matching unchanged text is not.
+    const keep = recipient === undefined && captured.success && previousName.success && starts(value, previousName.output)
+      && !(named && named.name.length > previousName.output.length && !starts(text(), named.name));
+
+    const workstream = keep ? captured.output : named?.id ?? null;
+    const name = keep ? previousName.output : named?.name ?? null;
+
+    drafts.edit(destination, { text: value, workstream, name }, field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null, "ordinary");
   };
 
   const retainSelection = () => {

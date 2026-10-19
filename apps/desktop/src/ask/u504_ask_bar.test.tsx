@@ -289,3 +289,11 @@ it("u2773b_ask_repeat_enter_cannot_send_an_older_failed_revision", async () => {
   expect(sent(app)).toEqual([{ text: "failed A", submission: expect.any(String) }, { text: "pending B", submission: expect.any(String) }]);
   accept(ask("accepted", 1, []));
 });
+
+it("u2773a_ask_captures_the_longest_name_case_insensitively", async () => {
+  const { app } = await mountAskBar([], null, [workstream("short", { name: "Alpha" }), workstream("long", { name: "Alpha Beta" })]);
+  type("@Alpha ");
+  type("@aLPHa bETA exact 🌿");
+  press("Enter", {}, input()!);
+  expect(sent(app)).toEqual([{ text: "@aLPHa bETA exact 🌿", submission: expect.any(String), workstream: "long" }]);
+});
