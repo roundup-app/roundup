@@ -222,3 +222,25 @@ it("u2773b_header_late_rejection_keeps_acknowledged_project_title", async () => 
   await waitFor(() => expect(document.querySelector(".window-title")?.textContent).toBe("B"));
   expect(replies).toHaveLength(2);
 });
+
+
+it("u2773a_header_restores_exact_work", async () => {
+  const { app, view } = await openTabs({ api: [], web: [] });
+  let sends = 0;
+  const rename = app.renameProject;
+  app.renameProject = (...args) => { sends++; return rename(...args); };
+  const input = await edit();
+  fireEvent.input(input, { target: { value: "  e\u0301 🪁 雪  " } });
+  input.setSelectionRange(2, 6, "backward");
+  fireEvent.select(input);
+  press("Escape");
+  expect(document.activeElement).toBe(tab("api"));
+  fireEvent.click(tab("web"));
+  fireEvent.click(tab("api"));
+  const restored = await edit();
+  expect(restored.value).toBe("  e\u0301 🪁 雪  ");
+  expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([2, 6, "backward"]);
+  fireEvent.blur(restored);
+  expect(sends).toBe(0);
+  view.unmount();
+});
