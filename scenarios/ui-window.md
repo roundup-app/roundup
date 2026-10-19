@@ -5,7 +5,9 @@ The owner's 2026-10-12 decision in #1236 sets the supported App window width to 
 **U452 the App opens at least 1280 px wide and cannot shrink below it.** Given the App window declared in `crates/desktop/tauri.conf.json`, when its configuration is read, then:
 
 - Its `minWidth` is exactly 1280 and its initial `width` is at least 1280, in Tauri's logical pixels. Test: `u452_window_width_is_at_least_1280`, in `crates/desktop/tests/`, reads the actual config and asserts both fields on the App window, rather than testing a copied fixture.
-- Its height behavior is unchanged: `height`, `minHeight` and `maxHeight` remain absent, as on main at `crates/desktop/tauri.conf.json:9`; no new height bound is introduced. Test: `u452_window_height_is_unchanged` reads that same config and asserts the three fields are absent.
+- The window is declared maximized: `maximized` is `true`, while `height`, `minHeight` and `maxHeight` remain absent. Test: `u452_window_opens_maximized` reads that same config and asserts `maximized` is `true` and the three height fields are absent. It replaces `u452_window_height_is_unchanged`, retaining its assertion that the height fields are absent.
+
+Policy: every launch fills the usable area of the screen it opens on, between the macOS menu bar and Dock, rather than entering full screen in a separate Space. The window bar still restores and re-maximizes (U449–U451); no window size is remembered. Screens narrower than 1280 px retain the 1280 px minimum width. The config test proves the declaration; one Mac observation of `just app .` proves the fill, with a screenshot when available. That observation is not a per-PR Mac gate or a needs-user ask.
 
 Policy: this slice's implementation PR owns `crates/desktop/` only (AGENTS.md rule 3). It leaves #1236 open until U453 also holds.
 
