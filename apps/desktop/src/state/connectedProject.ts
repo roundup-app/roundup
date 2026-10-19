@@ -1,4 +1,4 @@
-import { createContext, createSignal, useContext } from "solid-js";
+import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
 import { draftStorage } from "./storage";
 import { checkContract } from "../app/contractMatch";
@@ -125,7 +125,7 @@ export type ConnectedProject = {
   contractNotice: string | null;
   /** How the Daemon ended, once it has; from then on every call fails, so no region sends one. */
   daemonExit: Accessor<DaemonExit | null>;
-  /** X17: stops telling the Daemon the window's scheme; called when the Project's connection ends. */
+  /** Disposes connection-owned reads and X17 scheme updates when the connection ends. */
   stopTerminalScheme: () => void;
 };
 
@@ -138,6 +138,13 @@ export const connectProject = async (
   storage?: RailStorage,
   drafts = createProjectDrafts()(project.path),
 ): Promise<ConnectedProject> => {
+  let ended = false;
+  let stopDecisions = () => {};
+
+  // Connection setup crosses awaits. Register teardown while its owner is still current,
+  // including a tab closed before setup finishes, or its recovery resource would retain it.
+  if (getOwner()) onCleanup(() => { ended = true; stopDecisions(); });
+
   const contractNotice = await checkContract(app);
   // Issued before the subscription, so a seed that arms a failure after it never meets this call, and awaited beside it, so connecting takes no longer.
   const [stopTerminalScheme, events] = await Promise.all([syncTerminalScheme(app), connectEvents(app)]);
@@ -145,7 +152,15 @@ export const connectProject = async (
 
   await rail.settled();
 
-  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit, drafts), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
+  const decisions = createRoot((dispose) => {
+    stopDecisions = dispose;
+
+    return createDecisions(app, events, daemonExit, drafts);
+  });
+
+  if (ended) stopDecisions();
+
+  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
