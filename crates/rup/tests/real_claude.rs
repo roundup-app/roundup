@@ -5067,20 +5067,27 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
     let receiver = client
         .request(
             "agent.spawn",
-            json!({"cwd":project.dir.path(),"prompt":initial}),
+            json!({"cwd":project.dir.path(),"prompt":initial,"name":"receiver"}),
         )
         .await
         .unwrap();
+    let sender_prompt = "A2693 recall with prompts on";
     let sender = client
         .request(
             "agent.spawn",
-            json!({"cwd":project.dir.path(),"prompt":initial}),
+            json!({"cwd":project.dir.path(),"prompt":sender_prompt,"name":"sender"}),
         )
         .await
         .unwrap();
     let id = receiver["id"].as_str().unwrap();
     turn_done(model, &client, id, initial).await;
-    turn_done(model, &client, sender["id"].as_str().unwrap(), initial).await;
+    turn_done(
+        model,
+        &client,
+        sender["id"].as_str().unwrap(),
+        sender_prompt,
+    )
+    .await;
     let actor = project.client().await;
     actor
         .request(
