@@ -231,6 +231,7 @@ const openDraftProjects = async () => {
     header ??= { drafts: useContext(ProjectDraftsContext), connected: useContext(ConnectedProjectContext) };
     await setWindowTitle(title);
   };
+
   const emulators = fakeEmulators();
 
   for (const [index, path] of paths.entries()) {
@@ -298,7 +299,7 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
   } finally { opened.close(); }
 });
 
-it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget", async () => {
+it("u2773h_shared_consumers_observe_capacity", async () => {
   const disk = new Map<string, string>();
   vi.spyOn(Storage.prototype, "getItem").mockImplementation((key) => disk.get(key) ?? null);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation((key, value) => { disk.set(key, value); });
