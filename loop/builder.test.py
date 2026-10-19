@@ -4,6 +4,7 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -256,6 +257,25 @@ class Codex(unittest.TestCase):
             with self.subTest(login=login), tempfile.TemporaryDirectory() as path, \
                     patch.dict(os.environ, RUNNER_TEMP=path), self.assertRaisesRegex(ValueError, 'CODEX_AUTH_JSON'):
                 builder.codex(login, 'Build U1.', 'gpt-6.1-sol', None, f'{path}/output')
+
+
+class Stream(unittest.TestCase):
+    def test_l23_a_codex_error_event_with_a_text_message_is_logged_not_a_crash(self):
+        lines = [dict(type='error', message='schema rejected'), 'text', dict(type='x', message='s', item='s')]
+        script = 'import json,sys; [print(json.dumps(l)) for l in %r]' % lines
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as path, redirect_stdout(out):
+            code = builder.stream([sys.executable, '-c', script], '', f'{path}/events', {}, None, None)
+        self.assertEqual(code, 0)
+        self.assertIn('::error::schema rejected', out.getvalue())
+
+    def test_l23_codex_gets_a_closed_schema_with_every_property_required(self):
+        schema = {'type': 'object', 'properties': {'verdict': {'enum': ['approve', 'reject']}, 'findings': {'type': 'string'}},
+                  'required': ['verdict']}
+        self.assertEqual(builder.strict(schema), {
+            'type': 'object', 'properties': {'verdict': {'type': 'string', 'enum': ['approve', 'reject']},
+                                             'findings': {'type': 'string'}},
+            'required': ['verdict', 'findings'], 'additionalProperties': False})
 
 
 FAKE_CLAUDE = '''#!/usr/bin/env python3
