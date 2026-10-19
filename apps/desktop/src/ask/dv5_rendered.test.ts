@@ -96,3 +96,44 @@ it("dv5_discover_open_keyboard_and_failure_on_the_dense_reopened_project", async
     await real.stop();
   }
 }, 120_000);
+
+it("u2773a_ask_restores_exact_work_after_real_project_reload_and_reopen", async () => {
+  const real = await startRealDaemon({}, true);
+  const profile = mkdtempSync(join(tmpdir(), "ask-draft-profile-"));
+  const config = join(profile, "config.json");
+  writeFileSync(config, "{}");
+
+  const browser = async (...args: string[]) => (await exec("agent-browser", ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", config, "--session", `ask-drafts-${process.pid}`, "--profile", profile, ...args], {
+    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_"))), timeout: 60_000,
+  })).stdout;
+
+  const app = createServedApp(real.base);
+  const exact = "  exact e\u0301 🌿\nsecond line  ";
+
+  try {
+    await app.rpc("rail.createWorkstream", { name: "Draft owner", parent: null });
+    await browser("set", "viewport", "1512", "950");
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("wait", "--fn", "!!document.querySelector('.ask-input')");
+    await browser("eval", `(() => {
+      const field = document.querySelector('.ask-input');
+      field.value = ${JSON.stringify(exact)};
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.setSelectionRange(2, 7, 'backward');
+      field.dispatchEvent(new Event('select', { bubbles: true }));
+    })()`);
+    await browser("reload");
+    await browser("wait", "--fn", "!!document.querySelector('.ask-input')");
+    const read = () => browser("eval", "(() => { const field = document.querySelector('.ask-input'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()");
+    expect(JSON.parse(await read())).toEqual([exact, 2, 7, "backward"]);
+    await browser("open", "about:blank");
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("wait", "--fn", "!!document.querySelector('.ask-input')");
+    expect(JSON.parse(await read())).toEqual([exact, 2, 7, "backward"]);
+    expect(await app.rpc("ask.list", null)).toEqual([]);
+  } finally {
+    await browser("close");
+    rmSync(profile, { recursive: true, force: true });
+    await real.stop();
+  }
+}, 120_000);
