@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import type { ConnectedProject } from "../state/connectedProject";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { mountControl } from "./harness";
 
@@ -15,8 +16,8 @@ const expectRow = (path: string) => {
   if (!document.querySelector("file-tree-container")?.shadowRoot?.querySelector(`[data-item-path="${path}"]`)) throw new Error("file row not ready");
 };
 
-export const openDiff = async () => {
-  const mounted = await mountControl();
+export const openDiff = async (project = "/p", drafts?: ConnectedProject["drafts"]) => {
+  const mounted = await mountControl(undefined, project, drafts);
   mounted.app.handlers["agent.compareFile"] = ({ path }) => ({ ...COMPARISON, oldPath: path, newPath: path });
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
   await openFile();
