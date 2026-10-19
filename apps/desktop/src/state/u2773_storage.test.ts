@@ -83,6 +83,32 @@ it("u2773e_storage_failure_keeps_memory", () => {
   expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "unknown" }, b]);
 });
 
+it("u2773e_storage_failure_keeps_memory_for_incompatible_surface", () => {
+  const key = "roundup:drafts:/project/a";
+  const seed = draftStorage("/project/a");
+  const incompatible = seed.edit({ surface: "todos", object: "42", recipient: null }, { title: false }, null, "ordinary").draft;
+  const independent = edit(seed, "independent");
+  const bytes = JSON.stringify({ version: 1, drafts: [incompatible, independent] }, null, 2);
+  localStorage.setItem(key, bytes);
+  const drafts = draftStorage("/project/a");
+  const failure = { project: "/project/a", destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" };
+  expect(drafts.validate("todos", v.object({ title: v.string() }))).toEqual(failure);
+  const a = drafts.edit(incompatible.destination, { title: "submitted" }, null, "ordinary").draft;
+  drafts.submit(a.revision);
+  const b = drafts.edit(incompatible.destination, { title: "  新 e\u0301 🧭\n", choices: ["b", "a"] }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+  drafts.settle(a.revision, "failed");
+  drafts.discard(a.revision);
+  expect(drafts.retry()).toEqual(failure);
+  expect(drafts.problem()).toEqual(failure);
+  expect(localStorage.getItem(key)).toBe(bytes);
+  expect(drafts.list()).toEqual([independent, b]);
+  // Repair is external and explicit; retry merges its independent revision.
+  const external = { ...independent, revision: "external", value: { text: "repair" } };
+  localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [external] }));
+  expect(drafts.retry()).toBeNull();
+  expect(draftStorage("/project/a").list()).toEqual([external, independent, b]);
+});
+
 it.each(["{broken", '{"version":2,"drafts":[]}', '{"version":1,"drafts":[{}]}'])("u2773e_storage_failure_keeps_invalid_records_%s", (raw) => {
   localStorage.setItem("roundup:drafts:/project/a", raw);
   const drafts = draftStorage("/project/a");
