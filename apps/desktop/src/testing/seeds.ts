@@ -188,7 +188,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   app.handlers["terminal.list"] = () =>
     [...new Set([...nodes.flatMap((node) => node.terminal_id ? [node.terminal_id] : []), ...owned.keys(), ...exits.keys()])].map((id) =>
-      ({ id, cwd: PROJECT.path, title: owned.get(id)?.title ?? null, program: "zsh", running: !exits.has(id), exit_code: exits.get(id) ?? null, owner: owned.get(id)?.owner ?? null }));
+      ({ id, incarnation: `seed-${PROJECT.path}-${id}`, cwd: PROJECT.path, title: owned.get(id)?.title ?? null, program: "zsh", running: !exits.has(id), exit_code: exits.get(id) ?? null, owner: owned.get(id)?.owner ?? null }));
   app.handlers["terminal.open"] = ({ workstream }) => start(workstream ?? PROJECT.path, null);
   app.handlers["agent.run"] = ({ id, command }) => start(id, command[0]?.split("/").pop() ?? null);
   app.handlers["terminal.close"] = ({ id }) => {

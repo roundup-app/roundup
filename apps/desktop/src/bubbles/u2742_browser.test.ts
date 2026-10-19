@@ -122,7 +122,7 @@ it("u2742a_an_unfocused_run_does_not_activate_or_steal_focus", async () => {
   await read(`(() => {
     window.__agentFocus = document.activeElement;
     const list = window.__fake.app.handlers['terminal.list'];
-    window.__fake.app.handlers['terminal.list'] = async params => [...await list(params), {id:'999',cwd:'/p',title:'new Run',program:'zsh',running:true,exit_code:null,owner:'runner'}];
+    window.__fake.app.handlers['terminal.list'] = async params => [...await list(params), {id:'999',incarnation:'fixture-999',cwd:'/p',title:'new Run',program:'zsh',running:true,exit_code:null,owner:'runner'}];
     window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
   })()`);
   await wait(`!!document.querySelector('.terminal-tab[data-bubble="999"]')`);
@@ -211,7 +211,7 @@ it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () =
   await wait(`!!document.querySelector('.pane-screen textarea')`);
   await read(`(() => {
     const app = window.__fake.app;
-    app.handlers['terminal.list'] = () => [{id:'103',cwd:'/p',program:'zsh',title:'first project',running:true,exit_code:null,owner:'p2-agent'}];
+    app.handlers['terminal.list'] = () => [{id:'103',incarnation:'fixture-p2-103',cwd:'/p',program:'zsh',title:'first project',running:true,exit_code:null,owner:'p2-agent'}];
     app.handlers['terminal.snapshot'] = () => ({cols:80,rows:24,after:0,data:''});
     app.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});
   })()`);
@@ -227,7 +227,7 @@ it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () =
   await key();
   expect(await read(`({pane:!!document.activeElement?.closest('.pane-screen'), bubble:!!document.querySelector('.bubble:not([hidden])'), old:window.__fake.app.calls.slice(window.__oldCalls), other:window.__other.calls.slice(window.__otherCalls)})`)).toEqual({ pane: true, bubble: false, old: [], other: [] });
   await read(`(() => {
-    window.__other.handlers['terminal.list'] = () => [{id:'103',cwd:'/other',program:'zsh',title:'second project',running:true,exit_code:null,owner:'p3-agent'}];
+    window.__other.handlers['terminal.list'] = () => [{id:'103',incarnation:'fixture-p3-103',cwd:'/other',program:'zsh',title:'second project',running:true,exit_code:null,owner:'p3-agent'}];
     window.__other.handlers['terminal.snapshot'] = () => ({cols:80,rows:24,after:0,data:''});
     window.__other.handlers['terminal.write'] = () => null;
     window.__other.emit({actor:{kind:'user',id:'you',parent:null},name:'terminal.changed'});

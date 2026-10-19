@@ -55,6 +55,7 @@ export const terminal = (id: string, over: Partial<RailNode> = {}): RailNode =>
 
 export const info = (id: string, over: Partial<TerminalInfo> = {}): TerminalInfo => ({
   id,
+  incarnation: `fixture-${id}`,
   cwd: "/p",
   title: null,
   program: "zsh",
