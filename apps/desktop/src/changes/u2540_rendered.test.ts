@@ -158,22 +158,14 @@ it("u2773a_changes_browser_reload_restores_exact_work", async () => {
 }, 60_000);
 
 it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
-  const { startRealDaemon } = await import("../testing/realDaemonFixture");
+  const { startWorktreeProject } = await import("../testing/realDaemonFixture");
   const { createServedApp } = await import("../testing/realSeam");
   const logs = await mkdtemp(join(tmpdir(), "unfinished-rendered-log-"));
-  const real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") }, true);
+  const real = await startWorktreeProject({ "same.ts": "base source\n" }, { FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") }, true);
   const press = (name: string) => browser("eval", `[...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(name)}).click()`);
 
   try {
-    const git = (...args: string[]) => exec("git", ["-C", real.dir, ...args], { timeout: 30_000 });
-    await git("init", "-b", "main");
-    await git("config", "user.name", "Recovery observer");
-    await git("config", "user.email", "observer@example.test");
-    await writeFile(join(real.dir, "same.ts"), "base source\n");
-    await git("add", "same.ts");
-    await git("commit", "-m", "base");
     const app = createServedApp(real.base);
-    await app.rpc("project.setWorktrees", { on: true, check: "true" });
     const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Recovery", order: { kind: "work", ask: "inspect", limits: [] } });
     await writeFile(join(node.worktree!.path, "same.ts"), "exact work\n");
     await browser("open", `${real.base}/harness.html?daemon=1`);

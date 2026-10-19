@@ -215,35 +215,24 @@ it.each(["invalid", "unreadable"])("u2773e_changes_restore_failure_keeps_memory_
 });
 
 it("u2773c_changes_external_change_keeps_original", async () => {
-  const { execFile } = await import("node:child_process");
-  const { promisify } = await import("node:util");
   const { join } = await import("node:path");
   const { writeFile, mkdtemp, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
-  const { startRealDaemon } = await import("../testing/realDaemonFixture");
+  const { startWorktreeProject } = await import("../testing/realDaemonFixture");
   const { createServedApp } = await import("../testing/realSeam");
   const { connectProject, ConnectedProjectContext } = await import("../state/connectedProject");
   const { WorktreeControl } = await import("./WorktreeControl");
   const { render } = await import("@solidjs/testing-library");
-  const execute = promisify(execFile);
   const logs = await mkdtemp(join(tmpdir(), "unfinished-changes-log-"));
-  const projects: Awaited<ReturnType<typeof startRealDaemon>>[] = [];
+  const projects: Awaited<ReturnType<typeof startWorktreeProject>>[] = [];
   const targets: { id: string; branch: string; path: string }[] = [];
   const originals: FileComparison[] = [];
 
   try {
     for (let index = 0; index < 2; index++) {
-      const real = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") });
+      const real = await startWorktreeProject({ "same.ts": "original base\n" }, { FAKE_CLAUDE_PROMPT_LOG: join(logs, "prompts.jsonl") });
       projects.push(real);
-      const git = (...args: string[]) => execute("git", ["-C", real.dir, ...args], { timeout: 30_000 });
-      await git("init", "-b", "main");
-      await git("config", "user.name", "Unfinished input observer");
-      await git("config", "user.email", "observer@example.test");
-      await writeFile(join(real.dir, "same.ts"), "original base\n");
-      await git("add", "same.ts");
-      await git("commit", "-m", "base");
       const app = createServedApp(real.base);
-      await app.rpc("project.setWorktrees", { on: true, check: "true" });
 
       if (index === 1) await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Spare", order: { kind: "work", ask: "inspect", limits: [] } });
       const node = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Same name", order: { kind: "work", ask: "inspect", limits: [] } });
