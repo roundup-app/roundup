@@ -26,6 +26,7 @@ const emptyReads: Handlers = {
   "pad.list": () => [],
   "decision.list": () => [],
   "ask.list": () => [],
+  "deliverable.list": () => [],
   "provenance.history": () => [],
 };
 

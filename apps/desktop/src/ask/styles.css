@@ -272,3 +272,20 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 .overview-empty .overview-heading {
   padding: 0;
 }
+
+
+.made-context {
+  flex: 0 1 auto;
+  max-height: 35%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.made-context:empty { display: none; }
+.made { padding: var(--space-2); }
+.made-heading { display: flex; align-items: center; justify-content: space-between; }
+.made-list { margin: 0; padding: 0; list-style: none; }
+.made-row { display: flex; align-items: start; gap: var(--space-3); padding-block: var(--space-2); }
+.made-content { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.made-title { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.made-status, .made-details { color: var(--grey); font-size: var(--text-small); }
