@@ -1,9 +1,10 @@
 import * as v from "valibot";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
+import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { For, Match, Show, Switch, createResource, createSignal, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
@@ -60,7 +61,16 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
   const current = () => records().filter((draft) => draft.status === "draft").at(-1) ?? records().at(-1);
   const [selected, selectRevision] = createSignal<string | null>(null);
   const selectedDraft = () => records().find((draft) => draft.revision === selected());
-  const [initial, setInitial] = createSignal<v.InferOutput<typeof formSchema> | null>(null);
+
+  const initial = createMemo(() => {
+    const each = order();
+
+    return each?.kind === "work" ? {
+      title: each.title ?? "", ask: each.ask, done: each.done ?? "", field: "title",
+      baseTitle: each.title ?? null, baseAsk: each.ask, baseDone: each.done ?? null, limits: [...each.limits],
+    } : null;
+  });
+
   const formValue = () => v.safeParse(formSchema, selectedDraft()?.value ?? initial());
 
   const base = (): WorkOrder | null => {
@@ -82,7 +92,7 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
     const original = base();
     const latest = order();
 
-    return original !== null && (latest?.kind !== "work" || original.title !== latest.title
+    return selectedDraft() !== undefined && original !== null && (latest?.kind !== "work" || original.title !== latest.title
       || original.ask !== latest.ask || original.done !== latest.done
       || JSON.stringify(original.limits) !== JSON.stringify(latest.limits));
   };
@@ -96,10 +106,6 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
     const each = order();
 
     if (!draft && each?.kind !== "work") return;
-    setInitial(each?.kind === "work" ? {
-      title: each.title ?? "", ask: each.ask, done: each.done ?? "", field: "title",
-      baseTitle: each.title ?? null, baseAsk: each.ask, baseDone: each.done ?? null, limits: [...each.limits],
-    } : null);
     selectRevision(draft?.revision ?? null);
     setEditing(true);
   };
@@ -121,7 +127,7 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
   const saveBlocked = () => conflict() || (selectedDraft() !== undefined
     && !["draft", "failed"].includes(selectedDraft()!.status));
 
-  const recovery = () => conflict() || drafts.problem() || ["failed", "unknown"].includes(selectedDraft()?.status ?? "");
+  const recovery = () => selectedDraft() !== undefined && (conflict() || drafts.problem() || ["failed", "unknown"].includes(selectedDraft()?.status ?? ""));
 
   /** Capture the revision and original recipient before crossing the RPC boundary. */
   const save = async () => {
@@ -206,6 +212,11 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
             const parsed = formValue();
 
             if (parsed.success) field.value = String(parsed.output[item.name]);
+            createEffect(on(initial, (latest) => {
+              if (selectedDraft()) return;
+              field.value = latest?.[item.name] ?? "";
+              queueMicrotask(() => resizeField(field));
+            }));
             const draft = selectedDraft();
 
             if (parsed.success && parsed.output.field === item.name) {
@@ -236,7 +247,9 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
         }}>{copy.discardRevision}</button>
       </div></Show>
       <div class="order-edit-actions">
-        <button data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
+        <Tip disabled={!saveBlocked()} text={conflict() ? copy.orderChanged : selectedDraft() ? copy.draftStatus[selectedDraft()!.status] : undefined}>{(trigger) =>
+          <button {...trigger()} data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
+        }</Tip>
         <button data-button="quiet" type="button" onClick={close}>{copy.cancel}</button>
       </div>
     </form>

@@ -301,9 +301,9 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   expect(sends).toEqual([]);
 });
 
-
 it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   let latest = full;
+
   const { app } = await mountApp([], (app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work: latest }),
@@ -312,6 +312,7 @@ it("u2773c_orders_untouched_editor_follows_external_change", async () => {
     ];
     app.handlers["agent.spawnPrompt"] = () => ({ prompt: null });
   });
+
   select("alpha");
   fireEvent.click(await screen.findByRole("button", { name: "Order of alpha" }));
   fireEvent.click(await screen.findByRole("button", { name: "Edit order" }));
