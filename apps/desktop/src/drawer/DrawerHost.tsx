@@ -132,8 +132,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 };
 
 
-/** Recovery never opens an editor or calls the Daemon. Availability is authoritative only
- * for Rail-owned destinations; other owners retain their own reconciliation contract. */
+/** Recovery never opens an editor or sends mutations. Availability uses the original Rail or Pad identity; other owners retain their own reconciliation contract. */
 export const DraftRecoveryEntry = () => {
   const connected = useConnectedProject();
 
@@ -178,8 +177,18 @@ const DraftRecovery = () => {
     }
   };
 
+  // Pad owners capture value.originalName (captured name), source and base verbatim; destination.object
+  // is the captured public incarnation, never a name resolved from the current list. Creation
+  // drafts omit value.originalName until a Pad exists, so recovery cannot mistake them for deleted Pads.
+  // Display names may change independently; project.path comes only from this shared authority.
   const availability = (draft: ReturnType<typeof drafts.list>[number]) => {
     const { surface, object } = draft.destination;
+
+    if (surface === "pads") {
+      if (!draft.value.originalName || !pads.loaded() || pads.failure()) return copy.originalUnverified;
+
+      return pads.pads().some((pad) => pad.incarnation === object) ? null : copy.originalUnavailable;
+    }
 
     if (surface === "orders" || surface === "rail") {
       return rail.nodes.some((node) => node.id === object) ? null : copy.originalUnavailable;
@@ -190,14 +199,15 @@ const DraftRecovery = () => {
     return state === "available" ? null : state === "unavailable" ? copy.originalUnavailable : copy.originalUnverified;
   };
 
-  const identity = (surface: string, object: string) => {
+  const identity = (draft: ReturnType<typeof drafts.list>[number]) => {
+    const { surface, object } = draft.destination;
     const node = surface === "terminal_selection" ? undefined : rail.nodes.find((node) => node.id === object);
 
-    const name = surface === "pads" ? pads.pads().find((pad) => pad.name === object)?.name
+    const name = surface === "pads" ? draft.value.originalName
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
       : surface === "header" && object === project.path ? project.name : node?.name;
 
-    return copy.draftIdentity(copy.draftSurface(surface === "rail" && node ? node.kind : surface), name ?? copy.originalDraftObject);
+    return copy.draftIdentity(copy.draftSurface(surface === "rail" && node ? node.kind : surface), name ? String(name) : copy.originalDraftObject);
   };
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
@@ -208,15 +218,15 @@ const DraftRecovery = () => {
     <Show when={revisions().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">
         <For each={revisions().map((draft) => draft.revision)}>{(revision) => <Show when={byRevision().get(revision)}>{(draft) => <li data-current={current().has(revision)} data-revision={revision}>
-          <div class="draft-destination"><Show when={draft().status === "draft"}><Icon name="edit" /></Show><Tip text={copy.draftIdentity(identity(draft().destination.surface, draft().destination.object), draft().destination.object)}>{(trigger) => <span {...trigger()} class="draft-name">{identity(draft().destination.surface, draft().destination.object)} <span class="draft-object">{draft().destination.object}</span></span>}</Tip>
+          <div class="draft-destination"><Show when={draft().status === "draft"}><Icon name="edit" /></Show><Tip text={copy.draftIdentity(identity(draft()), draft().destination.object)}>{(trigger) => <span {...trigger()} class="draft-name">{identity(draft())} <span class="draft-object">{draft().destination.object}</span></span>}</Tip>
           <span class="draft-status" data-state={draft().status} data-kind={draft().status === "failed" ? "error" : undefined}><KindGlyph kind={draft().status === "failed" ? "error" : draft().status === "pending" ? "working" : "blocked"} label={copy.draftStatus[draft().status]} />{current().has(revision) ? copy.currentDraft : copy.draftStatus[draft().status]}</span></div>
           <button data-button="quiet" type="button" aria-label={copy.draftIdentity(copy.inspectDraft, copy.draftSurface(draft().destination.surface), draft().destination.object, revision)} aria-pressed={shown()?.revision === revision} onClick={() => select(revision)}>{copy.inspectDraft}</button>
         </li>}</Show>}</For>
       </ul>
       <Show when={shown()}>{(draft) => <section class="draft-detail" aria-label={draft().revision}>
-        <h3>{copy.inspectedRevision(identity(draft().destination.surface, draft().destination.object), current().has(draft().revision) ? copy.currentDraft : copy.draftStatus[draft().status])}</h3>
+        <h3>{copy.inspectedRevision(identity(draft()), current().has(draft().revision) ? copy.currentDraft : copy.draftStatus[draft().status])}</h3>
         <p class="draft-identity">{copy.draftIdentity(draft().destination.object, draft().destination.recipient ?? copy.noDraftRecipient)}</p>
-        <Show when={availability(draft())}>{(text) => <p data-state="unavailable">{text()}</p>}</Show>
+        <Show when={availability(draft())}>{(text) => <p role="status" data-state={text() === copy.originalUnavailable ? "unavailable" : "unverified"}>{text()}</p>}</Show>
         <Show when={draft().policy === "credential"}><p>{copy.credentialDraftMemoryOnly}</p></Show>
         <For each={Object.keys(draft().value)}>{(field) => <div>
           <h3>{copy.draftField(field)}</h3>
