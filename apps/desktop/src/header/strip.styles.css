@@ -246,5 +246,6 @@
 }
 
 .project-tab[data-unfinished="true"][data-selected="true"] {
-  min-width: calc(8ch + 2 * var(--space-5) + 4 * var(--space-1) + var(--space-3) + 2 * var(--rule));
+  /* Keep the 8ch name and its mark clear of both action targets and their gap. */
+  min-width: calc(8ch + 3 * var(--space-5) + 5 * var(--space-1) + var(--space-3) + 2 * var(--rule));
 }
