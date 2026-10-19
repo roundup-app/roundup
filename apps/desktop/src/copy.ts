@@ -4,6 +4,20 @@ type CopyValue = string | number | undefined;
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
+  deliverables: "Made",
+  deliverableCurrent: "Current external target · availability not checked",
+  deliverableRetained: (sha256: string) => `Published file revision ${sha256}`,
+  deliverableRevision: (revision: number) => `Published Pad revision ${revision}`,
+  deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
+  openDeliverable: (title: string, maker: string, home: string, id: string) => `Open ${title} · ${maker} · ${home} · ${id}`,
+  deliverableUnsafe: "Unavailable: only HTTP and HTTPS targets can open.",
+  deliverableUnavailable: {
+    "missing-revision": "Unavailable: retained revision is missing.",
+    "integrity-failure": "Unavailable: retained revision failed its integrity check.",
+    "access-revoked": "Unavailable: access was revoked or the source was explicitly removed.",
+    "source-unknown": "Unavailable: source access could not be verified.",
+    "materialization-failed": "Unavailable: could not prepare the retained revision for opening.",
+  },
   draftSurface: (surface: string) => ({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search" })[surface] ?? "Unfinished work",
   draftField: (field: string) => ({ name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
   originalDraftObject: "Original object",

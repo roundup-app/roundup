@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -10,6 +10,9 @@ import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
+import type { Deliverable } from "@contracts/deliverable/Deliverable";
+import { IconButton } from "../ui/IconButton";
+import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
 import "./styles.css";
@@ -19,7 +22,9 @@ const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ??
 
 /** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
 export const AskBar = () => {
-  const { asks, rail, daemonExit } = useConnectedProject();
+  const connected = useConnectedProject();
+  const { asks, rail, daemonExit } = connected;
+  const deliverables = createDeliverables();
   const [over, setOver] = createSignal(false);
   const [text, setText] = createSignal("");
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -30,7 +35,7 @@ export const AskBar = () => {
   let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => over() || (rail.selected() === null && rail.nodes.length > 0);
+  const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null));
 
   asks.load();
 
@@ -112,7 +117,8 @@ export const AskBar = () => {
     else send();
   };
 
-  return (
+  return (<>
+    <Show when={rail.selected() !== null}><div class="made-context"><Deliverables state={deliverables} /></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
@@ -122,11 +128,11 @@ export const AskBar = () => {
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
         <Show when={failure() ?? asks.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-        <Show when={!over()}><ProjectOverview /></Show>
+        <Show when={!over()}><ProjectOverview /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
     </Show>
-  );
+  </>);
 };
 
 const ProjectOverview = () => {
@@ -187,4 +193,97 @@ const OverviewEntry = (props: { node: RailNode; waiting: boolean; select: () => 
       <span {...tip} ref={name} class={props.waiting ? "overview-name ink" : "overview-name"}>{props.node.name}</span>
     </button>;
   }}</Tip>;
+};
+
+/** DV5: metadata stays separate from resolution. Never retain a resolved path between opens. */
+const createDeliverables = () => {
+  const { app, events, daemonExit } = useConnectedProject();
+
+  type Catalogue = { records: Deliverable[]; failure: string | null };
+
+  const [read, { refetch }] = createResource(async (_key, { value }): Promise<Catalogue> => {
+    try {
+      return { records: await app.rpc("deliverable.list", { home: null, maker: null }), failure: null };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { records: value?.records ?? [], failure: error.message };
+    }
+  }, { initialValue: { records: [], failure: null } satisfies Catalogue });
+
+  const refresh = () => { if (daemonExit() === null) void refetch(); };
+
+  window.addEventListener("focus", refresh);
+  const unsubscribe = events.subscribe(event => { if (event.name === "rail.changed") refresh(); });
+  onCleanup(() => { unsubscribe(); window.removeEventListener("focus", refresh); });
+
+  return { records: () => read().records, failure: () => read().failure, loading: () => read.loading, refresh };
+};
+
+const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) => {
+  const connected = useConnectedProject();
+  const scope = shelfScope(connected);
+  const records = createMemo(() => props.state.records().filter(record => scope.includes(record.home, record.maker)));
+  const [selected, setSelected] = createSignal<string | null>(null);
+  const [pending, setPending] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<{ id: string; cause: string } | null>(null);
+  let disposed = false;
+  onCleanup(() => { disposed = true; });
+
+  const open = async (record: Deliverable) => {
+    if (pending() !== null || connected.daemonExit() !== null) return;
+    setSelected(record.id);
+    setPending(record.id);
+    setFailure(null);
+
+    try {
+      const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
+
+      if (disposed) return;
+
+      if (resolved.kind === "unavailable") {
+        setFailure({ id: record.id, cause: copy.deliverableUnavailable[resolved.cause] });
+      } else if (resolved.kind === "external" && !/^https?:\/\//i.test(resolved.url)) {
+        setFailure({ id: record.id, cause: copy.deliverableUnsafe });
+      } else {
+        await connected.app.openTarget(resolved.kind === "external"
+          ? { kind: "url", url: resolved.url }
+          : { kind: "path", path: resolved.path, line: null });
+      }
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (!disposed) setFailure({ id: record.id, cause: error.message });
+    } finally {
+      if (!disposed) setPending(null);
+    }
+  };
+
+  const home = (record: Deliverable) => record.home === null ? copy.overview
+    : connected.rail.nodes.find(node => node.id === record.home)?.name ?? record.home;
+
+  const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
+    : record.target.kind === "pad" ? copy.deliverableRevision(record.target.revision) : copy.deliverableRetained(record.target.sha256.slice(0, 12));
+
+  const target = (record: Deliverable) => record.target.kind === "external" ? record.target.url
+    : record.target.kind === "pad" ? record.target.name : record.target.path;
+
+  return <Show when={records().length > 0 || props.state.failure() !== null}>
+    <section class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+      <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
+        <IconButton aria-label={copy.refresh} onClick={() => { void props.state.refresh(); }}><Icon name="down" /></IconButton>
+      </div>
+      <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
+      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}>
+        <div class="made-content">
+          <div class="made-title">{record.title}<span class="made-status" data-state={record.target.kind}>{status(record)}</span></div>
+          <div class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</div>
+          <div class="made-details">{target(record)}</div>
+          <Show when={failure()?.id === record.id}><ErrorLine message={failure()?.cause ?? ""} /></Show>
+        </div>
+        <IconButton aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.id)} aria-disabled={pending() !== null}
+          onClick={() => { void open(record); }}><Icon name="right" /></IconButton>
+      </li>}</For></ul>
+    </section>
+  </Show>;
 };
