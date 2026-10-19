@@ -139,11 +139,19 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     closeProject: async () => {
       throw new RpcError(-32003, "the served Daemon cannot be closed");
     },
-    renameProject: (path, name) =>
+    renameProject: (path, name, base) =>
       reach(async () => {
         const { project } = await open;
 
-        return path === project.path ? { ...project, name: name.trim() || project.name } : project;
+        if (path !== project.path || !projectOpened) throw new RpcError(-32003, "Project is not open");
+
+        if (base !== undefined && base !== project.name) throw new RpcError(-32003, "Project name changed");
+        const trimmed = name.trim();
+
+        if (name.includes("\n") || name.includes("\r") || Array.from(trimmed).length > 40) throw new RpcError(-32602, "invalid Project name");
+        project.name = trimmed || path.split("/").filter(Boolean).at(-1) || path;
+
+        return { ...project };
       }),
     forProject: () => app,
     openProject: (path) =>
@@ -154,7 +162,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
         projectOpened = true;
 
-        return project;
+        return { ...project };
       }),
     daemonProof: () =>
       reach(async () => {

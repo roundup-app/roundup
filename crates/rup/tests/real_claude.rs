@@ -2002,7 +2002,6 @@ async fn a32_an_empty_reason_changes_nothing() {
         .into_iter()
         .map(|n| (n.id, n.parent, n.iteration, n.worktree))
         .collect();
-    let asked = model.journal().len();
     for reason in ["", "  \n ", &"x".repeat(2001)] {
         let error = client
             .request("workstream.clear", json!({"id": door, "reason": reason}))
@@ -2026,12 +2025,22 @@ async fn a32_an_empty_reason_changes_nothing() {
         .map(|n| (n.id, n.parent, n.iteration, n.worktree))
         .collect();
     assert_eq!(after, before);
-    assert_eq!(
-        model.journal().len(),
-        asked,
-        "invalid clear sends no prompt to Claude"
-    );
-    model.assert_matched();
+    // Idle does not drain routine digest/name Messages. Count only the Clear instruction,
+    // which clear.rs::ask_text includes in every Handoff request, rather than unrelated turns.
+    // No acknowledgement exists for a refused prompt: observe its absence for 300 ms.
+    let deadline = std::time::Instant::now() + Duration::from_millis(300);
+    loop {
+        assert_eq!(
+            requests_holding(model, "workstream_handoff"),
+            0,
+            "invalid clear sends no Handoff request to Claude"
+        );
+        model.assert_matched();
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
 }
 
 #[tokio::test]
