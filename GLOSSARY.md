@@ -38,6 +38,9 @@ Clear elsewhere remains Clear. The summary submit writes a Handoff; the fallback
 **Project**:
 A folder roundup is opened on; it owns its Workstreams, Agents, Terminals, Todos, Pads and Routes.
 
+**Project name base** (`base`, `ProjectsState.base`):
+The authoritative Project name an edit was captured against, distinct from an optimistic display name. When supplied to a rename, the existing name holder compares it and replaces the name under one lock; a changed base is a conflict. Omission preserves an authorized unconditional rename.
+
 **Project data**:
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 

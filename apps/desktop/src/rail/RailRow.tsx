@@ -1,7 +1,8 @@
+import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
 import { copy } from "../copy";
-import { createEffect, createSignal, For, onCleanup, Show, untrack, type JSX } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "solid-js";
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
@@ -17,6 +18,8 @@ import { Trunks } from "./Trunks";
 import type { NodeRow } from "./layout";
 import { createAgentPads, PadRows, PadsControl } from "./pads/AgentPads";
 import { createNear } from "../ink/near";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
+import { draftsOf } from "./persist/storage";
 import { RowIcons } from "./RowIcons";
 import type { RowActions } from "./RowIcons";
 
@@ -26,29 +29,82 @@ type RowProps = JSX.HTMLAttributes<HTMLDivElement>;
 /** U403: a folded Workstream shows at most this many Agent Glyphs before its count. */
 const FOLDED_GLYPHS = 5;
 
-const NameField = (props: { node: RailNode; onCommit: (name: string) => void; onCancel: () => void }) => (
-  <input
-    aria-label={copy.name}
-    value={untrack(() => props.node.name)}
-    ref={(field) =>
-      queueMicrotask(() => {
-        field.focus();
-        field.select();
-      })
+const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<void>; onFailure: (message: string) => void; onCancel: () => void }) => {
+  const connected = useConnectedProject();
+  const drafts = draftsOf(connected.drafts);
+  const destination = { surface: "rail-name", object: props.node.id, recipient: null };
+  const current = () => drafts.records().filter((entry) => entry.destination.surface === destination.surface && entry.destination.object === destination.object).at(-1);
+
+  const value = () => {
+    const text = current()?.value.text;
+
+    return v.is(v.string(), text) ? text : props.node.name;
+  };
+
+  const edit = (field: HTMLInputElement) => drafts.edit(current()?.destination ?? destination,
+    { text: field.value, base: current()?.value.base ?? props.node.name },
+    { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" }, "ordinary");
+
+  const conflict = () => current() !== undefined && current()?.status !== "pending" && current()?.value.base !== props.node.name;
+
+  const commit = async (field: HTMLInputElement) => {
+    if (conflict()) return;
+    const snapshot = current() ?? edit(field);
+    const name = value().trim();
+
+    if (name === "") {
+      props.onCancel();
+
+      return;
     }
-    onKeyDown={(key) => {
-      if (key.key === "Enter") {
-        const name = key.currentTarget.value.trim();
 
-        if (name === "") props.onCancel();
-        else props.onCommit(name);
-      }
+    const submitted = drafts.submit(snapshot.revision);
 
-      if (key.key === "Escape") props.onCancel();
-    }}
-    onBlur={props.onCancel}
-  />
-);
+    if (!submitted) return;
+
+    try {
+      await props.onCommit(name);
+      const latest = current()?.revision === submitted.revision;
+      drafts.settle(submitted.revision, "acknowledged");
+
+      if (latest) props.onCancel();
+    } catch (error) {
+      drafts.settle(submitted.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
+
+      if (!(error instanceof Error)) throw error;
+      props.onFailure(error.message);
+    }
+  };
+
+  return <>
+    <input
+      type="text"
+      aria-label={copy.name}
+      aria-invalid={conflict() || current()?.status === "failed" ? true : undefined}
+      value={value()}
+      ref={(field) => queueMicrotask(() => {
+        field.focus();
+        const selection = current()?.selection;
+
+        if (selection) field.setSelectionRange(selection.start, selection.end, selection.direction);
+        else field.select();
+      })}
+      onInput={(event) => edit(event.currentTarget)}
+      onSelect={(event) => { if (event.currentTarget.isConnected && current()?.status === "draft") edit(event.currentTarget); }}
+      onKeyDown={(key) => {
+        if (key.key === "Enter") { key.preventDefault(); void commit(key.currentTarget); }
+
+        if (key.key === "Escape") props.onCancel();
+      }}
+      onBlur={props.onCancel}
+    />
+    <Show when={conflict()}>
+      <Tip text={copy.railDraftConflict}>
+        {(trigger) => <span {...trigger()} class="ink rail-name-error" data-tone="red" data-kind="error" role="alert" tabIndex={-1} aria-label={copy.railDraftConflict}><Icon name="x" /></span>}
+      </Tip>
+    </Show>
+  </>;
+};
 
 
 /** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
@@ -78,7 +134,9 @@ export const RailRowView = (props: {
   /** Whether Ark's tree walks this row as a branch (a Workstream, or a row with rows of its own below it) or as a leaf. */
   branch: boolean;
   onToggle: () => void;
-  onRename: (name: string) => void;
+  onEditing?: (editing: boolean) => void;
+  onRename: (name: string) => Promise<void>;
+  onFailure: (message: string) => void;
   onStartDoor: () => void;
   doorPending: boolean;
   doorFailure: string | null;
@@ -100,6 +158,8 @@ export const RailRowView = (props: {
 
   const { near, handlers } = createNear(() => props.selected);
   const [editing, setEditing] = createSignal(false);
+  createEffect(() => props.onEditing?.(editing()));
+  onCleanup(() => { if (editing()) props.onEditing?.(false); });
   const pads = createAgentPads(() => props.row.node);
 
   const workstream = () => isWorkstream(props.row.node);
@@ -161,6 +221,7 @@ export const RailRowView = (props: {
     "data-selected": props.selected ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
     "data-near": near(),
+    "data-editing": editing(),
     "data-kind": kind() ?? undefined,
     "data-lifted": props.lifted,
     style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
@@ -189,10 +250,8 @@ export const RailRowView = (props: {
     >
       <NameField
         node={props.row.node}
-        onCommit={(name) => {
-          props.onRename(name);
-          setEditing(false);
-        }}
+        onCommit={props.onRename}
+        onFailure={props.onFailure}
         onCancel={() => setEditing(false)}
       />
     </Show>
