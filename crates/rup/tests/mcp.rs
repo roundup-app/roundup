@@ -1148,7 +1148,7 @@ async fn u149_a_drawing_written_through_the_tools_is_stored_byte_exact() {
 }
 
 #[tokio::test]
-async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
+async fn o4_agent_set_order_fills_its_own_id_and_retains_the_captured_order() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("fake.sock");
     let mut requests = fake_daemon(
@@ -1164,13 +1164,18 @@ async fn o4_agent_set_order_fills_its_own_id_and_takes_only_the_order() {
     assert!(schema["properties"].get("order").is_some(), "{schema}");
 
     let order = json!({"kind": "work", "ask": "fix it", "limits": ["push"], "id": "other"});
-    shim.call("agent_set_order", json!({ "order": order }))
-        .await;
+    let captured = json!({"order":null});
+    shim.call(
+        "agent_set_order",
+        json!({ "order": order, "captured": captured }),
+    )
+    .await;
 
     while let Some(request) = requests.recv().await {
         if request["method"] == "agent.setOrder" {
             assert_eq!(request["params"]["id"], "a1");
             assert_eq!(request["params"]["order"]["ask"], "fix it");
+            assert_eq!(request["params"]["captured"], captured);
             return;
         }
     }
