@@ -83,7 +83,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>
         {(question) => <>
-          <Show when={prompt()?.failure}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></>}</Show>
+          <Show when={prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
           <Show when={!prompt.loading ? prompt()?.identity : null} keyed>{identity => <AskCard question={question} identity={identity} stuck={stuck} />}</Show>
         </>}
       </Show>
