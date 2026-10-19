@@ -679,6 +679,53 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
+  it.each(["answered", "dismissed", "replaced"] as const)("u2773d_original_prompt_refuses_replacement_recovery_%s", async (retirement) => {
+    await setup();
+    const bound = app.forProject(first.dir);
+    const agent = await bound.rpc("rail.startDoor", { id: original.id });
+    const signal = () => { void bound.rpc("agent.permission", { id: agent.id, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } }).catch(() => undefined); };
+    signal();
+    await waitFor(async () => expect(await bound.rpc("decision.list", null)).toHaveLength(1));
+    const decision = (await bound.rpc("decision.list", null))[0]!;
+    const prompt = await bound.rpc("decision.capture", { id: decision.id });
+    const holder = drafts(first.dir);
+    const destination = { surface: "decisions", object: prompt.decision, recipient: prompt.agent };
+    const a = holder.edit(destination, { ...prompt, choice: "allow", note: "older exact\n" }, null, "ordinary").draft;
+    holder.submit(a.revision);
+    holder.settle(a.revision, "failed");
+    const b = holder.edit(destination, { ...prompt, choice: "deny", note: exact }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
+    mount();
+    const recovery = await openRecovery();
+    await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
+    expect(document.querySelector(".decision-card")).toBeNull();
+    if (retirement === "answered") await bound.rpc("decision.answer", { id: decision.id, identity: prompt, answer: "deny", proof: PROOF });
+    else if (retirement === "dismissed") await bound.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "Stop" } });
+    else signal();
+    expect((await bound.rpc("rail.tree", null)).find((node) => node.id === agent.id)?.attempt).toBe(agent.attempt);
+    await within(recovery).findByText("Original object unavailable");
+    expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
+    calls.forEach((spy) => spy.mockClear());
+    const clipboard = vi.fn(async (_text: string) => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy note" }));
+    expect(clipboard).toHaveBeenCalledWith(exact);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+    const inspect = screen.getByRole("button", { name: new RegExp(a.revision) });
+    inspect.focus();
+    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    expect(document.activeElement).toBe(inspect);
+    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
+    cleanup();
+    drafts = createProjectDrafts();
+    mount();
+    await openRecovery();
+    await screen.findByText("Original object unavailable");
+    expect(drafts(first.dir).list()).toEqual([b]);
+    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
+    noDelivery();
+  }, 60_000);
+
   it("u2773h_unavailable_original_remains_recoverable", async () => {
     await setup();
     const holder = drafts(first.dir);
