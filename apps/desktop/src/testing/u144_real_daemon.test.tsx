@@ -424,6 +424,30 @@ describe("u2773 Project draft integration on real Projects", () => {
     };
   };
 
+  it("u2773c_pads_external_change_keeps_original", async () => {
+    await setup();
+    const firstApp = app.forProject(first.dir);
+    const pad = await firstApp.rpc("pad.create", { name: `pad-${seed}`, text: "base\n" });
+    const other = await app.forProject(second.dir).rpc("pad.create", { name: pad.name, text: "other" });
+    const holder = drafts(first.dir);
+    const saved = holder.edit({ surface: "pads", object: pad.incarnation, recipient: null }, { name: pad.name, source: exact, base: pad.text }, null, "ordinary").draft;
+    const separate = drafts(second.dir).edit({ surface: "pads", object: other.incarnation, recipient: null }, { name: other.name, source: "other", base: other.text }, null, "ordinary").draft;
+    mount();
+    await openRecovery();
+    await waitFor(() => expect(screen.queryByText("Original availability not verified")).toBeNull());
+    expect(screen.queryByText("Original object unavailable")).toBeNull();
+    await firstApp.rpc("pad.delete", { name: pad.name });
+    const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
+    expect(replacementPad.incarnation).not.toBe(pad.incarnation);
+    await screen.findByText("Original object unavailable");
+    expect(screen.getByRole("button", { name: new RegExp(pad.incarnation) })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 3, name: new RegExp(pad.name) })).toBeTruthy();
+    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect(holder.list()).toEqual([saved]);
+    expect(drafts(second.dir).list()).toEqual([separate]);
+    noDelivery();
+  }, 60_000);
+
   it("u2773h_shared_authority_survives_project_lifecycle", async () => {
     await setup();
     const holder = drafts(first.dir);
