@@ -207,6 +207,43 @@ async fn n2_with_worktrees_on_only_the_worktree_folders_appear() {
     expected.insert(PathBuf::from(".roundup/worktrees"));
     assert_eq!(new, expected);
     assert_eq!(git(project.dir.path(), &["status", "--porcelain"]), "");
+
+    // DV2/DV3: cleaning a real maker Worktree cannot revoke its Project-stored Pad.
+    let client = project.client().await;
+    client
+        .request(
+            "pad.setOwner",
+            json!({"name":"notes", "owner": {
+                "kind":"agent", "id":ids[0]
+            }}),
+        )
+        .await
+        .unwrap();
+    let db = rusqlite::Connection::open(project.data_dir().join("project.db")).unwrap();
+    let before = pads::source(&db, "notes").unwrap().unwrap();
+    client
+        .request("agent.stop", json!({"id":ids[0]}))
+        .await
+        .unwrap();
+    assert_eq!(
+        pads::source_state(&db, before.incarnation).unwrap(),
+        pads::PadSourceState::Live(before.clone())
+    );
+    client
+        .request("rail.remove", json!({"id":ids[0]}))
+        .await
+        .unwrap();
+    assert!(
+        !project
+            .dir
+            .path()
+            .join(format!(".roundup/worktrees/agent-{}", ids[0]))
+            .exists()
+    );
+    assert_eq!(
+        pads::source_state(&db, before.incarnation).unwrap(),
+        pads::PadSourceState::Live(before)
+    );
 }
 
 /// What a Daemon before this change left: its data folder's files, in `<project>/.roundup/`.

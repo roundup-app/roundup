@@ -1,8 +1,19 @@
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createComponent, createComputed, createRoot } from "solid-js";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { App } from "../App";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { createFakeApp } from "../testing/fakeApp";
+import { info, terminal } from "../testing/nodes";
+import { useConnectedProject } from "./connectedProject";
+import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
 
-afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () => {
   const storage = storedValue("draft", v.string());
@@ -203,4 +214,132 @@ it("u2773b_storage_late_out_of_order_replies_keep_original_project", () => {
   first.settle(a.revision, "failed");
   expect(draftStorage("/project/a").list()).toEqual([{ ...a, status: "failed" }, current]);
   expect(draftStorage("/project/b").list()).toEqual([elsewhere]);
+});
+
+// The existing emulator edge runs inside the mounted Project context: consumers
+// observe the same public holder that surface owners will use, without a new App seam.
+const openDraftProjects = async () => {
+  const directory = mkdtempSync(join(tmpdir(), "roundup-drafts-"));
+  const paths = [join(directory, "a"), join(directory, "b")];
+  const app = createFakeApp();
+  const seen: ConnectedProject[] = [];
+  const emulators = fakeEmulators();
+
+  for (const [index, path] of paths.entries()) {
+    mkdirSync(path);
+    app.add(path);
+    app.of(path).handlers["rail.tree"] = () => [terminal(`editor-${index}`)];
+    app.of(path).handlers["terminal.list"] = () => [info(`t-editor-${index}`)];
+  }
+
+  const view = render(() => createComponent(App, {
+    app, reducedMotion: () => false, clock: () => 0,
+    createEmulator: (id) => {
+      seen.push(useConnectedProject());
+
+      return emulators.factory(id);
+    },
+  }));
+
+  const select = async (index: number) => {
+    const tabs = within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab");
+    fireEvent.click(tabs[index]!);
+    fireEvent.click(await screen.findByText(`editor-${index}`));
+    await waitFor(() => expect(seen.at(-1)?.project.path).toBe(paths[index]));
+
+    return seen.at(-1)!;
+  };
+
+  return { app, paths, select, close: () => { view.unmount(); rmSync(directory, { recursive: true, force: true }); } };
+};
+
+it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restores_exact_work_across_switch_and_connection_replacement_%s", async (status) => {
+  const opened = await openDraftProjects();
+
+  try {
+    const first = await opened.select(0);
+    const a = first.drafts.edit(target, { text: " A\ne\u0301 😀 ", choices: ["second", "first"] }, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+    first.drafts.submit(a.revision);
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    const b = first.drafts.edit(target, { text: " B\n😀 " }, null, "ordinary").draft;
+    const other = await opened.select(1);
+    const elsewhere = edit(other.drafts, "other Project");
+
+    if (status !== "pending") first.drafts.settle(a.revision, status);
+    const returned = await opened.select(0);
+    expect(returned.drafts.list()).toEqual([{ ...a, status }, b]);
+    opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
+    const replaced = await opened.select(0);
+    expect(replaced).not.toBe(first);
+    expect(replaced.drafts.list()).toEqual([{ ...a, status }, b]);
+    const newer = edit(replaced.drafts, "newest");
+    first.drafts.settle(a.revision, "acknowledged");
+    expect(replaced.drafts.list()).toEqual([newer]);
+    expect(other.drafts.list()).toEqual([elsewhere]);
+    const focus = document.activeElement;
+    const before = opened.paths.map((path) => opened.app.of(path!).calls.length);
+    write.mockRestore();
+    expect(replaced.drafts.retry()).toBeNull();
+    expect(draftStorage(replaced.project.path).list()).toEqual([newer]);
+    expect(document.activeElement).toBe(focus);
+    expect(opened.paths.map((path) => opened.app.of(path!).calls.length)).toEqual(before);
+    const submits = new Set(["ask.send", "terminal.write", "decision.answer", "message.send"]);
+    expect(opened.paths.flatMap((path) => opened.app.of(path!).calls).filter((call) => submits.has(call.method))).toEqual([]);
+  } finally { opened.close(); }
+});
+
+it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget", async () => {
+  const disk = new Map<string, string>();
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation((key) => disk.get(key) ?? null);
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation((key, value) => { disk.set(key, value); });
+  const opened = await openDraftProjects();
+  let stop = () => {};
+
+  try {
+    const connected = await opened.select(0);
+    const observations: { records: ReturnType<typeof connected.drafts.list>; problem: ReturnType<typeof connected.drafts.problem> }[] = [];
+    createRoot((dispose) => {
+      stop = dispose;
+
+      // Independent readers track the same holder, as two mounted surface owners do.
+      for (let index = 0; index < 2; index++) createComputed(() => {
+        observations[index] = { records: connected.drafts.list(), problem: connected.drafts.problem() };
+      });
+    });
+    const a = edit(connected.drafts, "a".repeat(6 * 1024 * 1024));
+    connected.drafts.submit(a.revision);
+    const before = disk.get(`roundup:drafts:${connected.project.path}`);
+    const b = connected.drafts.edit({ ...target, surface: "changes" }, { text: "b".repeat(5 * 1024 * 1024) }, null, "ordinary").draft;
+
+    for (const observation of observations) {
+      expect(observation.records).toEqual([{ ...a, status: "pending" }, b]);
+      expect(observation.problem).toEqual({ project: connected.project.path, destination: b.destination, revision: b.revision, operation: "retain", cause: "capacity" });
+    }
+
+    expect(disk.get(`roundup:drafts:${connected.project.path}`)).toBe(before);
+    connected.drafts.discard(a.revision);
+
+    for (const observation of observations) {
+      expect(observation.records).toEqual([b]);
+      expect(observation.problem).toBeNull();
+    }
+  } finally { stop(); opened.close(); }
+});
+
+it("u2773e_shared_project_credentials_stay_memory_only_across_replacement", async () => {
+  const opened = await openDraftProjects();
+
+  try {
+    const first = await opened.select(0);
+    const secret = first.drafts.edit({ ...target, surface: "credential" }, { text: "sentinel-shared-2812" }, null, "credential").draft;
+    opened.app.exitDaemon({ code: 1 }, opened.paths[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Reopen" })).toBeNull());
+    const replaced = await opened.select(0);
+    expect(replaced.drafts.list()).toEqual([secret]);
+    expect(draftStorage(replaced.project.path).list()).toEqual([]);
+    expect(JSON.stringify(localStorage)).not.toContain("sentinel-shared-2812");
+  } finally { opened.close(); }
 });

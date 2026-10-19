@@ -4,11 +4,14 @@ import { createMemo, For, type JSX } from "solid-js";
 
 type ComboboxItem = { value: string; label: string };
 
-/** An always-open, filter-as-you-type list. The caller filters `items`; Ark owns the field, the highlight and `↑` `↓` (no wrap); a resting or moving pointer never moves the highlight. `onSelect` hears the highlighted value on `⏎`. */
+/** An always-open, filter-as-you-type list. The caller filters `items` and controls the field; Ark owns the highlight and `↑` `↓` (no wrap); a resting or moving pointer never moves the highlight. `onSelect` hears the highlighted value on `⏎`. */
 const Root = (props: {
   items: readonly ComboboxItem[];
   highlightedValue: string | null;
   onHighlightChange: (value: string | null) => void;
+  inputValue: string;
+  /** Native selection/caret access; changing the query goes through `inputValue`. Focus only on explicit opening. */
+  inputRef?: (input: HTMLInputElement) => void;
   onInput: (text: string) => void;
   onSelect: (value: string) => void;
   label: string;
@@ -28,7 +31,7 @@ const Root = (props: {
   };
 
   return <ArkCombobox.Root class="app-combobox" collection={collection()} open lazyMount={false} inputBehavior="none" selectionBehavior="clear" loopFocus={false} autoFocus
-    value={[]} highlightedValue={props.highlightedValue ?? undefined}
+    inputValue={props.inputValue} value={[]} highlightedValue={props.highlightedValue ?? undefined}
     onHighlightChange={(details) => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); }}
     onInputValueChange={(details) => props.onInput(details.inputValue)}
     onValueChange={(details) => {
@@ -37,7 +40,7 @@ const Root = (props: {
       if (value !== undefined) props.onSelect(value);
     }}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
-    <ArkCombobox.Control><ArkCombobox.Input class="app-combobox-input" placeholder={props.placeholder} autofocus /></ArkCombobox.Control>
+    <ArkCombobox.Control><ArkCombobox.Input ref={props.inputRef} class="app-combobox-input" placeholder={props.placeholder} autofocus /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
       <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
         {([group, items]) => group ? <ArkCombobox.ItemGroup>
