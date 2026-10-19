@@ -136,6 +136,7 @@ impl Todos {
             p.id,
             p.title.as_deref(),
             p.body.as_deref(),
+            p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
@@ -167,6 +168,7 @@ impl Todos {
         let todo = store.set_blockers(
             p.id,
             &p.blockers,
+            p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;

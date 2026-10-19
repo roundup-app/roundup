@@ -192,13 +192,15 @@ impl Store {
         id: u32,
         title: Option<&str>,
         body: Option<&str>,
+        expected_change: Option<u32>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
-        let before = values(&self.get(id)?);
         let tx = self
             .db
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
+        let before = values(&self.get(id)?);
+        self.require_change(id, expected_change)?;
         self.db
             .execute(
                 "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body) WHERE id = ?1",
@@ -273,13 +275,15 @@ impl Store {
         &self,
         id: u32,
         blockers: &[u32],
+        expected_change: Option<u32>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
-        let before = values(&self.get(id)?);
         let tx = self
             .db
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
+        let before = values(&self.get(id)?);
+        self.require_change(id, expected_change)?;
         tx.execute("DELETE FROM blockers WHERE todo = ?1", [id])
             .map_err(RpcError::internal)?;
         self.insert_blockers(id, blockers)?;
@@ -307,6 +311,26 @@ impl Store {
             self.record_change(todo.id, Some(values(&todo)), after_touch)?;
         }
         tx.commit().map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    /// Called inside the mutation transaction, before any write or History Change.
+    fn require_change(&self, id: u32, expected: Option<u32>) -> Result<(), RpcError> {
+        if let Some(expected) = expected {
+            let current: u32 = self
+                .db
+                .query_row(
+                    "SELECT COALESCE(MAX(seq), 0) FROM changes WHERE todo = ?1",
+                    [id],
+                    |row| row.get(0),
+                )
+                .map_err(RpcError::internal)?;
+            if current != expected {
+                return Err(RpcError::conflict(format!(
+                    "todo {id} changed since the captured base"
+                )));
+            }
+        }
         Ok(())
     }
 
