@@ -30,6 +30,9 @@ afterAll(async () => {
 
 const open = async (readonly = false, text?: string) => {
   await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+  // Each case starts with fresh durable drafts; in-case reopen still exercises retention.
+  await browser("eval", "localStorage.clear()");
+  await browser("reload");
   await browser("wait", "#shelf-tab-pads");
 
   if (text !== undefined) await browser("eval", `window.__fake.app.rpc('pad.write', ${JSON.stringify({name: "pad-3", text})})`);
