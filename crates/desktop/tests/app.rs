@@ -2096,3 +2096,21 @@ fn x14_desktop_output_channel_uses_raw_bodies() {
     .unwrap();
     assert!(received.recv_timeout(Duration::from_millis(300)).is_err());
 }
+
+#[test]
+fn u2773c_header_external_change_keeps_original() {
+    let fx = Fixture::new(SERVE_AND_WAIT);
+    fx.serve_real_daemon();
+    let (_app, webview) = app(fx.config.clone(), None);
+    let path = fx.project.display().to_string();
+    let captured = open(&webview, &fx.project)["name"].clone();
+    let rename = |name: &str, base: Value| invoke(&webview, "rename_project", json!({ "path": path, "name": name, "base": base }));
+    assert!(rename("B", Value::Null).is_ok());
+    assert_eq!(rename(" exact 雪 ", captured).unwrap_err()["code"], code::CONFLICT);
+    assert_eq!(invoke(&webview, "projects", json!({})), Ok(json!([project_json(&fx.project, "B", true)])));
+    assert_eq!(rename(" C ", json!("B")).unwrap()["name"], "C");
+    assert_eq!(rename("  ", json!("C")).unwrap()["name"], "my-project");
+    assert_eq!(rename("bad\nname", json!("my-project")).unwrap_err()["code"], code::INVALID_PARAMS);
+    invoke(&webview, "close_project", json!({"path": path})).unwrap();
+    assert_eq!(rename("unavailable", json!("my-project")).unwrap_err()["code"], code::CONFLICT);
+}
