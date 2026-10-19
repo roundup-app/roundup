@@ -57,6 +57,20 @@ it("u2770_pointer_and_keyboard_focus", async () => {
       await lane.until(focused(".todo-project-root"));
       expect(await ring()).toBe("none");
 
+      await lane.browser("click", ".ask-input");
+      await lane.until(focused(".ask-input"));
+      expect(await ring()).toBe("none");
+      await lane.capture("pointer-no-ring", "ask-click");
+      for (const key of ["a", "ArrowLeft", "Backspace"]) {
+        await lane.browser("press", key);
+        expect(await lane.evaluate<boolean>(focused(".ask-input"))).toBe(true);
+        expect(await ring()).toBe("none");
+      }
+      await lane.capture("pointer-no-ring", "ask-typing");
+      await lane.browser("press", "Tab");
+      await lane.until(`!(${focused(".ask-input")})`);
+      expect(await ring()).toBe("solid");
+
       // A context menu takes scripted focus after a pointer press and uses arrows thereafter.
       const at = await lane.evaluate<{ x: number; y: number }>(`(() => { const r = document.querySelector('.rail [data-id="tokens"].rail-row').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
 
