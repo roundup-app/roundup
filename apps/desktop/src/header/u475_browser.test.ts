@@ -128,3 +128,18 @@ it("u2773a_header_restores_exact_work_browser", async () => {
   await browser("eval", `window.__u2773Checks = window.__checks()`);
   console.log("U2773 rendered observer", await read<string>("JSON.stringify(window.__u2773Checks)"));
 }, 120_000);
+
+it("u2773a_header_pointer_switch_keeps_caret", async () => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("open", new URL("/harness.html?seed=tabs-8", origin).href);
+  await browser("wait", "--fn", `document.querySelectorAll('.project-tab').length === 8`);
+  await browser("eval", `localStorage.clear()`);
+  await browser("reload");
+  await browser("click", '[data-path="/Users/you/project-number-8"] [role="tab"]');
+  await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
+  await browser("fill", ".tab-rename", "retained project name");
+  await browser("click", '[data-path="/Users/you/project-number-6"] [role="tab"]');
+  await browser("click", '[data-path="/Users/you/project-number-8"] [role="tab"]');
+  await browser("dblclick", '[data-path="/Users/you/project-number-8"] .tab-name');
+  expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd]; })()`)).toEqual(["retained project name", 21, 21]);
+}, 60_000);
