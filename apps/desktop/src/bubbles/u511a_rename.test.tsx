@@ -217,3 +217,28 @@ it("u511a_closed_or_restarted_terminals_do_not_inherit_names", async () => {
   mounted.app.emit(event({ name: "terminal.changed" }));
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("zsh"));
 });
+
+
+it("u2773a_bubbles_restores_exact_work", async () => {
+  const mounted = await mountBubbles();
+  await edit("2");
+  const text = "  e\u0301 🫧 draft  ";
+  fireEvent.input(field()!, { target: { value: text } });
+  field()!.setSelectionRange(2, 5, "backward");
+  fireEvent.select(field()!);
+  fireEvent.keyDown(field()!, { key: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(tab("2")));
+  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
+  mounted.connected.rail.select("other");
+  mounted.connected.rail.select("a");
+  await edit("2");
+  expect(field()!.value).toBe(text);
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 5, "backward"]);
+  fireEvent.keyDown(field()!, { key: "Escape" });
+  cleanup();
+  const restored = await mountBubbles();
+  await edit("2");
+  expect(field()!.value).toBe(text);
+  expect(bubbleCalls(restored.app, "terminal.write")).toEqual([]);
+  expect(tab("1")!.getAttribute("aria-label")).toBe("cargo test");
+});
