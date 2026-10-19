@@ -418,6 +418,7 @@ export const copy = {
   askUnknownState: "Send status unknown",
   askUnknown: "Send status unknown: ",
   askCheckAcceptance: "Check send status",
+  askCheckAcceptanceLabel: (text: string) => `Check send status: ${text}`,
   askNoAcknowledgement: "not found yet",
   switcherActions: "Actions",
   switcherLabel: "Switch to",

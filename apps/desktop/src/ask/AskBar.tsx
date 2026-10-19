@@ -219,7 +219,7 @@ export const AskBar = () => {
               <span class="ask-unknown-text">{label()}</span>
               <span class="ask-unknown-state" role="status" data-state="unknown"><Icon name="circle" />{cause() ? copy.askUnknown + cause() : copy.askUnknownState}</span>
             </div>
-            <button type="button" data-button="quiet" aria-label={copy.askCheckAcceptance + ": " + label()} onClick={() => {
+            <button type="button" data-button="quiet" aria-label={copy.askCheckAcceptanceLabel(label())} onClick={() => {
               void asks.reconcile(revision).then(outcome => {
                 drafts.settle(revision, outcome.kind === "refused" ? "failed" : outcome.kind);
 
