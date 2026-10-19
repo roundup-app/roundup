@@ -16,6 +16,8 @@ import type { createSendSelection } from "./sendSelection";
  */
 export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection>; focusTerminal: () => void }) => {
   const control = props.send;
+  const copyNote = copy.copyField(copy.text.toLowerCase());
+  const copyExcerpt = copy.copyField(copy.draftField("source").toLowerCase());
   const [choosing, setChoosingNow] = createSignal(false);
 
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
@@ -126,8 +128,8 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
             </Show>
             <Show when={control.problem()}>{(message) => <>
               <ErrorLine message={message()} />
-              <button data-button="quiet" type="button" onClick={() => void control.copy("note")}>{copy.copyField(copy.draftField("text").toLowerCase())}</button>
-              <button data-button="quiet" type="button" onClick={() => void control.copy("excerpt")}>{copy.copyField(copy.draftField("source").toLowerCase())}</button>
+              <button data-button="quiet" type="button" onClick={() => void control.copy("note")}>{copyNote}</button>
+              <button data-button="quiet" type="button" onClick={() => void control.copy("excerpt")}>{copyExcerpt}</button>
               <button data-button="quiet" type="button" onClick={() => control.retry()}>{copy.storageRetry}</button>
             </>}</Show>
             <button data-button="quiet" type="button" onClick={() => control.discard()}>{copy.discardRevision}</button>

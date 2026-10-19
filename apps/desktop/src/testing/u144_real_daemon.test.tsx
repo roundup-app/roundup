@@ -714,6 +714,10 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(document.querySelector(`.rail-row[data-id="${source.id}"]`)!);
     await waitFor(() => expect(emulators.made.has(source.terminal_id!)).toBe(true));
     emulators.made.get(source.terminal_id!)!.select("  source A é\n🧭  ", { command: "echo A", cwd: first.dir, exit: 0 });
+    const screenElement = document.querySelector<HTMLElement>("[data-terminal]")!;
+    screenElement.focus();
+    fireEvent.keyDown(screenElement, { key: "a", code: "KeyA", metaKey: true, shiftKey: true });
+    expect(drafts(first.dir).list().find((draft) => draft.destination.surface === "terminal_selection")?.value).toMatchObject({ note: "", excerpt: "  source A é\n🧭  " });
     const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" });
     fireEvent.input(input, { target: { value: "  note A é 🧭  " } });
     input.setSelectionRange(2, 8, "backward");
@@ -892,6 +896,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     emulators.made.get(source.terminal_id!)!.select(" original excerpt 🧭 ");
     const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" });
     fireEvent.input(input, { target: { value: " A é " } });
+    emulators.made.get(source.terminal_id!)!.select(" original excerpt 🧭 ", { command: "later live command", cwd: "/other", exit: 1 });
     fireEvent.click(screen.getByRole("button", { name: "Send to agent" }));
     const holder = drafts(first.dir);
     const a = holder.list().find((draft) => draft.status === "pending")!;
