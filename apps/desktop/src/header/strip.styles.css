@@ -255,6 +255,7 @@
 }
 
 .tab-unfinished {
+  cursor: default;
   color: var(--grey);
   width: var(--space-2);
   height: var(--space-2);
@@ -264,4 +265,8 @@
 
 .project-tab[data-unfinished="true"] {
   min-width: calc(8ch + 2 * var(--space-5) + 6 * var(--space-1) + var(--space-2) + 2 * var(--space-3) + 2 * var(--rule));
+}
+
+.header-recovery.draft-recovery [data-part="title"] {
+  font-size: var(--text-title);
 }
