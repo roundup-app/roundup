@@ -8,7 +8,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use contracts::agent::{NodeKind, Order, RailNode, Worktree};
+use contracts::agent::{CapturedOrder, NodeKind, Order, RailNode, Worktree};
 use contracts::project::{Mcp, Prepared, ProjectModels, RoleModels, Worktrees};
 use rpc::{OpenError, RpcError};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -296,17 +296,30 @@ impl Rail {
             .map_err(sql)
     }
 
-    /// O4: replace the order of an Agent or a Workstream.
-    pub fn set_order(&mut self, id: &str, order: &Order) -> Result<RailNode, RpcError> {
-        let node = self.node(id)?;
+    /// O4, U2773c: compare the captured base and replace the Order in one immediate
+    /// transaction. Refusal precedes every Touch, Event and Steer.
+    pub fn set_order(
+        &mut self,
+        id: &str,
+        order: &Order,
+        captured: Option<&CapturedOrder>,
+    ) -> Result<RailNode, RpcError> {
+        let tx = self.db.transaction().map_err(sql)?;
+        let mut node = find(&load(&tx)?, id)?.clone();
+        if let Some(base) = captured
+            && node.work != base.order
+        {
+            return Err(RpcError::conflict("Order changed since it was captured"));
+        }
         let json = serde_json::to_string(order).map_err(RpcError::internal)?;
-        self.db
-            .execute(
-                "UPDATE nodes SET work = ? WHERE id = ?",
-                params![json, node.id],
-            )
-            .map_err(sql)?;
-        self.node(id)
+        tx.execute(
+            "UPDATE nodes SET work = ? WHERE id = ?",
+            params![json, node.id],
+        )
+        .map_err(sql)?;
+        tx.commit().map_err(sql)?;
+        node.work = Some(order.clone());
+        Ok(node)
     }
 
     pub fn rename(&mut self, id: &str, name: &str) -> Result<RailNode, RpcError> {
