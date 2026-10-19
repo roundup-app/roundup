@@ -9,7 +9,7 @@ import { AlertDialog, Dialog } from "./Dialog";
 import { Menu } from "./Menu";
 import { Tooltip } from "./Tooltip";
 import { CHORDS } from "../keys/chords";
-import { Tip } from "../rail/Tip";
+import { Tip } from "../ui/Tip";
 import { copy } from "../copy";
 import { IconButton } from "./IconButton";
 

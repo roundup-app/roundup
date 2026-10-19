@@ -1,5 +1,6 @@
 import { Icon } from "./Icon";
-import { createCut, Tip } from "./Tip";
+import { createCut } from "./Tip";
+import { Tip } from "../ui/Tip";
 
 export const ErrorLine = (props: { message: string }) => {
   const [ref, cut] = createCut(() => props.message);
@@ -7,7 +8,7 @@ export const ErrorLine = (props: { message: string }) => {
   return (
     <Tip content={props.message} cut={cut}>
       {(trigger) => (
-        <p {...trigger()} ref={ref} class="ink" data-tone="red" data-kind="error" role="alert" aria-label={props.message} tabIndex={cut() ? 0 : undefined}>
+        <p {...trigger()} style={{ width: "fit-content", "max-width": "100%" }} ref={ref} class="ink" data-tone="red" data-kind="error" role="alert" aria-label={props.message} tabIndex={cut() ? 0 : undefined}>
           <Icon name="x" />{props.message.split(/\r\n|[\r\n]/, 1)[0]}
         </p>
       )}

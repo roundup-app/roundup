@@ -1,12 +1,11 @@
 import { copy } from "../copy";
 import { createMemo, createSignal, onMount, Show } from "solid-js";
-import { Portal } from "solid-js/web";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
-import { Tooltip } from "../ui/Tooltip";
+import { Tip } from "../ui/Tip";
 import { registerKeys } from "../keys/registry";
 import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
@@ -66,8 +65,8 @@ export const ProjectTab = (props: {
 
         if (saved !== null) props.onRename(saved);
       }} />}>
-        <Tooltip.Root ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
-          <Tooltip.Trigger asChild={(tooltip) =>
+        <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show></>}>
+          {(tooltip) =>
               <Tabs.Trigger {...tooltip({})} value={props.tab.path} class="tab-name-button"
                 data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
                 onClick={(click) => {
@@ -79,11 +78,8 @@ export const ProjectTab = (props: {
                 <span class="tab-name" onDblClick={edit}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
-          } />
-          <Portal><Tooltip.Positioner><Tooltip.Content class="tab-tip">
-            {props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show>
-          </Tooltip.Content></Tooltip.Positioner></Portal>
-        </Tooltip.Root>
+          }
+        </Tip>
         <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
       </Show>
     </FlatTab>

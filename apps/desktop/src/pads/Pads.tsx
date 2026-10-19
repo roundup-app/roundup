@@ -1,3 +1,4 @@
+import { Tip } from "../ui/Tip";
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
@@ -92,7 +93,7 @@ export const Pads = () => {
         {(message) => <ErrorLine message={message()} />}
       </Show>
       <Show when={isEmpty() && !naming()}>
-        <EmptyState icon="order" title={copy.noPadsYet} hint={copy.noPadsHint} />
+        <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
       <Show when={noneRunning()}>
         <p>{copy.noPadsFromRunningAgents}</p>
@@ -171,7 +172,6 @@ const PadRows = (props: {
           >
             <button
               type="button"
-              title={pad.name}
               class="pad-name"
               aria-pressed={props.selection.selected().includes(pad.name)}
               ref={(row) => props.selection.register(pad.name, row)}
@@ -190,7 +190,7 @@ const PadRows = (props: {
                 ), activationSource(event)))
               }
             >
-              <span class="shelf-title">{pad.name}</span>
+              <Tip text={pad.name}>{(trigger) => <span {...trigger()} class="shelf-title">{pad.name}</span>}</Tip>
             </button>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
           </ShelfRow>
