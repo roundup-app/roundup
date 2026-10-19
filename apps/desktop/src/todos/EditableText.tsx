@@ -8,7 +8,20 @@ import { outcomeOf } from "./failureOf";
 import { ErrorLine } from "../ink/ErrorLine";
 import { batch, createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 
-const formSchema = v.object({ text: v.string(), base: v.string(), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
+const formSchema = v.strictObject({ text: v.string(), base: v.string(), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
+
+const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()) });
+
+const blockerSchema = v.strictObject({
+  title: v.string(), body: v.string(), done: v.boolean(), blockers: v.array(v.string()), baseBlockers: v.array(v.string()), expected_change: v.nullable(v.number()),
+  originalTitle: v.string(), originalBody: v.string(), originalDone: v.boolean(), originalBlockers: v.array(v.string()), originalChange: v.nullable(v.number()),
+  action: v.picklist(["add", "remove"]), blocker: v.number(),
+});
+
+// Shared recovery also retains older title/text/choice snapshots for inspection, without an editable base.
+const snapshotSchema = v.strictObject({ title: v.string(), body: v.optional(v.string()), choices: v.optional(v.array(v.string())) });
+
+export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchema, snapshotSchema]);
 
 type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
 
