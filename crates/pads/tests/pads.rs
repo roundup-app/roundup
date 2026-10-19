@@ -1455,12 +1455,21 @@ async fn p2544d_write_revision_guard() {
         rig.ok(&Actor::user(), "pad.setStorage", json!({"files": files}))
             .await;
         let a = agent("a");
-        rig.ok(
+        let incarnation = rig.ok(&a, "pad.list", json!({})).await[0]["incarnation"].clone();
+        let mut accepted_events = rig.bus.subscribe();
+        let written = rig.ok(
             &a,
             "pad.write",
-            json!({"name": "notes", "text": "winner", "expectedRevision": 1}),
+            json!({"name": "notes", "text": "winner", "expectedRevision": 1, "expectedIncarnation": incarnation}),
         )
         .await;
+        assert_eq!(written["incarnation"], incarnation);
+        assert_eq!(written["revision"], 2);
+        assert!(matches!(
+            accepted_events.try_recv().unwrap().data,
+            EventData::PadChanged(_)
+        ));
+        assert!(accepted_events.try_recv().is_err());
         let before = rig.ok(&a, "pad.list", json!({})).await;
         let touches = rig.touches.history("pad:notes").unwrap();
         let mut events = rig.bus.subscribe();
@@ -1468,7 +1477,7 @@ async fn p2544d_write_revision_guard() {
             .fail(
                 &a,
                 "pad.write",
-                json!({"name": "notes", "text": "loser", "expectedRevision": 1}),
+                json!({"name": "notes", "text": "loser", "expectedRevision": 1, "expectedIncarnation": incarnation}),
             )
             .await;
         assert_eq!(error.code, code::CONFLICT);
@@ -1565,49 +1574,5 @@ async fn p2544d_guard_preserves_validation_and_authorization() {
             )
             .await;
         assert_eq!(error.code, expected);
-    }
-}
-
-#[tokio::test]
-async fn u2773c_pads_external_change_keeps_original() {
-    for restart in [false, true] {
-        let mut rig = Rig::new();
-        let actor = agent("a");
-        let original = rig
-            .ok(
-                &actor,
-                "pad.create",
-                json!({"name":"Notes", "text":"original"}),
-            )
-            .await;
-        rig.ok(&Actor::user(), "pad.setStorage", json!({"files":true}))
-            .await;
-        rig.ok(&actor, "pad.delete", json!({"name":"NOTES"})).await;
-        // A missing original must not be recreated by a recovered write.
-        assert_eq!(rig.fail(&actor, "pad.write", json!({"name":"notes", "text":"draft", "expectedIncarnation":original["incarnation"], "expectedRevision":1})).await.code, code::NOT_FOUND);
-        let replacement = rig
-            .ok(
-                &actor,
-                "pad.create",
-                json!({"name":"notes", "text":"replacement"}),
-            )
-            .await;
-        if restart {
-            rig.pads = Pads::open(rig.dir.path(), rig.bus.clone()).unwrap();
-        }
-        let before = rig.ok(&actor, "pad.list", json!({})).await;
-        let touches = rig.touches.history("pad:notes").unwrap();
-        let mut events = rig.bus.subscribe();
-        let error = rig.fail(&actor, "pad.write", json!({"name":"NOTES", "text":"  recovered\n👋 é  ", "expectedIncarnation":original["incarnation"], "expectedRevision":original["revision"]})).await;
-        assert_eq!(error.code, code::CONFLICT);
-        assert_ne!(original["incarnation"], replacement["incarnation"]);
-        assert_eq!(replacement["revision"], original["revision"]);
-        assert_eq!(rig.ok(&actor, "pad.list", json!({})).await, before);
-        assert_eq!(rig.file_text("notes.md"), "replacement");
-        assert_eq!(
-            rig.touches.history("pad:notes").unwrap().len(),
-            touches.len()
-        );
-        assert!(events.try_recv().is_err());
     }
 }

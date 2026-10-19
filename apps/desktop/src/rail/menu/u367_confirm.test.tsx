@@ -17,7 +17,7 @@ const item = (name: string) => screen.getByRole("menuitem", { name });
 const todo = (id: number, home: string | null, done: boolean): Todo =>
   ({ id, title: `t${id}`, body: "", done, blockers: [], blocked: false, created_at: 0, creator: USER, home });
 
-const pad = (name: string, home: string | null, owner = USER): Pad => ({ name, owner, text: "", updated_at: 0, revision: 1, home });
+const pad = (name: string, home: string | null, owner = USER): Pad => ({ incarnation: `fixture-${name}`, name, owner, text: "", updated_at: 0, revision: 1, home });
 
 // SAFETY: the test fills only the fields the removal count reads.
 const state = (dirty: boolean, ahead: number): WorktreeState => ({ dirty, ahead }) as WorktreeState;

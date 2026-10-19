@@ -122,7 +122,8 @@ impl Store {
     pub fn get(&self, name: &str) -> rusqlite::Result<Option<Pad>> {
         self.db
             .query_row(
-                "SELECT name, owner, text, updated_at, home, revision FROM pads WHERE key = ?1",
+                "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
+                 FROM pads p JOIN pad_sources s ON s.pad_key = p.key WHERE p.key = ?1",
                 [key(name)],
                 row_to_pad,
             )
@@ -132,7 +133,8 @@ impl Store {
     /// Ordered by name.
     pub fn list(&self) -> rusqlite::Result<Vec<Pad>> {
         let mut stmt = self.db.prepare(
-            "SELECT name, owner, text, updated_at, home, revision FROM pads ORDER BY name",
+            "SELECT p.name, p.owner, p.text, p.updated_at, p.home, p.revision, s.incarnation
+             FROM pads p JOIN pad_sources s ON s.pad_key = p.key ORDER BY p.name",
         )?;
         stmt.query_map([], row_to_pad)?.collect()
     }
@@ -226,6 +228,7 @@ fn owner_json(owner: &Actor) -> String {
 fn row_to_pad(row: &rusqlite::Row<'_>) -> rusqlite::Result<Pad> {
     let owner: String = row.get(1)?;
     Ok(Pad {
+        incarnation: row.get::<_, i64>(6)?.to_string(),
         name: row.get(0)?,
         owner: serde_json::from_str(&owner).map_err(|err| {
             rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(err))
@@ -249,6 +252,7 @@ mod tests {
         let path = dir.path().join("pads.db");
         let (one, other) = (Store::open(&path).unwrap(), Store::open(&path).unwrap());
         let pad = Pad {
+            incarnation: String::new(),
             name: "notes".into(),
             owner: Actor::user(),
             text: String::new(),
