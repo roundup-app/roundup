@@ -24,14 +24,16 @@ const nameOf = (name: string) => rowOf(name).querySelector<HTMLElement>(".name")
 /** The row, not its name, carries the Tooltip trigger, so any point of it reaches it. */
 const hoverRow = (name: string) => fireEvent.pointerMove(rowOf(name), { pointerType: "mouse" });
 
-it("u2228a_a_truncated_workstream_name_has_its_full_text", async () => {
+it("u2749b_explicit_row_anchor_keeps_full_text (U2228a)", async () => {
   layout(400);
   await mountRail([workstream("w", { name: NAME })]);
 
   expect(nameOf(NAME).textContent).toBe(NAME);
   expect(nameOf(NAME).hasAttribute("title")).toBe(false);
-  await waitFor(() => hoverRow(NAME));
+  const anchor = vi.spyOn(rowOf(NAME), "getBoundingClientRect").mockReturnValue(new DOMRect(100, 100, 200, 20));
+  await waitFor(() => fireEvent.pointerMove(rowOf(NAME), { pointerType: "mouse", clientX: 250, clientY: 110 }));
   expect((await screen.findByRole("tooltip")).textContent).toBe(NAME);
+  expect(anchor).toHaveBeenCalled();
 });
 
 it("u2228a_a_name_that_fits_has_no_tooltip", async () => {
@@ -52,10 +54,9 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add")!;
   hoverRow(NAME);
   await screen.findByRole("tooltip");
+  fireEvent.pointerOver(add, { pointerType: "mouse" });
   fireEvent.pointerMove(add, { pointerType: "mouse" });
   await waitFor(() => expect(screen.queryByText(NAME, { selector: "[role=tooltip] *, [role=tooltip]" })).toBeNull());
-  fireEvent.keyDown(document, { key: "Tab" });
-  add.focus();
   await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(`${copy.addAgentLabel}${CHORDS[0]!.keys}`));
 });
 

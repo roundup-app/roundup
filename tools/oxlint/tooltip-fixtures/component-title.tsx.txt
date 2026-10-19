@@ -1,0 +1,3 @@
+import { IconButton } from "../ui/IconButton";
+
+export const Example = () => <IconButton aria-label="Owner" title="Native" />;

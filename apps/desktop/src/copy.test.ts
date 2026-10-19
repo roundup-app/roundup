@@ -28,6 +28,8 @@ const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancest
 
 // These are executable structure or diagnostics never shown by the App, not copy exemptions.
 const STRUCTURE = new Set([
+  // U2749b: a development/test invariant, never App copy.
+  "Tooltip anchor excludes its opening pointer",
   // U2239: the leader's key names and the modifier keys it waits through.
   "J", "⇧J", "K", "M", "W", "S", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
