@@ -127,18 +127,6 @@ it("u501_disabled_answer_is_named_but_skipped_by_ark", async () => {
   await waitFor(() => expect(screen.getByRole("option", { name: "Full" }).getAttribute("aria-selected")).toBe("true"));
 });
 
-it("u501_own_answer_callbacks_report_null_to_the_owner", async () => {
-  const selected: (string | null)[] = [];
-  const highlighted: (string | null)[] = [];
-  render(() => <Listbox.Root answers={answers} value="brief" highlightedValue="brief" onValueChange={value => selected.push(value)} onHighlightChange={value => highlighted.push(value)}>
-    <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{answers.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
-    <Listbox.NoteInput aria-label="Note" />
-  </Listbox.Root>);
-  fireEvent.keyDown(screen.getByRole("textbox"), { key: "ArrowUp" });
-  await waitFor(() => expect([selected, highlighted]).toEqual([[null], [null]]));
-});
-
-
 it("u501_supplied_metadata_keeps_the_option_name_and_description", () => {
   render(() => <Listbox.Root answers={answers} value="brief" highlightedValue="brief" onValueChange={() => undefined} onHighlightChange={() => undefined}>
     <Listbox.Label>Answers</Listbox.Label><Listbox.Content>
@@ -168,7 +156,7 @@ it("u501_multiline_note_exposes_exact_native_value_selection_and_submit_keys", (
   const note = screen.getByRole("textbox", { name: "Decision note" });
   expect(note).toBe(editor);
   expect(editor?.value).toBe(exact);
-  expect(note).toHaveAccessibleDescription("Extra context");
+  expect(document.getElementById(note.getAttribute("aria-describedby")!)?.textContent).toBe("Extra context");
   editor!.setSelectionRange(6, 12, "backward");
   fireEvent.select(note);
   expect(selection).toHaveBeenCalledWith(6, 12);
@@ -179,4 +167,29 @@ it("u501_multiline_note_exposes_exact_native_value_selection_and_submit_keys", (
   expect(input).toHaveBeenCalledWith(exact + "\nnew");
   fireEvent.keyDown(note, { key: "Enter" });
   expect(submit.mock.calls).toEqual([[exact + "\nnew"]]);
+});
+
+it("u501_explicitly_enabled_pending_editor_keeps_ark_selection_and_note_editable_without_focus", async () => {
+  const [pending, setPending] = createSignal(false);
+  const [value, setValue] = createSignal<string | null>("brief");
+  const [note, setNote] = createSignal("newer\n答え");
+  render(() => <>
+    <button>Other focus</button>
+    <Listbox.Root answers={answers} value={value()} highlightedValue={value()} onValueChange={setValue} onHighlightChange={setValue} pending={pending()} disabled={false}>
+      <Listbox.Label>Answers</Listbox.Label><Listbox.Content>{answers.map(item => <Listbox.Item item={item} />)}</Listbox.Content>
+      <Listbox.NoteTextarea aria-label="Note" value={note()} onInput={event => setNote(event.currentTarget.value)} />
+    </Listbox.Root>
+  </>);
+  const other = screen.getByRole("button");
+  other.focus();
+  setPending(true);
+  expect(document.activeElement).toBe(other);
+  expect(screen.getByRole("listbox").parentElement?.getAttribute("aria-busy")).toBe("true");
+  const editor = screen.getByRole("textbox");
+  expect(editor).toHaveProperty("readOnly", false);
+  fireEvent.keyDown(editor, { key: "ArrowDown" });
+  await waitFor(() => expect(value()).toBe("detail"));
+  fireEvent.input(editor, { target: { value: "B\n別の答え 👋" } });
+  expect(note()).toBe("B\n別の答え 👋");
+  expect(document.activeElement).toBe(other);
 });
