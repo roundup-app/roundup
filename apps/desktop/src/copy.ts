@@ -34,7 +34,7 @@ export const copy = {
   originalUnverified: "Original availability not verified",
   storageRetry: "Retry storage only",
   discardRevision: "Discard this revision",
-  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: reload retention failed (${cause}). Keep a copy, retry storage, or discard a selected revision. Stored data has been preserved.`,
+  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`,
   allDraftSurfaces: "stored surfaces",
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
