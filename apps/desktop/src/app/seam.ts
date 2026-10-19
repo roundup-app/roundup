@@ -29,6 +29,9 @@ export type FileDrop = { phase: "over" | "drop" | "leave"; paths: string[]; x: n
 /** What Cmd+click on a Terminal's link asks the App to open (U365): a web link, or an absolute path with the line it was printed with. */
 export type OpenTarget = { kind: "url"; url: string } | { kind: "path"; path: string; line: number | null };
 
+/** U2694a: one item of a native menu. `shortcut` is label text only, never an accelerator; `children` makes it a submenu. */
+export type MenuItem = { id: string; label: string; shortcut?: string; enabled: boolean; children?: MenuItem[] };
+
 /** The image types `savePastedImage` accepts (U418); the file's extension follows the type. */
 export const PASTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 
@@ -69,6 +72,7 @@ export const SEAM_COMMANDS = [
   "open_target",
   "open_in_editor",
   "save_pasted_image",
+  "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
@@ -104,6 +108,8 @@ export type App = {
   openInEditor(path: string, line?: number): Promise<void>;
   /** Saves a pasted image as a new file in the OS cache folder and resolves its absolute path (U418). Rejects FORBIDDEN for another type or bytes over 20 MiB, and writes nothing then. */
   savePastedImage(image: PastedImage): Promise<string>;
+  /** Pops the macOS system menu at `x`, `y` (window CSS pixels) and resolves the chosen item's id, or `null` when it closes with no choice (U2694a). */
+  showContextMenu(items: MenuItem[], x: number, y: number): Promise<string | null>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;

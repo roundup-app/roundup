@@ -98,6 +98,7 @@ export const createTauriApp = (): App => {
     openTarget: async (target) => {
       await command("open_target", { target });
     },
+    showContextMenu: (items, x, y) => parsedCommand(v.nullable(v.string()), "show_context_menu", { items, x, y }),
     openInEditor: async (path, line) => {
       await command("open_in_editor", line === undefined ? { path } : { path, line });
     },

@@ -205,6 +205,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     openInEditor: async () => {
       throw new RpcError(-32001, "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR");
     },
+    showContextMenu: async () => null,
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
     selectOutput,
