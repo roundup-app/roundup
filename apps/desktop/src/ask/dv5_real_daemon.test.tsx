@@ -227,7 +227,14 @@ it("u2773a_ask_restores_original_projects_through_App_reopen", async () => {
   const other = createServedApp(second.base);
   const before = await first.rpc("ask.list", null);
   const original = await first.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
-  await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
+  let otherOriginal = await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
+
+  if (otherOriginal.id === original.id) {
+    await other.rpc("rail.remove", { id: otherOriginal.id });
+    otherOriginal = await other.rpc("rail.createWorkstream", { name: "Same destination", parent: null });
+  }
+
+  expect(otherOriginal.id).not.toBe(original.id);
   const roots = new Map([[real.dir, first], [second.dir, other]]);
   const calls = [...roots.values()].map(bound => vi.spyOn(bound, "rpc"));
   let opened = [real.dir, second.dir];
