@@ -192,16 +192,16 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             </>;
           }} />
         <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert">
-          <p>{problem().operation === "restore" ? "Could not restore unfinished input" : "Could not retain unfinished input across reload"} in {project.name}: switcher query. Keep this Project open to recover your work.</p>
+          <p>{copy.switcherRetentionFailure(problem().operation, project.name)}</p>
           <div class="switcher-recovery-actions">
-          <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => setCopyFailure(null), () => setCopyFailure("Could not copy query. Select the text and copy again.")); }}>Copy query</button>
-          <button data-button="quiet" onClick={() => { drafts.retry(); }}>Retry storage</button>
+          <button data-button="quiet" onClick={() => { void navigator.clipboard.writeText(text()).then(() => setCopyFailure(null), () => setCopyFailure(copy.switcherCopyFailure)); }}>{copy.copyQuery}</button>
+          <button data-button="quiet" onClick={() => { drafts.retry(); }}>{copy.retryStorage}</button>
           <button data-button="quiet" onClick={() => {
             const draft = current();
 
             if (draft) drafts.discard(draft.revision);
             setText("");
-          }}>Discard query</button>
+          }}>{copy.discardQuery}</button>
           </div>
           <Show when={copyFailure()}><p>{copyFailure()}</p></Show>
         </div>}</Show>
