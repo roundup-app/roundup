@@ -109,6 +109,11 @@ export const connectProject = async (
   return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions: createDecisions(app, events, daemonExit), asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme };
 };
 
+/** App-run authority for owners outside a connection, including Project tabs.
+ * Resolve by the original Project path, even after its connection or tab closes.
+ */
+export const ProjectDraftsContext = createContext<ReturnType<typeof createProjectDrafts>>();
+
 export const ConnectedProjectContext = createContext<ConnectedProject>();
 
 export const useConnectedProject = (): ConnectedProject => {

@@ -1,17 +1,30 @@
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createComponent, createComputed, createRoot } from "solid-js";
+import { createComponent, createComputed, createRoot, useContext } from "solid-js";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { info, terminal } from "../testing/nodes";
-import { useConnectedProject } from "./connectedProject";
+import { ProjectDraftsContext, useConnectedProject } from "./connectedProject";
 import type { ConnectedProject } from "./connectedProject";
 import * as v from "valibot";
 import { afterEach, expect, it, vi } from "vitest";
 import { draftStorage, storedValue } from "./storage";
+
+// Observe the public draft authority available to a header-owned consumer while
+// retaining the real Strip, App and storage behavior.
+let headerDrafts: ReturnType<typeof import("./connectedProject").createProjectDrafts> | undefined;
+vi.mock("../header/Strip", async (original) => {
+  const { Strip } = await original<typeof import("../header/Strip")>();
+
+  return { Strip: (props: Parameters<typeof Strip>[0]) => {
+    headerDrafts = useContext(ProjectDraftsContext);
+
+    return createComponent(Strip, props);
+  } };
+});
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 
@@ -242,7 +255,7 @@ const openDraftProjects = async () => {
   }));
 
   const select = async (index: number) => {
-    const tabs = within(screen.getByRole("tablist", { name: "Projects" })).getAllByRole("tab");
+    const tabs = within(await screen.findByRole("tablist", { name: "Projects" })).getAllByRole("tab");
     fireEvent.click(tabs[index]!);
     fireEvent.click(await screen.findByText(`editor-${index}`));
     await waitFor(() => expect(seen.at(-1)?.project.path).toBe(paths[index]));
@@ -299,13 +312,16 @@ it("u2773e_shared_project_consumers_observe_records_problems_and_combined_budget
 
   try {
     const connected = await opened.select(0);
+    expect(headerDrafts).toBeDefined();
+    const header = headerDrafts!(connected.project.path);
+    expect(header).toBe(connected.drafts);
     const observations: { records: ReturnType<typeof connected.drafts.list>; problem: ReturnType<typeof connected.drafts.problem> }[] = [];
     createRoot((dispose) => {
       stop = dispose;
 
       // Independent readers track the same holder, as two mounted surface owners do.
-      for (let index = 0; index < 2; index++) createComputed(() => {
-        observations[index] = { records: connected.drafts.list(), problem: connected.drafts.problem() };
+      for (const [index, owner] of [header, connected.drafts].entries()) createComputed(() => {
+        observations[index] = { records: owner.list(), problem: owner.problem() };
       });
     });
     const a = edit(connected.drafts, "a".repeat(6 * 1024 * 1024));
