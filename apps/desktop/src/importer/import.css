@@ -1,0 +1,39 @@
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 24rem;
+  max-width: 36rem;
+}
+
+.import-period,
+.import-words {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.import-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.import-list label {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.import-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-cwd {
+  color: var(--text-dim);
+}

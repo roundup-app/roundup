@@ -14,6 +14,7 @@ import { TreeView } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
+import { ImportPanel } from "../importer/ImportPanel";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -41,6 +42,8 @@ export const Rail = () => {
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
+  const [importing, setImporting] = createSignal(false);
+  let importOpener: HTMLButtonElement | undefined;
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -522,6 +525,10 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
+    <button type="button" data-button="quiet" class="rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => setImporting(true)}>
+      {copy.importTitle}
+    </button>
+    <ImportPanel open={importing()} opener={importOpener} onClose={() => setImporting(false)} />
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
