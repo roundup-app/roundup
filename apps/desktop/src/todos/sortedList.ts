@@ -93,6 +93,21 @@ export const createSortedList = (source: {
   };
 
   return {
+    /** U3710: one `todo.reorder` for a drop that changed place, its failure shown on the row. */
+    reorderTo: async (id: number, before: number | null) => {
+      measure();
+      refocus = id;
+
+      const message = await source.call({ id, before });
+
+      fails.get(id)?.(message);
+
+      if (message !== null) refocus = null;
+
+      return message;
+    },
+    /** U3711: shows a refusal on the row. */
+    show: (id: number, message: string | null) => fails.get(id)?.(message),
     /** The Sortable's new order of the ids: the row it moved goes to its index. */
     order: (next: readonly string[]) => {
       const before = source.ids().map(String).filter(id => next.includes(id));
