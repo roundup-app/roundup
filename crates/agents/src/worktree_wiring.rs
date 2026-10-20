@@ -1,4 +1,6 @@
 use super::*;
+use crate::pr_checks::{Conclusion, Evidence, Gap};
+use contracts::agent::{WorktreeCheckConclusion, WorktreeEvidence, WorktreeRequiredCheck};
 
 impl Agents {
     // #2875 is the scheduled caller. Keep this private until the public import capability
@@ -146,6 +148,9 @@ impl Agents {
         }
         if let Some(facts) = self.worktree_facts(id, &record) {
             use contracts::agent::{WorktreeCi, WorktreeCiState, WorktreePr};
+            state.evidence = facts
+                .evidence
+                .map(|(evidence, stale)| evidence_wire(evidence, stale));
             state.ci = facts.ci.map(|(value, stale)| WorktreeCi {
                 state: match value.as_str() {
                     "passed" => WorktreeCiState::Passed,
@@ -1566,5 +1571,52 @@ mod tests {
             assert!(agents.shared.rail().provisioning().unwrap().is_empty());
             assert_eq!(git(dir.path(), &["branch", "--list", "roundup/*"]), "");
         }
+    }
+}
+
+/// NR10: the wire form of one required-check read; only a complete read lists checks.
+fn evidence_wire(evidence: Evidence, stale: bool) -> WorktreeEvidence {
+    use contracts::agent::WorktreeEvidenceState as S;
+    let incomplete = |state| WorktreeEvidence {
+        state,
+        stale,
+        repository: None,
+        head: None,
+        checks: Vec::new(),
+        read_at: None,
+        revision: None,
+    };
+    match evidence {
+        Evidence::Complete(read) => WorktreeEvidence {
+            state: S::Complete,
+            stale,
+            revision: Some(read.revision()),
+            repository: Some(format!("{}/{}", read.host, read.repository)),
+            head: Some(read.head),
+            read_at: Some(read.read_at),
+            checks: read
+                .checks
+                .into_iter()
+                .map(|check| WorktreeRequiredCheck {
+                    name: check.name,
+                    conclusion: match check.conclusion {
+                        Conclusion::Passed => WorktreeCheckConclusion::Passed,
+                        Conclusion::Failed => WorktreeCheckConclusion::Failed,
+                        Conclusion::Skipped => WorktreeCheckConclusion::Skipped,
+                        Conclusion::Cancelled => WorktreeCheckConclusion::Cancelled,
+                    },
+                })
+                .collect(),
+        },
+        Evidence::Incomplete(gap) => incomplete(match gap {
+            Gap::Pending | Gap::NoRequiredChecks => S::Incomplete,
+            Gap::StaleHead => S::StaleHead,
+            Gap::ReadFailed => S::Unknown,
+            Gap::GhMissing
+            | Gap::Refused
+            | Gap::NotLoggedIn
+            | Gap::TimedOut
+            | Gap::NonGithubRemote => S::Unavailable,
+        }),
     }
 }

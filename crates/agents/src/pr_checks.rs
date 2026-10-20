@@ -53,7 +53,19 @@ pub struct PrChecks {
 }
 
 impl PrChecks {
+    /// Differs whenever the repository, PR, head or check set does.
+    pub fn revision(&self) -> String {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::hash::DefaultHasher::new();
+        (&self.host, &self.repository, self.number, &self.head).hash(&mut hasher);
+        for check in &self.checks {
+            (&check.name, check.conclusion as u8).hash(&mut hasher);
+        }
+        format!("{:016x}", hasher.finish())
+    }
+
     /// True only when every required check passed or was skipped.
+    #[cfg(test)]
     pub fn passing(&self) -> bool {
         self.checks
             .iter()
@@ -259,3 +271,6 @@ fn run(gh: &Path, dir: &Path, args: &[&str], deadline: Instant) -> Result<Output
         bytes,
     })
 }
+
+#[cfg(test)]
+mod tests;

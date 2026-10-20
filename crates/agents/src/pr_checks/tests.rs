@@ -1,5 +1,5 @@
 //! NR10: required checks read through a fake `gh` that emits recorded JSON.
-use agents::pr_checks::{Conclusion, Evidence, Gap, read};
+use super::*;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
