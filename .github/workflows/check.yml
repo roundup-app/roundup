@@ -261,15 +261,21 @@ jobs:
       - if: ${{ !cancelled() && steps.select.outputs.web }}
         name: Web test files, 20 times under load
         run: |
-          mapfile -t files <"$RUNNER_TEMP/web-tests"
-          python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
+          # One run per file: `-t` selects the file's edited tests, a file whose test has no literal title runs whole.
+          status=0
+          n=0
+          while IFS=$'\t' read -r file pattern; do
+            n=$((n + 1))
+            python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit-$n.xml" ${pattern:+-t "$pattern"} "$file" || status=1
+          done <"$RUNNER_TEMP/web-tests"
+          exit $status
       - if: always() && steps.select.outputs.any
         uses: actions/upload-artifact@v4
         with:
           name: new-tests-stress-junit
           path: |
             target/nextest/stress/junit.xml
-            ${{ runner.temp }}/web-junit.xml
+            ${{ runner.temp }}/web-junit-*.xml
           if-no-files-found: ignore
           retention-days: 30
 
