@@ -15,7 +15,7 @@ const openAt = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 1
 const item = (name: string) => screen.getByRole("menuitem", { name });
 
 const todo = (id: number, home: string | null, done: boolean): Todo =>
-  ({ id, title: `t${id}`, body: "", done, blockers: [], blocked: false, created_at: 0, creator: USER, home });
+  ({ id, title: `t${id}`, body: "", done, blockers: [], blocked: false, created_at: 0, creator: USER, home, owner: null });
 
 const pad = (name: string, home: string | null, owner = USER): Pad => ({ incarnation: `fixture-${name}`, name, owner, text: "", updated_at: 0, revision: 1, home });
 

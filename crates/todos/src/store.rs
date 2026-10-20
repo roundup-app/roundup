@@ -110,6 +110,7 @@ impl Store {
         body: &str,
         blockers: &[u32],
         creator: &Actor,
+        owner: Option<&Actor>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
         self.require_all(blockers)?;
@@ -125,9 +126,15 @@ impl Store {
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
         tx.execute(
-            "INSERT INTO todos (title, body, created_at, creator, pos)
-             VALUES (?1, ?2, ?3, ?4, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
-            params![title, body, created_at, creator_json(creator)],
+            "INSERT INTO todos (title, body, created_at, creator, owner, pos)
+             VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
+            params![
+                title,
+                body,
+                created_at,
+                creator_json(creator),
+                owner.map(creator_json)
+            ],
         )
         .map_err(RpcError::internal)?;
         let id = u32::try_from(tx.last_insert_rowid()).map_err(RpcError::internal)?;
@@ -141,7 +148,7 @@ impl Store {
         let row = self
             .db
             .query_row(
-                "SELECT title, body, done, created_at, creator, home, EXISTS(
+                "SELECT title, body, done, created_at, creator, home, owner, EXISTS(
                     SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                     WHERE b.todo = todos.id AND o.done = 0
                 ) FROM todos WHERE id = ?1",
@@ -154,13 +161,14 @@ impl Store {
                         r.get(3)?,
                         r.get::<_, String>(4)?,
                         r.get(5)?,
-                        r.get(6)?,
+                        r.get::<_, Option<String>>(6)?,
+                        r.get(7)?,
                     ))
                 },
             )
             .optional()
             .map_err(RpcError::internal)?;
-        let (title, body, done, created_at, creator, home, blocked) =
+        let (title, body, done, created_at, creator, home, owner, blocked) =
             row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
         Ok(Todo {
             id,
@@ -172,6 +180,10 @@ impl Store {
             created_at,
             creator: parse_creator(&creator).map_err(RpcError::internal)?,
             home,
+            owner: owner
+                .map(|text| parse_creator(&text))
+                .transpose()
+                .map_err(RpcError::internal)?,
         })
     }
 
@@ -270,6 +282,31 @@ impl Store {
         self.get(id)
     }
 
+    /// Sets the owner and records one History Change. The caller has checked the Agent (T17).
+    pub(crate) fn set_owner(
+        &self,
+        id: u32,
+        owner: Option<&Actor>,
+        expected_change: Option<u32>,
+        after_touch: i64,
+    ) -> Result<Todo, RpcError> {
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
+        let before = values(&self.get(id)?);
+        self.require_change(id, expected_change)?;
+        self.db
+            .execute(
+                "UPDATE todos SET owner = ?2 WHERE id = ?1",
+                params![id, owner.map(creator_json)],
+            )
+            .map_err(RpcError::internal)?;
+        self.record_change(id, Some(before), after_touch)?;
+        tx.commit().map_err(RpcError::internal)?;
+        self.get(id)
+    }
+
     /// Replaces the whole blocker list. The caller has checked ids and cycles.
     pub(crate) fn set_blockers(
         &self,
@@ -315,7 +352,7 @@ impl Store {
     }
 
     /// Called inside the mutation transaction, before any write or History Change.
-    fn require_change(&self, id: u32, expected: Option<u32>) -> Result<(), RpcError> {
+    pub(crate) fn require_change(&self, id: u32, expected: Option<u32>) -> Result<(), RpcError> {
         if let Some(expected) = expected {
             let current: u32 = self
                 .db
@@ -428,6 +465,7 @@ fn values(todo: &Todo) -> Values {
         body: todo.body.clone(),
         done: todo.done,
         blockers: todo.blockers.clone(),
+        owner: todo.owner.clone(),
     }
 }
 

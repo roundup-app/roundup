@@ -169,7 +169,7 @@ The git working directory assigned exclusively to one Agent when the Project's `
 A Worktree the user enrolled with `project.setPrepared`: it keeps its path and ignored dependency files across assignments, is parked on a detached commit when released, and is assigned to one Agent only after the Project's readiness command exits 0 (G2542a). A failed or uncertain assignment leaves it unavailable until `project.prepareDirectory` succeeds.
 
 **Worktree state**:
-How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`). Its optional forge facts are `WorktreeCi` (`WorktreeCiState` and staleness) and `WorktreePr` (positive PR number and staleness); neither changes these local facts.
+How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`). Its optional forge facts are `WorktreeCi` (`WorktreeCiState` and staleness) and `WorktreePr` (positive PR number and staleness); neither changes these local facts. `WorktreeEvidence` is the PR's required-check set read through `gh`: its `WorktreeEvidenceState` (complete, incomplete, stale-head, unknown or unavailable), repository, head, `WorktreeRequiredCheck` list, read time and revision; only a complete state lists checks.
 
 **Changed file**:
 A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).
@@ -242,6 +242,10 @@ The panel `?` opens over the centre pane, listing each chord and what it does.
 **Todo**:
 An item with an optional blocker list of other Todos, with a Home, in one order, the user's.
 _Avoid_: task, ticket
+
+**Owner** (`owner`):
+Who does a Todo's work: the user (shown as "Me", still refining the Todo's seed), one Agent, or nobody (shown as "Unassigned"). It is never `creator`, who wrote the Todo. `todo.create` may name one; `todo.assign` changes it and is recorded in the Todo's history. An owner Agent that ends keeps its Todos; removing it from the Rail unassigns them (T16, T17).
+_Avoid_: assignee
 
 **Sketch**:
 A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workstream-scoped storage is still open.
