@@ -6,7 +6,7 @@ Policy: this scenario supersedes the bordered box and the grey selected ground o
 
 **U2231 one tab component.** Given the Project strip and the Terminal tab region (U469), then both render their tabs, their `+` and their close control with one component in `apps/desktop/src/ui/`, wrapping the Ark UI tabs part (rule 9: `@ark-ui/solid` is already the UI library); `header/` and `bubbles/` pass it only content, selection, a Tab mark and handlers.
 
-**U2232 flat bar, selected tab joins the page.** Given the strip with one, three and eight Projects and the Terminal region with one and with eight Runs, in light and dark, with increased contrast, at 1512 by 950, the one supported size (U453), then:
+**U2232 flat bar, selected tab joins the page.** Given the strip with one, three and eight Projects and the Terminal region with one and with eight Runs, in dark, with increased contrast, at 1512 by 950, the one supported size (U453), then:
 
 - **Contrast.** Inactive labels keep 4.5:1 against the bar's ground and the selected label against `--ground` (D5), in dark. The design critic judges this contrast (AGENTS.md rule 10).
 - **Spacing.** Every Terminal tab and the `+ Terminal` button keep one inner padding, equal at left and right, so a tab's name and the `+` sit as far from the divider before them as the tab's × sits from the divider after it; the status mark follows its name by one small gap and sits at least twice that gap from the ×. Judged by the design critic.
