@@ -2,7 +2,7 @@
 
 Module: `apps/desktop` (the webview). Ids: U389, U390, U391.
 
-Webview only: no App command, no Daemon method and nothing under `contracts/` changes. Found by the user's report #622: "the sidebar rail and pads/todos should be width resizable", "+ new workstream on the rail should be sticky at the bottom button full width of the rail bottom not in the rail" and "the sidebar rail width should be a bit wider and more and should be resizable". Observer: rendered-page checks in Chromium on `just harness` (U26) against the fake App, light and dark, on `tree-40` and `agents-10` at 1280 by 800, and at 1280 by 400 (U85). Never a native Mac capture.
+Webview only: no App command, no Daemon method and nothing under `contracts/` changes. Found by the user's report #622: "the sidebar rail and pads/todos should be width resizable", "+ new workstream on the rail should be sticky at the bottom button full width of the rail bottom not in the rail" and "the sidebar rail width should be a bit wider and more and should be resizable". Observer: rendered-page checks in Chromium on `just harness` (U26) against the fake App, dark, on `tree-40` and `agents-10` at 1280 by 800, and at 1280 by 400 (U85). Never a native Mac capture.
 
 Engineering calls, each made here so the implementation run asks nothing:
 
