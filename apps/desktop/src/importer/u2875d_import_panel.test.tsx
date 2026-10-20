@@ -48,7 +48,7 @@ it("u2875d_keyboard_pointer_and_recovery", async () => {
   expect(calls(app, "project.importDiscover")[0]?.params).toEqual({ period: "week" });
 
   // Keyboard: Escape inside the panel cancels, changing no Rail data.
-  await new Promise((later) => setTimeout(later, 150));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Last week" })));
   fireEvent.keyDown(document.activeElement ?? document.body, { code: "Escape", key: "Escape", keyCode: 27 });
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   expect(calls(app, "project.importCommit")).toHaveLength(0);
@@ -120,16 +120,22 @@ it("u2875d_period_change_clears_selection_and_success_opens_the_closed_child", a
 });
 
 it("u2875d_rejected_call_keeps_period_and_selection", async () => {
-  const { app } = await mount();
+  const { app, connected } = await mount();
 
   app.handlers["project.importCommit"] = () => { throw new Error("daemon said no"); };
 
   await open();
+  fireEvent.click(screen.getByRole("button", { name: "Last month" }));
+  await waitFor(() => expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy());
   fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
   fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
   await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
+  cleanup();
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+  await open();
+  expect(calls(app, "project.importCommit")).toHaveLength(1);
   expect(isChecked(/first/)).toBe(true);
-  expect(screen.getByRole("button", { name: "Last week" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
 });
 
 it("u2875d_draft_stays_with_its_original_project", async () => {
@@ -151,4 +157,18 @@ it("u2875d_draft_stays_with_its_original_project", async () => {
   expect(isChecked(/first/)).toBe(false);
   expect(calls(app, "project.importCommit")).toHaveLength(0);
   expect(other.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(0);
+});
+
+it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () => {
+  const { app } = await mount();
+  app.handlers["project.importCommit"] = () => {
+    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "source unavailable" }] });
+    return { outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] };
+  };
+  await open();
+  fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
+  await waitFor(() => expect(screen.getByText("source unavailable")).toBeTruthy());
+  expect(screen.getByText("copy refused")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
