@@ -131,6 +131,9 @@ A saved, immutable instruction a declared condition delivers once to a target Ag
 **Firing** (a Reaction's `firings`):
 One accepted delivery of a Reaction's instruction, written in the same Project-database transaction as its Message: the definition's bytes and the source evidence as accepted, an ordinal that spends one of the finite bound, whether a condition `matched` (an explicit `reaction.run` claims none), and the Message's status as its outcome. Never changed after it is written; delivery is not verified work, and an Agent's result in the evidence is reported (`scenarios/named-reactions.md` NR3, NR8).
 
+**Observation** (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010):
+What the Daemon's evaluator knows of an Agents Reaction: the Event `cursor` it decided up to, its `health` (`observing`, or `unavailable` while a read failed or a named Agent or the target is gone), the last `evidence`, and any `gap` with its `recovery`. A Reaction is activated by reading the Event head, then the Rail, then replaying the Events after the head, so a finish in between is replayed. Automatic firings use the operation `auto-<n>`, so a retry after a crash returns the firing already made. A gap, once recorded, stays recorded after current Agent state reconciles it; a named Agent without a state never matches (`scenarios/named-reactions.md` NR2, NR4, NR5).
+
 **Mark**:
 The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
 
