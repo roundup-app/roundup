@@ -168,14 +168,14 @@ export const Capture = () => {
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <For each={recovered()}>{draft => <div class="capture-recovery">
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
-            <textarea class="capture-field" aria-label="Recovered capture draft" rows={1} readOnly value={String(draft.value.text)} />
+            <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
             <div class="capture-actions">
             <button data-button="quiet" type="button" onClick={() => { void failureOf(() => navigator.clipboard.writeText(String(draft.value.text))).then(cause => { if (cause) setFailure(copy.copyDraftFailure(cause)); }); }}>{copy.copy}</button>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>
           <Show when={drafts.problem()}>{problem => <>
-            <ErrorLine message={copy.draftRetention(connected.project.path, "Capture", problem().cause)} />
+            <ErrorLine message={copy.draftRetention(connected.project.path, copy.leaderShortCapture, problem().cause)} />
             <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
           </>}</Show>
         </Dialog.Content>
