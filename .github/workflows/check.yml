@@ -235,7 +235,7 @@ jobs:
           python3 loop/affected.py edited-web "$BASE" >"$RUNNER_TEMP/web-tests"
           echo "rust=$rust" >>"$GITHUB_OUTPUT"
           [ -z "$rust" ] || echo "any=true" >>"$GITHUB_OUTPUT"
-          [ ! -s "$RUNNER_TEMP/web-tests" ] || { echo "web=true" >>"$GITHUB_OUTPUT"; echo "any=true" >>"$GITHUB_OUTPUT"; }
+          ! grep -q . "$RUNNER_TEMP/web-tests" || { echo "web=true" >>"$GITHUB_OUTPUT"; echo "any=true" >>"$GITHUB_OUTPUT"; }
       - if: steps.select.outputs.any
         uses: ./.github/actions/setup
         with:
