@@ -43,6 +43,7 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
+          # The job checks nothing out, so `gh run cancel` finds its repository here.
           GH_REPO: ${{ github.repository }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -64,6 +65,7 @@ jobs:
     outputs:
       rust: ${{ steps.plan.outputs.rust }}
       web: ${{ steps.plan.outputs.web }}
+      web_shards: ${{ steps.shards.outputs.web_shards }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -72,10 +74,30 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: stable
         run: |
-          for lane in rust web; do
-            reached=$(python3 loop/affected.py "$lane" "$BASE")
-            echo "$lane=${reached:+true}" >>"$GITHUB_OUTPUT"
-          done
+          rust=$(python3 loop/affected.py rust "$BASE")
+          web=$(python3 loop/affected.py web "$BASE")
+          {
+            echo "rust=${rust:+true}"
+            echo "web=${web:+true}"
+            # Only a PR whose diff selects some web tests, not all, counts the files that size the shards.
+            echo "count=$([ -n "$web" ] && [ "$web" != all ] && echo true)"
+          } >>"$GITHUB_OUTPUT"
+      - if: steps.plan.outputs.count
+        uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+      - id: shards
+        env:
+          COUNT: ${{ steps.plan.outputs.count }}
+        run: |
+          files=all
+          if [ -n "$COUNT" ]; then
+            # The test files vitest's module graph reaches from the diff. The shards partition whatever the lane runs,
+            # so a count short of `affected.py web`'s extra tests only makes a shard slower.
+            python3 loop/app-data.py pnpm --filter desktop exec vitest list --filesOnly --changed HEAD^1 >"$RUNNER_TEMP/web-files.txt"
+            files=$(grep -c '\.test\.tsx\?$' "$RUNNER_TEMP/web-files.txt" || true)
+          fi
+          echo "web_shards=$(python3 loop/affected.py shards "$files")" >>"$GITHUB_OUTPUT"
 
   # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
   # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
@@ -184,7 +206,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4, 5, 6, 7]
+        partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -209,7 +231,7 @@ jobs:
       - name: test-web
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
-          python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
+          python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
       - name: E14 web measurement evidence
         if: always()
         uses: actions/upload-artifact@v4
