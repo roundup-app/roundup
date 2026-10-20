@@ -448,6 +448,7 @@ it.each(["failed", "unknown"] as const)("u3021c_todo_selected_creation_save_keep
   const calls = [...app.calls];
   render(() => <ConnectedProjectContext.Provider value={connected}><Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} /></ConnectedProjectContext.Provider>);
   const field = screen.getByRole("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
   fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
 
   if (outcome === "failed") await waitFor(() => expect(app.calls.some(call => call.method === "todo.move")).toBe(true));
