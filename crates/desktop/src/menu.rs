@@ -125,7 +125,8 @@ mod tests {
     #[test]
     fn u2694a_no_item_carries_an_accelerator() {
         let app = mock_app();
-        let rename = plain(kind(app.handle(), &item("rename", "Rename", Some("F2"), None)).unwrap());
+        let rename =
+            plain(kind(app.handle(), &item("rename", "Rename", Some("F2"), None)).unwrap());
         let copy = plain(kind(app.handle(), &item("copy", "Copy Link", None, None)).unwrap());
 
         assert_eq!(rename.text().unwrap(), "Rename\tF2");
@@ -138,11 +139,34 @@ mod tests {
         let app = mock_app();
         let mut gone = item("send:x", "x", None, None);
         gone.enabled = false;
-        let built = kind(app.handle(), &item("send", "Send to Agent", None, Some(vec![item("send:a", "a", None, None), gone]))).unwrap();
-        let MenuItemKind::Submenu(sub) = built else { panic!("expected a submenu") };
+        let built = kind(
+            app.handle(),
+            &item(
+                "send",
+                "Send to Agent",
+                None,
+                Some(vec![item("send:a", "a", None, None), gone]),
+            ),
+        )
+        .unwrap();
+        let MenuItemKind::Submenu(sub) = built else {
+            panic!("expected a submenu")
+        };
         let children: Vec<_> = sub.items().unwrap().into_iter().map(plain).collect();
 
-        assert_eq!(children.iter().map(|child| child.text().unwrap()).collect::<Vec<_>>(), ["a", "x"]);
-        assert_eq!(children.iter().map(|child| child.is_enabled().unwrap()).collect::<Vec<_>>(), [true, false]);
+        assert_eq!(
+            children
+                .iter()
+                .map(|child| child.text().unwrap())
+                .collect::<Vec<_>>(),
+            ["a", "x"]
+        );
+        assert_eq!(
+            children
+                .iter()
+                .map(|child| child.is_enabled().unwrap())
+                .collect::<Vec<_>>(),
+            [true, false]
+        );
     }
 }
