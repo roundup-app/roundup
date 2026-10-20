@@ -1,5 +1,5 @@
 {
-  "observer": "builder-39443371929: isolated headless agent-browser session",
+  "observer": "builder-39443371929: baseline and escape; builder-39466542081: regenerated head confirmation/failure in isolated headless agent-browser",
   "baseline": "be9cda34c05b1127ef44b9998631bccef10cba5a",
   "viewport": [
     1512,
@@ -25,6 +25,6 @@
     "removeCalls": 0
   },
   "delta": "D1-D14 remain passing on confirmation and failure; D16 passes on both revisions",
-  "captureUpload": "unsupported authentication type",
+  "captureUpload": "workflow uploads artifacts after the run; no direct attachment required",
   "nativeMenu": "not observed in Chromium"
 }
