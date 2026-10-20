@@ -905,7 +905,7 @@
 /* U2875d: the import opener is a Rail row, inset like the tree's rows, at the button's own Token height. */
 .rail-import {
   justify-content: flex-start;
-  margin-inline: var(--space-5) var(--space-4);
+  margin-inline: calc(var(--space-5) + var(--space-1)) var(--space-4);
   --button-lead: 0;
   --button-inline: 0;
 }

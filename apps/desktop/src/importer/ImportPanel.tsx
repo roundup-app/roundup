@@ -46,7 +46,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const [stale, setStale] = createSignal(0);
   let ticket = 0;
   let panel: HTMLElement | undefined;
-  let radios: HTMLDivElement | undefined;
+  let periods: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: () => props.open, modal: true }, []);
 
   createEffect(() => { if (props.open) void untrack(() => discover()); });
@@ -157,14 +157,14 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   };
 
   return (
-    <Dialog.Root open={props.open} initialFocusEl={() => radios?.querySelector<HTMLElement>("[aria-checked=true]") ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
+    <Dialog.Root open={props.open} initialFocusEl={() => periods?.querySelector<HTMLElement>("[aria-pressed=true]") ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
       onOpenChange={(details) => { if (!details.open) dismiss(); }}>
       <Portal><Dialog.Backdrop /><Dialog.Positioner class="import-positioner">
         <Dialog.Content class="import-panel" ref={(element) => (panel = element)}>
           <Dialog.Title>{copy.importTitle}</Dialog.Title>
-          <div role="radiogroup" aria-label={copy.importPeriod} class="import-period" ref={radios}>
+          <div role="group" aria-label={copy.importPeriod} class="import-period" ref={periods}>
             <For each={PERIODS}>{(each) => (
-              <button type="button" role="radio" data-button="quiet" aria-checked={period() === each} onClick={() => choose(each)}>
+              <button type="button" data-button="quiet" aria-pressed={period() === each} onClick={() => choose(each)}>
                 {copy.importPeriodName(each)}
               </button>
             )}</For>
@@ -181,10 +181,10 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                       <input type="checkbox" class="todo-tick import-check" checked={wanted().has(candidate.source)} disabled={pending()} onChange={() => toggle(candidate)} />
                       <span class="import-text">
                         <span class="import-title">{candidate.title}</span>
-                        <span class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</span>
+                        <span class="import-cwd"><bdi>{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi></span>
                       </span>
                     </label>
-                    <Show when={refused().get(candidate.source)}>{(reason) => <p role="alert" data-tone="red">{reason()}</p>}</Show>
+                    <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><ErrorLine message={reason()} /></div>}</Show>
                   </li>
                 )}</For>
               </ul>
