@@ -35,7 +35,7 @@
           {
             "id": "toolu_a26_child",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A26 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}}"
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A26 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}, \"parent\": \"999\"}"
           }
         ]
       }
