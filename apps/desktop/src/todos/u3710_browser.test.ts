@@ -44,7 +44,9 @@ const centre = (n: number) => page.call<Point>(`(rows, n) => {
   return {x: b.left + b.width / 2, y: b.top + b.height / 2};
 }`, rows, n);
 
-const calls = () => page.call<{ method: string; params: Record<string, unknown> }[]>(`() => window.__fake.app.calls.slice(window.__mark).filter(c => c.method === 'todo.setBlockers' || c.method === 'todo.reorder')`);
+type Call = { method: string; params: { id: number; before?: number; blockers?: number[] } };
+
+const calls = () => page.call<Call[]>(`() => window.__fake.app.calls.slice(window.__mark).filter(c => c.method === 'todo.setBlockers' || c.method === 'todo.reorder')`);
 
 const drag = async (from: Point, to: Point, release = true) => {
   await page.pointer("down", from.x, from.y);
@@ -68,7 +70,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     await settled();
     expect((await calls()).map((c) => c.method)).toEqual(["todo.setBlockers"]);
     expect((await calls())[0]!.params).toMatchObject({ id: order[1] });
-    expect(((await calls())[0]!.params.blockers as number[])[0]).toBe(order[0]);
+    expect((await calls())[0]!.params.blockers?.[0]).toBe(order[0]);
 
     await setup();
     const last = await centre(order.length - 1);
@@ -119,7 +121,7 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     const made = await calls();
 
     expect(made).toHaveLength(1);
-    expect((made[0]!.params.blockers as number[])[0]).toBe(order[0]);
+    expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
   }, 60_000);
 
   it("u3710_escape_and_a_release_outside_call_nothing", async () => {
