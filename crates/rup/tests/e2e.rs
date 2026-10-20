@@ -1539,6 +1539,137 @@ async fn home_of(client: &rpc::Client, id: u32) -> Value {
         .clone()
 }
 
+fn owner_json(kind: &str, id: &str) -> Value {
+    json!({"kind": kind, "id": id, "parent": null})
+}
+
+async fn owner_of(client: &rpc::Client, id: u32) -> Value {
+    client
+        .request("todo.get", json!({ "id": id }))
+        .await
+        .unwrap()["owner"]
+        .clone()
+}
+
+/// T16, T17: the Daemon checks an owner against the Rail and a rejected call leaves no trace.
+#[tokio::test]
+async fn t17_rejections_leave_no_trace() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let agent = agent_in(&project, &client, None).await;
+    let id = todo_at(&client, "a").await;
+    let history = || async {
+        client
+            .request(
+                "provenance.history",
+                json!({ "item": format!("todo:{id}") }),
+            )
+            .await
+            .unwrap()
+    };
+    let touched = history().await;
+    for owner in [owner_json("agent", "nope"), owner_json("agent", "r1")] {
+        let err = client
+            .request("todo.assign", json!({ "id": id, "owner": owner }))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::NOT_FOUND);
+    }
+    let ext = client
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": owner_json("ext", "x") }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(ext.code, rpc::code::INVALID_PARAMS);
+    let made = client
+        .request(
+            "todo.create",
+            json!({ "title": "b", "owner": owner_json("agent", "nope") }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(made.code, rpc::code::NOT_FOUND);
+    let made = client
+        .request(
+            "todo.create",
+            json!({ "title": "b", "owner": owner_json("ext", "x") }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(made.code, rpc::code::INVALID_PARAMS);
+    assert_eq!(history().await, touched);
+    assert_eq!(owner_of(&client, id).await, Value::Null);
+    let listed = client.request("todo.list", json!(null)).await.unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 1);
+    client
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": owner_json("agent", &agent) }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
+}
+
+/// T17: `rail.remove` of an owner Agent unassigns its Todos, in id order, after the Agent is gone.
+#[tokio::test]
+async fn t17_rail_remove_unassigns_its_todos() {
+    let project = start(&[]);
+    let mut events = project.subscribed().await;
+    let client = project.client().await;
+    let agent = agent_in(&project, &client, None).await;
+    let (a, b, c) = (
+        todo_at(&client, "a").await,
+        todo_at(&client, "b").await,
+        todo_at(&client, "c").await,
+    );
+    for id in [c, a] {
+        client
+            .request(
+                "todo.assign",
+                json!({ "id": id, "owner": owner_json("agent", &agent) }),
+            )
+            .await
+            .unwrap();
+    }
+    client
+        .request(
+            "todo.assign",
+            json!({ "id": b, "owner": owner_json("user", "you") }),
+        )
+        .await
+        .unwrap();
+    for _ in 0..6 {
+        next(&mut events, |data| {
+            matches!(data, EventData::TodoUpdated(_) | EventData::TodoCreated(_)).then_some(())
+        })
+        .await;
+    }
+
+    client
+        .request("rail.remove", json!({ "id": agent }))
+        .await
+        .unwrap();
+
+    let first = next(&mut events, |data| match data {
+        EventData::TodoUpdated(todo) => Some(todo.id),
+        _ => None,
+    })
+    .await;
+    let second = next(&mut events, |data| match data {
+        EventData::TodoUpdated(todo) => Some(todo.id),
+        _ => None,
+    })
+    .await;
+    assert_eq!([first, second], [a, c]);
+    assert!(rail_tree(&client).await.iter().all(|node| node.id != agent));
+    assert_eq!(owner_of(&client, a).await, Value::Null);
+    assert_eq!(owner_of(&client, c).await, Value::Null);
+    assert_eq!(owner_of(&client, b).await, owner_json("user", "you"));
+}
+
 /// T12, T13: a Todo moves to a Workstream, the Daemon checks the Rail, and the Home survives a restart.
 #[tokio::test]
 async fn t13_move_checks_the_rail_and_survives_a_restart() {

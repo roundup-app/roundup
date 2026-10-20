@@ -102,6 +102,7 @@ export const CONTRACT = {
     "terminal.snapshot": "d9b4852e01e7b244",
     "terminal.spawn": "cf9df73e787b6b72",
     "terminal.write": "be943ea4c51922aa",
+    "todo.assign": "cc38b1dba37ce6a9",
     "todo.complete": "6b83648efdf86529",
     "todo.create": "90511d5b40bf117d",
     "todo.delete": "1ae6fee311eb5ed5",

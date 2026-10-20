@@ -40,5 +40,5 @@ Not used: `CLAUDE.md`, because it is the user's file; screen scraping or typing 
 
 ## Open
 
-- "Its Todos" means Todos the Agent created (T8). A Todo has no assignee; if the user wants assignment, that is a Todo change, not this series.
+- "Its Todos" means Todos the Agent created (T8). A Todo has an Owner (T16): `agent.context` lists the open Todos an Agent owns, plus those it created that are Unassigned (E2). Owner "Me" is not listed to any Agent.
 - The 15 seconds of E6 is a guess for the interactive TUI until E7 shows when it starts MCP servers; headless starts the server before the first prompt (`spikes/spawn-boundary/REPORT.md`, row `e7`).
