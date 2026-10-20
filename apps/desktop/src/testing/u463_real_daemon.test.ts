@@ -487,6 +487,9 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       };
 
       await capture("dense");
+      await browser("eval", "document.querySelector('.import-list').scrollTop = 10000");
+      await capture("unavailable");
+      await browser("eval", "document.querySelector('.import-list').scrollTop = 0");
       await activate(".import-check");
       await wait("!document.querySelector('.import-confirm').disabled");
       await activate(".import-confirm");
