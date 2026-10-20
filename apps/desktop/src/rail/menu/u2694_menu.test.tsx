@@ -66,6 +66,7 @@ describe("u2694 the Rail's system menu", () => {
   it("u2694c_send_to_agent_sends_a_note_with_the_link_and_the_read_command", async () => {
     const { app } = await mountRail([agent("a", "working", "busy"), agent("b", "working", "busy"), agent("x", "done", "done")], [exitedTerminal("x", 0)]);
     app.handlers["daemon.ping"] = () => ({ pong: true, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } });
+    // SAFETY: the Message of the answer is never read by the menu.
     app.handlers["message.send"] = () => ({}) as never;
 
     open("a");

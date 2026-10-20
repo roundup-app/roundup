@@ -47,6 +47,7 @@ export const Rail = () => {
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
+
   const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts, (id) => {
     rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   });

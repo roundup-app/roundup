@@ -8,19 +8,21 @@ export type MenuEntry = {
   id: string;
   label: string;
   /** The chord as `keys/chords.ts` shows it: label text, never an accelerator. */
-  shortcut?: string;
+  shortcut?: string | undefined;
   enabled?: boolean;
   run?: () => void | Promise<void>;
   children?: MenuEntry[];
 };
 
-const wire = (entry: MenuEntry): MenuItem => ({
-  id: entry.id,
-  label: entry.label,
-  ...(entry.shortcut === undefined ? {} : { shortcut: entry.shortcut }),
-  enabled: entry.enabled ?? true,
-  ...(entry.children === undefined ? {} : { children: entry.children.map(wire) }),
-});
+const wire = (entry: MenuEntry): MenuItem => {
+  const item: MenuItem = { id: entry.id, label: entry.label, enabled: entry.enabled ?? true };
+
+  if (entry.shortcut !== undefined) item.shortcut = entry.shortcut;
+
+  if (entry.children !== undefined) item.children = entry.children.map(wire);
+
+  return item;
+};
 
 const find = (entries: MenuEntry[], id: string): MenuEntry | undefined => {
   for (const entry of entries) {
@@ -46,11 +48,11 @@ export type LinkKind = "pad" | "todo" | "agent" | "workstream" | "terminal";
 /** LK1: `roundup://<kind>/<id>?project=<key>`; the key is the Daemon's, read once per seam. */
 const keys = new WeakMap<AppSeam, Promise<string>>();
 
-export const linkOf = async (app: AppSeam, kind: LinkKind, id: string | number): Promise<string> => {
+const linkOf = async (app: AppSeam, kind: LinkKind, id: string | number): Promise<string> => {
   let key = keys.get(app);
 
   if (!key) {
-    key = app.rpc("daemon.ping", null).then((ping) => (ping as { projectKey: string }).projectKey);
+    key = app.rpc("daemon.ping", null).then((ping) => ping.projectKey);
     key.catch(() => keys.delete(app));
     keys.set(app, key);
   }
@@ -67,7 +69,7 @@ export const linkEntries = (
   running: (node: RailNode) => boolean,
   fail: (message: string) => void,
 ): MenuEntry[] => {
-  const attempt = async (call: () => Promise<unknown>) => {
+  const attempt = async (call: () => Promise<void>) => {
     try {
       await call();
     } catch (error) {
@@ -92,7 +94,7 @@ export const linkEntries = (
         }),
       })),
     },
-    { id: "copy-link", label: copy.copyLink, run: () => attempt(async () => navigator.clipboard.writeText(await linkOf(app, kind, id))) },
+    { id: "copy-link", label: copy.copyLink, run: () => attempt(async () => { await navigator.clipboard.writeText(await linkOf(app, kind, id)); }) },
   ];
 };
 
@@ -113,10 +115,12 @@ export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) =>
   }
 
   const from = { x: press.clientX, y: press.clientY };
+
   const stop = () => {
     document.removeEventListener("pointerup", release);
     window.removeEventListener("pointerdown", stop, true);
   };
+
   const release = (event: PointerEvent) => {
     stop();
 

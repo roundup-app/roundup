@@ -324,7 +324,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 52] = [
+const NO_TOOL: [&str; 53] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
