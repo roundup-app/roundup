@@ -22,15 +22,11 @@
   cursor: pointer;
 }
 
-.app-checkbox > input:hover {
-  color: var(--text);
-}
-
 .app-checkbox > input:focus-visible {
   outline: none;
 }
 
-.app-checkbox > input:active {
+.app-checkbox:active:not([data-disabled]) {
   background-color: var(--pressed);
   transition-duration: 0s;
 }
