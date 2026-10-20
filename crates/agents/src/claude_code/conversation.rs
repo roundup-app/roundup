@@ -436,6 +436,43 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a35_the_original_conversation_is_untouched() {
+        let dir = tempfile::tempdir().unwrap();
+        let launcher = Launcher::new(
+            "unused",
+            dir.path().join("config.json"),
+            "unused".into(),
+            None,
+        );
+        let original = "12345678-1234-4234-8234-123456789abc";
+        let path = launcher.conversation_path(dir.path(), original).unwrap();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let mark = format!(
+            "{{\"sessionId\":\"{original}\",\"message\":\"at Mark\"}}\n{{\"type\":\"system\"}}\n"
+        );
+        let before = format!("{mark}{{\"message\":\"after mark\"}}\n");
+        std::fs::write(&path, &before).unwrap();
+        let id = launcher
+            .copy_conversation(dir.path(), mark.as_bytes())
+            .unwrap();
+        assert_ne!(id, original);
+        let copied = launcher.record_conversation(dir.path(), &id).unwrap();
+        let records: Vec<Value> = String::from_utf8(copied)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        assert_eq!(
+            records,
+            vec![
+                serde_json::json!({"sessionId": id, "message": "at Mark"}),
+                serde_json::json!({"type": "system"})
+            ]
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), before.as_bytes());
+    }
+
+    #[test]
     fn u2875c_copy_recovery_preserves_replaced_or_truncated_user_files() {
         for replace in [false, true] {
             let dir = tempfile::tempdir().unwrap();
