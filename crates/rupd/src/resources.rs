@@ -179,10 +179,12 @@ struct State {
     agents: HashSet<String>,
 }
 
+type Walk = Arc<dyn Fn(&Path) -> Option<u64> + Send + Sync>;
+
 pub(crate) struct Sampler {
     state: tokio::sync::Mutex<State>,
     disks: Arc<Mutex<HashMap<PathBuf, Disk>>>,
-    walk: Arc<dyn Fn(&Path) -> Option<u64> + Send + Sync>,
+    walk: Walk,
 }
 
 impl Default for Sampler {
