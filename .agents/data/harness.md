@@ -57,7 +57,7 @@ No Builder prompt lists these.
 
 `artifacts/ux/<id>/<step>.png` and `<step>.checks.json`; motion: `<step>-frames.json` and at most five `<step>-NN.png`; baselines `artifacts/ux/<id>/base/` and `head/`, compared by `loop/rules.sh delta base head` (L42; exit 2 is a failed run). Linux and macOS captures are never compared. Captures are dark mode only.
 
-Images and videos are never committed (`.gitignore` skips them under `artifacts/ux/`): a build or fix run attaches the ones that show its change to the PR, `gh pr edit <n> --attach 'artifacts/ux/<id>/<step>.png#<what it shows>'`, at most 50 files per command. Readings (`*.checks.json`, `*-frames.json`) are small JSON and may be committed. A design-critic run holds a read token: its captures stay in its checkout and it attaches nothing.
+Images and videos are never committed (`.gitignore` skips them under `artifacts/ux/`): a build or fix run leaves its captures under `artifacts/ux/` and the workflow attaches them to the PR after the run (`builder.py attach`, `gh pr edit <n> --attach`, 50 files per command) with the repository secret `PR_ATTACH_TOKEN`, which the model never holds; a missing secret fails that step and leaves the PR and Issue as they are. Readings (`*.checks.json`, `*-frames.json`) are small JSON and may be committed. A design-critic run holds a read token: its captures stay in its checkout and it attaches nothing.
 
 ## Tests that race
 
